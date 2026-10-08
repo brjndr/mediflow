@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const isCI = !!process.env.CI;
+// Optional: point at an existing Chromium instead of downloading one (e.g. a shared machine).
+const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
 
 export default defineConfig({
   testDir: './e2e',
@@ -14,7 +16,15 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   // Locally only Chromium is installed. CI can add Firefox and WebKit later.
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        ...(executablePath ? { launchOptions: { executablePath } } : {}),
+      },
+    },
+  ],
   webServer: {
     command:
       'cross-env VITE_API_MOCKING=enabled pnpm build && pnpm preview --port 4173 --strictPort',

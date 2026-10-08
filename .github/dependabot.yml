@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: npm # also covers pnpm workspaces and pnpm-lock.yaml
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 5
+    groups:
+      dev-tooling:
+        dependency-type: development
+        update-types: [minor, patch]
+      runtime:
+        dependency-type: production
+        update-types: [minor, patch]
+    ignore:
+      # Major upgrades are planned work, not bot PRs (React 18 and TypeScript 6 are deliberate pins).
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
