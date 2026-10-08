@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+import { STAGES } from './workflow'
+import type { Stage, StageEvent } from './workflow'
+
 export const PATIENT_STATUSES = [
   'ADMITTED',
   'OUTPATIENT',
@@ -63,6 +66,68 @@ export interface Patient extends PatientInput {
   id: string
   mrn: string
   admittedAt: string
+  stage: Stage
+}
+
+export const NOTE_KINDS = ['PROGRESS', 'TRIAGE', 'DISCHARGE'] as const
+export type NoteKind = (typeof NOTE_KINDS)[number]
+
+export const noteInputSchema = z.object({
+  patientId: z.string().min(1),
+  kind: z.enum(NOTE_KINDS),
+  text: z.string().trim().min(3, 'Write at least a few words'),
+})
+export type NoteInput = z.infer<typeof noteInputSchema>
+
+export interface ClinicalNote extends NoteInput {
+  id: string
+  at: string
+  author: string
+}
+
+// Server-side vitals contract (numbers) …
+export const vitalsInputSchema = z.object({
+  patientId: z.string().min(1),
+  heartRate: z.number().int().min(20).max(250),
+  systolic: z.number().int().min(50).max(260),
+  diastolic: z.number().int().min(30).max(160),
+  temperatureC: z.number().min(30).max(45),
+  spo2: z.number().int().min(50).max(100),
+})
+export type VitalsInput = z.infer<typeof vitalsInputSchema>
+
+export interface VitalsReading extends VitalsInput {
+  id: string
+  at: string
+}
+
+// … and the string-based form contract (inputs yield strings).
+const numStr = (min: number, max: number, label: string) =>
+  z
+    .string()
+    .refine(
+      (v) => v.trim() !== '' && Number(v) >= min && Number(v) <= max,
+      `${label} must be ${min}–${max}`,
+    )
+export const vitalsFormSchema = z.object({
+  heartRate: numStr(20, 250, 'Heart rate'),
+  systolic: numStr(50, 260, 'Systolic'),
+  diastolic: numStr(30, 160, 'Diastolic'),
+  temperatureC: numStr(30, 45, 'Temperature'),
+  spo2: numStr(50, 100, 'SpO₂'),
+})
+
+export const transitionInputSchema = z.object({
+  id: z.string(),
+  to: z.enum(STAGES),
+  note: z.string().optional(),
+})
+
+export interface PatientChart {
+  patient: Patient
+  events: Array<StageEvent>
+  notes: Array<ClinicalNote>
+  vitals: Array<VitalsReading>
 }
 
 export interface Doctor {
@@ -79,6 +144,7 @@ export interface Appointment extends AppointmentInput {
 export interface DashboardStats {
   totalPatients: number
   byStatus: Record<PatientStatus, number>
+  byStage: Record<Stage, number>
   byWard: Array<{ ward: string; count: number }>
   appointmentsToday: number
   appointmentsByStatus: Record<AppointmentStatus, number>

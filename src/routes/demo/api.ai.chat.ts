@@ -20,7 +20,7 @@ const searchPatients = searchPatientsToolDef.server(async ({ query }) => {
   const patients = await (await getRepo()).listPatients()
   return patients
     .filter((p) =>
-      [fullName(p), p.mrn, p.ward, p.status, p.condition]
+      [fullName(p), p.mrn, p.ward, p.status, p.stage, p.condition]
         .join(' ')
         .toLowerCase()
         .includes(q),
@@ -32,6 +32,7 @@ const searchPatients = searchPatientsToolDef.server(async ({ query }) => {
       mrn: p.mrn,
       ward: p.ward,
       status: p.status,
+      stage: p.stage,
       condition: p.condition,
     }))
 })

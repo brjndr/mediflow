@@ -3,6 +3,7 @@ import { queryOptions } from '@tanstack/react-query'
 import {
   getDashboardStats,
   getPatient,
+  getPatientChart,
   listAppointments,
   listDoctors,
   listPatients,
@@ -26,6 +27,12 @@ export const patientQuery = (id: string) =>
   queryOptions({
     queryKey: hospitalKeys.patient(id),
     queryFn: () => getPatient({ data: { id } }),
+  })
+
+export const chartQuery = (id: string) =>
+  queryOptions({
+    queryKey: [...hospitalKeys.patient(id), 'chart'] as const,
+    queryFn: () => getPatientChart({ data: { id } }),
   })
 
 export const doctorsQuery = () =>

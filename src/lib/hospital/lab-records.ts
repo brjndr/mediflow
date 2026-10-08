@@ -60,8 +60,9 @@ function mulberry32(seed: number) {
 export function generateLabRecords(
   count: number,
   now = Date.now(),
+  seed = 42,
 ): Array<LabRecord> {
-  const rand = mulberry32(42)
+  const rand = mulberry32(seed)
   return Array.from({ length: count }, (_, id) => {
     const t = TESTS[Math.floor(rand() * TESTS.length)]
     const span = t.high - t.low || 1
@@ -85,4 +86,11 @@ export function generateLabRecords(
       at: now - Math.floor(rand() * 30 * 24 * 3600 * 1000),
     }
   }).sort((a, b) => b.at - a.at)
+}
+
+/** Deterministic recent lab results for one patient's chart. */
+export function generatePatientLabs(patientId: string, now = Date.now()) {
+  let seed = 0
+  for (const ch of patientId) seed = (seed * 31 + ch.charCodeAt(0)) | 0
+  return generateLabRecords(6, now, seed)
 }

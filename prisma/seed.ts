@@ -32,7 +32,7 @@ async function main() {
   // Hospital demo data (same deterministic dataset as the in-memory repo)
   const { doctors, patients, appointments } = buildSeed()
   await prisma.appointment.deleteMany()
-  await prisma.patient.deleteMany()
+  await prisma.patient.deleteMany() // cascades to stage events, notes, vitals
   await prisma.doctor.deleteMany()
   await prisma.doctor.createMany({ data: doctors })
   await prisma.patient.createMany({
@@ -40,6 +40,14 @@ async function main() {
       ...p,
       dateOfBirth: new Date(p.dateOfBirth),
       admittedAt: new Date(p.admittedAt),
+    })),
+  })
+  await prisma.stageEvent.createMany({
+    data: patients.map((p) => ({
+      patientId: p.id,
+      toStage: p.stage,
+      at: new Date(p.admittedAt),
+      by: 'seed',
     })),
   })
   await prisma.appointment.createMany({

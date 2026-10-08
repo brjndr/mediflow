@@ -21,6 +21,21 @@ enum PatientStatus {
   DISCHARGED
 }
 
+enum Stage {
+  REGISTERED
+  TRIAGE
+  ADMITTED
+  TREATMENT
+  READY_FOR_DISCHARGE
+  DISCHARGED
+}
+
+enum NoteKind {
+  PROGRESS
+  TRIAGE
+  DISCHARGE
+}
+
 enum AppointmentStatus {
   SCHEDULED
   CHECKED_IN
@@ -40,10 +55,15 @@ model Patient {
   status       PatientStatus @default(OUTPATIENT)
   condition    String
   admittedAt   DateTime      @default(now())
+  stage        Stage         @default(REGISTERED)
   appointments Appointment[]
+  stageEvents  StageEvent[]
+  notes        ClinicalNote[]
+  vitals       VitalsReading[]
 
   @@index([status])
   @@index([ward])
+  @@index([stage])
 }
 
 model Doctor {
@@ -64,4 +84,43 @@ model Appointment {
   doctor      Doctor            @relation(fields: [doctorId], references: [id])
 
   @@index([scheduledAt])
+}
+
+model StageEvent {
+  id        String   @id @default(cuid())
+  patientId String
+  fromStage Stage?
+  toStage   Stage
+  at        DateTime @default(now())
+  by        String
+  note      String?
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, at])
+}
+
+model ClinicalNote {
+  id        String   @id @default(cuid())
+  patientId String
+  kind      NoteKind
+  text      String
+  at        DateTime @default(now())
+  author    String
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, at])
+}
+
+model VitalsReading {
+  id           String   @id @default(cuid())
+  patientId    String
+  at           DateTime @default(now())
+  heartRate    Int
+  systolic     Int
+  diastolic    Int
+  temperatureC Float
+  spo2         Int
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, at])
 }

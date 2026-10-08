@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import {
-  useMutation,
-  useQueryClient,
-  useSuspenseQuery,
-} from '@tanstack/react-query'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import {
   columnFilteringFeature,
   createColumnHelper,
@@ -29,14 +25,14 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Plus } from 'lucide-react'
 import { z } from 'zod'
 
 import PatientStatusBadge from '#/components/PatientStatusBadge'
+import StageBadge from '#/components/StageBadge'
 import { Button, buttonVariants } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
-import { hospitalKeys, patientsQuery } from '#/lib/hospital/queries'
+import { patientsQuery } from '#/lib/hospital/queries'
 import { PATIENT_STATUSES, fullName } from '#/lib/hospital/schemas'
 import type { Patient } from '#/lib/hospital/schemas'
 import { uiStore } from '#/lib/hospital/ui-store'
-import { updatePatientStatus } from '#/server/hospital.functions'
 
 const searchSchema = z.object({
   q: z.string().optional().catch(undefined),
@@ -69,19 +65,8 @@ const features = tableFeatures({
 const helper = createColumnHelper<typeof features, Patient>()
 
 function RowActions({ patient }: { patient: Patient }) {
-  const queryClient = useQueryClient()
-  const discharge = useMutation({
-    mutationFn: () =>
-      updatePatientStatus({ data: { id: patient.id, status: 'DISCHARGED' } }),
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: hospitalKeys.patients }),
-        queryClient.invalidateQueries({ queryKey: hospitalKeys.stats }),
-      ]),
-  })
-
   return (
-    <div className="flex justify-end gap-2">
+    <div className="flex justify-end">
       <Link
         to="/patients/$patientId"
         params={{ patientId: patient.id }}
@@ -89,16 +74,6 @@ function RowActions({ patient }: { patient: Patient }) {
       >
         Chart
       </Link>
-      {patient.status !== 'DISCHARGED' && (
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={discharge.isPending}
-          onClick={() => discharge.mutate()}
-        >
-          Discharge
-        </Button>
-      )}
     </div>
   )
 }
@@ -115,6 +90,11 @@ const columns = helper.columns([
     header: 'Status',
     filterFn: 'equalsString',
     cell: (info) => <PatientStatusBadge status={info.getValue()} />,
+  }),
+  helper.accessor('stage', {
+    header: 'Stage',
+    sortFn: 'text',
+    cell: (info) => <StageBadge stage={info.getValue()} />,
   }),
   helper.accessor('condition', { header: 'Condition', sortFn: 'text' }),
   helper.accessor('admittedAt', {

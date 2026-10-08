@@ -290,6 +290,19 @@ npm run db:generate && npm run db:push && npm run db:seed   # then HOSPITAL_STOR
 - **Table v9 stable inputs**: `features`, `columns` and memoised state objects must be referentially stable — an inline `columnFilters` array caused the page index to reset on every render (fixed).
 - Scaffold demos are kept under `src/routes/demo` (store, query, forms, prisma todos, AI image/structured/TTS). The guitar-shop demo and the v8-style table demo were removed/replaced by the hospital equivalents.
 
+## Patient care workflow
+
+State machine in `src/lib/hospital/workflow.ts` (pure; shared by UI and server):
+`REGISTERED → TRIAGE → ADMITTED → TREATMENT → READY_FOR_DISCHARGE → DISCHARGED`
+(extra edges: `TRIAGE → DISCHARGED` for treat-and-release, `READY_FOR_DISCHARGE → TREATMENT` for relapse; `DISCHARGED` is terminal).
+
+- Guards: leaving TRIAGE needs ≥1 vitals reading; entering DISCHARGED needs a `DISCHARGE` clinical note.
+- Enforcement lives in the service functions at the bottom of `src/server/hospital-repo.server.ts` (`transitionPatient`, `setPatientStatus`, `setAppointmentStatus`); both storage backends only persist (`applyTransition` writes the stage, the coarse `status`, and a history event). The UI calls `checkTransition` to disable blocked buttons and show why.
+- `stage` (where the patient is in care) is separate from `status` (acuity/disposition: ADMITTED/OUTPATIENT/CRITICAL/DISCHARGED). `statusAfter()` keeps them consistent; `DISCHARGED` status can only be reached via the workflow.
+- Checking in an appointment moves a `REGISTERED` patient to `TRIAGE`.
+- Chart (`/patients/$patientId`) shows stepper + allowed moves, vitals form, clinical notes, history timeline, appointments, and (generated, demo-only) lab results. Data: `StageEvent`, `ClinicalNote`, `VitalsReading` (Prisma models + in-memory arrays).
+- Actor is the placeholder `demo-user` until auth exists; history is not tamper-proof.
+
 ## Known gotchas
 
 - **No authentication/authorization.** Server functions and `/demo/api/ai/chat` are public HTTP endpoints that expose patient data. Add auth middleware (see the `start-core/auth-server-primitives` skill) and audit logging before any real use; the AI route should also be authenticated and rate-limited.
@@ -310,4 +323,5 @@ npm run db:generate && npm run db:push && npm run db:seed   # then HOSPITAL_STOR
 2. Replace `db push` with checked-in Prisma migrations; seed via `db:seed`.
 3. Server-side pagination for `/patients` once data outgrows the client (Table `manualPagination` + Query).
 4. Persist lab records in the DB and virtualise with `useLiveInfiniteQuery`.
-5. Add tests (Vitest for the repo/schemas, Playwright for the flows in this README).
+5. Add tests (Vitest for the repo/schemas/workflow rules, Playwright for the chart flow). The workflow rules were verified with an ad-hoc tsx script and a Playwright walkthrough, but no automated tests are committed.
+6. Real per-patient lab orders/results (chart labs are generated), medication orders, bed management, and role-based permissions on transitions.

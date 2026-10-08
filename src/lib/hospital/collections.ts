@@ -2,6 +2,7 @@ import { createCollection } from '@tanstack/react-db'
 import { queryCollectionOptions } from '@tanstack/query-db-collection'
 import type { QueryClient } from '@tanstack/react-query'
 
+import { hospitalKeys } from './queries'
 import {
   createAppointment,
   listAppointments,
@@ -60,6 +61,13 @@ function buildCollections(queryClient: QueryClient) {
             }),
           ),
         )
+        // Checking in can advance the patient's care stage on the server, so
+        // refresh everything derived from patients.
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: hospitalKeys.patients }),
+          queryClient.invalidateQueries({ queryKey: hospitalKeys.stats }),
+          queryClient.invalidateQueries({ queryKey: ['db', 'patients'] }),
+        ])
       },
     }),
   )

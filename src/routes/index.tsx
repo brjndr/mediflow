@@ -5,6 +5,7 @@ import { Badge } from '#/components/ui/badge'
 import { Card, CardDescription, CardTitle } from '#/components/ui/card'
 import { statsQuery } from '#/lib/hospital/queries'
 import { PATIENT_STATUSES, patientStatusTone } from '#/lib/hospital/schemas'
+import { STAGES, STAGE_LABEL } from '#/lib/hospital/workflow'
 
 export const Route = createFileRoute('/')({
   loader: ({ context }) => context.queryClient.ensureQueryData(statsQuery()),
@@ -48,6 +49,20 @@ function Dashboard() {
           </Card>
         ))}
       </div>
+
+      <Card className="mt-4">
+        <CardTitle>Care pipeline</CardTitle>
+        <ol className="m-0 grid list-none gap-3 p-0 sm:grid-cols-3 lg:grid-cols-6">
+          {STAGES.map((s) => (
+            <li key={s} className="rounded-xl border border-[var(--line)] p-3">
+              <p className="m-0 text-2xl font-bold">{stats.byStage[s]}</p>
+              <p className="m-0 text-xs text-[var(--sea-ink-soft)]">
+                {STAGE_LABEL[s]}
+              </p>
+            </li>
+          ))}
+        </ol>
+      </Card>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

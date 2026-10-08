@@ -3,7 +3,14 @@
 import { faker } from '@faker-js/faker'
 
 import { GENDERS, PATIENT_STATUSES, WARDS } from './schemas'
-import type { Appointment, Doctor, Patient, AppointmentStatus } from './schemas'
+import type {
+  Appointment,
+  AppointmentStatus,
+  Doctor,
+  Patient,
+  PatientStatus,
+} from './schemas'
+import type { Stage } from './workflow'
 
 const CONDITIONS = [
   'Hypertension',
@@ -28,6 +35,19 @@ const SPECIALTIES = [
   'Obstetrics',
   'Internal Medicine',
 ]
+
+function stageFor(status: PatientStatus): Stage {
+  switch (status) {
+    case 'ADMITTED':
+      return faker.helpers.arrayElement(['ADMITTED', 'TREATMENT'] as const)
+    case 'CRITICAL':
+      return 'TREATMENT'
+    case 'DISCHARGED':
+      return 'DISCHARGED'
+    case 'OUTPATIENT':
+      return faker.helpers.arrayElement(['REGISTERED', 'TRIAGE'] as const)
+  }
+}
 
 export function buildSeed(now = new Date()) {
   faker.seed(20260508)
@@ -60,6 +80,7 @@ export function buildSeed(now = new Date()) {
       status,
       condition: faker.helpers.arrayElement(CONDITIONS),
       admittedAt: faker.date.recent({ days: 30, refDate: now }).toISOString(),
+      stage: stageFor(status),
     }
   })
 
