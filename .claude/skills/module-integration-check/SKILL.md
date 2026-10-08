@@ -8,6 +8,7 @@ description: Verify a clinical, pharmacy, billing or other hospital module integ
 Review the current diff (`git diff`) and the module's design against "Product Scope: End-to-End Patient Journey" in CLAUDE.md. Report findings by file and line.
 
 ## Checklist
+
 1. **Encounter spine:** every clinical, order and billing record references an `encounterId` (and `patientId`). No new visit, episode or admission concept that duplicates `Encounter`.
 2. **Unified orders:** anything ordered (lab, imaging, procedure, medication, diet) is an `Order` created through the order API and emits `order.placed`. Consumer modules react to events and never call the ordering module directly.
 3. **Charge ledger:** billable work posts `Charge` records priced from the effective price list. No module writes invoices or invoice lines directly.
@@ -20,4 +21,5 @@ Review the current diff (`git diff`) and the module's design against "Product Sc
 10. **Tests:** two-tenant isolation, permission absent, flag off, invalid state transitions, concurrency, and one end-to-end journey test through the module.
 
 ## Output
+
 List each violation with file, line, why it breaks the architecture, and the fix. If none, state which items were verified. Do not modify code unless asked.

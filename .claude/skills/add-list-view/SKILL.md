@@ -8,6 +8,7 @@ description: Build a list or table screen with server-side pagination, search, s
 Never load all records. Never filter or sort large data on the client.
 
 ## Requirements
+
 - **Server-side** cursor pagination, filtering, and sorting. The endpoint returns `{ items, nextCursor, total? }`.
 - **Query keys** from a key factory and always including `tenantId`, e.g. `patientKeys.list(tenantId, filters)`.
 - **React Query:** `placeholderData: keepPreviousData` while paging, a sensible `staleTime` for the data type, prefetch the next page, and cancel stale requests on filter change.
@@ -19,4 +20,5 @@ Never load all records. Never filter or sort large data on the client.
 - **i18n and formatting:** labels via i18n, dates and money via the tenant-aware formatters.
 
 ## Tests
+
 Pagination moves forward and back, filter change resets the cursor, error and empty states render, permission-absent hides actions, and switching tenant does not show the previous tenant's rows.

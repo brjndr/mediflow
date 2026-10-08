@@ -8,6 +8,7 @@ description: Check changes for patient data (PHI) exposure in logs, storage, URL
 Review the current diff (`git diff`) and report findings by file and line.
 
 ## Checklist
+
 1. No PHI (names, phone, DOB, MRN, diagnoses, notes, invoice details) in `console.*`, error messages, Sentry events/breadcrumbs, analytics, or web-vitals tags.
 2. No PHI in URLs, query strings, route params (IDs only), or page titles.
 3. No PHI in `localStorage`, `sessionStorage`, IndexedDB, cookies, or service worker caches.
@@ -19,4 +20,5 @@ Review the current diff (`git diff`) and report findings by file and line.
 9. Error boundaries and error reporting scrub request/response bodies.
 
 ## Output
+
 List each violation with file, line, risk, and the fix. If none, say which items were verified. Do not modify code unless asked.

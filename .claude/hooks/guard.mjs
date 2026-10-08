@@ -27,14 +27,20 @@ if (tool === 'Bash') {
   const cmd = String(ti.command || '');
 
   const rules = [
-    [/(?:^|[\s;&|(])(npm|npx|yarn|bun)(?=\s|$)/, 'Use pnpm only (pnpm install/add/run; pnpm dlx instead of npx).'],
+    [
+      /(?:^|[\s;&|(])(npm|npx|yarn|bun)(?=\s|$)/,
+      'Use pnpm only (pnpm install/add/run; pnpm dlx instead of npx).',
+    ],
     [/\brm\s+-\w*[rR]/, 'Recursive rm is not allowed. Delete specific files, or ask the user.'],
     [/Remove-Item[^\n]*-Recurse/i, 'Recursive deletion is not allowed. Ask the user.'],
     [/\b(rd|rmdir|del)\s+[^\n]*\/s\b/i, 'Recursive deletion is not allowed. Ask the user.'],
     [/git\s+push\s+[^\n]*(--force\b|--force-with-lease\b|\s-f\b)/, 'Force push is not allowed.'],
     [/git\s+reset\s+--hard/, 'git reset --hard is not allowed.'],
     [/git\s+clean\s+-\w*f/, 'git clean -f is not allowed.'],
-    [/docker\s+compose\s+down[^\n]*(\s-v\b|--volumes)/, 'Removing Docker volumes destroys local database data. Ask the user.'],
+    [
+      /docker\s+compose\s+down[^\n]*(\s-v\b|--volumes)/,
+      'Removing Docker volumes destroys local database data. Ask the user.',
+    ],
     [/docker\s+volume\s+(rm|prune)/, 'Removing Docker volumes is not allowed. Ask the user.'],
     [/docker\s+system\s+prune/, 'docker system prune is not allowed.'],
   ];

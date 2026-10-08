@@ -3,6 +3,7 @@
 Run `claude` in the repo root. Claude reads CLAUDE.md automatically. The hooks, permissions, skills and subagents in `.claude/` apply.
 
 ## 1. Scaffold the project (milestone M0)
+
 ```
 Read CLAUDE.md in full, then read the open issues in milestone "M0 Setup" with `gh issue list --milestone "M0 Setup"` and `gh issue view <n>`.
 
@@ -14,6 +15,7 @@ Use pnpm only. Do not add dependencies beyond those named in CLAUDE.md and the i
 ```
 
 ## 2. Build the foundation (milestone M1)
+
 ```
 Read CLAUDE.md in full, then read every open issue in milestone "M1 Foundation" that is labeled area:frontend (`gh issue list --milestone "M1 Foundation" --label area:frontend`, then `gh issue view <n>` for each).
 
@@ -31,6 +33,7 @@ Constraints: no hardcoded hospital data, stay within the bundle budgets, librari
 ```
 
 ## 3. Implement any issue
+
 ```
 Implement issue #<number>.
 
@@ -42,22 +45,27 @@ If you find work outside this issue, do not do it. Propose a new issue (title, l
 ```
 
 ## 4. Fix a bug
+
 ```
 Investigate bug #<number> (`gh issue view <number>`). First reproduce it with a failing test, explain the root cause, and wait for my approval of the fix. Then fix it on branch fix/<number>-<slug>, keep the regression test, run the full checks, run the security-reviewer subagent if it touches auth, tenancy or patient data, and open a PR ending with `Closes #<number>`.
 ```
 
 ## 5. Review a PR before merging
+
 ```
 Review PR #<number>. Use the code-reviewer subagent and the security-reviewer subagent on the diff, then summarize Must fix, Should fix and Nice to have. Do not change code.
 ```
 
 ## 6. Weekly planning
+
 ```
 Run `node scripts/github/status.mjs` and summarize: progress per milestone, anything overdue or blocked, and open P0 work. Recommend what to cut, defer or re-estimate to hit the current milestone's exit criteria. Propose issue edits, but do not apply them until I approve.
 ```
 
 ## 7. Plan a module milestone before building it
+
 Use this at the start of every module milestone (lab, pharmacy, admissions, billing and so on).
+
 ```
 Read CLAUDE.md in full, especially "Product Scope: End-to-End Patient Journey", then read every issue in milestone "<milestone title>" (`gh issue list --milestone "<title>"`, `gh issue view <n>` for each).
 

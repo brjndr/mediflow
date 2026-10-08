@@ -15,8 +15,17 @@ if (!file || !/\.(ts|tsx|js|jsx|mjs|cjs|css|html|json)$/.test(file)) process.exi
 if (/pnpm-lock|package-lock/.test(file)) process.exit(0);
 
 const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-const bin = path.join(root, 'node_modules', '.bin', process.platform === 'win32' ? 'prettier.cmd' : 'prettier');
+const bin = path.join(
+  root,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'prettier.cmd' : 'prettier',
+);
 if (!existsSync(bin)) process.exit(0);
 
-spawnSync('pnpm', ['exec', 'prettier', '--write', `"${file}"`], { cwd: root, shell: true, stdio: 'ignore' });
+spawnSync('pnpm', ['exec', 'prettier', '--write', `"${file}"`], {
+  cwd: root,
+  shell: true,
+  stdio: 'ignore',
+});
 process.exit(0);

@@ -1,6 +1,6 @@
 name: Feature or task
 description: Add a feature, chore, or change that is not already on the roadmap
-labels: ["type:feature"]
+labels: ['type:feature']
 body:
   - type: input
     id: roadmap-id

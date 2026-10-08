@@ -8,6 +8,7 @@ description: Scaffold a new feature module (manifest, permissions, feature flag,
 Follow "Adding a new feature later" in CLAUDE.md. Do not edit core modules or other features. Core changes must be additive.
 
 ## Steps
+
 1. **Plan first.** State the feature id, its permissions (`resource:action`), its feature flag, which slots it contributes to, and which domain events it consumes or emits. Wait for confirmation if anything is unclear.
 2. **Create `apps/web/src/features/<name>/`** (and the matching Fastify plugin in `apps/api/src/features/<name>/` when the backend issue is in scope) with: `manifest.ts`, `api.ts`, `schemas.ts` (Zod), `types.ts`, `hooks/`, `components/`, `routes/`, `index.ts`.
 3. **Manifest** (`FeatureManifest`): `id`, `titleKey`, `featureFlag`, `routes` (lazy-loaded, each with `requires`), `nav`, `permissions`, `extensions` (slot contributions), `settings` (Zod schema + permission) if the hospital admin can configure it.
@@ -19,6 +20,7 @@ Follow "Adding a new feature later" in CLAUDE.md. Do not edit core modules or ot
 9. **Verify:** `pnpm lint && pnpm typecheck && pnpm test`. Report bundle impact with `pnpm analyze`. Stay within the Performance Strategy budgets and follow the dependency policy.
 
 ## Do not
+
 - Import another feature's internals (use its `index.ts`).
 - Add dependencies without stating why and checking bundle impact.
 - Hardcode hospital names, currencies, locales, or timezones.

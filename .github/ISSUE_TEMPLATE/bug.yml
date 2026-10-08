@@ -1,6 +1,6 @@
 name: Bug report
 description: Something is broken
-labels: ["type:bug"]
+labels: ['type:bug']
 body:
   - type: markdown
     attributes:
@@ -40,6 +40,11 @@ body:
     id: severity
     attributes:
       label: Severity
-      options: ["P0 data exposure, data loss, or outage", "P1 major feature broken", "P2 minor or cosmetic"]
+      options:
+        [
+          'P0 data exposure, data loss, or outage',
+          'P1 major feature broken',
+          'P2 minor or cosmetic',
+        ]
     validations:
       required: true
