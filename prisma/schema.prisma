@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Scaffold demo model (used by /demo/prisma)
+model Todo {
+  id        Int      @id @default(autoincrement())
+  title     String
+  createdAt DateTime @default(now())
+}
+
+enum PatientStatus {
+  ADMITTED
+  OUTPATIENT
+  CRITICAL
+  DISCHARGED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CHECKED_IN
+  COMPLETED
+  CANCELLED
+}
+
+model Patient {
+  id           String        @id @default(cuid())
+  mrn          String        @unique
+  firstName    String
+  lastName     String
+  dateOfBirth  DateTime      @db.Date
+  gender       String
+  phone        String
+  ward         String
+  status       PatientStatus @default(OUTPATIENT)
+  condition    String
+  admittedAt   DateTime      @default(now())
+  appointments Appointment[]
+
+  @@index([status])
+  @@index([ward])
+}
+
+model Doctor {
+  id           String        @id @default(cuid())
+  name         String
+  specialty    String
+  appointments Appointment[]
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  patientId   String
+  doctorId    String
+  scheduledAt DateTime
+  reason      String
+  status      AppointmentStatus @default(SCHEDULED)
+  patient     Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      Doctor            @relation(fields: [doctorId], references: [id])
+
+  @@index([scheduledAt])
+}
