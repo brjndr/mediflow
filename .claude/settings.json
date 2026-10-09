@@ -17,7 +17,14 @@
       "Bash(gh pr diff*)",
       "Bash(gh repo view*)",
       "Bash(node scripts/github/status.mjs*)",
-      "Bash(gh pr merge*)"
+      "Bash(gh pr merge*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(gh pr create*)",
+      "Bash(gh issue create*)",
+      "Bash(gh issue comment*)",
+      "Bash(gh issue edit*)",
+      "Bash(gh issue close*)"
     ],
     "deny": [
       "Bash(npm *)",
@@ -43,13 +50,6 @@
       "Bash(pnpm add *)",
       "Bash(pnpm remove *)",
       "Bash(pnpm dlx *)",
-      "Bash(git commit*)",
-      "Bash(git push*)",
-      "Bash(gh pr create*)",
-      "Bash(gh issue create*)",
-      "Bash(gh issue comment*)",
-      "Bash(gh issue edit*)",
-      "Bash(gh issue close*)",
       "Bash(node scripts/github/seed.mjs*)"
     ]
   },
