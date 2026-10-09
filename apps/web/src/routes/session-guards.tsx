@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useSession } from '@/app/session';
+import { HospitalPicker, useTenant, useTenantSync } from '@/tenancy';
 
 export const LOGIN_PATH = '/login';
 
@@ -31,4 +32,13 @@ export function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
   const location = useLocation();
   if (!session) return children;
   return <Navigate to={intendedPath(location.state)} replace />;
+}
+
+/**
+ * Everything below needs an active hospital. A user who works at several and has not picked one
+ * gets the picker in place of the app, at the same URL, so the address they asked for is kept.
+ */
+export function RequireTenant({ children }: { children: ReactNode }) {
+  useTenantSync();
+  return useTenant() ? children : <HospitalPicker />;
 }

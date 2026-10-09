@@ -27,7 +27,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Bootstraps the app in one request: the signed-in user, the active tenant with its config, and the effective access policy. Private per session, never CDN-cached. */
+        /** @description Bootstraps the app in one request: the signed-in user, the active tenant with its config, and the effective access policy. Private per session, never CDN-cached. Session routes ignore X-Tenant-ID, so a stale tab can always reload its session. */
         get: operations["getSession"];
         put?: never;
         post?: never;

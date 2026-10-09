@@ -40,5 +40,15 @@
   "login": {
     "title": "Sign in",
     "unavailable": "Sign-in is not available yet."
+  },
+  "tenancy": {
+    "pickerTitle": "Choose a hospital",
+    "pickerDescription": "You work at more than one hospital. Pick the one you want to open.",
+    "switcherLabel": "Hospital",
+    "switching": "Switching hospital…"
+  },
+  "notice": {
+    "tenantChangedElsewhere": "The active hospital was changed in another tab. This tab now shows the same hospital.",
+    "dismiss": "Dismiss"
   }
 }

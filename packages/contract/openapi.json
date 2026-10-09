@@ -29,7 +29,7 @@
     "/session": {
       "get": {
         "operationId": "getSession",
-        "description": "Bootstraps the app in one request: the signed-in user, the active tenant with its config, and the effective access policy. Private per session, never CDN-cached.",
+        "description": "Bootstraps the app in one request: the signed-in user, the active tenant with its config, and the effective access policy. Private per session, never CDN-cached. Session routes ignore X-Tenant-ID, so a stale tab can always reload its session.",
         "responses": {
           "200": {
             "description": "The current session",
