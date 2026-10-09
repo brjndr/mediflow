@@ -8,6 +8,8 @@ import { createRouter } from './app/router';
 import { sessionKey, type Session } from './app/session';
 import { createStore } from './app/store';
 import { appRegistry } from './registry';
+import { env } from './shared/config/env';
+import { logger } from './shared/lib/logger';
 import './index.css';
 
 async function enableMocking() {
@@ -26,9 +28,8 @@ void enableMocking().then(() => {
   const router = createRouter(appRegistry);
   const i18n = createI18n({
     features: appRegistry.translations,
-    // Translation keys are not patient data, so a missing one is safe to report in dev.
     onMissingKey: import.meta.env.DEV
-      ? (key) => console.warn(`Missing translation: ${key}`)
+      ? (key) => logger.warn('i18n.missing_key', { key })
       : undefined,
   });
 
@@ -44,13 +45,20 @@ void enableMocking().then(() => {
   const whenIdle =
     window.requestIdleCallback ?? ((callback: () => void) => setTimeout(callback, 1));
   whenIdle(() => {
-    void import('./app/observability/web-vitals').then(
-      ({ startWebVitals, routePattern, discardVitals }) =>
-        startWebVitals({
-          getRoute: () => routePattern(router.state.matches),
-          getTenantId: () => queryClient.getQueryData<Session | null>(sessionKey)?.activeTenant?.id,
-          sink: discardVitals,
-        }),
-    );
+    const getTenantId = () =>
+      queryClient.getQueryData<Session | null>(sessionKey)?.activeTenant?.id;
+    void Promise.all([
+      import('./app/observability/web-vitals'),
+      import('./app/observability/error-reporting'),
+    ]).then(([{ startWebVitals, routePattern, discardVitals }, { startErrorReporting }]) => {
+      const getRoute = () => routePattern(router.state.matches);
+      void startWebVitals({ getRoute, getTenantId, sink: discardVitals });
+      // Does nothing, and downloads nothing, unless a DSN is configured for this deployment.
+      void startErrorReporting({
+        dsn: env.sentryDsn,
+        environment: import.meta.env.MODE,
+        getContext: () => ({ route: getRoute(), tenantId: getTenantId() }),
+      });
+    });
   });
 });

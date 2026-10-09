@@ -1,16 +1,21 @@
 import { Component, Suspense, type ReactNode } from 'react';
+import { reportError } from '@/app/observability';
 import { useSlotContributions } from './registry-context';
 import type { SlotId, SlotProps } from './types';
 
 /**
  * Keeps one broken contribution from taking down the screen that hosts it: it renders nothing in
- * its place. Errors are not logged here; F-12 adds reporting with PHI scrubbing.
+ * its place. The error goes to the scrubbing reporter and is never shown or logged.
  */
 class ContributionBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   override state = { failed: false };
 
   static getDerivedStateFromError() {
     return { failed: true };
+  }
+
+  override componentDidCatch(error: unknown) {
+    reportError(error);
   }
 
   override render() {
