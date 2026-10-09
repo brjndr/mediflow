@@ -550,7 +550,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  memberships: { tenantId: string; roleId: RoleId }[];
+  memberships: { tenantId: string; tenantName: string; roleId: RoleId }[]; // tenantName feeds the hospital picker
 }
 
 // Every tenant-owned entity carries tenantId.

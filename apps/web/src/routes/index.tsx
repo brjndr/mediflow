@@ -1,18 +1,35 @@
 // Route configuration, not a component module, so fast refresh boundaries do not apply.
 /* eslint-disable react-refresh/only-export-components */
-import { lazy } from 'react';
+import { lazy, Suspense } from 'react';
 import type { RouteObject } from 'react-router-dom';
 import { AppShell } from '@/app/AppShell';
 import { ErrorFallback } from '@/app/ErrorFallback';
+import { LOGIN_PATH, RedirectIfAuthenticated, RequireSession } from './session-guards';
 
 const HomePage = lazy(() => import('@/app/HomePage').then((m) => ({ default: m.HomePage })));
+const LoginPage = lazy(() => import('@/features/auth').then((m) => ({ default: m.LoginPage })));
 
-// F-08 replaces the children with routes generated from the feature registry.
 export const routes: RouteObject[] = [
   {
-    path: '/',
-    element: <AppShell />,
+    path: LOGIN_PATH,
+    element: (
+      <RedirectIfAuthenticated>
+        <Suspense fallback={null}>
+          <LoginPage />
+        </Suspense>
+      </RedirectIfAuthenticated>
+    ),
     errorElement: <ErrorFallback />,
+  },
+  {
+    path: '/',
+    element: (
+      <RequireSession>
+        <AppShell />
+      </RequireSession>
+    ),
+    errorElement: <ErrorFallback />,
+    // F-08 replaces the children with routes generated from the feature registry.
     children: [{ index: true, element: <HomePage /> }],
   },
 ];

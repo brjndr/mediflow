@@ -31,5 +31,14 @@
     "rate_limited": "The system is busy. Try again in a moment.",
     "server": "Something went wrong on our side. Try again.",
     "unknown": "Something went wrong. Try again."
+  },
+  "session": {
+    "loading": "Loading your workspace…",
+    "errorTitle": "Could not load your session",
+    "retry": "Try again"
+  },
+  "login": {
+    "title": "Sign in",
+    "unavailable": "Sign-in is not available yet."
   }
 }
