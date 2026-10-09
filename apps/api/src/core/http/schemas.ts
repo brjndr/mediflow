@@ -28,6 +28,18 @@ export function errors<Status extends number>(...statuses: Status[]) {
   >;
 }
 
+/**
+ * A string that is one of a fixed set of values. Prefer this to a union of literals: it comes out
+ * in the contract as a plain `enum`, which is what OpenAPI tools and the breaking-change check
+ * expect, and it has the same static type.
+ */
+export function StringEnum<const Values extends readonly [string, ...string[]]>(
+  values: Values,
+  options: { description?: string } = {},
+) {
+  return Type.Unsafe<Values[number]>({ type: 'string', enum: [...values], ...options });
+}
+
 export const MAX_PAGE_SIZE = 100;
 export const DEFAULT_PAGE_SIZE = 25;
 

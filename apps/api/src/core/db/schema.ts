@@ -1,10 +1,8 @@
 /**
- * Every Drizzle table, re-exported from the feature or core module that owns it. drizzle-kit and
- * the typed query builder read this file.
+ * Every Drizzle table, re-exported from the feature or core module that owns it. The typed query
+ * builder reads this file.
  *
- *   export * from '../../features/patients/schema.js';
- *
- * Tables arrive with BE-02 (tenants). Every tenant-owned table has a tenant_id column and a
- * row-level security policy written in its migration.
+ * Every tenant-owned table has a tenant_id column and row-level security applied in its
+ * migration with `SELECT enable_tenant_rls('<table>')`.
  */
-export {};
+export * from '../tenancy/schema.js';

@@ -18,6 +18,20 @@ export const ErrorBody = Type.Object(
 );
 export type ErrorBody = Static<typeof ErrorBody>;
 
+/** SQLSTATE for "permission denied" and for a row-level security violation. */
+const INSUFFICIENT_PRIVILEGE = '42501';
+
+/** The Postgres error code, whether the driver threw the error or Drizzle wrapped it as a cause. */
+function sqlState(error: unknown): string | undefined {
+  for (let current = error, depth = 0; current && depth < 3; depth++) {
+    if (typeof current !== 'object') return undefined;
+    const { code, cause } = current as { code?: unknown; cause?: unknown };
+    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return code;
+    current = cause;
+  }
+  return undefined;
+}
+
 /** Throw this from a route or hook to answer with a specific status and code. */
 export class HttpError extends Error {
   constructor(
@@ -64,6 +78,12 @@ export function registerErrorHandling(app: FastifyInstance): void {
         'validation_failed',
         `Invalid ${error.validationContext ?? 'request'}`,
       );
+    }
+    if (sqlState(error) === INSUFFICIENT_PRIVILEGE) {
+      // Postgres refused the statement: a row-level security policy or a missing grant. The code
+      // tried to touch something its hospital or role may not. Never a 500, and worth noticing.
+      request.log.warn({ err: error }, 'database refused a statement');
+      return send(reply, request, 403, 'forbidden', 'Not allowed');
     }
     const status = error.statusCode ?? 500;
     if (status >= 400 && status < 500) {
