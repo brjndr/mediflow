@@ -5,7 +5,7 @@ import { I18nextProvider } from 'react-i18next';
 import { Provider as StoreProvider } from 'react-redux';
 import { AccessPolicyProvider } from '@/access';
 import { RegistryProvider, type Registry } from '@/registry';
-import { TenantProvider } from '@/tenancy';
+import { TenantProvider, TenantTheme } from '@/tenancy';
 import { GlobalErrorBoundary } from './GlobalErrorBoundary';
 import { LanguageSync } from './LanguageSync';
 import { SessionProvider, useSession } from './session';
@@ -42,6 +42,7 @@ export function AppProviders({ client, store, i18n, registry, children }: AppPro
             <SessionProvider>
               <SessionScopedProviders>
                 <LanguageSync />
+                <TenantTheme />
                 <RegistryProvider registry={registry}>{children}</RegistryProvider>
               </SessionScopedProviders>
             </SessionProvider>

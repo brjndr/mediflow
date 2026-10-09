@@ -21,7 +21,7 @@ const initialTenants: Record<string, TenantDto> = {
     locale: 'en-IN',
     timezone: 'Asia/Kolkata',
     currency: 'INR',
-    theme: { primary: 'oklch(0.52 0.1 180)' },
+    theme: { primary: '#0f766e' },
     features: {
       patients: true,
       appointments: true,
@@ -44,7 +44,7 @@ const initialTenants: Record<string, TenantDto> = {
     locale: 'en-GB',
     timezone: 'Asia/Dubai',
     currency: 'AED',
-    theme: { primary: 'oklch(0.5 0.15 265)' },
+    theme: { primary: '#4338ca', logoUrl: '/favicon.svg' },
     features: {
       patients: true,
       appointments: true,

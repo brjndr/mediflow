@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui/button';
+import { TenantBrand } from '@/tenancy';
 import { AppNav } from './AppNav';
 
 interface NavDrawerProps {
@@ -41,7 +42,7 @@ export function NavDrawer({ open, onClose }: NavDrawerProps) {
       {open && (
         <div className="flex h-full flex-col gap-4 p-3">
           <div className="flex items-center justify-between pl-3">
-            <span className="text-sm font-semibold text-primary">{t('app.name')}</span>
+            <TenantBrand />
             <Button size="icon" variant="ghost" aria-label={t('nav.closeMenu')} onClick={onClose}>
               <X aria-hidden />
             </Button>

@@ -144,7 +144,9 @@ export interface components {
             /** @description ISO 4217 */
             currency: string;
             theme: {
+                /** @description Brand colour as six-digit hex. Must read as text on a white background (contrast of at least 4.5:1); the web app falls back to its default colour otherwise. */
                 primary: string;
+                /** @description https or same-origin URL of the hospital logo (SVG or WebP, at most 50 kB). */
                 logoUrl?: string;
             };
             features: {
