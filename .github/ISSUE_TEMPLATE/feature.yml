@@ -1,0 +1,44 @@
+name: Feature or task
+description: Add a feature, chore, or change that is not already on the roadmap
+labels: ['type:feature']
+body:
+  - type: input
+    id: roadmap-id
+    attributes:
+      label: Roadmap ID (optional)
+      description: For example F-15. Leave empty for new items and add the ID to the title as [ID] if you use one.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [frontend, backend, infra, security, docs, product]
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The problem or need. Link related issues.
+    validations:
+      required: true
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: depends
+    attributes:
+      label: Depends on
+      description: Issue numbers this is blocked by

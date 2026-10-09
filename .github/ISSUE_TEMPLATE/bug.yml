@@ -1,0 +1,50 @@
+name: Bug report
+description: Something is broken
+labels: ['type:bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never paste real patient data, screenshots with patient data, tokens, or secrets into an issue. Use synthetic data only.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [frontend, backend, infra, security]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: context
+    attributes:
+      label: Hospital (tenant), role, and environment
+      description: For example "sample hospital A, receptionist, staging"
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        [
+          'P0 data exposure, data loss, or outage',
+          'P1 major feature broken',
+          'P2 minor or cosmetic',
+        ]
+    validations:
+      required: true
