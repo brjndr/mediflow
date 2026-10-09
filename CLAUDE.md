@@ -189,7 +189,7 @@ hms/
 - One repo, one issue tracker, one `CLAUDE.md`. API and UI changes for a feature land in the same PR.
 - Run per-app scripts with filters: `pnpm --filter web dev`, `pnpm --filter api dev`. Root scripts (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`) run across all packages.
 - `apps/web` imports types only from `packages/contract`. It never imports code from `apps/api`, and `apps/api` never imports from `apps/web`.
-- Contract flow: the API generates `packages/contract/openapi.json` from its route schemas (`pnpm gen:api`), then the web client types are generated from it. CI fails if the committed spec is stale or has a breaking change without a version bump.
+- Contract flow (`pnpm gen:api`): the API writes `packages/contract/api.openapi.json` from its route schemas; that is merged with `planned.openapi.json` (hand-written endpoints the web app is built against that the API does not implement yet) into `openapi.json`; and the web client types are generated from the result. The API always wins: when it implements a planned endpoint, delete that endpoint from the planned file, and the merge fails until you do. CI fails if the committed files are stale, or if the contract has a breaking change without a raised `CONTRACT_VERSION`.
 
 ## Backend (apps/api)
 

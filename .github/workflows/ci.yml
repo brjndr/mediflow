@@ -64,6 +64,15 @@ jobs:
         run: |
           pnpm gen:api
           git diff --exit-code -- packages/contract || (echo "::error::Run 'pnpm gen:api' and commit the result" && exit 1)
+      # A breaking change to the contract must come with a raised contract version.
+      - name: Contract has no unannounced breaking change
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --depth=1 origin "$BASE_REF"
+          git show FETCH_HEAD:packages/contract/openapi.json > "$RUNNER_TEMP/base-openapi.json"
+          node scripts/contract-check.mjs "$RUNNER_TEMP/base-openapi.json" packages/contract/openapi.json
 
   api:
     name: API tests (Postgres) and image

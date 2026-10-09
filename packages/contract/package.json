@@ -10,7 +10,7 @@
     "./openapi.json": "./openapi.json"
   },
   "scripts": {
-    "gen": "openapi-typescript openapi.json -o src/generated/api.ts",
+    "gen": "node scripts/merge-spec.mjs && openapi-typescript openapi.json -o src/generated/api.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
