@@ -9,6 +9,8 @@ export interface ApiFetchOptions {
   onForbidden: () => void;
   /** Called when the server says this tab's tenant is stale (409 tenant_mismatch). */
   onTenantMismatch: () => void;
+  /** Called when the server says the active hospital is suspended (403 tenant_suspended). */
+  onTenantSuspended: () => void;
   timeoutMs: number;
   /** Total tries, including the first. */
   maxAttempts: number;
@@ -20,6 +22,8 @@ export interface ApiFetchOptions {
 export const TENANT_HEADER = 'X-Tenant-ID';
 /** Server code for a request whose tenant header disagrees with the session's active tenant. */
 export const TENANT_MISMATCH = 'tenant_mismatch';
+/** Server code for a request to a hospital that has been suspended. */
+export const TENANT_SUSPENDED = 'tenant_suspended';
 
 const IDEMPOTENT_METHODS = new Set(['GET', 'HEAD']);
 const RETRYABLE_STATUSES = new Set([502, 503, 504]);
@@ -136,6 +140,7 @@ export function createApiFetch(getOptions: () => ApiFetchOptions): typeof fetch 
       if (response.status === 403) options.onForbidden();
       const error = await apiErrorFromResponse(response);
       if (error.serverCode === TENANT_MISMATCH) options.onTenantMismatch();
+      if (error.serverCode === TENANT_SUSPENDED) options.onTenantSuspended();
       throw error;
     }
   };

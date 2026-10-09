@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
+import { Skeleton } from '@/shared/ui/skeleton';
 import { NoticeItem } from '../components/NoticeItem';
 import { useArchiveNotice, useNotices } from '../hooks/use-notices';
 
@@ -21,9 +22,12 @@ export default function NoticesPage() {
       </div>
 
       {notices.isPending && (
-        <p role="status" className="text-sm text-muted-foreground">
-          {t('loading')}
-        </p>
+        <div role="status" className="flex flex-col gap-3">
+          <span className="sr-only">{t('loading')}</span>
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
       )}
 
       {notices.isError && (

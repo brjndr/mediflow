@@ -5,6 +5,19 @@ import { server } from '@/mocks/node';
 import { configureApi, resetApiConfig } from '@/shared/api';
 import { missingTranslationKeys } from './render';
 
+// jsdom has no modal <dialog>. This covers what the app relies on (the open attribute and the
+// close event). Focus trapping and Escape are the browser's job and are not simulated.
+if (typeof HTMLDialogElement.prototype.showModal !== 'function') {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    if (!this.hasAttribute('open')) return;
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  };
+}
+
 // Keep retry backoff out of test time. Tests that assert on timing set their own values.
 const fastRetries = () => configureApi({ baseDelayMs: 1 });
 

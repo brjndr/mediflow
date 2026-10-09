@@ -45,7 +45,13 @@
     "pickerTitle": "Choose a hospital",
     "pickerDescription": "You work at more than one hospital. Pick the one you want to open.",
     "switcherLabel": "Hospital",
-    "switching": "Switching hospital…"
+    "switching": "Switching hospital…",
+    "suspendedTitle": "{{name}} is suspended",
+    "suspendedDescription": "This hospital's access to Mediflow is paused. Its data is safe. Contact your hospital administrator for details."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "This address does not match any screen. It may have been mistyped, or the page may have moved."
   },
   "notice": {
     "tenantChangedElsewhere": "The active hospital was changed in another tab. This tab now shows the same hospital.",
@@ -56,6 +62,13 @@
     "forbiddenDescription": "If you think you should, ask your hospital administrator to update your role."
   },
   "nav": {
-    "label": "Main navigation"
+    "label": "Main navigation",
+    "home": "Home",
+    "backHome": "Back to home",
+    "menu": "Menu",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
   }
 }

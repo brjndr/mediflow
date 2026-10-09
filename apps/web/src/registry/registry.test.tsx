@@ -68,10 +68,14 @@ function makeFeatures() {
   return { laboratory, billing, loaders };
 }
 
-const navLinks = () =>
-  within(screen.getByRole('navigation', { name: 'Main navigation' }))
+/** The feature items of the sidebar, in order. Home is core and always first. */
+const navLinks = () => {
+  const [home, ...features] = within(screen.getByRole('navigation', { name: 'Main navigation' }))
     .getAllByRole('link')
     .map((link) => link.textContent);
+  expect(home).toBe('Home');
+  return features;
+};
 const navLink = (name: string) => screen.queryByRole('link', { name });
 const home = () => screen.findByRole('heading', { name: 'Hospital management system' });
 
@@ -112,10 +116,10 @@ describe('adding a manifest', () => {
     ]);
   });
 
-  it('shows no navigation when no feature is registered', async () => {
+  it('shows only Home when no feature is registered', async () => {
     renderApp({ registry: createRegistry([]) });
     await home();
-    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(navLinks()).toEqual([]);
   });
 });
 
@@ -207,7 +211,7 @@ describe('two hospitals', () => {
 
     await home();
     // At the clinic the lab is off and this doctor has no billing access.
-    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(navLinks()).toEqual([]);
     await router.navigate('/lab/worklist');
     expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
   });

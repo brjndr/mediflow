@@ -1,29 +1,51 @@
+import { Home } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 import { useNavItems } from '@/registry';
 import { cn } from '@/shared/lib/utils';
 
-/** Navigation generated from the feature registry. F-10 turns this into the sidebar. */
-export function AppNav() {
+interface AppNavProps {
+  /** Show icons only. Each link keeps its name for assistive technology and as a tooltip. */
+  collapsed?: boolean;
+  /** Called when a link is followed, so a drawer can close itself. */
+  onNavigate?: () => void;
+}
+
+/** Main navigation: Home, then one item per enabled feature the user may open, from the registry. */
+export function AppNav({ collapsed = false, onNavigate }: AppNavProps) {
   const { t } = useTranslation();
-  const items = useNavItems();
-  if (items.length === 0) return null;
+  const features = useNavItems();
+  const items = [
+    { key: 'home', to: '/', label: t('nav.home'), icon: Home, end: true },
+    ...features.map(({ featureId, titleKey, to, icon }) => ({
+      key: featureId,
+      to,
+      label: t(titleKey),
+      icon,
+      end: false,
+    })),
+  ];
+
   return (
     <nav aria-label={t('nav.label')}>
-      <ul className="flex items-center gap-1">
-        {items.map(({ featureId, titleKey, to, icon: Icon }) => (
-          <li key={featureId}>
+      <ul className="flex flex-col gap-1">
+        {items.map(({ key, to, label, icon: Icon, end }) => (
+          <li key={key}>
             <NavLink
               to={to}
+              end={end}
+              title={collapsed ? label : undefined}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                  'flex h-9 items-center gap-3 rounded-md px-3 text-sm outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                  collapsed && 'justify-center px-0',
                   isActive && 'bg-accent font-medium',
                 )
               }
             >
-              <Icon className="size-4" />
-              {t(titleKey)}
+              <Icon aria-hidden className="size-4 shrink-0" />
+              <span className={cn('truncate', collapsed && 'sr-only')}>{label}</span>
             </NavLink>
           </li>
         ))}
