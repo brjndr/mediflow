@@ -250,6 +250,7 @@ pnpm dev        # start Vite dev server
 pnpm build      # type-check + production build
 pnpm lint       # ESLint
 pnpm test       # Vitest
+pnpm test:coverage  # Vitest with coverage thresholds for the foundation folders (what CI runs)
 pnpm typecheck  # tsc --noEmit
 pnpm analyze    # bundle size report (rollup-plugin-visualizer), writes apps/web/stats.html
 pnpm budget     # check the built bundle against the budgets (run pnpm build first)
@@ -782,6 +783,7 @@ Complete and test one module before starting the next. Ship each release to a pi
 - **Access tests:** for each feature, test with permission present, permission absent, feature flag off, and a custom role. Verify hidden nav/routes/actions and 403 handling. Verify policy refresh updates the UI without reload.
 - **Performance tests:** Lighthouse CI + bundle budgets in CI; tests with large result sets (10k+ total rows) confirm pagination keeps the page responsive and memory flat.
 - Run k6 or similar load tests against staging from a cloud runner, not the laptop per tenant and with mixed tenants.
+- **Foundation coverage is enforced.** CI runs `pnpm test:coverage`, which fails if line, branch, function or statement coverage of `access/`, `tenancy/`, `registry/`, `shared/api/` and `app/session/` drops below the thresholds in `apps/web/vitest.config.ts`. A change to those folders ships with its tests. Lower a threshold only with a stated reason.
 - Run `pnpm lint && pnpm typecheck && pnpm test` before considering a task done.
 
 ## Workflow (GitHub issues)

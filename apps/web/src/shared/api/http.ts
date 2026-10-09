@@ -7,8 +7,11 @@ export interface ApiFetchOptions {
   onUnauthorized: () => void;
   /** Called on a 403 (the access policy may be stale). */
   onForbidden: () => void;
-  /** Called when the server says this tab's tenant is stale (409 tenant_mismatch). */
-  onTenantMismatch: () => void;
+  /**
+   * Called when the server says this tab's tenant is stale (409 tenant_mismatch), with the tenant
+   * the rejected request was sent for, so a late rejection can be told from a current one.
+   */
+  onTenantMismatch: (sentTenantId: string | undefined) => void;
   /** Called when the server says the active hospital is suspended (403 tenant_suspended). */
   onTenantSuspended: () => void;
   timeoutMs: number;
@@ -139,7 +142,7 @@ export function createApiFetch(getOptions: () => ApiFetchOptions): typeof fetch 
       if (response.status === 401) options.onUnauthorized();
       if (response.status === 403) options.onForbidden();
       const error = await apiErrorFromResponse(response);
-      if (error.serverCode === TENANT_MISMATCH) options.onTenantMismatch();
+      if (error.serverCode === TENANT_MISMATCH) options.onTenantMismatch(tenantId);
       if (error.serverCode === TENANT_SUSPENDED) options.onTenantSuspended();
       throw error;
     }

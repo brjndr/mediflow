@@ -28,7 +28,8 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test
+      # Runs the whole web suite once, with coverage thresholds for the foundation folders.
+      - run: pnpm test:coverage
       - run: pnpm test:scripts
       - run: pnpm build
 
