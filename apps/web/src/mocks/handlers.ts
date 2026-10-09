@@ -1,25 +1,8 @@
 import { http, HttpResponse } from 'msw';
 import type { Health } from '@/shared/api/health';
-import { activeTenantId, currentPolicy, currentSession, switchTenant } from './db';
-
-const TENANT_HEADER = 'X-Tenant-ID';
-
-function error(status: number, code: string, message: string) {
-  return HttpResponse.json({ error: { code, message, requestId: 'req_mock' } }, { status });
-}
-
-const unauthenticated = () => error(401, 'unauthenticated', 'No session');
-
-/**
- * What the real API does on every tenant-scoped route: a tenant header that disagrees with the
- * session (a stale tab after a hospital switch) is rejected, never honoured.
- */
-function tenantMismatch(request: Request) {
-  const sent = request.headers.get(TENANT_HEADER);
-  return sent && sent !== activeTenantId()
-    ? error(409, 'tenant_mismatch', 'X-Tenant-ID does not match the session tenant')
-    : null;
-}
+import { currentPolicy, currentSession, switchTenant } from './db';
+import { noticesHandlers } from './handlers/notices';
+import { error, tenantMismatch, unauthenticated } from './respond';
 
 export const handlers = [
   http.get('*/api/health', () => HttpResponse.json<Health>({ status: 'ok' })),
@@ -34,8 +17,9 @@ export const handlers = [
     const body: unknown = await request.json().catch(() => null);
     const tenantId =
       typeof body === 'object' && body !== null && 'tenantId' in body ? body.tenantId : undefined;
-    if (typeof tenantId !== 'string')
+    if (typeof tenantId !== 'string') {
       return error(400, 'validation_failed', 'tenantId is required');
+    }
     if (!switchTenant(tenantId)) return error(403, 'not_a_member', 'No membership in that tenant');
     return HttpResponse.json(currentSession());
   }),
@@ -52,4 +36,7 @@ export const handlers = [
     }
     return HttpResponse.json(policy, { headers: { ETag: etag } });
   }),
+
+  // Feature handlers: one line per feature.
+  ...noticesHandlers,
 ];

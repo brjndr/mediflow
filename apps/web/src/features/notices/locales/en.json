@@ -1,0 +1,16 @@
+{
+  "heading": "Staff notices",
+  "description": "Announcements for everyone working at this hospital.",
+  "loading": "Loading notices…",
+  "empty": "There are no notices right now.",
+  "postedOn": "Posted {{date}}",
+  "archive": "Archive",
+  "archiveLabel": "Archive “{{title}}”",
+  "loadMore": "Load more",
+  "loadingMore": "Loading more…",
+  "retry": "Try again",
+  "widget": {
+    "title": "Latest notices",
+    "empty": "No notices."
+  }
+}

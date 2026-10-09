@@ -71,6 +71,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Staff notices of the active tenant, newest first. Sample feature (F-13). Requires notice:read and the notices feature flag. */
+        get: operations["listNotices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/{noticeId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a notice so it no longer appears in the list. Requires notice:manage. */
+        post: operations["archiveNotice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -142,6 +176,24 @@ export interface components {
             activeTenant: components["schemas"]["Tenant"] | null;
             /** @description Null when there is no active tenant. */
             policy: components["schemas"]["AccessPolicy"] | null;
+        };
+        Notice: {
+            id: string;
+            tenantId: string;
+            title: string;
+            body: string;
+            /**
+             * Format: date-time
+             * @description ISO datetime (UTC)
+             */
+            createdAt: string;
+            archived: boolean;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        NoticePage: {
+            items: components["schemas"]["Notice"][];
+            nextCursor: string | null;
+            total?: number;
         };
     };
     responses: {
@@ -263,6 +315,60 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listNotices: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of notices */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticePage"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveNotice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noticeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The archived notice */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notice"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
