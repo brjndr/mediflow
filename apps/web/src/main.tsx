@@ -6,6 +6,7 @@ import { createI18n } from './app/i18n';
 import { createQueryClient } from './app/query-client';
 import { createRouter } from './app/router';
 import { createStore } from './app/store';
+import { appRegistry } from './registry';
 import './index.css';
 
 async function enableMocking() {
@@ -21,8 +22,13 @@ void enableMocking().then(() => {
   if (!root) throw new Error('Root element missing');
   createRoot(root).render(
     <StrictMode>
-      <AppProviders client={createQueryClient()} store={createStore()} i18n={createI18n()}>
-        <RouterProvider router={createRouter()} />
+      <AppProviders
+        client={createQueryClient()}
+        store={createStore()}
+        i18n={createI18n()}
+        registry={appRegistry}
+      >
+        <RouterProvider router={createRouter(appRegistry)} />
       </AppProviders>
     </StrictMode>,
   );

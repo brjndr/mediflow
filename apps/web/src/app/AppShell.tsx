@@ -2,9 +2,10 @@ import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router-dom';
 import { TenantSwitcher } from '@/tenancy';
+import { AppNav } from './AppNav';
 import { NoticeBanner } from './NoticeBanner';
 
-/** Frame around every screen. F-10 adds navigation and the user menu. */
+/** Frame around every screen. F-10 adds the sidebar and the user menu. */
 export function AppShell() {
   const { t } = useTranslation();
   return (
@@ -18,6 +19,7 @@ export function AppShell() {
       <header className="flex h-14 items-center gap-3 border-b px-4">
         <span className="text-sm font-semibold text-primary">{t('app.name')}</span>
         <TenantSwitcher />
+        <AppNav />
       </header>
       <NoticeBanner />
       <main id="main" className="flex flex-1 flex-col">

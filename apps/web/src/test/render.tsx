@@ -11,7 +11,8 @@ import { AppProviders } from '@/app/AppProviders';
 import { createI18n } from '@/app/i18n';
 import { sessionKey, type Session } from '@/app/session';
 import { createStore, type AppStore } from '@/app/store';
-import { routes as appRoutes } from '@/routes';
+import { appRegistry, type Registry } from '@/registry';
+import { createRoutes } from '@/routes';
 
 interface Options extends Omit<RenderOptions, 'wrapper'> {
   route?: string;
@@ -19,6 +20,8 @@ interface Options extends Omit<RenderOptions, 'wrapper'> {
   store?: AppStore;
   /** Seeds the session instead of loading it from the mock API. Null renders signed out. */
   session?: Session | null;
+  /** Feature manifests to run with. Defaults to the app's own registry. */
+  registry?: Registry;
 }
 
 export function createTestQueryClient() {
@@ -27,7 +30,8 @@ export function createTestQueryClient() {
   });
 }
 
-const i18n = createI18n();
+/** Shared by every test render. Tests may add resource bundles for fixture features. */
+export const i18n = createI18n();
 
 /**
  * Render with the app's providers. Rendering is blocked until the session resolves, so query the
@@ -42,12 +46,13 @@ export function renderWithProviders(
     queryClient = createTestQueryClient(),
     store = createStore(),
     session,
+    registry = appRegistry,
     ...rest
   } = options;
   if (session !== undefined) queryClient.setQueryData(sessionKey, session);
   function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <AppProviders client={queryClient} store={store} i18n={i18n}>
+      <AppProviders client={queryClient} store={store} i18n={i18n} registry={registry}>
         <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
       </AppProviders>
     );
@@ -59,7 +64,9 @@ type InitialEntry = string | { pathname: string; search?: string; state?: unknow
 
 interface AppOptions {
   entry?: InitialEntry;
+  /** Replaces the generated routes entirely. */
   routes?: RouteObject[];
+  registry?: Registry;
   queryClient?: QueryClient;
   store?: AppStore;
   session?: Session | null;
@@ -75,7 +82,8 @@ interface AppResult extends RenderResult {
 export function renderApp(options: AppOptions = {}): AppResult {
   const {
     entry = '/',
-    routes = appRoutes,
+    registry = appRegistry,
+    routes = createRoutes(registry),
     queryClient = createTestQueryClient(),
     store = createStore(),
     session,
@@ -83,7 +91,7 @@ export function renderApp(options: AppOptions = {}): AppResult {
   if (session !== undefined) queryClient.setQueryData(sessionKey, session);
   const router = createMemoryRouter(routes, { initialEntries: [entry] });
   const result = render(
-    <AppProviders client={queryClient} store={store} i18n={i18n}>
+    <AppProviders client={queryClient} store={store} i18n={i18n} registry={registry}>
       <RouterProvider router={router} />
     </AppProviders>,
   );
