@@ -21,6 +21,8 @@
     "test": "pnpm -r --if-present run test",
     "e2e": "pnpm --filter web e2e",
     "analyze": "pnpm --filter web analyze",
+    "budget": "node scripts/bundle-budget.mjs",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
     "gen:api": "pnpm --filter @mediflow/contract gen"
   },
   "simple-git-hooks": {

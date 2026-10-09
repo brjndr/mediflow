@@ -29,7 +29,36 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm test:scripts
       - run: pnpm build
+
+      # On a pull request, build the base branch too, so the report can show what the PR changes.
+      # A failure here only loses the comparison: the budgets below are still enforced.
+      - name: Measure the base branch bundle
+        if: github.event_name == 'pull_request'
+        id: base
+        continue-on-error: true
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --depth=1 origin "$BASE_REF"
+          git worktree add ../base FETCH_HEAD
+          cd ../base
+          pnpm install --frozen-lockfile
+          pnpm --filter web build
+          # The script comes from this PR, so the base branch does not need to have it.
+          node "$GITHUB_WORKSPACE/scripts/bundle-budget.mjs" \
+            --dist apps/web/dist --json "$RUNNER_TEMP/base-bundle.json" --measure-only
+
+      - name: Bundle budgets
+        env:
+          BASE_MEASURED: ${{ steps.base.outcome }}
+        run: |
+          if [ "$BASE_MEASURED" = "success" ]; then
+            pnpm budget --baseline "$RUNNER_TEMP/base-bundle.json"
+          else
+            pnpm budget
+          fi
       - name: Contract types are up to date
         run: |
           pnpm gen:api
