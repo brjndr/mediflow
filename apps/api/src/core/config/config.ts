@@ -28,6 +28,12 @@ const ConfigSchema = Type.Object({
   DATABASE_URL: Type.String({ pattern: '^postgres(ql)?://.+' }),
   /** Upper bound on pooled connections. Small, because each request holds one for its duration. */
   DATABASE_POOL_MAX: Type.Integer({ minimum: 1, maximum: 100, default: 10 }),
+  /** Where staff email is handed off, e.g. smtp://user:pass@host:587. */
+  SMTP_URL: Type.String({ pattern: '^smtps?://.+' }),
+  /** The From header of every email, e.g. `Mediflow <no-reply@example.com>`. */
+  MAIL_FROM: Type.String({ minLength: 3 }),
+  /** Public address of the web app. Links in emails are built from it, and from nothing else. */
+  APP_BASE_URL: Type.String({ pattern: '^https?://[^/?#]+$' }),
 });
 
 export type Config = Static<typeof ConfigSchema>;
@@ -39,6 +45,13 @@ export type Config = Static<typeof ConfigSchema>;
 const LOCAL_DATABASE = {
   development: 'postgres://mediflow:mediflow@localhost:5432/mediflow',
   test: 'postgres://mediflow:mediflow@localhost:5432/mediflow_test',
+} as const;
+
+/** Mailpit from docker-compose.yml, and the Vite dev server. Never used in production. */
+const LOCAL_SERVICES = {
+  SMTP_URL: 'smtp://localhost:1025',
+  MAIL_FROM: 'Mediflow <no-reply@mediflow.test>',
+  APP_BASE_URL: 'http://localhost:5173',
 } as const;
 
 export class ConfigError extends Error {
@@ -58,11 +71,14 @@ export function loadConfig(env: Env = process.env): Config {
       ? (env.DATABASE_URL_TEST ?? LOCAL_DATABASE.test)
       : (env.DATABASE_URL ?? (mode === 'development' ? LOCAL_DATABASE.development : undefined));
 
-  const picked: Record<string, unknown> = { DATABASE_URL: databaseUrl };
+  // Outside production the local services stand in for anything not set. In production these
+  // have no default: a missing one stops the process.
+  const picked: Record<string, unknown> =
+    mode === 'development' || mode === 'test' ? { ...LOCAL_SERVICES } : {};
+  if (databaseUrl !== undefined) picked.DATABASE_URL = databaseUrl;
   for (const key of Object.keys(ConfigSchema.properties)) {
     if (key !== 'DATABASE_URL' && env[key] !== undefined && env[key] !== '') picked[key] = env[key];
   }
-  if (picked.DATABASE_URL === undefined) delete picked.DATABASE_URL;
 
   // Environment values are strings: fill defaults, then convert "3000" to 3000 where needed.
   const candidate = Value.Convert(ConfigSchema, Value.Default(ConfigSchema, picked));
