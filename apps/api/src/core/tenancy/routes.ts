@@ -42,8 +42,6 @@ export const Tenant = Type.Object(
 export type Tenant = Static<typeof Tenant>;
 
 export const tenantRoutes: FastifyPluginAsyncTypebox = async (app) => {
-  app.addSchema(Tenant);
-
   app.get(
     '/tenant',
     {
@@ -62,21 +60,29 @@ export const tenantRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!tenant) throw new HttpError(409, 'no_active_tenant', 'The hospital no longer exists');
       const flags = await request.tx.select().from(tenantFeatures);
 
-      return {
-        id: tenant.id,
-        slug: tenant.slug,
-        name: tenant.name,
-        locale: tenant.locale,
-        timezone: tenant.timezone,
-        currency: tenant.currency,
-        theme: {
-          primary: tenant.themePrimary,
-          ...(tenant.themeLogoUrl ? { logoUrl: tenant.themeLogoUrl } : {}),
-        },
-        features: Object.fromEntries(flags.map((flag) => [flag.feature, flag.enabled])),
-        auth: { mode: tenant.authMode },
-        status: tenant.status,
-      };
+      return toTenant(tenant, flags);
     },
   );
 };
+
+/** The API shape of a hospital, from its row and its module flags. */
+export function toTenant(
+  tenant: typeof tenants.$inferSelect,
+  flags: (typeof tenantFeatures.$inferSelect)[],
+): Tenant {
+  return {
+    id: tenant.id,
+    slug: tenant.slug,
+    name: tenant.name,
+    locale: tenant.locale,
+    timezone: tenant.timezone,
+    currency: tenant.currency,
+    theme: {
+      primary: tenant.themePrimary,
+      ...(tenant.themeLogoUrl ? { logoUrl: tenant.themeLogoUrl } : {}),
+    },
+    features: Object.fromEntries(flags.map((flag) => [flag.feature, flag.enabled])),
+    auth: { mode: tenant.authMode },
+    status: tenant.status,
+  };
+}

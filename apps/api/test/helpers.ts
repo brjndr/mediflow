@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { buildApp, type AppOptions } from '../src/app.js';
+import { hashPassword } from '../src/core/auth/password.js';
 import { loadConfig, type Config } from '../src/core/config/config.js';
 import type { Session } from '../src/core/session/plugin.js';
 import { APP_ROLE } from '../src/core/tenancy/plugin.js';
@@ -25,7 +26,7 @@ export async function buildTestApp(options: TestAppOptions = {}): Promise<Fastif
 }
 
 /**
- * Stands in for authentication, which does not exist yet: the session is read from a header that
+ * Stands in for authentication in tests that are not about it: the session is read from a header that
  * only this resolver understands. `x-test-session: <userId>` or `<userId>:<tenantId>`.
  */
 export const TEST_SESSION_HEADER = 'x-test-session';
@@ -114,4 +115,57 @@ export async function asTenantSql<T>(
     await client.query('rollback');
     client.release();
   }
+}
+
+export interface TestUser {
+  id: string;
+  email: string;
+  password: string;
+}
+
+/** A password that passes the rule. Tests that need a wrong one change it. */
+export const TEST_PASSWORD = 'correct horse battery staple';
+
+/**
+ * Creates a person who can sign in with a password, through the owner connection, as inviting
+ * staff will. Emails carry a random part so test files and repeated runs never collide.
+ */
+export async function createUser(
+  pool: pg.Pool,
+  name: string,
+  overrides: { password?: string; status?: 'active' | 'disabled'; withPassword?: boolean } = {},
+): Promise<TestUser> {
+  const password = overrides.password ?? TEST_PASSWORD;
+  const email = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '.')}.${Math.random().toString(36).slice(2, 8)}@staff.test`;
+  const { rows } = await pool.query<{ id: string }>(
+    'insert into users (email, name, status) values ($1, $2, $3) returning id',
+    [email, name, overrides.status ?? 'active'],
+  );
+  const id = rows[0]?.id;
+  if (!id) throw new Error('user was not created');
+  if (overrides.withPassword !== false) {
+    await pool.query(
+      "insert into user_identities (user_id, provider, subject, secret_hash) values ($1::uuid, 'password', $1::text, $2)",
+      [id, await hashPassword(password)],
+    );
+  }
+  return { id, email, password };
+}
+
+export async function addMembership(
+  pool: pg.Pool,
+  user: TestUser,
+  tenant: TestTenant,
+  roleId = 'doctor',
+): Promise<void> {
+  await pool.query('insert into memberships (tenant_id, user_id, role_id) values ($1, $2, $3)', [
+    tenant.id,
+    user.id,
+    roleId,
+  ]);
+}
+
+/** Removes test users and, by cascade, their identities, memberships and sessions. */
+export async function deleteUsers(pool: pg.Pool, users: TestUser[]): Promise<void> {
+  await pool.query('delete from users where id = any($1::uuid[])', [users.map((user) => user.id)]);
 }

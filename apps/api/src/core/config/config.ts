@@ -34,6 +34,22 @@ const ConfigSchema = Type.Object({
   MAIL_FROM: Type.String({ minLength: 3 }),
   /** Public address of the web app. Links in emails are built from it, and from nothing else. */
   APP_BASE_URL: Type.String({ pattern: '^https?://[^/?#]+$' }),
+  /** A session unused for this long ends. Per-hospital configuration comes later. */
+  SESSION_IDLE_MINUTES: Type.Integer({ minimum: 1, maximum: 1440, default: 30 }),
+  /** A session ends this long after sign-in, however active it is. */
+  SESSION_ABSOLUTE_HOURS: Type.Integer({ minimum: 1, maximum: 168, default: 12 }),
+  /** How often an active session's token is replaced. */
+  SESSION_ROTATE_MINUTES: Type.Integer({ minimum: 1, maximum: 1440, default: 15 }),
+  /** Failed sign-ins on one account before it is locked for LOGIN_LOCK_MINUTES. */
+  LOGIN_MAX_FAILURES: Type.Integer({ minimum: 1, maximum: 100, default: 5 }),
+  LOGIN_LOCK_MINUTES: Type.Integer({ minimum: 1, maximum: 1440, default: 15 }),
+  /** Sign-in attempts allowed per client address per minute, across all accounts. */
+  AUTH_RATE_LIMIT_PER_MINUTE: Type.Integer({ minimum: 1, maximum: 10_000, default: 10 }),
+  /**
+   * Set when the API runs behind a load balancer or proxy, so the client address comes from the
+   * forwarded header. Leave off otherwise: a client could then forge its own address.
+   */
+  TRUST_PROXY: Type.Boolean({ default: false }),
 });
 
 export type Config = Static<typeof ConfigSchema>;

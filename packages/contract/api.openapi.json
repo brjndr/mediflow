@@ -30,6 +30,114 @@
           }
         }
       },
+      "Membership": {
+        "type": "object",
+        "required": ["tenantId", "tenantName", "roleId"],
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          },
+          "tenantName": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": ["id", "email", "name", "memberships"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Membership"
+            }
+          }
+        }
+      },
+      "PermissionGrant": {
+        "type": "object",
+        "required": ["permission"],
+        "properties": {
+          "permission": {
+            "description": "resource:action",
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["all", "own", "department"]
+          }
+        }
+      },
+      "AccessPolicy": {
+        "type": "object",
+        "required": ["tenantId", "roleId", "permissions", "features", "version"],
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionGrant"
+            }
+          },
+          "features": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "required": ["user", "activeTenant", "policy"],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "activeTenant": {
+            "description": "Null until a user with several hospitals picks one.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Tenant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "policy": {
+            "description": "Null when there is no active tenant. Also null until roles and permissions exist in the API (BE-05).",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccessPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "Tenant": {
         "type": "object",
         "required": [
@@ -167,6 +275,206 @@
         }
       }
     },
+    "/auth/login": {
+      "post": {
+        "operationId": "login",
+        "tags": ["auth"],
+        "description": "Signs in with email and password and starts a session, returned as an httpOnly cookie. Every failure has the same answer.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {
+                    "minLength": 1,
+                    "maxLength": 254,
+                    "type": "string"
+                  },
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "tags": ["auth"],
+        "description": "Ends the session, on the server and in the browser. Succeeds whether or not there was one.",
+        "responses": {
+          "204": {
+            "description": "Signed out"
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/session": {
+      "get": {
+        "operationId": "getSession",
+        "tags": ["auth"],
+        "description": "Bootstraps the app in one request: the signed-in user, the active tenant with its config, and the effective access policy. Private per session, never CDN-cached. Session routes ignore X-Tenant-ID, so a stale tab can always reload its session.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/session/switch-tenant": {
+      "post": {
+        "operationId": "switchTenant",
+        "tags": ["auth"],
+        "description": "Rebinds the session to another hospital the user belongs to and returns the new session. Affects every tab.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["tenantId"],
+                "properties": {
+                  "tenantId": {
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -224,6 +532,10 @@
     {
       "name": "tenancy",
       "description": "The active hospital and its configuration"
+    },
+    {
+      "name": "auth",
+      "description": "Sign-in and the session"
     }
   ]
 }
