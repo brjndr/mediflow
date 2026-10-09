@@ -18,6 +18,7 @@ export const healthRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     '/health',
     {
+      config: { access: 'public' },
       schema: {
         operationId: 'getHealth',
         tags: ['system'],
@@ -32,6 +33,7 @@ export const healthRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     '/health/ready',
     {
+      config: { access: 'public' },
       schema: {
         operationId: 'getReadiness',
         tags: ['system'],

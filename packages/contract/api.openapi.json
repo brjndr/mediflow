@@ -30,6 +30,81 @@
           }
         }
       },
+      "Tenant": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "locale",
+          "timezone",
+          "currency",
+          "theme",
+          "features",
+          "auth",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "locale": {
+            "description": "BCP 47, e.g. en-IN",
+            "type": "string"
+          },
+          "timezone": {
+            "description": "IANA, e.g. Asia/Kolkata",
+            "type": "string"
+          },
+          "currency": {
+            "description": "ISO 4217",
+            "type": "string"
+          },
+          "theme": {
+            "type": "object",
+            "required": ["primary"],
+            "properties": {
+              "primary": {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "description": "Brand colour as six-digit hex. Must read as text on a white background (contrast of at least 4.5:1); the web app falls back to its default colour otherwise.",
+                "type": "string"
+              },
+              "logoUrl": {
+                "description": "https or same-origin URL of the hospital logo (SVG or WebP, at most 50 kB).",
+                "type": "string"
+              }
+            }
+          },
+          "features": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "description": "Module flags. A module that is absent is off."
+          },
+          "auth": {
+            "type": "object",
+            "required": ["mode"],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": ["password", "sso"]
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "suspended"],
+            "description": "A suspended hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended."
+          }
+        }
+      },
       "Health": {
         "type": "object",
         "required": ["status"],
@@ -43,6 +118,55 @@
     }
   },
   "paths": {
+    "/tenant": {
+      "get": {
+        "operationId": "getTenant",
+        "tags": ["tenancy"],
+        "description": "The active hospital of the session and its configuration. Private per session, never CDN-cached.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tenant"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -96,6 +220,10 @@
     {
       "name": "system",
       "description": "Health and readiness"
+    },
+    {
+      "name": "tenancy",
+      "description": "The active hospital and its configuration"
     }
   ]
 }

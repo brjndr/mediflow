@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/tenant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The active hospital of the session and its configuration. Private per session, never CDN-cached. */
+        get: operations["getTenant"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -136,21 +153,6 @@ export interface components {
                 requestId?: string;
             };
         };
-        Health: {
-            /** @enum {string} */
-            status: "ok";
-        };
-        Membership: {
-            tenantId: string;
-            tenantName: string;
-            roleId: string;
-        };
-        User: {
-            id: string;
-            email: string;
-            name: string;
-            memberships: components["schemas"]["Membership"][];
-        };
         Tenant: {
             id: string;
             slug: string;
@@ -167,6 +169,7 @@ export interface components {
                 /** @description https or same-origin URL of the hospital logo (SVG or WebP, at most 50 kB). */
                 logoUrl?: string;
             };
+            /** @description Module flags. A module that is absent is off. */
             features: {
                 [key: string]: boolean;
             };
@@ -179,6 +182,21 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "suspended";
+        };
+        Health: {
+            /** @enum {string} */
+            status: "ok";
+        };
+        Membership: {
+            tenantId: string;
+            tenantName: string;
+            roleId: string;
+        };
+        User: {
+            id: string;
+            email: string;
+            name: string;
+            memberships: components["schemas"]["Membership"][];
         };
         PermissionGrant: {
             /** @description resource:action */
@@ -239,6 +257,53 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tenant"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getHealth: {
         parameters: {
             query?: never;

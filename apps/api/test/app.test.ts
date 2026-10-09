@@ -87,7 +87,9 @@ describe('API', () => {
 describe('readiness without a database', () => {
   it('answers 503 with the standard error body', async () => {
     // Nothing listens on this port, so every connection attempt is refused at once.
-    const app = await buildTestApp({ DATABASE_URL: 'postgres://nobody:nothing@127.0.0.1:1/none' });
+    const app = await buildTestApp({
+      config: { DATABASE_URL: 'postgres://nobody:nothing@127.0.0.1:1/none' },
+    });
     try {
       const response = await app.inject({ method: 'GET', url: '/health/ready' });
       expect(response.statusCode).toBe(503);

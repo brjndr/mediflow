@@ -26,7 +26,10 @@ export const openApiPlugin = fp(
           description:
             'Generated from the API route schemas by `pnpm gen:api`. Do not edit by hand.',
         },
-        tags: [{ name: 'system', description: 'Health and readiness' }],
+        tags: [
+          { name: 'system', description: 'Health and readiness' },
+          { name: 'tenancy', description: 'The active hospital and its configuration' },
+        ],
       },
       // Name components after the schema's $id instead of def-0, def-1, ...
       refResolver: {

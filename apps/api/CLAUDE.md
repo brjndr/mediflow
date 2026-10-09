@@ -25,6 +25,9 @@ src/
     db/           # pool, Drizzle client, migration runner
     http/         # the error body and the error handlers
     logging/      # pino options and redaction
+    openapi/      # contract generation and its version
+    session/      # who is asking; route access levels
+    tenancy/      # tenants tables, the per-request tenant transaction, GET /tenant
   features/<name>/
     index.ts        # the feature's Fastify plugin
     routes.ts       # TypeBox-schema routes
@@ -36,7 +39,7 @@ src/
 test/             # global setup and helpers; tests live next to the code they cover
 ```
 
-`core/session`, `core/tenancy`, `core/access`, `core/audit`, `core/outbox`, `core/jobs` and `core/notifier` arrive with the issues that build them. A feature folder has only the files it needs: `features/health` has `index.ts` and `routes.ts`.
+`core/access`, `core/audit`, `core/outbox`, `core/jobs` and `core/notifier` arrive with the issues that build them. A feature folder has only the files it needs: `features/health` has `index.ts` and `routes.ts`.
 
 ## Rules
 
@@ -45,6 +48,28 @@ test/             # global setup and helpers; tests live next to the code they c
 - **Errors are thrown, not sent.** `throw new HttpError(status, 'stable_code', 'message for developers')`. The handler turns it into the standard body. Codes are stable and machine-readable; messages never contain patient data.
 - **A feature is an encapsulated plugin.** Shared, app-wide plugins (database, later session and tenancy) use `fastify-plugin`; features do not.
 - **Config comes from `app.config`,** never from `process.env` in feature code. Add a variable to the schema in `core/config`.
+
+## Sessions, tenants and row-level security
+
+- **A route is closed unless it says otherwise.** `config: { access: 'public' | 'session' | 'tenant' }`, and the default is `tenant`: a session with an active hospital. Health checks are `public`.
+- **The session resolver is injected.** `buildApp(config, { resolveSession })`. Until authentication exists (M2) the default resolves nothing, so every non-public route answers 401. Tests pass `resolveTestSession` from `test/helpers.ts`.
+- **A tenant route runs in the request's transaction.** The tenancy hook checks out a connection, begins, runs `SET LOCAL ROLE mediflow_app` and sets `app.tenant_id` from the session. Use `request.tx` for every query; never `app.database.pool` in a tenant route, which would run as the owner outside the tenant's scope. The transaction commits when the handler succeeds and rolls back when it throws.
+- **The tenant comes from the session only.** Never from a path, query string, body or header. `X-Tenant-ID` is checked against the session and a mismatch is a 409 `tenant_mismatch`.
+- **Do not add `WHERE tenant_id = ...` as the isolation mechanism.** Row-level security is the mechanism; a filter in application code is one forgotten clause away from a leak. (Filtering by tenant_id for index use is fine.)
+- **Every tenant table follows the template:**
+  ```sql
+  CREATE TABLE things (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id uuid NOT NULL REFERENCES tenants (id),
+    ...
+  );
+  CREATE INDEX things_tenant_x ON things (tenant_id, x);
+  SELECT enable_tenant_rls('things');            -- or enable_tenant_rls('things', 'SELECT')
+  ```
+  The function refuses a table without `tenant_id uuid NOT NULL` or without an index starting with `tenant_id`, then enables and forces row-level security, adds the `tenant_isolation` policy and grants the app role. A test fails if any table with a `tenant_id` column lacks any of that.
+- **A statement Postgres refuses** (a policy violation or a missing grant, SQLSTATE 42501) is answered with 403 `forbidden` and logged as a warning. It means code tried to cross a boundary.
+- **Cross-tenant tests are mandatory** for every tenant table and endpoint: see `test/tenancy.test.ts` for the pattern (`createTenant`, `asTenantSql`, `as(tenantId)`).
+- **Production database roles:** migrations run as a privileged login. The API should connect as a separate login that is a member of `mediflow_app` and is neither a superuser nor the table owner, so that leaving the app role is impossible, not just unexpected. Local development and CI connect as the owner and rely on `SET LOCAL ROLE`.
 
 ## Contract
 
