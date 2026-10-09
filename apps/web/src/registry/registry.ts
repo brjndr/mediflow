@@ -1,7 +1,31 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import { isAllowed, isFeatureEnabled } from '@/access';
 import type { AccessPolicy, Permission } from '@/shared/types';
-import type { FeatureManifest, FeatureNav, FeatureSettings, SlotId, SlotProps } from './types';
+import type {
+  FeatureI18n,
+  FeatureManifest,
+  FeatureNav,
+  FeatureSettings,
+  SlotId,
+  SlotProps,
+} from './types';
+
+/** i18n namespace that holds every feature's bundled titles, nested under the feature id. */
+export const FEATURE_TITLES_NS = 'features';
+const RESERVED_NAMESPACES = new Set(['common', FEATURE_TITLES_NS]);
+
+/** What the i18n layer needs from the registered features. */
+export interface FeatureTranslations {
+  /** language -> feature id -> title strings, for the `features` namespace. */
+  titles: Record<string, Record<string, Record<string, string>>>;
+  /** Namespace (the feature id) -> loader for its screen strings. */
+  loaders: Record<string, FeatureI18n['load']>;
+}
+
+/** Where core finds a feature's title: its own bundled titles, or core `common` without i18n. */
+function titleKeyOf(feature: FeatureManifest): string {
+  return feature.i18n ? `${FEATURE_TITLES_NS}:${feature.id}.${feature.titleKey}` : feature.titleKey;
+}
 
 export interface RegisteredRoute {
   featureId: string;
@@ -13,6 +37,7 @@ export interface RegisteredRoute {
 
 export interface NavItem {
   featureId: string;
+  /** Ready to pass to `t()`. */
   titleKey: string;
   /** Absolute path to link to. */
   to: string;
@@ -37,6 +62,7 @@ export interface SettingsSection extends FeatureSettings {
  */
 export interface Registry {
   features: readonly FeatureManifest[];
+  translations: FeatureTranslations;
   /** Every registered route. Access is checked when a route renders, not when it is registered. */
   routes: readonly RegisteredRoute[];
   /** Features whose flag is on for this hospital. */
@@ -60,6 +86,14 @@ function validate(manifests: readonly FeatureManifest[]): string[] {
     if (ids.has(feature.id)) problems.push(`${at} is registered more than once.`);
     ids.add(feature.id);
     if (!feature.featureFlag) problems.push(`${at} has no featureFlag.`);
+    if (feature.i18n) {
+      if (RESERVED_NAMESPACES.has(feature.id)) {
+        problems.push(`${at} uses an id reserved as an i18n namespace.`);
+      }
+      if (!feature.i18n.titles.en?.[feature.titleKey]) {
+        problems.push(`${at} has no English title for "${feature.titleKey}" in i18n.titles.`);
+      }
+    }
 
     const declared = new Set<string>(feature.permissions);
     for (const permission of feature.permissions) {
@@ -159,8 +193,18 @@ export function createRegistry(manifests: readonly FeatureManifest[]): Registry 
     })),
   ]);
 
+  const translations: FeatureTranslations = { titles: {}, loaders: {} };
+  for (const feature of manifests) {
+    if (!feature.i18n) continue;
+    translations.loaders[feature.id] = feature.i18n.load;
+    for (const [language, titles] of Object.entries(feature.i18n.titles)) {
+      translations.titles[language] = { ...translations.titles[language], [feature.id]: titles };
+    }
+  }
+
   return {
     features: manifests,
+    translations,
     routes,
     enabledFeatures: (policy) =>
       manifests.filter((feature) => isFeatureEnabled(policy, feature.featureFlag)),
@@ -177,7 +221,12 @@ export function createRegistry(manifests: readonly FeatureManifest[]): Registry 
           const path = nav?.path ?? feature.routes[0]?.path;
           if (!nav || path === undefined) return [];
           return [
-            { featureId: feature.id, titleKey: feature.titleKey, to: `/${path}`, icon: nav.icon },
+            {
+              featureId: feature.id,
+              titleKey: titleKeyOf(feature),
+              to: `/${path}`,
+              icon: nav.icon,
+            },
           ];
         }),
     contributions: (slot, policy) =>
@@ -201,7 +250,9 @@ export function createRegistry(manifests: readonly FeatureManifest[]): Registry 
           requires: settings.requires,
           featureFlag: feature.featureFlag,
         });
-        return allowed ? [{ ...settings, featureId: feature.id, titleKey: feature.titleKey }] : [];
+        return allowed
+          ? [{ ...settings, featureId: feature.id, titleKey: titleKeyOf(feature) }]
+          : [];
       }),
   };
 }

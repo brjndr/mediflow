@@ -1,6 +1,8 @@
 export { appRegistry } from './app-registry';
 export {
   createRegistry,
+  FEATURE_TITLES_NS,
+  type FeatureTranslations,
   type NavItem,
   type RegisteredRoute,
   type Registry,
@@ -17,6 +19,7 @@ export { RegistryProvider } from './RegistryProvider';
 export { Slot } from './Slot';
 export type {
   DashboardWidget,
+  FeatureI18n,
   FeatureManifest,
   FeatureNav,
   FeatureRoute,
@@ -25,4 +28,5 @@ export type {
   SlotContribution,
   SlotId,
   SlotProps,
+  TranslationTree,
 } from './types';

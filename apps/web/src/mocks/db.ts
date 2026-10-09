@@ -273,6 +273,13 @@ export function setTenantFeature(tenantId: string, flag: string, enabled: boolea
   revision++;
 }
 
+/** What a platform admin does: change a hospital's locale, which drives the UI language. */
+export function setTenantLocale(tenantId: string, locale: string): void {
+  const tenant = tenants[tenantId];
+  if (!tenant) throw new Error(`Unknown mock tenant: ${tenantId}`);
+  tenant.locale = locale;
+}
+
 /** The session a mock user would get, without changing who is signed in. For test fixtures. */
 export function sessionFor(userId: string, tenantId?: string): SessionDto {
   const previous = { ...state };
