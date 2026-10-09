@@ -13,7 +13,7 @@ pnpm --filter api test            # Vitest against the mediflow_test database
 docker build -f apps/api/Dockerfile -t mediflow-api .   # from the repo root
 ```
 
-Development and tests need no configuration: they default to the Docker Compose database. Production must set `DATABASE_URL`, `SMTP_URL`, `MAIL_FROM` and `APP_BASE_URL`, and the process refuses to start without them.
+Development and tests need no configuration: they default to the Docker Compose database. Production must set `DATABASE_URL`, `SMTP_URL`, `MAIL_FROM`, `APP_BASE_URL` and `MFA_ENCRYPTION_KEY` (`openssl rand -base64 32`), and the process refuses to start without them.
 
 ## Layout
 
@@ -22,7 +22,7 @@ src/
   app.ts          # buildApp(config): core plugins, then one register line per feature
   server.ts       # loads config, listens, shuts down on SIGTERM
   core/
-    auth/         # sign-in, the session cookie, sessions and their rotation, passwords
+    auth/         # sign-in, sessions, passwords, invites, password reset, the second factor
     config/       # environment, validated once at startup
     db/           # pool, Drizzle client, migration runner
     http/         # the error body and the error handlers
@@ -84,7 +84,11 @@ test/             # global setup and helpers; tests live next to the code they c
 - **Lockout and rate limit are separate.** `LOGIN_MAX_FAILURES` (5) wrong passwords lock the account for `LOGIN_LOCK_MINUTES` (15). `AUTH_RATE_LIMIT_PER_MINUTE` (10) limits sign-in attempts per client address; a route opts in with `config.rateLimit`. Behind a load balancer set `TRUST_PROXY=true`, or every client shares one address.
 - **Requests that change something must come from the web app.** A hook refuses any non-GET request whose `Origin` is not `APP_BASE_URL` (or whose `Sec-Fetch-Site` is cross-site) with 403 `cross_site_request`. Never make a GET route change state.
 - **Passwords:** Argon2id via `core/auth/password.ts` only. New passwords go through `passwordProblem` (at least 12 characters, no composition rules, obvious choices refused).
-- **In tests,** `createUser`, `addMembership` and `deleteUsers` from `test/helpers.ts`; sign in through `/auth/login` and pass the cookie. See `core/auth/auth.test.ts`.
+- **Links (invite, password reset)** carry a random token and the database its hash, like the session cookie. A link works once and expires (`INVITE_TTL_HOURS` 168, `PASSWORD_RESET_TTL_MINUTES` 30). Every way a link can be wrong has one answer, 400 `invalid_token`. A refused password does not use the link up.
+- **Inviting** is `issueInvite(client, config, ...)`, and it runs in the hospital's transaction, not the auth one: the hospital is the transaction's own tenant, never an argument. Call `sendInvite` after the commit. Accepting is the only way a membership is created, and a database policy refuses one that has no open invite for that person, hospital and role.
+- **Forgot password** always answers 204 and sends the email after the response, so neither the answer nor its timing shows whether the account exists. A reset ends every session of the user and leaves the second factor alone.
+- **Second factor:** TOTP through `core/auth/mfa.ts` only. Secrets are encrypted with `MFA_ENCRYPTION_KEY` and bound to the user; a code is accepted once; recovery codes are stored hashed and used once. Sign-in takes the code in the same request as the password (`code`), and a wrong code counts toward the lockout. Changing the second factor needs the password again.
+- **In tests,** `createUser`, `addMembership` and `deleteUsers` from `test/helpers.ts`; sign in through `/auth/login` and pass the cookie. See `core/auth/auth.test.ts`, and `core/auth/account.test.ts` for links and codes.
 
 ## Notifications
 

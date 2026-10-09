@@ -10,13 +10,15 @@ import { loadSessionView, Session } from './session-view.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** One message for every failed sign-in. It must never say which part was wrong. */
-const INVALID_CREDENTIALS = () =>
-  new HttpError(
-    401,
-    'invalid_credentials',
-    'Email or password is incorrect, or the account is temporarily locked',
-  );
+/**
+ * One message for every failed first step. It must never say which part was wrong. The two
+ * second-factor answers are given only after the right password.
+ */
+const LOGIN_FAILURES = {
+  invalid_credentials: 'Email or password is incorrect, or the account is temporarily locked',
+  mfa_required: 'Enter the code from your authenticator app',
+  invalid_mfa_code: 'That code is not valid',
+} as const;
 const NOT_A_MEMBER = () => new HttpError(403, 'not_a_member', 'No membership in that tenant');
 
 export const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
@@ -35,27 +37,36 @@ export const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'login',
         tags: ['auth'],
         description:
-          'Signs in with email and password and starts a session, returned as an httpOnly cookie. Every failure has the same answer.',
+          'Signs in with email and password and starts a session, returned as an httpOnly cookie. Every failure of the email and password has the same answer, 401 invalid_credentials. An account with an authenticator answers 401 mfa_required until the request also carries `code`, and 401 invalid_mfa_code when the code is wrong.',
         body: Type.Object({
           email: Type.String({ minLength: 1, maxLength: 254 }),
           password: Type.String({ minLength: 1, maxLength: 1024 }),
+          code: Type.Optional(
+            Type.String({
+              minLength: 1,
+              maxLength: 32,
+              description:
+                'Authenticator code, or a recovery code. Only for accounts that have one.',
+            }),
+          ),
         }),
         response: { 200: ref(Session), ...errors(400, 401, 403, 429) },
       },
     },
     async (request, reply) => {
-      const { email, password } = request.body;
+      const { email, password, code } = request.body;
       const previousToken = app.auth.tokenOf(request);
 
-      // The transaction commits whether or not the password was right, because a wrong one has
-      // to be counted. The 401 is thrown afterwards.
+      // The transaction commits whether or not sign-in succeeded, because a wrong password or
+      // code has to be counted. The 401 is thrown afterwards.
       const result = await withAuthTransaction(pool, async (transaction) => {
         const { client, identify } = transaction;
-        const userId =
+        const outcome =
           password.length > MAX_PASSWORD_LENGTH
-            ? null
-            : await authenticate(transaction, config, email, password);
-        if (!userId) return null;
+            ? ({ ok: false, reason: 'invalid_credentials' } as const)
+            : await authenticate(transaction, config, { email, password, code });
+        if (!outcome.ok) return outcome;
+        const { userId } = outcome;
 
         await identify(userId);
         // A browser that signs in again gets a new session. The old one is ended, so a token
@@ -70,10 +81,10 @@ export const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
         const tenantId =
           memberships.rows.length === 1 ? (memberships.rows[0]?.tenant_id ?? null) : null;
         const { token } = await createSession(client, config, { userId, tenantId });
-        return { token, view: await loadSessionView(client, userId, tenantId) };
+        return { ok: true as const, token, view: await loadSessionView(client, userId, tenantId) };
       });
 
-      if (!result) throw INVALID_CREDENTIALS();
+      if (!result.ok) throw new HttpError(401, result.reason, LOGIN_FAILURES[result.reason]);
       app.auth.setSessionCookie(reply, result.token);
       void reply.header('cache-control', 'no-store');
       return result.view;

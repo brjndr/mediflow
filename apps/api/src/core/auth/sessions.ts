@@ -55,6 +55,10 @@ export function hashToken(token: string): Buffer {
 /** Tokens this module issues are 43 base64url characters. Anything else is not looked up. */
 const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
 
+/** Whether a string could be a token from `newToken` at all. Session, invite and reset links share the shape. */
+export const isToken = (value: string | undefined): value is string =>
+  value !== undefined && TOKEN_SHAPE.test(value);
+
 export async function createSession(
   client: pg.PoolClient,
   config: SessionConfig,
