@@ -1,8 +1,5 @@
-import { createBrowserRouter, type RouteObject } from 'react-router-dom';
-import { HomePage } from './HomePage';
-
-// F-08 replaces this with routes generated from the feature registry.
-export const routes: RouteObject[] = [{ path: '/', element: <HomePage /> }];
+import { createBrowserRouter } from 'react-router-dom';
+import { routes } from '@/routes';
 
 export function createRouter(): ReturnType<typeof createBrowserRouter> {
   return createBrowserRouter(routes);

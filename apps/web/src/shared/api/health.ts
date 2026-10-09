@@ -1,9 +1,10 @@
 import type { components } from '@mediflow/contract';
 import { useQuery } from '@tanstack/react-query';
+import { env } from '@/shared/config/env';
 
 export type Health = components['schemas']['Health'];
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
+const API_BASE = env.apiBaseUrl;
 
 export async function fetchHealth(signal?: AbortSignal): Promise<Health> {
   const res = await fetch(`${API_BASE}/health`, { signal, credentials: 'include' });
