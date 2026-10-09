@@ -64,10 +64,36 @@ export interface FeatureSettings {
   requires: Permission[];
 }
 
+/** Nested translation strings, as in a locale JSON file. */
+export interface TranslationTree {
+  [key: string]: string | TranslationTree;
+}
+
+/**
+ * A feature's own translations, so adding a feature never edits core locale files.
+ * Screens use the feature id as their namespace: `useTranslation('patients')`.
+ */
+export interface FeatureI18n {
+  /**
+   * Strings core needs before the feature's code loads (the nav title, the settings section
+   * title), by language. Bundled with the manifest, so keep this to a few short strings.
+   * English is required; other languages fall back to it.
+   */
+  titles: { en: Record<string, string> } & Record<string, Record<string, string>>;
+  /**
+   * Loads the screen strings for one language on demand, usually
+   * `(language) => import(`./locales/${language}.json`)`.
+   * A language with no file falls back to English.
+   */
+  load: (language: string) => Promise<{ default: TranslationTree }>;
+}
+
 /** What a feature module declares in its manifest.ts. Routes, navigation and slots come from it. */
 export interface FeatureManifest {
   id: string;
+  /** Key of the feature's title in `i18n.titles`, or a key in core `common` when it has no i18n. */
   titleKey: string;
+  i18n?: FeatureI18n;
   /** Tenant-level on/off switch. The feature is unreachable in a hospital where it is off. */
   featureFlag: string;
   routes: FeatureRoute[];

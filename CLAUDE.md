@@ -521,7 +521,14 @@ export interface SlotProps {
 
 export interface FeatureManifest {
   id: string;
-  titleKey: string;
+  titleKey: string; // a key in i18n.titles (or in core `common` for a feature with no i18n)
+  // The feature's own translations. `titles` (nav and settings titles, per language, English
+  // required) are bundled with the manifest. `load` fetches the screen strings on demand into a
+  // namespace named after the feature id: useTranslation('patients').
+  i18n?: {
+    titles: { en: Record<string, string> } & Record<string, Record<string, string>>;
+    load: (language: string) => Promise<{ default: object }>;
+  };
   featureFlag: string;
   // path is relative, without a leading slash
   routes: { path: string; lazy: LazyComponent; requires: Permission[] }[];
@@ -740,7 +747,7 @@ Complete and test one module before starting the next. Ship each release to a pi
 - **Naming:** `PascalCase` components, `camelCase` functions/vars. Be consistent with existing files.
 - **Async UI:** every data view handles loading, empty, and error states.
 - **Dates and money:** store and transmit ISO strings (UTC) and minor-unit/decimal-safe amounts. Format only at the display layer using tenant locale, timezone, and currency.
-- **i18n:** no user-facing string literals in components. Use translation keys.
+- **i18n:** no user-facing string literals in components. Use translation keys. Core strings live in `app/locales/<language>/common.json`. A feature keeps its strings in its own folder and declares them in `manifest.i18n`, never in core locale files. The UI language follows the active hospital's locale (`hi-IN` uses the `hi` files) and falls back to English per language and per key. Tests fail on any rendered key that has no translation.
 - **Errors:** centralize API error handling in the API client wrapper. Surface user-friendly messages, never raw server errors.
 - **Accessibility:** semantic HTML, labelled inputs, keyboard-navigable tables and dialogs.
 

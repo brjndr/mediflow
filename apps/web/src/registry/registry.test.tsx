@@ -6,16 +6,14 @@ import { setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { apiFetch } from '@/shared/api';
 import type { AccessPolicy } from '@/shared/types';
-import { i18n, renderApp, renderWithProviders } from '@/test/render';
+import { renderApp, renderWithProviders } from '@/test/render';
 import { appRegistry, createRegistry, Slot, type FeatureManifest, type SlotProps } from '.';
 
-i18n.addResourceBundle(
-  'en',
-  'common',
-  { fixture: { lab: 'Laboratory', billing: 'Billing' } },
-  true,
-  true,
-);
+/** A feature's own translations: titles bundled with the manifest, no screen strings. */
+const i18nFor = (title: string): FeatureManifest['i18n'] => ({
+  titles: { en: { title } },
+  load: () => Promise.resolve({ default: {} }),
+});
 
 const NO_ACCESS = { name: 'You do not have access to this page' };
 const DENIED_URL = 'http://localhost:3000/api/denied';
@@ -38,7 +36,8 @@ function makeFeatures() {
   };
   const laboratory: FeatureManifest = {
     id: 'laboratory',
-    titleKey: 'fixture.lab',
+    titleKey: 'title',
+    i18n: i18nFor('Laboratory'),
     featureFlag: 'laboratory',
     routes: [{ path: 'lab/worklist', lazy: loaders.labPage, requires: ['clinical:read'] }],
     nav: { icon: FlaskConical, order: 30, requires: ['clinical:read'] },
@@ -51,7 +50,8 @@ function makeFeatures() {
   };
   const billing: FeatureManifest = {
     id: 'billing',
-    titleKey: 'fixture.billing',
+    titleKey: 'title',
+    i18n: i18nFor('Billing'),
     featureFlag: 'billing',
     routes: [{ path: 'billing/refunds', lazy: loaders.billingPage, requires: ['billing:refund'] }],
     nav: { icon: Receipt, order: 10, requires: ['billing:read'] },

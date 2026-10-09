@@ -25,7 +25,13 @@ void enableMocking().then(() => {
       <AppProviders
         client={createQueryClient()}
         store={createStore()}
-        i18n={createI18n()}
+        i18n={createI18n({
+          features: appRegistry.translations,
+          // Translation keys are not patient data, so a missing one is safe to report in dev.
+          onMissingKey: import.meta.env.DEV
+            ? (key) => console.warn(`Missing translation: ${key}`)
+            : undefined,
+        })}
         registry={appRegistry}
       >
         <RouterProvider router={createRouter(appRegistry)} />

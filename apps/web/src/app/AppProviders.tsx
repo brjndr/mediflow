@@ -7,6 +7,7 @@ import { AccessPolicyProvider } from '@/access';
 import { RegistryProvider, type Registry } from '@/registry';
 import { TenantProvider } from '@/tenancy';
 import { GlobalErrorBoundary } from './GlobalErrorBoundary';
+import { LanguageSync } from './LanguageSync';
 import { SessionProvider, useSession } from './session';
 import type { AppStore } from './store';
 
@@ -40,6 +41,7 @@ export function AppProviders({ client, store, i18n, registry, children }: AppPro
           <QueryClientProvider client={client}>
             <SessionProvider>
               <SessionScopedProviders>
+                <LanguageSync />
                 <RegistryProvider registry={registry}>{children}</RegistryProvider>
               </SessionScopedProviders>
             </SessionProvider>
