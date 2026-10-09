@@ -195,7 +195,7 @@ hms/
 
 - **Fastify + TypeScript**, run in dev with `tsx watch` (no build step). Production build with `tsup` or `tsc`.
 - **TypeBox** route schemas give validation, TypeScript types and OpenAPI from one definition. Every route declares request and response schemas and its required permissions.
-- **Drizzle ORM** with plain SQL migrations (`drizzle-kit`). RLS policies, the `tenant_id` convention and exclusion constraints are written as SQL in migrations. Migrations are additive.
+- **Drizzle ORM** with plain SQL migrations. Each migration is one new file, `apps/api/src/migrations/NNNN_what.sql`, applied in order by the API's own runner, which checksums every file and refuses to continue if an applied one was edited. (`drizzle-kit` is not used: its workflow rewrites a journal and fills in generated files, which conflicts with the rule that existing migrations are never modified.) RLS policies, the `tenant_id` convention and exclusion constraints are written as SQL in migrations. Migrations are additive. Backend-only rules are in `apps/api/CLAUDE.md`.
 - **Postgres is the only required service in phase 1:** sessions, job queue (**pg-boss**), the transactional outbox and in-process rate limits all live in or beside it. Keep cache, queue and rate limiting behind interfaces so Redis (BullMQ) can replace them in phase 2.
 - **Logging:** pino with a redaction config for PHI fields. Never log request or response bodies for patient routes.
 - **Security:** `@fastify/helmet`, `@fastify/rate-limit` (per tenant and per user), `@fastify/cookie`, strict CORS, `@node-rs/argon2`, `otplib` for TOTP MFA.

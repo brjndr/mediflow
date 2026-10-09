@@ -75,5 +75,26 @@ export default tseslint.config(
     files: ['apps/web/src/**/*.test.{ts,tsx}', 'apps/web/src/test/**', 'apps/web/e2e/**'],
     languageOptions: { globals: { ...globals.node, ...globals.vitest } },
   },
+  {
+    files: ['apps/api/**/*.ts'],
+    languageOptions: { globals: { ...globals.node } },
+    rules: {
+      '@typescript-eslint/consistent-type-imports': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      // The API logs through pino (request.log, app.log), which redacts patient fields.
+      'no-console': 'error',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'BinaryExpression[operator=/^[!=]==?$/]:matches([left.name=/^role(Id|Name)?$/i], [right.name=/^role(Id|Name)?$/i], [left.property.name=/^role(Id|Name)?$/i], [right.property.name=/^role(Id|Name)?$/i])',
+          message: ROLE_COMPARISON,
+        },
+      ],
+    },
+  },
   prettier,
 );
