@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { authPlugin } from './core/auth/plugin.js';
+import { accountRoutes } from './core/auth/account-routes.js';
 import { authRoutes } from './core/auth/routes.js';
 import type { Config } from './core/config/config.js';
 import { dbPlugin } from './core/db/plugin.js';
@@ -62,6 +63,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(tenancyPlugin);
   await app.register(tenantRoutes);
   await app.register(authRoutes);
+  await app.register(accountRoutes);
 
   // Features: one line each.
   await app.register(healthFeature);

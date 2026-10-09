@@ -5,6 +5,7 @@ import type pg from 'pg';
 import * as schema from '../db/schema.js';
 import { ref, StringEnum } from '../http/schemas.js';
 import { Tenant, toTenant } from '../tenancy/routes.js';
+import { isMfaEnabled } from './mfa.js';
 
 export const Membership = Type.Object(
   {
@@ -22,6 +23,7 @@ export const User = Type.Object(
     email: Type.String(),
     name: Type.String(),
     memberships: Type.Array(ref(Membership)),
+    mfaEnabled: Type.Boolean({ description: 'Whether sign-in asks for an authenticator code.' }),
   },
   { $id: 'User' },
 );
@@ -121,6 +123,7 @@ export async function loadSessionView(
         tenantName: row.tenant_name,
         roleId: row.role_id,
       })),
+      mfaEnabled: await isMfaEnabled(client, userId),
     },
     activeTenant,
     // Roles and permissions arrive with BE-05.

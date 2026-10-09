@@ -50,6 +50,15 @@ const ConfigSchema = Type.Object({
    * forwarded header. Leave off otherwise: a client could then forge its own address.
    */
   TRUST_PROXY: Type.Boolean({ default: false }),
+  /** How long an invitation link works. */
+  INVITE_TTL_HOURS: Type.Integer({ minimum: 1, maximum: 720, default: 168 }),
+  /** How long a password reset link works. */
+  PASSWORD_RESET_TTL_MINUTES: Type.Integer({ minimum: 5, maximum: 1440, default: 30 }),
+  /**
+   * Encrypts authenticator (TOTP) secrets at rest: 32 random bytes, base64. Generate with
+   * `openssl rand -base64 32`. Losing it means every user must set their authenticator up again.
+   */
+  MFA_ENCRYPTION_KEY: Type.String({ pattern: '^[A-Za-z0-9+/]{43}=$' }),
 });
 
 export type Config = Static<typeof ConfigSchema>;
@@ -68,6 +77,8 @@ const LOCAL_SERVICES = {
   SMTP_URL: 'smtp://localhost:1025',
   MAIL_FROM: 'Mediflow <no-reply@mediflow.test>',
   APP_BASE_URL: 'http://localhost:5173',
+  // Thirty-two zero bytes. It protects nothing, and production has no default.
+  MFA_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
 } as const;
 
 export class ConfigError extends Error {

@@ -248,6 +248,7 @@ export function currentSession(): SessionDto | null {
         ...m,
         tenantName: tenants[m.tenantId]?.name ?? '',
       })),
+      mfaEnabled: false,
     },
     activeTenant: state.activeTenantId ? (tenants[state.activeTenantId] ?? null) : null,
     policy: currentPolicy(),

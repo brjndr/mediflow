@@ -7,6 +7,7 @@ const production = {
   SMTP_URL: 'smtps://mailer:pw@smtp.example.com:465',
   MAIL_FROM: 'Mediflow <no-reply@example.com>',
   APP_BASE_URL: 'https://app.example.com',
+  MFA_ENCRYPTION_KEY: 'q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=',
 };
 
 describe('loadConfig', () => {
@@ -28,6 +29,9 @@ describe('loadConfig', () => {
       LOGIN_LOCK_MINUTES: 15,
       AUTH_RATE_LIMIT_PER_MINUTE: 10,
       TRUST_PROXY: false,
+      INVITE_TTL_HOURS: 168,
+      PASSWORD_RESET_TTL_MINUTES: 30,
+      MFA_ENCRYPTION_KEY: 'q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=',
     });
   });
 
@@ -60,7 +64,13 @@ describe('loadConfig', () => {
 
   it('refuses to start in production without its services: nothing local is assumed', () => {
     expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(ConfigError);
-    for (const name of ['DATABASE_URL', 'SMTP_URL', 'MAIL_FROM', 'APP_BASE_URL']) {
+    for (const name of [
+      'DATABASE_URL',
+      'SMTP_URL',
+      'MAIL_FROM',
+      'APP_BASE_URL',
+      'MFA_ENCRYPTION_KEY',
+    ]) {
       expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(new RegExp(name));
       const { [name]: _omitted, ...rest } = production as Record<string, string>;
       expect(() => loadConfig(rest)).toThrow(new RegExp(name));

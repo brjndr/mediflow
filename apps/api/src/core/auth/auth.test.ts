@@ -131,6 +131,7 @@ describe('signing in', () => {
         email: nurse.email,
         name: 'Nurse Nila',
         memberships: [{ tenantId: hospital.id, tenantName: 'Auth Hospital', roleId: 'nurse' }],
+        mfaEnabled: false,
       },
       activeTenant: expect.objectContaining({
         id: hospital.id,
@@ -678,17 +679,27 @@ describe('the authentication database role', () => {
     expect(seen).toEqual({ tenants: [hospital.id], members: [nurse.id] });
   });
 
-  it('cannot create, rename, promote or delete a user, or read past its grants', async () => {
+  it('cannot rename, promote, re-enable or delete a user, or reach past its grants', async () => {
     const attempts = [
-      "insert into users (email, name) values ('intruder@staff.test', 'Intruder')",
+      // A new account is a name and an email. Nothing else can be set, least of all this.
+      "insert into users (email, name, is_platform_admin) values ('intruder@staff.test', 'Intruder', true)",
+      "insert into users (email, name, status) values ('intruder@staff.test', 'Intruder', 'active')",
       "update users set email = 'taken@staff.test'",
       'update users set is_platform_admin = true',
       "update users set status = 'active'",
       'delete from users',
-      "update user_identities set secret_hash = 'x'",
-      "insert into memberships (tenant_id, user_id, role_id) select id, app_user_id(), 'admin' from tenants",
+      "update user_identities set provider = 'oidc'",
+      'update user_identities set user_id = app_user_id()',
+      'delete from user_identities',
+      "update memberships set role_id = 'admin'",
+      'delete from memberships',
       'delete from sessions',
       "update tenants set status = 'active'",
+      "insert into invites (tenant_id, email, name, role_id, token_hash, expires_at) select id, 'x@staff.test', 'X', 'admin', sha256('x'), now() from tenants",
+      "update invites set role_id = 'admin'",
+      'update invites set revoked_at = null',
+      'delete from invites',
+      'delete from password_resets',
     ];
 
     for (const statement of attempts) {
@@ -697,6 +708,17 @@ describe('the authentication database role', () => {
         statement,
       ).rejects.toThrow(PERMISSION_DENIED);
     }
+  });
+
+  it('cannot put a user into a hospital that has not invited them', async () => {
+    await expect(
+      asAuth(nurse.id, (client) =>
+        client.query(
+          "insert into memberships (tenant_id, user_id, role_id) values ($1, app_user_id(), 'admin')",
+          [elsewhere.id],
+        ),
+      ),
+    ).rejects.toThrow(/row-level security policy/);
   });
 
   it('is not a superuser and cannot bypass row-level security', async () => {

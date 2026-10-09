@@ -47,7 +47,7 @@
       },
       "User": {
         "type": "object",
-        "required": ["id", "email", "name", "memberships"],
+        "required": ["id", "email", "name", "memberships", "mfaEnabled"],
         "properties": {
           "id": {
             "type": "string"
@@ -63,6 +63,10 @@
             "items": {
               "$ref": "#/components/schemas/Membership"
             }
+          },
+          "mfaEnabled": {
+            "description": "Whether sign-in asks for an authenticator code.",
+            "type": "boolean"
           }
         }
       },
@@ -135,6 +139,49 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "InvitePreview": {
+        "type": "object",
+        "required": ["email", "hospitalName", "needsPassword"],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "hospitalName": {
+            "type": "string"
+          },
+          "needsPassword": {
+            "description": "False when this person already has an account: they only accept.",
+            "type": "boolean"
+          }
+        }
+      },
+      "MfaEnrollment": {
+        "type": "object",
+        "required": ["secret", "otpauthUri"],
+        "properties": {
+          "secret": {
+            "description": "Base32, for typing into an authenticator by hand.",
+            "type": "string"
+          },
+          "otpauthUri": {
+            "description": "For the QR code.",
+            "type": "string"
+          }
+        }
+      },
+      "RecoveryCodes": {
+        "type": "object",
+        "required": ["recoveryCodes"],
+        "properties": {
+          "recoveryCodes": {
+            "description": "One-time codes. Returned this once and never again.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -279,7 +326,7 @@
       "post": {
         "operationId": "login",
         "tags": ["auth"],
-        "description": "Signs in with email and password and starts a session, returned as an httpOnly cookie. Every failure has the same answer.",
+        "description": "Signs in with email and password and starts a session, returned as an httpOnly cookie. Every failure of the email and password has the same answer, 401 invalid_credentials. An account with an authenticator answers 401 mfa_required until the request also carries `code`, and 401 invalid_mfa_code when the code is wrong.",
         "requestBody": {
           "required": true,
           "content": {
@@ -296,6 +343,12 @@
                   "password": {
                     "minLength": 1,
                     "maxLength": 1024,
+                    "type": "string"
+                  },
+                  "code": {
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "description": "Authenticator code, or a recovery code. Only for accounts that have one.",
                     "type": "string"
                   }
                 }
@@ -463,6 +516,584 @@
             }
           },
           "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/invite/inspect": {
+      "post": {
+        "operationId": "inspectInvite",
+        "tags": ["auth"],
+        "description": "What the invite screen shows before the person accepts: which hospital, which email, and whether a password has to be chosen. The token is in the body, not the URL, so it is not logged.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token"],
+                "properties": {
+                  "token": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/invite/accept": {
+      "post": {
+        "operationId": "acceptInvite",
+        "tags": ["auth"],
+        "description": "Accepts an invite. Someone new sets their password here (400 password_required without one). Someone with an account needs only the token. The link works once. The person then signs in.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token"],
+                "properties": {
+                  "token": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "type": "string"
+                  },
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password/forgot": {
+      "post": {
+        "operationId": "forgotPassword",
+        "tags": ["auth"],
+        "description": "Emails a reset link if the address has an account. The answer is the same either way, so it cannot be used to find accounts.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": {
+                    "minLength": 1,
+                    "maxLength": 254,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Done, whether or not an email is sent"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password/reset": {
+      "post": {
+        "operationId": "resetPassword",
+        "tags": ["auth"],
+        "description": "Sets a new password with a reset link. The link works once. Every session of the user ends.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "password"],
+                "properties": {
+                  "token": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "type": "string"
+                  },
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password changed"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/enroll": {
+      "post": {
+        "operationId": "enrollMfa",
+        "tags": ["auth"],
+        "description": "Starts setting up an authenticator app and returns its secret. Sign-in does not change until a code is confirmed. Calling it again before that starts over.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["password"],
+                "properties": {
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaEnrollment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/confirm": {
+      "post": {
+        "operationId": "confirmMfa",
+        "tags": ["auth"],
+        "description": "Finishes setup with a code from the authenticator. From now on sign-in asks for a code. Returns the recovery codes, once.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["code"],
+                "properties": {
+                  "code": {
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodes"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/recovery-codes": {
+      "post": {
+        "operationId": "regenerateRecoveryCodes",
+        "tags": ["auth"],
+        "description": "Replaces the recovery codes. Needs the password and a code from the authenticator itself.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["password", "code"],
+                "properties": {
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "type": "string"
+                  },
+                  "code": {
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodes"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/disable": {
+      "post": {
+        "operationId": "disableMfa",
+        "tags": ["auth"],
+        "description": "Removes the authenticator and its recovery codes. Needs the password and a current code.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["password", "code"],
+                "properties": {
+                  "password": {
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "type": "string"
+                  },
+                  "code": {
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
