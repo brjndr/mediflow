@@ -3,6 +3,8 @@
   "compilerOptions": {
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    // DOM, because e2e specs pass functions to the browser with page.evaluate.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node"],
     "noEmit": true,
     "allowImportingTsExtensions": true

@@ -70,5 +70,31 @@
     "closeMenu": "Close menu",
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar"
+  },
+  "grid": {
+    "columns": "Columns",
+    "actions": "Actions",
+    "retry": "Try again",
+    "loadMore": "Load more",
+    "loadingMore": "Loading more…"
+  },
+  "validation": {
+    "required": "This field is required.",
+    "too_small": "This value is too short or too small.",
+    "too_big": "This value is too long or too large.",
+    "invalid_format": "This value is not in the expected format.",
+    "invalid_value": "Choose one of the available options.",
+    "invalid": "This value is not valid."
+  },
+  "editor": {
+    "toolbar": "Formatting",
+    "bold": "Bold",
+    "italic": "Italic",
+    "underline": "Underline",
+    "strike": "Strikethrough",
+    "heading": "Heading",
+    "bulletList": "Bulleted list",
+    "orderedList": "Numbered list",
+    "blockquote": "Quote"
   }
 }

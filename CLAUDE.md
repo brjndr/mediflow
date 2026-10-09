@@ -744,7 +744,12 @@ Complete and test one module before starting the next. Ship each release to a pi
 - **Access checks:** only via `usePermission`, `<Can>`, or manifest `requires`. Never compare role names. Never hardcode which role sees what.
 - **State:** server data (including session, tenant config and policy) goes through React Query and is never copied into Redux. Redux Toolkit holds client and workflow state only, and every slice resets on tenant switch and logout. Local component state for everything else. Never persist PHI to browser storage.
 - **Query keys:** centralized per feature via key factories, always prefixed with tenant (e.g. `patientKeys.list(tenantId, filters)`). Invalidate precisely after mutations.
-- **Forms:** every form uses React Hook Form + a Zod schema. Derive form types with `z.infer`. Labels and validation messages go through i18n.
+- **Shared building blocks** (`apps/web/src/shared/ui`, with working examples at `/examples` in dev): build lists, charts, forms and notes from these, and do not import the underlying libraries in feature code.
+  - `data-grid`: `DataGrid` for every tabular list. Server-side sorting and cursor paging, masked columns (`maskPhone`, `maskMrn` from `shared/utils/mask`), columns and row actions gated by `requires`, rows virtualised past 100.
+  - `charts`: `TimeSeriesChart` and `CategoryBarChart`. They load on demand, take colours from theme tokens, and carry a data table for screen readers.
+  - `form`: `useZodForm`, `Form`, the field components and `SubmitButton`. Validation messages are translation keys.
+  - `rich-text`: `RichTextEditor` (loads on demand) and `RichTextView`. Rich text is a sanitized JSON document (`sanitizeRichText`), never HTML.
+- **Forms:** every form uses React Hook Form + a Zod schema, through the form kit above. Derive form types with `z.infer`. Labels and validation messages go through i18n.
 - **Typing:** no `any`. Prefer `unknown` + narrowing. API responses are validated or typed at the `api.ts` boundary.
 - **Components:** function components, named exports, small and single-purpose. Co-locate styles and tests.
 - **Naming:** `PascalCase` components, `camelCase` functions/vars. Be consistent with existing files.
