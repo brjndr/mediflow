@@ -24,7 +24,7 @@
     "budget": "node scripts/bundle-budget.mjs",
     "test:coverage": "pnpm --filter web test:coverage",
     "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
-    "gen:api": "pnpm --filter @mediflow/contract gen"
+    "gen:api": "pnpm --filter api gen:openapi && pnpm --filter @mediflow/contract gen && prettier --write \"packages/contract/*.json\""
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec lint-staged"

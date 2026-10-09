@@ -5,6 +5,7 @@ import type { Config } from './core/config/config.js';
 import { dbPlugin } from './core/db/plugin.js';
 import { registerErrorHandling } from './core/http/errors.js';
 import { loggerOptions } from './core/logging/logger.js';
+import { openApiPlugin } from './core/openapi/plugin.js';
 import { healthFeature } from './features/health/index.js';
 
 declare module 'fastify' {
@@ -29,7 +30,8 @@ export async function buildApp(config: Config): Promise<FastifyInstance> {
   app.decorate('config', config);
   registerErrorHandling(app);
 
-  // Core
+  // Core. OpenAPI comes first: it has to see every route as it is registered.
+  await app.register(openApiPlugin);
   await app.register(dbPlugin);
 
   // Features: one line each.

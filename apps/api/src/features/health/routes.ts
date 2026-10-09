@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
-import { ErrorBody, HttpError } from '../../core/http/errors.js';
+import { HttpError } from '../../core/http/errors.js';
+import { errors, ref } from '../../core/http/schemas.js';
 
 const Health = Type.Object({ status: Type.Literal('ok') }, { $id: 'Health' });
 
@@ -9,6 +10,9 @@ const Health = Type.Object({ status: Type.Literal('ok') }, { $id: 'Health' });
  * the one definition) and an operationId, which names it in the generated client.
  */
 export const healthRoutes: FastifyPluginAsyncTypebox = async (app) => {
+  // Registered so it gets a name in the contract: the web app imports the `Health` type.
+  app.addSchema(Health);
+
   // Liveness: the process is up. Does not touch the database, so a slow database does not get
   // the container restarted.
   app.get(
@@ -18,7 +22,7 @@ export const healthRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'getHealth',
         tags: ['system'],
         description: 'Liveness check. The process is running.',
-        response: { 200: Health },
+        response: { 200: ref(Health) },
       },
     },
     async () => ({ status: 'ok' as const }),
@@ -32,7 +36,7 @@ export const healthRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'getReadiness',
         tags: ['system'],
         description: 'Readiness check. The process can reach its database.',
-        response: { 200: Health, 503: ErrorBody },
+        response: { 200: ref(Health), ...errors(503) },
       },
     },
     async () => {
