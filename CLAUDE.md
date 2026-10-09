@@ -154,7 +154,7 @@ Goal: a fast, smooth, reliable application under heavy daily use. Capability com
 - No source maps in production (upload them to the error tracker only). Strip `console` and `debugger` in production builds.
 - Brotli at the CDN, immutable hashed assets, and `modulepreload` only for the critical login-to-app chunks.
 - Non-critical code (Sentry, web-vitals) loads with a dynamic import after first paint (`requestIdleCallback`).
-- CI fails when a budget is exceeded and reports the size change for each PR. Run `pnpm analyze` for any PR that adds a dependency.
+- CI fails when a budget is exceeded and reports the size change for each PR in the job summary (`scripts/bundle-budget.mjs`, where the budgets and the list of chunks allowed the heavy budget live). Run `pnpm analyze` for any PR that adds a dependency.
 
 ### Runtime and network
 
@@ -251,7 +251,8 @@ pnpm build      # type-check + production build
 pnpm lint       # ESLint
 pnpm test       # Vitest
 pnpm typecheck  # tsc --noEmit
-pnpm analyze    # bundle size report (rollup-plugin-visualizer)
+pnpm analyze    # bundle size report (rollup-plugin-visualizer), writes apps/web/stats.html
+pnpm budget     # check the built bundle against the budgets (run pnpm build first)
 pnpm e2e        # Playwright end-to-end tests
 pnpm gen:api    # regenerate typed API client from OpenAPI spec
 ```
