@@ -1,0 +1,8 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm blocks dependency install scripts by default. Approve one only with a stated reason.
+onlyBuiltDependencies:
+  - esbuild # Vite and tsx need its native binary
+  - simple-git-hooks # installs the pre-commit hook
