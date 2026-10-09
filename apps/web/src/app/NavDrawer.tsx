@@ -33,7 +33,14 @@ export function NavDrawer({ open, onClose }: NavDrawerProps) {
       ref={ref}
       aria-label={t('nav.menu')}
       className="m-0 h-dvh max-h-none w-72 max-w-[85vw] border-r bg-background p-0 text-foreground backdrop:bg-black/40"
-      onClose={onClose}
+      // Escape closes a modal dialog in the browser at once, but the `close` event arrives a
+      // moment later. `cancel` fires immediately, so the state is updated before the user's next
+      // key press: otherwise pressing Enter on the menu button straight after Escape is lost.
+      onCancel={onClose}
+      // Any other way the dialog closes. Ignored if it has been opened again in the meantime.
+      onClose={() => {
+        if (!ref.current?.open) onClose();
+      }}
       // A click on the backdrop lands on the dialog element itself, not on its content.
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();

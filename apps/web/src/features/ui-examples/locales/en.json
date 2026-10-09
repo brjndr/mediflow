@@ -1,0 +1,62 @@
+{
+  "index": {
+    "heading": "Shared building blocks",
+    "description": "Every list, chart, form and note in the app is built from these. All data on these pages is synthetic.",
+    "grid": "Data grid",
+    "gridSummary": "Server-side sorting and paging, masked columns, permission-gated columns and actions, virtualised rows.",
+    "charts": "Charts",
+    "chartsSummary": "Themed line and bar charts that load on demand, with a data table for screen readers.",
+    "form": "Form kit",
+    "formSummary": "React Hook Form with a Zod schema, translated messages and accessible fields.",
+    "editor": "Rich text",
+    "editorSummary": "An editor whose output is a sanitized document, and a lightweight viewer."
+  },
+  "back": "All examples",
+  "grid": {
+    "heading": "Data grid",
+    "label": "Example people",
+    "empty": "No people match.",
+    "name": "Name",
+    "department": "Department",
+    "phone": "Phone",
+    "mrn": "MRN",
+    "balance": "Balance",
+    "open": "Open",
+    "refund": "Refund",
+    "lastAction": "Last action: {{action}} on {{name}}",
+    "loaded": "{{count}} rows loaded"
+  },
+  "charts": {
+    "heading": "Charts",
+    "visitsTitle": "Visits per day",
+    "day": "Day",
+    "visits": "Visits",
+    "departmentsTitle": "Visits by department",
+    "department": "Department"
+  },
+  "form": {
+    "heading": "Form kit",
+    "name": "Full name",
+    "email": "Email",
+    "emailHint": "Synthetic data only. Nothing is sent anywhere.",
+    "age": "Age",
+    "department": "Department",
+    "departmentPlaceholder": "Choose a department",
+    "notes": "Notes",
+    "consent": "Consent recorded",
+    "save": "Save",
+    "submitted": "Submitted values"
+  },
+  "editor": {
+    "heading": "Rich text",
+    "label": "Example note",
+    "preview": "Preview",
+    "characters": "{{count}} characters of text"
+  },
+  "departments": {
+    "cardiology": "Cardiology",
+    "neurology": "Neurology",
+    "orthopaedics": "Orthopaedics",
+    "paediatrics": "Paediatrics"
+  }
+}

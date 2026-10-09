@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import type { Health } from '@/shared/api/health';
 import { currentPolicy, currentSession, switchTenant } from './db';
+import { examplesHandlers } from './handlers/examples';
 import { noticesHandlers } from './handlers/notices';
 import { error, tenantMismatch, unauthenticated } from './respond';
 
@@ -39,4 +40,5 @@ export const handlers = [
 
   // Feature handlers: one line per feature.
   ...noticesHandlers,
+  ...examplesHandlers,
 ];

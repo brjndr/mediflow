@@ -32,6 +32,7 @@ const initialTenants: Record<string, TenantDto> = {
       billing: true,
       reports: true,
       notices: true,
+      ui_examples: true,
     },
     auth: { mode: 'password' },
     status: 'active',

@@ -1,0 +1,1 @@
+export { uiExamplesFeature } from './manifest';
