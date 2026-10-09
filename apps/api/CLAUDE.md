@@ -12,7 +12,7 @@ pnpm --filter api test            # Vitest against the mediflow_test database
 docker build -f apps/api/Dockerfile -t mediflow-api .   # from the repo root
 ```
 
-Development and tests need no configuration: they default to the Docker Compose database. Production must set `DATABASE_URL`, and the process refuses to start without it.
+Development and tests need no configuration: they default to the Docker Compose database. Production must set `DATABASE_URL`, `SMTP_URL`, `MAIL_FROM` and `APP_BASE_URL`, and the process refuses to start without them.
 
 ## Layout
 
@@ -25,6 +25,7 @@ src/
     db/           # pool, Drizzle client, migration runner
     http/         # the error body and the error handlers
     logging/      # pino options and redaction
+    notifier/     # staff email: the Notifier interface, SMTP adapter, templates
     openapi/      # contract generation and its version
     session/      # who is asking; route access levels
     tenancy/      # tenants tables, the per-request tenant transaction, GET /tenant
@@ -39,7 +40,7 @@ src/
 test/             # global setup and helpers; tests live next to the code they cover
 ```
 
-`core/access`, `core/audit`, `core/outbox`, `core/jobs` and `core/notifier` arrive with the issues that build them. A feature folder has only the files it needs: `features/health` has `index.ts` and `routes.ts`.
+`core/access`, `core/audit`, `core/outbox` and `core/jobs` arrive with the issues that build them. A feature folder has only the files it needs: `features/health` has `index.ts` and `routes.ts`.
 
 ## Rules
 
@@ -70,6 +71,17 @@ test/             # global setup and helpers; tests live next to the code they c
 - **A statement Postgres refuses** (a policy violation or a missing grant, SQLSTATE 42501) is answered with 403 `forbidden` and logged as a warning. It means code tried to cross a boundary.
 - **Cross-tenant tests are mandatory** for every tenant table and endpoint: see `test/tenancy.test.ts` for the pattern (`createTenant`, `asTenantSql`, `as(tenantId)`).
 - **Production database roles:** migrations run as a privileged login. The API should connect as a separate login that is a member of `mediflow_app` and is neither a superuser nor the table owner, so that leaving the app role is impossible, not just unexpected. Local development and CI connect as the owner and rely on `SET LOCAL ROLE`.
+
+## Notifications
+
+- **Send through `app.notifier`,** never a mail library: `app.notifier.send({ to, template, data })`. A message is a template name and its data, never a raw subject or body.
+- **Staff only.** The system does not contact patients in v1. An email carries the minimum: one link and when it expires. No patient data and no clinical detail, in any template.
+- **Links are built from `APP_BASE_URL`.** A template is given a path (`/invite?token=...`), never a URL, and a link that would leave the web app is refused.
+- **Adding a template:** add its data shape to `TemplateData` and its renderer in `core/notifier/templates.ts`, with a test. HTML is escaped by the layout; emails carry no images, scripts or other remote content.
+- **Adding a provider or a channel** (SES, SMS, WhatsApp) is a new implementation of the `Notifier` interface. Callers do not change.
+- **In tests,** pass `createMemoryNotifier()` to `buildTestApp({ notifier })` and assert on `notifier.sent`. Only the notifier's own test talks to Mailpit.
+- **Do not log recipients.** A failed send throws `NotifierError` with a plain message; the provider's error, which can quote the address, is its `cause`.
+- Sends are direct for now. When the job queue exists (BE-06) they move onto it, so a slow mail server cannot slow a request and a failed send is retried.
 
 ## Contract
 

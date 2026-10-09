@@ -6,6 +6,8 @@ import { dbPlugin } from './core/db/plugin.js';
 import { registerErrorHandling } from './core/http/errors.js';
 import { loggerOptions } from './core/logging/logger.js';
 import { openApiPlugin } from './core/openapi/plugin.js';
+import type { Notifier } from './core/notifier/notifier.js';
+import { notifierPlugin } from './core/notifier/plugin.js';
 import { sessionPlugin, type SessionResolver } from './core/session/plugin.js';
 import { tenancyPlugin } from './core/tenancy/plugin.js';
 import { tenantRoutes } from './core/tenancy/routes.js';
@@ -23,6 +25,8 @@ export interface AppOptions {
    * which case every route that needs a session answers 401. Tests pass their own.
    */
   resolveSession?: SessionResolver;
+  /** How staff email is sent. Defaults to SMTP. Tests pass an in-memory notifier. */
+  notifier?: Notifier;
 }
 
 /**
@@ -48,6 +52,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   // Core. OpenAPI comes first: it has to see every route as it is registered.
   await app.register(openApiPlugin);
   await app.register(dbPlugin);
+  await app.register(notifierPlugin, { notifier: options.notifier });
   await app.register(sessionPlugin, { resolveSession: options.resolveSession });
   await app.register(tenancyPlugin);
   await app.register(tenantRoutes);
