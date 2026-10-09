@@ -21,34 +21,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/health": {
+    "/auth/login": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description Liveness check. The process is running. */
-        get: operations["getHealth"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** @description Signs in with email and password and starts a session, returned as an httpOnly cookie. Every failure has the same answer. */
+        post: operations["login"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/health/ready": {
+    "/auth/logout": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description Readiness check. The process can reach its database. */
-        get: operations["getReadiness"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** @description Ends the session, on the server and in the browser. Succeeds whether or not there was one. */
+        post: operations["logout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -83,6 +83,40 @@ export interface paths {
         put?: never;
         /** @description Rebinds the session to another hospital the user belongs to and returns the new session. Affects every tab. */
         post: operations["switchTenant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Liveness check. The process is running. */
+        get: operations["getHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Readiness check. The process can reach its database. */
+        get: operations["getReadiness"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -153,6 +187,39 @@ export interface components {
                 requestId?: string;
             };
         };
+        Membership: {
+            tenantId: string;
+            tenantName: string;
+            roleId: string;
+        };
+        User: {
+            id: string;
+            email: string;
+            name: string;
+            memberships: components["schemas"]["Membership"][];
+        };
+        PermissionGrant: {
+            /** @description resource:action */
+            permission: string;
+            /** @enum {string} */
+            scope?: "all" | "own" | "department";
+        };
+        AccessPolicy: {
+            tenantId: string;
+            roleId: string;
+            permissions: components["schemas"]["PermissionGrant"][];
+            features: {
+                [key: string]: boolean;
+            };
+            version: string;
+        };
+        Session: {
+            user: components["schemas"]["User"];
+            /** @description Null until a user with several hospitals picks one. */
+            activeTenant: components["schemas"]["Tenant"] | null;
+            /** @description Null when there is no active tenant. Also null until roles and permissions exist in the API (BE-05). */
+            policy: components["schemas"]["AccessPolicy"] | null;
+        };
         Tenant: {
             id: string;
             slug: string;
@@ -186,39 +253,6 @@ export interface components {
         Health: {
             /** @enum {string} */
             status: "ok";
-        };
-        Membership: {
-            tenantId: string;
-            tenantName: string;
-            roleId: string;
-        };
-        User: {
-            id: string;
-            email: string;
-            name: string;
-            memberships: components["schemas"]["Membership"][];
-        };
-        PermissionGrant: {
-            /** @description resource:action */
-            permission: string;
-            /** @enum {string} */
-            scope?: "all" | "own" | "department";
-        };
-        AccessPolicy: {
-            tenantId: string;
-            roleId: string;
-            permissions: components["schemas"]["PermissionGrant"][];
-            features: {
-                [key: string]: boolean;
-            };
-            version: string;
-        };
-        Session: {
-            user: components["schemas"]["User"];
-            /** @description Null until a user with several hospitals picks one. */
-            activeTenant: components["schemas"]["Tenant"] | null;
-            /** @description Null when there is no active tenant. */
-            policy: components["schemas"]["AccessPolicy"] | null;
         };
         Notice: {
             id: string;
@@ -304,6 +338,178 @@ export interface operations {
             };
         };
     };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    email: string;
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    switchTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tenantId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getHealth: {
         parameters: {
             query?: never;
@@ -351,57 +557,6 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-        };
-    };
-    getSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The current session */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Session"];
-                };
-            };
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    switchTenant: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    tenantId: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The session bound to the chosen tenant */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Session"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            default: components["responses"]["Error"];
         };
     };
     getSessionPolicy: {

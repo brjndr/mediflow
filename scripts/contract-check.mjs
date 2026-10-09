@@ -15,8 +15,14 @@ const METHODS = ['get', 'put', 'post', 'delete', 'patch', 'head', 'options'];
 function typeOf(schema) {
   if (!schema || typeof schema !== 'object') return 'unknown';
   if (schema.$ref) return `ref:${schema.$ref.split('/').pop()}`;
-  for (const key of ['oneOf', 'anyOf', 'allOf']) {
-    if (Array.isArray(schema[key])) return `${key}(${schema[key].map(typeOf).sort().join('|')})`;
+  // oneOf and anyOf accept the same values wherever the alternatives cannot overlap, which is how
+  // they are used here (a schema or null), so swapping one for the other is not a change of type.
+  for (const [key, label] of [
+    ['oneOf', 'union'],
+    ['anyOf', 'union'],
+    ['allOf', 'allOf'],
+  ]) {
+    if (Array.isArray(schema[key])) return `${label}(${schema[key].map(typeOf).sort().join('|')})`;
   }
   if (schema.type === 'array') return `array<${typeOf(schema.items)}>`;
   if (Array.isArray(schema.type)) return [...schema.type].sort().join('|');

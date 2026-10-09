@@ -161,6 +161,21 @@ test('removing an error response is not treated as breaking', () => {
   );
 });
 
+test('writing the same alternatives as anyOf instead of oneOf is not breaking', () => {
+  const nullable = (key) => {
+    const spec = base();
+    spec.components.schemas.Patient.properties.department = {
+      [key]: [{ $ref: '#/components/schemas/Department' }, { type: 'null' }],
+    };
+    return spec;
+  };
+  assert.deepEqual(findBreakingChanges(nullable('oneOf'), nullable('anyOf')), []);
+
+  const narrowed = nullable('anyOf');
+  narrowed.components.schemas.Patient.properties.department.anyOf.pop();
+  assert.equal(findBreakingChanges(nullable('oneOf'), narrowed).length, 1);
+});
+
 test('version comparison', () => {
   assert.equal(versionRaised('0.3.0', '0.3.1'), true);
   assert.equal(versionRaised('0.3.0', '0.3.0'), false);

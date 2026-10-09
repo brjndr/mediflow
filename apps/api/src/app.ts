@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { authPlugin } from './core/auth/plugin.js';
+import { authRoutes } from './core/auth/routes.js';
 import type { Config } from './core/config/config.js';
 import { dbPlugin } from './core/db/plugin.js';
 import { registerErrorHandling } from './core/http/errors.js';
@@ -21,8 +23,8 @@ declare module 'fastify' {
 
 export interface AppOptions {
   /**
-   * How a request becomes a session. Omitted in production until authentication exists (M2), in
-   * which case every route that needs a session answers 401. Tests pass their own.
+   * How a request becomes a session. Defaults to the session cookie (core/auth). Tests that are
+   * not about authentication pass their own.
    */
   resolveSession?: SessionResolver;
   /** How staff email is sent. Defaults to SMTP. Tests pass an in-memory notifier. */
@@ -44,6 +46,8 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
     genReqId: () => randomUUID(),
     // Stop reading a request body past this size (1 MiB). File uploads go to object storage.
     bodyLimit: 1_048_576,
+    // Behind a load balancer the client address comes from the forwarded header.
+    trustProxy: config.TRUST_PROXY,
   }).withTypeProvider<TypeBoxTypeProvider>();
 
   app.decorate('config', config);
@@ -53,9 +57,11 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(openApiPlugin);
   await app.register(dbPlugin);
   await app.register(notifierPlugin, { notifier: options.notifier });
+  await app.register(authPlugin);
   await app.register(sessionPlugin, { resolveSession: options.resolveSession });
   await app.register(tenancyPlugin);
   await app.register(tenantRoutes);
+  await app.register(authRoutes);
 
   // Features: one line each.
   await app.register(healthFeature);

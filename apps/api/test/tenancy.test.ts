@@ -323,9 +323,11 @@ describe('the row-level security template', () => {
       expect(row, row.table_name).toMatchObject({
         enabled: true,
         forced: true,
-        policies: ['tenant_isolation'],
         tenant_first_index: true,
       });
+      // A table may carry further policies for other roles (authentication reads memberships),
+      // but the hospital's own isolation policy is never missing.
+      expect(row.policies, row.table_name).toContain('tenant_isolation');
     }
   });
 

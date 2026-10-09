@@ -21,7 +21,23 @@ describe('loadConfig', () => {
       SMTP_URL: 'smtps://mailer:pw@smtp.example.com:465',
       MAIL_FROM: 'Mediflow <no-reply@example.com>',
       APP_BASE_URL: 'https://app.example.com',
+      SESSION_IDLE_MINUTES: 30,
+      SESSION_ABSOLUTE_HOURS: 12,
+      SESSION_ROTATE_MINUTES: 15,
+      LOGIN_MAX_FAILURES: 5,
+      LOGIN_LOCK_MINUTES: 15,
+      AUTH_RATE_LIMIT_PER_MINUTE: 10,
+      TRUST_PROXY: false,
     });
+  });
+
+  it('reads booleans and durations from strings', () => {
+    expect(
+      loadConfig({ ...production, TRUST_PROXY: 'true', SESSION_IDLE_MINUTES: '10' }),
+    ).toMatchObject({ TRUST_PROXY: true, SESSION_IDLE_MINUTES: 10 });
+    expect(() => loadConfig({ ...production, SESSION_IDLE_MINUTES: '0' })).toThrow(
+      /SESSION_IDLE_MINUTES/,
+    );
   });
 
   it('needs no setup in development: it points at the Docker Compose database', () => {

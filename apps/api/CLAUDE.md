@@ -7,6 +7,7 @@ Backend-only rules. The root `CLAUDE.md` holds the architecture, the product sco
 ```bash
 docker compose up -d              # Postgres and Mailpit (from the repo root)
 pnpm --filter api db:migrate      # apply pending migrations to the dev database
+pnpm --filter api db:seed         # two sample hospitals and four sample staff (never in production)
 pnpm --filter api dev             # Fastify with tsx watch on http://localhost:3000
 pnpm --filter api test            # Vitest against the mediflow_test database
 docker build -f apps/api/Dockerfile -t mediflow-api .   # from the repo root
@@ -21,6 +22,7 @@ src/
   app.ts          # buildApp(config): core plugins, then one register line per feature
   server.ts       # loads config, listens, shuts down on SIGTERM
   core/
+    auth/         # sign-in, the session cookie, sessions and their rotation, passwords
     config/       # environment, validated once at startup
     db/           # pool, Drizzle client, migration runner
     http/         # the error body and the error handlers
@@ -53,7 +55,7 @@ test/             # global setup and helpers; tests live next to the code they c
 ## Sessions, tenants and row-level security
 
 - **A route is closed unless it says otherwise.** `config: { access: 'public' | 'session' | 'tenant' }`, and the default is `tenant`: a session with an active hospital. Health checks are `public`.
-- **The session resolver is injected.** `buildApp(config, { resolveSession })`. Until authentication exists (M2) the default resolves nothing, so every non-public route answers 401. Tests pass `resolveTestSession` from `test/helpers.ts`.
+- **The session comes from the cookie.** The default resolver (`core/auth`) reads it. Tests that are not about authentication inject their own: `buildTestApp({ resolveSession: resolveTestSession })` from `test/helpers.ts`.
 - **A tenant route runs in the request's transaction.** The tenancy hook checks out a connection, begins, runs `SET LOCAL ROLE mediflow_app` and sets `app.tenant_id` from the session. Use `request.tx` for every query; never `app.database.pool` in a tenant route, which would run as the owner outside the tenant's scope. The transaction commits when the handler succeeds and rolls back when it throws.
 - **The tenant comes from the session only.** Never from a path, query string, body or header. `X-Tenant-ID` is checked against the session and a mismatch is a 409 `tenant_mismatch`.
 - **Do not add `WHERE tenant_id = ...` as the isolation mechanism.** Row-level security is the mechanism; a filter in application code is one forgotten clause away from a leak. (Filtering by tenant_id for index use is fine.)
@@ -71,6 +73,18 @@ test/             # global setup and helpers; tests live next to the code they c
 - **A statement Postgres refuses** (a policy violation or a missing grant, SQLSTATE 42501) is answered with 403 `forbidden` and logged as a warning. It means code tried to cross a boundary.
 - **Cross-tenant tests are mandatory** for every tenant table and endpoint: see `test/tenancy.test.ts` for the pattern (`createTenant`, `asTenantSql`, `as(tenantId)`).
 - **Production database roles:** migrations run as a privileged login. The API should connect as a separate login that is a member of `mediflow_app` and is neither a superuser nor the table owner, so that leaving the app role is impossible, not just unexpected. Local development and CI connect as the owner and rely on `SET LOCAL ROLE`.
+
+## Authentication
+
+- **Authentication runs as its own database role,** `mediflow_auth`, through `withAuthTransaction`. It can reach `users`, `user_identities`, `memberships`, `sessions` and the hospitals of the user it has identified, and has no grant on any table that holds hospital data. Do not grant it one. Do not query the identity tables from a tenant route: the app role cannot.
+- **Call `identify(userId)` only once the user is proven** (a verified password or a valid session). Before that, memberships and hospitals are invisible.
+- **The cookie holds a random token; the database holds its SHA-256 hash.** Never log, return or store the token itself. It is httpOnly, SameSite=Lax, and in production Secure with the `__Host-` prefix.
+- **Sessions end** after `SESSION_IDLE_MINUTES` (30) without a request and after `SESSION_ABSOLUTE_HOURS` (12) regardless. The token is replaced every `SESSION_ROTATE_MINUTES` (15) and on a hospital switch. The replaced token works for 30 more seconds; seen after that, it revokes the session. Time is compared on the database clock.
+- **A failed sign-in has one answer** (401 `invalid_credentials`) and costs the same hashing whether the email exists, the password is wrong, or the account is disabled or locked. Keep it that way: no "user not found", no early return.
+- **Lockout and rate limit are separate.** `LOGIN_MAX_FAILURES` (5) wrong passwords lock the account for `LOGIN_LOCK_MINUTES` (15). `AUTH_RATE_LIMIT_PER_MINUTE` (10) limits sign-in attempts per client address; a route opts in with `config.rateLimit`. Behind a load balancer set `TRUST_PROXY=true`, or every client shares one address.
+- **Requests that change something must come from the web app.** A hook refuses any non-GET request whose `Origin` is not `APP_BASE_URL` (or whose `Sec-Fetch-Site` is cross-site) with 403 `cross_site_request`. Never make a GET route change state.
+- **Passwords:** Argon2id via `core/auth/password.ts` only. New passwords go through `passwordProblem` (at least 12 characters, no composition rules, obvious choices refused).
+- **In tests,** `createUser`, `addMembership` and `deleteUsers` from `test/helpers.ts`; sign in through `/auth/login` and pass the cookie. See `core/auth/auth.test.ts`.
 
 ## Notifications
 

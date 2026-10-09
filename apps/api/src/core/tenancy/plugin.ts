@@ -5,6 +5,7 @@ import type pg from 'pg';
 import type { Database } from '../db/client.js';
 import * as schema from '../db/schema.js';
 import { HttpError } from '../http/errors.js';
+import { Tenant } from './routes.js';
 
 /** The role every tenant request runs as. Created in migrations/0002. */
 export const APP_ROLE = 'mediflow_app';
@@ -61,6 +62,8 @@ async function finish(request: FastifyRequest, outcome: 'commit' | 'rollback'): 
  */
 export const tenancyPlugin = fp(
   async (app) => {
+    // Registered app-wide: the session response carries the active hospital too.
+    app.addSchema(Tenant);
     app.decorateRequest('tenant', null);
     // Accessing tx on a route without a tenant is a programming error, caught loudly.
     app.decorateRequest('tx', {
