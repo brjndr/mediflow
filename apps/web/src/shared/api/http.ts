@@ -7,6 +7,8 @@ export interface ApiFetchOptions {
   onUnauthorized: () => void;
   /** Called on a 403 (the access policy may be stale). */
   onForbidden: () => void;
+  /** Called when the server says this tab's tenant is stale (409 tenant_mismatch). */
+  onTenantMismatch: () => void;
   timeoutMs: number;
   /** Total tries, including the first. */
   maxAttempts: number;
@@ -16,6 +18,8 @@ export interface ApiFetchOptions {
 }
 
 export const TENANT_HEADER = 'X-Tenant-ID';
+/** Server code for a request whose tenant header disagrees with the session's active tenant. */
+export const TENANT_MISMATCH = 'tenant_mismatch';
 
 const IDEMPOTENT_METHODS = new Set(['GET', 'HEAD']);
 const RETRYABLE_STATUSES = new Set([502, 503, 504]);
@@ -130,7 +134,9 @@ export function createApiFetch(getOptions: () => ApiFetchOptions): typeof fetch 
 
       if (response.status === 401) options.onUnauthorized();
       if (response.status === 403) options.onForbidden();
-      throw await apiErrorFromResponse(response);
+      const error = await apiErrorFromResponse(response);
+      if (error.serverCode === TENANT_MISMATCH) options.onTenantMismatch();
+      throw error;
     }
   };
 }

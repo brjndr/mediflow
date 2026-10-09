@@ -7,6 +7,7 @@ const DEFAULTS: ApiFetchOptions = {
   getTenantId: () => undefined,
   onUnauthorized: () => {},
   onForbidden: () => {},
+  onTenantMismatch: () => {},
   timeoutMs: 15_000,
   maxAttempts: 3,
   baseDelayMs: 300,

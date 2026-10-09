@@ -3,10 +3,9 @@ import { useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { configureApi, errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
-import { resetClientState } from '../store';
 import { useAppDispatch } from '../store-hooks';
 import { SessionContext } from './session-context';
-import { clearCachedData, sessionKey, sessionQueryOptions } from './session-query';
+import { dropSessionData, sessionKey, sessionQueryOptions } from './session-query';
 import type { Session } from './types';
 
 function SessionLoading() {
@@ -61,8 +60,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // The session ended on the server: drop it and everything loaded under it.
       onUnauthorized: () => {
         queryClient.setQueryData<Session | null>(sessionKey, null);
-        void clearCachedData(queryClient);
-        dispatch(resetClientState());
+        dropSessionData(queryClient, dispatch);
       },
     });
     return () => configureApi({ getTenantId: () => undefined, onUnauthorized: () => {} });

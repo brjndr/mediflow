@@ -34,3 +34,8 @@ export async function fetchSession(signal?: AbortSignal): Promise<Session | null
     throw error;
   }
 }
+
+/** Rebinds the server-side session to another of the user's hospitals. Affects every tab. */
+export async function switchTenant(tenantId: string): Promise<Session> {
+  return toSession(requireData(await api.POST('/session/switch-tenant', { body: { tenantId } })));
+}

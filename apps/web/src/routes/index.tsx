@@ -4,7 +4,12 @@ import { lazy, Suspense } from 'react';
 import type { RouteObject } from 'react-router-dom';
 import { AppShell } from '@/app/AppShell';
 import { ErrorFallback } from '@/app/ErrorFallback';
-import { LOGIN_PATH, RedirectIfAuthenticated, RequireSession } from './session-guards';
+import {
+  LOGIN_PATH,
+  RedirectIfAuthenticated,
+  RequireSession,
+  RequireTenant,
+} from './session-guards';
 
 const HomePage = lazy(() => import('@/app/HomePage').then((m) => ({ default: m.HomePage })));
 const LoginPage = lazy(() => import('@/features/auth').then((m) => ({ default: m.LoginPage })));
@@ -25,7 +30,9 @@ export const routes: RouteObject[] = [
     path: '/',
     element: (
       <RequireSession>
-        <AppShell />
+        <RequireTenant>
+          <AppShell />
+        </RequireTenant>
       </RequireSession>
     ),
     errorElement: <ErrorFallback />,

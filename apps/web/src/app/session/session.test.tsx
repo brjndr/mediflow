@@ -124,7 +124,7 @@ describe('tenant from the session', () => {
     expect(seen).toEqual(['tenant_1', 'tenant_2']);
   });
 
-  it('renders the shell without a tenant when none is active yet', async () => {
+  it('sends no tenant header and shows the picker while no hospital is active', async () => {
     const seen = recordTenantHeaders();
     server.use(
       http.get(SESSION_URL, () =>
@@ -132,8 +132,8 @@ describe('tenant from the session', () => {
       ),
     );
     renderApp();
-    await screen.findByRole('heading', HOME);
-    expect(screen.getByRole('banner')).not.toHaveTextContent('Sample Hospital');
+    await screen.findByRole('heading', { name: 'Choose a hospital' });
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument();
     await apiFetch(ECHO_URL);
     expect(seen).toEqual([null]);
   });

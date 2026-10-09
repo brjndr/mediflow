@@ -1,4 +1,5 @@
 import { queryOptions, type QueryClient } from '@tanstack/react-query';
+import { resetClientState, type AppDispatch } from '../store';
 import { fetchSession } from './api';
 
 const SESSION_SCOPE = 'session';
@@ -9,6 +10,9 @@ const SESSION_SCOPE = 'session';
  */
 export const sessionKey = [SESSION_SCOPE] as const;
 
+/** Session mutations use this prefix so they survive the cache being dropped under them. */
+export const sessionMutationKey = (name: string) => [SESSION_SCOPE, name] as const;
+
 export const sessionQueryOptions = queryOptions({
   queryKey: sessionKey,
   queryFn: ({ signal }) => fetchSession(signal),
@@ -17,12 +21,22 @@ export const sessionQueryOptions = queryOptions({
   gcTime: Infinity,
 });
 
-/** Cancels and drops everything except the session itself, so no tenant data outlives it. */
-export async function clearCachedData(queryClient: QueryClient): Promise<void> {
+const isSessionKey = (key: readonly unknown[] | undefined) => key?.[0] === SESSION_SCOPE;
+
+/**
+ * Called whenever the session or its active tenant changes (tenant switch, stale tab, 401).
+ * Aborts in-flight requests and drops every cached query, mutation result and Redux slice, so
+ * nothing loaded for the previous user or hospital can be shown again. Only the session stays.
+ */
+export function dropSessionData(queryClient: QueryClient, dispatch: AppDispatch): void {
   const notSession = {
-    predicate: (query: { queryKey: readonly unknown[] }) => query.queryKey[0] !== SESSION_SCOPE,
+    predicate: (query: { queryKey: readonly unknown[] }) => !isSessionKey(query.queryKey),
   };
-  await queryClient.cancelQueries(notSession);
+  void queryClient.cancelQueries(notSession);
   queryClient.removeQueries(notSession);
-  queryClient.getMutationCache().clear();
+  const mutations = queryClient.getMutationCache();
+  for (const mutation of mutations.getAll()) {
+    if (!isSessionKey(mutation.options.mutationKey)) mutations.remove(mutation);
+  }
+  dispatch(resetClientState());
 }
