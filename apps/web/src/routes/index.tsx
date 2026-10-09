@@ -4,7 +4,7 @@ import { lazy, Suspense } from 'react';
 import type { RouteObject } from 'react-router-dom';
 import { PermissionGuard } from '@/access';
 import { AppShell } from '@/app/AppShell';
-import { ErrorFallback } from '@/app/ErrorFallback';
+import { RouteErrorFallback } from '@/app/RouteErrorFallback';
 import { NotFoundPage } from '@/app/NotFoundPage';
 import type { Registry } from '@/registry';
 import {
@@ -45,7 +45,7 @@ export function createRoutes(registry: Registry): RouteObject[] {
           </Suspense>
         </RedirectIfAuthenticated>
       ),
-      errorElement: <ErrorFallback />,
+      errorElement: <RouteErrorFallback />,
     },
     {
       path: '/',
@@ -56,7 +56,7 @@ export function createRoutes(registry: Registry): RouteObject[] {
           </RequireTenant>
         </RequireSession>
       ),
-      errorElement: <ErrorFallback />,
+      errorElement: <RouteErrorFallback />,
       children: [
         { index: true, element: <HomePage /> },
         ...featureRoutes(registry),

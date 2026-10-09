@@ -53,7 +53,8 @@ export default tseslint.config(
           message: 'No browser storage. Keep state in memory (CLAUDE.md).',
         },
       ],
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      // App code logs through shared/lib/logger, which cannot carry patient data.
+      'no-console': 'error',
       // Access is decided by permissions, never by role names (CLAUDE.md Extensibility and Access Control).
       'no-restricted-syntax': [
         'error',
