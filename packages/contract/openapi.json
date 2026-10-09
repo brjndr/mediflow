@@ -14,9 +14,14 @@
             "description": "Service is healthy",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Health" }
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
               }
             }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -27,7 +32,47 @@
       "Health": {
         "type": "object",
         "required": ["status"],
-        "properties": { "status": { "type": "string", "enum": ["ok"] } }
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["ok"]
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "description": "Standard error body. The message is for logs and developers, never shown to users: the web app maps code to a translated message.",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Stable machine-readable code, e.g. tenant_mismatch"
+              },
+              "message": {
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Request failed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
       }
     }
   }

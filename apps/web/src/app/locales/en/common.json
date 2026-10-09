@@ -19,5 +19,17 @@
       "ok": "ok",
       "unreachable": "unreachable"
     }
+  },
+  "errors": {
+    "network": "Cannot reach the server. Check your connection and try again.",
+    "timeout": "The server took too long to respond. Try again.",
+    "unauthorized": "Your session has ended. Sign in again.",
+    "forbidden": "You do not have access to this.",
+    "not_found": "This item could not be found.",
+    "conflict": "This was changed by someone else. Reload and try again.",
+    "validation": "Some details are not valid. Check them and try again.",
+    "rate_limited": "The system is busy. Try again in a moment.",
+    "server": "Something went wrong on our side. Try again.",
+    "unknown": "Something went wrong. Try again."
   }
 }
