@@ -13,6 +13,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "analyze": "cross-env ANALYZE=true vite build"
   },
@@ -55,6 +56,7 @@
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.1.2",
+    "@vitest/coverage-v8": "^5.0.3",
     "axe-core": "^4.14.0",
     "cross-env": "^10.1.0",
     "eslint": "^10.12.0",

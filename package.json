@@ -22,6 +22,7 @@
     "e2e": "pnpm --filter web e2e",
     "analyze": "pnpm --filter web analyze",
     "budget": "node scripts/bundle-budget.mjs",
+    "test:coverage": "pnpm --filter web test:coverage",
     "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
     "gen:api": "pnpm --filter @mediflow/contract gen"
   },
