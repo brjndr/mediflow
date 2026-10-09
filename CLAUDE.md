@@ -340,7 +340,7 @@ export const patientsFeature: FeatureManifest = {
       requires: ['patient:create'],
     },
   ],
-  nav: { icon: 'users', order: 20, requires: ['patient:read'] },
+  nav: { icon: Users, order: 20, requires: ['patient:read'] }, // the lucide-react component, not a name
   permissions: ['patient:read', 'patient:create', 'patient:update', 'patient:delete'],
   extensions: [], // slot contributions (see Extension points)
   settings: undefined, // per-hospital settings schema (optional)
@@ -349,7 +349,8 @@ export const patientsFeature: FeatureManifest = {
 ```
 
 - `registry/` collects all manifests, drops those whose `featureFlag` is off for the current tenant, and generates **routes, navigation, and dashboard widgets** from what remains. No hand-edited route or menu lists.
-- Adding a new feature = new folder + manifest + one line registering it. **No edits to core, routing, or other features.**
+- Adding a new feature = new folder + manifest + one line registering it in `registry/features.ts`. **No edits to core, routing, or other features.** The registry validates manifests at startup (duplicate ids or paths, undeclared permissions) and stops the app with the full list of problems.
+- Route and slot modules loaded by a manifest **default-export** their component (the one exception to named exports), so `() => import('./routes/PatientList')` works with `React.lazy`.
 - Features talk to each other only via `index.ts` exports, shared types, or registry extension points (e.g. a widget slot on the patient detail page), never by importing internals.
 - Unreleased features ship dark behind a feature flag and are enabled per tenant.
 
@@ -511,16 +512,41 @@ export interface AccessPolicy {
   version: string; // for cache invalidation/refresh
 }
 
+// A dynamic import of a module whose default export is the component.
+export type LazyComponent<Props = object> = () => Promise<{ default: ComponentType<Props> }>;
+// What a host screen passes to slot contributions: ids and values, never whole records.
+export interface SlotProps {
+  context?: Readonly<Record<string, unknown>>;
+}
+
 export interface FeatureManifest {
   id: string;
   titleKey: string;
   featureFlag: string;
-  routes: { path: string; lazy: () => Promise<unknown>; requires: Permission[] }[];
-  nav?: { icon: string; order: number; requires: Permission[] };
-  permissions: Permission[];
-  extensions?: { slot: SlotId; component: () => Promise<unknown>; requires?: Permission[] }[];
+  // path is relative, without a leading slash
+  routes: { path: string; lazy: LazyComponent; requires: Permission[] }[];
+  // icon is the component itself so it tree-shakes; path defaults to the first route
+  nav?: {
+    icon: ComponentType<{ className?: string }>;
+    order: number;
+    requires: Permission[];
+    path?: string;
+  };
+  permissions: Permission[]; // everything used in a requires must be declared here
+  extensions?: {
+    slot: SlotId;
+    component: LazyComponent<SlotProps>;
+    requires?: Permission[];
+    order?: number;
+  }[];
   settings?: { section: string; schema: unknown /* Zod schema */; requires: Permission[] };
-  dashboardWidgets?: unknown[];
+  // shorthand for contributions to the dashboard.widgets slot
+  dashboardWidgets?: {
+    id: string;
+    component: LazyComponent<SlotProps>;
+    requires?: Permission[];
+    order?: number;
+  }[];
 }
 
 export type SlotId =

@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom';
-import { routes } from '@/routes';
+import type { Registry } from '@/registry';
+import { createRoutes } from '@/routes';
 
-export function createRouter(): ReturnType<typeof createBrowserRouter> {
-  return createBrowserRouter(routes);
+export function createRouter(registry: Registry): ReturnType<typeof createBrowserRouter> {
+  return createBrowserRouter(createRoutes(registry));
 }

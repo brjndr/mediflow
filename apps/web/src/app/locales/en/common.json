@@ -54,5 +54,8 @@
   "access": {
     "forbiddenTitle": "You do not have access to this page",
     "forbiddenDescription": "If you think you should, ask your hospital administrator to update your role."
+  },
+  "nav": {
+    "label": "Main navigation"
   }
 }
