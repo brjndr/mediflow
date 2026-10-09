@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
+import { resetMockDb } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { configureApi, resetApiConfig } from '@/shared/api';
 
@@ -12,6 +13,7 @@ beforeAll(() => {
 });
 afterEach(() => {
   server.resetHandlers();
+  resetMockDb();
   cleanup();
   resetApiConfig();
   fastRetries();

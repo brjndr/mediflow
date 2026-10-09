@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
-import { sampleSession } from '@/mocks/fixtures';
+import { sessionFor, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { apiFetch, TENANT_HEADER } from '@/shared/api';
 import { renderApp } from '@/test/render';
@@ -12,6 +12,8 @@ import { sessionKey } from './session-query';
 const HOME = { name: 'Hospital management system' };
 const SESSION_URL = '*/api/session';
 const ECHO_URL = 'http://localhost:3000/api/echo';
+
+const sampleSession = sessionFor(USER_IDS.admin);
 
 const secondHospital = {
   ...sampleSession,
