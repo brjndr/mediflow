@@ -7,7 +7,8 @@ export function createQueryClient() {
         staleTime: 30_000,
         gcTime: 5 * 60_000, // CLAUDE.md Performance Strategy: 5 minute gcTime
         refetchOnWindowFocus: false,
-        retry: 1,
+        // The API client already retries idempotent requests with backoff (shared/api/http.ts).
+        retry: false,
       },
     },
   });

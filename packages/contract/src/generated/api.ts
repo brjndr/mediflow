@@ -28,8 +28,27 @@ export interface components {
             /** @enum {string} */
             status: "ok";
         };
+        /** @description Standard error body. The message is for logs and developers, never shown to users: the web app maps code to a translated message. */
+        Error: {
+            error: {
+                /** @description Stable machine-readable code, e.g. tenant_mismatch */
+                code: string;
+                message: string;
+                requestId?: string;
+            };
+        };
     };
-    responses: never;
+    responses: {
+        /** @description Request failed */
+        Error: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+    };
     parameters: never;
     requestBodies: never;
     headers: never;
@@ -55,6 +74,7 @@ export interface operations {
                     "application/json": components["schemas"]["Health"];
                 };
             };
+            default: components["responses"]["Error"];
         };
     };
 }
