@@ -1,6 +1,10 @@
 // PreToolUse guard. Exit code 2 blocks the tool call and sends stderr back to Claude.
 // Cross-platform (Node only) so it works on native Windows.
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+
+const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
 let input;
 try {
@@ -48,6 +52,22 @@ if (tool === 'Bash') {
     if (re.test(cmd)) block(msg);
   }
 
+  // Commits belong on feat/fix/chore branches (see Workflow in CLAUDE.md), never on main.
+  const commits = /(?:^|[\s;&|(])git\s+commit\b/.test(cmd);
+  const createsBranch = /git\s+(checkout\s+-[bB]|switch\s+-[cC])\b/.test(cmd);
+  if (commits && !createsBranch) {
+    const r = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: input.cwd || root,
+      encoding: 'utf8',
+    });
+    const branch = (r.stdout || '').trim();
+    if (branch === 'main' || branch === 'master') {
+      block(
+        `Do not commit on ${branch}. Create a branch first: feat/<n>-<slug>, fix/<n>-<slug> or chore/<n>-<slug>.`,
+      );
+    }
+  }
+
   const tokens = cmd.split(/\s+/).map((t) => t.replace(/^["']|["']$/g, ''));
   if (tokens.some(isSecretEnv)) {
     block('Secret .env files must not be read or modified. Use .env.example for documentation.');
@@ -64,6 +84,13 @@ if (filePath) {
   if (tool !== 'Read') {
     if (norm.endsWith('/pnpm-lock.yaml') || norm === 'pnpm-lock.yaml') {
       block('Never hand-edit pnpm-lock.yaml. Use pnpm add/remove/install.');
+    }
+    if (/(^|\/)(package-lock\.json|yarn\.lock|bun\.lockb?)$/.test(norm)) {
+      block('pnpm only. Never create package-lock.json, yarn.lock or bun.lock.');
+    }
+    // Migrations are additive: new files are fine, existing ones are never rewritten.
+    if (/(^|\/)migrations\//.test(norm) && existsSync(path.resolve(input.cwd || root, filePath))) {
+      block('Existing migrations are immutable. Add a new migration file instead.');
     }
     if (/(^|\/)\.git\//.test(norm)) block('Do not modify .git internals.');
     if (/(^|\/)node_modules\//.test(norm)) block('Do not edit node_modules.');
