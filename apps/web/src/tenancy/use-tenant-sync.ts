@@ -26,10 +26,17 @@ export function useTenantSync(): void {
       navigate('/', { replace: true });
       void queryClient.invalidateQueries({ queryKey: sessionKey });
     };
-    configureApi({ onTenantMismatch: resync });
+    // The hospital was suspended while this tab was open: reload the session, whose tenant status
+    // then replaces the app with the suspended page.
+    const reloadSession = () => {
+      if (queryClient.isFetching({ queryKey: sessionKey }) > 0) return;
+      dropSessionData(queryClient, dispatch);
+      void queryClient.invalidateQueries({ queryKey: sessionKey });
+    };
+    configureApi({ onTenantMismatch: resync, onTenantSuspended: reloadSession });
     const unsubscribe = onSessionChangeElsewhere(resync);
     return () => {
-      configureApi({ onTenantMismatch: () => {} });
+      configureApi({ onTenantMismatch: () => {}, onTenantSuspended: () => {} });
       unsubscribe();
     };
   }, [queryClient, dispatch, navigate]);

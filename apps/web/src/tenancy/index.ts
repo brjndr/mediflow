@@ -1,4 +1,5 @@
 export { HospitalPicker } from './HospitalPicker';
+export { SuspendedPage } from './SuspendedPage';
 export { TenantProvider } from './TenantProvider';
 export { TenantSwitcher } from './TenantSwitcher';
 export { useTenant } from './tenant-context';

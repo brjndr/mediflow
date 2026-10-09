@@ -577,6 +577,7 @@ export interface Tenant {
   theme: { primary: string; logoUrl?: string };
   features: Record<string, boolean>;
   auth: { mode: 'password' | 'sso' };
+  status: 'active' | 'suspended'; // suspended: data kept, staff see the suspended page
 }
 
 export interface User {

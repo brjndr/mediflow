@@ -154,6 +154,11 @@ export interface components {
                 /** @enum {string} */
                 mode: "password" | "sso";
             };
+            /**
+             * @description A suspended hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended.
+             * @enum {string}
+             */
+            status: "active" | "suspended";
         };
         PermissionGrant: {
             /** @description resource:action */

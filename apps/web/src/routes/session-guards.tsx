@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { usePolicyRefresh } from '@/access';
 import { useSession } from '@/app/session';
-import { HospitalPicker, useTenant, useTenantSync } from '@/tenancy';
+import { HospitalPicker, SuspendedPage, useTenant, useTenantSync } from '@/tenancy';
 
 export const LOGIN_PATH = '/login';
 
@@ -42,5 +42,9 @@ export function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
 export function RequireTenant({ children }: { children: ReactNode }) {
   useTenantSync();
   usePolicyRefresh();
-  return useTenant() ? children : <HospitalPicker />;
+  const tenant = useTenant();
+  if (!tenant) return <HospitalPicker />;
+  // No screen of a suspended hospital is reachable, whatever the address.
+  if (tenant.status === 'suspended') return <SuspendedPage />;
+  return children;
 }

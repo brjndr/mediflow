@@ -1,5 +1,5 @@
 import { HttpResponse } from 'msw';
-import { activeTenantId, currentPolicy, currentSession } from './db';
+import { activeTenantId, currentPolicy, currentSession, isActiveTenantSuspended } from './db';
 
 const TENANT_HEADER = 'X-Tenant-ID';
 
@@ -39,6 +39,9 @@ export function authorize(
   if (mismatch) return { denied: mismatch };
   const policy = currentPolicy();
   if (!policy) return { denied: error(409, 'no_active_tenant', 'Pick a hospital first') };
+  if (isActiveTenantSuspended()) {
+    return { denied: error(403, 'tenant_suspended', 'This hospital is suspended') };
+  }
   if (policy.features[featureFlag] !== true) {
     return { denied: error(403, 'feature_disabled', `Feature ${featureFlag} is off`) };
   }

@@ -8,6 +8,7 @@ const DEFAULTS: ApiFetchOptions = {
   onUnauthorized: () => {},
   onForbidden: () => {},
   onTenantMismatch: () => {},
+  onTenantSuspended: () => {},
   timeoutMs: 15_000,
   maxAttempts: 3,
   baseDelayMs: 300,

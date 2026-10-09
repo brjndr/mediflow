@@ -5,6 +5,7 @@ import type { RouteObject } from 'react-router-dom';
 import { PermissionGuard } from '@/access';
 import { AppShell } from '@/app/AppShell';
 import { ErrorFallback } from '@/app/ErrorFallback';
+import { NotFoundPage } from '@/app/NotFoundPage';
 import type { Registry } from '@/registry';
 import {
   LOGIN_PATH,
@@ -56,7 +57,13 @@ export function createRoutes(registry: Registry): RouteObject[] {
         </RequireSession>
       ),
       errorElement: <ErrorFallback />,
-      children: [{ index: true, element: <HomePage /> }, ...featureRoutes(registry)],
+      children: [
+        { index: true, element: <HomePage /> },
+        ...featureRoutes(registry),
+        // Inside the shell, so a signed-in user keeps the navigation. Signed-out users are sent
+        // to login by the guard above before any route is matched against their address.
+        { path: '*', element: <NotFoundPage /> },
+      ],
     },
   ];
 }

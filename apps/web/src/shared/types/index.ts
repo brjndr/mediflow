@@ -52,6 +52,8 @@ export interface Tenant {
   theme: { primary: string; logoUrl?: string };
   features: Record<string, boolean>;
   auth: { mode: 'password' | 'sso' };
+  /** A suspended hospital keeps its data, but its staff cannot use the app. */
+  status: 'active' | 'suspended';
 }
 
 export interface User {

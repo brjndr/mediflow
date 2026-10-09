@@ -34,6 +34,7 @@ const initialTenants: Record<string, TenantDto> = {
       notices: true,
     },
     auth: { mode: 'password' },
+    status: 'active',
   },
   // A small OPD clinic: diagnostics and pharmacy are switched off.
   [TENANT_IDS.clinic]: {
@@ -56,6 +57,7 @@ const initialTenants: Record<string, TenantDto> = {
       notices: false,
     },
     auth: { mode: 'password' },
+    status: 'active',
   },
 };
 
@@ -284,6 +286,17 @@ export function setTenantFeature(tenantId: string, flag: string, enabled: boolea
   if (!tenant) throw new Error(`Unknown mock tenant: ${tenantId}`);
   tenant.features = { ...tenant.features, [flag]: enabled };
   revision++;
+}
+
+/** What a platform admin does: suspend a hospital (data kept, staff locked out) or reactivate it. */
+export function setTenantStatus(tenantId: string, status: TenantDto['status']): void {
+  const tenant = tenants[tenantId];
+  if (!tenant) throw new Error(`Unknown mock tenant: ${tenantId}`);
+  tenant.status = status;
+}
+
+export function isActiveTenantSuspended(): boolean {
+  return state.activeTenantId ? tenants[state.activeTenantId]?.status === 'suspended' : false;
 }
 
 /** What a platform admin does: change a hospital's locale, which drives the UI language. */
