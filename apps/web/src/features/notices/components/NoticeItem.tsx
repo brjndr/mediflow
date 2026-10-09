@@ -1,8 +1,7 @@
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Can } from '@/access';
 import { Button } from '@/shared/ui/button';
-import { useTenant } from '@/tenancy';
+import { useFormatters } from '@/tenancy';
 import type { Notice } from '../types';
 
 interface NoticeItemProps {
@@ -13,17 +12,8 @@ interface NoticeItemProps {
 
 export function NoticeItem({ notice, onArchive, archiving }: NoticeItemProps) {
   const { t } = useTranslation('notices');
-  const tenant = useTenant();
-  // Stored in UTC, shown in the hospital's locale and timezone. F-06 adds shared formatters.
-  const posted = useMemo(
-    () =>
-      new Intl.DateTimeFormat(tenant?.locale, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-        timeZone: tenant?.timezone,
-      }).format(new Date(notice.createdAt)),
-    [notice.createdAt, tenant?.locale, tenant?.timezone],
-  );
+  // Stored in UTC, shown in the hospital's locale and timezone.
+  const posted = useFormatters().dateTime(notice.createdAt);
 
   return (
     <li className="flex items-start gap-4 rounded-lg border p-4">

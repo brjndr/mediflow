@@ -1,7 +1,10 @@
 export { HospitalPicker } from './HospitalPicker';
 export { SuspendedPage } from './SuspendedPage';
+export { TenantBrand } from './TenantBrand';
 export { TenantProvider } from './TenantProvider';
 export { TenantSwitcher } from './TenantSwitcher';
+export { TenantTheme } from './TenantTheme';
 export { useTenant } from './tenant-context';
+export { useFormatters } from './use-formatters';
 export { useSwitchTenant } from './use-switch-tenant';
 export { useTenantSync } from './use-tenant-sync';

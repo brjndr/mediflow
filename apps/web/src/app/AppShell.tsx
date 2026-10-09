@@ -5,7 +5,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
-import { TenantSwitcher } from '@/tenancy';
+import { TenantBrand, TenantSwitcher } from '@/tenancy';
 import { AppNav } from './AppNav';
 import { NavDrawer } from './NavDrawer';
 import { NoticeBanner } from './NoticeBanner';
@@ -55,14 +55,9 @@ export function AppShell() {
           collapsed ? 'w-16' : 'w-60',
         )}
       >
-        <p
-          className={cn(
-            'flex h-8 items-center px-3 text-sm font-semibold text-primary',
-            collapsed && 'sr-only',
-          )}
-        >
-          {t('app.name')}
-        </p>
+        <div className={cn('flex h-8 items-center px-3', collapsed && 'sr-only')}>
+          <TenantBrand />
+        </div>
         <div className="flex-1">
           <AppNav collapsed={collapsed} />
         </div>
@@ -90,7 +85,7 @@ export function AppShell() {
           >
             <Menu aria-hidden />
           </Button>
-          <span className="text-sm font-semibold text-primary lg:hidden">{t('app.name')}</span>
+          <TenantBrand className="lg:hidden" />
           <TenantSwitcher />
           <div className="ml-auto min-w-0">
             <UserIdentity />
