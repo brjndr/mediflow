@@ -25,6 +25,30 @@
           }
         }
       }
+    },
+    "/session": {
+      "get": {
+        "operationId": "getSession",
+        "description": "Bootstraps the app in one request: the signed-in user, the active tenant with its config, and the effective access policy. Private per session, never CDN-cached.",
+        "responses": {
+          "200": {
+            "description": "The current session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -59,6 +83,179 @@
                 "type": "string"
               }
             }
+          }
+        }
+      },
+      "Membership": {
+        "type": "object",
+        "required": ["tenantId", "tenantName", "roleId"],
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          },
+          "tenantName": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": ["id", "email", "name", "memberships"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Membership"
+            }
+          }
+        }
+      },
+      "Tenant": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "locale",
+          "timezone",
+          "currency",
+          "theme",
+          "features",
+          "auth"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string",
+            "description": "BCP 47, e.g. en-IN"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA, e.g. Asia/Kolkata"
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217"
+          },
+          "theme": {
+            "type": "object",
+            "required": ["primary"],
+            "properties": {
+              "primary": {
+                "type": "string"
+              },
+              "logoUrl": {
+                "type": "string"
+              }
+            }
+          },
+          "features": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "auth": {
+            "type": "object",
+            "required": ["mode"],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": ["password", "sso"]
+              }
+            }
+          }
+        }
+      },
+      "PermissionGrant": {
+        "type": "object",
+        "required": ["permission"],
+        "properties": {
+          "permission": {
+            "type": "string",
+            "description": "resource:action"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["all", "own", "department"]
+          }
+        }
+      },
+      "AccessPolicy": {
+        "type": "object",
+        "required": ["tenantId", "roleId", "permissions", "features", "version"],
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionGrant"
+            }
+          },
+          "features": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "required": ["user", "activeTenant", "policy"],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "activeTenant": {
+            "description": "Null until a user with several hospitals picks one.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Tenant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "policy": {
+            "description": "Null when there is no active tenant.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AccessPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       }

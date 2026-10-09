@@ -6,7 +6,7 @@ import { Provider as StoreProvider } from 'react-redux';
 import { AccessPolicyProvider } from '@/access';
 import { TenantProvider } from '@/tenancy';
 import { GlobalErrorBoundary } from './GlobalErrorBoundary';
-import { SessionProvider } from './session';
+import { SessionProvider, useSession } from './session';
 import type { AppStore } from './store';
 
 interface AppProvidersProps {
@@ -16,9 +16,19 @@ interface AppProvidersProps {
   children: ReactNode;
 }
 
+/** Tenant and policy come from the session but live in their own contexts (see AppProviders). */
+function SessionScopedProviders({ children }: { children: ReactNode }) {
+  const session = useSession();
+  return (
+    <TenantProvider tenant={session?.activeTenant ?? null}>
+      <AccessPolicyProvider policy={session?.policy ?? null}>{children}</AccessPolicyProvider>
+    </TenantProvider>
+  );
+}
+
 /**
  * Root providers. Session, tenant and access policy are separate contexts so a change in one does
- * not re-render consumers of the others. They are placeholders until F-03, F-05 and F-07.
+ * not re-render consumers of the others.
  */
 export function AppProviders({ client, store, i18n, children }: AppProvidersProps) {
   return (
@@ -27,9 +37,7 @@ export function AppProviders({ client, store, i18n, children }: AppProvidersProp
         <StoreProvider store={store}>
           <QueryClientProvider client={client}>
             <SessionProvider>
-              <TenantProvider>
-                <AccessPolicyProvider>{children}</AccessPolicyProvider>
-              </TenantProvider>
+              <SessionScopedProviders>{children}</SessionScopedProviders>
             </SessionProvider>
           </QueryClientProvider>
         </StoreProvider>

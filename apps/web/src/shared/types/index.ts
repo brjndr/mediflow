@@ -58,5 +58,5 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  memberships: { tenantId: string; roleId: RoleId }[];
+  memberships: { tenantId: string; tenantName: string; roleId: RoleId }[];
 }

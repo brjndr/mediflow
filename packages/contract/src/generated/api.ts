@@ -20,6 +20,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Bootstraps the app in one request: the signed-in user, the active tenant with its config, and the effective access policy. Private per session, never CDN-cached. */
+        get: operations["getSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -36,6 +53,61 @@ export interface components {
                 message: string;
                 requestId?: string;
             };
+        };
+        Membership: {
+            tenantId: string;
+            tenantName: string;
+            roleId: string;
+        };
+        User: {
+            id: string;
+            email: string;
+            name: string;
+            memberships: components["schemas"]["Membership"][];
+        };
+        Tenant: {
+            id: string;
+            slug: string;
+            name: string;
+            /** @description BCP 47, e.g. en-IN */
+            locale: string;
+            /** @description IANA, e.g. Asia/Kolkata */
+            timezone: string;
+            /** @description ISO 4217 */
+            currency: string;
+            theme: {
+                primary: string;
+                logoUrl?: string;
+            };
+            features: {
+                [key: string]: boolean;
+            };
+            auth: {
+                /** @enum {string} */
+                mode: "password" | "sso";
+            };
+        };
+        PermissionGrant: {
+            /** @description resource:action */
+            permission: string;
+            /** @enum {string} */
+            scope?: "all" | "own" | "department";
+        };
+        AccessPolicy: {
+            tenantId: string;
+            roleId: string;
+            permissions: components["schemas"]["PermissionGrant"][];
+            features: {
+                [key: string]: boolean;
+            };
+            version: string;
+        };
+        Session: {
+            user: components["schemas"]["User"];
+            /** @description Null until a user with several hospitals picks one. */
+            activeTenant: components["schemas"]["Tenant"] | null;
+            /** @description Null when there is no active tenant. */
+            policy: components["schemas"]["AccessPolicy"] | null;
         };
     };
     responses: {
@@ -74,6 +146,28 @@ export interface operations {
                     "application/json": components["schemas"]["Health"];
                 };
             };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

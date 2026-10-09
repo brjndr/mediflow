@@ -1,9 +1,9 @@
 import { createContext, useContext } from 'react';
-import type { User } from '@/shared/types';
+import type { Session } from './types';
 
-/** Placeholder until F-03 loads the session from GET /session. Null means no signed-in user. */
-export const SessionContext = createContext<User | null>(null);
+/** Provided only once GET /session has resolved. Null means nobody is signed in. */
+export const SessionContext = createContext<Session | null>(null);
 
-export function useSession(): User | null {
+export function useSession(): Session | null {
   return useContext(SessionContext);
 }

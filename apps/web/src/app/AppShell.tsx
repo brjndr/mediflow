@@ -1,10 +1,12 @@
 import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router-dom';
+import { useTenant } from '@/tenancy';
 
 /** Frame around every screen. F-10 adds navigation, the tenant switcher and the user menu. */
 export function AppShell() {
   const { t } = useTranslation();
+  const tenant = useTenant();
   return (
     <div className="flex min-h-dvh flex-col">
       <a
@@ -13,8 +15,9 @@ export function AppShell() {
       >
         {t('app.skipToContent')}
       </a>
-      <header className="flex h-14 items-center border-b px-4">
+      <header className="flex h-14 items-center gap-3 border-b px-4">
         <span className="text-sm font-semibold text-primary">{t('app.name')}</span>
+        {tenant && <span className="text-sm text-muted-foreground">{tenant.name}</span>}
       </header>
       <main id="main" className="flex flex-1 flex-col">
         <Suspense
