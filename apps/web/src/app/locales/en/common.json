@@ -1,0 +1,23 @@
+{
+  "app": {
+    "name": "Mediflow",
+    "loading": "Loading…",
+    "skipToContent": "Skip to main content"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "description": "This screen could not be displayed. Reload the page to try again.",
+    "reload": "Reload"
+  },
+  "home": {
+    "title": "Hospital management system",
+    "description": "Project scaffold is running. Next: the foundation milestone (app shell, session, tenancy and access).",
+    "apiStatus": "API status:",
+    "recheck": "Recheck",
+    "status": {
+      "checking": "checking",
+      "ok": "ok",
+      "unreachable": "unreachable"
+    }
+  }
+}

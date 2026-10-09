@@ -2,8 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { AppProviders } from './app/AppProviders';
+import { createI18n } from './app/i18n';
 import { createQueryClient } from './app/query-client';
 import { createRouter } from './app/router';
+import { createStore } from './app/store';
 import './index.css';
 
 async function enableMocking() {
@@ -19,7 +21,7 @@ void enableMocking().then(() => {
   if (!root) throw new Error('Root element missing');
   createRoot(root).render(
     <StrictMode>
-      <AppProviders client={createQueryClient()}>
+      <AppProviders client={createQueryClient()} store={createStore()} i18n={createI18n()}>
         <RouterProvider router={createRouter()} />
       </AppProviders>
     </StrictMode>,
