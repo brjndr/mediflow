@@ -1,0 +1,17 @@
+# Keeps the build context small and keeps local state and secrets out of images.
+**/node_modules
+**/dist
+**/coverage
+**/.vite
+**/*.tsbuildinfo
+**/test-results
+**/playwright-report
+.git
+.github
+.claude
+.playwright-mcp
+docs
+.env
+.env.*
+!.env.example
+*.log

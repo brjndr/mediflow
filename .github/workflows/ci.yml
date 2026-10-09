@@ -65,6 +65,48 @@ jobs:
           pnpm gen:api
           git diff --exit-code -- packages/contract || (echo "::error::Run 'pnpm gen:api' and commit the result" && exit 1)
 
+  api:
+    name: API tests (Postgres) and image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      # The same image and credentials as docker-compose.yml, so tests need no configuration.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mediflow
+          POSTGRES_PASSWORD: mediflow
+          POSTGRES_DB: mediflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mediflow -d mediflow_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter api test
+      # Proves the Dockerfile still builds. The image is not pushed anywhere.
+      - run: docker build -f apps/api/Dockerfile -t mediflow-api:ci .
+      - name: Container starts and answers its health check
+        run: |
+          docker run -d --name api --network host \
+            -e DATABASE_URL=postgres://mediflow:mediflow@localhost:5432/mediflow_test \
+            mediflow-api:ci
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://localhost:3000/health/ready; then exit 0; fi
+            sleep 1
+          done
+          docker logs api
+          exit 1
+
   e2e:
     name: Playwright (Chromium)
     runs-on: ubuntu-latest
