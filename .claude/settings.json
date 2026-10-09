@@ -16,20 +16,8 @@
       "Bash(gh pr checks*)",
       "Bash(gh pr diff*)",
       "Bash(gh repo view*)",
-      "Bash(node scripts/github/status.mjs*)"
-    ],
-    "ask": [
-      "Bash(pnpm add *)",
-      "Bash(pnpm remove *)",
-      "Bash(pnpm dlx *)",
-      "Bash(git commit*)",
-      "Bash(git push*)",
-      "Bash(gh pr create*)",
-      "Bash(gh issue create*)",
-      "Bash(gh issue comment*)",
-      "Bash(gh issue edit*)",
-      "Bash(gh issue close*)",
-      "Bash(node scripts/github/seed.mjs*)"
+      "Bash(node scripts/github/status.mjs*)",
+      "Bash(gh pr merge*)"
     ],
     "deny": [
       "Bash(npm *)",
@@ -50,6 +38,19 @@
       "Edit(.env.local)",
       "Edit(.env.production)",
       "Bash(gh repo delete*)"
+    ],
+    "ask": [
+      "Bash(pnpm add *)",
+      "Bash(pnpm remove *)",
+      "Bash(pnpm dlx *)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(gh pr create*)",
+      "Bash(gh issue create*)",
+      "Bash(gh issue comment*)",
+      "Bash(gh issue edit*)",
+      "Bash(gh issue close*)",
+      "Bash(node scripts/github/seed.mjs*)"
     ]
   },
   "hooks": {
