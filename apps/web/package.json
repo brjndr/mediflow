@@ -36,7 +36,8 @@
     "react-i18next": "^17.0.16",
     "react-redux": "^9.3.0",
     "react-router-dom": "^6.30.6",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",

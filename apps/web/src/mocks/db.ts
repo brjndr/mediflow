@@ -31,6 +31,7 @@ const initialTenants: Record<string, TenantDto> = {
       pharmacy: true,
       billing: true,
       reports: true,
+      notices: true,
     },
     auth: { mode: 'password' },
   },
@@ -52,6 +53,7 @@ const initialTenants: Record<string, TenantDto> = {
       pharmacy: false,
       billing: true,
       reports: false,
+      notices: false,
     },
     auth: { mode: 'password' },
   },
@@ -72,6 +74,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'report:read' },
   { permission: 'user:manage' },
   { permission: 'role:manage' },
+  { permission: 'notice:read' },
+  { permission: 'notice:manage' },
 ];
 
 const DOCTOR: PermissionGrantDto[] = [
@@ -81,6 +85,7 @@ const DOCTOR: PermissionGrantDto[] = [
   { permission: 'clinical:read' },
   { permission: 'clinical:write' },
   { permission: 'order:create' },
+  { permission: 'notice:read' },
   { permission: 'billing:read' },
   { permission: 'report:read', scope: 'own' },
 ];
@@ -184,12 +189,20 @@ export function signOut(): void {
   state.activeTenantId = null;
 }
 
+const resetListeners: (() => void)[] = [];
+
+/** Lets a feature's mock handlers restore their own data when the mock backend is reset. */
+export function onMockReset(listener: () => void): void {
+  resetListeners.push(listener);
+}
+
 /** The dev app and every test start signed in as the single-hospital admin. */
 export function resetMockDb(): void {
   tenants = structuredClone(initialTenants);
   roles = structuredClone(initialRoles);
   revision = 1;
   signIn(USER_IDS.admin);
+  for (const listener of resetListeners) listener();
 }
 
 export function isMockUser(userId: string): boolean {

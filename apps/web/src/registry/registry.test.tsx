@@ -7,7 +7,7 @@ import { server } from '@/mocks/node';
 import { apiFetch } from '@/shared/api';
 import type { AccessPolicy } from '@/shared/types';
 import { renderApp, renderWithProviders } from '@/test/render';
-import { appRegistry, createRegistry, Slot, type FeatureManifest, type SlotProps } from '.';
+import { createRegistry, Slot, type FeatureManifest, type SlotProps } from '.';
 
 /** A feature's own translations: titles bundled with the manifest, no screen strings. */
 const i18nFor = (title: string): FeatureManifest['i18n'] => ({
@@ -113,8 +113,7 @@ describe('adding a manifest', () => {
   });
 
   it('shows no navigation when no feature is registered', async () => {
-    expect(appRegistry.features).toEqual([]);
-    renderApp();
+    renderApp({ registry: createRegistry([]) });
     await home();
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   });
