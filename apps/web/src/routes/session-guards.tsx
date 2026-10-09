@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { usePolicyRefresh } from '@/access';
 import { useSession } from '@/app/session';
 import { HospitalPicker, useTenant, useTenantSync } from '@/tenancy';
 
@@ -40,5 +41,6 @@ export function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
  */
 export function RequireTenant({ children }: { children: ReactNode }) {
   useTenantSync();
+  usePolicyRefresh();
   return useTenant() ? children : <HospitalPicker />;
 }

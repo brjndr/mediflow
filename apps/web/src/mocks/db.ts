@@ -13,7 +13,7 @@ export type AccessPolicyDto = Schemas['AccessPolicy'];
  */
 export const TENANT_IDS = { hospital: 'tenant_1', clinic: 'tenant_2' } as const;
 
-const tenants: Record<string, TenantDto> = {
+const initialTenants: Record<string, TenantDto> = {
   [TENANT_IDS.hospital]: {
     id: TENANT_IDS.hospital,
     slug: 'sample-hospital',
@@ -86,7 +86,7 @@ const DOCTOR: PermissionGrantDto[] = [
 ];
 
 /** Roles are per tenant: the same role id can carry different permissions in each hospital. */
-const roles: Record<string, Record<string, PermissionGrantDto[]>> = {
+const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
   [TENANT_IDS.hospital]: { admin: ADMIN, doctor: DOCTOR },
   [TENANT_IDS.clinic]: {
     admin: ADMIN,
@@ -110,6 +110,12 @@ const roles: Record<string, Record<string, PermissionGrantDto[]>> = {
     ],
   },
 };
+
+// Working copies: tests and the role management screens change them, resetMockDb restores them.
+let tenants = structuredClone(initialTenants);
+let roles = structuredClone(initialRoles);
+/** Bumped on every access change so the policy version (and its ETag) changes with it. */
+let revision = 1;
 
 interface MockUser {
   id: string;
@@ -180,6 +186,9 @@ export function signOut(): void {
 
 /** The dev app and every test start signed in as the single-hospital admin. */
 export function resetMockDb(): void {
+  tenants = structuredClone(initialTenants);
+  roles = structuredClone(initialRoles);
+  revision = 1;
   signIn(USER_IDS.admin);
 }
 
@@ -197,7 +206,7 @@ function policyFor(user: MockUser, tenantId: string): AccessPolicyDto | null {
     roleId: membership.roleId,
     permissions,
     features: tenant.features,
-    version: `${tenantId}.${membership.roleId}.${permissions.length}`,
+    version: `${tenantId}.${membership.roleId}.${revision}`,
   };
 }
 
@@ -235,6 +244,33 @@ export function switchTenant(tenantId: string): boolean {
   if (!user?.memberships.some((m) => m.tenantId === tenantId)) return false;
   state.activeTenantId = tenantId;
   return true;
+}
+
+/** What a hospital admin does on the role screen: replace the permissions of one role. */
+export function setRolePermissions(
+  tenantId: string,
+  roleId: string,
+  permissions: PermissionGrantDto[],
+): void {
+  roles[tenantId] = { ...roles[tenantId], [roleId]: permissions };
+  revision++;
+}
+
+export function revokePermission(tenantId: string, roleId: string, permission: string): void {
+  const current = roles[tenantId]?.[roleId] ?? [];
+  setRolePermissions(
+    tenantId,
+    roleId,
+    current.filter((grant) => grant.permission !== permission),
+  );
+}
+
+/** What a platform admin does: turn a module on or off for one hospital. */
+export function setTenantFeature(tenantId: string, flag: string, enabled: boolean): void {
+  const tenant = tenants[tenantId];
+  if (!tenant) throw new Error(`Unknown mock tenant: ${tenantId}`);
+  tenant.features = { ...tenant.features, [flag]: enabled };
+  revision++;
 }
 
 /** The session a mock user would get, without changing who is signed in. For test fixtures. */

@@ -39,3 +39,19 @@ export async function fetchSession(signal?: AbortSignal): Promise<Session | null
 export async function switchTenant(tenantId: string): Promise<Session> {
   return toSession(requireData(await api.POST('/session/switch-tenant', { body: { tenantId } })));
 }
+
+/**
+ * The current policy for the active tenant. Pass the last ETag to make an unchanged policy a
+ * cheap 304, which resolves to null.
+ */
+export async function fetchPolicy(
+  etag?: string,
+  signal?: AbortSignal,
+): Promise<{ policy: AccessPolicy; etag: string | undefined } | null> {
+  const { data, response } = await api.GET('/session/policy', {
+    params: { header: etag ? { 'If-None-Match': etag } : {} },
+    signal,
+  });
+  if (response.status === 304 || !data) return null;
+  return { policy: toPolicy(data), etag: response.headers.get('ETag') ?? undefined };
+}

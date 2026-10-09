@@ -6,6 +6,9 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+const ROLE_COMPARISON =
+  'Never compare role names. Use usePermission, <Can> or manifest requires (CLAUDE.md).';
+
 export default tseslint.config(
   {
     ignores: [
@@ -51,6 +54,20 @@ export default tseslint.config(
         },
       ],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+      // Access is decided by permissions, never by role names (CLAUDE.md Extensibility and Access Control).
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'BinaryExpression[operator=/^[!=]==?$/]:matches([left.name=/^role(Id|Name)?$/i], [right.name=/^role(Id|Name)?$/i], [left.property.name=/^role(Id|Name)?$/i], [right.property.name=/^role(Id|Name)?$/i], [left.object.name="BuiltInRoles"], [right.object.name="BuiltInRoles"])',
+          message: ROLE_COMPARISON,
+        },
+        {
+          selector:
+            'SwitchStatement:matches([discriminant.name=/^role(Id|Name)?$/i], [discriminant.property.name=/^role(Id|Name)?$/i])',
+          message: ROLE_COMPARISON,
+        },
+      ],
     },
   },
   {

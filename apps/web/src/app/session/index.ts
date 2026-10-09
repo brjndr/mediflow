@@ -1,4 +1,4 @@
-export { switchTenant } from './api';
+export { fetchPolicy, switchTenant } from './api';
 export { SessionProvider } from './SessionProvider';
 export { announceSessionChange, onSessionChangeElsewhere } from './session-channel';
 export { useSession } from './session-context';

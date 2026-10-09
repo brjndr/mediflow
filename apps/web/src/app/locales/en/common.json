@@ -50,5 +50,9 @@
   "notice": {
     "tenantChangedElsewhere": "The active hospital was changed in another tab. This tab now shows the same hospital.",
     "dismiss": "Dismiss"
+  },
+  "access": {
+    "forbiddenTitle": "You do not have access to this page",
+    "forbiddenDescription": "If you think you should, ask your hospital administrator to update your role."
   }
 }
