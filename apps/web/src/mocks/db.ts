@@ -192,6 +192,45 @@ export function signOut(): void {
   state.activeTenantId = null;
 }
 
+/** Every sample account signs in with this. The same password the API's dev seed uses. */
+export const MOCK_PASSWORD = 'sample-staff-local-only';
+/** As the real API: this many wrong passwords lock the account. */
+export const MOCK_LOGIN_MAX_FAILURES = 5;
+/** As the real API: sign-in attempts allowed per minute before it answers 429. */
+export const MOCK_LOGIN_RATE_LIMIT = 10;
+
+let failedLogins = new Map<string, number>();
+let lockedEmails = new Set<string>();
+let loginAttempts: number[] = [];
+
+/**
+ * What POST /auth/login does. Like the real API it gives one answer, `invalid`, for an unknown
+ * email, a wrong password and a locked account, so the form can be tested against the same
+ * behaviour. The lock lasts until the mock is reset.
+ */
+export function attemptSignIn(
+  email: string,
+  password: string,
+  now = Date.now(),
+): 'signed_in' | 'invalid' | 'rate_limited' {
+  loginAttempts = loginAttempts.filter((at) => now - at < 60_000);
+  if (loginAttempts.length >= MOCK_LOGIN_RATE_LIMIT) return 'rate_limited';
+  loginAttempts.push(now);
+
+  const address = email.trim().toLowerCase();
+  const user = Object.values(users).find((candidate) => candidate.email === address);
+  if (!user || lockedEmails.has(address)) return 'invalid';
+  if (password !== MOCK_PASSWORD) {
+    const failures = (failedLogins.get(address) ?? 0) + 1;
+    failedLogins.set(address, failures);
+    if (failures >= MOCK_LOGIN_MAX_FAILURES) lockedEmails.add(address);
+    return 'invalid';
+  }
+  failedLogins.delete(address);
+  signIn(user.id);
+  return 'signed_in';
+}
+
 const resetListeners: (() => void)[] = [];
 
 /** Lets a feature's mock handlers restore their own data when the mock backend is reset. */
@@ -204,6 +243,9 @@ export function resetMockDb(): void {
   tenants = structuredClone(initialTenants);
   roles = structuredClone(initialRoles);
   revision = 1;
+  failedLogins = new Map();
+  lockedEmails = new Set();
+  loginAttempts = [];
   signIn(USER_IDS.admin);
   for (const listener of resetListeners) listener();
 }

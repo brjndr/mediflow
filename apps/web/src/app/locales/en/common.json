@@ -35,11 +35,19 @@
   "session": {
     "loading": "Loading your workspace…",
     "errorTitle": "Could not load your session",
-    "retry": "Try again"
+    "retry": "Try again",
+    "signOut": "Sign out",
+    "signOutFailed": "You are still signed in. {{reason}}"
   },
   "login": {
     "title": "Sign in",
-    "unavailable": "Sign-in is not available yet."
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "invalid": "The email or password is not correct, or the account is temporarily locked. Check them and try again.",
+    "rateLimited": "Too many sign-in attempts. Wait a minute and try again.",
+    "mfaUnavailable": "This account needs a code from an authenticator app, which this version cannot ask for yet."
   },
   "tenancy": {
     "pickerTitle": "Choose a hospital",

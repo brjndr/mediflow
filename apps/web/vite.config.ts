@@ -25,7 +25,20 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
-  server: { port: 5173, strictPort: true },
+  server: {
+    port: 5173,
+    strictPort: true,
+    // The real API, for running without the mock (VITE_API_MOCKING=disabled). The browser only
+    // ever talks to this origin, so the session cookie and the API's cross-site check work as
+    // they do in production, where the CDN routes /api to the API. With the mock on, the service
+    // worker answers first and nothing reaches the proxy.
+    proxy: {
+      '/api': {
+        target: process.env.API_PROXY_TARGET ?? 'http://localhost:3000',
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
   build: {
     target: 'es2022',
     sourcemap: false,

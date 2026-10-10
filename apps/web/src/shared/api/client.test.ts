@@ -1,7 +1,7 @@
 import { delay, http, HttpResponse } from 'msw';
 import { server } from '@/mocks/node';
 import { fetchHealth } from './health';
-import { ApiError, apiFetch, configureApi, resetApiConfig } from '.';
+import { ApiError, apiFetch, apiFetchOnce, configureApi, resetApiConfig } from '.';
 
 /** API client behaviour beyond the main retry, 401, 403 and 429 cases in http.test.ts. */
 
@@ -51,6 +51,42 @@ describe('429 with Retry-After as an HTTP date', () => {
     setTimeout(() => controller.abort(), 40);
     expect(await pending).toHaveProperty('name', 'AbortError');
     expect(calls).toBe(1);
+  });
+});
+
+describe('the fetch that does not retry', () => {
+  it('reports a 429 at once, with how long the server asked to wait', async () => {
+    let calls = 0;
+    server.use(
+      http.post(URL_ITEMS, () => {
+        calls++;
+        return new HttpResponse(null, { status: 429, headers: { 'Retry-After': '60' } });
+      }),
+    );
+    const started = performance.now();
+
+    const error = await caught(apiFetchOnce(URL_ITEMS, { method: 'POST' }));
+
+    expect(error).toMatchObject({ code: 'rate_limited', retryAfterMs: 60_000 });
+    expect(calls).toBe(1);
+    expect(performance.now() - started).toBeLessThan(2_000);
+  });
+
+  it('shares the configuration of the retrying one', async () => {
+    let unauthorized = 0;
+    configureApi({ getTenantId: () => 'tenant_9', onUnauthorized: () => unauthorized++ });
+    let sent: string | null = null;
+    server.use(
+      http.get(URL_ITEMS, ({ request }) => {
+        sent = request.headers.get('X-Tenant-ID');
+        return new HttpResponse(null, { status: 401 });
+      }),
+    );
+
+    await caught(apiFetchOnce(URL_ITEMS));
+
+    expect(sent).toBe('tenant_9');
+    expect(unauthorized).toBe(1);
   });
 });
 
