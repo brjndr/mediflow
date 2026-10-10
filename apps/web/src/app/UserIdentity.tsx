@@ -1,9 +1,8 @@
 import { useSession } from './session';
 
 /**
- * Who is signed in. Shown as plain text for now: it becomes the trigger of the user menu when
- * there is something to put in it (sign-out arrives with the session-lifecycle work, profile
- * with A-06). An empty menu would be invalid for assistive technology.
+ * Who is signed in. Plain text with the sign-out button beside it for now: it becomes the
+ * trigger of a user menu when there is more to put in one (profile arrives with A-06).
  */
 export function UserIdentity() {
   const user = useSession()?.user;

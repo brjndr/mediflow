@@ -1,12 +1,44 @@
 import { http, HttpResponse } from 'msw';
 import type { Health } from '@/shared/api/health';
-import { currentPolicy, currentSession, switchTenant } from './db';
+import { attemptSignIn, currentPolicy, currentSession, signOut, switchTenant } from './db';
 import { examplesHandlers } from './handlers/examples';
 import { noticesHandlers } from './handlers/notices';
 import { error, tenantMismatch, unauthenticated } from './respond';
 
 export const handlers = [
   http.get('*/api/health', () => HttpResponse.json<Health>({ status: 'ok' })),
+
+  http.post('*/api/auth/login', async ({ request }) => {
+    const body: unknown = await request.json().catch(() => null);
+    const { email, password } =
+      typeof body === 'object' && body !== null
+        ? (body as { email?: unknown; password?: unknown })
+        : {};
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
+      return error(400, 'validation_failed', 'email and password are required');
+    }
+    const outcome = attemptSignIn(email, password);
+    if (outcome === 'rate_limited') {
+      return HttpResponse.json(
+        { error: { code: 'rate_limited', message: 'Too many attempts', requestId: 'req_mock' } },
+        { status: 429, headers: { 'Retry-After': '60' } },
+      );
+    }
+    if (outcome === 'invalid') {
+      // One answer whatever was wrong, as the real API gives.
+      return error(
+        401,
+        'invalid_credentials',
+        'Email or password is incorrect, or the account is temporarily locked',
+      );
+    }
+    return HttpResponse.json(currentSession());
+  }),
+
+  http.post('*/api/auth/logout', () => {
+    signOut();
+    return new HttpResponse(null, { status: 204 });
+  }),
 
   http.get('*/api/session', () => {
     const session = currentSession();

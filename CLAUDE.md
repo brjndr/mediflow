@@ -258,6 +258,8 @@ pnpm e2e        # Playwright end-to-end tests
 pnpm gen:api    # regenerate typed API client from OpenAPI spec
 ```
 
+**Signing in locally.** The web app runs against the mock API by default and starts signed in as the sample hospital admin. Open `/?mockUser=none` to start signed out and use the login page: any sample email from `apps/web/src/mocks/db.ts` with the password defined there. To run against the real API instead, start it (`docker compose up -d`, `pnpm --filter api db:migrate`, `pnpm --filter api db:seed`, `pnpm --filter api dev`) and start the web app with `VITE_API_MOCKING=disabled`. The Vite dev server proxies `/api` to `http://localhost:3000` (override with `API_PROXY_TARGET`), so the browser stays on one origin, as it does in production where the CDN routes `/api` to the API.
+
 ## Folder Structure (apps/web, feature-based)
 
 ```

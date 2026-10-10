@@ -31,6 +31,12 @@ export function resetApiConfig(): void {
 
 export const apiFetch = createApiFetch(() => options);
 
+/**
+ * The same fetch without retries, for a request the user is waiting on and can repeat themselves:
+ * a refused sign-in should say so at once, not after waiting out the server's Retry-After.
+ */
+export const apiFetchOnce = createApiFetch(() => ({ ...options, maxAttempts: 1 }));
+
 /** Typed client generated from the OpenAPI contract. Every API call goes through it. */
 export const api = createClient<paths>({
   // Absolute, so requests resolve the same way in the browser and in tests.

@@ -1,5 +1,5 @@
 import type { components } from '@mediflow/contract';
-import { api, isApiError, requireData } from '@/shared/api';
+import { api, apiFetchOnce, isApiError, requireData } from '@/shared/api';
 import type { AccessPolicy, Permission, PermissionGrant } from '@/shared/types';
 import type { Session } from './types';
 
@@ -33,6 +33,21 @@ export async function fetchSession(signal?: AbortSignal): Promise<Session | null
     if (isApiError(error) && error.code === 'unauthorized') return null;
     throw error;
   }
+}
+
+/**
+ * Signs in. The server answers with the session and sets its cookie. Not retried: a refusal
+ * (wrong details, too many attempts) is shown to the user straight away.
+ */
+export async function signIn(credentials: { email: string; password: string }): Promise<Session> {
+  return toSession(
+    requireData(await api.POST('/auth/login', { body: credentials, fetch: apiFetchOnce })),
+  );
+}
+
+/** Ends the session on the server. Succeeds whether or not there was one. */
+export async function signOut(): Promise<void> {
+  await api.POST('/auth/logout', { fetch: apiFetchOnce });
 }
 
 /** Rebinds the server-side session to another of the user's hospitals. Affects every tab. */
