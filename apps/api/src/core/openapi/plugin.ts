@@ -30,6 +30,7 @@ export const openApiPlugin = fp(
           { name: 'system', description: 'Health and readiness' },
           { name: 'tenancy', description: 'The active hospital and its configuration' },
           { name: 'auth', description: 'Sign-in and the session' },
+          { name: 'staff', description: 'Who works at the hospital' },
         ],
       },
       // Name components after the schema's $id instead of def-0, def-1, ...

@@ -4,53 +4,6 @@
     "description": "Endpoints the web app is built against that the API does not implement yet. Hand-written. When the API implements one, delete it here: the generated spec then provides it."
   },
   "paths": {
-    "/session/policy": {
-      "get": {
-        "operationId": "getSessionPolicy",
-        "description": "The effective access policy for the active tenant. Supports ETag and If-None-Match so a refresh is cheap. Returns 409 tenant_mismatch when X-Tenant-ID differs from the session tenant.",
-        "parameters": [
-          {
-            "name": "If-None-Match",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The current policy",
-            "headers": {
-              "ETag": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AccessPolicy"
-                }
-              }
-            }
-          },
-          "304": {
-            "description": "The policy has not changed"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
     "/notices": {
       "get": {
         "operationId": "listNotices",

@@ -45,6 +45,8 @@ export const tenantRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     '/tenant',
     {
+      // Any member may read their hospital's configuration.
+      config: { permissions: [] },
       schema: {
         operationId: 'getTenant',
         tags: ['tenancy'],

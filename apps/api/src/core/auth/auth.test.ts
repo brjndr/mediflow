@@ -138,7 +138,14 @@ describe('signing in', () => {
         name: 'Auth Hospital',
         features: { laboratory: true },
       }),
-      policy: null,
+      // No feature has given the nurse role anything in this test hospital.
+      policy: {
+        tenantId: hospital.id,
+        roleId: 'nurse',
+        permissions: [],
+        features: { laboratory: true },
+        version: expect.stringMatching(/\.nurse\.\d+$/),
+      },
     });
   });
 

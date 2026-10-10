@@ -70,47 +70,6 @@
           }
         }
       },
-      "PermissionGrant": {
-        "type": "object",
-        "required": ["permission"],
-        "properties": {
-          "permission": {
-            "description": "resource:action",
-            "type": "string"
-          },
-          "scope": {
-            "type": "string",
-            "enum": ["all", "own", "department"]
-          }
-        }
-      },
-      "AccessPolicy": {
-        "type": "object",
-        "required": ["tenantId", "roleId", "permissions", "features", "version"],
-        "properties": {
-          "tenantId": {
-            "type": "string"
-          },
-          "roleId": {
-            "type": "string"
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PermissionGrant"
-            }
-          },
-          "features": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "boolean"
-            }
-          },
-          "version": {
-            "type": "string"
-          }
-        }
-      },
       "Session": {
         "type": "object",
         "required": ["user", "activeTenant", "policy"],
@@ -130,7 +89,7 @@
             ]
           },
           "policy": {
-            "description": "Null when there is no active tenant. Also null until roles and permissions exist in the API (BE-05).",
+            "description": "Null when there is no active tenant.",
             "anyOf": [
               {
                 "$ref": "#/components/schemas/AccessPolicy"
@@ -260,6 +219,47 @@
           }
         }
       },
+      "PermissionGrant": {
+        "type": "object",
+        "required": ["permission"],
+        "properties": {
+          "permission": {
+            "description": "resource:action",
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["all", "own", "department"]
+          }
+        }
+      },
+      "AccessPolicy": {
+        "type": "object",
+        "required": ["tenantId", "roleId", "permissions", "features", "version"],
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionGrant"
+            }
+          },
+          "features": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
       "Health": {
         "type": "object",
         "required": ["status"],
@@ -267,6 +267,25 @@
           "status": {
             "type": "string",
             "enum": ["ok"]
+          }
+        }
+      },
+      "Invite": {
+        "description": "An invitation that has been emailed. The link is not returned.",
+        "type": "object",
+        "required": ["id", "email", "roleId", "expiresInHours"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string"
+          },
+          "expiresInHours": {
+            "type": "integer"
           }
         }
       },
@@ -1163,6 +1182,77 @@
         }
       }
     },
+    "/session/policy": {
+      "get": {
+        "operationId": "getSessionPolicy",
+        "tags": ["auth"],
+        "description": "The effective access policy for the active tenant. Supports ETag and If-None-Match so a refresh is cheap. Returns 409 tenant_mismatch when X-Tenant-ID differs from the session tenant.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The current policy",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessPolicy"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The policy has not changed"
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -1211,52 +1301,91 @@
         }
       }
     },
-    "/session/policy": {
-      "get": {
-        "operationId": "getSessionPolicy",
-        "description": "The effective access policy for the active tenant. Supports ETag and If-None-Match so a refresh is cheap. Returns 409 tenant_mismatch when X-Tenant-ID differs from the session tenant.",
-        "parameters": [
-          {
-            "name": "If-None-Match",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The current policy",
-            "headers": {
-              "ETag": {
-                "schema": {
-                  "type": "string"
+    "/invites": {
+      "post": {
+        "operationId": "createInvite",
+        "tags": ["staff"],
+        "description": "Invites someone to the active hospital in one of its roles and emails them a single-use link. A newer invite to the same address replaces an older one.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "name", "roleId"],
+                "properties": {
+                  "email": {
+                    "minLength": 3,
+                    "maxLength": 254,
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "type": "string"
+                  },
+                  "roleId": {
+                    "minLength": 1,
+                    "maxLength": 63,
+                    "type": "string"
+                  }
                 }
               }
-            },
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "An invitation that has been emailed. The link is not returned.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccessPolicy"
+                  "$ref": "#/components/schemas/Invite"
                 }
               }
             }
           },
-          "304": {
-            "description": "The policy has not changed"
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "401": {
-            "$ref": "#/components/responses/Error"
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/notices": {
@@ -1368,6 +1497,10 @@
     {
       "name": "auth",
       "description": "Sign-in and the session"
+    },
+    {
+      "name": "staff",
+      "description": "Who works at the hospital"
     }
   ]
 }

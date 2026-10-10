@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { buildApp, type AppOptions } from '../src/app.js';
+import { syncRoleDefaults } from '../src/core/access/sync.js';
 import { hashPassword } from '../src/core/auth/password.js';
 import { loadConfig, type Config } from '../src/core/config/config.js';
 import type { Session } from '../src/core/session/plugin.js';
@@ -168,4 +169,13 @@ export async function addMembership(
 /** Removes test users and, by cascade, their identities, memberships and sessions. */
 export async function deleteUsers(pool: pg.Pool, users: TestUser[]): Promise<void> {
   await pool.query('delete from users where id = any($1::uuid[])', [users.map((user) => user.id)]);
+}
+
+/**
+ * Gives a test hospital's built-in roles the default permissions the app's features declare, as
+ * the deploy step does for real hospitals. A hospital created by `createTenant` has its
+ * built-in roles (a database trigger) but no grants until this runs.
+ */
+export async function grantRoleDefaults(app: FastifyInstance, tenant: TestTenant): Promise<void> {
+  await syncRoleDefaults(app.database.pool, app.permissions.all(), tenant.id);
 }

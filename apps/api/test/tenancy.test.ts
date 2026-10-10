@@ -33,8 +33,11 @@ beforeAll(async () => {
     resolveSession: resolveTestSession,
     // Test-only routes that write through the request's transaction, as a feature would.
     extend(instance) {
+      // Open to any member: this file is about isolation, access.test.ts about permissions.
+      const member = { config: { permissions: [] } };
       instance.post<{ Body: { note: string; tenantId?: string; fail?: boolean } }>(
         '/probe',
+        member,
         async (request) => {
           const { note, tenantId, fail } = request.body;
           // A buggy or malicious handler naming another hospital must still be stopped.
@@ -47,19 +50,19 @@ beforeAll(async () => {
           return result.rows[0];
         },
       );
-      instance.get('/probe', async (request) => {
+      instance.get('/probe', member, async (request) => {
         const result = await request.tx.execute<{ note: string; tenant_id: string }>(
           sql`select note, tenant_id from rls_probe order by note`,
         );
         return { tenant: request.tenant?.id, rows: result.rows };
       });
-      instance.patch<{ Body: { note: string } }>('/probe/all', async (request) => {
+      instance.patch<{ Body: { note: string } }>('/probe/all', member, async (request) => {
         const result = await request.tx.execute(
           sql`update rls_probe set note = ${request.body.note}`,
         );
         return { updated: result.rowCount };
       });
-      instance.delete('/probe/all', async (request) => {
+      instance.delete('/probe/all', member, async (request) => {
         const result = await request.tx.execute(sql`delete from rls_probe`);
         return { deleted: result.rowCount };
       });

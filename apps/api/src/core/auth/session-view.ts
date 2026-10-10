@@ -3,7 +3,8 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import * as schema from '../db/schema.js';
-import { ref, StringEnum } from '../http/schemas.js';
+import { AccessPolicy, loadPolicy } from '../access/policy.js';
+import { ref } from '../http/schemas.js';
 import { Tenant, toTenant } from '../tenancy/routes.js';
 import { isMfaEnabled } from './mfa.js';
 
@@ -28,28 +29,6 @@ export const User = Type.Object(
   { $id: 'User' },
 );
 
-export const PermissionGrant = Type.Object(
-  {
-    permission: Type.String({ description: 'resource:action' }),
-    scope: Type.Optional(StringEnum(['all', 'own', 'department'])),
-  },
-  { $id: 'PermissionGrant' },
-);
-
-export const AccessPolicy = Type.Object(
-  {
-    tenantId: Type.String(),
-    roleId: Type.String(),
-    permissions: Type.Array(ref(PermissionGrant)),
-    features: Type.Unsafe<Record<string, boolean>>({
-      type: 'object',
-      additionalProperties: { type: 'boolean' },
-    }),
-    version: Type.String(),
-  },
-  { $id: 'AccessPolicy' },
-);
-
 /** What the web app loads once at start: who is signed in, where, and what they may do. */
 export const Session = Type.Object(
   {
@@ -58,15 +37,14 @@ export const Session = Type.Object(
       description: 'Null until a user with several hospitals picks one.',
     }),
     policy: Type.Union([ref(AccessPolicy), Type.Null()], {
-      description:
-        'Null when there is no active tenant. Also null until roles and permissions exist in the API (BE-05).',
+      description: 'Null when there is no active tenant.',
     }),
   },
   { $id: 'Session' },
 );
 export type Session = Static<typeof Session>;
 
-export const AUTH_SCHEMAS = [Membership, User, PermissionGrant, AccessPolicy, Session] as const;
+export const AUTH_SCHEMAS = [Membership, User, Session] as const;
 
 /**
  * Builds the session response for an identified user. Runs as the auth role with the user set,
@@ -126,7 +104,7 @@ export async function loadSessionView(
       mfaEnabled: await isMfaEnabled(client, userId),
     },
     activeTenant,
-    // Roles and permissions arrive with BE-05.
-    policy: null,
+    // Only for a hospital that was actually found, i.e. one the user belongs to.
+    policy: activeTenant ? await loadPolicy(client, activeTenant.id, userId) : null,
   };
 }

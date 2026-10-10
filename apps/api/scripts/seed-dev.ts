@@ -4,6 +4,8 @@
 // app's mock API has, so the real API can be signed in to. Synthetic data only. Safe to run
 // again: existing rows are updated in place.
 import pg from 'pg';
+import { buildApp } from '../src/app.js';
+import { syncRoleDefaults } from '../src/core/access/sync.js';
 import { hashPassword } from '../src/core/auth/password.js';
 import { loadConfig } from '../src/core/config/config.js';
 
@@ -118,6 +120,13 @@ try {
     }
   }
 
+  // The clinic's own role, as its admin would create it. Built-in roles come with the hospital.
+  await client.query(
+    `insert into roles (tenant_id, id, name) values ($1, 'billing_clerk', 'Billing clerk')
+     on conflict (tenant_id, id) do nothing`,
+    [tenantIds.get('riverside-clinic')],
+  );
+
   const secretHash = await hashPassword(DEV_PASSWORD);
   for (const person of STAFF) {
     const { rows } = await client.query<{ id: string }>(
@@ -146,6 +155,15 @@ try {
   }
 
   await client.query('commit');
+
+  // Built-in roles get the default permissions the features declare, as a deploy does.
+  const app = await buildApp({ ...config, LOG_LEVEL: 'silent' });
+  try {
+    await app.ready();
+    await syncRoleDefaults(client, app.permissions.all());
+  } finally {
+    await app.close();
+  }
   process.stdout.write(
     `Seeded ${HOSPITALS.length} hospitals and ${STAFF.length} staff.\n` +
       `Sign in as any of:\n${STAFF.map((person) => `  ${person.email}`).join('\n')}\n` +

@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { authPlugin } from './core/auth/plugin.js';
+import { accessPlugin } from './core/access/plugin.js';
+import { accessRoutes } from './core/access/routes.js';
 import { accountRoutes } from './core/auth/account-routes.js';
 import { authRoutes } from './core/auth/routes.js';
 import type { Config } from './core/config/config.js';
@@ -15,6 +17,7 @@ import { sessionPlugin, type SessionResolver } from './core/session/plugin.js';
 import { tenancyPlugin } from './core/tenancy/plugin.js';
 import { tenantRoutes } from './core/tenancy/routes.js';
 import { healthFeature } from './features/health/index.js';
+import { staffFeature } from './features/staff/index.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -37,7 +40,7 @@ export interface AppOptions {
  * registered first, then one line per feature.
  *
  * Every request passes through the core hooks in this order: session (who is asking), tenancy
- * (a transaction scoped to their hospital). A route is closed unless it says otherwise: the
+ * (a transaction scoped to their hospital), access (may they do this there). A route is closed unless it says otherwise: the
  * default `access` is `tenant`.
  */
 export async function buildApp(config: Config, options: AppOptions = {}): Promise<FastifyInstance> {
@@ -61,12 +64,15 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(authPlugin);
   await app.register(sessionPlugin, { resolveSession: options.resolveSession });
   await app.register(tenancyPlugin);
+  await app.register(accessPlugin);
   await app.register(tenantRoutes);
   await app.register(authRoutes);
   await app.register(accountRoutes);
+  await app.register(accessRoutes);
 
   // Features: one line each.
   await app.register(healthFeature);
+  await app.register(staffFeature);
 
   return app;
 }
