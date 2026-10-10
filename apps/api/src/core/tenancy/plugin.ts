@@ -21,12 +21,21 @@ declare module 'fastify' {
      * route makes goes through this, never through the pool.
      */
     tx: Database;
+    /** The connection behind `tx`, for code that runs plain SQL in the same transaction. */
+    txClient: pg.PoolClient;
+    /**
+     * Runs something once this request's transaction has committed, and not at all if it rolls
+     * back: sending an email about a row that was never saved would be a lie. A failure in the
+     * callback is logged and does not change the response.
+     */
+    afterCommit(callback: () => Promise<void>): void;
   }
 }
 
 interface RequestTransaction {
   client: pg.PoolClient;
   finished: boolean;
+  afterCommit: (() => Promise<void>)[];
 }
 
 const transactions = new WeakMap<FastifyRequest, RequestTransaction>();
@@ -38,6 +47,14 @@ async function finish(request: FastifyRequest, outcome: 'commit' | 'rollback'): 
   try {
     await transaction.client.query(outcome);
     transaction.client.release();
+    if (outcome === 'commit') {
+      for (const callback of transaction.afterCommit) {
+        // Not awaited: the response does not wait for a mail server.
+        void callback().catch(() => {
+          request.log.warn({ event: 'after_commit_failed' }, 'after-commit work failed');
+        });
+      }
+    }
   } catch (error) {
     // The connection is in an unknown state: destroy it instead of returning it to the pool.
     transaction.client.release(error instanceof Error ? error : true);
@@ -74,6 +91,23 @@ export const tenancyPlugin = fp(
       },
     });
 
+    const noTransaction = (request: FastifyRequest, what: string) =>
+      new Error(
+        `request.${what} used on ${request.method} ${request.routeOptions.url}, which has no tenant transaction`,
+      );
+    app.decorateRequest('txClient', {
+      getter(this: FastifyRequest): pg.PoolClient {
+        const transaction = transactions.get(this);
+        if (!transaction) throw noTransaction(this, 'txClient');
+        return transaction.client;
+      },
+    });
+    app.decorateRequest('afterCommit', function (this: FastifyRequest, callback) {
+      const transaction = transactions.get(this);
+      if (!transaction) throw noTransaction(this, 'afterCommit');
+      transaction.afterCommit.push(callback);
+    });
+
     app.addHook('preHandler', async (request) => {
       const access = request.routeOptions.config.access ?? 'tenant';
       if (access !== 'tenant' || request.is404) return;
@@ -93,7 +127,7 @@ export const tenancyPlugin = fp(
       }
 
       const client = await app.database.pool.connect();
-      transactions.set(request, { client, finished: false });
+      transactions.set(request, { client, finished: false, afterCommit: [] });
       await client.query('begin');
       await client.query(`set local role ${APP_ROLE}`);
       await client.query("select set_config('app.tenant_id', $1, true)", [tenantId]);

@@ -6,7 +6,7 @@ Backend-only rules. The root `CLAUDE.md` holds the architecture, the product sco
 
 ```bash
 docker compose up -d              # Postgres and Mailpit (from the repo root)
-pnpm --filter api db:migrate      # apply pending migrations to the dev database
+pnpm --filter api db:migrate      # apply pending migrations, then default role permissions
 pnpm --filter api db:seed         # two sample hospitals and four sample staff (never in production)
 pnpm --filter api dev             # Fastify with tsx watch on http://localhost:3000
 pnpm --filter api test            # Vitest against the mediflow_test database
@@ -22,6 +22,7 @@ src/
   app.ts          # buildApp(config): core plugins, then one register line per feature
   server.ts       # loads config, listens, shuts down on SIGTERM
   core/
+    access/       # permission registry, the access policy, the guard, default grants
     auth/         # sign-in, sessions, passwords, invites, password reset, the second factor
     config/       # environment, validated once at startup
     db/           # pool, Drizzle client, migration runner
@@ -42,7 +43,7 @@ src/
 test/             # global setup and helpers; tests live next to the code they cover
 ```
 
-`core/access`, `core/audit`, `core/outbox` and `core/jobs` arrive with the issues that build them. A feature folder has only the files it needs: `features/health` has `index.ts` and `routes.ts`.
+`core/audit`, `core/outbox` and `core/jobs` arrive with the issues that build them. A feature folder has only the files it needs: `features/health` has `index.ts` and `routes.ts`.
 
 ## Rules
 
@@ -54,7 +55,7 @@ test/             # global setup and helpers; tests live next to the code they c
 
 ## Sessions, tenants and row-level security
 
-- **A route is closed unless it says otherwise.** `config: { access: 'public' | 'session' | 'tenant' }`, and the default is `tenant`: a session with an active hospital. Health checks are `public`.
+- **A route is closed unless it says otherwise.** `config: { access: 'public' | 'session' | 'tenant' }`, and the default is `tenant`: a session with an active hospital. Health checks are `public`. A tenant route must also state its `permissions` (see Access).
 - **The session comes from the cookie.** The default resolver (`core/auth`) reads it. Tests that are not about authentication inject their own: `buildTestApp({ resolveSession: resolveTestSession })` from `test/helpers.ts`.
 - **A tenant route runs in the request's transaction.** The tenancy hook checks out a connection, begins, runs `SET LOCAL ROLE mediflow_app` and sets `app.tenant_id` from the session. Use `request.tx` for every query; never `app.database.pool` in a tenant route, which would run as the owner outside the tenant's scope. The transaction commits when the handler succeeds and rolls back when it throws.
 - **The tenant comes from the session only.** Never from a path, query string, body or header. `X-Tenant-ID` is checked against the session and a mismatch is a 409 `tenant_mismatch`.
@@ -74,6 +75,19 @@ test/             # global setup and helpers; tests live next to the code they c
 - **Cross-tenant tests are mandatory** for every tenant table and endpoint: see `test/tenancy.test.ts` for the pattern (`createTenant`, `asTenantSql`, `as(tenantId)`).
 - **Production database roles:** migrations run as a privileged login. The API should connect as a separate login that is a member of `mediflow_app` and is neither a superuser nor the table owner, so that leaving the app role is impossible, not just unexpected. Local development and CI connect as the owner and rely on `SET LOCAL ROLE`.
 
+## Access
+
+- **Every tenant route states what it requires:** `config: { permissions: ['patient:read'], feature: 'patients' }`. All listed permissions are needed. `permissions: []` means any active member of the hospital and has to be written out: a tenant route without `permissions` stops the app from starting, and so does a permission no feature declares.
+- **The guard answers** 403 `feature_disabled` when the hospital has the module off and 403 `permission_denied` when the caller's role lacks a permission. It runs inside the hospital's transaction, after the session and tenancy hooks.
+- **Never compare role names.** A role is a bundle of permissions that each hospital edits. Ask for a permission.
+- **Scope is the handler's job.** The guard only establishes that the caller holds the permission. A handler that reads data narrows its query by `request.access.scope('patient:read')` (`all`, `own` or `department`).
+- **A feature declares its permissions** in `permissions.ts` (id, description, default grants for built-in roles) and registers them in its plugin: `app.permissions.register('patients', PATIENT_PERMISSIONS)`.
+- **Default grants are seed data.** `syncRoleDefaults` gives built-in roles the defaults they have not been offered yet, once per hospital, role and permission. A grant an admin removed is not put back; a new feature's defaults arrive at the next deploy. It runs as the second step of `db:migrate`, in the dev seed, and must be called when a hospital is created. Custom roles are never touched.
+- **The policy version** is `tenant.role.revision`. Database triggers move the revision when a role, a grant or a module flag changes, so no code has to remember to. It is also the ETag of `GET /session/policy`.
+- **Roles and grants are tenant tables,** read-only for the app role until the role management API (BE-16). A membership or an invite can only name a role its hospital has.
+- **Work that must follow the commit** (sending an email about a row just written) goes in `request.afterCommit(() => ...)`. It does not run if the request fails.
+- **In tests,** declare a test feature in `extend` and call `grantRoleDefaults(app, tenant)`. See `core/access/access.test.ts`.
+
 ## Authentication
 
 - **Authentication runs as its own database role,** `mediflow_auth`, through `withAuthTransaction`. It can reach `users`, `user_identities`, `memberships`, `sessions` and the hospitals of the user it has identified, and has no grant on any table that holds hospital data. Do not grant it one. Do not query the identity tables from a tenant route: the app role cannot.
@@ -85,7 +99,7 @@ test/             # global setup and helpers; tests live next to the code they c
 - **Requests that change something must come from the web app.** A hook refuses any non-GET request whose `Origin` is not `APP_BASE_URL` (or whose `Sec-Fetch-Site` is cross-site) with 403 `cross_site_request`. Never make a GET route change state.
 - **Passwords:** Argon2id via `core/auth/password.ts` only. New passwords go through `passwordProblem` (at least 12 characters, no composition rules, obvious choices refused).
 - **Links (invite, password reset)** carry a random token and the database its hash, like the session cookie. A link works once and expires (`INVITE_TTL_HOURS` 168, `PASSWORD_RESET_TTL_MINUTES` 30). Every way a link can be wrong has one answer, 400 `invalid_token`. A refused password does not use the link up.
-- **Inviting** is `issueInvite(client, config, ...)`, and it runs in the hospital's transaction, not the auth one: the hospital is the transaction's own tenant, never an argument. Call `sendInvite` after the commit. Accepting is the only way a membership is created, and a database policy refuses one that has no open invite for that person, hospital and role.
+- **Inviting** is `issueInvite(client, config, ...)`, and it runs in the hospital's transaction (`request.txClient`), not the auth one: the hospital is the transaction's own tenant, never an argument. Call `sendInvite` after the commit (`request.afterCommit`). `POST /invites` in `features/staff` does both. Accepting is the only way a membership is created, and a database policy refuses one that has no open invite for that person, hospital and role.
 - **Forgot password** always answers 204 and sends the email after the response, so neither the answer nor its timing shows whether the account exists. A reset ends every session of the user and leaves the second factor alone.
 - **Second factor:** TOTP through `core/auth/mfa.ts` only. Secrets are encrypted with `MFA_ENCRYPTION_KEY` and bound to the user; a code is accepted once; recovery codes are stored hashed and used once. Sign-in takes the code in the same request as the password (`code`), and a wrong code counts toward the lockout. Changing the second factor needs the password again.
 - **In tests,** `createUser`, `addMembership` and `deleteUsers` from `test/helpers.ts`; sign in through `/auth/login` and pass the cookie. See `core/auth/auth.test.ts`, and `core/auth/account.test.ts` for links and codes.
@@ -117,7 +131,7 @@ test/             # global setup and helpers; tests live next to the code they c
 - Each file runs in one transaction. Start a file with `-- migrate:no-transaction` only for statements Postgres forbids in a transaction (`CREATE INDEX CONCURRENTLY`).
 - Migrations are additive: new tables, nullable columns, new indexes. Never change the meaning of an existing column.
 - Row-level security policies, the `tenant_id` convention and exclusion constraints are written here as SQL.
-- Deploys run `node dist/core/db/migrate-cli.js` as a separate step before the new version takes traffic.
+- Deploys run `node dist/core/db/migrate-cli.js` as a separate step before the new version takes traffic. It applies migrations and then the default role permissions, so it needs the same environment as the API itself.
 
 ## Logging
 

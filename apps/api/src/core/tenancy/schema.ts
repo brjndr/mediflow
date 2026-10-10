@@ -1,4 +1,4 @@
-import { boolean, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 /**
  * Drizzle definitions of the tables created in migrations/0003_tenants.sql. The migration is the
@@ -20,6 +20,8 @@ export const tenants = pgTable('tenants', {
   status: text('status', { enum: ['active', 'suspended'] })
     .notNull()
     .default('active'),
+  /** Moves whenever a role, a grant or a module flag of the hospital changes (migration 0006). */
+  policyRevision: bigint('policy_revision', { mode: 'bigint' }).notNull().default(1n),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

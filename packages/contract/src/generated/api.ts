@@ -225,6 +225,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/session/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The effective access policy for the active tenant. Supports ETag and If-None-Match so a refresh is cheap. Returns 409 tenant_mismatch when X-Tenant-ID differs from the session tenant. */
+        get: operations["getSessionPolicy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -259,17 +276,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/session/policy": {
+    "/invites": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description The effective access policy for the active tenant. Supports ETag and If-None-Match so a refresh is cheap. Returns 409 tenant_mismatch when X-Tenant-ID differs from the session tenant. */
-        get: operations["getSessionPolicy"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** @description Invites someone to the active hospital in one of its roles and emails them a single-use link. A newer invite to the same address replaces an older one. */
+        post: operations["createInvite"];
         delete?: never;
         options?: never;
         head?: never;
@@ -336,26 +353,11 @@ export interface components {
             /** @description Whether sign-in asks for an authenticator code. */
             mfaEnabled: boolean;
         };
-        PermissionGrant: {
-            /** @description resource:action */
-            permission: string;
-            /** @enum {string} */
-            scope?: "all" | "own" | "department";
-        };
-        AccessPolicy: {
-            tenantId: string;
-            roleId: string;
-            permissions: components["schemas"]["PermissionGrant"][];
-            features: {
-                [key: string]: boolean;
-            };
-            version: string;
-        };
         Session: {
             user: components["schemas"]["User"];
             /** @description Null until a user with several hospitals picks one. */
             activeTenant: components["schemas"]["Tenant"] | null;
-            /** @description Null when there is no active tenant. Also null until roles and permissions exist in the API (BE-05). */
+            /** @description Null when there is no active tenant. */
             policy: components["schemas"]["AccessPolicy"] | null;
         };
         InvitePreview: {
@@ -404,9 +406,31 @@ export interface components {
              */
             status: "active" | "suspended";
         };
+        PermissionGrant: {
+            /** @description resource:action */
+            permission: string;
+            /** @enum {string} */
+            scope?: "all" | "own" | "department";
+        };
+        AccessPolicy: {
+            tenantId: string;
+            roleId: string;
+            permissions: components["schemas"]["PermissionGrant"][];
+            features: {
+                [key: string]: boolean;
+            };
+            version: string;
+        };
         Health: {
             /** @enum {string} */
             status: "ok";
+        };
+        /** @description An invitation that has been emailed. The link is not returned. */
+        Invite: {
+            id: string;
+            email: string;
+            roleId: string;
+            expiresInHours: number;
         };
         Notice: {
             id: string;
@@ -1131,6 +1155,63 @@ export interface operations {
             };
         };
     };
+    getSessionPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-None-Match"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current policy */
+            200: {
+                headers: {
+                    ETag?: unknown;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessPolicy"];
+                };
+            };
+            /** @description The policy has not changed */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getHealth: {
         parameters: {
             query?: never;
@@ -1180,37 +1261,68 @@ export interface operations {
             };
         };
     };
-    getSessionPolicy: {
+    createInvite: {
         parameters: {
             query?: never;
-            header?: {
-                "If-None-Match"?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    email: string;
+                    name: string;
+                    roleId: string;
+                };
+            };
+        };
         responses: {
-            /** @description The current policy */
-            200: {
+            /** @description An invitation that has been emailed. The link is not returned. */
+            201: {
                 headers: {
-                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccessPolicy"];
+                    "application/json": components["schemas"]["Invite"];
                 };
             };
-            /** @description The policy has not changed */
-            304: {
+            /** @description Standard error body. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
-            401: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     listNotices: {
