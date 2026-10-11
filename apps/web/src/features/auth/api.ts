@@ -21,3 +21,28 @@ export async function forgotPassword(email: string): Promise<void> {
 export async function resetPassword(input: { token: string; password: string }): Promise<void> {
   await api.POST('/auth/password/reset', { body: input, fetch: apiFetchOnce });
 }
+
+export type MfaEnrollment = components['schemas']['MfaEnrollment'];
+
+/**
+ * Starts setting up an authenticator, after the person re-enters their password. Sign-in does not
+ * change until a code is confirmed.
+ */
+export async function enrollMfa(password: string): Promise<MfaEnrollment> {
+  return requireData(
+    await api.POST('/auth/mfa/enroll', { body: { password }, fetch: apiFetchOnce }),
+  );
+}
+
+/** Finishes setup with a code from the authenticator. Returns the recovery codes, this once. */
+export async function confirmMfa(code: string): Promise<string[]> {
+  const result = requireData(
+    await api.POST('/auth/mfa/confirm', { body: { code }, fetch: apiFetchOnce }),
+  );
+  return result.recoveryCodes;
+}
+
+/** Whether the active hospital requires the signed-in user to have an authenticator. */
+export async function fetchMfaRequirement(signal?: AbortSignal): Promise<boolean> {
+  return requireData(await api.GET('/auth/mfa/requirement', { signal })).required;
+}

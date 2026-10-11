@@ -293,6 +293,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/mfa/requirement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Whether the signed-in user must have an authenticator set up to use the active hospital (decided by the hospital setting and the role). A user for whom this is true and whose `mfaEnabled` is false can reach only the security screen. */
+        get: operations["getMfaRequirement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session/open-link": {
         parameters: {
             query?: never;
@@ -1484,6 +1501,37 @@ export interface operations {
             };
             /** @description Standard error body. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMfaRequirement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requirement for the active hospital */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        required: boolean;
+                    };
+                };
+            };
+            /** @description No active hospital */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

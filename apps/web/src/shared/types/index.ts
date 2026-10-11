@@ -62,4 +62,6 @@ export interface User {
   email: string;
   name: string;
   memberships: { tenantId: string; tenantName: string; roleId: RoleId }[];
+  /** Whether sign-in asks for an authenticator code. */
+  mfaEnabled: boolean;
 }

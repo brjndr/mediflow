@@ -264,6 +264,7 @@ export function resetMockDb(): void {
   failedLogins = new Map();
   lockedEmails = new Set();
   loginAttempts = [];
+  mfaUserIds = new Set();
   signIn(USER_IDS.admin);
   for (const listener of resetListeners) listener();
 }
@@ -295,6 +296,21 @@ export function activeTenantId(): string | null {
   return state.activeTenantId;
 }
 
+let mfaUserIds = new Set<string>();
+
+/** Turns the authenticator on or off for a mock user. */
+export function setMockMfa(userId: string, enabled: boolean): void {
+  if (enabled) mfaUserIds.add(userId);
+  else mfaUserIds.delete(userId);
+}
+
+/** Whether the account with this sign-in address has an authenticator. */
+export function mockMfaEnabledFor(email: string): boolean {
+  const address = email.trim().toLowerCase();
+  const user = Object.values(users).find((candidate) => candidate.email === address);
+  return user !== undefined && mfaUserIds.has(user.id);
+}
+
 /** Null when nobody is signed in. */
 export function currentSession(): SessionDto | null {
   const user = state.userId ? users[state.userId] : undefined;
@@ -308,7 +324,7 @@ export function currentSession(): SessionDto | null {
         ...m,
         tenantName: tenants[m.tenantId]?.name ?? '',
       })),
-      mfaEnabled: false,
+      mfaEnabled: mfaUserIds.has(user.id),
     },
     activeTenant: state.activeTenantId ? (tenants[state.activeTenantId] ?? null) : null,
     policy: currentPolicy(),

@@ -39,7 +39,12 @@ export async function fetchSession(signal?: AbortSignal): Promise<Session | null
  * Signs in. The server answers with the session and sets its cookie. Not retried: a refusal
  * (wrong details, too many attempts) is shown to the user straight away.
  */
-export async function signIn(credentials: { email: string; password: string }): Promise<Session> {
+export async function signIn(credentials: {
+  email: string;
+  password: string;
+  /** An authenticator or recovery code, for an account that has one set up. */
+  code?: string;
+}): Promise<Session> {
   return toSession(
     requireData(await api.POST('/auth/login', { body: credentials, fetch: apiFetchOnce })),
   );

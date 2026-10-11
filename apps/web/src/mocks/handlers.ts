@@ -10,11 +10,14 @@ import {
 } from './db';
 import { accountHandlers } from './handlers/auth';
 import { examplesHandlers } from './handlers/examples';
+import { mfaHandlers, mfaLoginHandlers } from './handlers/mfa';
 import { noticesHandlers } from './handlers/notices';
 import { patientsHandlers } from './handlers/patients';
 import { error, tenantMismatch, unauthenticated } from './respond';
 
 export const handlers = [
+  // Ahead of the plain sign-in: asks for a code when the account has an authenticator.
+  ...mfaLoginHandlers,
   http.get('*/api/health', () => HttpResponse.json<Health>({ status: 'ok' })),
 
   http.post('*/api/auth/login', async ({ request }) => {
@@ -97,4 +100,5 @@ export const handlers = [
   ...examplesHandlers,
   ...patientsHandlers,
   ...accountHandlers,
+  ...mfaHandlers,
 ];

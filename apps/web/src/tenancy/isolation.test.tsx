@@ -34,12 +34,15 @@ const noticeTitles = () =>
     .map((heading) => heading.textContent);
 const patientKeys = createTenantKeys('patients');
 
+// The clinic's app shell asks its own "is an authenticator required" question; that is the new
+// hospital's key, not a leftover of the old one, so it is not counted.
 const tenantDataKeys = (queryClient: QueryClient) =>
   queryClient
     .getQueryCache()
     .getAll()
     .map((query) => query.queryKey)
-    .filter((key) => key[0] === 'tenant');
+    .filter((key) => key[0] === 'tenant')
+    .filter((key) => !(key[1] === TENANT_IDS.clinic && key[2] === 'mfa'));
 
 /** Renders the notices page as the doctor at the hospital, with the clinic's module on too. */
 async function renderNoticesAtHospital() {
