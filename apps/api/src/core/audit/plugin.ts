@@ -1,5 +1,32 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
+import type pg from 'pg';
+import { WORKER_ROLE } from '../outbox/dispatcher.js';
+
+/**
+ * Creates the audit partitions for this month and the next three. Runs as the worker role: the
+ * function is SECURITY DEFINER and only that role may call it, so the API's login needs no
+ * ownership of the table.
+ */
+export async function ensureAuditPartitions(pool: pg.Pool): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query(`set local role ${WORKER_ROLE}`);
+    for (let ahead = 0; ahead <= 3; ahead++) {
+      await client.query(
+        "select ensure_audit_partition((date_trunc('month', now()) + make_interval(months => $1))::date)",
+        [ahead],
+      );
+    }
+    await client.query('commit');
+  } catch (error) {
+    await client.query('rollback').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 /** What a route declares so the audit hook records it. */
 export interface AuditConfig {
@@ -82,15 +109,18 @@ export const auditPlugin = fp(
       }
     });
 
-    // Months are created ahead of time so a row never lands in the default partition.
-    app.jobs.work('audit.partitions', async () => {
-      for (let ahead = 0; ahead <= 3; ahead++) {
-        await app.database.pool.query(
-          "select ensure_audit_partition((date_trunc('month', now()) + make_interval(months => $1))::date)",
-          [ahead],
+    // A route that asks for auditing but has no tenant transaction could never write the row:
+    // fail at startup instead of silently recording nothing.
+    app.addHook('onRoute', (route) => {
+      if (route.config?.audit && (route.config.access ?? 'tenant') !== 'tenant') {
+        throw new Error(
+          `${route.method.toString()} ${route.url} sets config.audit but is not a tenant route`,
         );
       }
     });
+
+    // Months are created ahead of time so a row never lands in the default partition.
+    app.jobs.work('audit.partitions', () => ensureAuditPartitions(app.database.pool));
     app.jobs.schedule('audit.partitions', '0 3 * * *');
   },
   { name: 'audit', dependencies: ['db', 'jobs', 'session'] },

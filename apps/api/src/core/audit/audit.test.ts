@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
+import { ensureAuditPartitions } from './plugin.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   as,
@@ -139,14 +140,69 @@ describe('audit log', () => {
     });
   });
 
-  it('creates upcoming monthly partitions idempotently', async () => {
-    await pool.query("select ensure_audit_partition((now() + interval '14 months')::date)");
-    await pool.query("select ensure_audit_partition((now() + interval '14 months')::date)");
+  it('creates upcoming monthly partitions idempotently, as the worker role only', async () => {
+    const month = "(now() + interval '14 months')::date";
+    await ensureAuditPartitions(pool);
+    for (let run = 0; run < 2; run++) {
+      const client = await pool.connect();
+      try {
+        await client.query('begin');
+        await client.query('set local role mediflow_worker');
+        await client.query(`select ensure_audit_partition(${month})`);
+      } finally {
+        await client.query('rollback');
+        client.release();
+      }
+    }
+    await pool.query(`select ensure_audit_partition(${month})`);
     const { rows } = await pool.query<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>(
       `select relrowsecurity, relforcerowsecurity from pg_class
        where relname = 'audit_log_' || to_char(now() + interval '14 months', 'YYYY_MM')`,
     );
     expect(rows).toEqual([{ relrowsecurity: true, relforcerowsecurity: true }]);
+
+    // A tenant request cannot create partitions.
+    await asTenantSql(pool, hospital.id, async (client) => {
+      await expect(client.query(`select ensure_audit_partition(${month})`)).rejects.toMatchObject({
+        code: '42501',
+      });
+    });
+  });
+
+  it('refuses truncating the table or any partition, and direct access to a partition', async () => {
+    const { rows } = await pool.query<{ name: string }>(
+      `select inhrelid::regclass::text as name from pg_inherits
+       where inhparent = 'audit_log'::regclass`,
+    );
+    expect(rows.length).toBeGreaterThan(2);
+    expect(rows.map((row) => row.name)).toContain('audit_log_default');
+    for (const name of ['audit_log', ...rows.map((row) => row.name)]) {
+      await expect(pool.query(`truncate ${name}`), name).rejects.toMatchObject({ code: '23001' });
+    }
+    await asTenantSql(pool, hospital.id, async (client) => {
+      await expect(client.query('select * from audit_log_default')).rejects.toMatchObject({
+        code: '42501',
+      });
+    });
+  });
+
+  it('stops the app from starting when a non-tenant route asks for auditing', async () => {
+    let failure: unknown;
+    const other = await buildTestApp({
+      extend(instance) {
+        try {
+          instance.get(
+            '/open',
+            { config: { access: 'public', audit: { entity: 'thing' } } },
+            async () => ({}),
+          );
+        } catch (error) {
+          failure = error;
+        }
+      },
+    });
+    await other.close();
+    expect(String(failure)).toMatch(/config\.audit but is not a tenant route/);
   });
 
   it('fails the request, keeps nothing and frees the connection when the audit insert fails', async () => {

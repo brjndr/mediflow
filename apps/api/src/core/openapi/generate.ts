@@ -10,7 +10,10 @@ const OUTPUT = fileURLToPath(
   new URL('../../../../../packages/contract/api.openapi.json', import.meta.url),
 );
 
-const app = await buildApp(loadConfig({ NODE_ENV: 'test', LOG_LEVEL: 'silent' }));
+// Jobs off: the job queue and the outbox poller would open database connections.
+const app = await buildApp(
+  loadConfig({ NODE_ENV: 'test', LOG_LEVEL: 'silent', JOBS_ENABLED: 'false' }),
+);
 await app.ready();
 const document = app.swagger();
 await app.close();

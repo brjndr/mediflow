@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -31,6 +32,7 @@ let queue: FlakyQueue;
 let hospital: TestTenant;
 let clinic: TestTenant;
 const received: DomainEventMessage[] = [];
+const handlerTenants: string[] = [];
 
 beforeAll(async () => {
   queue = new FlakyQueue();
@@ -47,7 +49,10 @@ beforeAll(async () => {
           return { ok: true };
         },
       );
-      instance.events.subscribe('patient.registered', async (message) => {
+      instance.events.subscribe('patient.registered', async (message, tx) => {
+        // The handler runs bound to the event's hospital, as a request would.
+        const seen = await tx.execute<{ tenant: string }>(sql`select app_tenant_id() as tenant`);
+        handlerTenants.push(seen.rows[0]?.tenant ?? '');
         received.push(message);
       });
     },
@@ -106,6 +111,7 @@ describe('transactional outbox', () => {
 
     await queue.drain();
     expect(received).toHaveLength(1);
+    expect(handlerTenants).toEqual([hospital.id]);
     expect(received[0]).toMatchObject({
       tenantId: hospital.id,
       event: 'patient.registered',

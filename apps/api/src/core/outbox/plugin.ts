@@ -1,7 +1,11 @@
 import type { FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
+import type { Database } from '../db/client.js';
 import { dispatchOutbox } from './dispatcher.js';
 import { eventQueue, type DomainEvent, type DomainEventMessage } from './events.js';
+import { runAsTenant } from './subscribe.js';
+
+type EventHandler = (message: DomainEventMessage, tx: Database) => Promise<void>;
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -14,8 +18,12 @@ declare module 'fastify' {
   }
   interface FastifyInstance {
     events: {
-      /** Runs `handler` for every `event`, in the job queue. Handlers must be idempotent. */
-      subscribe(event: DomainEvent, handler: (message: DomainEventMessage) => Promise<void>): void;
+      /**
+       * Runs `handler` for every `event`, in the job queue. The handler gets a transaction bound
+       * to the event's hospital (row-level security applies, as in a request) and must be
+       * idempotent.
+       */
+      subscribe(event: DomainEvent, handler: EventHandler): void;
       /** Moves pending events to the queue now. The poller calls this; tests may too. */
       dispatch(): Promise<number>;
     };
@@ -38,8 +46,10 @@ export const outboxPlugin = fp(
     });
 
     app.decorate('events', {
-      subscribe: (event: DomainEvent, handler: (message: DomainEventMessage) => Promise<void>) =>
-        app.jobs.work<DomainEventMessage>(eventQueue(event), handler),
+      subscribe: (event: DomainEvent, handler: EventHandler) =>
+        app.jobs.work<DomainEventMessage>(eventQueue(event), (message) =>
+          runAsTenant(app.database.pool, message, handler),
+        ),
       dispatch: () => dispatchOutbox(app.database.pool, app.jobs),
     });
 
