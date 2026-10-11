@@ -24,6 +24,7 @@ import { sessionPlugin, type SessionResolver } from './core/session/plugin.js';
 import { tenancyPlugin } from './core/tenancy/plugin.js';
 import { tenantRoutes } from './core/tenancy/routes.js';
 import { healthFeature } from './features/health/index.js';
+import { patientsFeature } from './features/patients/index.js';
 import { staffFeature } from './features/staff/index.js';
 
 declare module 'fastify' {
@@ -93,6 +94,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   // Features: one line each.
   await app.register(healthFeature);
   await app.register(staffFeature);
+  await app.register(patientsFeature);
 
   return app;
 }

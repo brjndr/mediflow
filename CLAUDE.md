@@ -18,23 +18,23 @@ Five non-negotiables shape every decision:
 
 As of 2026-10-11. GitHub issues and milestones are the source of truth (`gh issue list --milestone "<name>"`); update this section when a milestone closes.
 
-| Milestone              | State                                                                                                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M0 Setup               | Done                                                                                                                                                          |
-| M1 Foundation          | Done, except #233 (a flaky policy-refresh test that may hide a stale-ETag race)                                                                               |
-| M2 Auth and access     | In progress. Open: the follow-ups #251 to #255 (MFA enforcement on the server, authenticator management, outbox and audit, rate limits, a test fix)           |
-| M3 Patients and beyond | Started. The patient list (#49) and registration form (#50) exist in the web app against the mock; no patients backend, and no clinical or billing module yet |
+| Milestone              | State                                                                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| M0 Setup               | Done                                                                                                                                                   |
+| M1 Foundation          | Done, except #233 (a flaky policy-refresh test that may hide a stale-ETag race)                                                                        |
+| M2 Auth and access     | In progress. Open: the follow-ups #251 to #255 (MFA enforcement on the server, authenticator management, outbox and audit, rate limits, a test fix)    |
+| M3 Patients and beyond | In progress. The patient list (#49), registration form (#50) and Patients API (#55) exist. Open: #51 to #54 and #56; no clinical or billing module yet |
 
 **What exists**
 
 - **Web foundation:** session bootstrap, tenancy (picker, switcher, theming, formatters), access (`usePermission`, `<Can>`, `PermissionGuard`, policy refresh), the feature registry with slots, the app shell, i18n, error reporting, bundle budgets, and the shared building blocks (data grid, charts, form kit, rich text).
 - **Web auth:** login and sign-out, deep links (`/open/<kind>/<id>`), idle sign-out with a warning, cross-tab sync, the invite, forgot-password and reset-password pages, the authenticator code step at sign-in, enrolment at `/security`, and the account page at `/profile` (change password, end other sessions). Three features are registered: `notices` (the sample feature and the template for new modules), `ui_examples` (the building-block examples) and `patients` (list and registration form, against the mock).
-- **API (`apps/api`):** config, logging with redaction, the migration runner, tenancy with row-level security, cookie sessions with rotation, password sign-in with lockout and rate limit, invites, password reset, TOTP MFA, roles and permissions, the access guard, the notifier (SMTP), the audit log, the transactional outbox and job queue (pg-boss), per-tenant and per-user rate limits, idempotency keys and the OpenAPI contract. One feature besides health: `staff` (`POST /invites`). Migrations `0001` to `0009`.
+- **API (`apps/api`):** config, logging with redaction, the migration runner, tenancy with row-level security, cookie sessions with rotation, password sign-in with lockout and rate limit, invites, password reset, TOTP MFA, roles and permissions, the access guard, the notifier (SMTP), the audit log, the transactional outbox and job queue (pg-boss), per-tenant and per-user rate limits, idempotency keys and the OpenAPI contract. Two features besides health: `staff` (`POST /invites`) and `patients` (search, register, duplicate check, read, update). Migrations `0001` to `0012`.
 
 **What the web app can and cannot do against the real API**
 
-- Works: sign-in, the hospital picker and switcher, the access policy, sign-out.
-- Mock only: everything else. `notices`, the patient endpoints, the MFA requirement, change password, the account sessions and `POST /session/open-link` are in the planned contract (`packages/contract/planned.openapi.json`) with no backend yet, and the real policy lists only permissions the API knows (`staff:invite` so far), so feature screens show "no access" there.
+- Works: sign-in, the hospital picker and switcher, the access policy, sign-out, and the patient list and registration form (`db:seed` adds sample patients).
+- Mock only: everything else. `notices`, the MFA requirement, change password, the account sessions and `POST /session/open-link` are in the planned contract (`packages/contract/planned.openapi.json`) with no backend yet, and the real policy lists only permissions the API knows (`staff:invite` and the patient permissions so far), so other feature screens show "no access" there.
 
 **Not built yet, although described below as the target**
 
@@ -46,6 +46,7 @@ As of 2026-10-11. GitHub issues and milestones are the source of truth (`gh issu
 **Known gaps to keep in mind**
 
 - The web app asks for an authenticator code at sign-in and sets one up at `/security` (A-02). Whether a hospital _requires_ one comes from the planned `GET /auth/mfa/requirement`, which the API does not offer yet: against the real API the enrolment gate never triggers.
+- Patient search matches text against the hospital's rows without a trigram index, because row-level security keeps Postgres from using one (see `apps/api/CLAUDE.md`). It is fast at tens of thousands of patients per hospital; a very large hospital needs a dedicated search design.
 - `pnpm audit` reports two moderate advisories in `react-router` 6, fixed only in 7.x. CI gates at high.
 - Production needs `MFA_ENCRYPTION_KEY`, and the migrate step needs the same environment as the API (it also applies default role permissions).
 

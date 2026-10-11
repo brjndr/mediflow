@@ -169,8 +169,18 @@ const post = (url: string, token: string, payload: object = {}) =>
   });
 const errorOf = (response: LightMyRequestResponse) =>
   [response.statusCode, response.json().error.code] as const;
+/**
+ * These tests are about the mechanism, so they look at the test feature's and the core's own
+ * permissions. What the real features grant by default is covered in their own tests.
+ */
+const OTHER_FEATURES = /^patient[.:]/;
+const ownPermissions = (policy: AccessPolicy): AccessPolicy => ({
+  ...policy,
+  permissions: policy.permissions.filter((grant) => !OTHER_FEATURES.test(grant.permission)),
+});
+
 const policyOf = async (token: string) =>
-  (await get('/session/policy', token)).json<AccessPolicy>();
+  ownPermissions((await get('/session/policy', token)).json<AccessPolicy>());
 
 describe('the access policy', () => {
   it('comes with the session: the role, its permissions and the hospital modules', async () => {
@@ -178,7 +188,7 @@ describe('the access policy', () => {
 
     const session = (await get('/session', token)).json<{ policy: AccessPolicy }>();
 
-    expect(session.policy).toEqual({
+    expect(ownPermissions(session.policy)).toEqual({
       tenantId: hospital.id,
       roleId: 'admin',
       permissions: [
@@ -474,7 +484,9 @@ describe('default grants for built-in roles', () => {
         'select permission from role_permissions where tenant_id = $1 and role_id = $2 order by 1',
         [tenant.id, roleId],
       )
-    ).rows.map((row) => row.permission);
+    ).rows
+      .map((row) => row.permission)
+      .filter((permission) => !OTHER_FEATURES.test(permission));
 
   it('every new hospital has the built-in roles', async () => {
     const { rows } = await pool.query<{ id: string }>(

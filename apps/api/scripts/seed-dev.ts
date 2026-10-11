@@ -4,6 +4,7 @@
 // app's mock API has, so the real API can be signed in to. Synthetic data only. Safe to run
 // again: existing rows are updated in place.
 import pg from 'pg';
+import { MRN_DIGITS, mrnPrefix } from '../src/features/patients/repository.js';
 import { buildApp } from '../src/app.js';
 import { syncRoleDefaults } from '../src/core/access/sync.js';
 import { hashPassword } from '../src/core/auth/password.js';
@@ -11,6 +12,50 @@ import { loadConfig } from '../src/core/config/config.js';
 
 /** The one password of every sample account. Printed below; it protects nothing. */
 const DEV_PASSWORD = 'sample-staff-local-only';
+
+/** Made-up people. No real patient data ever goes into a development database. */
+const SAMPLE_PATIENTS = 250;
+const SAMPLE_FIRST_NAMES = [
+  'Asha',
+  'Bilal',
+  'Chitra',
+  'Dev',
+  'Esha',
+  'Farhan',
+  'Gauri',
+  'Harish',
+  'Indu',
+  'Jatin',
+  'Kavya',
+  'Lokesh',
+  'Meera',
+  'Nikhil',
+  'Ojas',
+  'Pooja',
+  'Rahul',
+  'Sana',
+  'Tarun',
+  'Uma',
+];
+const SAMPLE_LAST_NAMES = [
+  'Verma',
+  'Khan',
+  'Iyer',
+  'Patel',
+  'Nair',
+  'Singh',
+  'Das',
+  'Reddy',
+  'Joshi',
+  'Mehta',
+  'Bose',
+  'Kulkarni',
+  'Fernandes',
+  'Gill',
+  'Chopra',
+  'Rao',
+  'Sharma',
+];
 
 const HOSPITALS = [
   {
@@ -152,6 +197,42 @@ try {
         [tenantIds.get(membership.slug), userId, membership.roleId],
       );
     }
+  }
+
+  // Synthetic patients, so the patient screens have something to show against the real API.
+  // Only for a hospital that has none, so running the seed again changes nothing.
+  for (const hospital of HOSPITALS) {
+    const tenantId = tenantIds.get(hospital.slug);
+    const existing = await client.query('select 1 from patients where tenant_id = $1 limit 1', [
+      tenantId,
+    ]);
+    if (existing.rowCount !== 0) continue;
+    await client.query(
+      `insert into patients (tenant_id, mrn, first_name, last_name, dob, gender, phone, email,
+         contact_consent_given, contact_consent_at, contact_consent_recorded_by, created_by)
+       select $1, $2 || '-' || lpad(n::text, $6::int, '0'),
+              ($3::text[])[1 + n % array_length($3::text[], 1)],
+              ($4::text[])[1 + (n * 7) % array_length($4::text[], 1)],
+              date '1945-01-01' + (n * 311) % 27000,
+              (array['female', 'male', 'other'])[1 + n % 3],
+              '+91 98' || lpad((n * 104729 % 100000000)::text, 8, '0'),
+              'patient' || n || '@example.test',
+              n % 4 <> 0, now(), 'seed', 'seed'
+       from generate_series(1, $5::int) as n`,
+      [
+        tenantId,
+        mrnPrefix(hospital.slug),
+        SAMPLE_FIRST_NAMES,
+        SAMPLE_LAST_NAMES,
+        SAMPLE_PATIENTS,
+        MRN_DIGITS,
+      ],
+    );
+    await client.query(
+      `insert into patient_mrn_counters (tenant_id, last_value) values ($1, $2)
+       on conflict (tenant_id) do update set last_value = excluded.last_value`,
+      [tenantId, SAMPLE_PATIENTS],
+    );
   }
 
   await client.query('commit');
