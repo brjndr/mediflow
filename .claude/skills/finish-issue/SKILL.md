@@ -1,6 +1,6 @@
 ---
 name: finish-issue
-description: Finish the current issue (verify, run the safety checks, commit and open the PR that closes it). Use when the work for an issue is complete and the user asks to wrap up, finish or open the PR.
+description: Finish the current issue (verify, review the diff once, commit, open the PR that closes it and merge it when CI is green). Use when the work for an issue is complete and the user asks to wrap up, finish or open the PR.
 ---
 
 # Finish an issue
