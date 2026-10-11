@@ -22,7 +22,7 @@ As of 2026-10-12. GitHub issues and milestones are the source of truth (`gh issu
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | M0 Setup           | Done                                                                                                                                                                                                                                                                                                       |
 | M1 Foundation      | Done, except #264 (the idle sign-out test fails intermittently on a slow machine; it passes in CI)                                                                                                                                                                                                         |
-| M2 Auth and access | Every roadmap issue is done. Open follow-ups: #251 (the server does not enforce an MFA requirement yet), #252 (disable the authenticator, regenerate recovery codes), #253 (outbox and audit), #254 (rate limits), #255 (a test fix), #257 (the account API: change password, own sessions)                |
+| M2 Auth and access | Every roadmap issue is done. Open follow-ups: #252 (disable the authenticator, regenerate recovery codes), #253 (outbox and audit), #254 (rate limits), #255 (a test fix), #257 (the account API: change password, own sessions)                                                                           |
 | M3 Patients        | The patients module is complete in the web app and the API (#49 to #55). Open: #56 (staging environment and deploy pipeline, deferred until the product works locally and a cloud account exists; the defaults agreed for it are on the issue) and #259 (patient search for very large hospitals, a spike) |
 | M4 and beyond      | Not started. Next is M4 (departments, doctors and staff). No clinical, scheduling or billing module exists yet                                                                                                                                                                                             |
 
@@ -36,7 +36,7 @@ As of 2026-10-12. GitHub issues and milestones are the source of truth (`gh issu
 **What the web app can and cannot do against the real API**
 
 - Works: sign-in (with the authenticator code step), the hospital picker and switcher, the access policy, sign-out, and the whole patients module: list and search, registration, the duplicate check, the patient screen and editing (`db:seed` adds 250 sample patients to each sample hospital).
-- Mock only: everything else. `notices`, the MFA requirement, change password, the account sessions and `POST /session/open-link` are in the planned contract (`packages/contract/planned.openapi.json`) with no backend yet, and the real policy lists only permissions the API knows (`staff:invite` and the patient permissions so far), so other feature screens show "no access" there.
+- Mock only: everything else. `notices`, change password, the account sessions and `POST /session/open-link` are in the planned contract (`packages/contract/planned.openapi.json`) with no backend yet, and the real policy lists only permissions the API knows (`staff:invite` and the patient permissions so far), so other feature screens show "no access" there.
 
 **Not built yet, although described below as the target**
 
@@ -47,7 +47,7 @@ As of 2026-10-12. GitHub issues and milestones are the source of truth (`gh issu
 
 **Known gaps to keep in mind**
 
-- The web app asks for an authenticator code at sign-in and sets one up at `/security` (A-02). Whether a hospital _requires_ one comes from the planned `GET /auth/mfa/requirement`, which the API does not offer yet: against the real API the enrolment gate never triggers.
+- **The authenticator (two-step sign-in) is off for every hospital unless it is switched on.** Two per-hospital switches in `tenant_features` control it: `mfa` offers it to the staff (the set-up screen at `/security` and the link on the account page), and `mfa_required` with it makes it compulsory, which the server enforces (403 `mfa_required` on every route of the hospital until one is set up). There is no screen for the switches yet: they are set in the database or the seed until the platform admin module exists. There is no per-role requirement; that belongs with the roles API (#137).
 - The account page (`/profile`) changes the password and ends other sessions against the mock only: its three endpoints are in the planned contract until #257.
 - Disabling the authenticator and regenerating recovery codes have no screen yet (#252), and `/security` is reached from the account page only when no authenticator is set up.
 - Patient search finds a name by its exact letters, in any word order. It does not find a misspelled name; that needs the search design in #259.

@@ -38,6 +38,12 @@ declare module 'fastify' {
     permissions?: readonly Permission[];
     /** The hospital module this route belongs to. Off for the hospital means 403. */
     feature?: string;
+    /**
+     * Answers someone the hospital requires an authenticator of and who has none. Only for a
+     * route that returns nothing of the hospital's data and that the web app needs in order to
+     * find out about the rule: the policy.
+     */
+    openWhileMfaPending?: boolean;
   }
 }
 
@@ -87,10 +93,21 @@ export const accessPlugin = fp(
     });
 
     app.addHook('preHandler', async (request) => {
-      const { access = 'tenant', permissions = [], feature } = request.routeOptions.config;
+      const {
+        access = 'tenant',
+        permissions = [],
+        feature,
+        openWhileMfaPending = false,
+      } = request.routeOptions.config;
       if (access !== 'tenant' || request.is404) return;
       const { session, tenant } = request;
       if (!session || !tenant) throw new HttpError(401, 'unauthenticated', 'No session');
+      // Before anything of the hospital is read. Setting an authenticator up, the session and
+      // signing out are not tenant routes, so they stay within reach. A session that does not
+      // say counts as pending.
+      if (session.mfaPending !== false && !openWhileMfaPending) {
+        throw new HttpError(403, 'mfa_required', 'This hospital requires an authenticator');
+      }
 
       let loaded: Promise<AccessPolicy | null> | undefined;
       let granted: AccessPolicy['permissions'] = [];

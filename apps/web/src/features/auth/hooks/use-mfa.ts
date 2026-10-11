@@ -6,14 +6,22 @@ import { confirmMfa, enrollMfa, fetchMfaRequirement } from '../api';
 const mfaKeys = createTenantKeys('mfa');
 
 /**
+ * The hospital switch that offers the authenticator to its staff. Off unless the hospital has it
+ * turned on: then there is no set-up screen, no link to it and no requirement.
+ */
+export const MFA_FEATURE = 'mfa';
+
+/**
  * Whether the active hospital requires an authenticator of this user. Per hospital, since the
  * rule can differ. This only steers the screens, and the server enforces the rule: if the server
  * does not offer the question yet (404) nothing is required, and if it cannot be reached the
  * query fails and the gate lets the person through rather than lock everyone out.
  */
-export function useMfaRequirement(tenantId: string, enabled: boolean) {
+export function useMfaRequirement(tenantId: string, policyVersion: string, enabled: boolean) {
   return useQuery({
-    queryKey: [...mfaKeys.all(tenantId), 'requirement'] as const,
+    // The policy version moves when the hospital changes a switch, so a refreshed policy (on a
+    // timer, or after the server refuses a request) asks again.
+    queryKey: [...mfaKeys.all(tenantId), 'requirement', policyVersion] as const,
     queryFn: async ({ signal }) => {
       try {
         return await fetchMfaRequirement(signal);
@@ -24,6 +32,10 @@ export function useMfaRequirement(tenantId: string, enabled: boolean) {
       }
     },
     enabled,
+    // A new policy version asks again, and until the answer comes the last one for this hospital
+    // stands: the app must not be taken away from someone in the middle of a form.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === tenantId ? previous : undefined,
     retry: 1,
     retryDelay: 500,
     staleTime: 5 * 60_000,

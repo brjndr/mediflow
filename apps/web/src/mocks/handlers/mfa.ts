@@ -1,5 +1,13 @@
 import { http, HttpResponse } from 'msw';
-import { currentSession, MOCK_PASSWORD, mockMfaEnabledFor, onMockReset, setMockMfa } from '../db';
+import {
+  currentSession,
+  MOCK_PASSWORD,
+  mockMfaEnabledFor,
+  onMockReset,
+  setMockMfa,
+  setTenantFeature,
+  TENANT_IDS,
+} from '../db';
 import { error, unauthenticated } from '../respond';
 
 /** The only code the mock accepts, from an authenticator or as a recovery code. */
@@ -7,16 +15,20 @@ export const MOCK_MFA_CODE = '123456';
 export const MOCK_SECRET = 'JBSWY3DPEHPK3PXP';
 export const MOCK_RECOVERY_CODES = ['mock-aaaa-1111', 'mock-bbbb-2222', 'mock-cccc-3333'];
 
-let required = false;
 let enrolling = false;
 
-/** Makes the hospital require an authenticator, as a hospital setting would. */
-export function setMockMfaRequired(value: boolean): void {
-  required = value;
+/** Offers the authenticator at a hospital, as its `mfa` switch does. Off for every mock hospital. */
+export function setMockMfaAvailable(value: boolean, tenantId: string = TENANT_IDS.hospital): void {
+  setTenantFeature(tenantId, 'mfa', value);
+}
+
+/** Makes a hospital require an authenticator: both of its switches, as on the server. */
+export function setMockMfaRequired(value: boolean, tenantId: string = TENANT_IDS.hospital): void {
+  if (value) setTenantFeature(tenantId, 'mfa', true);
+  setTenantFeature(tenantId, 'mfa_required', value);
 }
 
 onMockReset(() => {
-  required = false;
   enrolling = false;
 });
 
@@ -46,9 +58,13 @@ export const mfaLoginHandlers = [
 ];
 
 export const mfaHandlers = [
-  http.get('*/api/auth/mfa/requirement', () =>
-    currentSession() ? HttpResponse.json({ required }) : unauthenticated(),
-  ),
+  http.get('*/api/auth/mfa/requirement', () => {
+    const session = currentSession();
+    if (!session) return unauthenticated();
+    if (!session.activeTenant) return error(409, 'no_active_tenant', 'Pick a hospital first');
+    const features = session.activeTenant.features;
+    return HttpResponse.json({ required: features.mfa === true && features.mfa_required === true });
+  }),
 
   http.post('*/api/auth/mfa/enroll', async ({ request }) => {
     const session = currentSession();

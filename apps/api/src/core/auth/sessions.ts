@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type pg from 'pg';
 import type { Config } from '../config/config.js';
 import type { AuthTransaction } from './db.js';
+import { mfaStanding } from './mfa.js';
 
 /**
  * Server-side sessions.
@@ -34,6 +35,12 @@ export interface ActiveSession {
   userId: string;
   /** The one active hospital, or null until the user picks one. */
   tenantId: string | null;
+  /**
+   * The active hospital requires an authenticator and the user has none: its routes are refused
+   * until one is set up. Worked out on every request, so setting one up, or the hospital changing
+   * its rule, counts from the next request without signing in again.
+   */
+  mfaPending: boolean;
 }
 
 export interface NewToken {
@@ -73,7 +80,8 @@ export async function createSession(
   );
   const id = rows[0]?.id;
   if (!id) throw new Error('session was not created');
-  return { session: { id, userId, tenantId }, token };
+  // Worked out when the session is next resolved for a request.
+  return { session: { id, userId, tenantId, mfaPending: false }, token };
 }
 
 export async function revokeSession(
@@ -84,6 +92,23 @@ export async function revokeSession(
   await client.query(
     'update sessions set revoked_at = now(), revoke_reason = $2 where id = $1 and revoked_at is null',
     [sessionId, reason],
+  );
+}
+
+/**
+ * Ends every other session of a user. For a change after which a session opened before it must
+ * not carry on: one opened with the password alone, once an authenticator is set up.
+ */
+export async function revokeOtherSessions(
+  client: pg.PoolClient,
+  userId: string,
+  keepSessionId: string | undefined,
+  reason: RevokeReason,
+): Promise<void> {
+  await client.query(
+    `update sessions set revoked_at = now(), revoke_reason = $3
+     where user_id = $1 and id is distinct from $2::uuid and revoked_at is null`,
+    [userId, keepSessionId ?? null, reason],
   );
 }
 
@@ -191,18 +216,22 @@ export async function resolveSession(
 
   // The active hospital holds only while the user is still an active member of it.
   let tenantId = row.active_tenant_id;
+  let mfaPending = false;
   if (tenantId) {
-    const member = await client.query(
-      "select 1 from memberships where tenant_id = $1 and user_id = $2 and status = 'active'",
-      [tenantId, row.user_id],
-    );
-    if (member.rowCount === 0) {
+    const standing = await mfaStanding(client, tenantId, row.user_id);
+    if (standing === null) {
       await client.query('update sessions set active_tenant_id = null where id = $1', [row.id]);
       tenantId = null;
+    } else {
+      mfaPending = standing.required && !standing.enrolled;
     }
   }
 
-  return { ok: true, session: { id: row.id, userId: row.user_id, tenantId }, rotatedToken };
+  return {
+    ok: true,
+    session: { id: row.id, userId: row.user_id, tenantId, mfaPending },
+    rotatedToken,
+  };
 }
 
 /**

@@ -225,6 +225,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/mfa/requirement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Whether the active hospital requires an authenticator of its staff (its `mfa` and `mfa_required` switches are both on). A user for whom this is true and whose `mfaEnabled` is false is refused every route of the hospital with `mfa_required` until one is set up. */
+        get: operations["getMfaRequirement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session/policy": {
         parameters: {
             query?: never;
@@ -360,23 +377,6 @@ export interface paths {
         head?: never;
         /** @description Changes registration details of a patient. expectedVersion is the version the caller read: if the record has changed since, the answer is 409 conflict and nothing is changed. Only the fields sent are changed; null clears email or address. The MRN and the hospital never change. Sending a contactConsent that differs from the one on record records the new decision with the time and the caller. Values the record already has change nothing. */
         patch: operations["updatePatient"];
-        trace?: never;
-    };
-    "/auth/mfa/requirement": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Whether the signed-in user must have an authenticator set up to use the active hospital (decided by the hospital setting and the role). A user for whom this is true and whose `mfaEnabled` is false can reach only the security screen. */
-        get: operations["getMfaRequirement"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/auth/password/change": {
@@ -1422,6 +1422,46 @@ export interface operations {
             };
         };
     };
+    getMfaRequirement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        required: boolean;
+                    };
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getSessionPolicy: {
         parameters: {
             query?: never;
@@ -1979,37 +2019,6 @@ export interface operations {
             };
             /** @description Standard error body. */
             429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getMfaRequirement: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The requirement for the active hospital */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        required: boolean;
-                    };
-                };
-            };
-            /** @description No active hospital */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -806,4 +806,153 @@ describe('the second factor', () => {
     });
     expect(seen).toEqual({ secrets: 0, codes: 0, removed: 0 });
   });
+
+  describe('a hospital that requires an authenticator', () => {
+    const extra: TestTenant[] = [];
+    afterAll(() => deleteTenants(pool, extra));
+
+    async function newHospital(name: string, features: Record<string, boolean>) {
+      const tenant = await createTenant(pool, name, { features });
+      extra.push(tenant);
+      return tenant;
+    }
+
+    const setFlag = (tenant: TestTenant, feature: string, enabled: boolean) =>
+      pool.query(
+        `insert into tenant_features (tenant_id, feature, enabled) values ($1, $2, $3)
+         on conflict (tenant_id, feature) do update set enabled = excluded.enabled`,
+        [tenant.id, feature, enabled],
+      );
+
+    const get = (url: string, token?: string) =>
+      app.inject({ url, ...(token ? { cookies: { [COOKIE]: token } } : {}) });
+
+    const requirementOf = async (token: string) =>
+      (await get('/auth/mfa/requirement', token)).json<{ required: boolean }>().required;
+
+    it('refuses its routes to someone without one, until they set it up', async () => {
+      const strict = await newHospital('Strict Hospital', { mfa: true, mfa_required: true });
+      const user = await newUser('Pending Pia');
+      await addMembership(pool, user, strict, 'nurse');
+      const session = await signIn(user);
+
+      const refused = await get('/tenant', session);
+      expect([refused.statusCode, errorOf(refused)]).toEqual([403, 'mfa_required']);
+      // What it takes to set one up, and to leave, stays within reach.
+      expect((await get('/session', session)).statusCode).toBe(200);
+      expect(await requirementOf(session)).toBe(true);
+
+      const enrollment = await post('/auth/mfa/enroll', { password: user.password }, session);
+      const { secret } = enrollment.json<{ secret: string }>();
+      // Started but not confirmed is still no authenticator.
+      expect((await get('/tenant', session)).statusCode).toBe(403);
+      const confirmed = await post(
+        '/auth/mfa/confirm',
+        { code: await generate({ secret }) },
+        session,
+      );
+      expect(confirmed.statusCode).toBe(200);
+
+      // The same session, without signing in again.
+      expect((await get('/tenant', session)).statusCode).toBe(200);
+      expect(await requirementOf(session)).toBe(true);
+    });
+
+    it('still answers the policy, which is how an open tab learns of the rule', async () => {
+      const strict = await newHospital('Strict Policy', { mfa: true, mfa_required: true });
+      const user = await newUser('Policy Pia');
+      await addMembership(pool, user, strict, 'nurse');
+      const session = await signIn(user);
+
+      const policy = await get('/session/policy', session);
+      expect(policy.statusCode).toBe(200);
+      expect(policy.json().features).toEqual({ mfa: true, mfa_required: true });
+      expect((await get('/tenant', session)).statusCode).toBe(403);
+    });
+
+    it('ends the other sessions of someone who sets one up: they never showed a code', async () => {
+      const strict = await newHospital('Strict Sessions', { mfa: true, mfa_required: true });
+      const user = await newUser('Twice Tina');
+      await addMembership(pool, user, strict, 'nurse');
+      const elsewhere = await signIn(user);
+      const here = await signIn(user);
+
+      const enrollment = await post('/auth/mfa/enroll', { password: user.password }, here);
+      const { secret } = enrollment.json<{ secret: string }>();
+      await post('/auth/mfa/confirm', { code: await generate({ secret }) }, here);
+
+      expect((await get('/tenant', here)).statusCode).toBe(200);
+      expect((await get('/session', elsewhere)).statusCode).toBe(401);
+      expect((await get('/tenant', elsewhere)).statusCode).toBe(401);
+    });
+
+    it('requires nothing unless both switches are on', async () => {
+      const combinations: Record<string, boolean>[] = [
+        {},
+        { mfa: true },
+        { mfa_required: true },
+        { mfa: false, mfa_required: true },
+      ];
+      for (const features of combinations) {
+        const tenant = await newHospital('Relaxed Hospital', features);
+        const user = await newUser('Relaxed Ravi');
+        await addMembership(pool, user, tenant, 'nurse');
+        const session = await signIn(user);
+
+        expect(await requirementOf(session)).toBe(false);
+        expect((await get('/tenant', session)).statusCode).toBe(200);
+      }
+    });
+
+    it('applies from the next request when the hospital turns it on, and stops when it is turned off', async () => {
+      const tenant = await newHospital('Changing Hospital', { mfa: true });
+      const user = await newUser('Midshift Mira');
+      await addMembership(pool, user, tenant, 'nurse');
+      const session = await signIn(user);
+      expect((await get('/tenant', session)).statusCode).toBe(200);
+
+      await setFlag(tenant, 'mfa_required', true);
+      const refused = await get('/tenant', session);
+      expect([refused.statusCode, errorOf(refused)]).toEqual([403, 'mfa_required']);
+
+      await setFlag(tenant, 'mfa_required', false);
+      expect((await get('/tenant', session)).statusCode).toBe(200);
+    });
+
+    it('is the rule of one hospital: the same person works on at a hospital without it', async () => {
+      const strict = await newHospital('Strict Two', { mfa: true, mfa_required: true });
+      const plain = await newHospital('Plain Two', {});
+      const user = await newUser('Twoplace Tara');
+      await addMembership(pool, user, strict, 'doctor');
+      await addMembership(pool, user, plain, 'doctor');
+
+      const picked = await post(
+        '/session/switch-tenant',
+        { tenantId: strict.id },
+        await signIn(user),
+      );
+      const atStrict = cookieOf(picked) as string;
+      expect((await get('/tenant', atStrict)).statusCode).toBe(403);
+      expect(await requirementOf(atStrict)).toBe(true);
+
+      // Leaving for the other hospital is not one of the strict hospital's routes.
+      const switched = await post('/session/switch-tenant', { tenantId: plain.id }, atStrict);
+      expect(switched.statusCode).toBe(200);
+      const atPlain = cookieOf(switched) as string;
+      expect((await get('/tenant', atPlain)).statusCode).toBe(200);
+      expect(await requirementOf(atPlain)).toBe(false);
+    });
+
+    it('answers only a signed-in user with a hospital', async () => {
+      expect((await get('/auth/mfa/requirement')).statusCode).toBe(401);
+
+      const a = await newHospital('Unpicked One', { mfa: true, mfa_required: true });
+      const b = await newHospital('Unpicked Two', {});
+      const user = await newUser('Unpicked Uma');
+      await addMembership(pool, user, a, 'nurse');
+      await addMembership(pool, user, b, 'nurse');
+      const unpicked = await get('/auth/mfa/requirement', await signIn(user));
+      expect([unpicked.statusCode, errorOf(unpicked)]).toEqual([409, 'no_active_tenant']);
+    });
+  });
 });
