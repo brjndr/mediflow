@@ -5,7 +5,9 @@ description: Audit code changes for multi-tenant isolation and access-control mi
 
 # Tenant safety check
 
-Review the current diff (`git diff`) against this checklist and report findings by file and line.
+Review the changes of this branch (`git diff origin/main...HEAD`, plus `git diff` for anything uncommitted) against this checklist and report findings by file and line.
+
+When an issue is being finished, the `security-reviewer` subagent applies this checklist as part of `/finish-issue`. Run this skill on its own only for a check outside that flow.
 
 ## Checklist
 

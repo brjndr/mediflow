@@ -5,7 +5,9 @@ description: Check changes for patient data (PHI) exposure in logs, storage, URL
 
 # PHI check
 
-Review the current diff (`git diff`) and report findings by file and line.
+Review the changes of this branch (`git diff origin/main...HEAD`, plus `git diff` for anything uncommitted) and report findings by file and line.
+
+When an issue is being finished, the `security-reviewer` subagent applies this checklist as part of `/finish-issue`. Run this skill on its own only for a check outside that flow.
 
 ## Checklist
 
