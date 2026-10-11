@@ -25,6 +25,10 @@ const addresses = routes.map((route) => route.address);
 const permissioned = routes.filter((route) => route.requires.length > 0);
 const NO_ACCESS = { name: 'You do not have access to this page' };
 
+/** The app's own bootstrap questions, asked for every signed-in user whatever the screen. */
+const isBootstrap = (path: string) =>
+  path.startsWith('/api/session') || path === '/api/auth/mfa/requirement';
+
 function watchRequests() {
   const seen: string[] = [];
   server.events.on('request:start', ({ request }) => {
@@ -61,7 +65,7 @@ describe('every registered route', () => {
 
       expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
       // Only the session bootstrap and the policy: the screen's own data was never asked for.
-      expect(requests.filter((path) => !path.startsWith('/api/session'))).toEqual([]);
+      expect(requests.filter((path) => !isBootstrap(path))).toEqual([]);
     },
   );
 
@@ -75,7 +79,7 @@ describe('every registered route', () => {
       renderApp({ entry: address });
 
       expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
-      expect(requests.filter((path) => !path.startsWith('/api/session'))).toEqual([]);
+      expect(requests.filter((path) => !isBootstrap(path))).toEqual([]);
     },
   );
 

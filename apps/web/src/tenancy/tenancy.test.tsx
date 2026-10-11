@@ -14,13 +14,18 @@ const ECHO_URL = 'http://localhost:3000/api/echo';
 const POLICY_URL = 'http://localhost:3000/api/session/policy';
 const patientKeys = createTenantKeys('patients');
 
-/** Keys of everything cached for any hospital. The session and system keys are not tenant data. */
+/**
+ * Keys of everything cached for any hospital. The session and system keys are not tenant data.
+ * Both tests below end at the clinic, whose app shell asks its own "is an authenticator
+ * required" question; that is the new hospital's key, not a leftover of the old one.
+ */
 const tenantDataKeys = (queryClient: QueryClient) =>
   queryClient
     .getQueryCache()
     .getAll()
     .map((query) => query.queryKey)
-    .filter((key) => key[0] === 'tenant');
+    .filter((key) => key[0] === 'tenant')
+    .filter((key) => !(key[1] === TENANT_IDS.clinic && key[2] === 'mfa'));
 
 const switcher = () => screen.getByRole('combobox', { name: 'Hospital' });
 

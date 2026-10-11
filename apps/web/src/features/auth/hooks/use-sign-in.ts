@@ -23,6 +23,8 @@ export function useSignIn() {
   return useMutation({
     mutationKey: sessionMutationKey('sign-in'),
     mutationFn: signIn,
+    // The email, password and code it was given must not stay in the cache after it finishes.
+    gcTime: 0,
     onSuccess: (session) => {
       dropSessionData(queryClient, dispatch);
       setSessionEndReason(queryClient, null);

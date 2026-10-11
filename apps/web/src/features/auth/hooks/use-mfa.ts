@@ -27,6 +27,9 @@ export function useMfaRequirement(tenantId: string, enabled: boolean) {
     retry: 1,
     retryDelay: 500,
     staleTime: 5 * 60_000,
+    // Kept only while the gate is watching it, so once the person is in another hospital the old
+    // hospital's answer is gone at once instead of lingering in the cache.
+    gcTime: 0,
   });
 }
 
