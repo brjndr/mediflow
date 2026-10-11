@@ -16,24 +16,26 @@ Five non-negotiables shape every decision:
 
 ## Current Status
 
-As of 2026-10-11. GitHub issues and milestones are the source of truth (`gh issue list --milestone "<name>"`); update this section when a milestone closes.
+As of 2026-10-12. GitHub issues and milestones are the source of truth (`gh issue list --milestone "<name>"`); update this section when a milestone closes.
 
-| Milestone              | State                                                                                                                                                                                                                                                                        |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M0 Setup               | Done                                                                                                                                                                                                                                                                         |
-| M1 Foundation          | Done, except #233 (a flaky policy-refresh test that may hide a stale-ETag race)                                                                                                                                                                                              |
-| M2 Auth and access     | In progress. Open: the follow-ups #251 to #255 (MFA enforcement on the server, authenticator management, outbox and audit, rate limits, a test fix)                                                                                                                          |
-| M3 Patients and beyond | In progress. The patient list (#49), registration form (#50), patient screen (#51), editing (#52), duplicate suggestions (#53), the end-to-end journey (#54) and Patients API (#55) exist. Open: #56 (staging) and #259 (search at scale); no clinical or billing module yet |
+| Milestone          | State                                                                                                                                                                                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M0 Setup           | Done                                                                                                                                                                                                                                                                                        |
+| M1 Foundation      | Done, except #264 (the idle sign-out test fails intermittently on a slow machine; it passes in CI)                                                                                                                                                                                          |
+| M2 Auth and access | Every roadmap issue is done. Open follow-ups: #251 (the server does not enforce an MFA requirement yet), #252 (disable the authenticator, regenerate recovery codes), #253 (outbox and audit), #254 (rate limits), #255 (a test fix), #257 (the account API: change password, own sessions) |
+| M3 Patients        | The patients module is complete in the web app and the API (#49 to #55). Open: #56 (staging environment and deploy pipeline, waiting on a cloud provider and budget decision) and #259 (patient search for very large hospitals, a spike)                                                   |
+| M4 and beyond      | Not started. Next is M4 (departments, doctors and staff). No clinical, scheduling or billing module exists yet                                                                                                                                                                              |
 
 **What exists**
 
-- **Web foundation:** session bootstrap, tenancy (picker, switcher, theming, formatters), access (`usePermission`, `<Can>`, `PermissionGuard`, policy refresh), the feature registry with slots, the app shell, i18n, error reporting, bundle budgets, and the shared building blocks (data grid, charts, form kit, rich text).
-- **Web auth:** login and sign-out, deep links (`/open/<kind>/<id>`), idle sign-out with a warning, cross-tab sync, the invite, forgot-password and reset-password pages, the authenticator code step at sign-in, enrolment at `/security`, and the account page at `/profile` (change password, end other sessions). Three features are registered: `notices` (the sample feature and the template for new modules), `ui_examples` (the building-block examples) and `patients` (list, registration form, the patient screen with its tab and action slots, and editing with conflict detection).
+- **Web foundation:** session bootstrap, tenancy (picker, switcher, theming, formatters), access (`usePermission`, `<Can>`, `PermissionGuard`, policy refresh), the feature registry with slots, the app shell, i18n, error reporting, bundle budgets, the shared building blocks (data grid, charts, form kit, rich text), and the responsive target: every screen works at phone, tablet and desktop width, and Playwright runs every spec at all three (see Responsive Design).
+- **Web auth:** login and sign-out, deep links (`/open/<kind>/<id>`), idle sign-out with a warning, cross-tab sync, the invite, forgot-password and reset-password pages, the authenticator code step at sign-in, enrolment at `/security`, and the account page at `/profile` (change password, end other sessions). Three features are registered: `notices` (the sample feature and the template for new modules), `ui_examples` (the building-block examples) and `patients`.
+- **Patients (web and API):** the list with server-side search, sort and cursor paging; registration with a duplicate check while typing and on saving; the patient screen, which hosts the `patient.detail.tabs` and `patient.detail.actions` slots; editing with optimistic save and conflict detection; a field-level permission for contact details (`patient.contact:read`); deep links to a patient; audit of every read and write, and the `patient.registered` and `patient.updated` events.
 - **API (`apps/api`):** config, logging with redaction, the migration runner, tenancy with row-level security, cookie sessions with rotation, password sign-in with lockout and rate limit, invites, password reset, TOTP MFA, roles and permissions, the access guard, the notifier (SMTP), the audit log, the transactional outbox and job queue (pg-boss), per-tenant and per-user rate limits, idempotency keys and the OpenAPI contract. Two features besides health: `staff` (`POST /invites`) and `patients` (search, register, duplicate check, read, update). Migrations `0001` to `0013`.
 
 **What the web app can and cannot do against the real API**
 
-- Works: sign-in, the hospital picker and switcher, the access policy, sign-out, and the patient list and registration form (`db:seed` adds sample patients).
+- Works: sign-in (with the authenticator code step), the hospital picker and switcher, the access policy, sign-out, and the whole patients module: list and search, registration, the duplicate check, the patient screen and editing (`db:seed` adds 250 sample patients to each sample hospital).
 - Mock only: everything else. `notices`, the MFA requirement, change password, the account sessions and `POST /session/open-link` are in the planned contract (`packages/contract/planned.openapi.json`) with no backend yet, and the real policy lists only permissions the API knows (`staff:invite` and the patient permissions so far), so other feature screens show "no access" there.
 
 **Not built yet, although described below as the target**
@@ -46,7 +48,12 @@ As of 2026-10-11. GitHub issues and milestones are the source of truth (`gh issu
 **Known gaps to keep in mind**
 
 - The web app asks for an authenticator code at sign-in and sets one up at `/security` (A-02). Whether a hospital _requires_ one comes from the planned `GET /auth/mfa/requirement`, which the API does not offer yet: against the real API the enrolment gate never triggers.
+- The account page (`/profile`) changes the password and ends other sessions against the mock only: its three endpoints are in the planned contract until #257.
+- Disabling the authenticator and regenerating recovery codes have no screen yet (#252), and `/security` is reached from the account page only when no authenticator is set up.
+- Patient search finds a name by its exact letters, in any word order. It does not find a misspelled name; that needs the search design in #259.
 - Patient search matches text against the hospital's rows without a trigram index, because row-level security keeps Postgres from using one (see `apps/api/CLAUDE.md`). It is fast at tens of thousands of patients per hospital; a very large hospital needs a dedicated search design.
+- Not checked yet, although stated as targets in Responsive Design: Safari on iOS (every Playwright project is Chromium), full-screen dialogs on a phone, and a phone Lighthouse run.
+- The dev seed runs only against a database on this machine; another host has to be named with `--allow-host` (see `apps/api/CLAUDE.md`).
 - `pnpm audit` reports two moderate advisories in `react-router` 6, fixed only in 7.x. CI gates at high.
 - Production needs `MFA_ENCRYPTION_KEY`, and the migrate step needs the same environment as the API (it also applies default role permissions).
 
