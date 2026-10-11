@@ -10,6 +10,7 @@ import {
 } from './db';
 import { examplesHandlers } from './handlers/examples';
 import { noticesHandlers } from './handlers/notices';
+import { patientsHandlers } from './handlers/patients';
 import { error, tenantMismatch, unauthenticated } from './respond';
 
 export const handlers = [
@@ -93,4 +94,5 @@ export const handlers = [
   // Feature handlers: one line per feature.
   ...noticesHandlers,
   ...examplesHandlers,
+  ...patientsHandlers,
 ];
