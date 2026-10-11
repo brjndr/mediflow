@@ -40,6 +40,14 @@ describe('patient list', () => {
     expect(requests[0]?.has('cursor')).toBe(false);
   });
 
+  it('shows the date of birth in the hospital format', async () => {
+    renderApp({ entry: '/patients' });
+    await waitFor(() => expect(dataRows()).toHaveLength(25));
+    // The first synthetic patient was born on 1950-01-01.
+    expect(within(dataRows()[0]!).getByText('1 Jan 1950')).toBeInTheDocument();
+    expect(grid().textContent).not.toContain('1950-01-01');
+  });
+
   it('masks phone and MRN in the list', async () => {
     renderApp({ entry: '/patients' });
     await waitFor(() => expect(dataRows()).toHaveLength(25));

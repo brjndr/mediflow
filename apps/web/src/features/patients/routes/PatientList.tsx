@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn, type GridSort } from '@/shared/ui/data-grid';
 import { maskMrn, maskPhone } from '@/shared/utils/mask';
+import { useFormatters } from '@/tenancy';
 import {
   PATIENT_PAGE_SIZES,
   SEARCH_DEBOUNCE_MS,
@@ -17,6 +18,7 @@ export default function PatientList() {
   const { t } = useTranslation('patients');
   // Error messages come from the API client and live in core `common`.
   const { t: tCommon } = useTranslation();
+  const format = useFormatters();
   // Component state only: patient search text never goes in the URL or browser storage.
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<GridSort | null>(null);
@@ -50,9 +52,14 @@ export default function PatientList() {
       },
       { id: 'phone', header: t('columns.phone'), value: (row) => row.phone, mask: maskPhone },
       { id: 'gender', header: t('columns.gender'), value: (row) => t(`gender.${row.gender}`) },
-      { id: 'dob', header: t('columns.dob'), value: (row) => row.dob },
+      {
+        id: 'dob',
+        header: t('columns.dob'),
+        // A calendar date, not an instant: noon UTC keeps the day the same in every timezone.
+        value: (row) => format.date(`${row.dob}T12:00:00Z`),
+      },
     ],
-    [t],
+    [t, format],
   );
 
   return (
