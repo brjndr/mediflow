@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Mediflow API",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Generated from the API route schemas by `pnpm gen:api`. Do not edit by hand."
   },
   "components": {
@@ -291,6 +291,295 @@
           },
           "expiresInHours": {
             "type": "integer"
+          }
+        }
+      },
+      "PatientSummary": {
+        "description": "A patient as shown in a list: compact, no clinical data.",
+        "type": "object",
+        "required": ["id", "tenantId", "mrn", "firstName", "lastName", "dob", "gender", "phone"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "mrn": {
+            "description": "Unique per tenant",
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "dob": {
+            "format": "date",
+            "type": "string"
+          },
+          "gender": {
+            "type": "string",
+            "enum": ["male", "female", "other"]
+          },
+          "phone": {
+            "description": "Masked to its last four digits for a caller without patient.contact:read.",
+            "type": "string"
+          }
+        }
+      },
+      "PatientPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientSummary"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "PatientRecord": {
+        "description": "A registered patient with the details captured at registration. Email and address are left out for a caller without patient.contact:read.",
+        "type": "object",
+        "required": ["id", "tenantId", "mrn", "firstName", "lastName", "dob", "gender", "phone"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "mrn": {
+            "description": "Unique per tenant",
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "dob": {
+            "format": "date",
+            "type": "string"
+          },
+          "gender": {
+            "type": "string",
+            "enum": ["male", "female", "other"]
+          },
+          "phone": {
+            "description": "Masked to its last four digits for a caller without patient.contact:read.",
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "contactConsent": {
+            "type": "object",
+            "required": ["given", "at", "recordedBy"],
+            "properties": {
+              "given": {
+                "type": "boolean"
+              },
+              "at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "recordedBy": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "PatientCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["firstName", "lastName", "dob", "gender", "phone"],
+        "properties": {
+          "firstName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          },
+          "dob": {
+            "format": "date",
+            "type": "string"
+          },
+          "gender": {
+            "type": "string",
+            "enum": ["male", "female", "other"]
+          },
+          "phone": {
+            "minLength": 5,
+            "maxLength": 20,
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "type": "string"
+          },
+          "address": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "contactConsent": {
+            "type": "object",
+            "required": ["given"],
+            "properties": {
+              "given": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "PatientUpdate": {
+        "additionalProperties": false,
+        "minProperties": 1,
+        "description": "The fields to change. Null clears an optional field. The MRN never changes.",
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          },
+          "dob": {
+            "format": "date",
+            "type": "string"
+          },
+          "gender": {
+            "type": "string",
+            "enum": ["male", "female", "other"]
+          },
+          "phone": {
+            "minLength": 5,
+            "maxLength": 20,
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contactConsent": {
+            "type": "object",
+            "required": ["given"],
+            "properties": {
+              "given": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "PatientDuplicateQuery": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["firstName", "lastName", "dob", "phone"],
+        "properties": {
+          "firstName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          },
+          "dob": {
+            "format": "date",
+            "type": "string"
+          },
+          "phone": {
+            "minLength": 5,
+            "maxLength": 20,
+            "type": "string"
+          }
+        }
+      },
+      "PatientDuplicateMatch": {
+        "description": "A possible duplicate, masked by the server: enough to recognise the person, not to read their details. No id.",
+        "type": "object",
+        "required": ["firstName", "lastName", "dob", "maskedMrn", "maskedPhone"],
+        "properties": {
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "dob": {
+            "format": "date",
+            "type": "string"
+          },
+          "maskedMrn": {
+            "type": "string"
+          },
+          "maskedPhone": {
+            "type": "string"
+          }
+        }
+      },
+      "PatientDuplicateMatches": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientDuplicateMatch"
+            }
           }
         }
       }
@@ -1347,6 +1636,466 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/search": {
+      "post": {
+        "operationId": "searchPatients",
+        "tags": ["patients"],
+        "description": "Patients of the active hospital, one cursor page at a time. The search term travels in the body, never in a query string, because it can be a name, a phone number or an MRN. Every word of the term must appear in the name or MRN, in any order; a term that looks like a phone number is also matched against phone numbers for a caller who holds patient.contact:read. It reads data only. `total` is given on the first page.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "q": {
+                    "maxLength": 100,
+                    "description": "Search text: name, phone or MRN.",
+                    "type": "string"
+                  },
+                  "cursor": {
+                    "description": "Opaque. Pass the nextCursor of the previous page.",
+                    "type": "string"
+                  },
+                  "limit": {
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 25,
+                    "type": "integer"
+                  },
+                  "sort": {
+                    "type": "string",
+                    "enum": ["name", "-name", "mrn", "-mrn"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/duplicate-check": {
+      "post": {
+        "operationId": "checkPatientDuplicates",
+        "tags": ["patients"],
+        "description": "Finds existing patients who may be the same person as one about to be registered, across the whole hospital. The identifying details travel in the body, never in a query string. Matches are masked and carry no id. It reads data only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientDuplicateQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientDuplicateMatches"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients": {
+      "post": {
+        "operationId": "createPatient",
+        "tags": ["patients"],
+        "description": "Registers a patient in the active hospital and assigns the MRN. The Idempotency-Key header is required: a retried or double-submitted request returns the first result instead of a second patient. A replay answers with the id only; read the record to show it. The server records when and by whom contact consent was captured.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A registered patient with the details captured at registration. Email and address are left out for a caller without patient.contact:read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{id}": {
+      "get": {
+        "operationId": "getPatient",
+        "tags": ["patients"],
+        "description": "One patient of the active hospital, with the details captured at registration.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A registered patient with the details captured at registration. Email and address are left out for a caller without patient.contact:read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientRecord"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updatePatient",
+        "tags": ["patients"],
+        "description": "Changes registration details of a patient. Only the fields sent are changed; null clears email or address. The MRN and the hospital never change. Sending a contactConsent that differs from the one on record records the new decision with the time and the caller. Values the record already has change nothing.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A registered patient with the details captured at registration. Email and address are left out for a caller without patient.contact:read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

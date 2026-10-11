@@ -293,6 +293,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Patients of the active hospital, one cursor page at a time. The search term travels in the body, never in a query string, because it can be a name, a phone number or an MRN. Every word of the term must appear in the name or MRN, in any order; a term that looks like a phone number is also matched against phone numbers for a caller who holds patient.contact:read. It reads data only. `total` is given on the first page. */
+        post: operations["searchPatients"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/duplicate-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Finds existing patients who may be the same person as one about to be registered, across the whole hospital. The identifying details travel in the body, never in a query string. Matches are masked and carry no id. It reads data only. */
+        post: operations["checkPatientDuplicates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Registers a patient in the active hospital and assigns the MRN. The Idempotency-Key header is required: a retried or double-submitted request returns the first result instead of a second patient. A replay answers with the id only; read the record to show it. The server records when and by whom contact consent was captured. */
+        post: operations["createPatient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One patient of the active hospital, with the details captured at registration. */
+        get: operations["getPatient"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes registration details of a patient. Only the fields sent are changed; null clears email or address. The MRN and the hospital never change. Sending a contactConsent that differs from the one on record records the new decision with the time and the caller. Values the record already has change nothing. */
+        patch: operations["updatePatient"];
+        trace?: never;
+    };
     "/auth/mfa/requirement": {
         parameters: {
             query?: never;
@@ -389,57 +458,6 @@ export interface paths {
         get: operations["listNotices"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patients/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Patients of the active tenant, one cursor page at a time. The search term travels in the body, never in a query string, because it can be a name, phone number or MRN. Requires patient:read and the patients feature flag. It reads data only. */
-        post: operations["searchPatients"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patients": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Registers a patient in the active tenant and assigns the MRN. Requires patient:create and the patients feature flag. The Idempotency-Key header makes a retried or double-submitted request return the first result instead of creating a second patient. The server records contactConsent.at and recordedBy. */
-        post: operations["createPatient"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patients/duplicate-check": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Finds existing patients that may be the same person as one about to be registered. Identifying details travel in the body, never in a query string. Requires patient:create and the patients feature flag. It reads data only. */
-        post: operations["checkPatientDuplicates"];
         delete?: never;
         options?: never;
         head?: never;
@@ -570,24 +588,6 @@ export interface components {
             roleId: string;
             expiresInHours: number;
         };
-        Notice: {
-            id: string;
-            tenantId: string;
-            title: string;
-            body: string;
-            /**
-             * Format: date-time
-             * @description ISO datetime (UTC)
-             */
-            createdAt: string;
-            archived: boolean;
-        };
-        /** @description Cursor envelope used by every list endpoint. */
-        NoticePage: {
-            items: components["schemas"]["Notice"][];
-            nextCursor: string | null;
-            total?: number;
-        };
         /** @description A patient as shown in a list: compact, no clinical data. */
         PatientSummary: {
             id: string;
@@ -600,6 +600,7 @@ export interface components {
             dob: string;
             /** @enum {string} */
             gender: "male" | "female" | "other";
+            /** @description Masked to its last four digits for a caller without patient.contact:read. */
             phone: string;
         };
         /** @description Cursor envelope used by every list endpoint. */
@@ -607,6 +608,29 @@ export interface components {
             items: components["schemas"]["PatientSummary"][];
             nextCursor: string | null;
             total?: number;
+        };
+        /** @description A registered patient with the details captured at registration. Email and address are left out for a caller without patient.contact:read. */
+        PatientRecord: {
+            id: string;
+            tenantId: string;
+            /** @description Unique per tenant */
+            mrn: string;
+            firstName: string;
+            lastName: string;
+            /** Format: date */
+            dob: string;
+            /** @enum {string} */
+            gender: "male" | "female" | "other";
+            /** @description Masked to its last four digits for a caller without patient.contact:read. */
+            phone: string;
+            email?: string;
+            address?: string;
+            contactConsent?: {
+                given: boolean;
+                /** Format: date-time */
+                at: string;
+                recordedBy: string;
+            };
         };
         PatientCreate: {
             firstName: string;
@@ -616,10 +640,23 @@ export interface components {
             /** @enum {string} */
             gender: "male" | "female" | "other";
             phone: string;
-            /** Format: email */
             email?: string;
             address?: string;
-            /** @description Only the decision is sent; the server adds when and by whom. */
+            contactConsent?: {
+                given: boolean;
+            };
+        };
+        /** @description The fields to change. Null clears an optional field. The MRN never changes. */
+        PatientUpdate: {
+            firstName?: string;
+            lastName?: string;
+            /** Format: date */
+            dob?: string;
+            /** @enum {string} */
+            gender?: "male" | "female" | "other";
+            phone?: string;
+            email?: string | null;
+            address?: string | null;
             contactConsent?: {
                 given: boolean;
             };
@@ -643,27 +680,23 @@ export interface components {
         PatientDuplicateMatches: {
             items: components["schemas"]["PatientDuplicateMatch"][];
         };
-        /** @description A registered patient with the details captured at registration. */
-        PatientRecord: {
+        Notice: {
             id: string;
             tenantId: string;
-            /** @description Unique per tenant */
-            mrn: string;
-            firstName: string;
-            lastName: string;
-            /** Format: date */
-            dob: string;
-            /** @enum {string} */
-            gender: "male" | "female" | "other";
-            phone: string;
-            email?: string;
-            address?: string;
-            contactConsent?: {
-                given: boolean;
-                /** Format: date-time */
-                at: string;
-                recordedBy: string;
-            };
+            title: string;
+            body: string;
+            /**
+             * Format: date-time
+             * @description ISO datetime (UTC)
+             */
+            createdAt: string;
+            archived: boolean;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        NoticePage: {
+            items: components["schemas"]["Notice"][];
+            nextCursor: string | null;
+            total?: number;
         };
         AccountSession: {
             id: string;
@@ -1576,6 +1609,381 @@ export interface operations {
             };
         };
     };
+    searchPatients: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Search text: name, phone or MRN. */
+                    q?: string;
+                    /** @description Opaque. Pass the nextCursor of the previous page. */
+                    cursor?: string;
+                    /** @default 25 */
+                    limit?: number;
+                    /** @enum {string} */
+                    sort?: "name" | "-name" | "mrn" | "-mrn";
+                };
+            };
+        };
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkPatientDuplicates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientDuplicateQuery"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientDuplicateMatches"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createPatient: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientCreate"];
+            };
+        };
+        responses: {
+            /** @description A registered patient with the details captured at registration. Email and address are left out for a caller without patient.contact:read. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientRecord"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPatient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A registered patient with the details captured at registration. Email and address are left out for a caller without patient.contact:read. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientRecord"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updatePatient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientUpdate"];
+            };
+        };
+        responses: {
+            /** @description A registered patient with the details captured at registration. Email and address are left out for a caller without patient.contact:read. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientRecord"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getMfaRequirement: {
         parameters: {
             query?: never;
@@ -1736,105 +2144,6 @@ export interface operations {
                     "application/json": components["schemas"]["NoticePage"];
                 };
             };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    searchPatients: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description Search text: name, phone or MRN. */
-                    q?: string;
-                    cursor?: string;
-                    /** @default 25 */
-                    limit?: number;
-                    /** @enum {string} */
-                    sort?: "name" | "-name" | "mrn" | "-mrn";
-                    /** @description Sparse fieldset. */
-                    fields?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description One page of patients */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatientPage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createPatient: {
-        parameters: {
-            query?: never;
-            header: {
-                "idempotency-key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatientCreate"];
-            };
-        };
-        responses: {
-            /** @description The new patient */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatientRecord"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    checkPatientDuplicates: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatientDuplicateQuery"];
-            };
-        };
-        responses: {
-            /** @description Possible matches, possibly none */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatientDuplicateMatches"];
-                };
-            };
-            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             409: components["responses"]["Error"];

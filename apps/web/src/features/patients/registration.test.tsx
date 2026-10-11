@@ -5,6 +5,7 @@ import { setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
 import { renderApp } from '@/test/render';
+import { createPatient } from './api';
 import { patientKeys } from './hooks/use-patients';
 
 const NO_ACCESS = { name: 'You do not have access to this page' };
@@ -182,6 +183,24 @@ describe('patient registration', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong on our side');
     expect(seen.creates).toHaveLength(0);
+  });
+
+  it('reads the record afresh when the server answers a repeat with the id only', async () => {
+    renderApp({ entry: '/patients/new' });
+    await screen.findByRole('heading', HEADING);
+    const details = {
+      firstName: 'Meera',
+      lastName: 'Nair',
+      dob: '1988-03-14',
+      gender: 'female',
+      phone: '98000 55555',
+    } as const;
+
+    const first = await createPatient(details, 'key-repeat-0001');
+    const again = await createPatient(details, 'key-repeat-0001');
+
+    expect(first.mrn).toMatch(/^MRN-/);
+    expect(again).toEqual(first);
   });
 
   it('uses a new idempotency key when the details are edited', async () => {

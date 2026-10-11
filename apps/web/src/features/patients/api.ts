@@ -49,5 +49,17 @@ export async function createPatient(
     body,
     params: { header: { 'idempotency-key': idempotencyKey } },
   });
+  const data = requireData(result);
+  // A repeat of a request the server already carried out is answered with the new record's id
+  // only (the server keeps no copy of patient data to replay), so the record is read afresh.
+  if (result.response.headers.get('idempotent-replayed') === 'true') {
+    return fetchPatient(data.id);
+  }
+  return patientRecordSchema.parse(data);
+}
+
+/** One patient's registration details. */
+export async function fetchPatient(id: string, signal?: AbortSignal): Promise<PatientRecord> {
+  const result = await api.GET('/patients/{id}', { params: { path: { id } }, signal });
   return patientRecordSchema.parse(requireData(result));
 }

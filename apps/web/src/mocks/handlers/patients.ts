@@ -159,7 +159,13 @@ export const patientsHandlers = [
     const key = request.headers.get('Idempotency-Key');
     if (!key) return error(400, 'validation_failed', 'Idempotency-Key is required');
     const replay = registrations.get(`${access.tenantId}:${key}`);
-    if (replay) return HttpResponse.json<PatientRecord>(replay, { status: 201 });
+    // As the real API does: a repeat is answered with the new record's id only, and says so.
+    if (replay) {
+      return HttpResponse.json(
+        { id: replay.id },
+        { status: 201, headers: { 'Idempotent-Replayed': 'true' } },
+      );
+    }
 
     const body = await readObject(request);
     if (
@@ -201,5 +207,17 @@ export const patientsHandlers = [
     patients.push(summary);
     registrations.set(`${access.tenantId}:${key}`, record);
     return HttpResponse.json<PatientRecord>(record, { status: 201 });
+  }),
+
+  http.get('*/api/patients/:id', ({ request, params }) => {
+    const access = authorize(request, { permission: 'patient:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const registered = [...registrations.values()].find((record) => record.id === params.id);
+    const found = registered ?? patients.find((patient) => patient.id === params.id);
+    // One answer for a record that does not exist and one in another hospital.
+    if (!found || found.tenantId !== access.tenantId) {
+      return error(404, 'not_found', 'No such patient');
+    }
+    return HttpResponse.json(found);
   }),
 ];

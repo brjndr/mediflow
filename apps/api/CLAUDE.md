@@ -39,7 +39,9 @@ src/
     index.ts        # the feature's Fastify plugin
     routes.ts       # TypeBox-schema routes
     permissions.ts  # permission ids and default role grants
-    schema.ts       # Drizzle tables (tenant_id on every table)
+    schemas.ts      # TypeBox request and response schemas, when routes.ts would get long
+    repository.ts   # the feature's SQL, on request.txClient
+    schema.ts       # Drizzle tables (tenant_id on every table), when the feature uses Drizzle
     events.ts       # published and subscribed domain events
     settings.ts     # per-hospital settings schema
   migrations/     # NNNN_what.sql
@@ -75,6 +77,7 @@ A feature folder has only the files it needs: `features/health` has `index.ts` a
   ```
   The function refuses a table without `tenant_id uuid NOT NULL` or without an index starting with `tenant_id`, then enables and forces row-level security, adds the `tenant_isolation` policy and grants the app role. A test fails if any table with a `tenant_id` column lacks any of that.
 - **A statement Postgres refuses** (a policy violation or a missing grant, SQLSTATE 42501) is answered with 403 `forbidden` and logged as a warning. It means code tried to cross a boundary.
+- **A text search cannot use a trigram or full-text index under row-level security.** Postgres only uses a clause as an index condition on a table with a policy when its operator is leakproof, and `LIKE`, `ILIKE`, `~` and `@@` are not. A search therefore finds the hospital's rows through a tenant-first b-tree index and matches the text against those (about 40 ms on 60,000 patients). The same goes for a function in the comparison: `lower(name) > $1` cannot be an index condition, so store the lower-case value in a generated column and compare that. Equality and ordering on plain columns are leakproof and do use an index, so look up an exact MRN or phone number that way when it matters. Do not add a trigram index to a tenant table: it slows writes and is never read (migration 0011).
 - **Cross-tenant tests are mandatory** for every tenant table and endpoint: see `test/tenancy.test.ts` for the pattern (`createTenant`, `asTenantSql`, `as(tenantId)`).
 - **Production database roles:** migrations run as a privileged login. The API should connect as a separate login that is a member of `mediflow_app` and is neither a superuser nor the table owner, so that leaving the app role is impossible, not just unexpected. Local development and CI connect as the owner and rely on `SET LOCAL ROLE`.
 
@@ -135,6 +138,24 @@ A feature folder has only the files it needs: `features/health` has `index.ts` a
 - **What is stored of the response is the route's choice, and the default is the safe one:** `idempotent: true` keeps only the status and the new record's `id`, so a replay answers `{ "id": ... }`. Use `idempotent: { body: 'full' }` only when the response holds no patient data (`POST /invites` does, so for 24 hours the table holds the invitee's name and email). Never store a clinical or billing body: the table would become a second copy of PHI. What is stored is the response as the client received it, after the route's response schema, and an empty 204 replays as a 204. Rows expire after `IDEMPOTENCY_TTL_HOURS` (24) and a daily job removes them. A replay is not audited again.
 - **Registration order matters:** `idempotencyPlugin` comes after `accessPlugin` (it needs the tenant transaction, and a caller without permission learns nothing about stored keys). `idempotencyStorePlugin` comes before `tenancyPlugin`, next to `auditPlugin`, because it saves the result in an `onSend` hook that must run before tenancy commits.
 - **Limits count the user's bucket first:** a user over their limit is refused without using up the hospital's allowance, and the in-process `MemoryRateLimiter` counts per API instance.
+
+## Patients
+
+- **`features/patients`** is the first feature with patient data and the pattern for the next: `permissions.ts`, `schemas.ts` (TypeBox), `repository.ts` (SQL on `request.txClient`) and `routes.ts`. It is behind the `patients` module flag.
+- **The MRN is assigned by the server** from `patient_mrn_counters`, one row per hospital, incremented in the registering request's own transaction: no gaps after a failure, no duplicates under concurrency. It is the hospital's initials and a seven-digit number (`SH-0000123`, so MRNs sort as text up to ten million per hospital) and never changes; a trigger refuses a change of hospital, MRN or registration details, and the app role has no DELETE on `patients`.
+- **Search is `POST /patients/search`** with the term in the body, because it can be a name, a phone number or an MRN and must never be in a URL. Every word must appear in the name or MRN, in any order. `total` comes with the first page only.
+- **The list is ordered and paged on plain stored columns** (`last_name_lower`, `first_name_lower`, `id`), and the cursor row's values are passed as parameters, so a deep page starts at the cursor through the index. The cursor holds the last row's id and the sort, no data; if that row is renamed between two pages, the next page starts from its new position.
+- **`patient.contact:read` is a field-level permission.** Without it the phone is masked to its last four digits, email and address are left out, and contact details cannot be changed. Check it through `request.access.policy()`, since it is not one of the route's required permissions.
+- **Searching by phone number needs `patient.contact:read` too.** Without it the term is matched against names and MRNs only: otherwise a masked number could be recovered digit by digit from which rows match.
+- **Changing a record needs `patient:read` as well as `patient:update`,** because the answer is the whole record, and the narrower of the two scopes applies.
+- **The duplicate check is a deliberate exception to scope and to the contact permission:** anyone who may register sees possible duplicates across the whole hospital, matched by name and birth date or by phone. That is what stops a second record for the same person. The matches are masked, carry no id, and the check is audited and rate limited.
+- **Scope:** `own` means the patients the user registered, until encounters say whose patient someone is; `department` matches nothing yet.
+- **A record outside the caller's hospital or scope is a 404,** the same answer as one that does not exist.
+- **`POST /patients` requires an Idempotency-Key** and keeps only the id for a replay, so a replay answers `{ id }` and the client reads the record (which needs `patient:read`).
+- **A birth date is checked against today at the hospital,** in its timezone, not the server's.
+- **A change that sends what the record already has writes nothing and emits nothing.**
+- **Audit:** record reads and updates through `config.audit`; create, search and duplicate check through `request.audit`. Events carry the patient id, and `patient.updated` the names of the changed fields, never values.
+- **Unknown body fields are dropped by validation, not refused,** so a client cannot set `mrn`, `tenantId` or `id`.
 
 ## Contract
 

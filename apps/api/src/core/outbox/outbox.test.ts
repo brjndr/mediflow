@@ -41,7 +41,7 @@ beforeAll(async () => {
     jobQueue: queue,
     extend(instance) {
       instance.post<{ Body: { entityId: string; fail?: boolean } }>(
-        '/patients',
+        '/outbox-probe',
         { config: { permissions: [] } },
         async (request) => {
           await request.emit('patient.registered', request.body.entityId, { source: 'test' });
@@ -87,7 +87,7 @@ async function pendingFor(tenantId: string): Promise<{ event: string; entity_id:
 const register = (tenantId: string, entityId: string, fail = false) =>
   app.inject({
     method: 'POST',
-    url: '/patients',
+    url: '/outbox-probe',
     headers: as(tenantId),
     payload: { entityId, fail },
   });
