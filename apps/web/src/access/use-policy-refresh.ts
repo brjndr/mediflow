@@ -37,6 +37,11 @@ export function usePolicyRefresh({
 
     const refresh = async () => {
       if (inFlight) return;
+      // The session can move to another hospital before React re-runs this effect. The ETag held
+      // here was issued for `tenantId`, and the request would go out under the new hospital, so
+      // leave it to the loop that starts for that hospital.
+      const activeTenantId = queryClient.getQueryData<Session | null>(sessionKey)?.activeTenant?.id;
+      if (activeTenantId !== tenantId) return;
       inFlight = true;
       lastRefresh = Date.now();
       try {
