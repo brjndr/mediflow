@@ -49,10 +49,17 @@ export const duplicateMatchesSchema: z.ZodType<PatientDuplicateMatches> = z.obje
 });
 
 const GENDERS = ['male', 'female', 'other'] as const;
-/** Today as a calendar date in the given timezone (en-CA formats as YYYY-MM-DD). */
+/** Today as a YYYY-MM-DD calendar date in the given (hospital) timezone. */
 export function todayIn(timeZone: string): string {
   try {
-    return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+    const parts = new Intl.DateTimeFormat('en', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
   } catch {
     return new Date().toISOString().slice(0, 10);
   }
