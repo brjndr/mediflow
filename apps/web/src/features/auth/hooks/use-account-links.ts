@@ -19,9 +19,11 @@ export function useInvitePreview(token: string | null) {
   });
 }
 
-export const useAcceptInvite = () => useMutation({ mutationFn: acceptInvite });
-export const useForgotPassword = () => useMutation({ mutationFn: forgotPassword });
-export const useResetPassword = () => useMutation({ mutationFn: resetPassword });
+// `gcTime: 0`: a finished mutation holds the token, password or email it was given, so it is
+// dropped as soon as nothing is watching it rather than kept in the cache for minutes.
+export const useAcceptInvite = () => useMutation({ mutationFn: acceptInvite, gcTime: 0 });
+export const useForgotPassword = () => useMutation({ mutationFn: forgotPassword, gcTime: 0 });
+export const useResetPassword = () => useMutation({ mutationFn: resetPassword, gcTime: 0 });
 
 /** The link is spent, expired or wrong. One answer for all three, as the server gives. */
 export function isInvalidLink(error: unknown): boolean {

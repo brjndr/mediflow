@@ -244,3 +244,25 @@ describe('resetting a password', () => {
     ).toBeVisible();
   });
 });
+
+describe('when someone is already signed in on this computer', () => {
+  it.each([
+    [`/invite?token=${MOCK_INVITE_NEW}`, 'Accept your invitation'],
+    [`/reset-password?token=${MOCK_RESET}`, 'Choose a new password'],
+    ['/forgot-password', 'Forgot your password?'],
+  ])('%s asks to sign them out first, then carries on with the link', async (entry, title) => {
+    // The mock starts signed in as the sample admin.
+    cleanup();
+    const { router } = renderApp({ entry });
+
+    expect(await screen.findByRole('heading', { name: 'Someone is signed in here' })).toBeVisible();
+    expect(screen.getByText(/Sample Admin is signed in/)).toBeInTheDocument();
+    // The link has not been used and nothing of the page is shown yet.
+    expect(screen.queryByLabelText(/^New password/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out and continue' }));
+
+    expect(await screen.findByRole('heading', { name: title })).toBeVisible();
+    expect(router.state.location.pathname).toBe(entry.split('?')[0]);
+  });
+});

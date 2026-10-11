@@ -13,8 +13,11 @@ import { sessionMutationKey } from './session-query';
  *
  * If the server cannot be reached nothing changes: the user is still signed in there, and saying
  * otherwise would leave an open session behind a login screen.
+ *
+ * `stayOnPage` is for a public page that must keep its address (an emailed link): the session
+ * ends the same way, but nobody is sent to login.
  */
-export function useSignOut() {
+export function useSignOut({ stayOnPage = false }: { stayOnPage?: boolean } = {}) {
   const queryClient = useQueryClient();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -27,7 +30,7 @@ export function useSignOut() {
       announceSignedOut();
       // Explicitly to login with no remembered address: the next person to sign in here must
       // not be taken to the screen the previous one was on.
-      navigate('/login', { replace: true });
+      if (!stayOnPage) navigate('/login', { replace: true });
     },
   });
 }

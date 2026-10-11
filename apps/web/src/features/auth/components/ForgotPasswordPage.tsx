@@ -4,12 +4,21 @@ import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { useForgotPassword } from '../hooks/use-account-links';
 import { forgotPasswordSchema, type ForgotPasswordValues } from '../schemas';
 import { AccountPage, BackToSignIn, ErrorLine } from './AccountPage';
+import { SignedOutGate } from './SignedOutGate';
 
 /**
  * Asks for a reset link. The answer is the same whether or not the address has an account, and
  * so are the words here: the page never says whether an email was sent.
  */
 export function ForgotPasswordPage() {
+  return (
+    <SignedOutGate>
+      <ForgotPassword />
+    </SignedOutGate>
+  );
+}
+
+function ForgotPassword() {
   const { t } = useTranslation();
   const forgot = useForgotPassword();
   const form = useZodForm(forgotPasswordSchema, { email: '' });

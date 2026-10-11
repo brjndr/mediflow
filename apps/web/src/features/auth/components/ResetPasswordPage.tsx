@@ -6,12 +6,21 @@ import { useLinkToken } from '../hooks/use-link-token';
 import { setPasswordSchema, type SetPasswordValues } from '../schemas';
 import { AccountPage, BackToSignIn, ErrorLine, InvalidLinkNotice } from './AccountPage';
 import { PasswordFields } from './PasswordFields';
+import { SignedOutGate } from './SignedOutGate';
 
 /**
  * Sets a new password with the link from a reset email. The link can only be judged by sending
  * it, so a spent or expired link shows up on submit and replaces the form with one notice.
  */
 export function ResetPasswordPage() {
+  return (
+    <SignedOutGate>
+      <ResetPassword />
+    </SignedOutGate>
+  );
+}
+
+function ResetPassword() {
   const { t } = useTranslation();
   const token = useLinkToken();
   const reset = useResetPassword();

@@ -12,6 +12,7 @@ import { useLinkToken } from '../hooks/use-link-token';
 import { confirmSchema, setPasswordSchema, type SetPasswordValues } from '../schemas';
 import { AccountPage, BackToSignIn, ErrorLine, InvalidLinkNotice } from './AccountPage';
 import { PasswordFields } from './PasswordFields';
+import { SignedOutGate } from './SignedOutGate';
 
 type Accept = ReturnType<typeof useAcceptInvite>;
 
@@ -57,6 +58,14 @@ function ConfirmForm({ token, accept }: { token: string; accept: Accept }) {
  * an authenticator is a separate step (A-02).
  */
 export function AcceptInvitePage() {
+  return (
+    <SignedOutGate>
+      <AcceptInvite />
+    </SignedOutGate>
+  );
+}
+
+function AcceptInvite() {
   const { t } = useTranslation();
   const token = useLinkToken();
   const preview = useInvitePreview(token);

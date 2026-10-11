@@ -56,6 +56,9 @@
     }
   },
   "account": {
+    "signedInTitle": "Someone is signed in here",
+    "signedInBody": "{{name}} is signed in on this computer. Sign them out to continue with this link.",
+    "signedInAction": "Sign out and continue",
     "loading": "Checking your link…",
     "backToSignIn": "Back to sign in",
     "newPassword": "New password",
