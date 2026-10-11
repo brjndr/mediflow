@@ -9,6 +9,7 @@ stats.html
 test-results/
 playwright-report/
 blob-report/
+.playwright-mcp/
 
 # Env (only .env.example is committed)
 .env

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Permission-based, **multi-tenant** web app serving **multiple hospitals** from one deployment. Covers patient records, appointments, clinical workflows, and billing. It is an **end-to-end HMS**: it covers the whole patient journey from arrival to exit (OPD, inpatient, emergency, diagnostics, pharmacy, billing, insurance and records), like a conventional hospital management system. See Product Scope. Must handle **very high traffic** (many hospitals, many concurrent users). This is a **pnpm monorepo** holding the React SPA (`apps/web`), the Fastify API (`apps/api`) and a shared contract package (`packages/contract`). See Repository Layout. Until the backend issues are done, the web app runs against an MSW mock API.
+Permission-based, **multi-tenant** web app serving **multiple hospitals** from one deployment. Covers patient records, appointments, clinical workflows, and billing. It is an **end-to-end HMS**: it covers the whole patient journey from arrival to exit (OPD, inpatient, emergency, diagnostics, pharmacy, billing, insurance and records), like a conventional hospital management system. See Product Scope. Must handle **very high traffic** (many hospitals, many concurrent users). This is a **pnpm monorepo** holding the React SPA (`apps/web`), the Fastify API (`apps/api`) and a shared contract package (`packages/contract`). See Repository Layout. The web app runs against an MSW mock API by default; the real API so far covers authentication, tenancy and access (see Current Status).
 
 **Staff-only application.** Only hospital staff (and platform admins) have accounts and can sign in. Patients are records managed by staff (registered, scheduled, treated, billed). There is no patient login, patient portal, or patient self-service anywhere in this product. Outbound patient reminders are a planned future feature: v1 must be built so it (or any other feature) can be added as a plug-in module without changing core code. See "Adding a new feature later".
 
@@ -13,6 +13,41 @@ Five non-negotiables shape every decision:
 3. **Extensibility and configurable access:** new features plug in without touching core code, and any feature or action can be enabled/disabled per hospital and per role without a redeploy.
 4. **Production-grade but cheap:** proven open-source technology, a small fixed cost to start, and cost that grows with usage rather than ahead of it. See Technology Decisions and Cost Strategy.
 5. **Fast and effective:** the product must feel instant and stay correct under load. Choose the best proven tool for each job rather than the smallest one. Weight is accepted when it buys real capability, and it is controlled with code splitting, budgets and measurement. See Performance Strategy.
+
+## Current Status
+
+As of 2026-10-11. GitHub issues and milestones are the source of truth (`gh issue list --milestone "<name>"`); update this section when a milestone closes.
+
+| Milestone              | State                                                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------- |
+| M0 Setup               | Done                                                                                           |
+| M1 Foundation          | Done, except #233 (a flaky policy-refresh test that may hide a stale-ETag race)                |
+| M2 Auth and access     | In progress. Open: A-03 (#40), A-02 (#39), BE-06 (#46), BE-07 (#47), A-06 (#43), in that order |
+| M3 Patients and beyond | Not started. No clinical, patient or billing module exists yet                                 |
+
+**What exists**
+
+- **Web foundation:** session bootstrap, tenancy (picker, switcher, theming, formatters), access (`usePermission`, `<Can>`, `PermissionGuard`, policy refresh), the feature registry with slots, the app shell, i18n, error reporting, bundle budgets, and the shared building blocks (data grid, charts, form kit, rich text).
+- **Web auth:** login and sign-out, deep links (`/open/<kind>/<id>`), idle sign-out with a warning, and cross-tab sync. Two features are registered: `notices` (the sample feature and the template for new modules) and `ui_examples` (the building-block examples).
+- **API (`apps/api`):** config, logging with redaction, the migration runner, tenancy with row-level security, cookie sessions with rotation, password sign-in with lockout and rate limit, invites, password reset, TOTP MFA, roles and permissions, the access guard, the notifier (SMTP) and the OpenAPI contract. One feature besides health: `staff` (`POST /invites`). Migrations `0001` to `0006`.
+
+**What the web app can and cannot do against the real API**
+
+- Works: sign-in, the hospital picker and switcher, the access policy, sign-out.
+- Mock only: everything else. `notices` and `POST /session/open-link` are in the planned contract (`packages/contract/planned.openapi.json`) with no backend yet, and the real policy lists only permissions the API knows (`staff:invite` so far), so feature screens show "no access" there.
+
+**Not built yet, although described below as the target**
+
+- API: audit log, transactional outbox and job queue (BE-06); per-tenant rate limits and idempotency keys (BE-07); `@fastify/helmet` and CORS; the role management API (BE-16, roles are read-only for the app until then); object storage; SSE.
+- Web: invite and reset pages (A-03), the MFA screens (A-02), profile (A-06), every clinical and billing feature, the platform admin module.
+- Platform admins: the `is_platform_admin` flag exists, but there is no way to create one, no platform routes, and MFA is not yet enforced for them.
+- Deployment: no infrastructure code and no hosted environment. CI builds the API image and runs the tests.
+
+**Known gaps to keep in mind**
+
+- A sign-in against the real API as an account with an authenticator shows "this version cannot ask for the code yet" until A-02.
+- `pnpm audit` reports two moderate advisories in `react-router` 6, fixed only in 7.x. CI gates at high.
+- Production needs `MFA_ENCRYPTION_KEY`, and the migrate step needs the same environment as the API (it also applies default role permissions).
 
 ## Product Scope: End-to-End Patient Journey
 
@@ -125,7 +160,7 @@ Patient portal or app, telemedicine, a DICOM viewer or PACS, full accounting or 
 - Only the static SPA is CDN-cached. Tenant config, `AccessPolicy` and all PHI responses are loaded after login, are private per session, and are never CDN-cached.
 - Bandwidth is a cost: keep bundles small, lazy-load, and request only needed fields.
 - Environment config via `VITE_` variables (non-secret): API base URL, Sentry DSN.
-- Frontend and backend live in one monorepo with a single `CLAUDE.md`. Add a short `apps/api/CLAUDE.md` for backend-only rules (see Backend) once the backend starts.
+- Frontend and backend live in one monorepo. This file holds the architecture and the rules for both; `apps/api/CLAUDE.md` holds the backend-only rules (see Backend) and is kept current with the API.
 
 ## Performance Strategy
 
@@ -198,7 +233,7 @@ hms/
 - **Drizzle ORM** with plain SQL migrations. Each migration is one new file, `apps/api/src/migrations/NNNN_what.sql`, applied in order by the API's own runner, which checksums every file and refuses to continue if an applied one was edited. (`drizzle-kit` is not used: its workflow rewrites a journal and fills in generated files, which conflicts with the rule that existing migrations are never modified.) RLS policies, the `tenant_id` convention and exclusion constraints are written as SQL in migrations. Migrations are additive. Backend-only rules are in `apps/api/CLAUDE.md`.
 - **Postgres is the only required service in phase 1:** sessions, job queue (**pg-boss**), the transactional outbox and in-process rate limits all live in or beside it. Keep cache, queue and rate limiting behind interfaces so Redis (BullMQ) can replace them in phase 2.
 - **Logging:** pino with a redaction config for PHI fields. Never log request or response bodies for patient routes.
-- **Security:** `@fastify/helmet`, `@fastify/rate-limit` (per tenant and per user), `@fastify/cookie`, strict CORS, `@node-rs/argon2`, `otplib` for TOTP MFA.
+- **Security:** `@fastify/helmet`, `@fastify/rate-limit` (per tenant and per user), `@fastify/cookie`, strict CORS, `@node-rs/argon2`, `otplib` for TOTP MFA. In place today: cookies, Argon2id, TOTP, a per-address rate limit on the auth routes, and a cross-site request check on every non-GET request. Helmet, CORS and per-tenant limits are not yet (the web app reaches the API through the same origin).
 - **Tests:** Vitest against a local Postgres database. Cross-tenant RLS tests are mandatory for every tenant table.
 
 ### Fastify plugin layout (one plugin per feature)
@@ -207,7 +242,8 @@ hms/
 apps/api/src/
   app.ts            # builds the Fastify instance, registers core plugins and features
   core/
-    config/  db/  session/  tenancy/  access/  audit/  outbox/  jobs/  notifier/
+    config/  db/  http/  logging/  openapi/  session/  auth/  tenancy/  access/  notifier/
+    audit/  outbox/  jobs/      # planned (BE-06)
   features/<name>/
     index.ts        # exported Fastify plugin: registers routes, hooks, subscribers, jobs
     routes.ts       # TypeBox-schema routes, each with `permissions` and feature flag
@@ -222,9 +258,9 @@ Core hooks that every feature route passes through:
 
 - **`session` hook:** authenticates the cookie session and binds the active tenant.
 - **`tenant` hook:** opens a transaction per request and runs `SET LOCAL app.tenant_id = <session tenant>`. RLS then filters every query. The tenant is never taken from a client value.
-- **`access` hook:** checks the tenant feature flag and the caller's permissions (and scope) declared on the route. Unlisted routes are denied.
-- **`audit` hook:** records PHI reads and writes in the same transaction.
-- **`outbox`:** domain events are written in the same transaction and dispatched by pg-boss.
+- **`access` hook:** checks the tenant feature flag and the caller's permissions declared on the route, and gives the handler the caller's scope. A tenant route that declares no `permissions` stops the app from starting.
+- **`audit` hook (planned, BE-06):** records PHI reads and writes in the same transaction.
+- **`outbox` (planned, BE-06):** domain events are written in the same transaction and dispatched by pg-boss. Until then, work that must follow a commit uses `request.afterCommit`.
   A feature registers as a Fastify plugin (encapsulated), so its decorators and hooks never leak into other features. Adding a feature is one new folder plus one registration line in `app.ts`.
 
 ## Package Manager
@@ -256,6 +292,14 @@ pnpm analyze    # bundle size report (rollup-plugin-visualizer), writes apps/web
 pnpm budget     # check the built bundle against the budgets (run pnpm build first)
 pnpm e2e        # Playwright end-to-end tests
 pnpm gen:api    # regenerate typed API client from OpenAPI spec
+pnpm test:scripts   # tests of the repo scripts (contract check, bundle budget)
+pnpm format:check   # Prettier, as CI runs it (pnpm format to fix)
+
+docker compose up -d              # Postgres and Mailpit for the API
+pnpm --filter api db:migrate      # apply migrations, then default role permissions
+pnpm --filter api db:seed         # sample hospitals and staff (never in production)
+pnpm --filter api dev             # the API on http://localhost:3000
+pnpm --filter api test            # API tests against the mediflow_test database
 ```
 
 **Signing in locally.** The web app runs against the mock API by default and starts signed in as the sample hospital admin. Open `/?mockUser=none` to start signed out and use the login page: any sample email from `apps/web/src/mocks/db.ts` with the password defined there. To run against the real API instead, start it (`docker compose up -d`, `pnpm --filter api db:migrate`, `pnpm --filter api db:seed`, `pnpm --filter api dev`) and start the web app with `VITE_API_MOCKING=disabled`. The Vite dev server proxies `/api` to `http://localhost:3000` (override with `API_PROXY_TARGET`), so the browser stays on one origin, as it does in production where the CDN routes `/api` to the API.
@@ -264,29 +308,36 @@ pnpm gen:api    # regenerate typed API client from OpenAPI spec
 
 ```
 apps/web/src/
-  app/              # router, providers (query client, session, tenant, policy, i18n), global error boundary
-  tenancy/          # active tenant from session, tenant switcher, TenantProvider, useTenant, tenant config + theming
+  app/              # providers, app shell, i18n, store, observability, global error boundary
+    session/        # session query, sign-in/out calls, idle timeout, cross-tab channel, session end
+  tenancy/          # active tenant from session, picker, switcher, deep links, theming, formatters
   access/           # permissions, AccessPolicyProvider, usePermission, <Can>, PermissionGuard
   registry/         # feature registry: collects feature manifests, builds routes + navigation
   features/
-    auth/           # login, session slice, token handling, per-tenant SSO
-    patients/       # registration, list, detail, edit
-    doctors/        # doctors + departments
-    appointments/   # scheduling, calendar, status changes
-    clinical/       # visits, prescriptions, lab orders
-    billing/        # invoices, payments
-    dashboard/      # role-specific dashboards, reports
-    platform/       # super-admin: manage hospitals/tenants (platform_admin only)
+    auth/           # login page (exists); invite, reset and MFA pages (M2); per-tenant SSO (later)
+    notices/        # exists: the sample feature and the template for new modules
+    ui-examples/    # exists: working examples of the shared building blocks
+    patients/       # planned: registration, list, detail, edit
+    doctors/        # planned: doctors + departments
+    appointments/   # planned: scheduling, calendar, status changes
+    clinical/       # planned: visits, prescriptions, lab orders
+    billing/        # planned: invoices, payments
+    dashboard/      # planned: role-specific dashboards, reports
+    platform/       # planned: manage hospitals/tenants (platform_admin only)
   shared/
-    api/            # fetch wrapper with middleware, tenant-scoped query keys, generated/ (OpenAPI client)
-    config/         # feature flags, constants
-    ui/             # reusable components
+    api/            # fetch wrapper (retry, abort, tenant header, errors), typed client, query keys
+    config/         # env
+    lib/            # theme, logger, class-name helper
+    ui/             # reusable components: data-grid, charts, form, rich-text, system pages
     hooks/
     types/          # shared domain types
-    utils/          # formatters (tenant-aware date/currency/timezone)
-  routes/           # route generation from registry, PermissionGuard (lazy-loaded)
-  mocks/            # MSW handlers
+    utils/          # formatters (tenant-aware date/currency/timezone), masking
+  routes/           # route generation from registry, session and tenant guards
+  mocks/            # MSW mock backend: db.ts, handlers
+  test/             # render helpers and setup
 ```
+
+The generated API types live in `packages/contract/src/generated`, not under `shared/api`.
 
 Each feature folder contains: `manifest.ts` (see Extensibility), `components/`, `hooks/` (React Query hooks), `api.ts`, `schemas.ts` (Zod), `types.ts`, `index.ts` (public exports). Features must not import from each other's internals, only via `index.ts` or `shared/`.
 
@@ -591,6 +642,7 @@ export interface User {
   email: string;
   name: string;
   memberships: { tenantId: string; tenantName: string; roleId: RoleId }[]; // tenantName feeds the hospital picker
+  mfaEnabled: boolean; // whether sign-in asks for an authenticator code
 }
 
 // Every tenant-owned entity carries tenantId.
