@@ -6,9 +6,9 @@ Closes #
 
 ## Checks
 
-- [ ] `pnpm lint && pnpm typecheck && pnpm test` pass
+- [ ] CI is green (it runs the full lint, typecheck, test, build and end-to-end suites)
 - [ ] Tests cover happy path, validation, permission absent, flag off, and two tenants where relevant
-- [ ] `/tenant-safety-check` and `/phi-check` run on this diff (if data or access is touched)
+- [ ] `/tenant-safety-check` and `/phi-check` checklists applied to this diff, by the `security-reviewer` pass or by hand (if data or access is touched)
 - [ ] No PHI in logs, URLs, storage, fixtures, or screenshots
 - [ ] CLAUDE.md or docs updated if a contract or convention changed
 

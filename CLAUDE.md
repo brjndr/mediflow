@@ -292,7 +292,7 @@ pnpm analyze    # bundle size report (rollup-plugin-visualizer), writes apps/web
 pnpm budget     # check the built bundle against the budgets (run pnpm build first)
 pnpm e2e        # Playwright end-to-end tests
 pnpm gen:api    # regenerate typed API client from OpenAPI spec
-pnpm test:scripts   # tests of the repo scripts (contract check, bundle budget)
+pnpm test:scripts   # tests of the repo scripts (contract check, bundle budget, CI mode)
 pnpm format:check   # Prettier, as CI runs it (pnpm format to fix)
 
 docker compose up -d              # Postgres and Mailpit for the API
@@ -846,7 +846,7 @@ Complete and test one module before starting the next. Ship each release to a pi
 - **Performance tests:** Lighthouse CI + bundle budgets in CI; tests with large result sets (10k+ total rows) confirm pagination keeps the page responsive and memory flat.
 - Run k6 or similar load tests against staging from a cloud runner, not the laptop per tenant and with mixed tenants.
 - **Foundation coverage is enforced.** CI runs `pnpm test:coverage`, which fails if line, branch, function or statement coverage of `access/`, `tenancy/`, `registry/`, `shared/api/` and `app/session/` drops below the thresholds in `apps/web/vitest.config.ts`. A change to those folders ships with its tests. Lower a threshold only with a stated reason.
-- Run `pnpm lint && pnpm typecheck && pnpm test` before considering a task done.
+- A task is done when CI is green: it runs the full `pnpm lint`, `pnpm typecheck`, tests, build and end-to-end suites. Locally, run `pnpm typecheck` and the tests for the code you changed before opening the PR, and leave the full suite to CI (the dev machine is slow). A PR that changes only Markdown runs the format check alone, and a merge whose content the PR run already tested is not tested again on `main` (`scripts/ci-mode.mjs`).
 
 ## Workflow (GitHub issues)
 
@@ -857,7 +857,7 @@ Issues are the source of truth for scope and progress. The roadmap is defined in
 - **Branches:** `feat/<n>-<slug>`, `fix/<n>-<slug>`, `chore/<n>-<slug>`. **Commits:** Conventional Commits with the issue number, e.g. `feat(patients): add search (#42)`. **PRs:** one issue per PR, body ends with `Closes #<n>`. Merging closes the issue; never close issues by hand.
 - **Do not widen scope.** Anything discovered but out of scope becomes a proposed new issue (title, labels, milestone, tasks), not part of the current change.
 - Labels: `type:*`, `area:*`, `P0`-`P2`, `size:S|M|L`, `status:in-progress|in-review|blocked|needs-decision`. Never mark an issue `status:blocked` without stating the blocker in a comment.
-- Done means the issue's Definition of Done is satisfied, including `/tenant-safety-check` and `/phi-check` where data or access is touched.
+- Done means the issue's Definition of Done is satisfied, including `/tenant-safety-check` and `/phi-check` where data or access is touched. In `/finish-issue` the `security-reviewer` subagent applies both checklists in one pass over the diff against `main`. Once CI is green, Claude merges the PR and removes `status:in-progress`; `status:in-review` is only for a PR the user asked to review first.
 - Backend work (`area:backend`) lives in `apps/api` of this same repo. Frontend issues build against the MSW mock and the OpenAPI contract until the matching backend issue is done. A feature's frontend and backend issues may share one PR when they are small.
 
 ## Working Agreement for Claude

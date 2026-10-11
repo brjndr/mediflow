@@ -17,7 +17,7 @@ Follow "Adding a new feature later" in CLAUDE.md. Do not edit core modules or ot
 6. **Register** the feature in the registry (one line). Default the flag to off.
 7. **MSW handlers** for every endpoint under `apps/web/src/mocks/`.
 8. **Tests:** happy path, validation errors, permission absent, flag off, two tenants (cache isolation), and idempotent behavior for event-driven parts.
-9. **Verify:** `pnpm lint && pnpm typecheck && pnpm test`. Report bundle impact with `pnpm analyze`. Stay within the Performance Strategy budgets and follow the dependency policy.
+9. **Verify:** `pnpm typecheck` and the feature's own tests (`pnpm --filter web test src/features/<name>`). The full suite runs in CI. Report bundle impact with `pnpm analyze`. Stay within the Performance Strategy budgets and follow the dependency policy.
 
 ## Do not
 

@@ -13,8 +13,67 @@ permissions:
   contents: read
 
 jobs:
+  # Decides how much of the pipeline this run needs (scripts/ci-mode.mjs): `docs` for a pull request
+  # that changes only Markdown, `tested` for a merge to main that the pull request run already
+  # covered, and `full` for everything else.
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The commit and its parents, which is what the script compares.
+          fetch-depth: 2
+      - id: mode
+        run: node scripts/ci-mode.mjs
+
+  docs:
+    name: Format check (docs only)
+    needs: plan
+    if: needs.plan.outputs.mode == 'docs'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+
+  # Records the bundle sizes of main once per merge, so pull requests compare against them without
+  # building the base branch again.
+  baseline:
+    name: Bundle baseline for main
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web build
+      - run: |
+          mkdir -p "$RUNNER_TEMP/bundle-base"
+          node scripts/bundle-budget.mjs --json "$RUNNER_TEMP/bundle-base/base-bundle.json" --measure-only
+      - uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/bundle-base
+          key: bundle-base-${{ github.sha }}
+
   verify:
     name: Lint, typecheck, test, build
+    needs: plan
+    if: needs.plan.outputs.mode == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -33,11 +92,19 @@ jobs:
       - run: pnpm test:scripts
       - run: pnpm build
 
-      # On a pull request, build the base branch too, so the report can show what the PR changes.
-      # A failure here only loses the comparison: the budgets below are still enforced.
-      - name: Measure the base branch bundle
+      # On a pull request the report shows what the PR changes against the base branch. The sizes of
+      # the base come from the `baseline` job of the run on main.
+      - name: Restore the base branch bundle sizes
         if: github.event_name == 'pull_request'
-        id: base
+        id: basecache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/bundle-base
+          key: bundle-base-${{ github.event.pull_request.base.sha }}
+      # Only when main has no recorded sizes for that commit: build the base branch here.
+      # A failure only loses the comparison: the budgets below are still enforced.
+      - name: Measure the base branch bundle
+        if: github.event_name == 'pull_request' && steps.basecache.outputs.cache-hit != 'true'
         continue-on-error: true
         env:
           BASE_REF: ${{ github.base_ref }}
@@ -48,15 +115,16 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter web build
           # The script comes from this PR, so the base branch does not need to have it.
+          # Written to a scratch name first, so a failed build never leaves a half-made baseline.
           node "$GITHUB_WORKSPACE/scripts/bundle-budget.mjs" \
-            --dist apps/web/dist --json "$RUNNER_TEMP/base-bundle.json" --measure-only
+            --dist apps/web/dist --json "$RUNNER_TEMP/base-measured.json" --measure-only
+          mkdir -p "$RUNNER_TEMP/bundle-base"
+          mv "$RUNNER_TEMP/base-measured.json" "$RUNNER_TEMP/bundle-base/base-bundle.json"
 
       - name: Bundle budgets
-        env:
-          BASE_MEASURED: ${{ steps.base.outcome }}
         run: |
-          if [ "$BASE_MEASURED" = "success" ]; then
-            pnpm budget --baseline "$RUNNER_TEMP/base-bundle.json"
+          if [ -f "$RUNNER_TEMP/bundle-base/base-bundle.json" ]; then
+            pnpm budget --baseline "$RUNNER_TEMP/bundle-base/base-bundle.json"
           else
             pnpm budget
           fi
@@ -76,6 +144,8 @@ jobs:
 
   api:
     name: API tests (Postgres) and image
+    needs: plan
+    if: needs.plan.outputs.mode == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -130,6 +200,7 @@ jobs:
     name: Playwright (Chromium)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Skipped whenever verify is, so it follows the same plan.
     needs: verify
     steps:
       - uses: actions/checkout@v7
@@ -150,6 +221,8 @@ jobs:
 
   audit:
     name: Dependency audit
+    needs: plan
+    if: needs.plan.outputs.mode == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

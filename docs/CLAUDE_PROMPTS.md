@@ -39,7 +39,7 @@ Implement issue #<number>.
 
 Read it with `gh issue view <number>` and check that its dependencies are closed. Read the CLAUDE.md sections it references. If it is sized M or L, enter plan mode first and wait for my approval.
 
-Work on branch <type>/<number>-<slug>. Follow CLAUDE.md. For a new feature use the new-feature skill, and for a list screen use the add-list-view skill. Add tests. Run pnpm lint, pnpm typecheck, pnpm test, then /tenant-safety-check and /phi-check. Commit with the issue number, open a PR ending with `Closes #<number>`, and stop.
+Work on branch <type>/<number>-<slug>. Follow CLAUDE.md. For a new feature use the new-feature skill, and for a list screen use the add-list-view skill. Add tests. Then follow the finish-issue skill: typecheck and the tests for what changed, one security-reviewer pass, commit with the issue number, open a PR ending with `Closes #<number>`, merge it when CI is green, and stop.
 
 If you find work outside this issue, do not do it. Propose a new issue (title, labels, milestone, tasks) instead.
 ```

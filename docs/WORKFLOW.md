@@ -31,7 +31,7 @@ GitHub issues are the source of truth for scope and progress. `scripts/github/ro
 1. Pick the next `Ready` issue in the current milestone (P0 first, dependencies closed).
 2. Add `status:in-progress`.
 3. Start `claude` in the repo and use the "Implement an issue" prompt from `docs/CLAUDE_PROMPTS.md`.
-4. Review the plan, approve, review the PR, merge. Move on.
+4. Review the plan and approve. Claude opens the PR, waits for CI and merges when it is green (`/finish-issue`). Ask before the work starts if you want to review the PR yourself; it then stops with `status:in-review`.
 5. Anything discovered but out of scope becomes a new issue (use the Feature template), not part of the current PR.
 
 ## Monitoring
