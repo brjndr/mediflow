@@ -5,6 +5,7 @@ import { authorize, error } from '../respond';
 
 type PatientSummary = components['schemas']['PatientSummary'];
 type PatientPage = components['schemas']['PatientPage'];
+type PatientRecord = components['schemas']['PatientRecord'];
 
 const FEATURE_FLAG = 'patients';
 const GIVEN = ['Asha', 'Bilal', 'Chen', 'Divya', 'Emeka', 'Farah', 'Gita', 'Hugo', 'Imran', 'Jaya'];
@@ -43,13 +44,24 @@ function seed(): PatientSummary[] {
 }
 
 let patients = seed();
+/** Registrations already made, by tenant and idempotency key: a retry returns the first result. */
+let registrations = new Map<string, PatientRecord>();
 onMockReset(() => {
   patients = seed();
+  registrations = new Map();
 });
 
 const fullName = (patient: PatientSummary) => `${patient.firstName} ${patient.lastName}`;
 const digits = (text: string) => text.replace(/\D/g, '');
 const SORT_KEYS = new Set(['name', 'mrn']);
+
+const isText = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim() !== '';
+
+async function readObject(request: Request): Promise<Record<string, unknown> | null> {
+  const body: unknown = await request.json().catch(() => null);
+  return typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : null;
+}
 
 export const patientsHandlers = [
   http.post('*/api/patients/search', async ({ request }) => {
@@ -99,5 +111,77 @@ export const patientsHandlers = [
       nextCursor: rows[start + limit]?.id ?? null,
       total: rows.length,
     });
+  }),
+
+  http.post('*/api/patients/duplicate-check', async ({ request }) => {
+    const access = authorize(request, { permission: 'patient:create', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const body = await readObject(request);
+    if (
+      !body ||
+      !isText(body.firstName) ||
+      !isText(body.lastName) ||
+      !isText(body.dob) ||
+      !isText(body.phone)
+    ) {
+      return error(400, 'validation_failed', 'Name, date of birth and phone are required');
+    }
+    const name = `${body.firstName} ${body.lastName}`.toLowerCase();
+    // Same date of birth, and the same phone number or the same name.
+    const items = patients
+      .filter(
+        (patient) =>
+          patient.tenantId === access.tenantId &&
+          patient.dob === body.dob &&
+          (digits(patient.phone) === digits(body.phone as string) ||
+            fullName(patient).toLowerCase() === name),
+      )
+      .slice(0, 5);
+    return HttpResponse.json({ items });
+  }),
+
+  http.post('*/api/patients', async ({ request }) => {
+    const access = authorize(request, { permission: 'patient:create', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const key = request.headers.get('Idempotency-Key');
+    if (!key) return error(400, 'validation_failed', 'Idempotency-Key is required');
+    const replay = registrations.get(`${access.tenantId}:${key}`);
+    if (replay) return HttpResponse.json<PatientRecord>(replay, { status: 201 });
+
+    const body = await readObject(request);
+    if (
+      !body ||
+      !isText(body.firstName) ||
+      !isText(body.lastName) ||
+      !isText(body.dob) ||
+      !isText(body.phone) ||
+      !GENDERS.some((g) => g === body.gender)
+    ) {
+      return error(400, 'validation_failed', 'Some details are not valid');
+    }
+    // The server assigns the MRN, unique per tenant, and records who gave consent and when.
+    const prefix = access.tenantId === TENANT_IDS.hospital ? 'pth' : 'ptc';
+    const next = patients.filter((patient) => patient.tenantId === access.tenantId).length + 1;
+    const consent = body.contactConsent as { given?: unknown } | undefined;
+    const record: PatientRecord = {
+      id: `${prefix}_${String(next).padStart(5, '0')}`,
+      tenantId: access.tenantId,
+      mrn: `MRN-${prefix.toUpperCase()}-${String(next).padStart(5, '0')}`,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      dob: body.dob,
+      gender: body.gender as PatientRecord['gender'],
+      phone: body.phone,
+      email: isText(body.email) ? body.email : undefined,
+      address: isText(body.address) ? body.address : undefined,
+      contactConsent: {
+        given: consent?.given === true,
+        at: new Date().toISOString(),
+        recordedBy: 'user_mock',
+      },
+    };
+    patients.push({ ...record });
+    registrations.set(`${access.tenantId}:${key}`, record);
+    return HttpResponse.json<PatientRecord>(record, { status: 201 });
   }),
 ];

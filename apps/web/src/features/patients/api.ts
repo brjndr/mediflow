@@ -1,6 +1,13 @@
 import { api, requireData } from '@/shared/api';
-import { patientPageSchema } from './schemas';
-import type { PatientPage, PatientSort } from './types';
+import { duplicateMatchesSchema, patientPageSchema, patientRecordSchema } from './schemas';
+import type {
+  PatientCreate,
+  PatientDuplicateMatches,
+  PatientDuplicateQuery,
+  PatientPage,
+  PatientRecord,
+  PatientSort,
+} from './types';
 
 export interface PatientListQuery {
   q?: string;
@@ -22,4 +29,25 @@ export async function fetchPatients(
     signal,
   });
   return patientPageSchema.parse(requireData(result));
+}
+
+/** Identifying details go in the body, never in a URL. */
+export async function checkDuplicates(
+  query: PatientDuplicateQuery,
+  signal?: AbortSignal,
+): Promise<PatientDuplicateMatches> {
+  const result = await api.POST('/patients/duplicate-check', { body: query, signal });
+  return duplicateMatchesSchema.parse(requireData(result));
+}
+
+/** The idempotency key makes a retry or a double click return the first result, not a copy. */
+export async function createPatient(
+  body: PatientCreate,
+  idempotencyKey: string,
+): Promise<PatientRecord> {
+  const result = await api.POST('/patients', {
+    body,
+    params: { header: { 'Idempotency-Key': idempotencyKey } },
+  });
+  return patientRecordSchema.parse(requireData(result));
 }
