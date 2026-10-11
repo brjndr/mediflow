@@ -38,6 +38,8 @@ export class HttpError extends Error {
     readonly statusCode: number,
     readonly code: string,
     message: string,
+    /** Response headers to send with the error, e.g. `Retry-After` on a 429. */
+    readonly headers?: Record<string, string>,
   ) {
     super(message);
     this.name = 'HttpError';
@@ -67,6 +69,7 @@ export function registerErrorHandling(app: FastifyInstance): void {
 
   app.setErrorHandler((error: FastifyError | HttpError, request, reply) => {
     if (error instanceof HttpError) {
+      if (error.headers) void reply.headers(error.headers);
       return send(reply, request, error.statusCode, error.code, error.message);
     }
     if (error.validation) {
