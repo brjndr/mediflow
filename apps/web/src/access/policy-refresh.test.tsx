@@ -1,7 +1,7 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
-import { sessionKey } from '@/app/session';
+import { sessionKey, type Session } from '@/app/session';
 import { revokePermission, sessionFor, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { TENANT_HEADER } from '@/shared/api';
@@ -216,5 +216,48 @@ describe('lifecycle', () => {
     // The first request for the clinic does not carry the hospital's ETag.
     expect(clinic[0]?.ifNoneMatch).toBeNull();
     expect(clinic.at(-1)?.ifNoneMatch).toMatch(new RegExp(`^"${TENANT_IDS.clinic}\\.`));
+  });
+
+  it('never sends the old ETag once the session has moved to another hospital', async () => {
+    signIn(USER_IDS.doctor, TENANT_IDS.hospital);
+    const requests = watchPolicyRequests();
+    const { queryClient } = renderWithProviders(
+      <>
+        <Refresher intervalMs={20} />
+        <Gated />
+      </>,
+    );
+    await ready();
+    await waitFor(() => expect(requests.some((r) => r.ifNoneMatch !== null)).toBe(true));
+    // Stop the timer and let a refresh fall due, so becoming visible refreshes at once.
+    setHidden(true);
+    await delay(40);
+
+    // The session moves to the clinic and a refresh fires in the same tick, before React has
+    // re-run the effect: the loop that holds the hospital's ETag is still the one listening.
+    signIn(USER_IDS.doctor, TENANT_IDS.clinic);
+    act(() => {
+      queryClient.setQueryData<Session | null>(sessionKey, (session) =>
+        session?.activeTenant && session.policy
+          ? {
+              ...session,
+              activeTenant: { ...session.activeTenant, id: TENANT_IDS.clinic },
+              policy: { ...session.policy, tenantId: TENANT_IDS.clinic },
+            }
+          : session,
+      );
+      setHidden(false);
+    });
+
+    await waitFor(() =>
+      expect(requests.filter((r) => r.tenant === TENANT_IDS.clinic).length).toBeGreaterThanOrEqual(
+        2,
+      ),
+    );
+    const clinic = requests.filter((r) => r.tenant === TENANT_IDS.clinic);
+    expect(clinic[0]?.ifNoneMatch).toBeNull();
+    for (const request of clinic.slice(1)) {
+      expect(request.ifNoneMatch).toMatch(new RegExp(`^"${TENANT_IDS.clinic}\\.`));
+    }
   });
 });
