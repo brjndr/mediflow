@@ -858,13 +858,42 @@ describe('the second factor', () => {
       expect(await requirementOf(session)).toBe(true);
     });
 
+    it('still answers the policy, which is how an open tab learns of the rule', async () => {
+      const strict = await newHospital('Strict Policy', { mfa: true, mfa_required: true });
+      const user = await newUser('Policy Pia');
+      await addMembership(pool, user, strict, 'nurse');
+      const session = await signIn(user);
+
+      const policy = await get('/session/policy', session);
+      expect(policy.statusCode).toBe(200);
+      expect(policy.json().features).toEqual({ mfa: true, mfa_required: true });
+      expect((await get('/tenant', session)).statusCode).toBe(403);
+    });
+
+    it('ends the other sessions of someone who sets one up: they never showed a code', async () => {
+      const strict = await newHospital('Strict Sessions', { mfa: true, mfa_required: true });
+      const user = await newUser('Twice Tina');
+      await addMembership(pool, user, strict, 'nurse');
+      const elsewhere = await signIn(user);
+      const here = await signIn(user);
+
+      const enrollment = await post('/auth/mfa/enroll', { password: user.password }, here);
+      const { secret } = enrollment.json<{ secret: string }>();
+      await post('/auth/mfa/confirm', { code: await generate({ secret }) }, here);
+
+      expect((await get('/tenant', here)).statusCode).toBe(200);
+      expect((await get('/session', elsewhere)).statusCode).toBe(401);
+      expect((await get('/tenant', elsewhere)).statusCode).toBe(401);
+    });
+
     it('requires nothing unless both switches are on', async () => {
-      for (const features of [
+      const combinations: Record<string, boolean>[] = [
         {},
         { mfa: true },
         { mfa_required: true },
         { mfa: false, mfa_required: true },
-      ]) {
+      ];
+      for (const features of combinations) {
         const tenant = await newHospital('Relaxed Hospital', features);
         const user = await newUser('Relaxed Ravi');
         await addMembership(pool, user, tenant, 'nurse');

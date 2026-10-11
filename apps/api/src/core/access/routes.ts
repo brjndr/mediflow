@@ -8,8 +8,9 @@ export const accessRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     '/session/policy',
     {
-      // Any member may read their own policy.
-      config: { permissions: [] },
+      // Any member may read their own policy. Also while an authenticator is still to be set
+      // up: this is how an open tab learns that the hospital turned the rule on.
+      config: { permissions: [], openWhileMfaPending: true },
       schema: {
         operationId: 'getSessionPolicy',
         tags: ['auth'],

@@ -2,7 +2,15 @@ import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { MOCK_PASSWORD, setMockMfa, signOut as signOutOnServer, USER_IDS } from '@/mocks/db';
+import { sessionKey } from '@/app/session';
+import {
+  currentSession,
+  MOCK_PASSWORD,
+  setMockMfa,
+  signOut as signOutOnServer,
+  TENANT_IDS,
+  USER_IDS,
+} from '@/mocks/db';
 import { server } from '@/mocks/node';
 import {
   MOCK_MFA_CODE,
@@ -315,6 +323,27 @@ describe('a hospital that requires an authenticator', () => {
       .find((candidate) => candidate.queryKey[2] === 'mfa');
     expect(query?.state.status).toBe('error');
     expect(query?.state.data).toBeUndefined();
+  });
+
+  it('asks again when the policy changes, and keeps the app on screen meanwhile', async () => {
+    const { queryClient, router } = renderApp({ entry: '/' });
+    expect(await screen.findByRole('heading', HOME)).toBeInTheDocument();
+
+    // The hospital turns the rule on, and the open tab's next policy refresh brings the news.
+    setMockMfaRequired(true);
+    queryClient.setQueryData(sessionKey, currentSession());
+    // No loading screen in between: the last answer stands until the new one arrives.
+    expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
+
+    expect(await screen.findByRole('heading', { name: 'Security' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/security');
+  });
+
+  it('is one hospital’s rule: another hospital that requires it changes nothing here', async () => {
+    setMockMfaRequired(true, TENANT_IDS.clinic);
+    renderApp({ entry: '/' });
+
+    expect(await screen.findByRole('heading', HOME)).toBeInTheDocument();
   });
 
   it('asks per hospital: the answer is cached under the hospital', async () => {

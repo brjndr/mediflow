@@ -32,6 +32,10 @@ export function useMfaRequirement(tenantId: string, policyVersion: string, enabl
       }
     },
     enabled,
+    // A new policy version asks again, and until the answer comes the last one for this hospital
+    // stands: the app must not be taken away from someone in the middle of a form.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === tenantId ? previous : undefined,
     retry: 1,
     retryDelay: 500,
     staleTime: 5 * 60_000,

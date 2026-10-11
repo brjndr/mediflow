@@ -61,7 +61,8 @@ export const mfaHandlers = [
   http.get('*/api/auth/mfa/requirement', () => {
     const session = currentSession();
     if (!session) return unauthenticated();
-    const features = session.activeTenant?.features ?? {};
+    if (!session.activeTenant) return error(409, 'no_active_tenant', 'Pick a hospital first');
+    const features = session.activeTenant.features;
     return HttpResponse.json({ required: features.mfa === true && features.mfa_required === true });
   }),
 

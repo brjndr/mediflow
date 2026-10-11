@@ -40,7 +40,7 @@ export const resolveTestSession: AppOptions['resolveSession'] = async (request) 
   const value = request.headers[TEST_SESSION_HEADER];
   if (typeof value !== 'string' || value === '') return null;
   const [userId, tenantId] = value.split(':');
-  return { userId: userId ?? '', tenantId: tenantId || null } satisfies Session;
+  return { userId: userId ?? '', tenantId: tenantId || null, mfaPending: false } satisfies Session;
 };
 
 /** Headers for a request made as a user working in a hospital (or in none). */

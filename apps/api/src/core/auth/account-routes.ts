@@ -4,6 +4,7 @@ import type pg from 'pg';
 import { HttpError } from '../http/errors.js';
 import { errors, ref } from '../http/schemas.js';
 import { withAuthTransaction } from './db.js';
+import { revokeOtherSessions } from './sessions.js';
 import { acceptInvite, inspectInvite } from './invites.js';
 import {
   beginEnrollment,
@@ -239,10 +240,15 @@ export const accountRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request, reply) => {
       const userId = request.session?.userId;
+      const sessionId = request.session?.id;
       if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
       const recoveryCodes = await withAuthTransaction(pool, async ({ client, identify }) => {
         await identify(userId);
-        return confirmEnrollment(client, config, userId, request.body.code.trim());
+        const codes = await confirmEnrollment(client, config, userId, request.body.code.trim());
+        // Any other session was opened with the password alone. Left open, it would count as
+        // having an authenticator from now on without ever having shown a code.
+        if (codes) await revokeOtherSessions(client, userId, sessionId, 'replaced');
+        return codes;
       });
       if (!recoveryCodes) throw INVALID_CODE();
       void reply.header('cache-control', 'no-store');
