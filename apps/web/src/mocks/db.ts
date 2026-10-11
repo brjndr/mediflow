@@ -362,6 +362,12 @@ export function revokePermission(tenantId: string, roleId: string, permission: s
   );
 }
 
+export function grantPermission(tenantId: string, roleId: string, permission: string): void {
+  const current = roles[tenantId]?.[roleId] ?? [];
+  if (current.some((grant) => grant.permission === permission)) return;
+  setRolePermissions(tenantId, roleId, [...current, { permission } as PermissionGrantDto]);
+}
+
 /** Part of a hospital configuration: how long a session may sit unused. */
 export function setTenantIdleTimeout(tenantId: string, minutes: number): void {
   const tenant = tenants[tenantId];

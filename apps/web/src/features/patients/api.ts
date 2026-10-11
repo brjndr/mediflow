@@ -7,6 +7,7 @@ import type {
   PatientPage,
   PatientRecord,
   PatientSort,
+  PatientUpdate,
 } from './types';
 
 export interface PatientListQuery {
@@ -61,5 +62,14 @@ export async function createPatient(
 /** One patient's registration details. */
 export async function fetchPatient(id: string, signal?: AbortSignal): Promise<PatientRecord> {
   const result = await api.GET('/patients/{id}', { params: { path: { id } }, signal });
+  return patientRecordSchema.parse(requireData(result));
+}
+
+/**
+ * Changes a patient's registration details. `expectedVersion` is the version the edit was made
+ * from: if someone else has changed the record since, the server refuses with a conflict.
+ */
+export async function updatePatient(id: string, body: PatientUpdate): Promise<PatientRecord> {
+  const result = await api.PATCH('/patients/{id}', { params: { path: { id } }, body });
   return patientRecordSchema.parse(requireData(result));
 }

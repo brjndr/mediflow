@@ -8,6 +8,13 @@ import type { PatientSort } from '../types';
 /** Every key is prefixed with the tenant, so one hospital's patients are never shown in another. */
 export const patientKeys = createTenantKeys('patients');
 
+/**
+ * Where an unsaved edit of a patient is held (see `use-update-patient`). Under the record's own
+ * key, so it belongs to the hospital like the record and goes when the record's keys go.
+ */
+export const patientDraftKey = (tenantId: string, id: string) =>
+  [...patientKeys.detail(tenantId, id), 'draft'] as const;
+
 export const PATIENT_PAGE_SIZES = [25, 50, 100] as const;
 export const SEARCH_DEBOUNCE_MS = 300;
 

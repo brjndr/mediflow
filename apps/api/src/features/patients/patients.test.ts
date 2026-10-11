@@ -83,8 +83,28 @@ const search = (body: object = {}, options: Options = {}) =>
 const read = (id: string, options: Options = {}) =>
   app.inject({ method: 'GET', url: `/patients/${id}`, headers: headers(options) });
 
-const change = (id: string, body: object, options: Options = {}) =>
-  app.inject({ method: 'PATCH', url: `/patients/${id}`, headers: headers(options), payload: body });
+const UUID = /^[0-9a-f-]{36}$/i;
+/** The version a record has now, read by the owner so no role or hospital gets in the way. */
+const versionOf = async (id: string): Promise<number> => {
+  if (!UUID.test(id)) return 1;
+  const { rows } = await pool.query<{ version: number }>(
+    'select version from patients where id = $1',
+    [id],
+  );
+  return rows[0]?.version ?? 1;
+};
+
+/**
+ * Changes a record as someone who has just read it: the current version is sent unless the test
+ * gives its own `expectedVersion`.
+ */
+const change = async (id: string, body: object, options: Options = {}) =>
+  app.inject({
+    method: 'PATCH',
+    url: `/patients/${id}`,
+    headers: headers(options),
+    payload: { expectedVersion: await versionOf(id), ...body },
+  });
 
 const duplicates = (body: object, options: Options = {}) =>
   app.inject({
@@ -984,5 +1004,95 @@ describe('what the reviews asked for', () => {
 
     expect(today.statusCode).toBe(201);
     expect(tomorrow.statusCode).toBe(400);
+  });
+});
+
+describe('two people changing the same record', () => {
+  it('starts a record at version 1 and counts every change', async () => {
+    const created = (await register({ ...asha, firstName: 'Counted', phone: '77000 10001' })).json<
+      Summary & { version: number }
+    >();
+    expect(created.version).toBe(1);
+
+    const first = await change(created.id, { firstName: 'Counted Once' });
+    const second = await change(created.id, { address: null });
+
+    expect(first.json<{ version: number }>().version).toBe(2);
+    expect(second.json<{ version: number }>().version).toBe(3);
+    expect((await read(created.id)).json<{ version: number }>().version).toBe(3);
+  });
+
+  it('refuses a change made from a version that is no longer the current one', async () => {
+    const patient = (
+      await register({ ...asha, firstName: 'Contested', phone: '77000 10002' })
+    ).json<Summary>();
+    // The receptionist saves first. The doctor's screen still shows version 1.
+    await change(patient.id, { phone: '77000 99999' }, { user: receptionist });
+
+    const stale = await change(patient.id, { address: '5 Hill Road', expectedVersion: 1 });
+
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json<{ error: { code: string } }>().error.code).toBe('conflict');
+    // Nothing of the refused change was written, and nothing announced.
+    const now = (await read(patient.id)).json<Record<string, unknown>>();
+    expect(now).toMatchObject({ phone: '77000 99999', address: asha.address, version: 2 });
+    expect(await events(hospital, 'patient.updated', patient.id)).toHaveLength(1);
+    expect(stale.body).not.toContain('77000');
+  });
+
+  it('lets only one of two changes made at the same moment from the same version through', async () => {
+    const patient = (
+      await register({ ...asha, firstName: 'Raced', phone: '77000 10003' })
+    ).json<Summary>();
+
+    const responses = await Promise.all([
+      change(patient.id, { firstName: 'Raced A', expectedVersion: 1 }),
+      change(patient.id, { firstName: 'Raced B', expectedVersion: 1 }, { user: receptionist }),
+    ]);
+
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([200, 409]);
+    expect((await read(patient.id)).json<{ version: number }>().version).toBe(2);
+  });
+
+  it('needs the version, and does not count a change that changes nothing', async () => {
+    const patient = (
+      await register({ ...asha, firstName: 'Steady', phone: '77000 10004' })
+    ).json<Summary>();
+
+    const missing = await app.inject({
+      method: 'PATCH',
+      url: `/patients/${patient.id}`,
+      headers: headers(),
+      payload: { firstName: 'No Version' },
+    });
+    const same = await change(patient.id, { firstName: 'Steady' });
+    // A client cannot set the version it would like the record to have.
+    const forged = await change(patient.id, { firstName: 'Forged', version: 40 });
+
+    expect(missing.statusCode).toBe(400);
+    expect(same.json<{ version: number }>().version).toBe(1);
+    // Even a change that would change nothing is refused from a version that is not current.
+    const staleSame = await change(patient.id, { firstName: 'Steady', expectedVersion: 7 });
+    expect(staleSame.statusCode).toBe(409);
+    // And a record the caller cannot see is "not found" whatever version they claim.
+    const elsewhere = await change(
+      patient.id,
+      { firstName: 'X', expectedVersion: 7 },
+      { tenant: clinic },
+    );
+    expect(elsewhere.statusCode).toBe(404);
+    expect(forged.json<{ version: number }>().version).toBe(2);
+  });
+
+  it('counts in the database, whatever a statement tries to set', async () => {
+    const patient = (
+      await register({ ...asha, firstName: 'Trigger', phone: '77000 10005' })
+    ).json<Summary>();
+
+    await pool.query("update patients set version = 99, first_name = 'Set' where id = $1", [
+      patient.id,
+    ]);
+
+    expect(await versionOf(patient.id)).toBe(2);
   });
 });

@@ -358,7 +358,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Changes registration details of a patient. Only the fields sent are changed; null clears email or address. The MRN and the hospital never change. Sending a contactConsent that differs from the one on record records the new decision with the time and the caller. Values the record already has change nothing. */
+        /** @description Changes registration details of a patient. expectedVersion is the version the caller read: if the record has changed since, the answer is 409 conflict and nothing is changed. Only the fields sent are changed; null clears email or address. The MRN and the hospital never change. Sending a contactConsent that differs from the one on record records the new decision with the time and the caller. Values the record already has change nothing. */
         patch: operations["updatePatient"];
         trace?: never;
     };
@@ -631,6 +631,8 @@ export interface components {
                 at: string;
                 recordedBy: string;
             };
+            /** @description Goes up by one each time the record changes. Send it back as expectedVersion when changing the record. */
+            version: number;
         };
         PatientCreate: {
             firstName: string;
@@ -646,8 +648,10 @@ export interface components {
                 given: boolean;
             };
         };
-        /** @description The fields to change. Null clears an optional field. The MRN never changes. */
+        /** @description The version the change is based on, and the fields to change. Null clears an optional field. The MRN never changes. */
         PatientUpdate: {
+            /** @description The version of the record the change was made from. If the record has changed since, the request is refused with 409 conflict and nothing is changed. */
+            expectedVersion: number;
             firstName?: string;
             lastName?: string;
             /** Format: date */

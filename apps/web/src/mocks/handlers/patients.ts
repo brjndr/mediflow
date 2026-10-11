@@ -49,6 +49,94 @@ let patients = seed();
 let registrations = new Map<string, PatientRecord>();
 /** The last number given out per tenant, so ids and MRNs are never reused. */
 let counters = new Map<string, number>();
+/** Records registered or changed here, by id. Every other patient's record is derived. */
+let records = new Map<string, PatientRecord>();
+
+/**
+ * The whole record of a patient. Listed patients are summaries: each is given the rest of a
+ * registration, the same every time, until it is changed.
+ */
+function recordOf(id: string): PatientRecord | undefined {
+  const kept = records.get(id);
+  if (kept) return kept;
+  const found = patients.find((patient) => patient.id === id);
+  if (!found) return undefined;
+  const number = Number(found.id.replace(/\D/g, '')) || 0;
+  return {
+    ...found,
+    email: `patient${number}@example.test`,
+    address: `${number} Sample Street`,
+    contactConsent: {
+      given: number % 4 !== 0,
+      at: '2026-03-01T09:30:00Z',
+      recordedBy: 'user_admin',
+    },
+    version: 1,
+  };
+}
+
+type PatientChanges = Partial<
+  Pick<PatientRecord, 'firstName' | 'lastName' | 'dob' | 'gender' | 'phone'>
+> & { email?: string | null; address?: string | null; contactConsent?: { given: boolean } };
+
+const CHANGEABLE = new Set([
+  'firstName',
+  'lastName',
+  'dob',
+  'gender',
+  'phone',
+  'email',
+  'address',
+  'contactConsent',
+]);
+
+/** Applies a change as the server does: the version goes up, and the list shows the new values. */
+function applyChange(
+  record: PatientRecord,
+  changes: PatientChanges,
+  userId: string,
+): PatientRecord {
+  const { email, address, contactConsent, ...plain } = changes;
+  const next: PatientRecord = { ...record, ...plain, version: record.version + 1 };
+  if (email !== undefined) {
+    if (email === null) delete next.email;
+    else next.email = email;
+  }
+  if (address !== undefined) {
+    if (address === null) delete next.address;
+    else next.address = address;
+  }
+  if (contactConsent) {
+    next.contactConsent = {
+      given: contactConsent.given,
+      at: new Date().toISOString(),
+      recordedBy: userId,
+    };
+  }
+  records.set(next.id, next);
+  const { email: _e, address: _a, contactConsent: _c, version: _v, ...summary } = next;
+  patients = patients.map((patient) => (patient.id === next.id ? summary : patient));
+  return next;
+}
+
+/**
+ * Changes a patient as someone else would have, behind the back of whoever has the record open.
+ * For tests of concurrent edits.
+ */
+export function editMockPatient(id: string, changes: PatientChanges): void {
+  const record = recordOf(id);
+  if (record) applyChange(record, changes, 'user_someone_else');
+}
+
+/** A record as the caller may see it: without the contact permission, masked and trimmed. */
+function visible(record: PatientRecord): PatientRecord {
+  const seesContact = currentPolicy()?.permissions.some(
+    (grant) => grant.permission === 'patient.contact:read',
+  );
+  if (seesContact) return record;
+  const { email: _email, address: _address, ...rest } = record;
+  return { ...rest, phone: maskPhone(rest.phone) };
+}
 // A link to a patient (/open/patient/<id>) opens the record at the hospital that owns it.
 registerMockLink(
   'patient',
@@ -59,6 +147,7 @@ onMockReset(() => {
   patients = seed();
   registrations = new Map();
   counters = new Map();
+  records = new Map();
 });
 
 const fullName = (patient: PatientSummary) => `${patient.firstName} ${patient.lastName}`;
@@ -207,9 +296,17 @@ export const patientsHandlers = [
         at: new Date().toISOString(),
         recordedBy: currentSession()?.user.id ?? 'unknown',
       },
+      version: 1,
     };
+    records.set(record.id, record);
     // The list holds summaries only: no email, address or consent.
-    const { email: _email, address: _address, contactConsent: _consent, ...summary } = record;
+    const {
+      email: _email,
+      address: _address,
+      contactConsent: _consent,
+      version: _version,
+      ...summary
+    } = record;
     patients.push(summary);
     registrations.set(`${access.tenantId}:${key}`, record);
     return HttpResponse.json<PatientRecord>(record, { status: 201 });
@@ -218,30 +315,59 @@ export const patientsHandlers = [
   http.get('*/api/patients/:id', ({ request, params }) => {
     const access = authorize(request, { permission: 'patient:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
-    const registered = [...registrations.values()].find((record) => record.id === params.id);
-    const found = registered ?? patients.find((patient) => patient.id === params.id);
+    const record = recordOf(String(params.id));
     // One answer for a record that does not exist and one in another hospital.
-    if (!found || found.tenantId !== access.tenantId) {
+    if (!record || record.tenantId !== access.tenantId) {
       return error(404, 'not_found', 'No such patient');
     }
-    // Listed patients are summaries: give each the rest of a registration, the same every time.
-    const number = Number(found.id.replace(/\D/g, '')) || 0;
-    const record: PatientRecord = registered ?? {
-      ...found,
-      email: `patient${number}@example.test`,
-      address: `${number} Sample Street`,
-      contactConsent: {
-        given: number % 4 !== 0,
-        at: '2026-03-01T09:30:00Z',
-        recordedBy: 'user_admin',
-      },
-    };
+    return HttpResponse.json(visible(record));
+  }),
+
+  http.patch('*/api/patients/:id', async ({ request, params }) => {
+    // Both permissions, as on the real API: the answer is the whole record.
+    const read = authorize(request, { permission: 'patient:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in read) return read.denied;
+    const access = authorize(request, { permission: 'patient:update', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const body = await readObject(request);
+    if (!body || typeof body.expectedVersion !== 'number') {
+      return error(400, 'validation_failed', 'expectedVersion is required');
+    }
+    const { expectedVersion } = body;
+    // Only the fields that can be changed are taken: anything else in the body is dropped.
+    const changes = Object.fromEntries(
+      Object.entries(body).filter(([field]) => CHANGEABLE.has(field)),
+    );
+    if (Object.keys(changes).length === 0) {
+      return error(400, 'validation_failed', 'Nothing to change');
+    }
     const seesContact = currentPolicy()?.permissions.some(
       (grant) => grant.permission === 'patient.contact:read',
     );
-    if (seesContact) return HttpResponse.json(record);
-    // Without the field-level permission: the phone masked, email and address left out.
-    const { email: _email, address: _address, ...rest } = record;
-    return HttpResponse.json({ ...rest, phone: maskPhone(rest.phone) });
+    // Before the record is looked up, so the answer says nothing about whether it exists.
+    if (!seesContact && ['phone', 'email', 'address'].some((field) => field in changes)) {
+      return error(403, 'permission_denied', 'Changing contact details needs patient.contact:read');
+    }
+    const record = recordOf(String(params.id));
+    if (!record || record.tenantId !== access.tenantId) {
+      return error(404, 'not_found', 'No such patient');
+    }
+    // Someone else changed the record since the caller read it.
+    if (record.version !== expectedVersion) {
+      return error(409, 'conflict', 'The record has changed since it was read');
+    }
+    // As on the real API: values the record already has change nothing and count for nothing.
+    const real = Object.entries(changes).some(([field, value]) =>
+      field === 'contactConsent'
+        ? (value as { given?: unknown }).given !== record.contactConsent?.given
+        : (value ?? undefined) !== record[field as keyof PatientRecord],
+    );
+    if (!real) return HttpResponse.json(visible(record));
+    const next = applyChange(
+      record,
+      changes as PatientChanges,
+      currentSession()?.user.id ?? 'unknown',
+    );
+    return HttpResponse.json(visible(next));
   }),
 ];

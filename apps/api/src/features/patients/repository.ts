@@ -28,10 +28,11 @@ export interface PatientRow {
   contact_consent_given: boolean | null;
   contact_consent_at: Date | null;
   contact_consent_recorded_by: string | null;
+  version: number;
 }
 
 const COLUMNS = `id, tenant_id, mrn, first_name, last_name, dob::text as dob, gender, phone, email,
-  address, contact_consent_given, contact_consent_at, contact_consent_recorded_by`;
+  address, contact_consent_given, contact_consent_at, contact_consent_recorded_by, version`;
 
 /** Who may the caller see, given the scope their role holds the permission with. */
 export interface Visibility {
@@ -287,7 +288,7 @@ const UPDATABLE = {
 export async function updatePatient(
   client: pg.PoolClient,
   existing: PatientRow,
-  changes: PatientUpdate,
+  changes: Omit<PatientUpdate, 'expectedVersion'>,
   userId: string,
 ): Promise<{ row: PatientRow; fields: string[] }> {
   const params: unknown[] = [existing.id];
