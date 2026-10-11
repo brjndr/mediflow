@@ -169,7 +169,7 @@ Goal: a fast, smooth, reliable application under heavy daily use. Capability com
 
 ### Targets
 
-- **Devices and browsers:** mid-range hospital PCs (i3-class CPU, 8 GB RAM) on evergreen Chrome, Edge and Firefox (last 2 versions) over broadband or hospital LAN. No IE and no legacy builds. The login page and app shell must also remain usable on a throttled Slow 4G connection.
+- **Devices and browsers:** mid-range hospital PCs (i3-class CPU, 8 GB RAM) on evergreen Chrome, Edge and Firefox (last 2 versions) over broadband or hospital LAN, and current phones and tablets (Chrome on Android, Safari on iOS) at the widths in Responsive Design. No IE and no legacy builds. The login page and app shell must also remain usable on a throttled Slow 4G connection.
 - **Budgets (gzipped, enforced in CI):** initial JS <= 300 KB, any route chunk <= 150 KB, heavy lazy chunks (calendar, charts, editor, PDF preview) <= 250 KB each and never in the initial load, and total CSS <= 60 KB. A PR that adds more than 30 KB to any chunk must say why.
 - **Lighthouse** (desktop preset on mid-range CPU throttling, plus one Slow 4G run for login and the shell) on login, the patient list and the encounter screen: LCP <= 2.5 s, INP <= 200 ms, CLS <= 0.1, TBT <= 300 ms.
 - **Memory:** page sizes of 25 to 100 rows (virtualize beyond about 100 rendered rows), React Query `gcTime` of 5 minutes, and a flat JS heap across a 30-minute soak test.
@@ -207,6 +207,54 @@ Goal: a fast, smooth, reliable application under heavy daily use. Capability com
 - Phase 1 starts with few moving parts: one API container, Postgres, object storage and the CDN. Jobs run on a Postgres-backed queue and rate limits and cache are in-process. Introduce Redis (shared cache, rate limits, SSE fan-out across instances, BullMQ) as soon as profiling or a second API instance shows a benefit, which can be well before phase 2. Keep queue, cache and rate limiting behind interfaces so the swap is configuration.
 - One database, one deployable and one region until metrics require more.
 - Local Docker Compose uses profiles: the default profile runs only Postgres and Mailpit. `--profile full` adds MinIO (and Redis once it is needed). This keeps laptop RAM free.
+
+## Responsive Design
+
+Most of the app must work on a phone and a tablet as well as on a desktop: ward rounds, the bedside, a doctor's own device. A screen is built for all three unless it is on the desktop-only list below. Retrofitting a dense screen later costs far more than building it this way.
+
+### Supported widths
+
+| Class   | Width          | What it is                                      | Layout                                                      |
+| ------- | -------------- | ----------------------------------------------- | ----------------------------------------------------------- |
+| Phone   | 360 to 767 px  | A phone held upright. 360 px is the minimum     | One column. Navigation in the drawer. Lists as cards        |
+| Tablet  | 768 to 1023 px | A tablet held upright, or a small laptop window | Navigation in the drawer. Content as on a desktop, narrower |
+| Desktop | 1024 px and up | Hospital PCs, laptops, a tablet on its side     | Sidebar and the full layout                                 |
+
+These are Tailwind's default breakpoints (`md` 768, `lg` 1024); a data grid changes from cards to a table when its own container reaches 640 px (`sm`), which for a full-width grid is a little above that in screen width. Write styles phone first and add `md:` and `lg:` for more room. Do not add custom breakpoints.
+
+### Rules
+
+- **Nothing makes the page scroll sideways** at any supported width. A wide table may scroll inside its own box; the page may not.
+- **Lists use `DataGrid`,** which shows cards when its container is narrower than 640 px and a table otherwise. A screen does nothing to get this. Put the column that names the row first: it becomes the card's title.
+- **Touch-sized controls where the pointer is a finger:** at least 44 by 44 px, through Tailwind's `pointer-coarse:` variant, whatever the width (a touch laptop counts, a phone with a mouse does not). `Button`, the form kit, the rich text toolbar and `DataGrid` already do this. A control built by hand adds `pointer-coarse:h-11`.
+- **No action that needs hover.** Anything shown on hover is also reachable by focus and by tap, and nothing is hover-only. Tooltips add to a label, they never replace one.
+- **Layout follows the space, not the device:** use the width (`md:`, `lg:`, or a container's own width) for layout and `pointer-coarse:` for target size. Never read the user agent.
+- **Forms are one column on a phone,** with labels above fields and the right keyboard (`type`, `inputMode`, `autoComplete`).
+- **Text stays readable without zooming:** body text at 14 px or more, and inputs at 16 px on a phone so the browser does not zoom on focus.
+- **The performance budgets apply at every width.** A phone gets the same bundle, so the budgets in Performance Strategy are also the phone's.
+
+### Desktop-only screens
+
+These may be built for 1024 px and up. Below that they show a short notice ("This screen needs a wider display") inside the shell, never a broken layout. The shared component for that notice is added with the first such screen. Adding a screen to this list is a decision recorded here, not a shortcut taken in a PR.
+
+- Master data catalogs and the bulk import centre.
+- Reports and analytics dashboards (their exports still work from any device).
+- Platform admin, and the role and permission matrix.
+- Week and resource views of the appointment, roster and theatre calendars. The day and agenda views work on a phone.
+
+Billing (invoice assembly, claims) must work on a tablet and a desktop. A phone is not required for it.
+
+### How it is checked
+
+- **Playwright runs every spec at three widths** (`apps/web/playwright.config.ts`): desktop, tablet (768 px, touch) and phone (360 px, touch). `e2e/responsive.spec.ts` checks that screens fit the width, that lists become cards, and that controls are touch-sized. Add a new screen to it.
+- **Specs reach the navigation through `goTo(page, name)`** from `e2e/support.ts`, which uses the sidebar or the drawer as the width requires. A spec that depends on a table uses `gridIsStacked(page)` to pick the table or the cards.
+- "Works at phone and tablet width" is in the definition of done of every frontend issue.
+
+### Not yet
+
+- **Dialogs** should fill the screen on a phone. There is no shared dialog yet; the idle warning is a small centred box that fits.
+- **Safari on iOS** is a target, but every Playwright project is Chromium: the checks cover the layout, not WebKit. A WebKit project in CI closes this.
+- **Lighthouse** runs with the desktop preset only. A phone run belongs with the hardening milestone.
 
 ## Repository Layout
 
@@ -276,7 +324,7 @@ Core hooks that every feature route passes through:
 - **Development environment: native Windows** (PowerShell/Windows Terminal). WSL2 is not required. Docker Desktop uses it internally, which needs no action from developers.
 - Keep the repo and pnpm store on the same drive, in a short path outside OneDrive or any synced folder (e.g. `C:\dev\hms`).
 - **Scripts must be cross-platform.** No bash-only syntax in `package.json` scripts (no `rm -rf`, `export VAR=`, `&&`-chained shell tricks beyond simple cases). Use Node scripts, `cross-env`, `rimraf`, `cpy-cli`, or `tsx` instead. Ship `.gitattributes` with `* text=auto eol=lf` and use LF line endings everywhere.
-- **Dev machine (HP 15s, i3-1115G4, 16 GB RAM, 2 cores):** use one editor, run Vitest with at most 2 workers, install only Chromium for local Playwright (CI covers other browsers), and keep Postgres native or Docker capped at 4 GB. Run heavy jobs (cross-browser e2e, load tests, production builds) in CI.
+- **Dev machine (HP 15s, i3-1115G4, 16 GB RAM, 2 cores):** use one editor, run Vitest with at most 2 workers, install only Chromium for local Playwright (`pnpm --filter web exec playwright install chromium`; it runs all three widths), and keep Postgres native or Docker capped at 4 GB. Run heavy jobs (cross-browser e2e, load tests, production builds) in CI.
 - Docker Compose services (Postgres and Mailpit by default, with MinIO and Redis through the `full` profile) use **named volumes** for data, not Windows bind mounts, for speed.
 - The repo is a pnpm workspace (`pnpm-workspace.yaml` listing `apps/*` and `packages/*`). Use `pnpm --filter <app> <script>` for per-app work.
 
@@ -291,7 +339,7 @@ pnpm test:coverage  # Vitest with coverage thresholds for the foundation folders
 pnpm typecheck  # tsc --noEmit
 pnpm analyze    # bundle size report (rollup-plugin-visualizer), writes apps/web/stats.html
 pnpm budget     # check the built bundle against the budgets (run pnpm build first)
-pnpm e2e        # Playwright end-to-end tests
+pnpm e2e        # Playwright end-to-end tests, at desktop, tablet and phone width
 pnpm gen:api    # regenerate typed API client from OpenAPI spec
 pnpm test:scripts   # tests of the repo scripts (contract check, bundle budget, CI mode)
 pnpm format:check   # Prettier, as CI runs it (pnpm format to fix)
@@ -802,7 +850,7 @@ Complete and test one module before starting the next. Ship each release to a pi
 - **State:** server data (including session, tenant config and policy) goes through React Query and is never copied into Redux. Redux Toolkit holds client and workflow state only, and every slice resets on tenant switch and logout. Local component state for everything else. Never persist PHI to browser storage.
 - **Query keys:** centralized per feature via key factories, always prefixed with tenant (e.g. `patientKeys.list(tenantId, filters)`). Invalidate precisely after mutations.
 - **Shared building blocks** (`apps/web/src/shared/ui`, with working examples at `/examples` in dev): build lists, charts, forms and notes from these, and do not import the underlying libraries in feature code.
-  - `data-grid`: `DataGrid` for every tabular list. Server-side sorting and cursor paging, masked columns (`maskPhone`, `maskMrn` from `shared/utils/mask`), columns and row actions gated by `requires`, rows virtualised past 100.
+  - `data-grid`: `DataGrid` for every tabular list. A table where there is room and cards on a narrow screen, with no work from the screen. Server-side sorting and cursor paging, masked columns (`maskPhone`, `maskMrn` from `shared/utils/mask`), columns and row actions gated by `requires`, rows virtualised past 100.
   - `charts`: `TimeSeriesChart` and `CategoryBarChart`. They load on demand, take colours from theme tokens, and carry a data table for screen readers.
   - `form`: `useZodForm`, `Form`, the field components and `SubmitButton`. Validation messages are translation keys.
   - `rich-text`: `RichTextEditor` (loads on demand) and `RichTextView`. Rich text is a sanitized JSON document (`sanitizeRichText`), never HTML.
@@ -815,6 +863,7 @@ Complete and test one module before starting the next. Ship each release to a pi
 - **i18n:** no user-facing string literals in components. Use translation keys. Core strings live in `app/locales/<language>/common.json`. A feature keeps its strings in its own folder and declares them in `manifest.i18n`, never in core locale files. The UI language follows the active hospital's locale (`hi-IN` uses the `hi` files) and falls back to English per language and per key. Tests fail on any rendered key that has no translation.
 - **Errors:** centralize API error handling in the API client wrapper. Surface user-friendly messages, never raw server errors.
 - **Accessibility:** semantic HTML, labelled inputs, keyboard-navigable tables and dialogs.
+- **Responsive:** every screen works at phone, tablet and desktop width unless it is on the desktop-only list. See Responsive Design.
 
 ## Security and Privacy (healthcare data)
 
@@ -842,6 +891,7 @@ Complete and test one module before starting the next. Ship each release to a pi
 - Unit/component tests for forms, guards, and hooks with Vitest + RTL.
 - Mock the network with MSW, not by mocking fetch.
 - Each feature ships with tests for: happy path, validation errors, permission-based visibility.
+- **Responsive tests:** the end-to-end suite runs at desktop, tablet and phone width, and a new screen is added to `e2e/responsive.spec.ts` (see Responsive Design).
 - **Multi-tenant tests:** verify cache isolation when switching tenants, tenant-scoped query keys, tenant-specific theming/locale/feature flags, and that disabled modules are unreachable.
 - **Access tests:** for each feature, test with permission present, permission absent, feature flag off, and a custom role. Verify hidden nav/routes/actions and 403 handling. Verify policy refresh updates the UI without reload.
 - **Performance tests:** Lighthouse CI + bundle budgets in CI; tests with large result sets (10k+ total rows) confirm pagination keeps the page responsive and memory flat.

@@ -150,7 +150,7 @@ function FieldShell({
 }
 
 const control =
-  'w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive disabled:opacity-50';
+  'w-full rounded-md border bg-background px-3 text-base outline-none md:text-sm focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive disabled:opacity-50';
 
 /** Ids of the hint and error, so a screen reader reads them with the field. */
 const describedBy = (
@@ -179,7 +179,7 @@ export function TextField<Values extends FieldValues = FieldValues>({
         aria-required={required}
         aria-invalid={message ? true : undefined}
         aria-describedby={describedBy(hint, hintId, message, errorId)}
-        className={cn(control, 'h-9', className)}
+        className={cn(control, 'h-9 pointer-coarse:h-11', className)}
         {...input}
         {...form.register(name)}
       />
@@ -236,7 +236,7 @@ export function SelectField<Values extends FieldValues = FieldValues>({
         aria-required={required}
         aria-invalid={message ? true : undefined}
         aria-describedby={describedBy(hint, hintId, message, errorId)}
-        className={cn(control, 'h-9')}
+        className={cn(control, 'h-9 pointer-coarse:h-11')}
         {...form.register(name)}
       >
         {placeholder !== undefined && <option value="">{placeholder}</option>}
@@ -258,16 +258,19 @@ export function CheckboxField<Values extends FieldValues = FieldValues>({
   const { form, id, errorId, hintId, message } = useField(name);
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2 pointer-coarse:min-h-11 pointer-coarse:items-center">
         <input
           id={id}
           type="checkbox"
-          className="mt-0.5 size-4"
+          className="mt-0.5 size-4 pointer-coarse:mt-0 pointer-coarse:size-6"
           aria-invalid={message ? true : undefined}
           aria-describedby={describedBy(hint, hintId, message, errorId)}
           {...form.register(name)}
         />
-        <label htmlFor={id} className="text-sm">
+        <label
+          htmlFor={id}
+          className="text-sm pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center"
+        >
           {label}
         </label>
       </div>

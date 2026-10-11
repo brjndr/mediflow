@@ -19,7 +19,7 @@ export function TenantSwitcher() {
 
   if (!tenant) return null;
   if (memberships.length < 2) {
-    return <span className="text-sm text-muted-foreground">{tenant.name}</span>;
+    return <span className="text-base md:text-sm text-muted-foreground">{tenant.name}</span>;
   }
 
   return (
@@ -29,7 +29,7 @@ export function TenantSwitcher() {
       </label>
       <select
         id={id}
-        className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
+        className="h-8 max-w-[45vw] rounded-md border pointer-coarse:h-11 bg-background px-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
         value={tenant.id}
         disabled={switchTenant.isPending}
         onChange={(event) => switchTenant.mutate(event.target.value)}

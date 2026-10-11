@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { goTo, sidebar } from './support';
 
 /**
  * The foundation behaviours in a real browser, end to end against the mock backend: choosing and
@@ -9,7 +10,6 @@ import { expect, test, type Page } from '@playwright/test';
  * page load resets the mock, so navigation after the first load is done inside the app.
  */
 
-const sidebar = (page: Page) => page.getByRole('navigation', { name: 'Main navigation' });
 const notices = (page: Page) => page.getByRole('main').getByRole('heading', { level: 2 });
 
 /** Goes to an address the way a link inside the app does, without reloading the page. */
@@ -31,7 +31,7 @@ test('a doctor at two hospitals sees each hospital’s own modules and data', as
 
   // At the hospital the notices module is on.
   await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
-  await sidebar(page).getByRole('link', { name: 'Notices' }).click();
+  await goTo(page, 'Notices');
   await expect(page.getByRole('heading', { name: 'Staff notices' })).toBeVisible();
   await expect(notices(page).first()).toHaveText('Hospital notice 1');
   await expect(notices(page)).toHaveCount(25);
@@ -60,13 +60,13 @@ test('a doctor at two hospitals sees each hospital’s own modules and data', as
   // Back at the hospital, the module and its data are there again.
   await page.getByRole('combobox', { name: 'Hospital' }).selectOption({ label: 'Sample Hospital' });
   await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
-  await sidebar(page).getByRole('link', { name: 'Notices' }).click();
+  await goTo(page, 'Notices');
   await expect(notices(page).first()).toHaveText('Hospital notice 1');
 });
 
 test('an admin is offered the action a read-only role is not, and it works', async ({ page }) => {
   await page.goto('/');
-  await sidebar(page).getByRole('link', { name: 'Notices' }).click();
+  await goTo(page, 'Notices');
   await expect(notices(page)).toHaveCount(25);
   await expect(page.getByRole('button', { name: /^Archive/ })).toHaveCount(25);
 

@@ -91,7 +91,7 @@ export default function PatientList() {
               autoComplete="off"
               placeholder={t('search.placeholder')}
               onChange={(event) => setSearch(event.target.value)}
-              className="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm"
+              className="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-base md:text-sm pointer-coarse:h-11"
             />
           </span>
         </label>
@@ -100,7 +100,7 @@ export default function PatientList() {
           <select
             value={limit}
             onChange={(event) => setLimit(Number(event.target.value))}
-            className="h-9 rounded-md border bg-background px-2 text-sm"
+            className="h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11"
           >
             {PATIENT_PAGE_SIZES.map((size) => (
               <option key={size} value={size}>

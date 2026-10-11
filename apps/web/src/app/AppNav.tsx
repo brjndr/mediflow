@@ -38,7 +38,7 @@ export function AppNav({ collapsed = false, onNavigate }: AppNavProps) {
               onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  'flex h-9 items-center gap-3 rounded-md px-3 text-sm outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                  'flex h-9 items-center gap-3 rounded-md px-3 text-sm pointer-coarse:h-11 outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
                   collapsed && 'justify-center px-0',
                   isActive && 'bg-accent font-medium',
                 )

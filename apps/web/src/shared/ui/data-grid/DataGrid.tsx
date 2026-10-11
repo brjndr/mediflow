@@ -10,7 +10,15 @@ import {
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { isAllowed, useAccessPolicy } from '@/access';
 import { cn } from '@/shared/lib/utils';
@@ -25,7 +33,15 @@ import { Skeleton } from '@/shared/ui/skeleton';
  * It is a server-side grid: the screen gives it the rows it has loaded and is told when the user
  * asks for a different sort or for more rows. It never sorts, filters or pages data itself, and
  * it never needs the full dataset.
+ *
+ * On a narrow screen (or in a narrow panel) it shows each row as a card instead of a table row:
+ * the first column as the card's title, the others as labelled lines, the actions as buttons
+ * underneath, and the sort as a list to choose from. Nothing scrolls sideways. The switch follows
+ * the width of the grid's own container, so a screen does nothing to get it.
  */
+
+/** Below this width of its container the grid shows cards instead of a table. */
+export const STACKED_BELOW_PX = 640;
 
 export interface GridColumn<Row> {
   id: string;
@@ -82,10 +98,39 @@ interface DataGridProps<Row> {
   loadingMore?: boolean;
   /** Rows are virtualised (only those in view are in the DOM) above this many. */
   virtualizeAbove?: number;
+  /**
+   * `auto` (the default) picks a table or cards from the width available. Force one only where
+   * the content needs it, e.g. `table` for a screen that is desktop-only by decision.
+   */
+  layout?: 'auto' | 'table' | 'stacked';
 }
 
 const features = tableFeatures({ rowSortingFeature, columnVisibilityFeature });
 const ROW_HEIGHT = 44;
+/** Pixels between two cards. The same as `gap-2`. */
+const CARD_GAP = 8;
+
+/** Whether the element is narrower than the width below which the grid stacks. */
+function useIsNarrow(element: React.RefObject<HTMLElement | null>): boolean {
+  const [narrow, setNarrow] = useState(false);
+  // Before the first paint, so a phone never shows the table and then swaps it for cards.
+  useLayoutEffect(() => {
+    const node = element.current;
+    if (!node) return;
+    // A width of zero means the grid is not laid out (a hidden tab or panel): keep what was shown.
+    const apply = (width: number) => {
+      if (width > 0) setNarrow(width < STACKED_BELOW_PX);
+    };
+    apply(node.getBoundingClientRect().width);
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) apply(entry.contentRect.width);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [element]);
+  return narrow;
+}
 
 export function DataGrid<Row extends RowData>({
   label,
@@ -104,11 +149,16 @@ export function DataGrid<Row extends RowData>({
   onLoadMore,
   loadingMore = false,
   virtualizeAbove = 100,
+  layout = 'auto',
 }: DataGridProps<Row>) {
   const { t } = useTranslation();
   const policy = useAccessPolicy();
   const menuId = useId();
+  const sortId = useId();
+  const root = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const narrow = useIsNarrow(root);
+  const stacked = layout === 'stacked' || (layout === 'auto' && narrow);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
 
   // Columns and actions the user may not see are left out entirely, not hidden with CSS.
@@ -182,10 +232,21 @@ export function DataGrid<Row extends RowData>({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scroller.current,
-    estimateSize: () => ROW_HEIGHT,
+    // A card is a title, a line per further column and, with actions, a row of buttons. It is
+    // measured once shown; this is only the first guess.
+    estimateSize: () =>
+      stacked
+        ? 48 + 24 * Math.max(visibleColumns.length - 1, 0) + (hasActions ? 52 : 0)
+        : ROW_HEIGHT,
+    // The space between cards, which the list leaves to the virtualiser when it is in charge.
+    gap: stacked ? CARD_GAP : 0,
     overscan: 10,
     enabled: virtual,
   });
+  // Rows change height when the layout changes, so what was measured before no longer holds.
+  useEffect(() => {
+    virtualizer.measure();
+  }, [stacked, virtualizer]);
   const window = virtual ? virtualizer.getVirtualItems() : null;
   const first = window?.[0];
   const last = window?.[window.length - 1];
@@ -201,31 +262,196 @@ export function DataGrid<Row extends RowData>({
     return column.mask && plain ? column.mask(plain) : plain;
   };
 
-  return (
-    <div className="flex flex-col gap-2">
-      {hideable.length > 0 && (
-        <details className="relative self-end">
-          <summary className="cursor-pointer list-none rounded-md border px-3 py-1.5 text-sm outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50">
-            {t('grid.columns')}
-          </summary>
-          <fieldset
-            id={menuId}
-            className="absolute right-0 z-10 mt-1 flex min-w-44 flex-col gap-1 rounded-md border bg-background p-2 shadow-md"
+  const cell = (column: GridColumn<Row>, row: Row) => {
+    const cellText = text(column, row);
+    return column.render ? column.render(row, cellText) : cellText;
+  };
+  const sortable = visibleColumns.filter(
+    (column) => table.getColumn(column.id)?.getCanSort() === true && onSortChange !== undefined,
+  );
+  // The card's title is the first column the user may see, hidden or not: it names the row, so
+  // in cards it is always shown and is not offered in the Columns menu.
+  const titleColumn = allowedColumns[0];
+  const detailColumns = visibleColumns.filter((column) => column.id !== titleColumn?.id);
+  const menuColumns = stacked
+    ? hideable.filter((column) => column.id !== titleColumn?.id)
+    : hideable;
+  // The sort the screen has, even when its column is not one the user can pick here.
+  const currentSort = sort ? `${sort.desc ? 'desc' : 'asc'}:${sort.id}` : '';
+  const sortHeader = sort ? (byId.get(sort.id)?.header ?? sort.id) : '';
+  const sortIsListed = sort !== null && sortable.some((column) => column.id === sort.id);
+
+  const columnsMenu = menuColumns.length > 0 && (
+    <details className="relative">
+      <summary className="flex cursor-pointer list-none items-center rounded-md border px-3 py-1.5 text-sm outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11">
+        {t('grid.columns')}
+      </summary>
+      <fieldset
+        id={menuId}
+        className="absolute right-0 z-10 mt-1 flex min-w-44 flex-col gap-1 rounded-md border bg-background p-2 shadow-md"
+      >
+        <legend className="sr-only">{t('grid.columns')}</legend>
+        {menuColumns.map((column) => (
+          <label
+            key={column.id}
+            className="flex items-center gap-2 px-1 py-0.5 text-sm pointer-coarse:min-h-11"
           >
-            <legend className="sr-only">{t('grid.columns')}</legend>
-            {hideable.map((column) => (
-              <label key={column.id} className="flex items-center gap-2 px-1 py-0.5 text-sm">
-                <input
-                  type="checkbox"
-                  checked={column.getIsVisible()}
-                  onChange={column.getToggleVisibilityHandler()}
-                />
-                {byId.get(column.id)?.header}
-              </label>
-            ))}
-          </fieldset>
-        </details>
-      )}
+            <input
+              type="checkbox"
+              checked={column.getIsVisible()}
+              onChange={column.getToggleVisibilityHandler()}
+            />
+            {byId.get(column.id)?.header}
+          </label>
+        ))}
+      </fieldset>
+    </details>
+  );
+
+  const loadMore = status === 'ready' && hasNextPage && onLoadMore && (
+    <Button className="self-center" variant="outline" disabled={loadingMore} onClick={onLoadMore}>
+      {loadingMore ? t('grid.loadingMore') : t('grid.loadMore')}
+    </Button>
+  );
+
+  if (stacked) {
+    return (
+      <div ref={root} className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          {sortable.length > 0 && (
+            <label htmlFor={sortId} className="flex min-w-0 flex-col gap-1 text-sm">
+              <span className="text-muted-foreground">{t('grid.sortBy')}</span>
+              <select
+                id={sortId}
+                className="h-9 max-w-full rounded-md border bg-background px-2 text-base md:text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11"
+                value={currentSort}
+                onChange={(event) => {
+                  // The direction comes first, so a column id may contain anything.
+                  const { value } = event.target;
+                  const id = value.slice(value.indexOf(':') + 1);
+                  onSortChange?.(value ? { id, desc: value.startsWith('desc:') } : null);
+                }}
+              >
+                <option value="">{t('grid.sortDefault')}</option>
+                {sort && !sortIsListed && (
+                  <option value={currentSort}>
+                    {t(sort.desc ? 'grid.sortDescending' : 'grid.sortAscending', {
+                      column: sortHeader,
+                    })}
+                  </option>
+                )}
+                {sortable.flatMap((column) => [
+                  <option key={`asc:${column.id}`} value={`asc:${column.id}`}>
+                    {t('grid.sortAscending', { column: column.header })}
+                  </option>,
+                  <option key={`desc:${column.id}`} value={`desc:${column.id}`}>
+                    {t('grid.sortDescending', { column: column.header })}
+                  </option>,
+                ])}
+              </select>
+            </label>
+          )}
+          <div className="ml-auto">{columnsMenu}</div>
+        </div>
+
+        <div ref={scroller} className={cn(virtual && 'max-h-[70dvh] overflow-y-auto')}>
+          {status === 'loading' && (
+            <ul aria-label={label} aria-busy className="flex flex-col gap-2">
+              {Array.from({ length: 4 }, (_, index) => (
+                <li key={index} className="rounded-lg border p-3">
+                  <Skeleton className="h-5 w-2/3" />
+                  <Skeleton className="mt-2 h-4 w-full" />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {status === 'error' && (
+            <div role="alert" className="flex flex-col items-center gap-3 rounded-lg border p-4">
+              <span>{errorMessage ?? t('errors.unknown')}</span>
+              {onRetry && (
+                <Button variant="outline" onClick={onRetry}>
+                  {t('grid.retry')}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {status === 'ready' && rows.length === 0 && (
+            <p className="rounded-lg border px-3 py-8 text-center text-muted-foreground">
+              {emptyMessage}
+            </p>
+          )}
+
+          {status === 'ready' && rows.length > 0 && titleColumn && (
+            <ul
+              aria-label={label}
+              aria-busy={loadingMore}
+              className={cn('flex flex-col text-sm', !virtual && 'gap-2')}
+            >
+              {padTop > 0 && <li aria-hidden style={{ height: padTop }} />}
+              {shown.map(({ row, index }) => {
+                if (row === undefined) return null;
+                const name = rowLabel?.(row);
+                return (
+                  <li
+                    key={rowId(row)}
+                    ref={virtual ? virtualizer.measureElement : undefined}
+                    data-index={index}
+                    // Only a screenful is in the DOM: say how long the list really is.
+                    aria-setsize={virtual ? rows.length : undefined}
+                    aria-posinset={virtual ? index + 1 : undefined}
+                    className="rounded-lg border p-3"
+                  >
+                    <p className="font-medium break-words">{cell(titleColumn, row)}</p>
+                    {detailColumns.length > 0 && (
+                      <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5">
+                        {detailColumns.map((column) => (
+                          <div key={column.id} className="contents">
+                            <dt className="text-muted-foreground">{column.header}</dt>
+                            <dd
+                              className={cn(
+                                'break-words',
+                                column.align === 'end' && 'tabular-nums',
+                              )}
+                            >
+                              {cell(column, row)}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                    {hasActions && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {allowedActions.map((action) => (
+                          <Button
+                            key={action.id}
+                            variant="outline"
+                            disabled={action.disabled?.(row)}
+                            aria-label={name ? `${action.label}: ${name}` : undefined}
+                            onClick={() => action.onSelect(row)}
+                          >
+                            {action.label}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+              {padBottom > 0 && <li aria-hidden style={{ height: padBottom }} />}
+            </ul>
+          )}
+        </div>
+
+        {loadMore}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={root} className="flex flex-col gap-2">
+      {columnsMenu && <div className="self-end">{columnsMenu}</div>}
 
       <div
         ref={scroller}
@@ -269,7 +495,7 @@ export function DataGrid<Row extends RowData>({
                     {canSort ? (
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 rounded-sm outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        className="inline-flex items-center gap-1 rounded-sm outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
                         onClick={tableColumn?.getToggleSortingHandler()}
                       >
                         {column.header}
@@ -338,20 +564,17 @@ export function DataGrid<Row extends RowData>({
                     style={virtual ? { height: ROW_HEIGHT } : undefined}
                     className="border-b last:border-0 hover:bg-accent/50"
                   >
-                    {visibleColumns.map((column) => {
-                      const cellText = text(column, row);
-                      return (
-                        <td
-                          key={column.id}
-                          className={cn(
-                            'px-3 py-2',
-                            column.align === 'end' ? 'text-right tabular-nums' : 'text-left',
-                          )}
-                        >
-                          {column.render ? column.render(row, cellText) : cellText}
-                        </td>
-                      );
-                    })}
+                    {visibleColumns.map((column) => (
+                      <td
+                        key={column.id}
+                        className={cn(
+                          'px-3 py-2',
+                          column.align === 'end' ? 'text-right tabular-nums' : 'text-left',
+                        )}
+                      >
+                        {cell(column, row)}
+                      </td>
+                    ))}
                     {hasActions && (
                       <td className="px-3 py-1 text-right whitespace-nowrap">
                         {allowedActions.map((action) => (
@@ -380,16 +603,7 @@ export function DataGrid<Row extends RowData>({
         </table>
       </div>
 
-      {status === 'ready' && hasNextPage && onLoadMore && (
-        <Button
-          className="self-center"
-          variant="outline"
-          disabled={loadingMore}
-          onClick={onLoadMore}
-        >
-          {loadingMore ? t('grid.loadingMore') : t('grid.loadMore')}
-        </Button>
-      )}
+      {loadMore}
     </div>
   );
 }

@@ -149,7 +149,11 @@
     "actions": "Actions",
     "retry": "Try again",
     "loadMore": "Load more",
-    "loadingMore": "Loading more…"
+    "loadingMore": "Loading more…",
+    "sortBy": "Sort by",
+    "sortDefault": "Default order",
+    "sortAscending": "{{column}}, ascending",
+    "sortDescending": "{{column}}, descending"
   },
   "validation": {
     "required": "This field is required.",
