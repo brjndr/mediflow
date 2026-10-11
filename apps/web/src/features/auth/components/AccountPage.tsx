@@ -1,15 +1,24 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 /** The frame of the pages people reach from an email: generic and unbranded, like sign-in. */
 export function AccountPage({ title, children }: { title: string; children: ReactNode }) {
   const { t } = useTranslation();
+  const heading = useRef<HTMLHeadingElement>(null);
+  // The page swaps in place (form, done, link not available), so focus follows to the new title.
+  useEffect(() => heading.current?.focus(), [title]);
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-4">
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-primary">{t('app.name')}</p>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1
+          ref={heading}
+          tabIndex={-1}
+          className="text-2xl font-semibold tracking-tight outline-none"
+        >
+          {title}
+        </h1>
       </div>
       {children}
     </main>

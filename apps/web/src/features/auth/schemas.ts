@@ -30,7 +30,12 @@ export const setPasswordSchema = z
 export type SetPasswordValues = z.output<typeof setPasswordSchema>;
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().trim().min(1, 'validation.required').max(254),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(254, 'validation.too_big')
+    .pipe(z.email('validation.invalid_format')),
 });
 
 export type ForgotPasswordValues = z.output<typeof forgotPasswordSchema>;

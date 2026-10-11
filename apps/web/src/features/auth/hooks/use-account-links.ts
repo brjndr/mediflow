@@ -2,12 +2,15 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { isApiError } from '@/shared/api';
 import { acceptInvite, forgotPassword, inspectInvite, resetPassword } from '../api';
 
-/** Link-scoped, not tenant-scoped: nobody is signed in, and the token is the only context. */
-const inviteKey = (token: string) => ['auth', 'invite', token] as const;
+/**
+ * Not tenant-scoped: nobody is signed in. The key never holds the token (a secret): the page
+ * keeps one token for its whole life, and the entry is dropped when the page goes (`gcTime: 0`).
+ */
+const accountKeys = { invitePreview: () => ['auth', 'invite-preview'] as const };
 
 export function useInvitePreview(token: string | null) {
   return useQuery({
-    queryKey: inviteKey(token ?? ''),
+    queryKey: accountKeys.invitePreview(),
     queryFn: ({ signal }) => inspectInvite(token ?? '', signal),
     enabled: token !== null,
     retry: false,
