@@ -563,8 +563,17 @@ export interface components {
             dob: string;
             phone: string;
         };
+        /** @description A possible duplicate, masked by the server: enough to recognise the person, not to read their details. No id. */
+        PatientDuplicateMatch: {
+            firstName: string;
+            lastName: string;
+            /** Format: date */
+            dob: string;
+            maskedMrn: string;
+            maskedPhone: string;
+        };
         PatientDuplicateMatches: {
-            items: components["schemas"]["PatientSummary"][];
+            items: components["schemas"]["PatientDuplicateMatch"][];
         };
         /** @description A registered patient with the details captured at registration. */
         PatientRecord: {

@@ -6,7 +6,7 @@ import { DuplicateWarning } from '../components/DuplicateWarning';
 import { PatientForm } from '../components/PatientForm';
 import { useCheckDuplicates, useCreatePatient } from '../hooks/use-register-patient';
 import type { PatientFormValues } from '../schemas';
-import type { PatientCreate as PatientCreateBody, PatientSummary } from '../types';
+import type { PatientCreate as PatientCreateBody, PatientDuplicateMatch } from '../types';
 
 /** Empty optional fields are left out, and the server adds when and by whom consent was recorded. */
 function toRequest(values: PatientFormValues): PatientCreateBody {
@@ -34,7 +34,7 @@ export default function PatientCreate() {
   const attempt = useRef<{ body: string; key: string }>(undefined);
   // Kept in memory only, never in the address or browser storage.
   const [values, setValues] = useState<PatientFormValues>();
-  const [matches, setMatches] = useState<PatientSummary[]>();
+  const [matches, setMatches] = useState<PatientDuplicateMatch[]>();
   const heading = useRef<HTMLHeadingElement>(null);
 
   // After registering, move focus to the confirmation so a screen reader announces it.
@@ -68,6 +68,7 @@ export default function PatientCreate() {
       }
       await register(submitted);
       setValues(undefined);
+      attempt.current = undefined;
     } catch {
       // The error is shown from the mutation state below. A failed check stops registration.
     }
@@ -79,6 +80,7 @@ export default function PatientCreate() {
     try {
       await register(values);
       setValues(undefined);
+      attempt.current = undefined;
       setMatches(undefined);
     } catch {
       // Shown from the mutation state.

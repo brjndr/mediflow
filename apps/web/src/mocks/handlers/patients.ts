@@ -1,6 +1,7 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { onMockReset, TENANT_IDS } from '../db';
+import { maskMrn, maskPhone } from '@/shared/utils/mask';
+import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 
 type PatientSummary = components['schemas']['PatientSummary'];
@@ -140,7 +141,16 @@ export const patientsHandlers = [
             fullName(patient).toLowerCase() === name),
       )
       .slice(0, 5);
-    return HttpResponse.json({ items });
+    // Masked on the server: the caller can recognise the person but cannot read the details.
+    return HttpResponse.json({
+      items: items.map((patient) => ({
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        dob: patient.dob,
+        maskedMrn: maskMrn(patient.mrn),
+        maskedPhone: maskPhone(patient.phone),
+      })),
+    });
   }),
 
   http.post('*/api/patients', async ({ request }) => {
@@ -183,7 +193,7 @@ export const patientsHandlers = [
       contactConsent: {
         given: consent?.given === true,
         at: new Date().toISOString(),
-        recordedBy: 'user_mock',
+        recordedBy: currentSession()?.user.id ?? 'unknown',
       },
     };
     // The list holds summaries only: no email, address or consent.

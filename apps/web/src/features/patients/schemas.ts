@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import type { PatientDuplicateMatches, PatientPage, PatientRecord, PatientSummary } from './types';
+import type {
+  PatientDuplicateMatch,
+  PatientDuplicateMatches,
+  PatientPage,
+  PatientRecord,
+  PatientSummary,
+} from './types';
 
 /** Responses are validated where they enter the app, so screens can trust their shape. */
 const summaryShape = {
@@ -30,8 +36,16 @@ export const patientRecordSchema: z.ZodType<PatientRecord> = z.object({
     .optional(),
 });
 
+export const duplicateMatchSchema: z.ZodType<PatientDuplicateMatch> = z.object({
+  firstName: z.string(),
+  lastName: z.string(),
+  dob: z.iso.date(),
+  maskedMrn: z.string(),
+  maskedPhone: z.string(),
+});
+
 export const duplicateMatchesSchema: z.ZodType<PatientDuplicateMatches> = z.object({
-  items: z.array(patientSummarySchema),
+  items: z.array(duplicateMatchSchema),
 });
 
 const GENDERS = ['male', 'female', 'other'] as const;

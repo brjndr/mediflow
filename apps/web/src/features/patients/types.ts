@@ -8,3 +8,4 @@ export type PatientRecord = components['schemas']['PatientRecord'];
 export type PatientCreate = components['schemas']['PatientCreate'];
 export type PatientDuplicateQuery = components['schemas']['PatientDuplicateQuery'];
 export type PatientDuplicateMatches = components['schemas']['PatientDuplicateMatches'];
+export type PatientDuplicateMatch = components['schemas']['PatientDuplicateMatch'];

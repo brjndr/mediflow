@@ -465,6 +465,29 @@
           }
         }
       },
+      "PatientDuplicateMatch": {
+        "type": "object",
+        "description": "A possible duplicate, masked by the server: enough to recognise the person, not to read their details. No id.",
+        "required": ["firstName", "lastName", "dob", "maskedMrn", "maskedPhone"],
+        "properties": {
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string",
+            "format": "date"
+          },
+          "maskedMrn": {
+            "type": "string"
+          },
+          "maskedPhone": {
+            "type": "string"
+          }
+        }
+      },
       "PatientDuplicateMatches": {
         "type": "object",
         "required": ["items"],
@@ -472,7 +495,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PatientSummary"
+              "$ref": "#/components/schemas/PatientDuplicateMatch"
             }
           }
         }

@@ -1,11 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui/button';
-import { maskMrn, maskPhone } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
-import type { PatientSummary } from '../types';
+import type { PatientDuplicateMatch } from '../types';
 
 interface DuplicateWarningProps {
-  matches: PatientSummary[];
+  matches: PatientDuplicateMatch[];
   pending: boolean;
   onRegisterAnyway: () => void;
   onBack: () => void;
@@ -27,15 +26,15 @@ export function DuplicateWarning({
         <p className="text-sm text-muted-foreground">{t('duplicate.description')}</p>
       </div>
       <ul className="flex flex-col gap-2">
-        {matches.map((match) => (
-          <li key={match.id} className="rounded-md border p-3 text-sm">
+        {matches.map((match, index) => (
+          <li key={index} className="rounded-md border p-3 text-sm">
             <span className="font-medium">
               {match.firstName} {match.lastName}
             </span>
             <span className="block text-muted-foreground">
               {t('duplicate.details', {
-                mrn: maskMrn(match.mrn),
-                phone: maskPhone(match.phone),
+                mrn: match.maskedMrn,
+                phone: match.maskedPhone,
                 dob: format.date(`${match.dob}T12:00:00Z`),
               })}
             </span>

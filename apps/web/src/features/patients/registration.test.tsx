@@ -141,6 +141,18 @@ describe('patient registration', () => {
     expect(seen.creates).toHaveLength(1);
   });
 
+  it('returns possible duplicates masked by the server, with no id', async () => {
+    signIn(USER_IDS.admin, TENANT_IDS.hospital);
+    const result = await api.POST('/patients/duplicate-check', {
+      body: { firstName: 'Asha', lastName: 'Verma1', dob: '1950-01-01', phone: '+91 98000 10000' },
+    });
+    const text = JSON.stringify(result.data);
+    expect(result.data?.items).toHaveLength(1);
+    expect(text).not.toContain('98000 10000');
+    expect(text).not.toContain('MRN-PTH-00001');
+    expect(text).not.toContain('"id"');
+  });
+
   it('creates one patient however many times the button is pressed', async () => {
     const seen = watchRegistration();
     renderApp({ entry: '/patients/new' });
