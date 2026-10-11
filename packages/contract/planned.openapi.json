@@ -105,50 +105,47 @@
         }
       }
     },
-    "/patients": {
-      "get": {
-        "operationId": "listPatients",
-        "description": "Patients of the active tenant, one cursor page at a time. Search matches name, phone or MRN on the server. Requires patient:read and the patients feature flag.",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "maxLength": 100
-            },
-            "description": "Search text: name, phone or MRN."
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 25
-            }
-          },
-          {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": ["name", "-name", "mrn", "-mrn"]
+    "/patients/search": {
+      "post": {
+        "operationId": "searchPatients",
+        "description": "Patients of the active tenant, one cursor page at a time. The search term travels in the body, never in a query string, because it can be a name, phone number or MRN. Requires patient:read and the patients feature flag. It reads data only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "q": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "description": "Search text: name, phone or MRN."
+                  },
+                  "cursor": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 25
+                  },
+                  "sort": {
+                    "type": "string",
+                    "enum": ["name", "-name", "mrn", "-mrn"]
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Sparse fieldset."
+                  }
+                }
+              }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
             "description": "One page of patients",

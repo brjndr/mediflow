@@ -52,13 +52,17 @@ const digits = (text: string) => text.replace(/\D/g, '');
 const SORT_KEYS = new Set(['name', 'mrn']);
 
 export const patientsHandlers = [
-  http.get('*/api/patients', ({ request }) => {
+  http.post('*/api/patients/search', async ({ request }) => {
     const access = authorize(request, { permission: 'patient:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
 
-    const url = new URL(request.url);
-    const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 25), 1), 100);
-    const sort = url.searchParams.get('sort');
+    const body: unknown = await request.json().catch(() => null);
+    const params =
+      typeof body === 'object' && body !== null
+        ? (body as { q?: unknown; cursor?: unknown; limit?: unknown; sort?: unknown })
+        : {};
+    const limit = Math.min(Math.max(Number(params.limit ?? 25), 1), 100);
+    const sort = typeof params.sort === 'string' ? params.sort : null;
     const key = sort?.replace(/^-/, '');
     if (sort && (!key || !SORT_KEYS.has(key))) {
       return error(400, 'validation_failed', 'Cannot sort by that field');
@@ -68,7 +72,7 @@ export const patientsHandlers = [
     let rows = patients.filter((patient) => patient.tenantId === access.tenantId);
 
     // Search happens here, on the "server": name, phone or MRN.
-    const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
+    const q = (typeof params.q === 'string' ? params.q : '').trim().toLowerCase();
     if (q) {
       const qDigits = digits(q);
       rows = rows.filter(
@@ -87,7 +91,7 @@ export const patientsHandlers = [
       );
     }
 
-    const cursor = url.searchParams.get('cursor');
+    const cursor = typeof params.cursor === 'string' ? params.cursor : null;
     const start = cursor ? rows.findIndex((patient) => patient.id === cursor) : 0;
     if (start < 0) return error(400, 'invalid_cursor', 'Unknown cursor');
     return HttpResponse.json<PatientPage>({

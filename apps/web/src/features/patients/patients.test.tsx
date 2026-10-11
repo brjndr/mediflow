@@ -14,12 +14,22 @@ const dataRows = () => within(grid()).getAllByRole('row').slice(1);
 const home = () => screen.findByRole('heading', { name: 'Hospital management system' });
 const navLink = () => screen.queryByRole('link', { name: 'Patients' });
 
-/** Records the query string of each patient request, then lets the mock backend answer. */
+/** Query strings seen on patient requests: patient data must never travel in one. */
+const queryStrings: string[] = [];
+
+/** Records the body of each patient search request, then lets the mock backend answer. */
 function watchPatientRequests() {
   const requests: URLSearchParams[] = [];
+  queryStrings.length = 0;
   server.use(
-    http.get('*/api/patients', ({ request }) => {
-      requests.push(new URL(request.url).searchParams);
+    http.post('*/api/patients/search', async ({ request }) => {
+      queryStrings.push(new URL(request.url).search);
+      const body = (await request.clone().json()) as Record<string, unknown>;
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(body)) {
+        if (value !== undefined) params.set(key, String(value));
+      }
+      requests.push(params);
       return undefined;
     }),
   );
@@ -71,6 +81,9 @@ describe('patient list', () => {
     const searches = requests.filter((params) => params.has('q'));
     expect(searches).toHaveLength(1);
     expect(searches[0]?.get('q')).toBe('MRN-PTH-00042');
+    // The term is in the request body: the requests have no query string at all.
+    expect(queryStrings.length).toBeGreaterThan(0);
+    expect(queryStrings.every((search) => search === '')).toBe(true);
     expect(router.state.location.search).toBe('');
     expect(router.state.location.pathname).toBe('/patients');
   });

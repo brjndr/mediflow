@@ -327,17 +327,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/patients": {
+    "/patients/search": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description Patients of the active tenant, one cursor page at a time. Search matches name, phone or MRN on the server. Requires patient:read and the patients feature flag. */
-        get: operations["listPatients"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** @description Patients of the active tenant, one cursor page at a time. The search term travels in the body, never in a query string, because it can be a name, phone number or MRN. Requires patient:read and the patients feature flag. It reads data only. */
+        post: operations["searchPatients"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1440,20 +1440,28 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    listPatients: {
+    searchPatients: {
         parameters: {
-            query?: {
-                /** @description Search text: name, phone or MRN. */
-                q?: string;
-                cursor?: string;
-                limit?: number;
-                sort?: "name" | "-name" | "mrn" | "-mrn";
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Search text: name, phone or MRN. */
+                    q?: string;
+                    cursor?: string;
+                    /** @default 25 */
+                    limit?: number;
+                    /** @enum {string} */
+                    sort?: "name" | "-name" | "mrn" | "-mrn";
+                    /** @description Sparse fieldset. */
+                    fields?: string[];
+                };
+            };
+        };
         responses: {
             /** @description One page of patients */
             200: {
