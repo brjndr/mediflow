@@ -11,6 +11,7 @@ import {
   confirmEnrollment,
   disableMfa,
   regenerateRecoveryCodes,
+  mfaStanding,
 } from './mfa.js';
 import { MAX_PASSWORD_LENGTH, verifyPassword, type PasswordProblem } from './password.js';
 import { requestPasswordReset, resetPassword, sendPasswordReset } from './password-reset.js';
@@ -304,6 +305,35 @@ export const accountRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       if (!done) throw INVALID_CODE();
       return reply.status(204).send(null);
+    },
+  );
+  app.get(
+    '/auth/mfa/requirement',
+    {
+      config: { access: 'session' },
+      schema: {
+        operationId: 'getMfaRequirement',
+        tags: ['auth'],
+        description:
+          'Whether the active hospital requires an authenticator of its staff (its `mfa` and `mfa_required` switches are both on). A user for whom this is true and whose `mfaEnabled` is false is refused every route of the hospital with `mfa_required` until one is set up.',
+        response: {
+          200: Type.Object({ required: Type.Boolean() }),
+          ...errors(401, 409),
+        },
+      },
+    },
+    async (request, reply) => {
+      const session = request.session;
+      if (!session) throw new HttpError(401, 'unauthenticated', 'No session');
+      const tenantId = session.tenantId;
+      if (!tenantId) throw new HttpError(409, 'no_active_tenant', 'Pick a hospital first');
+      const standing = await withAuthTransaction(pool, async ({ client, identify }) => {
+        await identify(session.userId);
+        return mfaStanding(client, tenantId, session.userId);
+      });
+      if (!standing) throw new HttpError(409, 'no_active_tenant', 'Pick a hospital first');
+      void reply.header('cache-control', 'no-store');
+      return { required: standing.required };
     },
   );
 };

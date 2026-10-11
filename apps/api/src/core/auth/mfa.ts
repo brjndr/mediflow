@@ -96,6 +96,39 @@ async function lockRow(client: pg.PoolClient, userId: string): Promise<MfaRow | 
   return rows[0];
 }
 
+/** The hospital switch that offers the authenticator to its staff. Off unless it is turned on. */
+export const MFA_FEATURE = 'mfa';
+/** The hospital switch that makes it compulsory. It counts only while `mfa` is on as well. */
+export const MFA_REQUIRED_FEATURE = 'mfa_required';
+
+export interface MfaStanding {
+  /** The hospital requires an authenticator of its staff. */
+  required: boolean;
+  /** The user has one set up. */
+  enrolled: boolean;
+}
+
+/**
+ * Where a user stands with a hospital's authenticator rule, or null when they are not an active
+ * member of it. One query, because the session hook asks it on every request.
+ */
+export async function mfaStanding(
+  client: pg.PoolClient,
+  tenantId: string,
+  userId: string,
+): Promise<MfaStanding | null> {
+  const { rows } = await client.query<MfaStanding>(
+    `select (select count(*) from tenant_features f
+             where f.tenant_id = m.tenant_id and f.enabled and f.feature in ($3, $4)) = 2 as required,
+            exists (select 1 from user_mfa u
+                    where u.user_id = m.user_id and u.confirmed_at is not null) as enrolled
+     from memberships m
+     where m.tenant_id = $1 and m.user_id = $2 and m.status = 'active'`,
+    [tenantId, userId, MFA_FEATURE, MFA_REQUIRED_FEATURE],
+  );
+  return rows[0] ?? null;
+}
+
 /** Whether sign-in must ask this user for a code. */
 export async function isMfaEnabled(client: pg.PoolClient, userId: string): Promise<boolean> {
   const { rowCount } = await client.query(

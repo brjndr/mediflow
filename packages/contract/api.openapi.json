@@ -1440,6 +1440,51 @@
         }
       }
     },
+    "/auth/mfa/requirement": {
+      "get": {
+        "operationId": "getMfaRequirement",
+        "tags": ["auth"],
+        "description": "Whether the active hospital requires an authenticator of its staff (its `mfa` and `mfa_required` switches are both on). A user for whom this is true and whose `mfaEnabled` is false is refused every route of the hospital with `mfa_required` until one is set up.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["required"],
+                  "properties": {
+                    "required": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/session/policy": {
       "get": {
         "operationId": "getSessionPolicy",

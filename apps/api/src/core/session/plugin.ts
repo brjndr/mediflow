@@ -9,6 +9,8 @@ export interface Session {
   userId: string;
   /** Null until a user who works at several hospitals picks one. */
   tenantId: string | null;
+  /** The active hospital requires an authenticator and the user has none (core/auth). */
+  mfaPending?: boolean;
 }
 
 /**

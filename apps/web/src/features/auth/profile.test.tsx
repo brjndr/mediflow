@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { MOCK_PASSWORD, setMockMfa, signOut as signOutOnServer, USER_IDS } from '@/mocks/db';
-import { setMockMfaRequired } from '@/mocks/handlers/mfa';
+import { setMockMfaAvailable, setMockMfaRequired } from '@/mocks/handlers/mfa';
 import { server } from '@/mocks/node';
 import { renderApp } from '@/test/render';
 
@@ -39,6 +39,7 @@ async function fillPasswords(current: string, next: string, confirm = next) {
 
 describe('the account page', () => {
   it('shows who is signed in and offers to set up an authenticator', async () => {
+    setMockMfaAvailable(true);
     await openProfile();
 
     expect(screen.getByText(ADMIN, { selector: 'dd' })).toBeInTheDocument();

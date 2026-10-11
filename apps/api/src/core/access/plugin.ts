@@ -91,6 +91,11 @@ export const accessPlugin = fp(
       if (access !== 'tenant' || request.is404) return;
       const { session, tenant } = request;
       if (!session || !tenant) throw new HttpError(401, 'unauthenticated', 'No session');
+      // Before anything of the hospital is read. Setting an authenticator up, the session and
+      // signing out are not tenant routes, so they stay within reach.
+      if (session.mfaPending) {
+        throw new HttpError(403, 'mfa_required', 'This hospital requires an authenticator');
+      }
 
       let loaded: Promise<AccessPolicy | null> | undefined;
       let granted: AccessPolicy['permissions'] = [];

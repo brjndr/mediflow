@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { useFeatureFlag } from '@/access';
 import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
@@ -8,6 +9,7 @@ import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { useFormatters, useTenant } from '@/tenancy';
 import type { AccountSession } from '../api';
 import { passwordErrorKey } from '../hooks/use-account-links';
+import { MFA_FEATURE } from '../hooks/use-mfa';
 import { useAccountSessions, useChangePassword, useRevokeSession } from '../hooks/use-profile';
 import { changePasswordSchema, type ChangePasswordValues } from '../schemas';
 import { ErrorLine } from './AccountPage';
@@ -167,6 +169,7 @@ export function ProfilePage() {
   const { t } = useTranslation();
   const session = useSession();
   const tenant = useTenant();
+  const mfaAvailable = useFeatureFlag(MFA_FEATURE);
   if (!session || !tenant) return null;
   const { user } = session;
 
@@ -181,19 +184,23 @@ export function ProfilePage() {
         <dd>{user.email}</dd>
       </dl>
 
-      <section aria-labelledby="profile-security" className="flex flex-col gap-2">
-        <h2 id="profile-security" className={sectionTitle}>
-          {t('security.title')}
-        </h2>
-        <p className="text-sm">
-          {t(user.mfaEnabled ? 'security.enabled' : 'profile.authenticatorOff')}
-        </p>
-        {!user.mfaEnabled && (
-          <Link to="/security" className="text-sm font-medium text-primary hover:underline">
-            {t('security.setUp')}
-          </Link>
-        )}
-      </section>
+      {/* Nothing about an authenticator where the hospital has it switched off, unless the person
+          already has one (set up at another hospital): sign-in still asks them for a code. */}
+      {(mfaAvailable || user.mfaEnabled) && (
+        <section aria-labelledby="profile-security" className="flex flex-col gap-2">
+          <h2 id="profile-security" className={sectionTitle}>
+            {t('security.title')}
+          </h2>
+          <p className="text-sm">
+            {t(user.mfaEnabled ? 'security.enabled' : 'profile.authenticatorOff')}
+          </p>
+          {!user.mfaEnabled && (
+            <Link to="/security" className="text-sm font-medium text-primary hover:underline">
+              {t('security.setUp')}
+            </Link>
+          )}
+        </section>
+      )}
 
       <ChangePassword tenantId={tenant.id} />
       <Sessions tenantId={tenant.id} />

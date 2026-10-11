@@ -1,13 +1,14 @@
 import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { MOCK_PASSWORD, setMockMfa, signOut as signOutOnServer, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import {
   MOCK_MFA_CODE,
   MOCK_RECOVERY_CODES,
   MOCK_SECRET,
+  setMockMfaAvailable,
   setMockMfaRequired,
 } from '@/mocks/handlers/mfa';
 import { renderApp } from '@/test/render';
@@ -33,6 +34,10 @@ async function reachCodeStep() {
   await screen.findByLabelText(/^Code/);
   return app;
 }
+
+// Every hospital has the authenticator switched off until it asks for it. These tests are about a
+// hospital that has it on; the last group is about one that does not.
+beforeEach(() => setMockMfaAvailable(true));
 
 const verify = () => userEvent.click(screen.getByRole('button', { name: 'Verify' }));
 
@@ -322,5 +327,61 @@ describe('a hospital that requires an authenticator', () => {
       .getAll()
       .map((query) => query.queryKey);
     expect(keys.some((key) => key[0] === 'tenant' && key[2] === 'mfa')).toBe(true);
+  });
+});
+
+describe('a hospital with the authenticator switched off', () => {
+  beforeEach(() => setMockMfaAvailable(false));
+
+  /** Fails the test if the app asks the server about a requirement. */
+  function refuseTheQuestion() {
+    let asked = 0;
+    server.use(
+      http.get('*/api/auth/mfa/requirement', () => {
+        asked++;
+        return HttpResponse.json({ required: true });
+      }),
+    );
+    return () => asked;
+  }
+
+  it('has no set-up screen: its address leads to the account page', async () => {
+    const { router } = renderApp({ entry: '/security' });
+
+    expect(await screen.findByRole('heading', { name: 'Your account' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/profile');
+    expect(screen.queryByRole('button', { name: 'Set up authenticator' })).not.toBeInTheDocument();
+  });
+
+  it('says nothing about an authenticator on the account page', async () => {
+    renderApp({ entry: '/profile' });
+
+    await screen.findByRole('heading', { name: 'Your account' });
+    expect(screen.queryByRole('heading', { name: 'Security' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Set up authenticator' })).not.toBeInTheDocument();
+  });
+
+  it('requires nothing and does not ask the server', async () => {
+    const asked = refuseTheQuestion();
+
+    renderApp({ entry: '/' });
+
+    expect(await screen.findByRole('heading', HOME)).toBeInTheDocument();
+    expect(asked()).toBe(0);
+  });
+
+  it('still shows someone who already has one that it is on', async () => {
+    setMockMfa(USER_IDS.admin, true);
+    renderApp({ entry: '/profile' });
+
+    expect(await screen.findByText('An authenticator is set up for your account.')).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Set up authenticator' })).not.toBeInTheDocument();
+  });
+
+  it('is one hospital, not all: the link is there once the switch is on', async () => {
+    setMockMfaAvailable(true);
+    renderApp({ entry: '/profile' });
+
+    expect(await screen.findByRole('link', { name: 'Set up authenticator' })).toBeInTheDocument();
   });
 });
