@@ -34,6 +34,9 @@ describe('loadConfig', () => {
       MFA_ENCRYPTION_KEY: 'q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=',
       JOBS_ENABLED: true,
       OUTBOX_POLL_MS: 1000,
+      RATE_LIMIT_TENANT_PER_MINUTE: 1200,
+      RATE_LIMIT_USER_PER_MINUTE: 240,
+      IDEMPOTENCY_TTL_HOURS: 24,
     });
   });
 

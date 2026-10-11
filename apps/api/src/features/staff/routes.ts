@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import { issueInvite, sendInvite } from '../../core/auth/invites.js';
 import { HttpError } from '../../core/http/errors.js';
+import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { errors, ref } from '../../core/http/schemas.js';
 
 export const Invite = Type.Object(
@@ -23,10 +24,12 @@ export const staffRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     '/invites',
     {
-      config: { permissions: ['staff:invite'] },
+      // The response holds no patient data, so a replay can return it whole.
+      config: { permissions: ['staff:invite'], idempotent: { body: 'full' } },
       schema: {
         operationId: 'createInvite',
         tags: ['staff'],
+        headers: IdempotencyHeaders,
         description:
           'Invites someone to the active hospital in one of its roles and emails them a single-use link. A newer invite to the same address replaces an older one.',
         body: Type.Object({
@@ -34,7 +37,7 @@ export const staffRoutes: FastifyPluginAsyncTypebox = async (app) => {
           name: Type.String({ minLength: 1, maxLength: 200 }),
           roleId: Type.String({ minLength: 1, maxLength: 63 }),
         }),
-        response: { 201: ref(Invite), ...errors(400, 401, 403, 409) },
+        response: { 201: ref(Invite), ...errors(400, 401, 403, 409, 422, 429) },
       },
     },
     async (request, reply) => {
