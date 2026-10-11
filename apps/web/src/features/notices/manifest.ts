@@ -23,6 +23,8 @@ export const noticesFeature: FeatureManifest = {
     { path: 'notices', lazy: () => import('./routes/NoticesPage'), requires: ['notice:read'] },
   ],
   nav: { icon: Megaphone, order: 900, requires: ['notice:read'] },
+  // A link to a notice (/open/notice/<id>) opens the list at its hospital.
+  links: [{ kind: 'notice', to: () => 'notices' }],
   permissions: ['notice:read', 'notice:manage'],
   dashboardWidgets: [
     {

@@ -1,4 +1,5 @@
 export { HospitalPicker } from './HospitalPicker';
+export { OpenLinkPage } from './OpenLinkPage';
 export { SuspendedPage } from './SuspendedPage';
 export { TenantBrand } from './TenantBrand';
 export { TenantProvider } from './TenantProvider';

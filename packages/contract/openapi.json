@@ -1388,6 +1388,57 @@
         }
       }
     },
+    "/session/open-link": {
+      "post": {
+        "operationId": "openLink",
+        "description": "Opens a deep link to a record by its globally unique id. The server finds the hospital that owns the record, checks that the user is an active member of it, and rebinds the session to that hospital if another one (or none) is active. Every refusal is the same 403 link_unavailable, whether the record does not exist or belongs to a hospital the user does not work at, so a link cannot be used to find out what exists.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["kind", "id"],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "description": "The kind of record, e.g. notice."
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The session, bound to the hospital that owns the record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
     "/notices": {
       "get": {
         "operationId": "listNotices",

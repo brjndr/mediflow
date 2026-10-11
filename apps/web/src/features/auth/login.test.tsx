@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { delay, http, HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { sessionKey } from '@/app/session';
 import {
@@ -122,9 +122,14 @@ describe('the login page', () => {
   it('keeps the button disabled while signing in, so a double click sends once', async () => {
     const logins = watchLogins();
     await openSignedOut();
+    // The server answers only when the test lets it, so the pending state cannot be missed.
+    let answer = () => {};
+    const held = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
     server.use(
       http.post(LOGIN_URL, async () => {
-        await delay(50);
+        await held;
         return undefined;
       }),
     );
@@ -134,6 +139,7 @@ describe('the login page', () => {
     const button = await screen.findByRole('button', { name: 'Signing in…' });
     expect(button).toBeDisabled();
     await userEvent.click(button);
+    answer();
     expect(await screen.findByRole('heading', HOME)).toBeInTheDocument();
     expect(logins).toHaveLength(1);
   });

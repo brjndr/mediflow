@@ -380,6 +380,49 @@ describe('manifest validation', () => {
     expect(problems).toContain('Feature "e" has no featureFlag');
   });
 
+  it('rejects a link kind that is malformed or claimed twice', () => {
+    const { laboratory, billing } = makeFeatures();
+    const problems = problemsOf(
+      { ...laboratory, links: [{ kind: 'lab_result', to: (id) => `laboratory/${id}` }] },
+      {
+        ...billing,
+        links: [
+          { kind: 'lab_result', to: () => 'billing' },
+          { kind: 'Invoice', to: () => 'billing' },
+        ],
+      },
+    );
+    expect(problems).toContain('link "lab_result" is already registered by "laboratory"');
+    expect(problems).toContain('link "Invoice" must be lower snake case');
+  });
+
+  it('resolves a link to an address inside the app, and to nothing else', () => {
+    const { laboratory } = makeFeatures();
+    const registry = createRegistry([
+      {
+        ...laboratory,
+        links: [
+          { kind: 'lab_result', to: (id) => `laboratory/${id}` },
+          { kind: 'absolute', to: () => '/laboratory' },
+          { kind: 'external', to: () => 'https://evil.example/' },
+        ],
+      },
+    ]);
+    expect(registry.linkPath('lab_result', 'res_1')).toBe('laboratory/res_1');
+    expect(registry.linkPath('invoice', 'inv_1')).toBeNull();
+    expect(registry.linkPath('absolute', 'x')).toBeNull();
+    expect(registry.linkPath('external', 'x')).toBeNull();
+  });
+
+  it('rejects a route that would shadow the deep link address', () => {
+    const feature = valid();
+    const [route] = feature.routes;
+    if (!route) throw new Error('fixture has no route');
+    expect(
+      problemsOf({ ...feature, routes: [{ ...route, path: 'open/things' }], nav: undefined }),
+    ).toContain('route "open/things" uses a path reserved by the app');
+  });
+
   it('rejects duplicate widget ids within a feature', () => {
     const feature = valid();
     const [widget] = feature.dashboardWidgets ?? [];

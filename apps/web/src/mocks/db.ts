@@ -231,6 +231,23 @@ export function attemptSignIn(
   return 'signed_in';
 }
 
+const linkResolvers = new Map<string, (id: string) => string | null>();
+
+/** Lets a feature's mock handlers say which hospital owns a record that can be linked to. */
+export function registerMockLink(kind: string, ownerOf: (id: string) => string | null): void {
+  linkResolvers.set(kind, ownerOf);
+}
+
+/**
+ * What POST /session/open-link does: find the hospital that owns the record and, only if the
+ * signed-in user works there, make it the active one. False for everything else, with no hint
+ * of which check failed.
+ */
+export function openLink(kind: string, id: string): boolean {
+  const tenantId = linkResolvers.get(kind)?.(id);
+  return tenantId ? switchTenant(tenantId) : false;
+}
+
 const resetListeners: (() => void)[] = [];
 
 /** Lets a feature's mock handlers restore their own data when the mock backend is reset. */

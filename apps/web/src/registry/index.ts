@@ -20,6 +20,7 @@ export { Slot } from './Slot';
 export type {
   DashboardWidget,
   FeatureI18n,
+  FeatureLink,
   FeatureManifest,
   FeatureNav,
   FeatureRoute,
