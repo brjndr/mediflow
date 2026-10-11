@@ -8,7 +8,12 @@ import type { Session } from '../src/core/session/plugin.js';
 import { APP_ROLE } from '../src/core/tenancy/plugin.js';
 
 export function testConfig(overrides: Partial<Config> = {}): Config {
-  return { ...loadConfig({ ...process.env, NODE_ENV: 'test' }), ...overrides };
+  return {
+    ...loadConfig({ ...process.env, NODE_ENV: 'test' }),
+    // Tests drive the queue and the outbox by hand.
+    JOBS_ENABLED: false,
+    ...overrides,
+  };
 }
 
 interface TestAppOptions extends AppOptions {

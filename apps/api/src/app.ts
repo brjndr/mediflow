@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { auditPlugin } from './core/audit/plugin.js';
 import { authPlugin } from './core/auth/plugin.js';
 import { accessPlugin } from './core/access/plugin.js';
 import { accessRoutes } from './core/access/routes.js';
@@ -9,10 +10,13 @@ import { authRoutes } from './core/auth/routes.js';
 import type { Config } from './core/config/config.js';
 import { dbPlugin } from './core/db/plugin.js';
 import { registerErrorHandling } from './core/http/errors.js';
+import { jobsPlugin } from './core/jobs/plugin.js';
+import type { JobQueue } from './core/jobs/queue.js';
 import { loggerOptions } from './core/logging/logger.js';
 import { openApiPlugin } from './core/openapi/plugin.js';
 import type { Notifier } from './core/notifier/notifier.js';
 import { notifierPlugin } from './core/notifier/plugin.js';
+import { outboxPlugin } from './core/outbox/plugin.js';
 import { sessionPlugin, type SessionResolver } from './core/session/plugin.js';
 import { tenancyPlugin } from './core/tenancy/plugin.js';
 import { tenantRoutes } from './core/tenancy/routes.js';
@@ -33,6 +37,8 @@ export interface AppOptions {
   resolveSession?: SessionResolver;
   /** How staff email is sent. Defaults to SMTP. Tests pass an in-memory notifier. */
   notifier?: Notifier;
+  /** The job queue. Defaults to pg-boss, or an in-process queue when `JOBS_ENABLED` is off. */
+  jobQueue?: JobQueue;
 }
 
 /**
@@ -60,10 +66,14 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   // Core. OpenAPI comes first: it has to see every route as it is registered.
   await app.register(openApiPlugin);
   await app.register(dbPlugin);
+  await app.register(jobsPlugin, { queue: options.jobQueue });
   await app.register(notifierPlugin, { notifier: options.notifier });
   await app.register(authPlugin);
   await app.register(sessionPlugin, { resolveSession: options.resolveSession });
+  // Audit before tenancy: its onSend writes the audit rows before tenancy commits (core/audit).
+  await app.register(auditPlugin);
   await app.register(tenancyPlugin);
+  await app.register(outboxPlugin);
   await app.register(accessPlugin);
   await app.register(tenantRoutes);
   await app.register(authRoutes);

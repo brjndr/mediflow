@@ -25,11 +25,14 @@ src/
     access/       # permission registry, the access policy, the guard, default grants
     auth/         # sign-in, sessions, passwords, invites, password reset, the second factor
     config/       # environment, validated once at startup
+    audit/        # the audit log writer (request.audit, route config `audit`)
     db/           # pool, Drizzle client, migration runner
     http/         # the error body and the error handlers
+    jobs/         # the job queue interface, pg-boss and in-memory implementations
     logging/      # pino options and redaction
     notifier/     # staff email: the Notifier interface, SMTP adapter, templates
     openapi/      # contract generation and its version
+    outbox/       # domain events: request.emit, the dispatcher, the event list
     session/      # who is asking; route access levels
     tenancy/      # tenants tables, the per-request tenant transaction, GET /tenant
   features/<name>/
@@ -43,7 +46,7 @@ src/
 test/             # global setup and helpers; tests live next to the code they cover
 ```
 
-`core/audit`, `core/outbox` and `core/jobs` arrive with the issues that build them. A feature folder has only the files it needs: `features/health` has `index.ts` and `routes.ts`.
+A feature folder has only the files it needs: `features/health` has `index.ts` and `routes.ts`.
 
 ## Rules
 
@@ -113,7 +116,17 @@ test/             # global setup and helpers; tests live next to the code they c
 - **Adding a provider or a channel** (SES, SMS, WhatsApp) is a new implementation of the `Notifier` interface. Callers do not change.
 - **In tests,** pass `createMemoryNotifier()` to `buildTestApp({ notifier })` and assert on `notifier.sent`. Only the notifier's own test talks to Mailpit.
 - **Do not log recipients.** A failed send throws `NotifierError` with a plain message; the provider's error, which can quote the address, is its `cause`.
-- Sends are direct for now. When the job queue exists (BE-06) they move onto it, so a slow mail server cannot slow a request and a failed send is retried.
+- Sends are direct for now. They move onto the job queue (see Audit, events and jobs) in a later change, so a slow mail server cannot slow a request and a failed send is retried.
+
+## Audit, events and jobs
+
+- **Audit PHI access.** A route that reads or changes patient, clinical or billing data declares `config: { audit: { entity: 'patient' } }`; the action comes from the method (`read`, `create`, `update`, `delete`) and the record id from `params.id`. For anything else call `request.audit(action, entity, entityId?)`. Entries are written in the request's transaction just before it commits, only for responses below 400, and if the insert fails the request fails. Rows hold ids and codes, never field values. The table is append-only (no UPDATE or DELETE, enforced by grants and a trigger), partitioned by month, and a daily job creates the coming months.
+- **Publish events with `await request.emit('patient.registered', id, { ...ids })`.** The event is written to `outbox` in the request's transaction, so a rolled-back request emits nothing. The name must be in `core/outbox/events.ts` (the list in the root CLAUDE.md). The payload holds ids and codes only.
+- **Subscribe with `app.events.subscribe(event, handler)`** in the feature plugin. Delivery is at least once, so handlers must be idempotent (`message.eventId` identifies the event). A poller (`OUTBOX_POLL_MS`) hands pending events to the queue; an event the queue refuses is retried up to `MAX_ATTEMPTS` times, then left in `outbox` with its `attempts` count.
+- **Jobs go through `app.jobs`** (`send`, `work`, `schedule`), never pg-boss directly, so Redis can replace it. `JOBS_ENABLED=false` runs an in-process queue and no poller: tests do this (`testConfig`), pass `jobQueue: new MemoryQueue()` to inspect it, call `app.events.dispatch()` and `queue.drain()` by hand.
+- **pg-boss installs its own `pgboss` schema** the first time the queue starts, so the database login the API uses needs CREATE on the database. It is not created by a migration.
+- **The dispatcher runs as `mediflow_worker`,** which reads every hospital's outbox rows. Migration 0007 grants that role to the migrating login only, so the API must connect as the same login (as in development and CI), or the role must be granted to the API login. Tenant requests never use it.
+- **Registration order matters:** `auditPlugin` is registered before `tenancyPlugin` because it writes in an `onSend` hook that must run before the tenancy hook commits.
 
 ## Contract
 

@@ -27,6 +27,7 @@
     "nodemailer": "^10.0.16",
     "otplib": "^13.5.0",
     "pg": "^8.23.1",
+    "pg-boss": "^12.37.1",
     "pino": "^10.4.0"
   },
   "devDependencies": {
