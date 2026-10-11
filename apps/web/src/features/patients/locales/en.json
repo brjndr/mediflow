@@ -24,5 +24,35 @@
     "male": "Male",
     "female": "Female",
     "other": "Other"
+  },
+  "register": "Register a patient",
+  "create": {
+    "heading": "Register a patient",
+    "description": "Enter the patient details. Existing records are checked for duplicates before saving."
+  },
+  "form": {
+    "firstName": "First name",
+    "lastName": "Last name",
+    "dob": "Date of birth",
+    "gender": "Gender",
+    "genderPlaceholder": "Select gender",
+    "phone": "Phone number",
+    "email": "Email (optional)",
+    "address": "Address (optional)",
+    "contactConsent": "The patient agrees to be contacted",
+    "contactConsentHint": "Recorded with the date and your name.",
+    "submit": "Register patient"
+  },
+  "duplicate": {
+    "heading": "This patient may already be registered",
+    "description": "Check these records. Register a new patient only if none of them is the same person.",
+    "details": "MRN {{mrn}} · Phone {{phone}} · Born {{dob}}",
+    "back": "Back to the form",
+    "registerAnyway": "Register anyway"
+  },
+  "created": {
+    "heading": "Patient registered",
+    "mrn": "Medical record number:",
+    "backToList": "Back to the patient list"
   }
 }

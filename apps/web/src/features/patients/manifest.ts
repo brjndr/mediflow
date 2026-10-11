@@ -12,7 +12,12 @@ export const patientsFeature: FeatureManifest = {
   featureFlag: 'patients',
   routes: [
     { path: 'patients', lazy: () => import('./routes/PatientList'), requires: ['patient:read'] },
+    {
+      path: 'patients/new',
+      lazy: () => import('./routes/PatientCreate'),
+      requires: ['patient:create'],
+    },
   ],
   nav: { icon: Users, order: 20, requires: ['patient:read'] },
-  permissions: ['patient:read'],
+  permissions: ['patient:read', 'patient:create'],
 };

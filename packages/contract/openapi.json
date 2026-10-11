@@ -391,6 +391,176 @@
             "type": "integer"
           }
         }
+      },
+      "PatientCreate": {
+        "type": "object",
+        "required": ["firstName", "lastName", "dob", "gender", "phone"],
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "dob": {
+            "type": "string",
+            "format": "date"
+          },
+          "gender": {
+            "type": "string",
+            "enum": ["male", "female", "other"]
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 20
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "contactConsent": {
+            "type": "object",
+            "description": "Only the decision is sent; the server adds when and by whom.",
+            "required": ["given"],
+            "properties": {
+              "given": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "PatientDuplicateQuery": {
+        "type": "object",
+        "required": ["firstName", "lastName", "dob", "phone"],
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "dob": {
+            "type": "string",
+            "format": "date"
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 20
+          }
+        }
+      },
+      "PatientDuplicateMatch": {
+        "type": "object",
+        "description": "A possible duplicate, masked by the server: enough to recognise the person, not to read their details. No id.",
+        "required": ["firstName", "lastName", "dob", "maskedMrn", "maskedPhone"],
+        "properties": {
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string",
+            "format": "date"
+          },
+          "maskedMrn": {
+            "type": "string"
+          },
+          "maskedPhone": {
+            "type": "string"
+          }
+        }
+      },
+      "PatientDuplicateMatches": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientDuplicateMatch"
+            }
+          }
+        }
+      },
+      "PatientRecord": {
+        "type": "object",
+        "description": "A registered patient with the details captured at registration.",
+        "required": ["id", "tenantId", "mrn", "firstName", "lastName", "dob", "gender", "phone"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "mrn": {
+            "type": "string",
+            "description": "Unique per tenant"
+          },
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "dob": {
+            "type": "string",
+            "format": "date"
+          },
+          "gender": {
+            "type": "string",
+            "enum": ["male", "female", "other"]
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 20
+          },
+          "email": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "contactConsent": {
+            "type": "object",
+            "required": ["given", "at", "recordedBy"],
+            "properties": {
+              "given": {
+                "type": "boolean"
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "recordedBy": {
+                "type": "string"
+              }
+            }
+          }
+        }
       }
     },
     "responses": {
@@ -1630,6 +1800,106 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PatientPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/patients": {
+      "post": {
+        "operationId": "createPatient",
+        "description": "Registers a patient in the active tenant and assigns the MRN. Requires patient:create and the patients feature flag. The Idempotency-Key header makes a retried or double-submitted request return the first result instead of creating a second patient. The server records contactConsent.at and recordedBy.",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new patient",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/patients/duplicate-check": {
+      "post": {
+        "operationId": "checkPatientDuplicates",
+        "description": "Finds existing patients that may be the same person as one about to be registered. Identifying details travel in the body, never in a query string. Requires patient:create and the patients feature flag. It reads data only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientDuplicateQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Possible matches, possibly none",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientDuplicateMatches"
                 }
               }
             }

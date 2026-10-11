@@ -344,6 +344,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Registers a patient in the active tenant and assigns the MRN. Requires patient:create and the patients feature flag. The Idempotency-Key header makes a retried or double-submitted request return the first result instead of creating a second patient. The server records contactConsent.at and recordedBy. */
+        post: operations["createPatient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/duplicate-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Finds existing patients that may be the same person as one about to be registered. Identifying details travel in the body, never in a query string. Requires patient:create and the patients feature flag. It reads data only. */
+        post: operations["checkPatientDuplicates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notices/{noticeId}/archive": {
         parameters: {
             query?: never;
@@ -505,6 +539,63 @@ export interface components {
             items: components["schemas"]["PatientSummary"][];
             nextCursor: string | null;
             total?: number;
+        };
+        PatientCreate: {
+            firstName: string;
+            lastName: string;
+            /** Format: date */
+            dob: string;
+            /** @enum {string} */
+            gender: "male" | "female" | "other";
+            phone: string;
+            /** Format: email */
+            email?: string;
+            address?: string;
+            /** @description Only the decision is sent; the server adds when and by whom. */
+            contactConsent?: {
+                given: boolean;
+            };
+        };
+        PatientDuplicateQuery: {
+            firstName: string;
+            lastName: string;
+            /** Format: date */
+            dob: string;
+            phone: string;
+        };
+        /** @description A possible duplicate, masked by the server: enough to recognise the person, not to read their details. No id. */
+        PatientDuplicateMatch: {
+            firstName: string;
+            lastName: string;
+            /** Format: date */
+            dob: string;
+            maskedMrn: string;
+            maskedPhone: string;
+        };
+        PatientDuplicateMatches: {
+            items: components["schemas"]["PatientDuplicateMatch"][];
+        };
+        /** @description A registered patient with the details captured at registration. */
+        PatientRecord: {
+            id: string;
+            tenantId: string;
+            /** @description Unique per tenant */
+            mrn: string;
+            firstName: string;
+            lastName: string;
+            /** Format: date */
+            dob: string;
+            /** @enum {string} */
+            gender: "male" | "female" | "other";
+            phone: string;
+            email?: string;
+            address?: string;
+            contactConsent?: {
+                given: boolean;
+                /** Format: date-time */
+                at: string;
+                recordedBy: string;
+            };
         };
     };
     responses: {
@@ -1491,6 +1582,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PatientPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createPatient: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientCreate"];
+            };
+        };
+        responses: {
+            /** @description The new patient */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientRecord"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    checkPatientDuplicates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientDuplicateQuery"];
+            };
+        };
+        responses: {
+            /** @description Possible matches, possibly none */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientDuplicateMatches"];
                 };
             };
             400: components["responses"]["Error"];
