@@ -128,7 +128,7 @@ export function RichTextEditor({
             aria-label={t(labelKey)}
             aria-pressed={active?.[id] ?? false}
             title={t(labelKey)}
-            className="inline-flex size-8 items-center justify-center rounded-sm outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50 aria-pressed:bg-accent"
+            className="inline-flex size-8 items-center justify-center rounded-sm outline-none pointer-coarse:size-11 hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50 aria-pressed:bg-accent"
             onClick={() => run(id)}
           >
             <Icon className="size-4" />

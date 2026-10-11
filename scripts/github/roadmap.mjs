@@ -76,6 +76,7 @@ export const dod = (area) =>
     : [
         'Follows CLAUDE.md conventions (feature module, tenant-scoped query keys, usePermission or Can, i18n keys, server-side pagination)',
         'Tests cover happy path, validation, permission absent, flag off, and two tenants where relevant',
+        'Works at phone and tablet width (CLAUDE.md, Responsive Design), unless the screen is on the desktop-only list',
         'pnpm lint, pnpm typecheck, and pnpm test pass',
         '/tenant-safety-check and /phi-check run on the diff where data or access is touched',
         'Docs or CLAUDE.md updated if a contract or convention changed',

@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { goTo } from './support';
 
 /** axe in a real browser, which (unlike the unit tests) can also check colour contrast. */
 async function expectNoAxeViolations(page: Page) {
@@ -18,10 +19,7 @@ test('shell, a feature page and the system pages pass axe', async ({ page }) => 
   await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
   await expectNoAxeViolations(page);
 
-  await page
-    .getByRole('navigation', { name: 'Main navigation' })
-    .getByRole('link', { name: 'Notices' })
-    .click();
+  await goTo(page, 'Notices');
   await expect(page.getByRole('heading', { name: 'Staff notices' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Hospital notice 1', exact: true })).toBeVisible();
   await expectNoAxeViolations(page);

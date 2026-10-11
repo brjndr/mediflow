@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { expectNoSidewaysScroll, gridIsStacked } from './support';
 
 /**
  * The shared building blocks in a real browser, on their example pages. These cover what the unit
@@ -45,7 +46,32 @@ test('heavy libraries are downloaded only on the pages that use them', async ({ 
   expect(loaded('editor')).toBe(true);
 });
 
+test('data grid on a narrow screen: cards, a sort to choose, paging', async ({ page }) => {
+  test.skip(!gridIsStacked(page), 'At this width the grid is a table: see the next test.');
+  await page.goto('/examples/grid');
+  const cards = page.getByRole('list', { name: 'Example people' });
+  const items = cards.locator('li:not([aria-hidden])');
+  await expect(items).toHaveCount(50);
+  await expect(page.getByRole('table', { name: 'Example people' })).toHaveCount(0);
+  await expectNoAxeViolations(page);
+  await expectNoSidewaysScroll(page);
+
+  // Sensitive columns are masked here too.
+  await expect(cards).not.toContainText('MRN-EX');
+
+  await page.getByRole('combobox', { name: 'Sort by' }).selectOption({ label: 'Name, ascending' });
+  await expect(items.first()).toContainText('Asha');
+
+  // Three pages make 150 rows: past the point where only the cards in view are rendered.
+  await page.getByRole('button', { name: 'Load more' }).click();
+  await expect(page.getByRole('status')).toContainText('100 rows loaded');
+  await page.getByRole('button', { name: 'Load more' }).click();
+  await expect(page.getByRole('status')).toContainText('150 rows loaded');
+  expect(await items.count()).toBeLessThan(80);
+});
+
 test('data grid: sorts on the server, pages, and virtualises a long list', async ({ page }) => {
+  test.skip(gridIsStacked(page), 'At this width the grid shows cards: see the test above.');
   await page.goto('/examples/grid');
   const table = page.getByRole('table', { name: 'Example people' });
   const dataRows = table.locator('tbody tr:not([aria-hidden])');
