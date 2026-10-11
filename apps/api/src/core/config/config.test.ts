@@ -32,6 +32,8 @@ describe('loadConfig', () => {
       INVITE_TTL_HOURS: 168,
       PASSWORD_RESET_TTL_MINUTES: 30,
       MFA_ENCRYPTION_KEY: 'q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=',
+      JOBS_ENABLED: true,
+      OUTBOX_POLL_MS: 1000,
     });
   });
 
