@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  announceSessionChange,
+  announceSignedIn,
   dropSessionData,
   sessionKey,
   sessionMutationKey,
+  setSessionEndReason,
   signIn,
   type Session,
 } from '@/app/session';
@@ -24,8 +25,9 @@ export function useSignIn() {
     mutationFn: signIn,
     onSuccess: (session) => {
       dropSessionData(queryClient, dispatch);
+      setSessionEndReason(queryClient, null);
       queryClient.setQueryData<Session | null>(sessionKey, session);
-      announceSessionChange();
+      announceSignedIn();
     },
   });
 }

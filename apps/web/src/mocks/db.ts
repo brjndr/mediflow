@@ -34,7 +34,7 @@ const initialTenants: Record<string, TenantDto> = {
       notices: true,
       ui_examples: true,
     },
-    auth: { mode: 'password' },
+    auth: { mode: 'password', idleTimeoutMinutes: 30 },
     status: 'active',
   },
   // A small OPD clinic: diagnostics and pharmacy are switched off.
@@ -57,7 +57,8 @@ const initialTenants: Record<string, TenantDto> = {
       reports: false,
       notices: false,
     },
-    auth: { mode: 'password' },
+    // A shared front-desk PC: the clinic asks for a shorter idle time.
+    auth: { mode: 'password', idleTimeoutMinutes: 15 },
     status: 'active',
   },
 };
@@ -339,6 +340,13 @@ export function revokePermission(tenantId: string, roleId: string, permission: s
     roleId,
     current.filter((grant) => grant.permission !== permission),
   );
+}
+
+/** Part of a hospital configuration: how long a session may sit unused. */
+export function setTenantIdleTimeout(tenantId: string, minutes: number): void {
+  const tenant = tenants[tenantId];
+  if (!tenant) throw new Error(`Unknown mock tenant: ${tenantId}`);
+  tenant.auth = { ...tenant.auth, idleTimeoutMinutes: minutes };
 }
 
 /** What a platform admin does: turn a module on or off for one hospital. */

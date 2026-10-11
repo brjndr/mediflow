@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useSessionEndReason } from '@/app/session';
 import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { signInErrorKey, useSignIn } from '../hooks/use-sign-in';
 import { loginSchema, type LoginValues } from '../schemas';
@@ -11,6 +12,9 @@ export function LoginPage() {
   const { t } = useTranslation();
   const form = useZodForm(loginSchema, { email: '', password: '' });
   const signIn = useSignIn();
+  // Why the last session here ended, when that is worth saying.
+  const ended = useSessionEndReason();
+  const endedKey = ended && ended !== 'signed_out' ? `login.ended.${ended}` : null;
 
   const onSubmit = async (values: LoginValues) => {
     try {
@@ -28,6 +32,11 @@ export function LoginPage() {
         <p className="text-sm font-semibold text-primary">{t('app.name')}</p>
         <h1 className="text-2xl font-semibold tracking-tight">{t('login.title')}</h1>
       </div>
+      {endedKey && !signIn.isError && (
+        <p role="status" className="rounded-md border bg-accent px-3 py-2 text-sm">
+          {t(endedKey)}
+        </p>
+      )}
       {signIn.isError && (
         <p
           role="alert"

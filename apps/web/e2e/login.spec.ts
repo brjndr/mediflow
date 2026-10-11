@@ -44,3 +44,19 @@ test('someone who works at two hospitals picks one after signing in', async ({ p
   await page.getByRole('button', { name: 'Riverside Clinic' }).click();
   await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
 });
+
+test('signing out in one tab signs out the other', async ({ context }) => {
+  const first = await context.newPage();
+  const second = await context.newPage();
+  await first.goto('/');
+  await second.goto('/notices');
+  await expect(second.getByRole('heading', { name: 'Staff notices' })).toBeVisible();
+
+  await first.getByRole('button', { name: 'Sign out' }).click();
+  await expect(first.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+
+  // The other tab follows at once, without being touched, and shows none of what it had loaded.
+  await expect(second.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  await expect(second.getByRole('status')).toHaveText('You signed out in another tab.');
+  await expect(second.getByText(/Hospital notice/)).toHaveCount(0);
+});

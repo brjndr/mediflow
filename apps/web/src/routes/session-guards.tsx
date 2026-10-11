@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { usePolicyRefresh } from '@/access';
-import { useSession } from '@/app/session';
+import { useSession, useSessionEndReason } from '@/app/session';
 import { HospitalPicker, SuspendedPage, useTenant, useTenantSync } from '@/tenancy';
 
 export const LOGIN_PATH = '/login';
@@ -18,12 +18,22 @@ function intendedPath(state: unknown): string {
   return from.startsWith(LOGIN_PATH) ? '/' : from;
 }
 
-/** Sends unauthenticated users to login, remembering where they were going (in memory only). */
+/**
+ * Sends unauthenticated users to login. A visitor who arrives signed out, or whose session the
+ * server ended while they were working, is taken back to the address they were at after signing
+ * in (kept in memory only). After a sign-out or an idle timeout the address is not kept: the
+ * screen was left on purpose or left unattended, and the next person to sign in may be someone
+ * else.
+ */
 export function RequireSession({ children }: { children: ReactNode }) {
   const session = useSession();
+  const ended = useSessionEndReason();
   const location = useLocation();
   if (session) return children;
-  const state: LoginRedirectState = { from: location.pathname + location.search };
+  const state: LoginRedirectState | undefined =
+    ended === null || ended === 'expired'
+      ? { from: location.pathname + location.search }
+      : undefined;
   return <Navigate to={LOGIN_PATH} replace state={state} />;
 }
 

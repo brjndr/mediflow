@@ -2,9 +2,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../store-hooks';
 import { signOut } from './api';
-import { announceSessionChange } from './session-channel';
-import { dropSessionData, sessionKey, sessionMutationKey } from './session-query';
-import type { Session } from './types';
+import { announceSignedOut } from './session-channel';
+import { endSessionLocally } from './session-end';
+import { sessionMutationKey } from './session-query';
 
 /**
  * Signs out. Once the server has ended the session, everything loaded under it is aborted and
@@ -23,9 +23,8 @@ export function useSignOut() {
     mutationKey: sessionMutationKey('sign-out'),
     mutationFn: signOut,
     onSuccess: () => {
-      dropSessionData(queryClient, dispatch);
-      queryClient.setQueryData<Session | null>(sessionKey, null);
-      announceSessionChange();
+      endSessionLocally(queryClient, dispatch, 'signed_out');
+      announceSignedOut();
       // Explicitly to login with no remembered address: the next person to sign in here must
       // not be taken to the screen the previous one was on.
       navigate('/login', { replace: true });

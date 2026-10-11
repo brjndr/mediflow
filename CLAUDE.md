@@ -582,7 +582,7 @@ export interface Tenant {
   currency: string; // ISO 4217
   theme: { primary: string; logoUrl?: string };
   features: Record<string, boolean>;
-  auth: { mode: 'password' | 'sso' };
+  auth: { mode: 'password' | 'sso'; idleTimeoutMinutes?: number }; // idle sign-out; app default when absent
   status: 'active' | 'suspended'; // suspended: data kept, staff see the suspended page
 }
 
@@ -777,6 +777,7 @@ Complete and test one module before starting the next. Ship each release to a pi
   - Web vitals carry the metric, its rating, the route pattern and the tenant id only.
 - Do not store PHI in `localStorage`/`sessionStorage`. Prefer in-memory state. Prefer httpOnly cookies for tokens if the backend supports it. Otherwise keep the access token in memory only.
 - Auto-logout on inactivity (configurable per tenant). Clear React Query cache on logout.
+- **How a session ends in the web app** (`app/session/`): the idle time comes from the tenant config (`auth.idleTimeoutMinutes`, 30 minutes when absent). A dialog asks during the last minute, and from then on only its buttons count as activity. Activity and sign-in or sign-out are shared between tabs over a `BroadcastChannel` that carries fixed words and no data. Every ending (sign-out, idle, another tab, a 401 from the server) goes through `endSessionLocally`, which drops all cached data and client state before the login page shows, and after a sign-out or an idle timeout the address of the open screen is not kept for whoever signs in next (after a 401 it is, since the user was at work).
 - Mask sensitive fields where full values are not needed (e.g. phone, MRN in lists).
 - Audit-relevant actions (view/edit patient record, billing changes) must be sent through the API so the backend can log them per tenant.
 - Never hardcode secrets. Use `.env` (git-ignored) with `VITE_` prefix only for non-secret config.

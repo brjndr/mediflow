@@ -51,7 +51,8 @@ export interface Tenant {
   currency: string; // ISO 4217
   theme: { primary: string; logoUrl?: string };
   features: Record<string, boolean>;
-  auth: { mode: 'password' | 'sso' };
+  /** idleTimeoutMinutes: a session unused for this long is signed out. Absent means the app default. */
+  auth: { mode: 'password' | 'sso'; idleTimeoutMinutes?: number };
   /** A suspended hospital keeps its data, but its staff cannot use the app. */
   status: 'active' | 'suspended';
 }

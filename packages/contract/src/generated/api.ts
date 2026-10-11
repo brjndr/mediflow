@@ -416,6 +416,8 @@ export interface components {
             auth: {
                 /** @enum {string} */
                 mode: "password" | "sso";
+                /** @description A session with no activity for this long ends. The web app warns shortly before and signs the user out. Absent means the app default. */
+                idleTimeoutMinutes?: number;
             };
             /**
              * @description A suspended hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended.

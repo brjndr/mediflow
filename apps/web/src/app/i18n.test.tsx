@@ -158,7 +158,7 @@ describe('missing keys', () => {
       import: 'default',
       eager: true,
     });
-    const has = (key: string) => {
+    const exists = (key: string) => {
       let node: unknown = en;
       for (const part of key.split('.')) {
         if (typeof node !== 'object' || node === null || !(part in node)) return false;
@@ -166,6 +166,8 @@ describe('missing keys', () => {
       }
       return typeof node === 'string';
     };
+    // A key used with a count has plural forms instead of one string.
+    const has = (key: string) => exists(key) || exists(`${key}_other`);
 
     const missing: string[] = [];
     let checked = 0;
