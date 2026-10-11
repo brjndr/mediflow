@@ -128,6 +128,23 @@ describe('Idempotency-Key', () => {
     expect(JSON.stringify(stored.rows)).not.toContain('patient detail');
   });
 
+  it('never compares requests of different users or hospitals that happen to share a key', async () => {
+    const key = KEY();
+    await create('/things', { key, body: { name: 'one' } });
+    const otherUser = await create('/things', { key, user: 'user_b', body: { name: 'two' } });
+    const otherHospital = await create('/things', {
+      key,
+      tenant: clinic,
+      body: { name: 'three' },
+    });
+
+    expect(otherUser.statusCode).toBe(201);
+    expect(otherHospital.statusCode).toBe(201);
+    expect(otherUser.headers['idempotent-replayed']).toBeUndefined();
+    expect(otherHospital.headers['idempotent-replayed']).toBeUndefined();
+    expect(runs).toBe(3);
+  });
+
   it('refuses the same key for a different request', async () => {
     const key = KEY();
     await create('/things', { key, body: { name: 'one' } });
@@ -317,11 +334,25 @@ describe('route declaration', () => {
             async () => ({}),
           ),
         );
+        attempt(() =>
+          instance.post(
+            '/audited-full',
+            {
+              config: {
+                permissions: [],
+                idempotent: { body: 'full' },
+                audit: { entity: 'patient' },
+              },
+            },
+            async () => ({}),
+          ),
+        );
       },
     });
     await other.close();
-    expect(failures).toHaveLength(2);
+    expect(failures).toHaveLength(3);
     expect(failures[0]).toMatch(/read-only method/);
     expect(failures[1]).toMatch(/not a tenant route/);
+    expect(failures[2]).toMatch(/handles patient data/);
   });
 });

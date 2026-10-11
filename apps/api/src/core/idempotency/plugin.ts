@@ -146,6 +146,14 @@ export const idempotencyPlugin = fp(
       if ((route.config.access ?? 'tenant') !== 'tenant') {
         throw new Error(`${route.url} sets config.idempotent but is not a tenant route`);
       }
+      // An audited route handles patient data. Keeping its whole response would make this table a
+      // second copy of that data, so only the status and the id may be kept.
+      const idempotent = route.config.idempotent;
+      if (route.config.audit && typeof idempotent === 'object' && idempotent.body === 'full') {
+        throw new Error(
+          `${route.url} stores its whole response (idempotent.body 'full') but is audited, so it handles patient data`,
+        );
+      }
     });
 
     app.addHook('preHandler', async (request, reply) => {
