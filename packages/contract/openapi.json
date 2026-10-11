@@ -561,6 +561,48 @@
             }
           }
         }
+      },
+      "AccountSession": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "createdAt", "lastSeenAt", "userAgent", "current"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userAgent": {
+            "type": ["string", "null"],
+            "description": "The browser as it described itself at sign-in, for the person to recognise the device."
+          },
+          "current": {
+            "type": "boolean",
+            "description": "True for the session making this call."
+          }
+        }
+      },
+      "AccountSessionList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountSession"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          }
+        }
       }
     },
     "responses": {
@@ -1679,6 +1721,116 @@
                 }
               }
             }
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/auth/password/change": {
+      "post": {
+        "operationId": "changePassword",
+        "description": "Changes the signed-in user's password. Asks for the current password. Every other session of the user is ended; the one making the call stays signed in.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["currentPassword", "newPassword"],
+                "properties": {
+                  "currentPassword": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The password was changed"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/auth/sessions": {
+      "get": {
+        "operationId": "listAccountSessions",
+        "description": "The signed-in user's own active sessions, newest first. A user has few, so there is one page.",
+        "responses": {
+          "200": {
+            "description": "The sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSessionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/auth/sessions/{sessionId}": {
+      "delete": {
+        "operationId": "revokeAccountSession",
+        "description": "Ends one of the signed-in user's other sessions: that browser is signed out on its next request. The session making the call cannot be ended here (use sign-out).",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The session was ended"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
           }
         },
         "x-planned": true

@@ -56,3 +56,20 @@ export const mfaPasswordSchema = z.object({
 });
 
 export type MfaPasswordValues = z.output<typeof mfaPasswordSchema>;
+
+/** Changing your own password: the current one (the server judges it), then the new one twice. */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'validation.required').max(1024, 'validation.too_big'),
+    password: z
+      .string()
+      .min(MIN_PASSWORD_LENGTH, 'account.passwordTooShort')
+      .max(1024, 'validation.too_big'),
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.password === v.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'account.passwordMismatch',
+  });
+
+export type ChangePasswordValues = z.output<typeof changePasswordSchema>;

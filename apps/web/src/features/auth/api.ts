@@ -46,3 +46,26 @@ export async function confirmMfa(code: string): Promise<string[]> {
 export async function fetchMfaRequirement(signal?: AbortSignal): Promise<boolean> {
   return requireData(await api.GET('/auth/mfa/requirement', { signal })).required;
 }
+
+export type AccountSession = components['schemas']['AccountSession'];
+
+/** Changes the signed-in user's own password. The server ends their other sessions. */
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  await api.POST('/auth/password/change', { body: input, fetch: apiFetchOnce });
+}
+
+/** The signed-in user's own active sessions, newest first. */
+export async function listAccountSessions(signal?: AbortSignal): Promise<AccountSession[]> {
+  return requireData(await api.GET('/auth/sessions', { signal })).items;
+}
+
+/** Ends one of the user's other sessions: that browser is signed out on its next request. */
+export async function revokeAccountSession(sessionId: string): Promise<void> {
+  await api.DELETE('/auth/sessions/{sessionId}', {
+    params: { path: { sessionId } },
+    fetch: apiFetchOnce,
+  });
+}
