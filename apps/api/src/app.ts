@@ -17,6 +17,9 @@ import { openApiPlugin } from './core/openapi/plugin.js';
 import type { Notifier } from './core/notifier/notifier.js';
 import { notifierPlugin } from './core/notifier/plugin.js';
 import { outboxPlugin } from './core/outbox/plugin.js';
+import { idempotencyPlugin, idempotencyStorePlugin } from './core/idempotency/plugin.js';
+import type { RateLimiter } from './core/ratelimit/limiter.js';
+import { rateLimitPlugin } from './core/ratelimit/plugin.js';
 import { sessionPlugin, type SessionResolver } from './core/session/plugin.js';
 import { tenancyPlugin } from './core/tenancy/plugin.js';
 import { tenantRoutes } from './core/tenancy/routes.js';
@@ -39,6 +42,8 @@ export interface AppOptions {
   notifier?: Notifier;
   /** The job queue. Defaults to pg-boss, or an in-process queue when `JOBS_ENABLED` is off. */
   jobQueue?: JobQueue;
+  /** Request counters for the per-hospital and per-user limits. Defaults to in-process. */
+  rateLimiter?: RateLimiter;
 }
 
 /**
@@ -70,11 +75,16 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(notifierPlugin, { notifier: options.notifier });
   await app.register(authPlugin);
   await app.register(sessionPlugin, { resolveSession: options.resolveSession });
+  // Right after the session and before any database work, so a refused request costs nothing.
+  await app.register(rateLimitPlugin, { limiter: options.rateLimiter });
   // Audit before tenancy: its onSend writes the audit rows before tenancy commits (core/audit).
   await app.register(auditPlugin);
+  // Same reason: it saves the idempotent result in onSend, before tenancy commits.
+  await app.register(idempotencyStorePlugin);
   await app.register(tenancyPlugin);
   await app.register(outboxPlugin);
   await app.register(accessPlugin);
+  await app.register(idempotencyPlugin);
   await app.register(tenantRoutes);
   await app.register(authRoutes);
   await app.register(accountRoutes);
