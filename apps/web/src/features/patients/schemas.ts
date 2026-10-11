@@ -34,6 +34,7 @@ export const patientRecordSchema: z.ZodType<PatientRecord> = z.object({
   contactConsent: z
     .object({ given: z.boolean(), at: z.iso.datetime(), recordedBy: z.string() })
     .optional(),
+  version: z.number().int().min(1),
 });
 
 export const duplicateMatchSchema: z.ZodType<PatientDuplicateMatch> = z.object({
@@ -69,8 +70,12 @@ export function todayIn(timeZone: string): string {
     return new Date().toISOString().slice(0, 10);
   }
 }
-/** The registration form. Messages are translation keys; rules without one get their kind's. */
-export const createPatientFormSchema = (today: string) =>
+/**
+ * The registration and edit form. Messages are translation keys; rules without one get their
+ * kind's. With `contact: false` (a role that may not see contact details) the phone, email and
+ * address are not on the form, so they have no rules: they stay empty and are never sent.
+ */
+export const createPatientFormSchema = (today: string, { contact = true } = {}) =>
   z.object({
     firstName: z.string().trim().min(1, 'validation.required').max(100),
     lastName: z.string().trim().min(1, 'validation.required').max(100),
@@ -78,12 +83,16 @@ export const createPatientFormSchema = (today: string) =>
       .date('validation.invalid_format')
       .refine((value) => value <= today, 'validation.invalid_format'),
     gender: z.enum(GENDERS, 'validation.required'),
-    phone: z
-      .string()
-      .trim()
-      .regex(/^[+0-9() -]{5,20}$/, 'validation.invalid_format'),
-    email: z.union([z.literal(''), z.email('validation.invalid_format').max(254)]),
-    address: z.string().trim().max(500),
+    phone: contact
+      ? z
+          .string()
+          .trim()
+          .regex(/^[+0-9() -]{5,20}$/, 'validation.invalid_format')
+      : z.string(),
+    email: contact
+      ? z.union([z.literal(''), z.email('validation.invalid_format').max(254)])
+      : z.string(),
+    address: contact ? z.string().trim().max(500) : z.string(),
     contactConsent: z.boolean(),
   });
 

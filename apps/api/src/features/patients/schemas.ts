@@ -54,6 +54,11 @@ export const PatientRecord = Type.Object(
     email: Type.Optional(Type.String()),
     address: Type.Optional(Type.String()),
     contactConsent: Type.Optional(ContactConsent),
+    version: Type.Integer({
+      minimum: 1,
+      description:
+        'Goes up by one each time the record changes. Send it back as expectedVersion when changing the record.',
+    }),
   },
   {
     $id: 'PatientRecord',
@@ -82,6 +87,11 @@ export type PatientCreate = Static<typeof PatientCreate>;
 
 export const PatientUpdate = Type.Object(
   {
+    expectedVersion: Type.Integer({
+      minimum: 1,
+      description:
+        'The version of the record the change was made from. If the record has changed since, the request is refused with 409 conflict and nothing is changed.',
+    }),
     firstName: Type.Optional(Name),
     lastName: Type.Optional(Name),
     dob: Type.Optional(IsoDate),
@@ -94,8 +104,9 @@ export const PatientUpdate = Type.Object(
   {
     $id: 'PatientUpdate',
     additionalProperties: false,
-    minProperties: 1,
-    description: 'The fields to change. Null clears an optional field. The MRN never changes.',
+    minProperties: 2,
+    description:
+      'The version the change is based on, and the fields to change. Null clears an optional field. The MRN never changes.',
   },
 );
 export type PatientUpdate = Static<typeof PatientUpdate>;

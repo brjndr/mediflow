@@ -29,6 +29,13 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Asha Verma1' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Details' })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // Editing it: one column of fields on a phone.
+  await page.getByRole('link', { name: 'Edit', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Edit Asha Verma1' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'Cancel and go back to the record' }).click();
+  await expect(page.getByRole('heading', { name: 'Asha Verma1', exact: true })).toBeVisible();
+
   await page.getByRole('link', { name: 'Back to the patient list' }).click();
 
   await page.getByRole('link', { name: 'Register a patient' }).click();

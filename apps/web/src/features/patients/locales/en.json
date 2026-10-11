@@ -73,5 +73,25 @@
     "restricted": "Your role does not include contact details",
     "ageMonths_one": "{{count}} month",
     "ageMonths_other": "{{count}} months"
+  },
+  "edit": {
+    "action": "Edit",
+    "heading": "Edit {{name}}",
+    "description": "MRN {{mrn}}. The MRN cannot be changed.",
+    "submit": "Save changes",
+    "cancel": "Cancel and go back to the record",
+    "contactRestricted": "Your role does not include contact details, so the phone number, email and address are not shown here and stay as they are.",
+    "notSaved": "Your changes were not saved. {{reason}}",
+    "conflict": "Someone else changed this record while you were editing it, so your changes were not saved. Their changes are shown here together with yours. Check the details, then save again.",
+    "nowSaved": "Now saved as: {{value}}",
+    "nowCleared": "Now saved as empty",
+    "nowAgreed": "Now saved as: agreed",
+    "nowDeclined": "Now saved as: declined",
+    "bannerNotSaved": "Your changes to this record were not saved. {{reason}}",
+    "bannerConflict": "Someone else changed this record while you were editing it, so your changes were not saved.",
+    "review": "Review your changes",
+    "discard": "Discard them",
+    "saving": "Saving your changes…",
+    "conflictContested": "Someone else changed this record while you were editing it, so your changes were not saved. Where you both changed the same field, your version is shown and theirs is noted under it. Check those fields, then save again."
   }
 }

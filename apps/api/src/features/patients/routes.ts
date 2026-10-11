@@ -52,6 +52,7 @@ const summary = (row: PatientRow, contact: boolean) => ({
 
 const record = (row: PatientRow, contact: boolean) => ({
   ...summary(row, contact),
+  version: row.version,
   ...(contact && row.email !== null ? { email: row.email } : {}),
   ...(contact && row.address !== null ? { address: row.address } : {}),
   ...(row.contact_consent_given !== null &&
@@ -288,7 +289,7 @@ export const patientRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'updatePatient',
         tags: ['patients'],
         description:
-          'Changes registration details of a patient. Only the fields sent are changed; null clears email or address. The MRN and the hospital never change. Sending a contactConsent that differs from the one on record records the new decision with the time and the caller. Values the record already has change nothing.',
+          'Changes registration details of a patient. expectedVersion is the version the caller read: if the record has changed since, the answer is 409 conflict and nothing is changed. Only the fields sent are changed; null clears email or address. The MRN and the hospital never change. Sending a contactConsent that differs from the one on record records the new decision with the time and the caller. Values the record already has change nothing.',
         params: IdParams,
         body: ref(PatientUpdate),
         response: { 200: ref(PatientRecord), ...errors(400, 401, 403, 404, 409, 429) },
@@ -296,7 +297,8 @@ export const patientRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request) => {
       const userId = userIdOf(request);
-      const changes = clean(request.body as PatientUpdate, await todayAtHospital(request.txClient));
+      const { expectedVersion, ...sent } = request.body as PatientUpdate;
+      const changes = clean(sent, await todayAtHospital(request.txClient));
       if (Object.keys(changes).length === 0) throw invalid('Nothing to change');
       const contact = await seesContact(request);
       // Someone who cannot see contact details cannot overwrite them either.
@@ -310,6 +312,11 @@ export const patientRoutes: FastifyPluginAsyncTypebox = async (app) => {
         { forUpdate: true },
       );
       if (!existing) throw notFound();
+      // The row is locked, so this comparison and the update below see the same record. Someone
+      // else changed it since the caller read it: refuse, and let them look at it again.
+      if (existing.version !== expectedVersion) {
+        throw new HttpError(409, 'conflict', 'The record has changed since it was read');
+      }
       const updated = await updatePatient(request.txClient, existing, changes, userId);
       // Field names only: what changed is in the record, never in the event. Nothing is
       // announced when nothing really changed.

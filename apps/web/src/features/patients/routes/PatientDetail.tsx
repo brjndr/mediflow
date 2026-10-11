@@ -10,6 +10,7 @@ import { maskPhone } from '@/shared/utils/mask';
 import { useFormatters, useTenant } from '@/tenancy';
 import { DetailTab, DetailTabs } from '../components/DetailTabs';
 import { usePatient } from '../hooks/use-patient';
+import { usePatientDraft } from '../hooks/use-update-patient';
 import { todayIn } from '../schemas';
 import type { PatientRecord } from '../types';
 
@@ -80,6 +81,7 @@ export default function PatientDetail() {
   const tenant = useTenant();
   const format = useFormatters();
   const patient = usePatient(id);
+  const { draft, discard } = usePatientDraft(id);
 
   if (patient.isPending) return <PageSkeleton label={t('detail.loading')} />;
 
@@ -166,6 +168,31 @@ export default function PatientDetail() {
           <Slot id="patient.detail.actions" context={context} />
         </div>
       </header>
+
+      {/* An edit that was sent from the edit screen and refused. The typing is kept there. */}
+      {draft?.failure && (
+        <div
+          role="alert"
+          className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm"
+        >
+          <p className="text-destructive">
+            {draft.failure.conflict
+              ? t('edit.bannerConflict')
+              : t('edit.bannerNotSaved', { reason: tCommon(draft.failure.messageKey) })}
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to={`/patients/${record.id}/edit`}
+              className="inline-flex items-center rounded-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
+            >
+              {t('edit.review')}
+            </Link>
+            <Button variant="ghost" size="sm" onClick={discard}>
+              {t('edit.discard')}
+            </Button>
+          </div>
+        </div>
+      )}
 
       <DetailTabs label={t('detail.tabsLabel')}>
         <DetailTab id="details" title={t('detail.detailsTab')}>

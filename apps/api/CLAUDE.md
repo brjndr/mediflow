@@ -154,6 +154,7 @@ A feature folder has only the files it needs: `features/health` has `index.ts` a
 - **`POST /patients` requires an Idempotency-Key** and keeps only the id for a replay, so a replay answers `{ id }` and the client reads the record (which needs `patient:read`).
 - **A birth date is checked against today at the hospital,** in its timezone, not the server's.
 - **A change that sends what the record already has writes nothing and emits nothing.**
+- **Every record has a `version`,** counted by a database trigger on each update. `PATCH /patients/{id}` requires `expectedVersion`, the version the caller read, and answers 409 `conflict` without changing anything when the record has moved on. The row is locked while the two are compared, so of two changes made from the same version exactly one goes through. Use the same pattern for any record two people can edit at once.
 - **Audit:** record reads and updates through `config.audit`; create, search and duplicate check through `request.audit`. Events carry the patient id, and `patient.updated` the names of the changed fields, never values.
 - **Unknown body fields are dropped by validation, not refused,** so a client cannot set `mrn`, `tenantId` or `id`.
 
