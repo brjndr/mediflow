@@ -77,3 +77,39 @@ Do not write code yet. Produce a design for the whole milestone:
 5. Risks, open questions, and anything in CLAUDE.md that should change.
 Wait for my approval, then implement the issues one at a time using prompt 3.
 ```
+
+## 8. Run three issues in parallel with an agent team
+
+Use this to move faster when several issues are unblocked. Each lane is one teammate in its own git worktree and branch. Pick lanes that own different folders, and run only one API lane at a time, because every API lane adds the next migration number. Replace the issue numbers, branches and folders with the current ones. The dev machine handles three lanes at most.
+
+```
+Create an agent team to work three issues in parallel, one per teammate, each in
+its own git worktree and branch off origin/main. Keep token use low.
+
+Lanes (teammates on Sonnet):
+1. web-auth: #40, worktree ../mediflow-40, branch feat/40-invite-reset-pages.
+   Owns apps/web/src/features/auth/.
+2. api-core: #46, worktree ../mediflow-46, branch feat/46-audit-outbox.
+   Owns apps/api/src/core/ and migrations. Only this lane adds migrations.
+3. web-patients: #49, worktree ../mediflow-49, branch feat/49-patient-list.
+   Owns apps/web/src/features/patients/. Builds against the MSW mock.
+
+Each teammate: run `pnpm install` in its worktree, read its issue with
+`gh issue view`, send the lead a plan of 10 lines or fewer, and wait. Lead sends
+me the three plans together and waits for my approval before any code.
+
+Rules:
+- Stay in your own worktree and folders. Shared files (registry/features.ts,
+  packages/contract/planned.openapi.json, apps/web/src/mocks/db.ts): make the
+  smallest additive edit and tell the lead.
+- One test command at a time across the whole team; ask the lead for the turn.
+  Targeted runs only, output through `tail -20`. API tests: api-core lane only.
+- Message only the lead, only when blocked or done, 5 lines or fewer.
+- pnpm only, no new dependencies, no scope beyond the lane's issue.
+
+Finishing a lane: follow /finish-issue in that worktree, open one PR ending
+"Closes #<n>". Lead runs the security-reviewer subagent once per PR, merges when
+CI is green, and has the other lanes rebase on main. Then the lane takes its
+next issue (#39, #47, #50) with a new plan for my approval. Stop all lanes after
+those three follow-ups are merged and report in 15 lines or fewer.
+```
