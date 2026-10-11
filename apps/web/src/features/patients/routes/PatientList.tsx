@@ -1,6 +1,8 @@
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import { Can } from '@/access';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn, type GridSort } from '@/shared/ui/data-grid';
 import { maskMrn, maskPhone } from '@/shared/utils/mask';
@@ -67,6 +69,11 @@ export default function PatientList() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
         <p className="text-muted-foreground">{t('description')}</p>
+        <Can permission="patient:create">
+          <Link to="/patients/new" className="inline-block pt-2 text-sm font-medium underline">
+            {t('register')}
+          </Link>
+        </Can>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
