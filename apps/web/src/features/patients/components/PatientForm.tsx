@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+import type { DefaultValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import {
   CheckboxField,
@@ -8,7 +10,8 @@ import {
   TextField,
   useZodForm,
 } from '@/shared/ui/form';
-import { patientFormSchema, type PatientFormValues } from '../schemas';
+import { useTenant } from '@/tenancy';
+import { createPatientFormSchema, todayIn, type PatientFormValues } from '../schemas';
 
 interface PatientFormProps {
   /** Receives validated values. The screen decides what happens next. */
@@ -18,11 +21,10 @@ interface PatientFormProps {
   initialValues?: PatientFormValues;
 }
 
-const EMPTY = {
+const EMPTY: DefaultValues<PatientFormValues> = {
   firstName: '',
   lastName: '',
   dob: '',
-  gender: '' as unknown as PatientFormValues['gender'],
   phone: '',
   email: '',
   address: '',
@@ -31,7 +33,10 @@ const EMPTY = {
 
 export function PatientForm({ onSubmit, pending, initialValues }: PatientFormProps) {
   const { t } = useTranslation('patients');
-  const form = useZodForm(patientFormSchema, initialValues ?? EMPTY);
+  const timezone = useTenant()?.timezone ?? 'UTC';
+  // A date of birth cannot be after today at the hospital, whatever the browser clock says.
+  const schema = useMemo(() => createPatientFormSchema(todayIn(timezone)), [timezone]);
+  const form = useZodForm(schema, initialValues ?? EMPTY);
 
   return (
     <Form form={form} onSubmit={onSubmit} className="max-w-xl">

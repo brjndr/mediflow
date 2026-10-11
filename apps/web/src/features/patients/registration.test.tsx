@@ -1,10 +1,11 @@
-import { cleanup, screen } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http } from 'msw';
 import { setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
 import { renderApp } from '@/test/render';
+import { patientKeys } from './hooks/use-patients';
 
 const NO_ACCESS = { name: 'You do not have access to this page' };
 const HEADING = { name: 'Register a patient' };
@@ -12,7 +13,7 @@ const registerLink = () => screen.queryByRole('link', { name: 'Register a patien
 
 interface Seen {
   creates: { key: string | null; body: Record<string, unknown>; search: string }[];
-  checks: { search: string }[];
+  checks: { search: string; body: Record<string, unknown> }[];
 }
 
 /** Records registration requests, then lets the mock backend answer. */
@@ -27,8 +28,11 @@ function watchRegistration(): Seen {
       });
       return undefined;
     }),
-    http.post('*/api/patients/duplicate-check', ({ request }) => {
-      seen.checks.push({ search: new URL(request.url).search });
+    http.post('*/api/patients/duplicate-check', async ({ request }) => {
+      seen.checks.push({
+        search: new URL(request.url).search,
+        body: (await request.clone().json()) as Record<string, unknown>,
+      });
       return undefined;
     }),
   );
@@ -77,7 +81,9 @@ describe('patient registration', () => {
     expect(seen.creates[0]?.body.contactConsent).toEqual({ given: true });
     // Patient details travel in bodies, never in a query string.
     expect(seen.creates[0]?.search).toBe('');
-    expect(seen.checks.every((check) => check.search === '')).toBe(true);
+    expect(seen.checks).toHaveLength(1);
+    expect(seen.checks[0]?.search).toBe('');
+    expect(seen.checks[0]?.body).toMatchObject({ lastName: 'Kapoor', dob: '1990-05-17' });
   });
 
   it('shows validation errors and sends nothing', async () => {
@@ -149,6 +155,43 @@ describe('patient registration', () => {
     expect(seen.creates[0]?.key).toMatch(/\S{8,}/);
   });
 
+  it('does not register when the duplicate check fails', async () => {
+    const seen = watchRegistration();
+    server.use(
+      http.post('*/api/patients/duplicate-check', () =>
+        Response.json({ error: { code: 'internal', message: 'boom' } }, { status: 500 }),
+      ),
+    );
+    renderApp({ entry: '/patients/new' });
+    await screen.findByRole('heading', HEADING);
+
+    await fill();
+    await submit();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong on our side');
+    expect(seen.creates).toHaveLength(0);
+  });
+
+  it('uses a new idempotency key when the details are edited', async () => {
+    server.use(
+      http.post('*/api/patients', () =>
+        Response.json({ error: { code: 'internal', message: 'x' } }, { status: 500 }),
+      ),
+    );
+    // Registered after the failing handler, so it sees each request first.
+    const seen = watchRegistration();
+    renderApp({ entry: '/patients/new' });
+    await screen.findByRole('heading', HEADING);
+    await fill();
+    await submit();
+    await screen.findByRole('alert');
+
+    await userEvent.type(screen.getByLabelText(/Last name/), 'x');
+    await submit();
+    await waitFor(() => expect(seen.creates).toHaveLength(2));
+    expect(seen.creates[0]?.key).not.toBe(seen.creates[1]?.key);
+  });
+
   it('shows a friendly error, never the server message', async () => {
     server.use(
       http.post('*/api/patients', () =>
@@ -216,12 +259,22 @@ describe('feature flag off', () => {
 describe('two hospitals', () => {
   it('registers in the active hospital only', async () => {
     signIn(USER_IDS.receptionist, TENANT_IDS.clinic);
-    renderApp({ entry: '/patients/new' });
+    const { queryClient } = renderApp({ entry: '/patients/new' });
     await screen.findByRole('heading', HEADING);
+    // A list cached for the other hospital, and one for this hospital.
+    const hospitalKey = patientKeys.list(TENANT_IDS.hospital, { q: '' });
+    const clinicKey = patientKeys.list(TENANT_IDS.clinic, { q: '' });
+    queryClient.setQueryData(hospitalKey, 'hospital list');
+    queryClient.setQueryData(clinicKey, 'clinic list');
     await fill();
     await submit();
     // The clinic had 40 patients, so this is its 41st, with the clinic's own MRN series.
     expect(await screen.findByText('MRN-PTC-00041')).toBeInTheDocument();
+
+    // Registering refreshes this hospital's lists and leaves the other hospital's alone.
+    expect(queryClient.getQueryState(clinicKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(hospitalKey)?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryData(hospitalKey)).toBe('hospital list');
 
     const page = await api.POST('/patients/search', { body: { q: 'Kapoor', limit: 25 } });
     expect(page.data?.total).toBe(1);

@@ -46,9 +46,12 @@ function seed(): PatientSummary[] {
 let patients = seed();
 /** Registrations already made, by tenant and idempotency key: a retry returns the first result. */
 let registrations = new Map<string, PatientRecord>();
+/** The last number given out per tenant, so ids and MRNs are never reused. */
+let counters = new Map<string, number>();
 onMockReset(() => {
   patients = seed();
   registrations = new Map();
+  counters = new Map();
 });
 
 const fullName = (patient: PatientSummary) => `${patient.firstName} ${patient.lastName}`;
@@ -161,7 +164,10 @@ export const patientsHandlers = [
     }
     // The server assigns the MRN, unique per tenant, and records who gave consent and when.
     const prefix = access.tenantId === TENANT_IDS.hospital ? 'pth' : 'ptc';
-    const next = patients.filter((patient) => patient.tenantId === access.tenantId).length + 1;
+    const next =
+      (counters.get(access.tenantId) ??
+        patients.filter((patient) => patient.tenantId === access.tenantId).length) + 1;
+    counters.set(access.tenantId, next);
     const consent = body.contactConsent as { given?: unknown } | undefined;
     const record: PatientRecord = {
       id: `${prefix}_${String(next).padStart(5, '0')}`,
@@ -180,7 +186,9 @@ export const patientsHandlers = [
         recordedBy: 'user_mock',
       },
     };
-    patients.push({ ...record });
+    // The list holds summaries only: no email, address or consent.
+    const { email: _email, address: _address, contactConsent: _consent, ...summary } = record;
+    patients.push(summary);
     registrations.set(`${access.tenantId}:${key}`, record);
     return HttpResponse.json<PatientRecord>(record, { status: 201 });
   }),

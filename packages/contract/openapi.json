@@ -1773,7 +1773,7 @@
         "description": "Registers a patient in the active tenant and assigns the MRN. Requires patient:create and the patients feature flag. The Idempotency-Key header makes a retried or double-submitted request return the first result instead of creating a second patient. The server records contactConsent.at and recordedBy.",
         "parameters": [
           {
-            "name": "Idempotency-Key",
+            "name": "idempotency-key",
             "in": "header",
             "required": true,
             "schema": {

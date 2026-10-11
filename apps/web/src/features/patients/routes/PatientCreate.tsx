@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { errorMessageKey } from '@/shared/api';
@@ -29,16 +29,31 @@ export default function PatientCreate() {
   const { t: tCommon } = useTranslation();
   const check = useCheckDuplicates();
   const create = useCreatePatient();
-  // One key per registration attempt: a double click or a retry cannot create two patients.
-  const idempotencyKey = useRef(crypto.randomUUID());
+  // A key identifies one request body: an identical resubmit (double click, retry) reuses it and
+  // cannot create two patients, while an edited form gets a new key.
+  const attempt = useRef<{ body: string; key: string }>(undefined);
   // Kept in memory only, never in the address or browser storage.
   const [values, setValues] = useState<PatientFormValues>();
   const [matches, setMatches] = useState<PatientSummary[]>();
+  const heading = useRef<HTMLHeadingElement>(null);
 
-  const register = (submitted: PatientFormValues) =>
-    create.mutateAsync({ body: toRequest(submitted), idempotencyKey: idempotencyKey.current });
+  // After registering, move focus to the confirmation so a screen reader announces it.
+  useEffect(() => {
+    if (create.isSuccess) heading.current?.focus();
+  }, [create.isSuccess]);
+
+  const register = (submitted: PatientFormValues) => {
+    const body = toRequest(submitted);
+    const serialized = JSON.stringify(body);
+    if (attempt.current?.body !== serialized) {
+      attempt.current = { body: serialized, key: crypto.randomUUID() };
+    }
+    return create.mutateAsync({ body, idempotencyKey: attempt.current.key });
+  };
 
   const submit = async (submitted: PatientFormValues) => {
+    check.reset();
+    create.reset();
     setValues(submitted);
     try {
       const found = await check.mutateAsync({
@@ -52,18 +67,28 @@ export default function PatientCreate() {
         return;
       }
       await register(submitted);
+      setValues(undefined);
     } catch {
-      // The error is shown from the mutation state below.
+      // The error is shown from the mutation state below. A failed check stops registration.
     }
   };
 
   const registerAnyway = async () => {
     if (!values) return;
+    create.reset();
     try {
       await register(values);
+      setValues(undefined);
+      setMatches(undefined);
     } catch {
       // Shown from the mutation state.
     }
+  };
+
+  const goBack = () => {
+    check.reset();
+    create.reset();
+    setMatches(undefined);
   };
 
   const error = check.error ?? create.error;
@@ -71,7 +96,9 @@ export default function PatientCreate() {
   if (create.isSuccess) {
     return (
       <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-6">
-        <h1 className="text-2xl font-semibold tracking-tight">{t('created.heading')}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold tracking-tight">
+          {t('created.heading')}
+        </h1>
         <p role="status">
           {t('created.mrn')} <strong>{create.data.mrn}</strong>
         </p>
@@ -89,19 +116,26 @@ export default function PatientCreate() {
         <p className="text-muted-foreground">{t('create.description')}</p>
       </div>
 
-      {error && (
+      {error && !matches && (
         <p role="alert" className="text-sm text-destructive">
           {tCommon(errorMessageKey(error))}
         </p>
       )}
 
       {matches ? (
-        <DuplicateWarning
-          matches={matches}
-          pending={create.isPending}
-          onRegisterAnyway={() => void registerAnyway()}
-          onBack={() => setMatches(undefined)}
-        />
+        <>
+          {create.error && (
+            <p role="alert" className="text-sm text-destructive">
+              {tCommon(errorMessageKey(create.error))}
+            </p>
+          )}
+          <DuplicateWarning
+            matches={matches}
+            pending={create.isPending}
+            onRegisterAnyway={() => void registerAnyway()}
+            onBack={goBack}
+          />
+        </>
       ) : (
         <PatientForm
           onSubmit={submit}

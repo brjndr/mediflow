@@ -47,7 +47,7 @@ export async function createPatient(
 ): Promise<PatientRecord> {
   const result = await api.POST('/patients', {
     body,
-    params: { header: { 'Idempotency-Key': idempotencyKey } },
+    params: { header: { 'idempotency-key': idempotencyKey } },
   });
   return patientRecordSchema.parse(requireData(result));
 }

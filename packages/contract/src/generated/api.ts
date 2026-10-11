@@ -1565,7 +1565,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                "Idempotency-Key": string;
+                "idempotency-key": string;
             };
             path?: never;
             cookie?: never;
