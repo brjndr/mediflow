@@ -7,11 +7,13 @@ Backend-only rules. The root `CLAUDE.md` holds the architecture, the product sco
 ```bash
 docker compose up -d              # Postgres and Mailpit (from the repo root)
 pnpm --filter api db:migrate      # apply pending migrations, then default role permissions
-pnpm --filter api db:seed         # two sample hospitals and four sample staff (never in production)
+pnpm --filter api db:seed         # sample hospitals, staff and patients (this machine only)
 pnpm --filter api dev             # Fastify with tsx watch on http://localhost:3000
 pnpm --filter api test            # Vitest against the mediflow_test database
 docker build -f apps/api/Dockerfile -t mediflow-api .   # from the repo root
 ```
+
+The seed creates staff who share a known password, so it refuses to run in production and against any database that is not on this machine (`localhost`, `127.0.0.1` or the Compose service `postgres`). For a throwaway database elsewhere, name its host: `pnpm --filter api db:seed --allow-host=<hostname>`.
 
 Development and tests need no configuration: they default to the Docker Compose database. Production must set `DATABASE_URL`, `SMTP_URL`, `MAIL_FROM`, `APP_BASE_URL` and `MFA_ENCRYPTION_KEY` (`openssl rand -base64 32`), and the process refuses to start without them.
 

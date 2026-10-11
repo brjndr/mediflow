@@ -9,6 +9,7 @@ import { buildApp } from '../src/app.js';
 import { syncRoleDefaults } from '../src/core/access/sync.js';
 import { hashPassword } from '../src/core/auth/password.js';
 import { loadConfig } from '../src/core/config/config.js';
+import { seedDecision } from '../src/core/db/seed-guard.js';
 
 /** The one password of every sample account. Printed below; it protects nothing. */
 const DEV_PASSWORD = 'sample-staff-local-only';
@@ -125,8 +126,13 @@ const STAFF = [
 ] as const;
 
 const config = loadConfig();
-if (config.NODE_ENV === 'production') {
-  process.stderr.write('Refusing to seed sample accounts in production.\n');
+// Sample staff share a known password: only ever on this machine, or a host named on purpose.
+const allowHost = process.argv
+  .find((argument) => argument.startsWith('--allow-host='))
+  ?.slice('--allow-host='.length);
+const decision = seedDecision(config.DATABASE_URL, config.NODE_ENV, allowHost);
+if (!decision.allowed) {
+  process.stderr.write(`${decision.reason ?? 'Refusing to seed.'}\n`);
   process.exit(1);
 }
 
