@@ -31,7 +31,6 @@
       "Bash(npx *)",
       "Bash(yarn *)",
       "Bash(bun *)",
-      "Bash(rm -rf *)",
       "Bash(git push --force*)",
       "Bash(git reset --hard*)",
       "Bash(docker compose down -v*)",
