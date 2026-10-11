@@ -14,6 +14,7 @@ import {
 import { server } from '@/mocks/node';
 import { createTestQueryClient, renderApp } from '@/test/render';
 import { SESSION_CHANNEL_NAME, type SessionMessage } from './session-channel';
+import { sessionKey } from './session-query';
 
 /**
  * How a session ends: nobody at the screen, the server, or another tab. Idle times here are a
@@ -345,5 +346,16 @@ describe('a session the server has ended', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     await screen.findByRole('heading', SIGN_IN);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+describe('signing out from a public page', () => {
+  it('ends the session without leaving the page, so an emailed link keeps its address', async () => {
+    const { router, queryClient } = renderApp({ entry: '/forgot-password' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign out and continue' }));
+
+    await screen.findByRole('heading', { name: 'Forgot your password?' });
+    expect(router.state.location.pathname).toBe('/forgot-password');
+    expect(queryClient.getQueryData(sessionKey)).toBeNull();
   });
 });

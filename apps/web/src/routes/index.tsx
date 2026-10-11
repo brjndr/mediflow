@@ -17,6 +17,30 @@ import {
 
 const HomePage = lazy(() => import('@/app/HomePage').then((m) => ({ default: m.HomePage })));
 const LoginPage = lazy(() => import('@/features/auth').then((m) => ({ default: m.LoginPage })));
+const AcceptInvitePage = lazy(() =>
+  import('@/features/auth').then((m) => ({ default: m.AcceptInvitePage })),
+);
+const ForgotPasswordPage = lazy(() =>
+  import('@/features/auth').then((m) => ({ default: m.ForgotPasswordPage })),
+);
+const ResetPasswordPage = lazy(() =>
+  import('@/features/auth').then((m) => ({ default: m.ResetPasswordPage })),
+);
+
+/** Pages reached from an email or before signing in: no session, no hospital. */
+const publicRoutes: RouteObject[] = [
+  { path: '/invite', Page: AcceptInvitePage },
+  { path: '/forgot-password', Page: ForgotPasswordPage },
+  { path: '/reset-password', Page: ResetPasswordPage },
+].map(({ path, Page }) => ({
+  path,
+  element: (
+    <Suspense fallback={null}>
+      <Page />
+    </Suspense>
+  ),
+  errorElement: <RouteErrorFallback />,
+}));
 
 /**
  * Feature routes come from the registry. Every registered route is in the tree, and its guard
@@ -48,6 +72,7 @@ export function createRoutes(registry: Registry): RouteObject[] {
       ),
       errorElement: <RouteErrorFallback />,
     },
+    ...publicRoutes,
     {
       // Deep links. Signed in, but not yet in any particular hospital: the server picks it.
       path: '/open/:kind/:id',

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { useSessionEndReason } from '@/app/session';
 import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { signInErrorKey, useSignIn } from '../hooks/use-sign-in';
@@ -66,6 +67,9 @@ export function LoginPage() {
           {signIn.isPending ? t('login.submitting') : t('login.submit')}
         </SubmitButton>
       </Form>
+      <Link to="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+        {t('login.forgot')}
+      </Link>
     </main>
   );
 }

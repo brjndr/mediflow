@@ -8,6 +8,7 @@ import {
   signOut,
   switchTenant,
 } from './db';
+import { accountHandlers } from './handlers/auth';
 import { examplesHandlers } from './handlers/examples';
 import { noticesHandlers } from './handlers/notices';
 import { patientsHandlers } from './handlers/patients';
@@ -95,4 +96,5 @@ export const handlers = [
   ...noticesHandlers,
   ...examplesHandlers,
   ...patientsHandlers,
+  ...accountHandlers,
 ];
