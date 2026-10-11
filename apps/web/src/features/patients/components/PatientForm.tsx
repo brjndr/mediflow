@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { DefaultValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import {
@@ -25,6 +25,8 @@ interface PatientFormProps {
   hints?: PatientFormHints;
   /** Already translated. "Register patient" when not given. */
   submitLabel?: string;
+  /** Called as the person types, with what the form holds (not yet checked). */
+  onValuesChange?: (values: Partial<PatientFormValues>) => void;
 }
 
 export type PatientFormHints = Partial<Record<keyof PatientFormValues, string>>;
@@ -46,6 +48,7 @@ export function PatientForm({
   withContact = true,
   hints = {},
   submitLabel,
+  onValuesChange,
 }: PatientFormProps) {
   const { t } = useTranslation('patients');
   const timezone = useTenant()?.timezone ?? 'UTC';
@@ -55,6 +58,12 @@ export function PatientForm({
     [timezone, withContact],
   );
   const form = useZodForm(schema, initialValues ?? EMPTY);
+
+  useEffect(() => {
+    if (!onValuesChange) return;
+    const subscription = form.watch((values) => onValuesChange(values));
+    return () => subscription.unsubscribe();
+  }, [form, onValuesChange]);
 
   return (
     <Form form={form} onSubmit={onSubmit} className="max-w-xl">
