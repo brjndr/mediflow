@@ -10,3 +10,30 @@ export const loginSchema = z.object({
 });
 
 export type LoginValues = z.output<typeof loginSchema>;
+
+/** The server's rule is 12 characters and nothing too obvious; it judges the second part. */
+export const MIN_PASSWORD_LENGTH = 12;
+
+export const setPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(MIN_PASSWORD_LENGTH, 'account.passwordTooShort')
+      .max(1024, 'validation.too_big'),
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.password === v.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'account.passwordMismatch',
+  });
+
+export type SetPasswordValues = z.output<typeof setPasswordSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().min(1, 'validation.required').max(254),
+});
+
+export type ForgotPasswordValues = z.output<typeof forgotPasswordSchema>;
+
+/** For the invite of someone who already has an account: nothing to fill in. */
+export const confirmSchema = z.object({});

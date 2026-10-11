@@ -8,6 +8,7 @@ import {
   signOut,
   switchTenant,
 } from './db';
+import { accountHandlers } from './handlers/auth';
 import { examplesHandlers } from './handlers/examples';
 import { noticesHandlers } from './handlers/notices';
 import { error, tenantMismatch, unauthenticated } from './respond';
@@ -93,4 +94,5 @@ export const handlers = [
   // Feature handlers: one line per feature.
   ...noticesHandlers,
   ...examplesHandlers,
+  ...accountHandlers,
 ];
