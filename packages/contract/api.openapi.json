@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Mediflow API",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Generated from the API route schemas by `pnpm gen:api`. Do not edit by hand."
   },
   "components": {

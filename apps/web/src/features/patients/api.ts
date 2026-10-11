@@ -9,13 +9,16 @@ export interface PatientListQuery {
   sort?: PatientSort;
 }
 
-/** The search text travels in the query string of this request only, never in the app address. */
+/**
+ * Listing is a POST because the search text can be a name, phone number or MRN, and those must
+ * never appear in a URL (logs, history, proxies). The request only reads data.
+ */
 export async function fetchPatients(
   { q, cursor, limit, sort }: PatientListQuery,
   signal?: AbortSignal,
 ): Promise<PatientPage> {
-  const result = await api.GET('/patients', {
-    params: { query: { q: q || undefined, cursor, limit, sort } },
+  const result = await api.POST('/patients/search', {
+    body: { q: q || undefined, cursor, limit, sort },
     signal,
   });
   return patientPageSchema.parse(requireData(result));
