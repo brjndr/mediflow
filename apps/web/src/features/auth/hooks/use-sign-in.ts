@@ -42,9 +42,8 @@ export function useSignIn() {
 export function signInErrorKey(error: unknown): string {
   if (!isApiError(error)) return 'errors.unknown';
   // Only ever sent after the right password, so it reveals nothing new.
-  if (error.serverCode === 'mfa_required' || error.serverCode === 'invalid_mfa_code') {
-    return 'login.mfaUnavailable';
-  }
+  if (error.serverCode === 'mfa_required') return 'login.mfaCodeNeeded';
+  if (error.serverCode === 'invalid_mfa_code') return 'login.mfaInvalid';
   if (error.code === 'unauthorized') return 'login.invalid';
   if (error.code === 'rate_limited') return 'login.rateLimited';
   if (error.code === 'network' || error.code === 'timeout' || error.code === 'server') {

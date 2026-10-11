@@ -220,7 +220,7 @@ describe('a refused sign-in', () => {
     expect(currentSession()).toBeNull();
   });
 
-  it('explains when the account needs an authenticator code', async () => {
+  it('asks for the authenticator code when the account needs one', async () => {
     await openSignedOut();
     server.use(
       http.post(LOGIN_URL, () =>
@@ -230,9 +230,8 @@ describe('a refused sign-in', () => {
 
     await submit(ADMIN, MOCK_PASSWORD);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'This account needs a code from an authenticator app',
-    );
+    expect(await screen.findByLabelText(/^Code/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Password/)).not.toBeInTheDocument();
   });
 
   it('tells a connection problem apart from wrong details', async () => {
@@ -254,7 +253,7 @@ describe('a refused sign-in', () => {
 
     expect(failure('unauthorized', 'invalid_credentials')).toBe('login.invalid');
     expect(failure('unauthorized')).toBe('login.invalid');
-    expect(failure('unauthorized', 'invalid_mfa_code')).toBe('login.mfaUnavailable');
+    expect(failure('unauthorized', 'invalid_mfa_code')).toBe('login.mfaInvalid');
     expect(failure('rate_limited')).toBe('login.rateLimited');
     expect(failure('timeout')).toBe('errors.timeout');
     expect(failure('server')).toBe('errors.server');

@@ -6,6 +6,7 @@ import { PermissionGuard } from '@/access';
 import { AppShell } from '@/app/AppShell';
 import { RouteErrorFallback } from '@/app/RouteErrorFallback';
 import { NotFoundPage } from '@/app/NotFoundPage';
+import { RequireMfa } from '@/features/auth/gate';
 import type { Registry } from '@/registry';
 import { OpenLinkPage } from '@/tenancy';
 import {
@@ -25,6 +26,9 @@ const ForgotPasswordPage = lazy(() =>
 );
 const ResetPasswordPage = lazy(() =>
   import('@/features/auth').then((m) => ({ default: m.ResetPasswordPage })),
+);
+const SecurityPage = lazy(() =>
+  import('@/features/auth').then((m) => ({ default: m.SecurityPage })),
 );
 
 /** Pages reached from an email or before signing in: no session, no hospital. */
@@ -88,13 +92,23 @@ export function createRoutes(registry: Registry): RouteObject[] {
       element: (
         <RequireSession>
           <RequireTenant>
-            <AppShell />
+            <RequireMfa>
+              <AppShell />
+            </RequireMfa>
           </RequireTenant>
         </RequireSession>
       ),
       errorElement: <RouteErrorFallback />,
       children: [
         { index: true, element: <HomePage /> },
+        {
+          path: 'security',
+          element: (
+            <Suspense fallback={null}>
+              <SecurityPage />
+            </Suspense>
+          ),
+        },
         ...featureRoutes(registry),
         // Inside the shell, so a signed-in user keeps the navigation. Signed-out users are sent
         // to login by the guard above before any route is matched against their address.

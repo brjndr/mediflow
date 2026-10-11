@@ -1446,6 +1446,41 @@
         }
       }
     },
+    "/auth/mfa/requirement": {
+      "get": {
+        "operationId": "getMfaRequirement",
+        "description": "Whether the signed-in user must have an authenticator set up to use the active hospital (decided by the hospital setting and the role). A user for whom this is true and whose `mfaEnabled` is false can reach only the security screen.",
+        "responses": {
+          "200": {
+            "description": "The requirement for the active hospital",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["required"],
+                  "properties": {
+                    "required": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No active hospital",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-planned": true
+      }
+    },
     "/session/open-link": {
       "post": {
         "operationId": "openLink",

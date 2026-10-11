@@ -39,13 +39,13 @@ As of 2026-10-11. GitHub issues and milestones are the source of truth (`gh issu
 **Not built yet, although described below as the target**
 
 - API: audit log, transactional outbox and job queue (BE-06); per-tenant rate limits and idempotency keys (BE-07); `@fastify/helmet` and CORS; the role management API (BE-16, roles are read-only for the app until then); object storage; SSE.
-- Web: invite and reset pages (A-03), the MFA screens (A-02), profile (A-06), every clinical and billing feature, the platform admin module.
+- Web: invite and reset pages (A-03), profile (A-06), every clinical and billing feature, the platform admin module.
 - Platform admins: the `is_platform_admin` flag exists, but there is no way to create one, no platform routes, and MFA is not yet enforced for them.
 - Deployment: no infrastructure code and no hosted environment. CI builds the API image and runs the tests.
 
 **Known gaps to keep in mind**
 
-- A sign-in against the real API as an account with an authenticator shows "this version cannot ask for the code yet" until A-02.
+- The web app asks for an authenticator code at sign-in and sets one up at `/security` (A-02). Whether a hospital _requires_ one comes from the planned `GET /auth/mfa/requirement`, which the API does not offer yet: against the real API the enrolment gate never triggers.
 - `pnpm audit` reports two moderate advisories in `react-router` 6, fixed only in 7.x. CI gates at high.
 - Production needs `MFA_ENCRYPTION_KEY`, and the migrate step needs the same environment as the API (it also applies default role permissions).
 

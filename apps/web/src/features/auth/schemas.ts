@@ -42,3 +42,17 @@ export type ForgotPasswordValues = z.output<typeof forgotPasswordSchema>;
 
 /** For the invite of someone who already has an account: nothing to fill in. */
 export const confirmSchema = z.object({});
+
+/** An authenticator code (6 digits) or a recovery code. The server judges which and if valid. */
+export const mfaCodeSchema = z.object({
+  code: z.string().trim().min(1, 'validation.required').max(64, 'validation.too_big'),
+});
+
+export type MfaCodeValues = z.output<typeof mfaCodeSchema>;
+
+/** Setting up an authenticator re-asks for the password; the server judges it. */
+export const mfaPasswordSchema = z.object({
+  password: z.string().min(1, 'validation.required').max(1024, 'validation.too_big'),
+});
+
+export type MfaPasswordValues = z.output<typeof mfaPasswordSchema>;
