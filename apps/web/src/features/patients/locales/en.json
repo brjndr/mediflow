@@ -1,0 +1,28 @@
+{
+  "heading": "Patients",
+  "description": "Find a patient by name, phone number or MRN.",
+  "gridLabel": "Patients",
+  "search": {
+    "label": "Search patients",
+    "placeholder": "Name, phone or MRN"
+  },
+  "pageSize": "Rows per page",
+  "count_one": "{{count}} patient",
+  "count_other": "{{count}} patients",
+  "loaded_one": "{{count}} patient loaded",
+  "loaded_other": "{{count}} patients loaded",
+  "empty": "No patients are registered yet.",
+  "emptySearch": "No patients match your search.",
+  "columns": {
+    "name": "Name",
+    "mrn": "MRN",
+    "phone": "Phone",
+    "gender": "Gender",
+    "dob": "Date of birth"
+  },
+  "gender": {
+    "male": "Male",
+    "female": "Female",
+    "other": "Other"
+  }
+}

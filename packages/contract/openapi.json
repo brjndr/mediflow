@@ -338,6 +338,59 @@
             "type": "integer"
           }
         }
+      },
+      "PatientSummary": {
+        "type": "object",
+        "description": "A patient as shown in a list: compact, no clinical data.",
+        "required": ["id", "tenantId", "mrn", "firstName", "lastName", "dob", "gender", "phone"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "mrn": {
+            "type": "string",
+            "description": "Unique per tenant"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string",
+            "format": "date"
+          },
+          "gender": {
+            "type": "string",
+            "enum": ["male", "female", "other"]
+          },
+          "phone": {
+            "type": "string"
+          }
+        }
+      },
+      "PatientPage": {
+        "type": "object",
+        "description": "Cursor envelope used by every list endpoint.",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientSummary"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
       }
     },
     "responses": {
@@ -1479,6 +1532,80 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/patients": {
+      "get": {
+        "operationId": "listPatients",
+        "description": "Patients of the active tenant, one cursor page at a time. Search matches name, phone or MRN on the server. Requires patient:read and the patients feature flag.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "Search text: name, phone or MRN."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["name", "-name", "mrn", "-mrn"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of patients",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
           },
           "401": {
             "$ref": "#/components/responses/Error"

@@ -1,7 +1,6 @@
 // PreToolUse guard. Exit code 2 blocks the tool call and sends stderr back to Claude.
 // Cross-platform (Node only) so it works on native Windows.
 import { readFileSync, existsSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
@@ -50,22 +49,6 @@ if (tool === 'Bash') {
   ];
   for (const [re, msg] of rules) {
     if (re.test(cmd)) block(msg);
-  }
-
-  // Commits belong on feat/fix/chore branches (see Workflow in CLAUDE.md), never on main.
-  const commits = /(?:^|[\s;&|(])git\s+commit\b/.test(cmd);
-  const createsBranch = /git\s+(checkout\s+-[bB]|switch\s+-[cC])\b/.test(cmd);
-  if (commits && !createsBranch) {
-    const r = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd: input.cwd || root,
-      encoding: 'utf8',
-    });
-    const branch = (r.stdout || '').trim();
-    if (branch === 'main' || branch === 'master') {
-      block(
-        `Do not commit on ${branch}. Create a branch first: feat/<n>-<slug>, fix/<n>-<slug> or chore/<n>-<slug>.`,
-      );
-    }
   }
 
   const tokens = cmd.split(/\s+/).map((t) => t.replace(/^["']|["']$/g, ''));

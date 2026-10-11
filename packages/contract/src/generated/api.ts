@@ -327,6 +327,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Patients of the active tenant, one cursor page at a time. Search matches name, phone or MRN on the server. Requires patient:read and the patients feature flag. */
+        get: operations["listPatients"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notices/{noticeId}/archive": {
         parameters: {
             query?: never;
@@ -466,6 +483,26 @@ export interface components {
         /** @description Cursor envelope used by every list endpoint. */
         NoticePage: {
             items: components["schemas"]["Notice"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description A patient as shown in a list: compact, no clinical data. */
+        PatientSummary: {
+            id: string;
+            tenantId: string;
+            /** @description Unique per tenant */
+            mrn: string;
+            firstName: string;
+            lastName: string;
+            /** Format: date */
+            dob: string;
+            /** @enum {string} */
+            gender: "male" | "female" | "other";
+            phone: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        PatientPage: {
+            items: components["schemas"]["PatientSummary"][];
             nextCursor: string | null;
             total?: number;
         };
@@ -1397,6 +1434,37 @@ export interface operations {
                     "application/json": components["schemas"]["NoticePage"];
                 };
             };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listPatients: {
+        parameters: {
+            query?: {
+                /** @description Search text: name, phone or MRN. */
+                q?: string;
+                cursor?: string;
+                limit?: number;
+                sort?: "name" | "-name" | "mrn" | "-mrn";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of patients */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientPage"];
+                };
+            };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             409: components["responses"]["Error"];
