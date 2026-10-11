@@ -318,3 +318,68 @@ describe('two hospitals', () => {
     expect(await screen.findByText('No patients match your search.')).toBeInTheDocument();
   });
 });
+
+describe('suggestions while registering', () => {
+  const SUGGESTION = 'Someone like this is already registered';
+
+  it('says that someone like this is already registered before anything is saved', async () => {
+    const seen = watchRegistration();
+    renderApp({ entry: '/patients/new' });
+    await screen.findByRole('heading', HEADING);
+
+    // The name and date of birth of the first patient in the register.
+    await fill({ firstName: 'Asha', lastName: 'Verma1', dob: '1950-01-01' });
+
+    expect(await screen.findByText(SUGGESTION, undefined, { timeout: 4000 })).toBeInTheDocument();
+    // Masked, like the warning on saving: enough to recognise the person.
+    const text = document.body.textContent ?? '';
+    expect(text).toContain('Asha Verma1');
+    expect(text).not.toContain('MRN-PTH-00001');
+    expect(text).not.toContain('98000 10000');
+    // Nothing has been saved, and the details went in the body of the check.
+    expect(seen.creates).toEqual([]);
+    expect(seen.checks.at(-1)).toMatchObject({
+      search: '',
+      body: { firstName: 'Asha', lastName: 'Verma1', dob: '1950-01-01' },
+    });
+  });
+
+  it('makes no check until the details are complete, and shows nothing when nobody matches', async () => {
+    const seen = watchRegistration();
+    renderApp({ entry: '/patients/new' });
+    await screen.findByRole('heading', HEADING);
+
+    await userEvent.type(screen.getByLabelText(/First name/), 'Mira');
+    await userEvent.type(screen.getByLabelText(/Last name/), 'Kapoor');
+    await userEvent.type(screen.getByLabelText(/Date of birth/), '1990-05-17');
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    // No phone number yet: nothing to check.
+    expect(seen.checks).toEqual([]);
+
+    await userEvent.type(screen.getByLabelText(/Phone number/), '+91 91234 56789');
+    await waitFor(() => expect(seen.checks).toHaveLength(1), { timeout: 4000 });
+    expect(screen.queryByText(SUGGESTION)).not.toBeInTheDocument();
+  });
+
+  it('still registers when the check made while typing fails', async () => {
+    let failing = true;
+    server.use(
+      http.post('*/api/patients/duplicate-check', () =>
+        failing
+          ? Response.json({ error: { code: 'internal', message: 'boom' } }, { status: 500 })
+          : undefined,
+      ),
+    );
+    renderApp({ entry: '/patients/new' });
+    await screen.findByRole('heading', HEADING);
+    await fill();
+    await new Promise((resolve) => setTimeout(resolve, 900));
+
+    // A failed suggestion is not shown as an error: saving makes its own check.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    failing = false;
+    await submit();
+
+    expect(await screen.findByText(/^MRN-PTH-/)).toBeInTheDocument();
+  });
+});

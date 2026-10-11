@@ -18,12 +18,12 @@ Five non-negotiables shape every decision:
 
 As of 2026-10-11. GitHub issues and milestones are the source of truth (`gh issue list --milestone "<name>"`); update this section when a milestone closes.
 
-| Milestone              | State                                                                                                                                                                                     |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M0 Setup               | Done                                                                                                                                                                                      |
-| M1 Foundation          | Done, except #233 (a flaky policy-refresh test that may hide a stale-ETag race)                                                                                                           |
-| M2 Auth and access     | In progress. Open: the follow-ups #251 to #255 (MFA enforcement on the server, authenticator management, outbox and audit, rate limits, a test fix)                                       |
-| M3 Patients and beyond | In progress. The patient list (#49), registration form (#50), patient screen (#51), editing (#52) and Patients API (#55) exist. Open: #53, #54 and #56; no clinical or billing module yet |
+| Milestone              | State                                                                                                                                                                                                                                                                        |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M0 Setup               | Done                                                                                                                                                                                                                                                                         |
+| M1 Foundation          | Done, except #233 (a flaky policy-refresh test that may hide a stale-ETag race)                                                                                                                                                                                              |
+| M2 Auth and access     | In progress. Open: the follow-ups #251 to #255 (MFA enforcement on the server, authenticator management, outbox and audit, rate limits, a test fix)                                                                                                                          |
+| M3 Patients and beyond | In progress. The patient list (#49), registration form (#50), patient screen (#51), editing (#52), duplicate suggestions (#53), the end-to-end journey (#54) and Patients API (#55) exist. Open: #56 (staging) and #259 (search at scale); no clinical or billing module yet |
 
 **What exists**
 

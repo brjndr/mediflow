@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Can } from '@/access';
 import { errorMessageKey } from '@/shared/api';
+import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridColumn, type GridSort } from '@/shared/ui/data-grid';
 import { maskMrn, maskPhone } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
@@ -34,6 +35,13 @@ export default function PatientList() {
     [patients.data],
   );
   const total = patients.data?.pages[0]?.total;
+  // Settled on nothing for a search: not while loading, and not for an empty register.
+  const noResults =
+    q.trim() !== '' &&
+    q === search &&
+    patients.isSuccess &&
+    !patients.isFetching &&
+    rows.length === 0;
 
   const columns = useMemo<GridColumn<PatientSummary>[]>(
     () => [
@@ -139,6 +147,27 @@ export default function PatientList() {
         loadingMore={patients.isFetchingNextPage}
         onLoadMore={() => void patients.fetchNextPage()}
       />
+
+      {/* Nobody found: what was searched for, and the two things a person does next. */}
+      {noResults && (
+        <div role="status" className="flex flex-col gap-3 rounded-lg border p-4 text-sm">
+          <p className="font-medium break-words">{t('noResults.title', { term: q.trim() })}</p>
+          <p className="text-muted-foreground">{t('noResults.hint')}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" onClick={() => setSearch('')}>
+              {t('noResults.clear')}
+            </Button>
+            <Can permission="patient:create">
+              <Link
+                to="/patients/new"
+                className="inline-flex items-center rounded-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
+              >
+                {t('register')}
+              </Link>
+            </Can>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

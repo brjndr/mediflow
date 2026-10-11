@@ -93,6 +93,16 @@ describe('patient list', () => {
     await waitFor(() => expect(dataRows()).toHaveLength(25));
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search patients' }), 'zzzzqq');
     expect(await screen.findByText('No patients match your search.')).toBeInTheDocument();
+
+    // What was searched for, and the two things to do next.
+    expect(await screen.findByText('No patient matches “zzzzqq”.')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('link', { name: 'Register a patient' }).length,
+    ).toBeGreaterThanOrEqual(2);
+    await userEvent.click(screen.getByRole('button', { name: 'Clear the search' }));
+    expect(screen.getByRole('searchbox', { name: 'Search patients' })).toHaveValue('');
+    expect(await screen.findByText('12000 patients')).toBeInTheDocument();
+    expect(screen.queryByText(/^No patient matches/)).not.toBeInTheDocument();
   });
 
   it('asks the server to sort, and pages by cursor', async () => {
