@@ -43,6 +43,14 @@ export default function PatientList() {
         value: (row) => `${row.firstName} ${row.lastName}`,
         sortable: true,
         hideable: false,
+        render: (row, text) => (
+          <Link
+            to={`/patients/${row.id}`}
+            className="inline-flex items-center rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
+          >
+            {text}
+          </Link>
+        ),
       },
       // Masked in lists: the full value is not needed to pick the right row.
       {

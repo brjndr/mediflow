@@ -142,7 +142,7 @@ describe('a link that cannot be opened', () => {
     const requests = watchRequests();
 
     for (const entry of [
-      '/open/patient/pat_1',
+      '/open/nosuchkind/rec_1',
       '/open/NOTICE/ntc_h_01',
       `/open/notice/${encodeURIComponent('../../session')}`,
       `/open/notice/${'x'.repeat(200)}`,

@@ -17,7 +17,14 @@ export const patientsFeature: FeatureManifest = {
       lazy: () => import('./routes/PatientCreate'),
       requires: ['patient:create'],
     },
+    {
+      path: 'patients/:id',
+      lazy: () => import('./routes/PatientDetail'),
+      requires: ['patient:read'],
+    },
   ],
+  // A link to a patient (an email, a notification) opens the record at its own hospital.
+  links: [{ kind: 'patient', to: (id) => `patients/${id}` }],
   nav: { icon: Users, order: 20, requires: ['patient:read'] },
-  permissions: ['patient:read', 'patient:create'],
+  permissions: ['patient:read', 'patient:create', 'patient.contact:read'],
 };

@@ -49,7 +49,12 @@ export const duplicateMatchesSchema: z.ZodType<PatientDuplicateMatches> = z.obje
 });
 
 const GENDERS = ['male', 'female', 'other'] as const;
-/** Today as a YYYY-MM-DD calendar date in the given (hospital) timezone. */
+
+/**
+ * Today as a YYYY-MM-DD calendar date in the given (hospital) timezone. Built on `Intl` rather
+ * than the shared `todayIn` (date-fns-tz), which would put that library in this feature's
+ * chunk for one date.
+ */
 export function todayIn(timeZone: string): string {
   try {
     const parts = new Intl.DateTimeFormat('en', {
@@ -64,7 +69,6 @@ export function todayIn(timeZone: string): string {
     return new Date().toISOString().slice(0, 10);
   }
 }
-
 /** The registration form. Messages are translation keys; rules without one get their kind's. */
 export const createPatientFormSchema = (today: string) =>
   z.object({
