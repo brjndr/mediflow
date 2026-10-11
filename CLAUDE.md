@@ -18,18 +18,18 @@ Five non-negotiables shape every decision:
 
 As of 2026-10-11. GitHub issues and milestones are the source of truth (`gh issue list --milestone "<name>"`); update this section when a milestone closes.
 
-| Milestone              | State                                                                                          |
-| ---------------------- | ---------------------------------------------------------------------------------------------- |
-| M0 Setup               | Done                                                                                           |
-| M1 Foundation          | Done, except #233 (a flaky policy-refresh test that may hide a stale-ETag race)                |
-| M2 Auth and access     | In progress. Open: A-03 (#40), A-02 (#39), BE-06 (#46), BE-07 (#47), A-06 (#43), in that order |
-| M3 Patients and beyond | Not started. No clinical, patient or billing module exists yet                                 |
+| Milestone              | State                                                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M0 Setup               | Done                                                                                                                                                          |
+| M1 Foundation          | Done, except #233 (a flaky policy-refresh test that may hide a stale-ETag race)                                                                               |
+| M2 Auth and access     | In progress. Open: A-06 (#43)                                                                                                                                 |
+| M3 Patients and beyond | Started. The patient list (#49) and registration form (#50) exist in the web app against the mock; no patients backend, and no clinical or billing module yet |
 
 **What exists**
 
 - **Web foundation:** session bootstrap, tenancy (picker, switcher, theming, formatters), access (`usePermission`, `<Can>`, `PermissionGuard`, policy refresh), the feature registry with slots, the app shell, i18n, error reporting, bundle budgets, and the shared building blocks (data grid, charts, form kit, rich text).
-- **Web auth:** login and sign-out, deep links (`/open/<kind>/<id>`), idle sign-out with a warning, and cross-tab sync. Two features are registered: `notices` (the sample feature and the template for new modules) and `ui_examples` (the building-block examples).
-- **API (`apps/api`):** config, logging with redaction, the migration runner, tenancy with row-level security, cookie sessions with rotation, password sign-in with lockout and rate limit, invites, password reset, TOTP MFA, roles and permissions, the access guard, the notifier (SMTP) and the OpenAPI contract. One feature besides health: `staff` (`POST /invites`). Migrations `0001` to `0006`.
+- **Web auth:** login and sign-out, deep links (`/open/<kind>/<id>`), idle sign-out with a warning, cross-tab sync, the invite, forgot-password and reset-password pages, the authenticator code step at sign-in and enrolment at `/security`. Three features are registered: `notices` (the sample feature and the template for new modules), `ui_examples` (the building-block examples) and `patients` (list and registration form, against the mock).
+- **API (`apps/api`):** config, logging with redaction, the migration runner, tenancy with row-level security, cookie sessions with rotation, password sign-in with lockout and rate limit, invites, password reset, TOTP MFA, roles and permissions, the access guard, the notifier (SMTP), the audit log, the transactional outbox and job queue (pg-boss), per-tenant and per-user rate limits, idempotency keys and the OpenAPI contract. One feature besides health: `staff` (`POST /invites`). Migrations `0001` to `0009`.
 
 **What the web app can and cannot do against the real API**
 
@@ -38,8 +38,8 @@ As of 2026-10-11. GitHub issues and milestones are the source of truth (`gh issu
 
 **Not built yet, although described below as the target**
 
-- API: audit log, transactional outbox and job queue (BE-06); per-tenant rate limits and idempotency keys (BE-07); `@fastify/helmet` and CORS; the role management API (BE-16, roles are read-only for the app until then); object storage; SSE.
-- Web: invite and reset pages (A-03), profile (A-06), every clinical and billing feature, the platform admin module.
+- API: `@fastify/helmet` and CORS; the role management API (BE-16, roles are read-only for the app until then); object storage; SSE.
+- Web: profile (A-06), every clinical and billing feature, the platform admin module.
 - Platform admins: the `is_platform_admin` flag exists, but there is no way to create one, no platform routes, and MFA is not yet enforced for them.
 - Deployment: no infrastructure code and no hosted environment. CI builds the API image and runs the tests.
 
@@ -243,7 +243,7 @@ apps/api/src/
   app.ts            # builds the Fastify instance, registers core plugins and features
   core/
     config/  db/  http/  logging/  openapi/  session/  auth/  tenancy/  access/  notifier/
-    audit/  outbox/  jobs/      # planned (BE-06)
+    audit/  outbox/  jobs/  ratelimit/  idempotency/
   features/<name>/
     index.ts        # exported Fastify plugin: registers routes, hooks, subscribers, jobs
     routes.ts       # TypeBox-schema routes, each with `permissions` and feature flag
@@ -259,8 +259,8 @@ Core hooks that every feature route passes through:
 - **`session` hook:** authenticates the cookie session and binds the active tenant.
 - **`tenant` hook:** opens a transaction per request and runs `SET LOCAL app.tenant_id = <session tenant>`. RLS then filters every query. The tenant is never taken from a client value.
 - **`access` hook:** checks the tenant feature flag and the caller's permissions declared on the route, and gives the handler the caller's scope. A tenant route that declares no `permissions` stops the app from starting.
-- **`audit` hook (planned, BE-06):** records PHI reads and writes in the same transaction.
-- **`outbox` (planned, BE-06):** domain events are written in the same transaction and dispatched by pg-boss. Until then, work that must follow a commit uses `request.afterCommit`.
+- **`audit` hook:** records PHI reads and writes in the same transaction.
+- **`outbox`:** domain events are written in the same transaction and dispatched by pg-boss.
   A feature registers as a Fastify plugin (encapsulated), so its decorators and hooks never leak into other features. Adding a feature is one new folder plus one registration line in `app.ts`.
 
 ## Package Manager
