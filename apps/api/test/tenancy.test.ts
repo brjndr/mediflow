@@ -394,7 +394,7 @@ describe('through the API', () => {
         currency: 'INR',
         theme: { primary: '#0f766e' },
         features: { laboratory: true, pharmacy: true },
-        auth: { mode: 'password' },
+        auth: { mode: 'password', idleTimeoutMinutes: 30 },
         status: 'active',
       });
 

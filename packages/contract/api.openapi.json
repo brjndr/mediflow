@@ -209,6 +209,11 @@
               "mode": {
                 "type": "string",
                 "enum": ["password", "sso"]
+              },
+              "idleTimeoutMinutes": {
+                "minimum": 1,
+                "description": "A session with no activity for this long ends. The web app warns shortly before and signs the user out. Absent means the app default.",
+                "type": "integer"
               }
             }
           },

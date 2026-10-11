@@ -1,9 +1,22 @@
 /**
- * Tells this user's other tabs that the session changed (for example a hospital switch), so they
- * reload it at once instead of finding out from a rejected request. The message carries no data.
+ * Keeps this user's tabs in step. A tab that changes the session tells the others, so they act at
+ * once instead of finding out from a rejected request. Messages carry no data: each is one of the
+ * fixed words below, and a tab that hears one asks the server for the truth.
  */
 const CHANNEL_NAME = 'mediflow.session';
-const SESSION_CHANGED = 'session-changed';
+
+/** What happened in another tab. */
+export type SessionMessage =
+  /** The active hospital changed (a switch, or a deep link to another hospital). */
+  | 'session-changed'
+  | 'signed-in'
+  | 'signed-out'
+  /** The user is at work in that tab, so no tab should count them as idle. */
+  | 'activity';
+
+const MESSAGES: readonly string[] = ['session-changed', 'signed-in', 'signed-out', 'activity'];
+const isMessage = (data: unknown): data is SessionMessage =>
+  typeof data === 'string' && MESSAGES.includes(data);
 
 let channel: BroadcastChannel | undefined;
 
@@ -15,20 +28,32 @@ function getChannel(): BroadcastChannel | undefined {
   return channel;
 }
 
-export function announceSessionChange(): void {
-  getChannel()?.postMessage(SESSION_CHANGED);
-}
+const announce = (message: SessionMessage) => getChannel()?.postMessage(message);
 
-/** Returns an unsubscribe function. */
-export function onSessionChangeElsewhere(listener: () => void): () => void {
+/** The active hospital changed in this tab. */
+export const announceSessionChange = () => announce('session-changed');
+export const announceSignedIn = () => announce('signed-in');
+export const announceSignedOut = () => announce('signed-out');
+export const announceActivity = () => announce('activity');
+
+/** Hears everything other tabs announce. Returns an unsubscribe function. */
+export function onSessionMessage(listener: (message: SessionMessage) => void): () => void {
   const target = getChannel();
   if (!target) return () => {};
   const handler = (event: MessageEvent) => {
-    if (event.data === SESSION_CHANGED) listener();
+    // Anything else on the channel is ignored, not trusted.
+    if (isMessage(event.data)) listener(event.data);
   };
   target.addEventListener('message', handler);
   return () => target.removeEventListener('message', handler);
 }
 
+/** Hears only a change of hospital in another tab. Returns an unsubscribe function. */
+export function onSessionChangeElsewhere(listener: () => void): () => void {
+  return onSessionMessage((message) => {
+    if (message === 'session-changed') listener();
+  });
+}
+
 export const SESSION_CHANNEL_NAME = CHANNEL_NAME;
-export const SESSION_CHANGED_MESSAGE = SESSION_CHANGED;
+export const SESSION_CHANGED_MESSAGE: SessionMessage = 'session-changed';

@@ -31,7 +31,16 @@ export const Tenant = Type.Object(
       additionalProperties: { type: 'boolean' },
       description: 'Module flags. A module that is absent is off.',
     }),
-    auth: Type.Object({ mode: StringEnum(['password', 'sso']) }),
+    auth: Type.Object({
+      mode: StringEnum(['password', 'sso']),
+      idleTimeoutMinutes: Type.Optional(
+        Type.Integer({
+          minimum: 1,
+          description:
+            'A session with no activity for this long ends. The web app warns shortly before and signs the user out. Absent means the app default.',
+        }),
+      ),
+    }),
     status: StringEnum(['active', 'suspended'], {
       description:
         'A suspended hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended.',
@@ -62,7 +71,7 @@ export const tenantRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!tenant) throw new HttpError(409, 'no_active_tenant', 'The hospital no longer exists');
       const flags = await request.tx.select().from(tenantFeatures);
 
-      return toTenant(tenant, flags);
+      return toTenant(tenant, flags, app.config.SESSION_IDLE_MINUTES);
     },
   );
 };
@@ -71,6 +80,8 @@ export const tenantRoutes: FastifyPluginAsyncTypebox = async (app) => {
 export function toTenant(
   tenant: typeof tenants.$inferSelect,
   flags: (typeof tenantFeatures.$inferSelect)[],
+  /** The same for every hospital today. Per-hospital configuration comes later. */
+  idleTimeoutMinutes: number,
 ): Tenant {
   return {
     id: tenant.id,
@@ -84,7 +95,7 @@ export function toTenant(
       ...(tenant.themeLogoUrl ? { logoUrl: tenant.themeLogoUrl } : {}),
     },
     features: Object.fromEntries(flags.map((flag) => [flag.feature, flag.enabled])),
-    auth: { mode: tenant.authMode },
+    auth: { mode: tenant.authMode, idleTimeoutMinutes },
     status: tenant.status,
   };
 }

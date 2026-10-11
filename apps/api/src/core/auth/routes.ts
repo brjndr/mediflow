@@ -81,7 +81,11 @@ export const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
         const tenantId =
           memberships.rows.length === 1 ? (memberships.rows[0]?.tenant_id ?? null) : null;
         const { token } = await createSession(client, config, { userId, tenantId });
-        return { ok: true as const, token, view: await loadSessionView(client, userId, tenantId) };
+        return {
+          ok: true as const,
+          token,
+          view: await loadSessionView(client, userId, tenantId, config),
+        };
       });
 
       if (!result.ok) throw new HttpError(401, result.reason, LOGIN_FAILURES[result.reason]);
@@ -131,7 +135,7 @@ export const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
       void reply.header('cache-control', 'no-store');
       return withAuthTransaction(pool, async ({ client, identify }) => {
         await identify(session.userId);
-        return loadSessionView(client, session.userId, session.tenantId);
+        return loadSessionView(client, session.userId, session.tenantId, config);
       });
     },
   );
@@ -165,7 +169,7 @@ export const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (!switched) return null;
         return {
           token: switched.token,
-          view: await loadSessionView(transaction.client, session.userId, tenantId),
+          view: await loadSessionView(transaction.client, session.userId, tenantId, config),
         };
       });
 

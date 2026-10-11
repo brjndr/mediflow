@@ -2,6 +2,7 @@ import { Type, type Static } from '@sinclair/typebox';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
+import type { Config } from '../config/config.js';
 import * as schema from '../db/schema.js';
 import { AccessPolicy, loadPolicy } from '../access/policy.js';
 import { ref } from '../http/schemas.js';
@@ -55,6 +56,7 @@ export async function loadSessionView(
   client: pg.PoolClient,
   userId: string,
   activeTenantId: string | null,
+  config: Pick<Config, 'SESSION_IDLE_MINUTES'>,
 ): Promise<Session> {
   const user = await client.query<{ id: string; email: string; name: string }>(
     'select id, email, name from users where id = $1',
@@ -87,7 +89,7 @@ export async function loadSessionView(
         .select()
         .from(schema.tenantFeatures)
         .where(eq(schema.tenantFeatures.tenantId, activeTenantId));
-      activeTenant = toTenant(tenant, flags);
+      activeTenant = toTenant(tenant, flags, config.SESSION_IDLE_MINUTES);
     }
   }
 
