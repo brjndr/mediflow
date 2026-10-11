@@ -54,5 +54,24 @@
     "heading": "Patient registered",
     "mrn": "Medical record number:",
     "backToList": "Back to the patient list"
+  },
+  "detail": {
+    "loading": "Loading the patient…",
+    "notFoundTitle": "Patient not found",
+    "notFoundBody": "There is no such patient here, or you do not have access to the record.",
+    "errorTitle": "Could not load the patient",
+    "tabsLabel": "Patient record",
+    "detailsTab": "Details",
+    "age_one": "{{count}} year",
+    "age_other": "{{count}} years",
+    "email": "Email",
+    "address": "Address",
+    "consent": "Consent to be contacted",
+    "consentGiven": "Agreed, recorded {{when}}",
+    "consentRefused": "Declined, recorded {{when}}",
+    "notRecorded": "Not recorded",
+    "restricted": "Your role does not include contact details",
+    "ageMonths_one": "{{count}} month",
+    "ageMonths_other": "{{count}} months"
   }
 }

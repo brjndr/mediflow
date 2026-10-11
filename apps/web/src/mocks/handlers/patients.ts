@@ -1,7 +1,7 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { maskMrn, maskPhone } from '@/shared/utils/mask';
-import { currentSession, onMockReset, TENANT_IDS } from '../db';
+import { currentPolicy, currentSession, onMockReset, registerMockLink, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 
 type PatientSummary = components['schemas']['PatientSummary'];
@@ -49,6 +49,12 @@ let patients = seed();
 let registrations = new Map<string, PatientRecord>();
 /** The last number given out per tenant, so ids and MRNs are never reused. */
 let counters = new Map<string, number>();
+// A link to a patient (/open/patient/<id>) opens the record at the hospital that owns it.
+registerMockLink(
+  'patient',
+  (id) => patients.find((patient) => patient.id === id)?.tenantId ?? null,
+);
+
 onMockReset(() => {
   patients = seed();
   registrations = new Map();
@@ -218,6 +224,24 @@ export const patientsHandlers = [
     if (!found || found.tenantId !== access.tenantId) {
       return error(404, 'not_found', 'No such patient');
     }
-    return HttpResponse.json(found);
+    // Listed patients are summaries: give each the rest of a registration, the same every time.
+    const number = Number(found.id.replace(/\D/g, '')) || 0;
+    const record: PatientRecord = registered ?? {
+      ...found,
+      email: `patient${number}@example.test`,
+      address: `${number} Sample Street`,
+      contactConsent: {
+        given: number % 4 !== 0,
+        at: '2026-03-01T09:30:00Z',
+        recordedBy: 'user_admin',
+      },
+    };
+    const seesContact = currentPolicy()?.permissions.some(
+      (grant) => grant.permission === 'patient.contact:read',
+    );
+    if (seesContact) return HttpResponse.json(record);
+    // Without the field-level permission: the phone masked, email and address left out.
+    const { email: _email, address: _address, ...rest } = record;
+    return HttpResponse.json({ ...rest, phone: maskPhone(rest.phone) });
   }),
 ];

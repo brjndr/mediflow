@@ -65,6 +65,8 @@ const initialTenants: Record<string, TenantDto> = {
 
 const ADMIN: PermissionGrantDto[] = [
   { permission: 'patient:read' },
+  // Field-level: full phone, email and address. Without it they are masked or left out.
+  { permission: 'patient.contact:read' },
   { permission: 'patient:create' },
   { permission: 'patient:update' },
   { permission: 'patient:delete' },
@@ -84,6 +86,7 @@ const ADMIN: PermissionGrantDto[] = [
 
 const DOCTOR: PermissionGrantDto[] = [
   { permission: 'patient:read' },
+  { permission: 'patient.contact:read' },
   { permission: 'patient:update' },
   { permission: 'appointment:read', scope: 'own' },
   { permission: 'clinical:read' },
@@ -103,6 +106,7 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
     doctor: DOCTOR.filter((grant) => !/^(order|billing):/.test(grant.permission)),
     receptionist: [
       { permission: 'patient:read' },
+      { permission: 'patient.contact:read' },
       { permission: 'patient:create' },
       { permission: 'patient:update' },
       { permission: 'appointment:read' },

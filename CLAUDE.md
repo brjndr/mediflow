@@ -18,17 +18,17 @@ Five non-negotiables shape every decision:
 
 As of 2026-10-11. GitHub issues and milestones are the source of truth (`gh issue list --milestone "<name>"`); update this section when a milestone closes.
 
-| Milestone              | State                                                                                                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| M0 Setup               | Done                                                                                                                                                   |
-| M1 Foundation          | Done, except #233 (a flaky policy-refresh test that may hide a stale-ETag race)                                                                        |
-| M2 Auth and access     | In progress. Open: the follow-ups #251 to #255 (MFA enforcement on the server, authenticator management, outbox and audit, rate limits, a test fix)    |
-| M3 Patients and beyond | In progress. The patient list (#49), registration form (#50) and Patients API (#55) exist. Open: #51 to #54 and #56; no clinical or billing module yet |
+| Milestone              | State                                                                                                                                                                        |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M0 Setup               | Done                                                                                                                                                                         |
+| M1 Foundation          | Done, except #233 (a flaky policy-refresh test that may hide a stale-ETag race)                                                                                              |
+| M2 Auth and access     | In progress. Open: the follow-ups #251 to #255 (MFA enforcement on the server, authenticator management, outbox and audit, rate limits, a test fix)                          |
+| M3 Patients and beyond | In progress. The patient list (#49), registration form (#50), patient screen (#51) and Patients API (#55) exist. Open: #52 to #54 and #56; no clinical or billing module yet |
 
 **What exists**
 
 - **Web foundation:** session bootstrap, tenancy (picker, switcher, theming, formatters), access (`usePermission`, `<Can>`, `PermissionGuard`, policy refresh), the feature registry with slots, the app shell, i18n, error reporting, bundle budgets, and the shared building blocks (data grid, charts, form kit, rich text).
-- **Web auth:** login and sign-out, deep links (`/open/<kind>/<id>`), idle sign-out with a warning, cross-tab sync, the invite, forgot-password and reset-password pages, the authenticator code step at sign-in, enrolment at `/security`, and the account page at `/profile` (change password, end other sessions). Three features are registered: `notices` (the sample feature and the template for new modules), `ui_examples` (the building-block examples) and `patients` (list and registration form, against the mock).
+- **Web auth:** login and sign-out, deep links (`/open/<kind>/<id>`), idle sign-out with a warning, cross-tab sync, the invite, forgot-password and reset-password pages, the authenticator code step at sign-in, enrolment at `/security`, and the account page at `/profile` (change password, end other sessions). Three features are registered: `notices` (the sample feature and the template for new modules), `ui_examples` (the building-block examples) and `patients` (list, registration form and the patient screen with its tab and action slots).
 - **API (`apps/api`):** config, logging with redaction, the migration runner, tenancy with row-level security, cookie sessions with rotation, password sign-in with lockout and rate limit, invites, password reset, TOTP MFA, roles and permissions, the access guard, the notifier (SMTP), the audit log, the transactional outbox and job queue (pg-boss), per-tenant and per-user rate limits, idempotency keys and the OpenAPI contract. Two features besides health: `staff` (`POST /invites`) and `patients` (search, register, duplicate check, read, update). Migrations `0001` to `0012`.
 
 **What the web app can and cannot do against the real API**
@@ -511,6 +511,8 @@ Any new feature (appointment reminders, insurance, inventory, reports, anything)
 
 **Extension points (slots)**
 Core screens render slots, and features contribute components to them through `manifest.extensions`. The registry resolves contributions by slot, feature flag, and permission. Initial slots: `patient.detail.tabs`, `patient.detail.actions`, `patient.form.fields`, `appointment.form.fields`, `appointment.row.badges`, `appointment.row.actions`, `dashboard.widgets`, `settings.sections`, `nav.items`. Add a new slot to core only when a real feature needs one, as an additive change.
+
+The patient screen (`features/patients`) hosts `patient.detail.tabs` and `patient.detail.actions`. A contribution is given `context.patientId` and nothing else of the record. To add a tab, the contributed component renders `<DetailTab id="..." title={...}>` (exported from `@/features/patients`) around its content: the id goes in the address (`?tab=<id>`), so it is a stable, unique word (`details` is taken), never patient data. Tabs are listed in registry order. Only what is inside the `<DetailTab>` mounts when the tab is opened: the contributed component itself runs every time a patient is opened, so it reads no data. Put the queries in a component rendered inside the tab, or every tab would fetch, and be audited, on every open. An action contribution renders its own button.
 
 **Domain events (backend contract)**
 Core modules publish events through a transactional outbox (written in the same database transaction, then delivered to the queue) so subscribers never miss or duplicate-trigger on rollbacks. Initial events, each carrying `tenantId`, entity ID, actor, and timestamp:
