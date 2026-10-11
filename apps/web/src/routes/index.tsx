@@ -27,6 +27,7 @@ const ForgotPasswordPage = lazy(() =>
 const ResetPasswordPage = lazy(() =>
   import('@/features/auth').then((m) => ({ default: m.ResetPasswordPage })),
 );
+const ProfilePage = lazy(() => import('@/features/auth').then((m) => ({ default: m.ProfilePage })));
 const SecurityPage = lazy(() =>
   import('@/features/auth').then((m) => ({ default: m.SecurityPage })),
 );
@@ -101,6 +102,14 @@ export function createRoutes(registry: Registry): RouteObject[] {
       errorElement: <RouteErrorFallback />,
       children: [
         { index: true, element: <HomePage /> },
+        {
+          path: 'profile',
+          element: (
+            <Suspense fallback={null}>
+              <ProfilePage />
+            </Suspense>
+          ),
+        },
         {
           path: 'security',
           element: (

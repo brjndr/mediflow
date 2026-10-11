@@ -183,5 +183,22 @@
     "description_other": "You will be signed out in {{count}} seconds because the app has not been used.",
     "stay": "Stay signed in",
     "signOut": "Sign out now"
+  },
+  "profile": {
+    "title": "Your account",
+    "open": "Your account: {{name}}",
+    "name": "Name",
+    "authenticatorOff": "No authenticator is set up for your account.",
+    "passwordTitle": "Change password",
+    "currentPassword": "Current password",
+    "passwordChanged": "Your password has been changed. Your other sessions were signed out.",
+    "sessionsTitle": "Where you are signed in",
+    "sessionsIntro": "End a session you do not recognise, or one on a computer you no longer use. That browser is signed out the next time it does anything.",
+    "sessionsLoading": "Loading your sessions…",
+    "sessionsEmpty": "No active sessions.",
+    "unknownDevice": "Unknown browser",
+    "thisDevice": "This browser",
+    "sessionTimes": "Signed in {{signedIn}} · Last active {{lastActive}}",
+    "revoke": "End session"
   }
 }

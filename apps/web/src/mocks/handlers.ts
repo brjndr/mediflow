@@ -13,6 +13,7 @@ import { examplesHandlers } from './handlers/examples';
 import { mfaHandlers, mfaLoginHandlers } from './handlers/mfa';
 import { noticesHandlers } from './handlers/notices';
 import { patientsHandlers } from './handlers/patients';
+import { profileHandlers } from './handlers/profile';
 import { error, tenantMismatch, unauthenticated } from './respond';
 
 export const handlers = [
@@ -101,4 +102,5 @@ export const handlers = [
   ...patientsHandlers,
   ...accountHandlers,
   ...mfaHandlers,
+  ...profileHandlers,
 ];
