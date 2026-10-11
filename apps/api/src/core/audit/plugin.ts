@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import type pg from 'pg';
+import { replayed } from '../idempotency/state.js';
 import { WORKER_ROLE } from '../outbox/dispatcher.js';
 
 /**
@@ -86,7 +87,8 @@ export const auditPlugin = fp(
     });
 
     app.addHook('onSend', async (request: FastifyRequest, reply: FastifyReply) => {
-      if (reply.statusCode >= 400 || !request.tenant) return;
+      // A replayed result did not do the work again, so it is not a second access.
+      if (reply.statusCode >= 400 || !request.tenant || replayed.has(request)) return;
       const entries = pending.get(request) ?? [];
       const declared = request.routeOptions.config.audit;
       if (declared) {

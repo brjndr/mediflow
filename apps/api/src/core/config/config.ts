@@ -63,6 +63,12 @@ const ConfigSchema = Type.Object({
   JOBS_ENABLED: Type.Boolean({ default: true }),
   /** How often pending domain events are handed to the job queue. */
   OUTBOX_POLL_MS: Type.Integer({ minimum: 100, maximum: 60_000, default: 1000 }),
+  /** Requests one hospital may make per minute, across all its users (noisy-neighbour limit). */
+  RATE_LIMIT_TENANT_PER_MINUTE: Type.Integer({ minimum: 1, maximum: 1_000_000, default: 1200 }),
+  /** Requests one signed-in user may make per minute. */
+  RATE_LIMIT_USER_PER_MINUTE: Type.Integer({ minimum: 1, maximum: 1_000_000, default: 240 }),
+  /** How long an Idempotency-Key is remembered. */
+  IDEMPOTENCY_TTL_HOURS: Type.Integer({ minimum: 1, maximum: 168, default: 24 }),
 });
 
 export type Config = Static<typeof ConfigSchema>;
