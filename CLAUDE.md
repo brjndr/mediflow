@@ -870,7 +870,7 @@ Issues are the source of truth for scope and progress. The roadmap is defined in
 - Define new permissions in the feature manifest and gate every action with `usePermission`/`<Can>`.
 - Before changing a core module for a new requirement, check whether it can be done as a feature module, extension slot, or event subscriber. Core changes must be additive.
 - Any list view must use server-side pagination; never load all records.
-- Do not add dependencies without stating why and checking bundle impact. Use pnpm for every install and script run.
+- New dependencies are allowed when the work needs one and it meets the Dependency policy: Claude may add it without asking first, and states the reason, the licence and the bundle impact (for the web app) in the PR. Use pnpm for every install and script run.
 - Prefer the decided stack and free/open-source tools. Any paid service or dependency needs an explicit justification and a cheaper alternative noted.
 - Never create per-tenant builds or branches. Tenant differences are runtime configuration.
 
