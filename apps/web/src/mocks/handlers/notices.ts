@@ -1,6 +1,6 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { onMockReset, TENANT_IDS } from '../db';
+import { onMockReset, registerMockLink, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 
 type Notice = components['schemas']['Notice'];
@@ -31,6 +31,8 @@ let notices = seed();
 onMockReset(() => {
   notices = seed();
 });
+// Which hospital a linked notice belongs to, as the real API would look it up.
+registerMockLink('notice', (id) => notices.find((notice) => notice.id === id)?.tenantId ?? null);
 
 export const noticesHandlers = [
   http.get('*/api/notices', ({ request }) => {

@@ -293,6 +293,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/session/open-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Opens a deep link to a record by its globally unique id. The server finds the hospital that owns the record, checks that the user is an active member of it, and rebinds the session to that hospital if another one (or none) is active. Every refusal is the same 403 link_unavailable, whether the record does not exist or belongs to a hospital the user does not work at, so a link cannot be used to find out what exists. */
+        post: operations["openLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notices": {
         parameters: {
             query?: never;
@@ -1323,6 +1340,38 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    openLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The kind of record, e.g. notice. */
+                    kind: string;
+                    id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The session, bound to the hospital that owns the record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
         };
     };
     listNotices: {

@@ -84,3 +84,18 @@ test('a signed-out visitor is sent to login from any address', async ({ page }) 
   await expect(page).toHaveURL(/\/login$/);
   await expect(sidebar(page)).toHaveCount(0);
 });
+
+test('a link to a record opens it at its own hospital, and nothing for a hospital the user is not in', async ({
+  page,
+}) => {
+  // The doctor works at both hospitals and has none open. The link is to a hospital notice.
+  await page.goto('/open/notice/ntc_h_01?mockUser=user_doctor');
+  await expect(page.getByRole('heading', { name: 'Staff notices' })).toBeVisible();
+  await expect(page).toHaveURL(/\/notices$/);
+  await expect(page.getByRole('combobox', { name: 'Hospital' })).toHaveValue('tenant_1');
+
+  // The admin works at the hospital only. A link to a clinic record shows nothing of it.
+  await page.goto('/open/notice/ntc_c_01?mockUser=user_admin');
+  await expect(page.getByRole('heading', { name: 'This link is not available' })).toBeVisible();
+  await expect(page.getByText(/Clinic notice|Riverside Clinic/)).toHaveCount(0);
+});

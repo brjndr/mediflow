@@ -58,6 +58,18 @@ export interface DashboardWidget {
   order?: number;
 }
 
+/**
+ * A kind of record that can be linked to from outside the app (an email, a notification).
+ * The link is `/open/<kind>/<id>`: the server works out which hospital the record belongs to and
+ * switches to it, then the app goes to the address given here.
+ */
+export interface FeatureLink {
+  /** Unique across features, lower snake case: `notice`, `lab_result`. */
+  kind: string;
+  /** Where the record is shown, relative like a route path: `patients/${id}`. */
+  to: (id: string) => string;
+}
+
 export interface FeatureSettings {
   section: string;
   schema: unknown /* Zod schema */;
@@ -104,4 +116,6 @@ export interface FeatureManifest {
   settings?: FeatureSettings;
   /** Shorthand for contributions to the `dashboard.widgets` slot. */
   dashboardWidgets?: DashboardWidget[];
+  /** Records of this feature that deep links can point at. */
+  links?: FeatureLink[];
 }

@@ -56,6 +56,16 @@ export async function switchTenant(tenantId: string): Promise<Session> {
 }
 
 /**
+ * Opens a deep link. The server finds the hospital that owns the record, checks the user works
+ * there, and rebinds the session to it. Every refusal looks the same, whatever the reason.
+ */
+export async function openLink(link: { kind: string; id: string }): Promise<Session> {
+  return toSession(
+    requireData(await api.POST('/session/open-link', { body: link, fetch: apiFetchOnce })),
+  );
+}
+
+/**
  * The current policy for the active tenant. Pass the last ETag to make an unchanged policy a
  * cheap 304, which resolves to null.
  */

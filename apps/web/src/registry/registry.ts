@@ -70,14 +70,21 @@ export interface Registry {
   navItems(policy: AccessPolicy | null): NavItem[];
   contributions(slot: SlotId, policy: AccessPolicy | null): ResolvedContribution[];
   settingsSections(policy: AccessPolicy | null): SettingsSection[];
+  /**
+   * The in-app address of a linked record, or null when no feature knows that kind. Whether the
+   * user may open it is decided by the server and then by the route's own guard.
+   */
+  linkPath(kind: string, id: string): string | null;
 }
 
 const PERMISSION = /^[^:\s]+:[^:\s]+$/;
-const RESERVED_PATHS = new Set(['login']);
+const RESERVED_PATHS = new Set(['login', 'open']);
+const LINK_KIND = /^[a-z][a-z0-9_]*$/;
 
 function validate(manifests: readonly FeatureManifest[]): string[] {
   const problems: string[] = [];
   const ids = new Set<string>();
+  const linkKinds = new Map<string, string>();
   const paths = new Map<string, string>();
 
   for (const feature of manifests) {
@@ -121,6 +128,14 @@ function validate(manifests: readonly FeatureManifest[]): string[] {
       if (owner) problems.push(`${at} ${where} is already registered by "${owner}".`);
       paths.set(route.path, feature.id);
       checkRequires(where, route.requires);
+    }
+
+    for (const link of feature.links ?? []) {
+      const where = `link "${link.kind}"`;
+      if (!LINK_KIND.test(link.kind)) problems.push(`${at} ${where} must be lower snake case.`);
+      const owner = linkKinds.get(link.kind);
+      if (owner) problems.push(`${at} ${where} is already registered by "${owner}".`);
+      linkKinds.set(link.kind, feature.id);
     }
 
     if (feature.nav) {
@@ -202,10 +217,19 @@ export function createRegistry(manifests: readonly FeatureManifest[]): Registry 
     }
   }
 
+  const links = new Map(
+    manifests.flatMap((feature) => (feature.links ?? []).map((link) => [link.kind, link.to])),
+  );
+
   return {
     features: manifests,
     translations,
     routes,
+    linkPath: (kind, id) => {
+      const path = links.get(kind)?.(id);
+      // Only ever an address inside the app.
+      return path === undefined || path.startsWith('/') || path.includes('://') ? null : path;
+    },
     enabledFeatures: (policy) =>
       manifests.filter((feature) => isFeatureEnabled(policy, feature.featureFlag)),
     navItems: (policy) =>

@@ -7,6 +7,7 @@ import { AppShell } from '@/app/AppShell';
 import { RouteErrorFallback } from '@/app/RouteErrorFallback';
 import { NotFoundPage } from '@/app/NotFoundPage';
 import type { Registry } from '@/registry';
+import { OpenLinkPage } from '@/tenancy';
 import {
   LOGIN_PATH,
   RedirectIfAuthenticated,
@@ -44,6 +45,16 @@ export function createRoutes(registry: Registry): RouteObject[] {
             <LoginPage />
           </Suspense>
         </RedirectIfAuthenticated>
+      ),
+      errorElement: <RouteErrorFallback />,
+    },
+    {
+      // Deep links. Signed in, but not yet in any particular hospital: the server picks it.
+      path: '/open/:kind/:id',
+      element: (
+        <RequireSession>
+          <OpenLinkPage />
+        </RequireSession>
       ),
       errorElement: <RouteErrorFallback />,
     },

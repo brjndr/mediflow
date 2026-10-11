@@ -104,5 +104,12 @@
     "bulletList": "Bulleted list",
     "orderedList": "Numbered list",
     "blockquote": "Quote"
+  },
+  "link": {
+    "opening": "Opening the link…",
+    "unavailableTitle": "This link is not available",
+    "unavailableDescription": "It may be for a hospital you do not work at, or the item may no longer exist. Nothing has been opened.",
+    "errorTitle": "Could not open the link",
+    "retry": "Try again"
   }
 }

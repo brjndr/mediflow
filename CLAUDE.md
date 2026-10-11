@@ -302,7 +302,7 @@ Path alias: `@/` maps to `apps/web/src/`. Backend structure is under Backend.
 - After login the app calls `GET /session`, which returns the user, their memberships (hospital + role), the **active tenant**, tenant config, and `AccessPolicy`. Block rendering until it resolves.
 - A user with one hospital goes straight in. A user with several (e.g. a doctor at two hospitals) sees a hospital picker, and can change hospital later from a tenant switcher in the header (`POST /session/switch-tenant`, which rebinds the session to the chosen tenant and returns the new config and policy).
 - Only staff sign in. There is no patient login. A patient record belongs to exactly one hospital.
-- Deep links (emails, notifications) use globally unique IDs. The server finds the owning tenant, checks the user's membership, and switches the active tenant if needed. If the user has no membership, show a 403 page, never the data.
+- Deep links (emails, notifications) use globally unique IDs and one address, `/open/<kind>/<id>`. The app sends the kind and id to `POST /session/open-link`; the server finds the owning tenant, checks the user's membership, and switches the active tenant if needed. The app then goes to the record's screen, which its own route guard still protects. If the user has no membership, or the record does not exist, the server gives one answer and the app shows one "This link is not available" page, never the data and never which of the two it was. A feature makes a kind of record linkable with `links: [{ kind, to }]` in its manifest. Never put a tenant, a hospital name or anything about the record in a link.
 - Optional later: remember the last-used hospital slug in `localStorage` (not PHI) only to pre-brand the login page.
 
 **Tenant config** (fetched with the session after login, never hardcoded):
@@ -558,6 +558,8 @@ export interface FeatureManifest {
     requires?: Permission[];
     order?: number;
   }[];
+  // records that deep links (/open/<kind>/<id>) can point at; `to` is relative like a route path
+  links?: { kind: string; to: (id: string) => string }[];
 }
 
 export type SlotId =

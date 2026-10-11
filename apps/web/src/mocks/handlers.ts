@@ -1,6 +1,13 @@
 import { http, HttpResponse } from 'msw';
 import type { Health } from '@/shared/api/health';
-import { attemptSignIn, currentPolicy, currentSession, signOut, switchTenant } from './db';
+import {
+  attemptSignIn,
+  currentPolicy,
+  currentSession,
+  openLink,
+  signOut,
+  switchTenant,
+} from './db';
 import { examplesHandlers } from './handlers/examples';
 import { noticesHandlers } from './handlers/notices';
 import { error, tenantMismatch, unauthenticated } from './respond';
@@ -54,6 +61,19 @@ export const handlers = [
       return error(400, 'validation_failed', 'tenantId is required');
     }
     if (!switchTenant(tenantId)) return error(403, 'not_a_member', 'No membership in that tenant');
+    return HttpResponse.json(currentSession());
+  }),
+
+  http.post('*/api/session/open-link', async ({ request }) => {
+    if (!currentSession()) return unauthenticated();
+    const body: unknown = await request.json().catch(() => null);
+    const { kind, id } =
+      typeof body === 'object' && body !== null ? (body as { kind?: unknown; id?: unknown }) : {};
+    if (typeof kind !== 'string' || typeof id !== 'string') {
+      return error(400, 'validation_failed', 'kind and id are required');
+    }
+    // One answer for a record that does not exist and one the user may not see.
+    if (!openLink(kind, id)) return error(403, 'link_unavailable', 'This link is not available');
     return HttpResponse.json(currentSession());
   }),
 
