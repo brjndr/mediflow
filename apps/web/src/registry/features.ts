@@ -1,5 +1,6 @@
 import { departmentsFeature } from '@/features/departments';
 import { doctorsFeature } from '@/features/doctors';
+import { drugsFeature } from '@/features/drugs';
 import { noticesFeature } from '@/features/notices';
 import { patientsFeature } from '@/features/patients';
 import { servicesFeature } from '@/features/services';
@@ -18,5 +19,6 @@ export const features: FeatureManifest[] = [
   departmentsFeature,
   doctorsFeature,
   servicesFeature,
+  drugsFeature,
   staffFeature,
 ];

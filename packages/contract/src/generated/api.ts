@@ -845,6 +845,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/drugs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The medicines and consumables of the active tenant, by generic name then brand. Requires drug:read and the drugs feature flag. `q` matches the generic name or the brand, each word in any order. A catalog can hold tens of thousands of items: there is no unpaged form, and `total` comes with the first page only. */
+        get: operations["listDrugs"];
+        put?: never;
+        /** @description Adds an item. Requires drug:manage. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. */
+        post: operations["createDrug"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drugs/duplicate-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Finds items of the hospital, archived or not, that may be the one about to be added: the same generic name in the same form, whatever the brand or the strength. Requires drug:manage. At most ten, the closest first. */
+        post: operations["checkDrugDuplicates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drugs/{drugId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One item. Requires drug:read. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        get: operations["getDrug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes an item. Requires drug:manage. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. A dispensed or stocked item keeps what it was dispensed or received as. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        patch: operations["updateDrug"];
+        trace?: never;
+    };
+    "/drugs/{drugId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives an item: it stays on the stock, prescriptions and bills that name it and is no longer offered for new ones. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        post: operations["archiveDrug"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drugs/{drugId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived item back. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        post: operations["restoreDrug"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1300,6 +1387,109 @@ export interface components {
         };
         PriceListList: {
             items: components["schemas"]["PriceList"][];
+        };
+        /** @description A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data. */
+        Drug: {
+            id: string;
+            tenantId: string;
+            /**
+             * @description A medicine, or a consumable such as gloves or a syringe.
+             * @enum {string}
+             */
+            type: "medicine" | "consumable";
+            /** @description The generic name of a medicine, or what a consumable is. */
+            genericName: string;
+            brandName?: string;
+            /** @enum {string} */
+            form: "tablet" | "capsule" | "syrup" | "suspension" | "injection" | "infusion" | "cream" | "ointment" | "drops" | "inhaler" | "powder" | "device" | "other";
+            /** @description As written on the pack: "500 mg". */
+            strength?: string;
+            /** @description What one unit of stock is: "strip of 10", "100 ml bottle", "piece". */
+            unit?: string;
+            /**
+             * @description The drug schedule the item falls under, recorded as a class. What each schedule requires (registers, prescriptions kept) is the pharmacy module's to enforce.
+             * @enum {string}
+             */
+            schedule: "none" | "h" | "h1" | "x" | "g" | "narcotic";
+            /** @description Whether it is handled as a controlled drug. Always true for schedule x and narcotic, whatever is sent. */
+            controlled: boolean;
+            /** @enum {string} */
+            taxClass: "exempt" | "reduced" | "standard" | "higher";
+            /** @description Stock at or below this many units is low. Absent: no level set. */
+            reorderLevel?: number;
+            archived: boolean;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        DrugPage: {
+            items: components["schemas"]["Drug"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        DrugCreate: {
+            /**
+             * @description A medicine, or a consumable such as gloves or a syringe.
+             * @enum {string}
+             */
+            type: "medicine" | "consumable";
+            /** @description The generic name of a medicine, or what a consumable is. */
+            genericName: string;
+            brandName?: string;
+            /** @enum {string} */
+            form: "tablet" | "capsule" | "syrup" | "suspension" | "injection" | "infusion" | "cream" | "ointment" | "drops" | "inhaler" | "powder" | "device" | "other";
+            /** @description As written on the pack: "500 mg". */
+            strength?: string;
+            /** @description What one unit of stock is: "strip of 10", "100 ml bottle", "piece". */
+            unit?: string;
+            /**
+             * @description The drug schedule the item falls under, recorded as a class. What each schedule requires (registers, prescriptions kept) is the pharmacy module's to enforce.
+             * @enum {string}
+             */
+            schedule: "none" | "h" | "h1" | "x" | "g" | "narcotic";
+            /** @description Whether it is handled as a controlled drug. Always true for schedule x and narcotic, whatever is sent. */
+            controlled?: boolean;
+            /** @enum {string} */
+            taxClass: "exempt" | "reduced" | "standard" | "higher";
+            /** @description Stock at or below this many units is low. Absent: no level set. */
+            reorderLevel?: number;
+        };
+        DrugUpdate: {
+            /**
+             * @description A medicine, or a consumable such as gloves or a syringe.
+             * @enum {string}
+             */
+            type?: "medicine" | "consumable";
+            /** @description The generic name of a medicine, or what a consumable is. */
+            genericName?: string;
+            brandName?: string;
+            /** @enum {string} */
+            form?: "tablet" | "capsule" | "syrup" | "suspension" | "injection" | "infusion" | "cream" | "ointment" | "drops" | "inhaler" | "powder" | "device" | "other";
+            /** @description As written on the pack: "500 mg". */
+            strength?: string;
+            /** @description What one unit of stock is: "strip of 10", "100 ml bottle", "piece". */
+            unit?: string;
+            /**
+             * @description The drug schedule the item falls under, recorded as a class. What each schedule requires (registers, prescriptions kept) is the pharmacy module's to enforce.
+             * @enum {string}
+             */
+            schedule?: "none" | "h" | "h1" | "x" | "g" | "narcotic";
+            /** @description Whether it is handled as a controlled drug. Always true for schedule x and narcotic, whatever is sent. */
+            controlled?: boolean;
+            /** @enum {string} */
+            taxClass?: "exempt" | "reduced" | "standard" | "higher";
+            /** @description Null removes the level. An empty brand, strength or unit removes that too. */
+            reorderLevel?: number | null;
+            expectedVersion: number;
+        };
+        DrugDuplicateQuery: {
+            /** @description The generic name of a medicine, or what a consumable is. */
+            genericName: string;
+            /** @enum {string} */
+            form: "tablet" | "capsule" | "syrup" | "suspension" | "injection" | "infusion" | "cream" | "ointment" | "drops" | "inhaler" | "powder" | "device" | "other";
+        };
+        DrugDuplicateMatches: {
+            items: components["schemas"]["Drug"][];
         };
     };
     responses: {
@@ -4341,6 +4531,215 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listDrugs: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                q?: string;
+                type?: "medicine" | "consumable";
+                form?: "tablet" | "capsule" | "syrup" | "suspension" | "injection" | "infusion" | "cream" | "ointment" | "drops" | "inhaler" | "powder" | "device" | "other";
+                schedule?: "none" | "h" | "h1" | "x" | "g" | "narcotic";
+                /** @description True lists only controlled drugs. */
+                controlled?: boolean;
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of items */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrugPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createDrug: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A repeat with the same key and request returns the first answer. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrugCreate"];
+            };
+        };
+        responses: {
+            /** @description The new item */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drug"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    checkDrugDuplicates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrugDuplicateQuery"];
+            };
+        };
+        responses: {
+            /** @description Possible duplicates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrugDuplicateMatches"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDrug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drugId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drug"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateDrug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drugId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrugUpdate"];
+            };
+        };
+        responses: {
+            /** @description The item as saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drug"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveDrug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drugId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drug"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreDrug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drugId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drug"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
