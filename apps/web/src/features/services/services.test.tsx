@@ -535,7 +535,7 @@ describe('a screen that is too narrow', () => {
     }));
     let asked = 0;
     server.use(
-      http.get('*/api/services', () => {
+      http.post('*/api/services/search', () => {
         asked++;
         return undefined;
       }),
@@ -615,7 +615,7 @@ describe('access', () => {
 
     expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Services and prices' })).not.toBeInTheDocument();
-    await expect(api.GET('/services', { params: { query: {} } })).rejects.toMatchObject({
+    await expect(api.POST('/services/search', { body: {} })).rejects.toMatchObject({
       code: 'forbidden',
       serverCode: 'feature_disabled',
     });
@@ -672,7 +672,7 @@ describe('two hospitals', () => {
 
   it('may use a code another hospital uses', async () => {
     // Both hospitals have a CON-001 of their own. A code is unique per hospital.
-    const mine = await api.GET('/services', { params: { query: { q: 'CON-001' } } });
+    const mine = await api.POST('/services/search', { body: { q: 'CON-001' } });
     expect(mine.data?.items.map((item) => item.tenantId)).toEqual([TENANT_IDS.hospital]);
     await expect(
       api.POST('/services', {

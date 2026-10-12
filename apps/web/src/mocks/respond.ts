@@ -7,6 +7,21 @@ export function error(status: number, code: string, message: string) {
   return HttpResponse.json({ error: { code, message, requestId: 'req_mock' } }, { status });
 }
 
+/**
+ * The body of a search request as the name and value pairs a handler reads. A search is a POST
+ * so that what was typed is never in an address; the handlers read it as they read a query.
+ */
+export async function searchBody(request: Request): Promise<URLSearchParams> {
+  const body: unknown = await request.json().catch(() => null);
+  const params = new URLSearchParams();
+  if (typeof body === 'object' && body !== null) {
+    for (const [name, value] of Object.entries(body)) {
+      if (value !== undefined && value !== null) params.set(name, String(value));
+    }
+  }
+  return params;
+}
+
 export const unauthenticated = () => error(401, 'unauthenticated', 'No session');
 
 /**

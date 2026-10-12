@@ -730,8 +730,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The services the active tenant can charge for, by name, each with the price in force on its standard price list today, where today is the date at the hospital in its own timezone. Requires service:read and the services feature flag. `q` matches the code or the name. Archived services are listed only when asked for. */
-        get: operations["listServices"];
+        get?: never;
         put?: never;
         /** @description Adds a service. Requires service:manage. The hospital is the session's: the body carries no tenant. The code is the service's identity on bills and cannot be changed later; one already used by a service of the hospital, archived or not, is refused with 409 service_code_taken. `priceMinor`, when given, is its price on the standard list from today. */
         post: operations["createService"];
@@ -852,8 +851,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The medicines and consumables of the active tenant, by generic name then brand. Requires drug:read and the drugs feature flag. `q` matches the generic name or the brand, each word in any order. A catalog can hold tens of thousands of items: there is no unpaged form, and `total` comes with the first page only. */
-        get: operations["listDrugs"];
+        get?: never;
         put?: never;
         /** @description Adds an item. Requires drug:manage. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. An optional field (brand, strength, unit) is left out when there is none. Audited. */
         post: operations["createDrug"];
@@ -939,8 +937,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The tests and panels the laboratory of the active tenant offers, by name. Requires labTest:read and the lab_tests feature flag. `q` matches the code or the name. `total` comes with the first page only. */
-        get: operations["listLabTests"];
+        get?: never;
         put?: never;
         /** @description Adds a test or a panel. Requires labTest:manage. The hospital is the session's: the body carries no tenant. The code is the test's identity on orders and reports and cannot be changed later; one already used by a test of the hospital, archived or not, is refused with 409 lab_test_code_taken. A `serviceId` must be a laboratory service of the same hospital, and every component of a panel a single test of the same hospital, not archived; a panel has at least one component, none twice, and a single test has none (400 otherwise): check each against the session's hospital, never by the id alone. Audited. */
         post: operations["createLabTest"];
@@ -1375,6 +1372,57 @@ export interface paths {
         put?: never;
         /** @description Diagnosis and procedure codes, searched on the server: the code sets are large and are never sent whole or bundled into the web app. Requires code:read and the codes feature flag. It reads data only. The search term travels in the body, never in a query string: it is free text typed while a patient's record may be open, and a diagnosis term beside a patient id in an access log is patient data. The API does not log the body. The codes themselves are the same for every hospital; `favourite` is the active tenant's own mark, taken from the session, never from the client. `q` is words in any order: each matches the start of the code (with or without its dot) or the start of a word of the title. The hospital's favourites come first, then the codes in order. `favourites: true` gives the favourites only, which is what a search box shows before anything is typed. `total` comes with the first page only. The response is the active tenant's view (favourite marks and ordering) and is private to the session: `Cache-Control: private, no-store`, never cached at the CDN or in a server cache keyed without the tenant. The code rows may be cached on the server; the join with the favourites may not. The favourites table carries the tenant and row-level security; the code table is shared and read-only to hospitals. */
         post: operations["searchCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drugs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The medicines and consumables of the active tenant, by generic name then brand. Requires drug:read and the drugs feature flag. `q` matches the generic name or the brand, each word in any order. A catalog can hold tens of thousands of items: there is no unpaged form, and `total` comes with the first page only. It reads data only. What is searched for travels in the body, never in a query string: the same search is made from prescribing, ordering and billing screens while a patient record is open, and a search term beside a patient id in an access log is patient data. The API does not log the body. */
+        post: operations["searchDrugs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-tests/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The tests and panels the laboratory of the active tenant offers, by name. Requires labTest:read and the lab_tests feature flag. `q` matches the code or the name. `total` comes with the first page only. It reads data only. What is searched for travels in the body, never in a query string: the same search is made from prescribing, ordering and billing screens while a patient record is open, and a search term beside a patient id in an access log is patient data. The API does not log the body. */
+        post: operations["searchLabTests"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/services/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The services the active tenant can charge for, by name, each with the price in force on its standard price list today, where today is the date at the hospital in its own timezone. Requires service:read and the services feature flag. `q` matches the code or the name. Archived services are listed only when asked for. It reads data only. What is searched for travels in the body, never in a query string: the same search is made from prescribing, ordering and billing screens while a patient record is open, and a search term beside a patient id in an access log is patient data. The API does not log the body. */
+        post: operations["searchServices"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2252,6 +2300,44 @@ export interface components {
             cursor?: string;
             /** @description Absent: 25. */
             limit?: number;
+        };
+        DrugSearchRequest: {
+            cursor?: string;
+            /** @description Absent: 25. */
+            limit?: number;
+            q?: string;
+            /** @enum {string} */
+            type?: "medicine" | "consumable";
+            /** @enum {string} */
+            form?: "tablet" | "capsule" | "syrup" | "suspension" | "injection" | "infusion" | "cream" | "ointment" | "drops" | "inhaler" | "powder" | "device" | "other";
+            /** @enum {string} */
+            schedule?: "none" | "h" | "h1" | "x" | "g" | "narcotic";
+            /** @description True lists only controlled drugs. */
+            controlled?: boolean;
+            /** @description Absent: false. */
+            archived?: boolean;
+        };
+        LabTestSearchRequest: {
+            cursor?: string;
+            /** @description Absent: 25. */
+            limit?: number;
+            q?: string;
+            /** @enum {string} */
+            department?: "biochemistry" | "haematology" | "microbiology" | "serology" | "hormones" | "pathology" | "other";
+            /** @enum {string} */
+            kind?: "test" | "panel";
+            /** @description Absent: false. */
+            archived?: boolean;
+        };
+        ServiceSearchRequest: {
+            cursor?: string;
+            /** @description Absent: 25. */
+            limit?: number;
+            q?: string;
+            /** @enum {string} */
+            category?: "consultation" | "procedure" | "bed" | "lab" | "imaging" | "package";
+            /** @description Absent: false. */
+            archived?: boolean;
         };
     };
     responses: {
@@ -5004,37 +5090,6 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    listServices: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-                q?: string;
-                category?: "consultation" | "procedure" | "bed" | "lab" | "imaging" | "package";
-                archived?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of services */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ServicePage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
     createService: {
         parameters: {
             query?: never;
@@ -5297,41 +5352,6 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    listDrugs: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-                q?: string;
-                type?: "medicine" | "consumable";
-                form?: "tablet" | "capsule" | "syrup" | "suspension" | "injection" | "infusion" | "cream" | "ointment" | "drops" | "inhaler" | "powder" | "device" | "other";
-                schedule?: "none" | "h" | "h1" | "x" | "g" | "narcotic";
-                /** @description True lists only controlled drugs. */
-                controlled?: boolean;
-                archived?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of items */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DrugPage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
     createDrug: {
         parameters: {
             query?: never;
@@ -5502,38 +5522,6 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listLabTests: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-                q?: string;
-                department?: "biochemistry" | "haematology" | "microbiology" | "serology" | "hormones" | "pathology" | "other";
-                kind?: "test" | "panel";
-                archived?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of tests */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabTestPage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
             409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
@@ -6484,6 +6472,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CodePage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    searchDrugs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrugSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description One page of items */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrugPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    searchLabTests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabTestSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description One page of tests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTestPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    searchServices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description One page of services */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePage"];
                 };
             };
             400: components["responses"]["Error"];

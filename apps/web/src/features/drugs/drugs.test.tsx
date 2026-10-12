@@ -94,6 +94,21 @@ describe('the catalog', () => {
     expect(await screen.findByText('No item matches these filters.')).toBeInTheDocument();
   });
 
+  it('never puts what is searched for in an address', async () => {
+    const addresses: string[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.url.includes('/api/drugs')) addresses.push(new URL(request.url).search);
+    });
+    await openList();
+    await search('morphine');
+    await waitFor(() => expect(statuses()).toContain('80 items'));
+
+    // Prescribing will make this search with a patient open: the term goes in the body.
+    expect(addresses.length).toBeGreaterThan(1);
+    expect(addresses.every((query) => query === '')).toBe(true);
+    server.events.removeAllListeners();
+  });
+
   it('narrows by type, form, schedule and to controlled drugs', async () => {
     await openList();
     await choose(/^Type/, 'Consumable');
@@ -199,7 +214,7 @@ describe('adding an item', () => {
 
     expect(textbox(/^Generic name/)).toHaveValue('Paracetamol');
     expect(textbox(/^Brand/)).toHaveValue('NewBrand');
-    const added = await api.GET('/drugs', { params: { query: { q: 'NewBrand' } } });
+    const added = await api.POST('/drugs/search', { body: { q: 'NewBrand' } });
     expect(added.data?.items).toEqual([]);
   });
 
@@ -464,7 +479,7 @@ describe('a screen that is too narrow', () => {
     }));
     let asked = 0;
     server.use(
-      http.get('*/api/drugs', () => {
+      http.post('*/api/drugs/search', () => {
         asked++;
         return undefined;
       }),
@@ -538,7 +553,7 @@ describe('access', () => {
 
     expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Drugs and consumables' })).not.toBeInTheDocument();
-    await expect(api.GET('/drugs', { params: { query: {} } })).rejects.toMatchObject({
+    await expect(api.POST('/drugs/search', { body: {} })).rejects.toMatchObject({
       code: 'forbidden',
       serverCode: 'feature_disabled',
     });

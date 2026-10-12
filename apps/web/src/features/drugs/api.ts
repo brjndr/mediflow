@@ -11,7 +11,7 @@ import type {
 } from './types';
 
 export interface DrugFilters {
-  /** A generic name or a brand. Not patient data, so it may be a query. */
+  /** A generic name or a brand. Sent in the body of the search, never in an address. */
   q: string;
   type: DrugType | '';
   form: DrugForm | '';
@@ -36,18 +36,17 @@ export async function fetchDrugs(
   },
   signal?: AbortSignal,
 ): Promise<DrugPage> {
-  const result = await api.GET('/drugs', {
-    params: {
-      query: {
-        cursor,
-        limit,
-        q: q || undefined,
-        type: type || undefined,
-        form: form || undefined,
-        schedule: schedule || undefined,
-        controlled: controlled || undefined,
-        archived,
-      },
+  // The term is sent in the body, never in an address: see Searches in CLAUDE.md.
+  const result = await api.POST('/drugs/search', {
+    body: {
+      cursor,
+      limit,
+      q: q || undefined,
+      type: type || undefined,
+      form: form || undefined,
+      schedule: schedule || undefined,
+      controlled: controlled || undefined,
+      archived,
     },
     signal,
   });

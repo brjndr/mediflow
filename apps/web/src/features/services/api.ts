@@ -17,7 +17,7 @@ import type {
 } from './types';
 
 export interface ServiceFilters {
-  /** A code or a name of a service. Not patient data, so it may be a query. */
+  /** A code or a name of a service. Sent in the body of the search, never in an address. */
   q: string;
   category: ServiceCategory | '';
   archived: boolean;
@@ -27,10 +27,9 @@ export async function fetchServices(
   { cursor, limit, q, category, archived }: ServiceFilters & { cursor?: string; limit: number },
   signal?: AbortSignal,
 ): Promise<ServicePage> {
-  const result = await api.GET('/services', {
-    params: {
-      query: { cursor, limit, q: q || undefined, category: category || undefined, archived },
-    },
+  // The term is sent in the body, never in an address: see Searches in CLAUDE.md.
+  const result = await api.POST('/services/search', {
+    body: { cursor, limit, q: q || undefined, category: category || undefined, archived },
     signal,
   });
   return servicePageSchema.parse(requireData(result));
