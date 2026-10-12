@@ -141,6 +141,21 @@ onMockReset(() => {
   state = seed();
 });
 
+/**
+ * A service of a hospital by its name or its id, for the mocks of the modules that link to the
+ * price catalog. One of another hospital does not exist.
+ */
+export function mockServiceNamed(tenantId: string, name?: string, id?: string) {
+  const service = state.services.find(
+    (candidate) =>
+      candidate.tenantId === tenantId &&
+      (id === undefined ? candidate.name === name : candidate.id === id),
+  );
+  return service
+    ? { id: service.id, name: service.name, category: service.category, archived: service.archived }
+    : undefined;
+}
+
 /** What another member of staff does meanwhile: changes a service behind the open screen. */
 export function editMockService(id: string, changes: Partial<Stored>): void {
   const service = state.services.find((candidate) => candidate.id === id);

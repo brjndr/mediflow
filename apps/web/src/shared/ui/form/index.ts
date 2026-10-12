@@ -6,6 +6,9 @@ export {
   SubmitButton,
   TextAreaField,
   TextField,
+  useFieldError,
+  useFieldRows,
   useFieldValue,
+  useSetFieldValue,
   useZodForm,
 } from './form';

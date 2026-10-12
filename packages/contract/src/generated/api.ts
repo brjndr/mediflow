@@ -932,6 +932,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lab-tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The tests and panels the laboratory of the active tenant offers, by name. Requires labTest:read and the lab_tests feature flag. `q` matches the code or the name. `total` comes with the first page only. */
+        get: operations["listLabTests"];
+        put?: never;
+        /** @description Adds a test or a panel. Requires labTest:manage. The hospital is the session's: the body carries no tenant. The code is the test's identity on orders and reports and cannot be changed later; one already used by a test of the hospital, archived or not, is refused with 409 lab_test_code_taken. A `serviceId` must be a laboratory service of the same hospital, and every component of a panel a single test of the same hospital, not archived; a panel has at least one component, none twice, and a single test has none (400 otherwise): check each against the session's hospital, never by the id alone. Audited. */
+        post: operations["createLabTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-tests/{labTestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One test or panel, a panel with its components. Requires labTest:read. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        get: operations["getLabTest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes a test: never its code, and never its kind (a test with results cannot become a panel). Requires labTest:manage. Send the version the change was made from: 409 conflict when the test has changed since. The same rules as on adding hold for `serviceId` and `componentIds`. A test that has reference ranges cannot become a text test until they are removed (409 lab_test_has_ranges). A result already reported keeps the name, unit and reference range it was reported with. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        patch: operations["updateLabTest"];
+        trace?: never;
+    };
+    "/lab-tests/{labTestId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a test: it stays on the orders and reports that name it and is no longer offered for new ones. A test that is a component of a panel that is not archived is refused with 409 lab_test_in_panel: take it out of the panel first. Requires labTest:manage. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        post: operations["archiveLabTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-tests/{labTestId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived test back. Requires labTest:manage. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        post: operations["restoreLabTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-tests/{labTestId}/ranges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The reference ranges of a numeric test, by sex and age, with their own version. Requires labTest:read. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        get: operations["getLabTestRanges"];
+        /** @description Replaces the reference ranges of a test. Requires labTest:manage. Only a numeric single test has ranges (409 lab_test_has_no_ranges for a panel or a text test). Each row gives at least one limit, `low` below `high`, a critical limit never inside the normal range, and an upper age not below the lower. Two rows for the same sex must not cover the same age; a row for one sex and a row for any may, and the one for the sex is used. 400 otherwise. 409 conflict when the ranges have changed since the version sent. A result already reported keeps the range it was reported against. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        put: operations["setLabTestRanges"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-tests/{labTestId}/ranges/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The reference range that applies to a patient of an age and a sex: the row for that sex covering that age, else the row for any sex covering it, else none. A patient whose sex is recorded as other gets only a row for any. Requires labTest:read. It answers the check on the catalog screen with an age someone typed, and identifies no patient. It is not how a result is read for a real patient: the laboratory works that out on the server from the patient of the order, with this same rule, and the age or date of birth of a patient is never sent in an address. Ages are counted with a year of 365 days and a month as a twelfth of a year rounded to the day (12 months are one year), here and where the ranges are entered: a patient aged 12 years and 2 months is 12 x 365 + 61 days old, not the number of days since the date of birth. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        get: operations["resolveLabTestRange"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1490,6 +1595,148 @@ export interface components {
         };
         DrugDuplicateMatches: {
             items: components["schemas"]["Drug"][];
+        };
+        LabTestComponent: {
+            id: string;
+            code: string;
+            name: string;
+        };
+        /** @description A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data. */
+        LabTest: {
+            id: string;
+            tenantId: string;
+            /** @description The test's identity on orders and reports. Never changes. */
+            code: string;
+            name: string;
+            /**
+             * @description The section of the laboratory.
+             * @enum {string}
+             */
+            department: "biochemistry" | "haematology" | "microbiology" | "serology" | "hormones" | "pathology" | "other";
+            /**
+             * @description A single test, or a panel: a named set of tests ordered together (a lipid profile). A panel has components and no result of its own.
+             * @enum {string}
+             */
+            kind: "test" | "panel";
+            /**
+             * @description How a result is recorded: a number against a reference range, or text (positive, negative, a description). For a panel it means nothing.
+             * @enum {string}
+             */
+            resultType: "numeric" | "text";
+            /** @description The unit of a numeric result: g/dL. */
+            unit?: string;
+            /** @enum {string} */
+            sampleType: "blood" | "serum" | "plasma" | "urine" | "stool" | "swab" | "sputum" | "csf" | "tissue" | "other";
+            /** @description What the sample is collected in. */
+            container?: string;
+            /** @description How long a result usually takes from collection. */
+            turnaroundHours: number;
+            /** @description The service the test is charged as: a laboratory service of the same hospital's catalog. Empty text removes the link on a change. */
+            serviceId?: string;
+            /** @description The name of the linked service, when there is one. The name alone is shown to everyone who may read the test, by decision; nothing else of the service (a price, a tax class) is ever added here. */
+            serviceName?: string;
+            /** @description The tests of a panel. Empty for a single test. */
+            components: components["schemas"]["LabTestComponent"][];
+            archived: boolean;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        LabTestPage: {
+            items: components["schemas"]["LabTest"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        LabTestCreate: {
+            code: string;
+            name: string;
+            /**
+             * @description The section of the laboratory.
+             * @enum {string}
+             */
+            department: "biochemistry" | "haematology" | "microbiology" | "serology" | "hormones" | "pathology" | "other";
+            /**
+             * @description A single test, or a panel: a named set of tests ordered together (a lipid profile). A panel has components and no result of its own.
+             * @enum {string}
+             */
+            kind: "test" | "panel";
+            /**
+             * @description How a result is recorded: a number against a reference range, or text (positive, negative, a description). For a panel it means nothing.
+             * @enum {string}
+             */
+            resultType?: "numeric" | "text";
+            /** @description The unit of a numeric result: g/dL. */
+            unit?: string;
+            /** @enum {string} */
+            sampleType: "blood" | "serum" | "plasma" | "urine" | "stool" | "swab" | "sputum" | "csf" | "tissue" | "other";
+            /** @description What the sample is collected in. */
+            container?: string;
+            /** @description How long a result usually takes from collection. */
+            turnaroundHours: number;
+            /** @description The service the test is charged as: a laboratory service of the same hospital's catalog. Empty text removes the link on a change. */
+            serviceId?: string;
+            /** @description The single tests of a panel, in the order they are reported. */
+            componentIds?: string[];
+        };
+        LabTestUpdate: {
+            name?: string;
+            /**
+             * @description The section of the laboratory.
+             * @enum {string}
+             */
+            department?: "biochemistry" | "haematology" | "microbiology" | "serology" | "hormones" | "pathology" | "other";
+            /**
+             * @description How a result is recorded: a number against a reference range, or text (positive, negative, a description). For a panel it means nothing.
+             * @enum {string}
+             */
+            resultType?: "numeric" | "text";
+            /** @description The unit of a numeric result: g/dL. */
+            unit?: string;
+            /** @enum {string} */
+            sampleType?: "blood" | "serum" | "plasma" | "urine" | "stool" | "swab" | "sputum" | "csf" | "tissue" | "other";
+            /** @description What the sample is collected in. */
+            container?: string;
+            /** @description How long a result usually takes from collection. */
+            turnaroundHours?: number;
+            /** @description The service the test is charged as: a laboratory service of the same hospital's catalog. Empty text removes the link on a change. */
+            serviceId?: string;
+            /** @description The single tests of a panel, in the order they are reported. */
+            componentIds?: string[];
+            expectedVersion: number;
+        };
+        /** @description What is normal for one sex in one span of age. */
+        LabRange: {
+            /**
+             * @description Whom the row is for. A row for one sex is used before a row for any.
+             * @enum {string}
+             */
+            sex: "any" | "male" | "female";
+            /** @description From this age, in days since birth. */
+            ageFromDays: number;
+            /** @description Up to and including this age in days. Absent: no upper age. */
+            ageToDays?: number;
+            /** @description The lowest normal value. Absent: no lower limit. */
+            low?: number;
+            /** @description The highest normal value. Absent: no upper limit. */
+            high?: number;
+            /** @description At or below this the result is critical. Never above `low`. */
+            criticalLow?: number;
+            /** @description At or above this the result is critical. Never below `high`. */
+            criticalHigh?: number;
+            note?: string;
+        };
+        LabRanges: {
+            labTestId: string;
+            ranges: components["schemas"]["LabRange"][];
+            version: number;
+        };
+        LabRangesUpdate: {
+            ranges: components["schemas"]["LabRange"][];
+            expectedVersion: number;
+        };
+        LabRangeResolved: {
+            /** @description Absent when no row covers that age and sex. */
+            range?: components["schemas"]["LabRange"];
         };
     };
     responses: {
@@ -4737,6 +4984,274 @@ export interface operations {
                     "application/json": components["schemas"]["Drug"];
                 };
             };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listLabTests: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                q?: string;
+                department?: "biochemistry" | "haematology" | "microbiology" | "serology" | "hormones" | "pathology" | "other";
+                kind?: "test" | "panel";
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of tests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTestPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createLabTest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A repeat with the same key and request returns the first answer. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabTestCreate"];
+            };
+        };
+        responses: {
+            /** @description The new test */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTest"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getLabTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The test */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTest"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateLabTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabTestUpdate"];
+            };
+        };
+        responses: {
+            /** @description The test as saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTest"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveLabTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The test */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTest"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreLabTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The test */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTest"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getLabTestRanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ranges */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabRanges"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setLabTestRanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabRangesUpdate"];
+            };
+        };
+        responses: {
+            /** @description The ranges as saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabRanges"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    resolveLabTestRange: {
+        parameters: {
+            query: {
+                /** @description Age in days since birth. */
+                ageDays: number;
+                sex: "male" | "female" | "other";
+            };
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The range that applies, if any */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabRangeResolved"];
+                };
+            };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];

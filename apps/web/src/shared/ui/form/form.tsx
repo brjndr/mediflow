@@ -4,6 +4,7 @@ import { useId, type ComponentProps, type ReactNode } from 'react';
 import {
   FormProvider,
   get,
+  useFieldArray,
   useForm,
   useFormContext,
   useWatch,
@@ -98,6 +99,42 @@ export function useFieldValue(name: string): unknown {
 export function fieldErrorKey(error: FieldError, exists: (key: string) => boolean): string {
   if (typeof error.message === 'string' && exists(error.message)) return error.message;
   return KIND_KEYS[String(error.type)] ?? 'validation.invalid';
+}
+
+/**
+ * Sets a field of the surrounding form from code, for a field that is not typed into (a list
+ * built by picking). It counts as the person's change: the field becomes dirty and is checked.
+ */
+export function useSetFieldValue(): (name: string, value: unknown) => void {
+  const { setValue } = useFormContext();
+  return (name, value) =>
+    setValue(name, value, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+}
+
+/** The translated message of a field's error, for a field drawn outside the kit's own fields. */
+export function useFieldError(name: string): string | undefined {
+  return useField(name).message;
+}
+
+/**
+ * The rows of a field that holds a list (`rows`), whose fields are named by position:
+ * `rows.0.low`. A row's key stays with it when another is removed, so React keeps each row's
+ * inputs with their row.
+ */
+export function useFieldRows(name: string): {
+  keys: string[];
+  add: (row: object) => void;
+  remove: (index: number) => void;
+} {
+  const { fields, append, remove } = useFieldArray<FieldValues, string, 'key'>({
+    name,
+    keyName: 'key',
+  });
+  return {
+    keys: fields.map((field) => field.key),
+    add: (row) => append(row, { shouldFocus: false }),
+    remove,
+  };
 }
 
 function useField(name: string) {
