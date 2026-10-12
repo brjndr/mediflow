@@ -1,0 +1,52 @@
+{
+  "heading": "Diagnosis and procedure codes",
+  "description": "The code sets used to record a diagnosis or a procedure. The codes are the same everywhere; the favourites are this hospital's, and come first wherever a code is searched for.",
+  "favourite": "Favourite",
+  "add": "Add to favourites",
+  "remove": "Remove from favourites",
+  "added": "{{code}} is now a favourite.",
+  "removed": "{{code}} is no longer a favourite.",
+  "count_one": "{{count}} code",
+  "count_other": "{{count}} codes",
+  "countFavourites_one": "{{count}} favourite",
+  "countFavourites_other": "{{count}} favourites",
+  "empty": "No codes in this set.",
+  "emptyFavourites": "This hospital has no favourites in this set yet.",
+  "emptySearch": "No code matches this search.",
+  "systems": {
+    "icd10": "Diagnoses (ICD-10)",
+    "procedure": "Procedures"
+  },
+  "filters": {
+    "system": "Code set",
+    "search": "Search codes",
+    "searchPlaceholder": "Code or words of the title",
+    "favouritesOnly": "Favourites only"
+  },
+  "columns": {
+    "code": "Code",
+    "title": "Title",
+    "favourite": "Favourite"
+  },
+  "search": {
+    "placeholder": "Type a code or a few words",
+    "unavailable": "The diagnosis and procedure codes are not open to you at this hospital.",
+    "loading": "Searching…",
+    "failed": "The codes could not be searched. Type again to retry.",
+    "none": "No code matches.",
+    "noFavourites": "Type to search. This hospital has no favourites in this set yet.",
+    "found_one": "{{count}} code. More are found by typing more.",
+    "found_other": "{{count}} codes. More are found by typing more.",
+    "favourites_one": "This hospital's favourite. Type to search all codes.",
+    "favourites_other": "This hospital's {{count}} favourites. Type to search all codes."
+  },
+  "tryout": {
+    "heading": "The search box",
+    "description": "This is the box that screens recording a diagnosis or a procedure use. It offers the favourites first.",
+    "label": {
+      "icd10": "Find a diagnosis",
+      "procedure": "Find a procedure"
+    },
+    "chosen": "Chosen: {{code}} {{title}}"
+  }
+}

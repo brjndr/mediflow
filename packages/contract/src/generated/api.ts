@@ -1346,6 +1346,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/codes/{codeId}/favourite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Marks a code as one of the active tenant's favourites, for every member of its staff. Requires code:manage. Doing it twice changes nothing. Audited. 404 code_not_found for a code that does not exist. */
+        put: operations["addFavouriteCode"];
+        post?: never;
+        /** @description Takes a code out of the active tenant's favourites. Requires code:manage. Doing it twice changes nothing. Audited. 404 code_not_found for a code that does not exist. */
+        delete: operations["removeFavouriteCode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/codes/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Diagnosis and procedure codes, searched on the server: the code sets are large and are never sent whole or bundled into the web app. Requires code:read and the codes feature flag. It reads data only. The search term travels in the body, never in a query string: it is free text typed while a patient's record may be open, and a diagnosis term beside a patient id in an access log is patient data. The API does not log the body. The codes themselves are the same for every hospital; `favourite` is the active tenant's own mark, taken from the session, never from the client. `q` is words in any order: each matches the start of the code (with or without its dot) or the start of a word of the title. The hospital's favourites come first, then the codes in order. `favourites: true` gives the favourites only, which is what a search box shows before anything is typed. `total` comes with the first page only. The response is the active tenant's view (favourite marks and ordering) and is private to the session: `Cache-Control: private, no-store`, never cached at the CDN or in a server cache keyed without the tenant. The code rows may be cached on the server; the join with the favourites may not. The favourites table carries the tenant and row-level security; the code table is shared and read-only to hospitals. */
+        post: operations["searchCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2187,6 +2222,36 @@ export interface components {
             reason: "repair" | "maintenance" | "deep_cleaning" | "reserved" | "other";
             /** @description A few words more: about the bed, never about a patient. Free text, so the API treats it as possibly sensitive: it is not written to logs or to event payloads. */
             note?: string;
+        };
+        /** @description A diagnosis code (ICD-10) or a procedure code. Reference data shared by every hospital, so it carries no tenant; only `favourite` is the hospital’s own. */
+        Code: {
+            id: string;
+            /** @enum {string} */
+            system: "icd10" | "procedure";
+            /** @description As it is written: A09, E11.9. */
+            code: string;
+            title: string;
+            /** @description Whether the active tenant marked it. */
+            favourite: boolean;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        CodePage: {
+            items: components["schemas"]["Code"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        CodeSearchRequest: {
+            /**
+             * @description The code set to search.
+             * @enum {string}
+             */
+            system: "icd10" | "procedure";
+            q?: string;
+            /** @description Absent: false. */
+            favourites?: boolean;
+            cursor?: string;
+            /** @description Absent: 25. */
+            limit?: number;
         };
     };
     responses: {
@@ -6341,6 +6406,89 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    addFavouriteCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                codeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The code */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Code"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    removeFavouriteCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                codeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The code */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Code"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    searchCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description One page of codes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodePage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

@@ -11,6 +11,7 @@ import {
 import { accountHandlers } from './handlers/auth';
 import { departmentsHandlers } from './handlers/departments';
 import { doctorsHandlers } from './handlers/doctors';
+import { codesHandlers } from './handlers/codes';
 import { drugsHandlers } from './handlers/drugs';
 import { labTestsHandlers } from './handlers/lab-tests';
 import { examplesHandlers } from './handlers/examples';
@@ -114,6 +115,7 @@ export const handlers = [
   ...drugsHandlers,
   ...labTestsHandlers,
   ...wardsHandlers,
+  ...codesHandlers,
   ...accountHandlers,
   ...mfaHandlers,
   ...profileHandlers,
