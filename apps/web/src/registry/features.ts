@@ -7,6 +7,7 @@ import { patientsFeature } from '@/features/patients';
 import { servicesFeature } from '@/features/services';
 import { staffFeature } from '@/features/staff';
 import { uiExamplesFeature } from '@/features/ui-examples';
+import { wardsFeature } from '@/features/wards';
 import type { FeatureManifest } from './types';
 
 /**
@@ -22,5 +23,6 @@ export const features: FeatureManifest[] = [
   servicesFeature,
   drugsFeature,
   labTestsFeature,
+  wardsFeature,
   staffFeature,
 ];

@@ -1037,6 +1037,315 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bed-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The bed categories of the active tenant, by name: the classes of bed it has, each charged as a bed-day service of the price catalog. Requires ward:read and the wards feature flag. `total` comes with the first page only. */
+        get: operations["listBedCategories"];
+        put?: never;
+        /** @description Adds a bed category. Requires ward:manage. The hospital is the session's. A name already used by a category of the hospital, archived or not, whatever the capitals, is refused with 409 bed_category_name_taken. A `serviceId` must be a service of the same hospital in the bed category of the price catalog (400 otherwise): check it against the session's hospital, never by the id alone. Audited. */
+        post: operations["createBedCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bed-categories/{bedCategoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes a bed category. Requires ward:manage. 409 conflict when it has changed since the version sent. The same rules as on adding hold. Empty text for `serviceId` removes the link. Audited. A category of another hospital answers 404, the same as one that does not exist. */
+        patch: operations["updateBedCategory"];
+        trace?: never;
+    };
+    "/bed-categories/{bedCategoryId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a bed category: it is no longer offered for a bed. Refused with 409 bed_category_in_use while a bed that is not archived has it. Requires ward:manage. Doing it twice changes nothing. Audited. A category of another hospital answers 404, the same as one that does not exist. */
+        post: operations["archiveBedCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bed-categories/{bedCategoryId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived bed category back. Requires ward:manage. Doing it twice changes nothing. Audited. A category of another hospital answers 404, the same as one that does not exist. */
+        post: operations["restoreBedCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The wards of the active tenant, by name, each with how many rooms and beds it has (archived ones not counted). Requires ward:read and the wards feature flag. `q` matches the code or the name. `total` comes with the first page only. */
+        get: operations["listWards"];
+        put?: never;
+        /** @description Adds a ward, with no rooms yet. Requires ward:manage. The hospital is the session's. The code cannot be changed later; one already used by a ward of the hospital, archived or not, is refused with 409 ward_code_taken. A `departmentId` must be a department of the same hospital that is not archived (400 otherwise). Audited. */
+        post: operations["createWard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wards/{wardId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One ward with its rooms and their beds, archived ones included. Requires ward:read. A bed carries its status, and holds nothing about a patient. A ward of another hospital answers 404, the same as one that does not exist. */
+        get: operations["getWard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes a ward: never its code. Requires ward:manage. 409 conflict when the ward has changed since the version sent. Empty text removes the floor or the department. Audited. A ward of another hospital answers 404, the same as one that does not exist. */
+        patch: operations["updateWard"];
+        trace?: never;
+    };
+    "/wards/{wardId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a ward: it and its beds are no longer offered for an admission. Refused with 409 ward_has_occupied_beds while a bed of it is occupied. Requires ward:manage. Doing it twice changes nothing. Audited. A ward of another hospital answers 404, the same as one that does not exist. */
+        post: operations["archiveWard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wards/{wardId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived ward back. Requires ward:manage. Doing it twice changes nothing. Audited. A ward of another hospital answers 404, the same as one that does not exist. */
+        post: operations["restoreWard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wards/{wardId}/rooms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a room to a ward. Requires ward:manage. Every bed is in a room: an open ward is one room with many beds. A name another room of the ward has, archived or not, is refused with 409 room_name_taken. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward of another hospital answers 404, the same as one that does not exist. */
+        post: operations["createRoom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wards/{wardId}/rooms/{roomId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Renames a room. Requires ward:manage. 409 conflict when the room has changed since the version sent. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A room is looked up inside the ward named, and the ward at the session hospital. A ward or a room of another hospital answers 404, the same as one that does not exist. */
+        patch: operations["updateRoom"];
+        trace?: never;
+    };
+    "/wards/{wardId}/rooms/{roomId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a room and with it the beds in it. Refused with 409 room_has_occupied_beds while a bed of it is occupied. Requires ward:manage. Doing it twice changes nothing. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a room of another hospital answers 404, the same as one that does not exist. */
+        post: operations["archiveRoom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wards/{wardId}/rooms/{roomId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived room back. Its beds stay archived until each is restored. Requires ward:manage. Doing it twice changes nothing. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a room of another hospital answers 404, the same as one that does not exist. */
+        post: operations["restoreRoom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wards/{wardId}/rooms/{roomId}/beds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a bed to a room, available. Requires ward:manage. A number another bed of the ward has, archived or not, is refused with 409 bed_number_taken. The category must be a bed category of the same hospital that is not archived, and the room not archived (400 otherwise). Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a room of another hospital answers 404, the same as one that does not exist. */
+        post: operations["createBed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wards/{wardId}/beds/{bedId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes the number or the category of a bed: never its status, which only the actions below and the admissions and housekeeping modules change. Requires ward:manage. 409 conflict when the bed has changed since the version sent. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
+        patch: operations["updateBed"];
+        trace?: never;
+    };
+    "/wards/{wardId}/beds/{bedId}/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Takes an available bed out of use, with the reason (repair, isolation). Only an available bed can be blocked: 409 bed_not_available otherwise. Requires ward:manage. The transition is checked on the server, on the row, so two people cannot both make it. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
+        post: operations["blockBed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wards/{wardId}/beds/{bedId}/unblock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Puts a blocked bed back in use, available. 409 bed_not_blocked when it is not blocked. Requires ward:manage. The transition is checked on the server, on the row, so two people cannot both make it. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
+        post: operations["unblockBed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wards/{wardId}/beds/{bedId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a bed: it is no longer offered for an admission. Refused with 409 bed_occupied while it is occupied. Requires ward:manage. The transition is checked on the server, on the row, so two people cannot both make it. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
+        post: operations["archiveBed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wards/{wardId}/beds/{bedId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived bed back, available. Its room has to be in use (409 room_archived) and its category too (409 bed_category_archived). Requires ward:manage. The transition is checked on the server, on the row, so two people cannot both make it. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
+        post: operations["restoreBed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1743,6 +2052,134 @@ export interface components {
             value: number;
             /** @enum {string} */
             unit: "days" | "weeks" | "months" | "years";
+        };
+        /** @description A class of bed (general ward, private room, intensive care), which decides what a day in it is charged as. The charge itself is posted by the admissions module from the linked service, at the price in force that day. */
+        BedCategory: {
+            id: string;
+            tenantId: string;
+            name: string;
+            /** @description The bed-day service a day in a bed of this category is charged as: a service of the same hospital's catalog in its bed category. */
+            serviceId?: string;
+            /** @description The name of the linked service, when there is one. The name alone is shown to everyone who may read wards, by decision; nothing else of the service (a price, a tax class) is ever added here. */
+            serviceName?: string;
+            /** @description The beds in use that have this category. */
+            bedCount: number;
+            archived: boolean;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        BedCategoryPage: {
+            items: components["schemas"]["BedCategory"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        BedCategoryCreate: {
+            name: string;
+            /** @description The bed-day service a day in a bed of this category is charged as: a service of the same hospital's catalog in its bed category. */
+            serviceId?: string;
+        };
+        BedCategoryUpdate: {
+            name?: string;
+            /** @description The bed-day service a day in a bed of this category is charged as: a service of the same hospital's catalog in its bed category. */
+            serviceId?: string;
+            expectedVersion: number;
+        };
+        /** @description A ward of the hospital. Holds no patient data. */
+        Ward: {
+            id: string;
+            tenantId: string;
+            /** @description Short and unique in the hospital. Never changes. */
+            code: string;
+            name: string;
+            /** @description Where it is: a floor, a block, a wing. */
+            floor?: string;
+            /** @description The department the ward belongs to, when it belongs to one. */
+            departmentId?: string;
+            departmentName?: string;
+            /** @description Rooms in use. */
+            roomCount: number;
+            /** @description Beds in use. */
+            bedCount: number;
+            archived: boolean;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        WardPage: {
+            items: components["schemas"]["Ward"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        WardCreate: {
+            code: string;
+            name: string;
+            /** @description Where it is: a floor, a block, a wing. */
+            floor?: string;
+            /** @description The department the ward belongs to, when it belongs to one. */
+            departmentId?: string;
+        };
+        WardUpdate: {
+            name?: string;
+            /** @description Where it is: a floor, a block, a wing. */
+            floor?: string;
+            /** @description The department the ward belongs to, when it belongs to one. */
+            departmentId?: string;
+            expectedVersion: number;
+        };
+        /** @description A bed. Its status says whether it can take a patient; who is in it is the admission module, never here. */
+        Bed: {
+            id: string;
+            roomId: string;
+            /** @description What is written on the bed: unique in its ward. */
+            number: string;
+            bedCategoryId: string;
+            bedCategoryName: string;
+            /**
+             * @description available: free to take a patient. occupied: a patient is admitted to it (set by admissions). cleaning: being made ready after a discharge (set by housekeeping). blocked: taken out of use here, with a reason.
+             * @enum {string}
+             */
+            status: "available" | "occupied" | "cleaning" | "blocked";
+            /** @description Why it is blocked. Never anything about a patient. */
+            blockedReason?: string;
+            archived: boolean;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
+        };
+        Room: {
+            id: string;
+            name: string;
+            beds: components["schemas"]["Bed"][];
+            archived: boolean;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
+        };
+        /** @description A ward with its rooms and their beds, archived ones included. */
+        WardDetail: {
+            ward: components["schemas"]["Ward"];
+            rooms: components["schemas"]["Room"][];
+        };
+        RoomCreate: {
+            name: string;
+        };
+        RoomUpdate: {
+            name: string;
+            expectedVersion: number;
+        };
+        BedCreate: {
+            /** @description What is written on the bed: unique in its ward. */
+            number: string;
+            bedCategoryId: string;
+        };
+        BedUpdate: {
+            /** @description What is written on the bed: unique in its ward. */
+            number?: string;
+            bedCategoryId?: string;
+            expectedVersion: number;
+        };
+        BedBlock: {
+            /** @description Why the bed is out of use: about the bed, never about a patient. */
+            reason: string;
         };
     };
     responses: {
@@ -5256,6 +5693,641 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LabRangeResolved"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listBedCategories: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of categories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BedCategoryPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createBedCategory: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A repeat with the same key and request returns the first answer. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BedCategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description The new category */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BedCategory"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateBedCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bedCategoryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BedCategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description The category as saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BedCategory"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveBedCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bedCategoryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The category */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BedCategory"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreBedCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bedCategoryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The category */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BedCategory"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listWards: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                q?: string;
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of wards */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createWard: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A repeat with the same key and request returns the first answer. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WardCreate"];
+            };
+        };
+        responses: {
+            /** @description The new ward */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getWard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ward */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateWard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WardUpdate"];
+            };
+        };
+        responses: {
+            /** @description The ward as saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveWard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ward */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreWard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ward */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createRoom: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A repeat with the same key and request returns the first answer. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                wardId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoomCreate"];
+            };
+        };
+        responses: {
+            /** @description The ward with the new room */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+                roomId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoomUpdate"];
+            };
+        };
+        responses: {
+            /** @description The ward as saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+                roomId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ward */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+                roomId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ward */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createBed: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A repeat with the same key and request returns the first answer. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                wardId: string;
+                roomId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BedCreate"];
+            };
+        };
+        responses: {
+            /** @description The ward with the new bed */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateBed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+                bedId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BedUpdate"];
+            };
+        };
+        responses: {
+            /** @description The ward as saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    blockBed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+                bedId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BedBlock"];
+            };
+        };
+        responses: {
+            /** @description The ward */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    unblockBed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+                bedId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ward */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveBed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+                bedId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ward */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreBed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wardId: string;
+                bedId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ward */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDetail"];
                 };
             };
             400: components["responses"]["Error"];

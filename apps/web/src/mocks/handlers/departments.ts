@@ -84,6 +84,10 @@ export function editMockDepartment(id: string, changes: Partial<Department>): vo
 export const mockDepartment = (tenantId: string, id: string) =>
   departments.find((candidate) => candidate.id === id && candidate.tenantId === tenantId);
 
+/** The same by its name, for the seed of a mock that refers to one. */
+export const mockDepartmentNamed = (tenantId: string, name: string) =>
+  departments.find((candidate) => candidate.name === name && candidate.tenantId === tenantId);
+
 const byName = (a: Department, b: Department) =>
   a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }) || a.id.localeCompare(b.id);
 
