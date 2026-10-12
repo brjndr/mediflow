@@ -672,6 +672,65 @@ describe('inviting staff', () => {
     expect(notifier.sent).toHaveLength(0);
   });
 
+  it('never grants more than the inviter holds', async () => {
+    // A role that may invite and little else, as a hospital might give its HR desk.
+    await pool.query(
+      "insert into roles (tenant_id, id, name) values ($1, 'hr_desk', 'HR desk'), ($1, 'wide_reader', 'Wide reader'), ($1, 'own_reader', 'Own reader')",
+      [hospital.id],
+    );
+    await pool.query(
+      `insert into role_permissions (tenant_id, role_id, permission, scope) values
+         ($1, 'hr_desk', 'staff:invite', 'all'), ($1, 'hr_desk', 'probe:read', 'own'),
+         ($1, 'wide_reader', 'probe:read', 'all'), ($1, 'own_reader', 'probe:read', 'own')`,
+      [hospital.id],
+    );
+    const hr = await createUser(pool, 'HR Hema');
+    await addMembership(pool, hr, hospital, 'hr_desk');
+    try {
+      const token = await signIn(hr);
+      const as = (roleId: string) => invite(token, { email: freshEmail(), name: 'X', roleId });
+
+      // An administrator holds what the HR desk does not.
+      const admin = await as('admin');
+      expect(errorOf(admin)).toEqual([403, 'role_not_allowed']);
+      // The same permission at a wider scope is more as well.
+      expect(errorOf(await as('wide_reader'))).toEqual([403, 'role_not_allowed']);
+      expect(notifier.sent).toHaveLength(0);
+      expect(
+        (
+          await pool.query(
+            "select 1 from invites where role_id in ('admin', 'wide_reader') and invited_by = $1",
+            [hr.id],
+          )
+        ).rowCount,
+      ).toBe(0);
+
+      // Their own role, and one that holds less, are theirs to give.
+      expect((await as('hr_desk')).statusCode).toBe(201);
+      expect((await as('own_reader')).statusCode).toBe(201);
+      expect(notifier.sent).toHaveLength(2);
+    } finally {
+      await pool.query(
+        "delete from invites where tenant_id = $1 and role_id in ('hr_desk', 'own_reader')",
+        [hospital.id],
+      );
+      await deleteUsers(pool, [hr]);
+      await pool.query(
+        "delete from roles where tenant_id = $1 and id in ('hr_desk', 'wide_reader', 'own_reader')",
+        [hospital.id],
+      );
+    }
+  });
+
+  it('lets an administrator invite into any role of the hospital', async () => {
+    const token = await signIn(admin);
+
+    for (const roleId of ['admin', 'doctor', 'nurse']) {
+      const response = await invite(token, { email: freshEmail(), name: 'X', roleId });
+      expect(response.statusCode, roleId).toBe(201);
+    }
+  });
+
   it('refuses something that is not one email address', async () => {
     const token = await signIn(admin);
 

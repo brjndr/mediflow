@@ -28,6 +28,24 @@ export type AccessPolicy = Static<typeof AccessPolicy>;
 
 export const ACCESS_SCHEMAS = [PermissionGrant, AccessPolicy] as const;
 
+/**
+ * Whether one set of grants is no more than another: every permission in `wanted` is held, at a
+ * scope that covers it (`all` covers any scope; otherwise the scopes must be the same). This is
+ * the ceiling for handing access on: nobody gives, through an invitation or a role, what they do
+ * not hold themselves.
+ */
+export function grantsWithin(
+  wanted: readonly { permission: string; scope?: string }[],
+  held: readonly { permission: string; scope?: string }[],
+): boolean {
+  return wanted.every((grant) => {
+    const own = held.find((candidate) => candidate.permission === grant.permission);
+    if (!own) return false;
+    const ownScope = own.scope ?? 'all';
+    return ownScope === 'all' || ownScope === (grant.scope ?? 'all');
+  });
+}
+
 /** Anything that can run one parameterised query: a pg client or pool. */
 export interface Queryable {
   query<Row extends object>(text: string, values: unknown[]): Promise<{ rows: Row[] }>;

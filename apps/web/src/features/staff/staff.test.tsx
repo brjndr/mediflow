@@ -267,6 +267,22 @@ describe('inviting one person', () => {
     expect(sentTo()).toEqual(['nina@sample-hospital.test']);
   });
 
+  it('says so when the role may do more than the inviter', async () => {
+    server.use(
+      http.post('*/api/invites', () =>
+        HttpResponse.json({ error: { code: 'role_not_allowed', message: 'x' } }, { status: 403 }),
+      ),
+    );
+    await openInvite();
+    await fillInvite('Nina Nurse', 'nina@sample-hospital.test', 'Admin');
+    await userEvent.click(button('Send invitation'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'You cannot invite someone into a role that may do more than your own.',
+    );
+    expect(sentTo()).toEqual([]);
+  });
+
   it('says so when the role was removed meanwhile, and keeps what was typed', async () => {
     server.use(
       http.post('*/api/invites', () =>
