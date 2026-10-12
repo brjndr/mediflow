@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { sessionKey, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
@@ -98,8 +99,20 @@ function useRefresh(serviceId?: string) {
 
 export function useCreateService() {
   const refresh = useRefresh();
+  // A key identifies one service as filled in: sending the same again reuses it, an edited form
+  // gets a new one.
+  const attempt = useRef<{ body: string; key: string }>(undefined);
   return useMutation({
-    mutationFn: (body: ServiceCreate) => createService(body),
+    mutationFn: (body: ServiceCreate) => {
+      const serialized = JSON.stringify(body);
+      if (attempt.current?.body !== serialized) {
+        attempt.current = { body: serialized, key: crypto.randomUUID() };
+      }
+      return createService(body, attempt.current.key);
+    },
+    onSuccess: () => {
+      attempt.current = undefined;
+    },
     onSettled: refresh,
   });
 }
@@ -119,7 +132,11 @@ export function useUpdateService(serviceId: string) {
         ? updateService(serviceId, change.body)
         : setServiceArchived(serviceId, change.archived),
     onSuccess: (saved) => {
-      if (tenantId) queryClient.setQueryData(serviceKeys.detail(tenantId, serviceId), saved);
+      // Nothing is written if the answer arrives after the session ended or moved to another
+      // hospital: the cache it would go into is no longer this person's at this hospital.
+      const session = queryClient.getQueryData<Session | null>(sessionKey);
+      if (!tenantId || session?.activeTenant?.id !== tenantId) return;
+      queryClient.setQueryData(serviceKeys.detail(tenantId, serviceId), saved);
     },
     // Also after a failure: a conflict means what is on screen is out of date.
     onSettled: refresh,
@@ -130,8 +147,10 @@ export function useUpdateService(serviceId: string) {
 export function usePriceChange(serviceId: string) {
   const refresh = useRefresh(serviceId);
   return useMutation({
-    mutationFn: async (change: { set: ServicePriceCreate } | { cancel: string }) => {
-      if ('set' in change) await setServicePrice(serviceId, change.set);
+    mutationFn: async (
+      change: { set: ServicePriceCreate; idempotencyKey: string } | { cancel: string },
+    ) => {
+      if ('set' in change) await setServicePrice(serviceId, change.set, change.idempotencyKey);
       else await cancelServicePrice(serviceId, change.cancel);
     },
     onSettled: refresh,

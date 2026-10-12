@@ -20,12 +20,19 @@ const link =
 /** The edit form, working from the service as it was when the form opened. */
 function EditForm({
   from,
+  latest,
   pending,
+  saving,
   onSave,
   onCancel,
 }: {
   from: Service;
+  /** The service as it is saved now. Differs from `from` once someone else has changed it. */
+  latest: Service;
+  /** No save can be started just now. */
   pending: boolean;
+  /** A save is on its way, so the form is not left either. */
+  saving: boolean;
   onSave: (values: ServiceFormValues, changed: ServiceField[]) => void | Promise<void>;
   onCancel: () => void;
 }) {
@@ -38,21 +45,45 @@ function EditForm({
   });
   // Read while rendering, which is what keeps it up to date.
   const { dirtyFields } = form.formState;
+  const FIELDS: ServiceField[] = ['name', 'category', 'taxClass', 'description'];
+  const shown = (service: Service, field: ServiceField) =>
+    field === 'category'
+      ? t(`categories.${service.category}`)
+      : field === 'taxClass'
+        ? t(`taxClasses.${service.taxClass}`)
+        : (service[field] ?? '') || t('detail.notGiven');
+  // Fields this person changed that someone else has changed too: saving puts this person's
+  // value over theirs, so theirs is shown before that happens.
+  const theirs = FIELDS.filter(
+    (field) => dirtyFields[field] === true && (latest[field] ?? '') !== (from[field] ?? ''),
+  );
   return (
     <Form
       form={form}
       onSubmit={(values) =>
         onSave(
           values,
-          (Object.keys(values) as ServiceField[]).filter((field) => dirtyFields[field] === true),
+          FIELDS.filter((field) => dirtyFields[field] === true),
         )
       }
       className="flex max-w-xl flex-col gap-4"
     >
       <ServiceFields />
+      {theirs.length > 0 && (
+        <div role="status" className="rounded-md border p-3 text-sm">
+          <p className="font-medium">{t('detail.theySaved')}</p>
+          <ul className="mt-1 list-disc pl-5">
+            {theirs.map((field) => (
+              <li key={field}>
+                {t(`form.${field}`)}: {shown(latest, field)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="flex flex-wrap gap-3">
         <SubmitButton pending={pending}>{t('form.save')}</SubmitButton>
-        <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
+        <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>
           {t('form.cancel')}
         </Button>
       </div>
@@ -132,7 +163,7 @@ function Details({ service }: { service: Service }) {
       )}
       {(conflict !== 'none' || conflicted) && (
         <p role="alert" className="text-sm text-destructive">
-          {t(editing ? 'detail.conflict' : 'detail.conflictToggle')}
+          {t('detail.conflict')}
         </p>
       )}
       {update.isError && !conflicted && (
@@ -147,6 +178,8 @@ function Details({ service }: { service: Service }) {
       {editing ? (
         <EditForm
           from={editing}
+          latest={service}
+          saving={update.isPending}
           // Until the newest version is known after a conflict, a save would only conflict again.
           pending={update.isPending || conflict === 'awaiting'}
           onSave={save}

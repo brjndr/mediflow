@@ -730,7 +730,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The services the active tenant can charge for, by name, each with the price in force today on its standard price list. Requires service:read and the services feature flag. `q` matches the code or the name. Archived services are listed only when asked for. */
+        /** @description The services the active tenant can charge for, by name, each with the price in force on its standard price list today, where today is the date at the hospital in its own timezone. Requires service:read and the services feature flag. `q` matches the code or the name. Archived services are listed only when asked for. */
         get: operations["listServices"];
         put?: never;
         /** @description Adds a service. Requires service:manage. The hospital is the session's: the body carries no tenant. The code is the service's identity on bills and cannot be changed later; one already used by a service of the hospital, archived or not, is refused with 409 service_code_taken. `priceMinor`, when given, is its price on the standard list from today. */
@@ -800,10 +800,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The prices of a service on a price list, newest first: the one in force, those before it and any that is scheduled. Requires service:read. Without `priceListId` the hospital's standard list. A service of another hospital answers 404 service_not_found, the same as one that does not exist. */
+        /** @description The prices of a service on a price list, newest first: the one in force, those before it and any that is scheduled. Requires service:read. Without `priceListId` the hospital's standard list. A service of another hospital answers 404 service_not_found, the same as one that does not exist. A `priceListId` must be a price list of the session's own hospital: any other, known elsewhere or not, answers 404 price_list_not_found. Store the reference together with the hospital (a composite key), since foreign keys are checked without row-level security. */
         get: operations["listServicePrices"];
         put?: never;
-        /** @description Gives a service a new price from a date. Requires service:manage. Prices are never edited: the price before it ends the day before, and a charge already posted keeps the price it was posted at. `effectiveFrom` is today at the hospital or later, and later than the start of the latest price on the list (409 price_date_conflict otherwise). Without `priceListId` the hospital's standard list. A service of another hospital answers 404 service_not_found, the same as one that does not exist. */
+        /** @description Gives a service a new price from a date. Requires service:manage. Prices are never edited, and a charge already posted keeps the price, the tax class and the category it was posted with. The first price of a service may start today at the hospital (its timezone) or later. Once a price is in force, a new one starts tomorrow or later, never today: charges posted this morning used the price that was in force. The price in force then ends the day before the new one starts. At most one price is scheduled at a time: while one is, a second is refused with 409 price_date_conflict until it is withdrawn. An archived service takes no new price (409 service_archived). Two requests at once must not leave overlapping periods: lock the service and keep an exclusion constraint on (hospital, service, list, period). A `priceListId` must be a price list of the session's own hospital: any other, known elsewhere or not, answers 404 price_list_not_found. Store the reference together with the hospital (a composite key), since foreign keys are checked without row-level security. A service of another hospital answers 404 service_not_found, the same as one that does not exist. */
         post: operations["setServicePrice"];
         delete?: never;
         options?: never;
@@ -1239,7 +1239,7 @@ export interface components {
             effectiveFrom: string;
             priceListId?: string;
         };
-        /** @description Something the hospital can charge for. Holds no patient data. */
+        /** @description Something the hospital can charge for. Holds no patient data. Its name, category and tax class can be changed, and a charge keeps what they were when it was posted: changing them never changes an old bill. */
         Service: {
             id: string;
             tenantId: string;
@@ -4086,7 +4086,10 @@ export interface operations {
     createService: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description A repeat with the same key and request returns the first answer. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -4260,7 +4263,10 @@ export interface operations {
     setServicePrice: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description A repeat with the same key and request returns the first answer. */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 serviceId: string;
             };

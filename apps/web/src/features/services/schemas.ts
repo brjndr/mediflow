@@ -67,24 +67,29 @@ export function currencyDigits(currency: string | undefined): number {
 }
 
 /**
- * An amount as typed ("1250", "1250.5", "1,250.50") in minor units, or null when it is not an
- * amount in that currency: no sign, no more decimals than the currency has. Worked out on the
- * digits themselves, never through a floating-point number.
+ * An amount as typed ("1250", "1250.5", "1,250.50", "1,25,000") in minor units, or null when it
+ * is not an amount in that currency: no sign, a point for the decimals, and no more of them than
+ * the currency has. A comma is accepted only where grouping puts one (the last group before the
+ * decimals is three digits, the ones before it two or three), so "12,50", typed by someone who
+ * writes decimals with a comma, is refused and never read as 1250. Worked out on the digits
+ * themselves, never through a floating-point number.
  */
 export function toMinor(text: string, digits: number): number | null {
-  const plain = text.trim().replace(/,/g, '');
-  const match = /^(\d{1,12})(?:\.(\d*))?$/.exec(plain);
+  const match = /^(\d[\d,]*)(?:\.(\d*))?$/.exec(text.trim());
   if (!match) return null;
-  const [, whole = '0', fraction = ''] = match;
-  if (fraction.length > digits) return null;
+  const [, grouped = '', fraction = ''] = match;
+  if (grouped.includes(',') && !/^\d{1,3}(,\d{2,3})*,\d{3}$/.test(grouped)) return null;
+  const whole = grouped.replace(/,/g, '');
+  if (whole.length > 12 || fraction.length > digits) return null;
   const minor = Number(whole) * 10 ** digits + Number(fraction.padEnd(digits, '0') || '0');
   return Number.isSafeInteger(minor) && minor <= AMOUNT_MAX ? minor : null;
 }
 
-/** An amount in minor units as it is typed: "1250.50". */
-export function fromMinor(minor: number, digits: number): string {
-  const text = String(minor).padStart(digits + 1, '0');
-  return digits === 0 ? text : `${text.slice(0, -digits)}.${text.slice(-digits)}`;
+/** The day after a YYYY-MM-DD calendar date. */
+export function dayAfter(date: string): string {
+  const day = new Date(`${date}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() + 1);
+  return day.toISOString().slice(0, 10);
 }
 
 /**
@@ -136,8 +141,8 @@ export const createServiceFormSchema = (digits: number) =>
   });
 export type CreateServiceFormValues = z.infer<ReturnType<typeof createServiceFormSchema>>;
 
-/** A new price, from a date that is `today` at the hospital or later. */
-export const createPriceFormSchema = (digits: number, today: string) =>
+/** A new price, from `earliest` (a YYYY-MM-DD date at the hospital) or later. */
+export const createPriceFormSchema = (digits: number, earliest: string) =>
   z.object({
     amount: z
       .string()
@@ -147,6 +152,6 @@ export const createPriceFormSchema = (digits: number, today: string) =>
     effectiveFrom: z
       .string()
       .regex(DATE, 'validation.required')
-      .refine((value) => value >= today, 'validation.invalid_format'),
+      .refine((value) => value >= earliest, 'validation.date_too_early'),
   });
 export type PriceFormValues = z.infer<ReturnType<typeof createPriceFormSchema>>;

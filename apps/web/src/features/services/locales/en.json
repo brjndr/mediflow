@@ -52,7 +52,7 @@
     "description": "Description",
     "descriptionHint": "Optional. What the service includes.",
     "price": "Price from today ({{currency}})",
-    "priceHint": "Optional. A service can be set up first and priced later.",
+    "priceHint": "Optional: a service can be set up first and priced later. Use a point for decimals, for example 1250.50.",
     "save": "Save service",
     "cancel": "Cancel"
   },
@@ -77,7 +77,7 @@
     "archivedDone": "{{name}} was archived.",
     "restoredDone": "{{name}} was restored.",
     "conflict": "Someone else changed this service while you were editing. What you changed is still here: check it and save again. The fields you did not change keep what they saved.",
-    "conflictToggle": "Someone else changed this service just now. It has been updated: check it and try again.",
+    "theySaved": "They also changed something you changed. Saving puts your value in place of theirs:",
     "notGiven": "Not given"
   },
   "prices": {
@@ -104,11 +104,15 @@
     "newHeading": "Set a new price",
     "amount": "Price ({{currency}})",
     "effectiveFrom": "From",
-    "effectiveFromHint": "Today or a later date at this hospital.",
+    "amountHint": "Use a point for decimals, for example 1250.50.",
+    "fromTodayHint": "Today or a later date at this hospital.",
+    "fromTomorrowHint": "Tomorrow or a later date at this hospital. Today stays at the price that is in force.",
+    "scheduledFirst": "A price is already scheduled. Withdraw it before setting another: one price at a time is scheduled.",
     "submit": "Set price",
     "saved": "The price from {{date}} was set.",
     "errors": {
-      "dateConflict": "A price already starts on or after that date. Choose a later date, or withdraw the scheduled price first.",
+      "dateConflict": "A price is already scheduled for this service. Withdraw it first, then set the new one.",
+      "archived": "This service is archived, so it takes no new price. Restore it first.",
       "inForce": "That price is already in force, so it cannot be withdrawn. Set a new price instead.",
       "gone": "That price is no longer there. The list has been updated."
     }

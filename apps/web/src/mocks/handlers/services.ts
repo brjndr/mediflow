@@ -175,6 +175,11 @@ function view(service: Stored): Service {
   return { ...service, ...(currentPrice ? { currentPrice } : {}) };
 }
 
+/** A price list named by the client: the hospital's own, or it does not exist. */
+const listNamed = (tenantId: string, id: unknown) =>
+  id === undefined || id === null || id === listOf(tenantId) ? listOf(tenantId) : null;
+const noSuchList = () => error(404, 'price_list_not_found', 'No such price list');
+
 const invalid = () => error(400, 'validation_failed', 'The request is not valid');
 const notFound = () => error(404, 'service_not_found', 'No such service');
 
@@ -192,7 +197,7 @@ function readDetails(body: Record<string, unknown>): Partial<Stored> | null {
   const fields: Partial<Stored> = {};
   const { name, category, taxClass, description } = body;
   if (name !== undefined) {
-    if (typeof name !== 'string' || !name.trim() || name.length > 150) return null;
+    if (typeof name !== 'string' || !name.trim() || name.trim().length > 150) return null;
     fields.name = name.trim();
   }
   if (category !== undefined) {
@@ -345,7 +350,12 @@ export const servicesHandlers = [
     if ('denied' in access) return access.denied;
     const service = find(access.tenantId, params.serviceId);
     if (!service) return notFound();
-    const page = paged(request, pricesOf(service.id, listOf(access.tenantId)), (price) => price.id);
+    const priceListId = listNamed(
+      access.tenantId,
+      new URL(request.url).searchParams.get('priceListId'),
+    );
+    if (!priceListId) return noSuchList();
+    const page = paged(request, pricesOf(service.id, priceListId), (price) => price.id);
     if (!page) return error(400, 'invalid_cursor', 'Unknown cursor');
     return HttpResponse.json<ServicePricePage>(page);
   }),
@@ -360,13 +370,20 @@ export const servicesHandlers = [
     }
     const service = find(access.tenantId, params.serviceId);
     if (!service) return notFound();
-    // Not in the past: a price that has applied is history, and history is not rewritten.
-    if (from < today()) return invalid();
-    const priceListId = listOf(access.tenantId);
-    const latest = pricesOf(service.id, priceListId)[0];
-    if (latest && from <= latest.effectiveFrom) {
-      return error(409, 'price_date_conflict', 'A price already starts on or after that date');
+    if (service.archived)
+      return error(409, 'service_archived', 'An archived service is not priced');
+    const priceListId = listNamed(access.tenantId, body.priceListId);
+    if (!priceListId) return noSuchList();
+    const now = today();
+    const existing = pricesOf(service.id, priceListId);
+    const latest = existing[0];
+    // At most one price is scheduled at a time.
+    if (latest && latest.effectiveFrom > now) {
+      return error(409, 'price_date_conflict', 'A price is already scheduled');
     }
+    // The first price may start today. Once one is in force, a new one starts tomorrow or
+    // later: charges posted this morning used the price in force, and that is not rewritten.
+    if (latest ? from <= now : from < now) return invalid();
     // The price before it ends the day before. Nothing else about it changes.
     if (latest) latest.effectiveTo = dayBefore(from);
     const price: ServicePrice = {
@@ -393,7 +410,8 @@ export const servicesHandlers = [
       return error(409, 'price_in_force', 'A price that is or was in force is not withdrawn');
     }
     state.prices = state.prices.filter((candidate) => candidate !== price);
-    // The price before it carries on with no end date.
+    // Only the latest price can be a scheduled one, so the one before it is the one in
+    // force: it carries on with no end date.
     const before = pricesOf(service.id, price.priceListId)[0];
     if (before) delete before.effectiveTo;
     return new HttpResponse(null, { status: 204 });

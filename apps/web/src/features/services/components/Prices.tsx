@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
@@ -9,6 +9,7 @@ import { usePriceChange, useServicePrices } from '../hooks/use-services';
 import {
   createPriceFormSchema,
   currencyDigits,
+  dayAfter,
   todayIn,
   toMinor,
   type PriceFormValues,
@@ -29,12 +30,16 @@ function refusal(error: unknown) {
   if (error.serverCode === 'price_date_conflict') return 'prices.errors.dateConflict' as const;
   if (error.serverCode === 'price_in_force') return 'prices.errors.inForce' as const;
   if (error.serverCode === 'price_not_found') return 'prices.errors.gone' as const;
+  if (error.serverCode === 'service_archived') return 'prices.errors.archived' as const;
   return null;
 }
 
 /**
  * A service's prices on the standard list: the history, and for a manager the form that sets a
  * new price from a date. Nothing here edits a price that exists.
+ *
+ * The first price may start today. Once one is in force a new one starts tomorrow or later, so
+ * what was charged this morning stays what it was; and one price at a time is scheduled.
  */
 export function Prices({ serviceId, archived }: { serviceId: string; archived: boolean }) {
   const { t } = useTranslation('services');
@@ -48,27 +53,31 @@ export function Prices({ serviceId, archived }: { serviceId: string; archived: b
   const today = todayIn(tenant?.timezone ?? 'UTC');
   // What was just done, said once in a status line.
   const [done, setDone] = useState<string | null>(null);
+  // A key identifies one price as typed: sending the same again reuses it, so a repeat after a
+  // lost answer sets one price and does not fail on its own.
+  const attempt = useRef<{ body: string; key: string }>(undefined);
 
-  const schema = useMemo(() => createPriceFormSchema(digits, today), [digits, today]);
-  const form = useZodForm(schema, { amount: '', effectiveFrom: today });
+  const rows = useMemo(() => prices.data?.items ?? [], [prices.data]);
+  const priced = rows.some((row) => row.effectiveFrom <= today);
+  const scheduled = rows.some((row) => row.effectiveFrom > today);
+  const earliest = priced ? dayAfter(today) : today;
 
-  // A calendar date, not an instant: noon UTC keeps the day the same in every timezone.
-  const day = (date: string) => format.date(`${date}T12:00:00Z`);
-  const rows = prices.data?.items ?? [];
+  const schema = useMemo(() => createPriceFormSchema(digits, earliest), [digits, earliest]);
+  const form = useZodForm(schema, { amount: '', effectiveFrom: '' });
 
   const columns = useMemo<GridColumn<ServicePrice>[]>(
     () => [
       {
         id: 'from',
         header: t('prices.columns.from'),
-        value: (row) => format.date(`${row.effectiveFrom}T12:00:00Z`),
+        value: (row) => format.calendarDate(row.effectiveFrom),
         hideable: false,
       },
       {
         id: 'to',
         header: t('prices.columns.to'),
         value: (row) =>
-          row.effectiveTo ? format.date(`${row.effectiveTo}T12:00:00Z`) : t('prices.openEnded'),
+          row.effectiveTo ? format.calendarDate(row.effectiveTo) : t('prices.openEnded'),
       },
       {
         id: 'amount',
@@ -103,10 +112,14 @@ export function Prices({ serviceId, archived }: { serviceId: string; archived: b
     setDone(null);
     const amountMinor = toMinor(values.amount, digits);
     if (amountMinor === null) return;
+    const set = { amountMinor, effectiveFrom: values.effectiveFrom };
+    const body = JSON.stringify(set);
+    if (attempt.current?.body !== body) attempt.current = { body, key: crypto.randomUUID() };
     try {
-      await change.mutateAsync({ set: { amountMinor, effectiveFrom: values.effectiveFrom } });
-      setDone(t('prices.saved', { date: day(values.effectiveFrom) }));
-      form.reset({ amount: '', effectiveFrom: today });
+      await change.mutateAsync({ set, idempotencyKey: attempt.current.key });
+      attempt.current = undefined;
+      setDone(t('prices.saved', { date: format.calendarDate(values.effectiveFrom) }));
+      form.reset({ amount: '', effectiveFrom: '' });
     } catch {
       // Shown from the mutation state below.
     }
@@ -137,7 +150,7 @@ export function Prices({ serviceId, archived }: { serviceId: string; archived: b
         columns={columns}
         rows={rows}
         rowId={(row) => row.id}
-        rowLabel={(row) => day(row.effectiveFrom)}
+        rowLabel={(row) => format.calendarDate(row.effectiveFrom)}
         actions={actions}
         status={prices.isPending ? 'loading' : prices.isError ? 'error' : 'ready'}
         errorMessage={prices.isError ? t('prices.failed') : undefined}
@@ -145,30 +158,36 @@ export function Prices({ serviceId, archived }: { serviceId: string; archived: b
         emptyMessage={t('prices.none')}
       />
 
-      {mayManage && !archived && (
+      {mayManage && !archived && prices.isSuccess && (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <h3 className="text-base font-semibold">{t('prices.newHeading')}</h3>
-          <Form form={form} onSubmit={submit} className="flex max-w-xl flex-col gap-4">
-            <TextField
-              name="amount"
-              label={t('prices.amount', { currency: tenant?.currency ?? '' })}
-              required
-              inputMode="decimal"
-              autoComplete="off"
-              maxLength={20}
-            />
-            <TextField
-              name="effectiveFrom"
-              type="date"
-              label={t('prices.effectiveFrom')}
-              hint={t('prices.effectiveFromHint')}
-              required
-              min={today}
-            />
-            <SubmitButton pending={change.isPending} className="self-start">
-              {t('prices.submit')}
-            </SubmitButton>
-          </Form>
+          {scheduled ? (
+            // One price at a time is scheduled: the next one waits for this one to be withdrawn.
+            <p className="text-sm text-muted-foreground">{t('prices.scheduledFirst')}</p>
+          ) : (
+            <Form form={form} onSubmit={submit} className="flex max-w-xl flex-col gap-4">
+              <TextField
+                name="amount"
+                label={t('prices.amount', { currency: tenant?.currency ?? '' })}
+                hint={t('prices.amountHint')}
+                required
+                inputMode="decimal"
+                autoComplete="off"
+                maxLength={20}
+              />
+              <TextField
+                name="effectiveFrom"
+                type="date"
+                label={t('prices.effectiveFrom')}
+                hint={t(priced ? 'prices.fromTomorrowHint' : 'prices.fromTodayHint')}
+                required
+                min={earliest}
+              />
+              <SubmitButton pending={change.isPending} className="self-start">
+                {t('prices.submit')}
+              </SubmitButton>
+            </Form>
+          )}
         </div>
       )}
     </section>

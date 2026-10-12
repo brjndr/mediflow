@@ -8,7 +8,7 @@ import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
 import { renderApp } from '@/test/render';
 import { serviceKeys } from './hooks/use-services';
-import { currencyDigits, fromMinor, todayIn, toMinor } from './schemas';
+import { currencyDigits, dayAfter, todayIn, toMinor } from './schemas';
 
 const HEADING = { name: 'Services and prices', level: 1 };
 const NO_ACCESS = { name: 'You do not have access to this page' };
@@ -236,6 +236,34 @@ describe('a service', () => {
     expect(screen.getByText('Reduced rate')).toBeInTheDocument();
   });
 
+  it('shows what someone else saved in a field both changed, before it is replaced', async () => {
+    await openService();
+    await userEvent.click(button('Edit details'));
+    // Both change the name.
+    editMockService(CONSULTATION, { name: 'Consultation (general)' });
+    await type(/^Name/, 'OPD consultation');
+    await userEvent.click(button('Save service'));
+
+    expect(await screen.findByText(/They also changed something you changed/)).toBeInTheDocument();
+    expect(screen.getByText('Name: Consultation (general)')).toBeInTheDocument();
+    expect(textbox(/^Name/)).toHaveValue('OPD consultation');
+  });
+
+  it('can be left when the refresh after a conflict fails', async () => {
+    await openService();
+    await userEvent.click(button('Edit details'));
+    editMockService(CONSULTATION, { taxClass: 'reduced' });
+    await type(/^Name/, 'OPD consultation');
+    // The service cannot be read again after the conflict.
+    server.use(http.get('*/api/services/:id', () => new HttpResponse(null, { status: 500 })));
+    await userEvent.click(button('Save service'));
+    await screen.findByText(/Someone else changed this service/);
+
+    expect(button('Cancel')).toBeEnabled();
+    await userEvent.click(button('Cancel'));
+    expect(screen.queryByRole('button', { name: 'Save service' })).not.toBeInTheDocument();
+  });
+
   it('archives and restores, and takes no new price while archived', async () => {
     await openService();
     expect(screen.getByRole('heading', { name: 'Set a new price' })).toBeInTheDocument();
@@ -300,6 +328,7 @@ describe('prices', () => {
     renderApp({ entry: `/services/${UNPRICED}` });
     await screen.findByText('This service has no price yet.');
     await type(/^Price \(/, '300');
+    setDate(todayIn('Asia/Kolkata'));
     await userEvent.click(button('Set price'));
 
     await waitFor(() => expect(priceRows()).toEqual(['In force']));
@@ -312,17 +341,34 @@ describe('prices', () => {
     });
   });
 
-  it('refuses a date that a price already starts on or after', async () => {
+  it('schedules one price at a time', async () => {
+    // The ECG already has a price scheduled.
     await openService(ECG);
     expect(priceRows()).toEqual(['Scheduled', 'In force', 'Past']);
-    await type(/^Price \(/, '420');
-    setDate('2098-06-01');
-    await userEvent.click(button('Set price'));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'A price already starts on or after that date.',
-    );
+    expect(
+      screen.getByText(/A price is already scheduled\. Withdraw it before/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Set price' })).not.toBeInTheDocument();
+    await expect(
+      api.POST('/services/{serviceId}/prices', {
+        params: { path: { serviceId: ECG }, header: { 'Idempotency-Key': 'test-key-0001' } },
+        body: { amountMinor: 42000, effectiveFrom: '2100-01-01' },
+      }),
+    ).rejects.toMatchObject({ serverCode: 'price_date_conflict' });
     expect(await pricesOf(ECG)).toHaveLength(3);
+  });
+
+  it('offers the form again once the scheduled price is withdrawn', async () => {
+    await openService(ECG);
+    await userEvent.click(
+      screen
+        .getAllByRole('button', { name: /^Withdraw/ })
+        .find((withdraw) => !(withdraw as HTMLButtonElement).disabled) as HTMLElement,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Set price' })).toBeInTheDocument();
+    expect(screen.queryByText(/A price is already scheduled/)).not.toBeInTheDocument();
   });
 
   it('withdraws a price that has not started, and the one before carries on', async () => {
@@ -340,48 +386,142 @@ describe('prices', () => {
     expect(prices[0]?.effectiveTo).toBeUndefined();
   });
 
-  it('never takes a date in the past, on the screen or on the server', async () => {
+  it('starts a new price tomorrow at the earliest once one is in force', async () => {
+    const today = todayIn('Asia/Kolkata');
     await openService();
     await type(/^Price \(/, '650');
-    setDate('2020-01-01');
-    await userEvent.click(button('Set price'));
-
-    await waitFor(() =>
-      expect(screen.getByLabelText(/^From/)).toHaveAttribute('aria-invalid', 'true'),
-    );
-    await expect(
+    for (const tooEarly of ['2020-01-01', today]) {
+      setDate(tooEarly);
+      await userEvent.click(button('Set price'));
+      expect(await screen.findByText('Choose a later date.')).toBeInTheDocument();
+    }
+    const post = (effectiveFrom: string) =>
       api.POST('/services/{serviceId}/prices', {
-        params: { path: { serviceId: CONSULTATION } },
-        body: { amountMinor: 65000, effectiveFrom: '2020-01-01' },
-      }),
-    ).rejects.toMatchObject({ code: 'validation' });
-    // A price that is in force is not withdrawn either.
+        params: {
+          path: { serviceId: CONSULTATION },
+          header: { 'Idempotency-Key': `k-${effectiveFrom}` },
+        },
+        body: { amountMinor: 65000, effectiveFrom },
+      });
+    // The server holds the same line: this morning's charges used the price in force.
+    await expect(post('2020-01-01')).rejects.toMatchObject({ code: 'validation' });
+    await expect(post(today)).rejects.toMatchObject({ code: 'validation' });
+    expect(await pricesOf(CONSULTATION)).toHaveLength(2);
+
+    // Tomorrow is fine, and the price in force ends today.
+    setDate(dayAfter(today));
+    await userEvent.click(button('Set price'));
+    await waitFor(() => expect(priceRows()).toEqual(['Scheduled', 'In force', 'Past']));
+    expect((await pricesOf(CONSULTATION))[1]).toMatchObject({ effectiveTo: today });
+  });
+
+  it('never withdraws a price that is or was in force, and prices nothing that is archived', async () => {
     await expect(
       api.DELETE('/services/{serviceId}/prices/{priceId}', {
         params: { path: { serviceId: CONSULTATION, priceId: `${CONSULTATION}_p2` } },
       }),
     ).rejects.toMatchObject({ serverCode: 'price_in_force' });
+
+    await api.POST('/services/{serviceId}/archive', {
+      params: { path: { serviceId: CONSULTATION } },
+    });
+    await expect(
+      api.POST('/services/{serviceId}/prices', {
+        params: {
+          path: { serviceId: CONSULTATION },
+          header: { 'Idempotency-Key': 'test-key-0002' },
+        },
+        body: { amountMinor: 65000, effectiveFrom: MOCK_FUTURE_DATE },
+      }),
+    ).rejects.toMatchObject({ serverCode: 'service_archived' });
     expect(await pricesOf(CONSULTATION)).toHaveLength(2);
     expect(MOCK_FUTURE_DATE > todayIn('UTC')).toBe(true);
+  });
+
+  it('sends the same key when the same price is sent again after a failure', async () => {
+    const keys: (string | null)[] = [];
+    let fail = true;
+    server.use(
+      http.post('*/api/services/:id/prices', ({ request }) => {
+        keys.push(request.headers.get('idempotency-key'));
+        if (!fail) return undefined;
+        fail = false;
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+    await openService();
+    await type(/^Price \(/, '650');
+    setDate('2099-06-01');
+    await userEvent.click(button('Set price'));
+    await screen.findByRole('alert');
+    await userEvent.click(button('Set price'));
+
+    await waitFor(() => expect(priceRows()).toEqual(['Scheduled', 'In force', 'Past']));
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(keys[1]).toBe(keys[0]);
+  });
+
+  it('shows a price’s dates as the calendar days they are', async () => {
+    await openService();
+
+    // 1 April 2025 at the hospital, whatever timezone this test runs in.
+    expect(screen.getByText(/\b1 Apr 2025\b|Apr 1, 2025|01-Apr-2025/)).toBeInTheDocument();
+    expect(screen.getByText(/\b31 Mar 2025\b|Mar 31, 2025|31-Mar-2025/)).toBeInTheDocument();
   });
 
   it('turns what is typed into minor units without rounding', () => {
     expect(toMinor('1250', 2)).toBe(125000);
     expect(toMinor(' 1,250.5 ', 2)).toBe(125050);
+    expect(toMinor('1,25,000', 2)).toBe(12500000);
+    expect(toMinor('12,34,567.89', 2)).toBe(123456789);
     expect(toMinor('0.07', 2)).toBe(7);
     expect(toMinor('19.99', 2)).toBe(1999);
+    expect(toMinor('5.', 2)).toBe(500);
     expect(toMinor('1.999', 3)).toBe(1999);
     expect(toMinor('500', 0)).toBe(500);
-    for (const bad of ['', '-5', '12.345', '1e3', 'abc', '5.', '500.5']) {
-      expect(toMinor(bad, bad === '500.5' ? 0 : 2), bad).toBe(bad === '5.' ? 500 : null);
+    expect(toMinor('999999999999', 0)).toBe(999999999999);
+  });
+
+  it('refuses what is not an amount, and never reads a decimal comma as thousands', () => {
+    // Someone who writes decimals with a comma must not be charged a hundred times over.
+    for (const bad of ['12,50', '1,25', '1.250,50', '1,2,3', ',500', '1,,250', '1,250,5']) {
+      expect(toMinor(bad, 2), bad).toBeNull();
     }
-    expect(fromMinor(125050, 2)).toBe('1250.50');
-    expect(fromMinor(7, 2)).toBe('0.07');
-    expect(fromMinor(500, 0)).toBe('500');
+    for (const bad of ['', '-5', '12.345', '1e3', 'abc', '.5', '5 0', '1234567890123']) {
+      expect(toMinor(bad, 2), bad).toBeNull();
+    }
+    expect(toMinor('500.5', 0)).toBeNull();
+    // More than the API takes.
+    expect(toMinor('99999999999.99', 2)).toBeNull();
     expect([currencyDigits('INR'), currencyDigits('JPY'), currencyDigits('KWD')]).toEqual([
       2, 0, 3,
     ]);
     expect(currencyDigits('not a currency')).toBe(2);
+    expect([dayAfter('2025-12-31'), dayAfter('2024-02-28')]).toEqual(['2026-01-01', '2024-02-29']);
+  });
+
+  it('knows only its own hospital’s price list', async () => {
+    const path = { serviceId: CONSULTATION };
+    await expect(
+      api.GET('/services/{serviceId}/prices', {
+        params: { path, query: { priceListId: `pl_${TENANT_IDS.clinic}` } },
+      }),
+    ).rejects.toMatchObject({ serverCode: 'price_list_not_found' });
+    await expect(
+      api.POST('/services/{serviceId}/prices', {
+        params: { path, header: { 'Idempotency-Key': 'test-key-0003' } },
+        body: {
+          amountMinor: 1,
+          effectiveFrom: MOCK_FUTURE_DATE,
+          priceListId: `pl_${TENANT_IDS.clinic}`,
+        },
+      }),
+    ).rejects.toMatchObject({ serverCode: 'price_list_not_found' });
+    const own = await api.GET('/services/{serviceId}/prices', {
+      params: { path, query: { priceListId: `pl_${TENANT_IDS.hospital}` } },
+    });
+    expect(own.data?.items).toHaveLength(2);
   });
 });
 
@@ -440,6 +580,7 @@ describe('access', () => {
     await expect(
       api.POST('/services', {
         body: { code: 'X-1', name: 'X', category: 'lab', taxClass: 'exempt' },
+        params: { header: { 'Idempotency-Key': 'test-key-0004' } },
       }),
     ).rejects.toMatchObject({ code: 'forbidden' });
     await expect(
@@ -536,6 +677,7 @@ describe('two hospitals', () => {
     await expect(
       api.POST('/services', {
         body: { code: 'PRO-001', name: 'Second', category: 'procedure', taxClass: 'exempt' },
+        params: { header: { 'Idempotency-Key': 'test-key-0005' } },
       }),
     ).rejects.toMatchObject({ serverCode: 'service_code_taken' });
   });

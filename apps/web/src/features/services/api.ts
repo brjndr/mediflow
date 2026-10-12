@@ -44,8 +44,15 @@ export async function fetchService(serviceId: string, signal?: AbortSignal): Pro
   return serviceSchema.parse(requireData(result));
 }
 
-export async function createService(body: ServiceCreate): Promise<Service> {
-  const result = await api.POST('/services', { body });
+/**
+ * Adds a service. The key makes a repeat of the same request (a double click, a retry after a
+ * lost answer) add one service, not fail on its own code.
+ */
+export async function createService(body: ServiceCreate, idempotencyKey: string): Promise<Service> {
+  const result = await api.POST('/services', {
+    body,
+    params: { header: { 'Idempotency-Key': idempotencyKey } },
+  });
   return serviceSchema.parse(requireData(result));
 }
 
@@ -82,9 +89,10 @@ export async function fetchServicePrices(
 export async function setServicePrice(
   serviceId: string,
   body: ServicePriceCreate,
+  idempotencyKey: string,
 ): Promise<ServicePrice> {
   const result = await api.POST('/services/{serviceId}/prices', {
-    params: { path: { serviceId } },
+    params: { path: { serviceId }, header: { 'Idempotency-Key': idempotencyKey } },
     body,
   });
   return servicePriceSchema.parse(requireData(result));
