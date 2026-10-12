@@ -1,9 +1,15 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
-import { editMockWard, setMockBedStatus } from '@/mocks/handlers/wards';
+import { editMockService } from '@/mocks/handlers/services';
+import {
+  editMockBed,
+  editMockBedCategory,
+  editMockWard,
+  setMockBedStatus,
+} from '@/mocks/handlers/wards';
 import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
 import { renderApp } from '@/test/render';
@@ -167,7 +173,7 @@ describe('a ward', () => {
     expect(screen.getByRole('heading', { name: 'Hall 2' })).toBeInTheDocument();
     expect(row('GW-A-01').getByText('Occupied')).toBeInTheDocument();
     expect(row('GW-A-03').getByText('Being cleaned')).toBeInTheDocument();
-    expect(row('GW-A-04').getByText('Blocked: Oxygen outlet under repair')).toBeInTheDocument();
+    expect(row('GW-A-04').getByText('Blocked: Repair (Oxygen outlet)')).toBeInTheDocument();
     expect(row('GW-A-05').getByText('Available')).toBeInTheDocument();
     expect(row('GW-A-05').getByText('General ward')).toBeInTheDocument();
 
@@ -267,6 +273,33 @@ describe('rooms', () => {
     expect(patches).toEqual([{ name: 'Side room', expectedVersion: 1 }]);
   });
 
+  it('reuse a key for the same room sent again from the open form, and take a new one once the form is left', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('*/api/wards/:wardId/rooms', ({ request }) => {
+        keys.push(request.headers.get('idempotency-key'));
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+    await openWard(W07);
+    await userEvent.click(button('Add a room'));
+    await type(/^Room name/, 'Side room');
+    await userEvent.click(button('Add room'));
+    await screen.findByRole('alert');
+    // The same room again, from the same form: one attempt.
+    await userEvent.click(button('Add room'));
+    await waitFor(() => expect(keys).toHaveLength(2));
+    expect(keys[1]).toBe(keys[0]);
+
+    // Left and opened again: a room of that name is now a new thing to add.
+    await userEvent.click(button('Cancel'));
+    await userEvent.click(button('Add a room'));
+    await type(/^Room name/, 'Side room');
+    await userEvent.click(button('Add room'));
+    await waitFor(() => expect(keys).toHaveLength(3));
+    expect(keys[2]).not.toBe(keys[0]);
+  });
+
   it('need a name', async () => {
     await openWard(W07);
     await userEvent.click(button('Add a room'));
@@ -353,11 +386,12 @@ describe('beds', () => {
     expect(await screen.findByText('This field is required.')).toBeInTheDocument();
     expect(bodies).toEqual([]);
 
-    await type(/^Reason/, 'Deep cleaning');
+    // The reason is one of a list, so nothing about a patient is written as the reason.
+    await choose(/^Reason/, 'Deep cleaning');
     await userEvent.click(button('Block bed'));
     await waitFor(() => expect(statuses()).toContain('Bed W-07-03 is blocked.'));
     expect(row('W-07-03').getByText('Blocked: Deep cleaning')).toBeInTheDocument();
-    expect(bodies).toEqual([{ reason: 'Deep cleaning' }]);
+    expect(bodies).toEqual([{ reason: 'deep_cleaning' }]);
 
     await userEvent.click(button('Put back in use: W-07-03'));
     await waitFor(() => expect(statuses()).toContain('Bed W-07-03 is available again.'));
@@ -386,7 +420,8 @@ describe('beds', () => {
   it('are not blocked when a patient was admitted to the bed meanwhile', async () => {
     await openWard(W07);
     await userEvent.click(button('Block: W-07-04'));
-    await type(/^Reason/, 'Repair');
+    await choose(/^Reason/, 'Repair');
+    await type(/^Note/, 'Side rail');
     setMockBedStatus('ward_h_w-07_b4', 'occupied');
     await userEvent.click(button('Block bed'));
 
@@ -395,6 +430,68 @@ describe('beds', () => {
     );
     // What is on screen is the bed as it now is.
     await waitFor(() => expect(row('W-07-04').getByText('Occupied')).toBeInTheDocument());
+  });
+
+  it('keep their status through archiving: a bed being cleaned comes back being cleaned', async () => {
+    await openWard();
+    await userEvent.click(button('Archive: GW-A-03'));
+    await waitFor(() => expect(statuses()).toContain('Bed GW-A-03 was archived.'));
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Show archived rooms and beds' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Restore: GW-A-03' }));
+    await waitFor(() => expect(statuses()).toContain('Bed GW-A-03 was restored.'));
+    // Archiving is no way round housekeeping.
+    expect(row('GW-A-03').getByText('Being cleaned')).toBeInTheDocument();
+  });
+
+  it('keep what was typed after a conflict, take what the other person saved elsewhere, and send only the change', async () => {
+    const bodies = sent('PATCH');
+    await openWard(W07);
+    await userEvent.click(button('Change: W-07-02'));
+    // Someone else gives the bed another number meanwhile.
+    editMockBed('ward_h_w-07_b2', { number: 'W-07-2A' });
+    await choose(/^Bed category/, 'Isolation');
+    await userEvent.click(button('Save bed'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /Someone else changed this while you were editing/,
+    );
+    // Their number is in the field this person did not touch; the chosen category stays.
+    await waitFor(() => expect(textbox(/^Bed number/)).toHaveValue('W-07-2A'));
+    expect(screen.getByRole('combobox', { name: /^Bed category/ })).toHaveValue('bcat_h_isolation');
+
+    await userEvent.click(button('Save bed'));
+    await waitFor(() => expect(statuses()).toContain('Bed W-07-2A was saved.'));
+    // Their number was never sent back.
+    expect(bodies).toEqual([
+      { bedCategoryId: 'bcat_h_isolation', expectedVersion: 1 },
+      { bedCategoryId: 'bcat_h_isolation', expectedVersion: 2 },
+    ]);
+    expect(row('W-07-2A').getByText('Isolation')).toBeInTheDocument();
+  });
+
+  it('start nothing else while a form is open, so an answer never lands on the wrong form', async () => {
+    await openWard(W07);
+    await userEvent.click(button('Block: W-07-03'));
+
+    expect(button('Archive: W-07-01')).toBeDisabled();
+    expect(button('Change: W-07-01')).toBeDisabled();
+    expect(button('Archive Hall 1')).toBeDisabled();
+    expect(button('Add a room')).toBeDisabled();
+    await userEvent.click(button('Cancel'));
+    expect(button('Archive: W-07-01')).toBeEnabled();
+  });
+
+  it('say so when the bed categories cannot be loaded, with a way to ask again', async () => {
+    server.use(http.get('*/api/bed-categories', () => new HttpResponse(null, { status: 500 })));
+    await openWard(W07);
+    await userEvent.click(button('Add a bed to Hall 1'));
+
+    expect(await screen.findByText('The bed categories could not be loaded.')).toBeInTheDocument();
+    expect(screen.queryByText(/There is no bed category yet/)).not.toBeInTheDocument();
+    server.resetHandlers();
+    await userEvent.click(button('Try again'));
+    expect(await screen.findByRole('combobox', { name: /^Bed category/ })).toBeInTheDocument();
   });
 
   it('are archived and restored', async () => {
@@ -412,7 +509,10 @@ describe('beds', () => {
     const path = { wardId: GWA, bedId: 'ward_h_gw-a_b1' };
     // An occupied bed is neither blocked nor archived, and a status is never set by hand.
     await expect(
-      api.POST('/wards/{wardId}/beds/{bedId}/block', { params: { path }, body: { reason: 'x' } }),
+      api.POST('/wards/{wardId}/beds/{bedId}/block', {
+        params: { path },
+        body: { reason: 'repair' },
+      }),
     ).rejects.toMatchObject({ serverCode: 'bed_not_available' });
     await expect(
       api.POST('/wards/{wardId}/beds/{bedId}/archive', { params: { path } }),
@@ -432,6 +532,13 @@ describe('beds', () => {
         params: { path: { wardId: W07, bedId: 'ward_h_gw-a_b5' } },
       }),
     ).rejects.toMatchObject({ code: 'not_found' });
+    // An archived bed is restored before it is changed, and a key is not carried to another route.
+    await expect(
+      api.PATCH('/wards/{wardId}/beds/{bedId}', {
+        params: { path: { wardId: GWA, bedId: 'ward_h_gw-a_bold' } },
+        body: { number: 'GW-A-98', expectedVersion: 2 },
+      }),
+    ).rejects.toMatchObject({ serverCode: 'bed_archived' });
     // Adding the same bed twice with one key adds one.
     const add = () =>
       api.POST('/wards/{wardId}/rooms/{roomId}/beds', {
@@ -444,6 +551,15 @@ describe('beds', () => {
     await add();
     const again = await add();
     expect(again.data?.ward.bedCount).toBe(9);
+    await expect(
+      api.POST('/wards/{wardId}/rooms/{roomId}/beds', {
+        params: {
+          path: { wardId: W07, roomId: 'ward_h_w-07_r2' },
+          header: { 'Idempotency-Key': 'test-key-0001' },
+        },
+        body: { number: 'X-1', bedCategoryId: 'bcat_h_general' },
+      }),
+    ).rejects.toMatchObject({ serverCode: 'idempotency_key_reuse' });
   });
 });
 
@@ -516,6 +632,34 @@ describe('bed categories', () => {
     ]);
   });
 
+  it('keep what was typed after a conflict, and never send back what the other person changed', async () => {
+    const bodies = sent('PATCH');
+    await openCategories();
+    await userEvent.click(button('Change: Private room'));
+    await screen.findByRole('option', { name: 'Private room day (BED-003)' });
+    // Someone else links the category to another service meanwhile.
+    editMockBedCategory('bcat_h_private', { serviceId: 'svc_h_15' });
+    await type(/^Name/, 'Private suite');
+    await userEvent.click(button('Save category'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /Someone else changed this while you were editing/,
+    );
+    expect(textbox(/^Name/)).toHaveValue('Private suite');
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /^Charged as/ })).toHaveValue('svc_h_15'),
+    );
+
+    await userEvent.click(button('Save category'));
+    await waitFor(() => expect(statuses()).toContain('Private suite was saved.'));
+    expect(bodies).toEqual([
+      { name: 'Private suite', expectedVersion: 1 },
+      { name: 'Private suite', expectedVersion: 2 },
+    ]);
+    // Their link is still there.
+    expect(row('Private suite').getByText('ICU bed day')).toBeInTheDocument();
+  });
+
   it('are not archived while beds in use have them, and are restored from the archived view', async () => {
     await openCategories();
     await userEvent.click(button('Archive: General ward'));
@@ -546,6 +690,16 @@ describe('bed categories', () => {
     await expect(add('svc_c_01', 'test-key-0002')).rejects.toMatchObject({
       serverCode: 'validation_failed',
     });
+    // Nor one that has been archived: but a category keeps the one it has.
+    editMockService('svc_h_14', { archived: true });
+    await expect(add('svc_h_14', 'test-key-0003')).rejects.toMatchObject({
+      serverCode: 'validation_failed',
+    });
+    const kept = await api.PATCH('/bed-categories/{bedCategoryId}', {
+      params: { path: { bedCategoryId: 'bcat_h_private' } },
+      body: { name: 'Private', serviceId: 'svc_h_14', expectedVersion: 1 },
+    });
+    expect(kept.data?.serviceName).toBe('Private room day');
   });
 });
 
@@ -581,7 +735,7 @@ describe('access', () => {
 
     renderApp({ entry: `/wards/${GWA}` });
     await screen.findByRole('heading', { name: 'Hall 1' });
-    expect(row('GW-A-04').getByText('Blocked: Oxygen outlet under repair')).toBeInTheDocument();
+    expect(row('GW-A-04').getByText('Blocked: Repair (Oxygen outlet)')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /Edit details|Archive|Add a|Rename|^Block|^Change/ }),
     ).toBeNull();
@@ -623,7 +777,7 @@ describe('access', () => {
     await expect(
       api.POST('/wards/{wardId}/beds/{bedId}/block', {
         params: { path: { wardId: GWA, bedId: 'ward_h_gw-a_b5' } },
-        body: { reason: 'x' },
+        body: { reason: 'repair' },
       }),
     ).rejects.toMatchObject(forbidden);
     await expect(
@@ -724,7 +878,7 @@ describe('two hospitals', () => {
     await expect(
       api.POST('/wards/{wardId}/beds/{bedId}/block', {
         params: { path: { ...path, bedId: 'ward_c_dc_b1' } },
-        body: { reason: 'x' },
+        body: { reason: 'repair' },
       }),
     ).rejects.toMatchObject(gone);
     // Nor through a ward of their own: the clinic's room and bed are not in it.

@@ -13,6 +13,15 @@ type WardPage = Schemas['WardPage'];
 type WardDetail = Schemas['WardDetail'];
 type Bed = Schemas['Bed'];
 type Status = Bed['status'];
+type BlockReason = NonNullable<Bed['blockedReason']>;
+
+const BLOCK_REASONS: readonly BlockReason[] = [
+  'repair',
+  'maintenance',
+  'deep_cleaning',
+  'reserved',
+  'other',
+];
 
 const FEATURE_FLAG = 'wards';
 const READ = 'ward:read';
@@ -52,7 +61,8 @@ interface StoredBed {
   number: string;
   bedCategoryId: string;
   status: Status;
-  blockedReason?: string;
+  blockedReason?: BlockReason;
+  blockedNote?: string;
   archived: boolean;
   version: number;
 }
@@ -167,14 +177,16 @@ function seed(): State {
     ]);
   }
   // Beds as admissions and housekeeping would have left them, and one taken out of use here.
-  const set = (id: string, status: Status, blockedReason?: string) => {
+  const set = (id: string, status: Status, blockedNote?: string) => {
     const bed = state.beds.find((candidate) => candidate.id === id);
-    if (bed) Object.assign(bed, { status }, blockedReason ? { blockedReason } : {});
+    if (bed) {
+      Object.assign(bed, { status }, blockedNote ? { blockedReason: 'repair', blockedNote } : {});
+    }
   };
   set('ward_h_gw-a_b1', 'occupied');
   set('ward_h_gw-a_b2', 'occupied');
   set('ward_h_gw-a_b3', 'cleaning');
-  set('ward_h_gw-a_b4', 'blocked', 'Oxygen outlet under repair');
+  set('ward_h_gw-a_b4', 'blocked', 'Oxygen outlet');
   set('ward_h_icu_b1', 'occupied');
   state.beds.push({
     id: 'ward_h_gw-a_bold',
@@ -214,11 +226,24 @@ export function editMockWard(id: string, changes: Partial<StoredWard>): void {
   Object.assign(ward, changes, { version: ward.version + 1 });
 }
 
+/** The same for a bed and for a bed category. */
+export function editMockBed(id: string, changes: Partial<StoredBed>): void {
+  const bed = state.beds.find((candidate) => candidate.id === id);
+  if (!bed) throw new Error(`Unknown mock bed: ${id}`);
+  Object.assign(bed, changes, { version: bed.version + 1 });
+}
+export function editMockBedCategory(id: string, changes: Partial<StoredCategory>): void {
+  const category = state.categories.find((candidate) => candidate.id === id);
+  if (!category) throw new Error(`Unknown mock bed category: ${id}`);
+  Object.assign(category, changes, { version: category.version + 1 });
+}
+
 /** What admissions or housekeeping do meanwhile: move a bed to another status. */
 export function setMockBedStatus(id: string, status: Status): void {
   const bed = state.beds.find((candidate) => candidate.id === id);
   if (!bed) throw new Error(`Unknown mock bed: ${id}`);
   delete bed.blockedReason;
+  delete bed.blockedNote;
   Object.assign(bed, { status, version: bed.version + 1 });
 }
 
@@ -289,6 +314,9 @@ async function readBody(request: Request): Promise<Record<string, unknown> | nul
   return typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : null;
 }
 
+const oneOf = <Value extends string>(values: readonly Value[], value: unknown) =>
+  values.find((candidate) => candidate === value);
+
 const text = (value: unknown, max: number, required = true): string | null =>
   typeof value === 'string' && value.trim().length <= max && (!required || value.trim() !== '')
     ? value.trim()
@@ -306,7 +334,15 @@ async function once(
 ): Promise<Response> {
   const raw = await request.clone().text();
   const key = request.headers.get('idempotency-key');
-  const earlier = key ? state.replies.get(`${tenantId}:${key}`) : undefined;
+  // A key belongs to one route at one hospital: the same key elsewhere is another request.
+  const route = `${tenantId}:${new URL(request.url).pathname}:${key}`;
+  const elsewhere = [...state.replies.keys()].some(
+    (stored) => stored !== route && stored.startsWith(`${tenantId}:`) && stored.endsWith(`:${key}`),
+  );
+  if (key && elsewhere) {
+    return error(422, 'idempotency_key_reuse', 'That key was used for another request');
+  }
+  const earlier = key ? state.replies.get(route) : undefined;
   if (earlier) {
     const replay = earlier.raw === raw ? answer(earlier.id) : undefined;
     return replay ?? error(422, 'idempotency_key_reuse', 'That key was used for another request');
@@ -315,16 +351,24 @@ async function once(
   if (!body) return invalid();
   const added = add(body);
   if (added instanceof Response) return added;
-  if (key) state.replies.set(`${tenantId}:${key}`, { raw, id: added.id });
+  if (key) state.replies.set(route, { raw, id: added.id });
   return answer(added.id) ?? invalid();
 }
 
-/** A bed-day service of this hospital, or it is refused. Empty text is no service. */
-function readService(tenantId: string, value: unknown): string | null | undefined {
+/**
+ * A bed-day service of this hospital that is in use, or it is refused. The one a category
+ * already has may have been archived since and stays. Empty text is no service.
+ */
+function readService(
+  tenantId: string,
+  value: unknown,
+  current?: string,
+): string | null | undefined {
   if (value === '') return undefined;
   if (typeof value !== 'string') return null;
   const service = mockServiceNamed(tenantId, undefined, value);
-  return service && service.category === 'bed' ? service.id : null;
+  if (!service || service.category !== 'bed') return null;
+  return service.archived && service.id !== current ? null : service.id;
 }
 
 /** The ward of a request for its rooms or beds, or the answer that ends it. */
@@ -430,7 +474,7 @@ export const wardsHandlers = [
       next.name = name;
     }
     if (body.serviceId !== undefined) {
-      const serviceId = readService(access.tenantId, body.serviceId);
+      const serviceId = readService(access.tenantId, body.serviceId, category.serviceId);
       if (serviceId === null) return invalid();
       if (serviceId) next.serviceId = serviceId;
       else delete next.serviceId;
@@ -619,6 +663,8 @@ export const wardsHandlers = [
     if (!body || typeof body.expectedVersion !== 'number' || !name) return invalid();
     const room = roomOf(found.ward, params.roomId);
     if (!room) return gone('room');
+    // An archived room is restored before it is changed.
+    if (room.archived) return refuse('room_archived');
     if (room.version !== body.expectedVersion) return conflict();
     const taken = state.rooms.some(
       (other) => other.id !== room.id && other.wardId === room.wardId && same(other.name, name),
@@ -643,12 +689,10 @@ export const wardsHandlers = [
         if (archived && beds.some((bed) => bed.status === 'occupied')) {
           return refuse('room_has_occupied_beds');
         }
-        // A room goes with its beds. Coming back, each bed is restored on its own.
+        // A room goes with its beds, each keeping its status. Coming back, each bed is
+        // restored on its own.
         if (archived) {
-          for (const bed of beds) {
-            delete bed.blockedReason;
-            Object.assign(bed, { archived: true, status: 'available', version: bed.version + 1 });
-          }
+          for (const bed of beds) Object.assign(bed, { archived: true, version: bed.version + 1 });
         }
         room.archived = archived;
         room.version += 1;
@@ -671,7 +715,8 @@ export const wardsHandlers = [
       (body) => {
         const number = text(body.number, 20);
         const category = categoryOf(tenantId, body.bedCategoryId);
-        if (!number || !category || category.archived || room.archived) return invalid();
+        if (room.archived) return refuse('room_archived');
+        if (!number || !category || category.archived) return invalid();
         if (state.beds.some((bed) => bed.wardId === ward.id && same(bed.number, number))) {
           return refuse('bed_number_taken');
         }
@@ -701,6 +746,8 @@ export const wardsHandlers = [
     if (body.status !== undefined) return invalid();
     const bed = bedOf(found.ward, params.bedId);
     if (!bed) return gone('bed');
+    // An archived bed is restored before it is changed.
+    if (bed.archived) return refuse('bed_archived');
     if (bed.version !== body.expectedVersion) return conflict();
     const next = { ...bed };
     if (body.number !== undefined) {
@@ -727,8 +774,10 @@ export const wardsHandlers = [
     http.post(`*/api/wards/:wardId/beds/:bedId/${action}`, async ({ request, params }) => {
       const found = wardFor(request, params.wardId);
       if ('stop' in found) return found.stop;
-      const reason = action === 'block' ? text((await readBody(request))?.reason, 200) : '';
-      if (reason === null) return invalid();
+      const body = action === 'block' ? await readBody(request) : null;
+      const reason = oneOf(BLOCK_REASONS, body?.reason);
+      const note = body?.note === undefined ? '' : text(body.note, 100, false);
+      if (action === 'block' && (!reason || note === null)) return invalid();
       const bed = bedOf(found.ward, params.bedId);
       if (!bed) return gone('bed');
       const touch = (changes: Partial<StoredBed>) =>
@@ -736,15 +785,16 @@ export const wardsHandlers = [
       // The transitions, checked on the bed as it is now.
       if (action === 'block') {
         if (bed.archived || bed.status !== 'available') return refuse('bed_not_available');
-        touch({ status: 'blocked', blockedReason: reason });
+        touch({ status: 'blocked', blockedReason: reason, ...(note ? { blockedNote: note } : {}) });
       } else if (action === 'unblock') {
         if (bed.archived || bed.status !== 'blocked') return refuse('bed_not_blocked');
         delete bed.blockedReason;
+        delete bed.blockedNote;
         touch({ status: 'available' });
       } else if (action === 'archive' && !bed.archived) {
         if (bed.status === 'occupied') return refuse('bed_occupied');
-        delete bed.blockedReason;
-        touch({ archived: true, status: 'available' });
+        // The status is kept: archiving is no way round housekeeping, or round a block.
+        touch({ archived: true });
       } else if (action === 'restore' && bed.archived) {
         if (roomOf(found.ward, bed.roomId)?.archived) return refuse('room_archived');
         if (categoryOf(found.tenantId, bed.bedCategoryId)?.archived) {

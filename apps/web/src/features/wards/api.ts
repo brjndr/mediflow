@@ -11,6 +11,7 @@ import type {
   BedCategoryPage,
   BedCategoryUpdate,
   BedUpdate,
+  BlockReason,
   WardCreate,
   WardDetail,
   WardPage,
@@ -66,7 +67,7 @@ export type WardAction =
   | { type: 'archiveRoom' | 'restoreRoom'; roomId: string }
   | { type: 'addBed'; roomId: string; number: string; bedCategoryId: string; key: string }
   | { type: 'updateBed'; bedId: string; body: BedUpdate }
-  | { type: 'blockBed'; bedId: string; reason: string }
+  | { type: 'blockBed'; bedId: string; reason: BlockReason; note?: string }
   | { type: 'unblockBed' | 'archiveBed' | 'restoreBed'; bedId: string };
 
 async function send(wardId: string, action: WardAction) {
@@ -102,7 +103,7 @@ async function send(wardId: string, action: WardAction) {
     case 'blockBed':
       return api.POST('/wards/{wardId}/beds/{bedId}/block', {
         params: { path: { wardId, bedId: action.bedId } },
-        body: { reason: action.reason },
+        body: { reason: action.reason, ...(action.note ? { note: action.note } : {}) },
       });
     case 'unblockBed':
       return api.POST('/wards/{wardId}/beds/{bedId}/unblock', {

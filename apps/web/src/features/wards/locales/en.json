@@ -13,7 +13,6 @@
   "emptyArchived": "No archived wards.",
   "emptySearch": "No ward matches this search.",
   "notGiven": "Not given",
-  "saveFailedConflict": "Someone else changed this meanwhile. What is shown is now theirs: check it and try again.",
   "filters": {
     "search": "Search wards",
     "searchPlaceholder": "Code or name",
@@ -95,8 +94,20 @@
     "category": "Bed category",
     "chooseCategory": "Choose a category",
     "noCategories": "There is no bed category yet. Add one under Bed categories first.",
+    "categoriesLoading": "Loading the bed categories…",
+    "categoriesFailed": "The bed categories could not be loaded.",
+    "categoriesRetry": "Try again",
     "reason": "Reason",
-    "reasonHint": "Why the bed is out of use: repair, deep cleaning. Nothing about a patient.",
+    "chooseReason": "Choose a reason",
+    "reasons": {
+      "repair": "Repair",
+      "maintenance": "Maintenance",
+      "deep_cleaning": "Deep cleaning",
+      "reserved": "Reserved",
+      "other": "Other"
+    },
+    "note": "Note",
+    "noteHint": "Optional. A few words about the bed: oxygen outlet. Nothing about a patient.",
     "addSubmit": "Add bed",
     "editSubmit": "Save bed",
     "blockSubmit": "Block bed",
@@ -112,6 +123,7 @@
       "cleaning": "Being cleaned",
       "blocked": "Blocked",
       "blockedFor": "Blocked: {{reason}}",
+      "blockedNoted": "Blocked: {{reason}} ({{note}})",
       "archived": "Archived"
     },
     "actions": {
@@ -172,10 +184,11 @@
     "bed_number_taken": "This ward already has a bed with that number. It may be archived.",
     "bed_not_available": "Only an available bed can be blocked. This one is no longer available.",
     "bed_not_blocked": "This bed is not blocked any more.",
+    "bed_archived": "This bed is archived. Restore it before changing it.",
     "bed_occupied": "This bed is occupied. It can be archived once the patient has left.",
     "bed_category_archived": "The category of this bed is archived. Restore the category, or give the bed another one.",
     "bed_category_name_taken": "This hospital already has a bed category with that name. It may be archived.",
     "bed_category_in_use": "Beds in use have this category. Give them another category first.",
-    "conflict": "Someone else changed this meanwhile. What is shown is now theirs: check it and try again."
+    "conflict": "Someone else changed this while you were editing. What you changed is still here: check it and save again. What you did not change now shows what they saved."
   }
 }

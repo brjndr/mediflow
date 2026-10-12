@@ -11,6 +11,14 @@ import type {
 } from './types';
 
 export const BED_STATUSES = ['available', 'occupied', 'cleaning', 'blocked'] as const;
+/** Why a bed is out of use: a list, so that nothing about a patient is written as the reason. */
+export const BLOCK_REASONS = [
+  'repair',
+  'maintenance',
+  'deep_cleaning',
+  'reserved',
+  'other',
+] as const;
 
 /** Responses are validated where they enter the app, so screens can trust their shape. */
 export const bedCategorySchema: z.ZodType<BedCategory> = z.object({
@@ -57,7 +65,8 @@ const bedSchema: z.ZodType<Bed> = z.object({
   bedCategoryId: z.string(),
   bedCategoryName: z.string(),
   status: z.enum(BED_STATUSES),
-  blockedReason: z.string().optional(),
+  blockedReason: z.enum(BLOCK_REASONS).optional(),
+  blockedNote: z.string().optional(),
   archived: z.boolean(),
   version: z.number().int().min(1),
 });
@@ -80,7 +89,7 @@ export const CODE_MAX = 20;
 export const FLOOR_MAX = 50;
 export const ROOM_NAME_MAX = 50;
 export const BED_NUMBER_MAX = 20;
-export const REASON_MAX = 200;
+export const NOTE_MAX = 100;
 
 /** The ward form. Messages are translation keys in core `common`. */
 export const wardFormSchema = z.object({
@@ -136,6 +145,7 @@ export const bedFormSchema = z.object({
 export type BedFormValues = z.infer<typeof bedFormSchema>;
 
 export const blockFormSchema = z.object({
-  reason: z.string().trim().min(1, 'validation.required').max(REASON_MAX),
+  reason: z.enum(BLOCK_REASONS, 'validation.required'),
+  note: z.string().trim().max(NOTE_MAX),
 });
 export type BlockFormValues = z.infer<typeof blockFormSchema>;

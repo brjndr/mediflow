@@ -165,7 +165,7 @@ export function useWardChange(wardId: string) {
   const sameSession = useSameSession();
   const refresh = useRefresh();
   const attempt = useAttemptKey();
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (change: WardChange) =>
       runWardAction(
         wardId,
@@ -180,13 +180,15 @@ export function useWardChange(wardId: string) {
     },
     onSettled: refresh,
   });
+  // Called when a form is opened or left: what is added next is a new thing, not a repeat.
+  return { ...mutation, newAttempt: attempt.done };
 }
 
 /** Adds, changes, archives or restores a bed category. */
 export function useBedCategoryChange() {
   const refresh = useRefresh();
   const attempt = useAttemptKey();
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (
       change:
         | { create: BedCategoryCreate }
@@ -201,4 +203,6 @@ export function useBedCategoryChange() {
     onSuccess: () => attempt.done(),
     onSettled: refresh,
   });
+  // Called when a form is opened or left: what is added next is a new thing, not a repeat.
+  return { ...mutation, newAttempt: attempt.done };
 }

@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
-import { errorMessageKey } from '@/shared/api';
+import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { Form, SelectField, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
@@ -9,23 +9,40 @@ import { useBedCategories, useWardChange, type WardChange } from '../hooks/use-w
 import {
   BED_NUMBER_MAX,
   bedFormSchema,
+  BLOCK_REASONS,
   blockFormSchema,
-  REASON_MAX,
+  NOTE_MAX,
   ROOM_NAME_MAX,
   roomFormSchema,
   type BedFormValues,
 } from '../schemas';
 import type { Bed, BedCategory, Room, WardDetail } from '../types';
 import { refusalKey } from './refusal';
+import { useExpectedVersion } from './use-expected';
 
-/** The one form that is open in the ward, if any. Beds and rooms are named by id. */
+/**
+ * The one form that is open in the ward, if any. A form that changes a room or a bed holds it as
+ * it was when the form opened: what is sent is what was changed since then, from that version.
+ */
 type Panel =
   | { kind: 'addRoom' }
-  | { kind: 'renameRoom' | 'addBed'; roomId: string }
-  | { kind: 'editBed' | 'blockBed'; bedId: string }
+  | { kind: 'renameRoom'; room: Room }
+  | { kind: 'addBed'; roomId: string }
+  | { kind: 'editBed'; bed: Bed }
+  | { kind: 'blockBed'; bedId: string }
   | null;
 
-type Run = (change: WardChange, done: string) => Promise<void>;
+type Outcome = 'done' | 'conflict' | 'failed';
+/** Makes a change from the open form, says it was done, and closes the form when it was. */
+type Run = (change: WardChange, done: string) => Promise<Outcome>;
+
+/** The bed categories a bed can be given, and how asking for them went. */
+interface Categories {
+  items: BedCategory[];
+  loading: boolean;
+  failed: boolean;
+  retry: () => void;
+}
 
 const panelBox = 'flex max-w-xl flex-col gap-3 rounded-lg border p-4';
 
@@ -51,33 +68,38 @@ function Buttons({
 
 /** A room's name, for a new room or one being renamed. */
 function RoomForm({
-  room,
+  from,
+  latest,
   pending,
   run,
   onCancel,
 }: {
-  room?: Room;
+  /** The room as it was when the form opened. Absent for a new room. */
+  from?: Room;
+  /** The room as it is saved now. */
+  latest?: Room;
   pending: boolean;
   run: Run;
   onCancel: () => void;
 }) {
   const { t } = useTranslation('wards');
-  const form = useZodForm(roomFormSchema, { name: room?.name ?? '' });
+  const form = useZodForm(roomFormSchema, { name: from?.name ?? '' });
+  const version = useExpectedVersion(from?.version ?? 0, latest?.version);
   return (
     <div className={panelBox}>
       <h3 className="text-base font-semibold">
-        {room ? t('rooms.rename', { name: room.name }) : t('rooms.addHeading')}
+        {from ? t('rooms.rename', { name: from.name }) : t('rooms.addHeading')}
       </h3>
       <Form
         form={form}
-        onSubmit={({ name }) =>
-          room
-            ? run(
-                { type: 'renameRoom', roomId: room.id, name, expectedVersion: room.version },
-                t('rooms.renamed', { name }),
-              )
-            : run({ type: 'addRoom', name }, t('rooms.added', { name }))
-        }
+        onSubmit={async ({ name }) => {
+          if (!from) return void (await run({ type: 'addRoom', name }, t('rooms.added', { name })));
+          const outcome = await run(
+            { type: 'renameRoom', roomId: from.id, name, expectedVersion: version.expected },
+            t('rooms.renamed', { name }),
+          );
+          if (outcome === 'conflict') version.conflict();
+        }}
       >
         <TextField
           name="name"
@@ -88,7 +110,7 @@ function RoomForm({
           autoComplete="off"
         />
         <Buttons
-          submit={room ? t('rooms.renameSubmit') : t('rooms.addSubmit')}
+          submit={from ? t('rooms.renameSubmit') : t('rooms.addSubmit')}
           pending={pending}
           onCancel={onCancel}
         />
@@ -97,99 +119,155 @@ function RoomForm({
   );
 }
 
+const bedValues = (bed?: Bed): BedFormValues => ({
+  number: bed?.number ?? '',
+  bedCategoryId: bed?.bedCategoryId ?? '',
+});
+
 /** A bed's number and category, for a new bed or one being changed. */
 function BedForm({
   room,
-  bed,
+  from,
+  latest,
   categories,
   pending,
   run,
   onCancel,
 }: {
   room: Room;
-  bed?: Bed;
-  categories: BedCategory[];
+  /** The bed as it was when the form opened. Absent for a new bed. */
+  from?: Bed;
+  /** The bed as it is saved now. Differs from `from` once someone else has changed it. */
+  latest?: Bed;
+  categories: Categories;
   pending: boolean;
   run: Run;
   onCancel: () => void;
 }) {
   const { t } = useTranslation('wards');
-  const form = useZodForm(bedFormSchema, {
-    number: bed?.number ?? '',
-    bedCategoryId: bed?.bedCategoryId ?? '',
-  });
+  const form = useZodForm(bedFormSchema, bedValues(from));
+  // Read while rendering, which is what keeps it up to date.
+  const { dirtyFields } = form.formState;
+  const version = useExpectedVersion(from?.version ?? 0, latest?.version);
+  // What someone else saved meanwhile goes into the fields this person has not touched. What was
+  // typed stays, and is all that is sent.
+  const { reset } = form;
+  useEffect(() => {
+    if (latest) reset(bedValues(latest), { keepDirtyValues: true });
+  }, [reset, latest]);
+
   // The bed's own category stays an option when it has been archived since.
-  const options = [
-    ...(bed && !categories.some((category) => category.id === bed.bedCategoryId)
+  const own = [from, latest].flatMap((bed) =>
+    bed && !categories.items.some((category) => category.id === bed.bedCategoryId)
       ? [{ value: bed.bedCategoryId, label: bed.bedCategoryName }]
-      : []),
-    ...categories.map((category) => ({ value: category.id, label: category.name })),
+      : [],
+  );
+  const options = [
+    ...own.filter((option, index) => own.findIndex((o) => o.value === option.value) === index),
+    ...categories.items.map((category) => ({ value: category.id, label: category.name })),
   ];
 
-  const submit = (values: BedFormValues) => {
-    if (!bed) {
-      return run(
+  const submit = async (values: BedFormValues) => {
+    if (!from) {
+      await run(
         { type: 'addBed', roomId: room.id, ...values },
         t('beds.added', { number: values.number }),
       );
+      return;
     }
-    // Only what was changed is sent, from the version of the bed that is on screen now.
     const body = {
-      ...(values.number === bed.number ? {} : { number: values.number }),
-      ...(values.bedCategoryId === bed.bedCategoryId
-        ? {}
-        : { bedCategoryId: values.bedCategoryId }),
-      expectedVersion: bed.version,
+      ...(dirtyFields.number ? { number: values.number } : {}),
+      ...(dirtyFields.bedCategoryId ? { bedCategoryId: values.bedCategoryId } : {}),
+      expectedVersion: version.expected,
     };
-    return run(
-      { type: 'updateBed', bedId: bed.id, body },
+    const outcome = await run(
+      { type: 'updateBed', bedId: from.id, body },
       t('beds.saved', { number: values.number }),
     );
+    if (outcome === 'conflict') version.conflict();
   };
+
+  const heading = (
+    <h3 className="text-base font-semibold">
+      {from
+        ? t('beds.editHeading', { number: from.number })
+        : t('beds.addHeading', { room: room.name })}
+    </h3>
+  );
+  const cancel = (
+    <Button type="button" variant="outline" className="self-start" onClick={onCancel}>
+      {t('beds.cancel')}
+    </Button>
+  );
+
+  // Nothing is said about the categories until it is known what they are.
+  if (categories.loading) {
+    return (
+      <div className={panelBox}>
+        {heading}
+        <p role="status" className="text-sm text-muted-foreground">
+          {t('beds.categoriesLoading')}
+        </p>
+        {cancel}
+      </div>
+    );
+  }
+  if (categories.failed) {
+    return (
+      <div className={panelBox}>
+        {heading}
+        <p role="alert" className="text-sm text-destructive">
+          {t('beds.categoriesFailed')}
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Button type="button" variant="outline" onClick={categories.retry}>
+            {t('beds.categoriesRetry')}
+          </Button>
+          {cancel}
+        </div>
+      </div>
+    );
+  }
+  if (options.length === 0) {
+    return (
+      <div className={panelBox}>
+        {heading}
+        <p className="text-sm text-muted-foreground">{t('beds.noCategories')}</p>
+        {cancel}
+      </div>
+    );
+  }
 
   return (
     <div className={panelBox}>
-      <h3 className="text-base font-semibold">
-        {bed
-          ? t('beds.editHeading', { number: bed.number })
-          : t('beds.addHeading', { room: room.name })}
-      </h3>
-      {options.length === 0 ? (
-        <>
-          <p className="text-sm text-muted-foreground">{t('beds.noCategories')}</p>
-          <Button type="button" variant="outline" className="self-start" onClick={onCancel}>
-            {t('beds.cancel')}
-          </Button>
-        </>
-      ) : (
-        <Form form={form} onSubmit={submit}>
-          <TextField
-            name="number"
-            label={t('beds.number')}
-            hint={t('beds.numberHint')}
-            required
-            maxLength={BED_NUMBER_MAX}
-            autoComplete="off"
-          />
-          <SelectField
-            name="bedCategoryId"
-            label={t('beds.category')}
-            required
-            placeholder={t('beds.chooseCategory')}
-            options={options}
-          />
-          <Buttons
-            submit={bed ? t('beds.editSubmit') : t('beds.addSubmit')}
-            pending={pending}
-            onCancel={onCancel}
-          />
-        </Form>
-      )}
+      {heading}
+      <Form form={form} onSubmit={submit}>
+        <TextField
+          name="number"
+          label={t('beds.number')}
+          hint={t('beds.numberHint')}
+          required
+          maxLength={BED_NUMBER_MAX}
+          autoComplete="off"
+        />
+        <SelectField
+          name="bedCategoryId"
+          label={t('beds.category')}
+          required
+          placeholder={t('beds.chooseCategory')}
+          options={options}
+        />
+        <Buttons
+          submit={from ? t('beds.editSubmit') : t('beds.addSubmit')}
+          pending={pending}
+          onCancel={onCancel}
+        />
+      </Form>
     </div>
   );
 }
 
-/** Why a bed is taken out of use. */
+/** Why a bed is taken out of use: a reason from a list, and a few words when they help. */
 function BlockForm({
   bed,
   pending,
@@ -202,25 +280,31 @@ function BlockForm({
   onCancel: () => void;
 }) {
   const { t } = useTranslation('wards');
-  const form = useZodForm(blockFormSchema, { reason: '' });
+  const form = useZodForm(blockFormSchema, { reason: '', note: '' });
   return (
     <div className={panelBox}>
       <h3 className="text-base font-semibold">{t('beds.blockHeading', { number: bed.number })}</h3>
       <Form
         form={form}
-        onSubmit={({ reason }) =>
-          run(
-            { type: 'blockBed', bedId: bed.id, reason },
+        onSubmit={async ({ reason, note }) => {
+          await run(
+            { type: 'blockBed', bedId: bed.id, reason, note },
             t('beds.blocked', { number: bed.number }),
-          )
-        }
+          );
+        }}
       >
-        <TextField
+        <SelectField
           name="reason"
           label={t('beds.reason')}
-          hint={t('beds.reasonHint')}
           required
-          maxLength={REASON_MAX}
+          placeholder={t('beds.chooseReason')}
+          options={BLOCK_REASONS.map((value) => ({ value, label: t(`beds.reasons.${value}`) }))}
+        />
+        <TextField
+          name="note"
+          label={t('beds.note')}
+          hint={t('beds.noteHint')}
+          maxLength={NOTE_MAX}
           autoComplete="off"
         />
         <Buttons submit={t('beds.blockSubmit')} pending={pending} onCancel={onCancel} />
@@ -238,16 +322,19 @@ function RoomCard({
   open,
   pending,
   run,
+  act,
 }: {
   room: Room;
   /** The person may change the ward, and the ward is not archived. */
   mayManage: boolean;
   showArchived: boolean;
-  categories: BedCategory[];
+  categories: Categories;
   panel: Panel;
   open: (panel: Panel) => void;
   pending: boolean;
   run: Run;
+  /** A change made straight from a button, with no form. */
+  act: (change: WardChange, done: string) => void;
 }) {
   const { t } = useTranslation('wards');
   const headingId = `room-${room.id}`;
@@ -255,10 +342,13 @@ function RoomCard({
     () => room.beds.filter((bed) => showArchived || !bed.archived),
     [room.beds, showArchived],
   );
-  const bedOf = (kind: 'editBed' | 'blockBed') =>
-    panel?.kind === kind ? room.beds.find((bed) => bed.id === panel.bedId) : undefined;
-  const editing = bedOf('editBed');
-  const blocking = bedOf('blockBed');
+  // While a form is open nothing else is started: its answer would land on the form.
+  const busy = pending || panel !== null;
+  // A form is for a room that can still be changed by this person.
+  const forms = mayManage && !room.archived;
+  const inRoom = (id: string) => room.beds.find((bed) => bed.id === id && !bed.archived);
+  const editing = forms && panel?.kind === 'editBed' ? inRoom(panel.bed.id) : undefined;
+  const blocking = forms && panel?.kind === 'blockBed' ? inRoom(panel.bedId) : undefined;
 
   const columns = useMemo<GridColumn<Bed>[]>(
     () => [
@@ -274,9 +364,11 @@ function RoomCard({
         header: t('beds.columns.status'),
         value: (bed) => {
           if (bed.archived) return t('beds.status.archived');
-          return bed.status === 'blocked' && bed.blockedReason
-            ? t('beds.status.blockedFor', { reason: bed.blockedReason })
-            : t(`beds.status.${bed.status}`);
+          if (bed.status !== 'blocked' || !bed.blockedReason) return t(`beds.status.${bed.status}`);
+          const reason = t(`beds.reasons.${bed.blockedReason}`);
+          return bed.blockedNote
+            ? t('beds.status.blockedNoted', { reason, note: bed.blockedNote })
+            : t('beds.status.blockedFor', { reason });
         },
       },
     ],
@@ -284,53 +376,49 @@ function RoomCard({
   );
 
   // The server decides every transition; here only the ones that can succeed are offered.
-  const actions: GridAction<Bed>[] =
-    mayManage && !room.archived
-      ? [
-          {
-            id: 'edit',
-            label: t('beds.actions.edit'),
-            disabled: (bed) => pending || bed.archived,
-            onSelect: (bed) => open({ kind: 'editBed', bedId: bed.id }),
-          },
-          {
-            id: 'block',
-            label: t('beds.actions.block'),
-            disabled: (bed) => pending || bed.archived || bed.status !== 'available',
-            onSelect: (bed) => open({ kind: 'blockBed', bedId: bed.id }),
-          },
-          {
-            id: 'unblock',
-            label: t('beds.actions.unblock'),
-            disabled: (bed) => pending || bed.archived || bed.status !== 'blocked',
-            onSelect: (bed) =>
-              void run(
-                { type: 'unblockBed', bedId: bed.id },
-                t('beds.unblocked', { number: bed.number }),
-              ),
-          },
-          {
-            id: 'archive',
-            label: t('beds.actions.archive'),
-            disabled: (bed) => pending || bed.archived || bed.status === 'occupied',
-            onSelect: (bed) =>
-              void run(
-                { type: 'archiveBed', bedId: bed.id },
-                t('beds.archivedDone', { number: bed.number }),
-              ),
-          },
-          {
-            id: 'restore',
-            label: t('beds.actions.restore'),
-            disabled: (bed) => pending || !bed.archived,
-            onSelect: (bed) =>
-              void run(
-                { type: 'restoreBed', bedId: bed.id },
-                t('beds.restoredDone', { number: bed.number }),
-              ),
-          },
-        ]
-      : [];
+  const actions: GridAction<Bed>[] = forms
+    ? [
+        {
+          id: 'edit',
+          label: t('beds.actions.edit'),
+          disabled: (bed) => busy || bed.archived,
+          onSelect: (bed) => open({ kind: 'editBed', bed }),
+        },
+        {
+          id: 'block',
+          label: t('beds.actions.block'),
+          disabled: (bed) => busy || bed.archived || bed.status !== 'available',
+          onSelect: (bed) => open({ kind: 'blockBed', bedId: bed.id }),
+        },
+        {
+          id: 'unblock',
+          label: t('beds.actions.unblock'),
+          disabled: (bed) => busy || bed.archived || bed.status !== 'blocked',
+          onSelect: (bed) =>
+            act({ type: 'unblockBed', bedId: bed.id }, t('beds.unblocked', { number: bed.number })),
+        },
+        {
+          id: 'archive',
+          label: t('beds.actions.archive'),
+          disabled: (bed) => busy || bed.archived || bed.status === 'occupied',
+          onSelect: (bed) =>
+            act(
+              { type: 'archiveBed', bedId: bed.id },
+              t('beds.archivedDone', { number: bed.number }),
+            ),
+        },
+        {
+          id: 'restore',
+          label: t('beds.actions.restore'),
+          disabled: (bed) => busy || !bed.archived,
+          onSelect: (bed) =>
+            act(
+              { type: 'restoreBed', bedId: bed.id },
+              t('beds.restoredDone', { number: bed.number }),
+            ),
+        },
+      ]
+    : [];
 
   const close = () => open(null);
   const badge = 'ml-2 rounded-full border px-2 py-0.5 text-xs font-medium';
@@ -348,9 +436,9 @@ function RoomCard({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={pending}
+                disabled={busy}
                 onClick={() =>
-                  void run(
+                  act(
                     { type: 'restoreRoom', roomId: room.id },
                     t('rooms.restoredDone', { name: room.name }),
                   )
@@ -363,7 +451,7 @@ function RoomCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={pending}
+                  disabled={busy}
                   onClick={() => open({ kind: 'addBed', roomId: room.id })}
                 >
                   {t('beds.add', { room: room.name })}
@@ -371,17 +459,17 @@ function RoomCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={pending}
-                  onClick={() => open({ kind: 'renameRoom', roomId: room.id })}
+                  disabled={busy}
+                  onClick={() => open({ kind: 'renameRoom', room })}
                 >
                   {t('rooms.rename', { name: room.name })}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={pending}
+                  disabled={busy}
                   onClick={() =>
-                    void run(
+                    act(
                       { type: 'archiveRoom', roomId: room.id },
                       t('rooms.archivedDone', { name: room.name }),
                     )
@@ -406,27 +494,24 @@ function RoomCard({
         emptyMessage={t('beds.none')}
       />
 
-      {panel?.kind === 'renameRoom' && panel.roomId === room.id && (
-        <RoomForm room={room} pending={pending} run={run} onCancel={close} />
+      {forms && panel?.kind === 'renameRoom' && panel.room.id === room.id && (
+        <RoomForm from={panel.room} latest={room} pending={pending} run={run} onCancel={close} />
       )}
-      {panel?.kind === 'addBed' && panel.roomId === room.id && (
+      {forms && panel?.kind === 'addBed' && panel.roomId === room.id && (
         <BedForm room={room} categories={categories} pending={pending} run={run} onCancel={close} />
       )}
-      {editing && (
+      {panel?.kind === 'editBed' && editing && (
         <BedForm
-          // A form for each bed: choosing another bed starts from that bed.
-          key={editing.id}
           room={room}
-          bed={editing}
+          from={panel.bed}
+          latest={editing}
           categories={categories}
           pending={pending}
           run={run}
           onCancel={close}
         />
       )}
-      {blocking && (
-        <BlockForm key={blocking.id} bed={blocking} pending={pending} run={run} onCancel={close} />
-      )}
+      {blocking && <BlockForm bed={blocking} pending={pending} run={run} onCancel={close} />}
     </section>
   );
 }
@@ -441,31 +526,66 @@ export function Rooms({ detail }: { detail: WardDetail }) {
   const { t: tCommon } = useTranslation();
   const mayManage = usePermission('ward:manage') && !detail.ward.archived;
   const change = useWardChange(detail.ward.id);
-  const categories = useBedCategories(false, mayManage);
+  const bedCategories = useBedCategories(false, mayManage);
   const [showArchived, setShowArchived] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
   // What was just done, said once in a status line.
   const [done, setDone] = useState<string | null>(null);
 
+  const categories: Categories = {
+    items: bedCategories.data ?? [],
+    loading: bedCategories.isPending,
+    failed: bedCategories.isError,
+    retry: () => void bedCategories.refetch(),
+  };
+
   const open = (next: Panel) => {
     change.reset();
+    // A form that is opened, or left, starts a new attempt: what is added from it is not taken
+    // for a repeat of something added from a form before it.
+    change.newAttempt();
     setDone(null);
     setPanel(next);
   };
 
-  const run: Run = async (action, message) => {
+  const send = async (action: WardChange, message: string): Promise<Outcome> => {
     setDone(null);
     try {
       await change.mutateAsync(action);
-      setPanel(null);
       setDone(message);
-    } catch {
-      // Shown from the mutation state below. The form stays, with what was typed.
+      return 'done';
+    } catch (error) {
+      // Shown from the mutation state below.
+      return isApiError(error) && error.serverCode === 'conflict' ? 'conflict' : 'failed';
     }
+  };
+  // From a form: the form stays, with what was typed, unless the change was made.
+  const run: Run = async (action, message) => {
+    const outcome = await send(action, message);
+    if (outcome === 'done') setPanel(null);
+    return outcome;
+  };
+  const act = (action: WardChange, message: string) => {
+    change.reset();
+    void send(action, message);
   };
 
   const rooms = detail.rooms.filter((room) => showArchived || !room.archived);
   const refused = refusalKey(change.error);
+
+  // A form whose room or bed can no longer be changed (archived meanwhile, or the right to
+  // change the ward gone) is no longer open: nothing waits behind a form that is not shown.
+  const stillOpen = (): Panel => {
+    if (!panel || !mayManage || panel.kind === 'addRoom') return mayManage ? panel : null;
+    const holds = (room: Room) => {
+      if (panel.kind === 'renameRoom') return room.id === panel.room.id;
+      if (panel.kind === 'addBed') return room.id === panel.roomId;
+      const bedId = panel.kind === 'editBed' ? panel.bed.id : panel.bedId;
+      return room.beds.some((bed) => bed.id === bedId && !bed.archived);
+    };
+    return detail.rooms.some((room) => !room.archived && holds(room)) ? panel : null;
+  };
+  const shown = stillOpen();
 
   return (
     <section aria-labelledby="ward-rooms" className="flex flex-col gap-3">
@@ -501,22 +621,23 @@ export function Rooms({ detail }: { detail: WardDetail }) {
           room={room}
           mayManage={mayManage}
           showArchived={showArchived}
-          categories={categories.data ?? []}
-          panel={panel}
+          categories={categories}
+          panel={shown}
           open={open}
           pending={change.isPending}
           run={run}
+          act={act}
         />
       ))}
 
       {mayManage &&
-        (panel?.kind === 'addRoom' ? (
+        (shown?.kind === 'addRoom' ? (
           <RoomForm pending={change.isPending} run={run} onCancel={() => open(null)} />
         ) : (
           <Button
             variant="outline"
             className="self-start"
-            disabled={change.isPending}
+            disabled={change.isPending || shown !== null}
             onClick={() => open({ kind: 'addRoom' })}
           >
             {t('rooms.add')}

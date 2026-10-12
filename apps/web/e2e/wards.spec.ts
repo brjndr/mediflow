@@ -62,9 +62,10 @@ test('set up a bed category, a ward, a room and a bed, and block the bed', async
 
   // Out of use for a reason, and back.
   await press(page, 'Block: HDU-01');
-  await field(page, /^Reason/).fill('Monitor being replaced');
+  await pick(page, /^Reason/, 'Repair');
+  await field(page, /^Note/).fill('Monitor being replaced');
   await press(page, 'Block bed');
-  await expect(page.getByText('Blocked: Monitor being replaced')).toBeVisible();
+  await expect(page.getByText('Blocked: Repair (Monitor being replaced)')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Block: HDU-01', exact: true })).toBeDisabled();
   await press(page, 'Put back in use: HDU-01');
   await expect(status(page, 'Bed HDU-01 is available again.')).toBeVisible();

@@ -19,3 +19,4 @@ export type Room = Schemas['Room'];
 export type Bed = Schemas['Bed'];
 export type BedUpdate = Schemas['BedUpdate'];
 export type BedStatus = Bed['status'];
+export type BlockReason = NonNullable<Bed['blockedReason']>;

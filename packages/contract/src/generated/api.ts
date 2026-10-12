@@ -1047,7 +1047,7 @@ export interface paths {
         /** @description The bed categories of the active tenant, by name: the classes of bed it has, each charged as a bed-day service of the price catalog. Requires ward:read and the wards feature flag. `total` comes with the first page only. */
         get: operations["listBedCategories"];
         put?: never;
-        /** @description Adds a bed category. Requires ward:manage. The hospital is the session's. A name already used by a category of the hospital, archived or not, whatever the capitals, is refused with 409 bed_category_name_taken. A `serviceId` must be a service of the same hospital in the bed category of the price catalog (400 otherwise): check it against the session's hospital, never by the id alone. Audited. */
+        /** @description Adds a bed category. Requires ward:manage. The hospital is the session's. A name already used by a category of the hospital, archived or not, whatever the capitals, is refused with 409 bed_category_name_taken. A `serviceId` must be a service of the same hospital in the bed category of the price catalog that is not archived (400 otherwise; on a change, the one the category already has may stay): check it against the session's hospital, never by the id alone. Audited. */
         post: operations["createBedCategory"];
         delete?: never;
         options?: never;
@@ -1219,7 +1219,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Archives a room and with it the beds in it. Refused with 409 room_has_occupied_beds while a bed of it is occupied. Requires ward:manage. Doing it twice changes nothing. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a room of another hospital answers 404, the same as one that does not exist. */
+        /** @description Archives a room and with it the beds in it, each keeping its status. Refused with 409 room_has_occupied_beds while a bed of it is occupied. Requires ward:manage. Doing it twice changes nothing. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a room of another hospital answers 404, the same as one that does not exist. */
         post: operations["archiveRoom"];
         delete?: never;
         options?: never;
@@ -1274,7 +1274,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Changes the number or the category of a bed: never its status, which only the actions below and the admissions and housekeeping modules change. Requires ward:manage. 409 conflict when the bed has changed since the version sent. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
+        /** @description Changes the number or the category of a bed: never its status, which only the actions below and the admissions and housekeeping modules change. Requires ward:manage. 409 conflict when the bed has changed since the version sent. A change of category applies to stays that start after it: an admission keeps the category and the service of the bed as they were when the patient was given it. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
         patch: operations["updateBed"];
         trace?: never;
     };
@@ -1287,7 +1287,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Takes an available bed out of use, with the reason (repair, isolation). Only an available bed can be blocked: 409 bed_not_available otherwise. Requires ward:manage. The transition is checked on the server, on the row, so two people cannot both make it. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
+        /** @description Takes an available bed out of use, with a reason from the list and an optional note. Only an available bed can be blocked: 409 bed_not_available otherwise. Requires ward:manage. The transition is checked on the server, on the row, so two people cannot both make it. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
         post: operations["blockBed"];
         delete?: never;
         options?: never;
@@ -1321,7 +1321,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Archives a bed: it is no longer offered for an admission. Refused with 409 bed_occupied while it is occupied. Requires ward:manage. The transition is checked on the server, on the row, so two people cannot both make it. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
+        /** @description Archives a bed: it is no longer offered for an admission. Refused with 409 bed_occupied while it is occupied. Archiving never changes the status: a bed that is being cleaned or blocked is still that when it is restored, so archiving is no way round housekeeping. Requires ward:manage. The transition is checked on the server, on the row, so two people cannot both make it. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
         post: operations["archiveBed"];
         delete?: never;
         options?: never;
@@ -1338,7 +1338,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Brings an archived bed back, available. Its room has to be in use (409 room_archived) and its category too (409 bed_category_archived). Requires ward:manage. The transition is checked on the server, on the row, so two people cannot both make it. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
+        /** @description Brings an archived bed back, in the status it had. Its room has to be in use (409 room_archived) and its category too (409 bed_category_archived). Requires ward:manage. The transition is checked on the server, on the row, so two people cannot both make it. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. Audited. A ward or a bed of another hospital answers 404, the same as one that does not exist. */
         post: operations["restoreBed"];
         delete?: never;
         options?: never;
@@ -2053,7 +2053,7 @@ export interface components {
             /** @enum {string} */
             unit: "days" | "weeks" | "months" | "years";
         };
-        /** @description A class of bed (general ward, private room, intensive care), which decides what a day in it is charged as. The charge itself is posted by the admissions module from the linked service, at the price in force that day. */
+        /** @description A class of bed (general ward, private room, intensive care), which decides what a day in it is charged as. The charge itself is posted by the admissions module from the linked service, at the price in force that day. An admission keeps the category and the service of its bed as they were when the patient was given it, so a change made here applies to stays that start after it. */
         BedCategory: {
             id: string;
             tenantId: string;
@@ -2140,8 +2140,13 @@ export interface components {
              * @enum {string}
              */
             status: "available" | "occupied" | "cleaning" | "blocked";
-            /** @description Why it is blocked. Never anything about a patient. */
-            blockedReason?: string;
+            /**
+             * @description Why it is blocked.
+             * @enum {string}
+             */
+            blockedReason?: "repair" | "maintenance" | "deep_cleaning" | "reserved" | "other";
+            /** @description A few words more about why. About the bed, never about a patient. */
+            blockedNote?: string;
             archived: boolean;
             /** @description Counts the changes. Sent back as expectedVersion. */
             version: number;
@@ -2178,8 +2183,10 @@ export interface components {
             expectedVersion: number;
         };
         BedBlock: {
-            /** @description Why the bed is out of use: about the bed, never about a patient. */
-            reason: string;
+            /** @enum {string} */
+            reason: "repair" | "maintenance" | "deep_cleaning" | "reserved" | "other";
+            /** @description A few words more: about the bed, never about a patient. Free text, so the API treats it as possibly sensitive: it is not written to logs or to event payloads. */
+            note?: string;
         };
     };
     responses: {
@@ -5736,7 +5743,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description A repeat with the same key and request returns the first answer. */
+                /** @description A repeat with the same key and request returns the first answer. A key belongs to one request of one person at one hospital on one route: used on another route it is refused (422 idempotency_key_reuse). */
                 "Idempotency-Key": string;
             };
             path?: never;
@@ -5884,7 +5891,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description A repeat with the same key and request returns the first answer. */
+                /** @description A repeat with the same key and request returns the first answer. A key belongs to one request of one person at one hospital on one route: used on another route it is refused (422 idempotency_key_reuse). */
                 "Idempotency-Key": string;
             };
             path?: never;
@@ -6029,7 +6036,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description A repeat with the same key and request returns the first answer. */
+                /** @description A repeat with the same key and request returns the first answer. A key belongs to one request of one person at one hospital on one route: used on another route it is refused (422 idempotency_key_reuse). */
                 "Idempotency-Key": string;
             };
             path: {
@@ -6153,7 +6160,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description A repeat with the same key and request returns the first answer. */
+                /** @description A repeat with the same key and request returns the first answer. A key belongs to one request of one person at one hospital on one route: used on another route it is refused (422 idempotency_key_reuse). */
                 "Idempotency-Key": string;
             };
             path: {

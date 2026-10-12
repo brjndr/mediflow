@@ -11,6 +11,7 @@ const KNOWN = [
   'bed_not_available',
   'bed_not_blocked',
   'bed_occupied',
+  'bed_archived',
   'bed_category_archived',
   'bed_category_name_taken',
   'bed_category_in_use',

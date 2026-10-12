@@ -1,51 +1,97 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { usePermission } from '@/access';
 import { useServiceOptions } from '@/features/services';
-import { errorMessageKey } from '@/shared/api';
+import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SelectField, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { refusalKey } from '../components/refusal';
+import { useExpectedVersion } from '../components/use-expected';
 import { useBedCategories, useBedCategoryChange } from '../hooks/use-wards';
 import { bedCategoryFormSchema, NAME_MAX, type BedCategoryFormValues } from '../schemas';
-import type { BedCategory } from '../types';
+import type { BedCategory, BedCategoryCreate, BedCategoryUpdate } from '../types';
 
 const MANAGE = 'ward:manage';
 const link =
   'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 
-/** A category's name and the bed-day service it is charged as, to add one or change one. */
+const categoryValues = (category?: BedCategory): BedCategoryFormValues => ({
+  name: category?.name ?? '',
+  serviceId: category?.serviceId ?? '',
+});
+
+/** What saving the form asks for: a new category, or the changed fields of one. */
+type Saved = { create: BedCategoryCreate } | { body: BedCategoryUpdate };
+
+/**
+ * A category's name and the bed-day service it is charged as, to add one or change one. A change
+ * works from the category as it was when the form opened.
+ */
 function CategoryForm({
-  category,
+  from,
+  latest,
   pending,
   onSave,
   onCancel,
 }: {
-  category?: BedCategory;
+  /** The category as it was when the form opened. Absent for a new one. */
+  from?: BedCategory;
+  /** The category as it is saved now. Differs from `from` once someone else has changed it. */
+  latest?: BedCategory;
   pending: boolean;
-  onSave: (values: BedCategoryFormValues) => void | Promise<void>;
+  /** Answers whether the save met a conflict. */
+  onSave: (change: Saved, name: string) => Promise<boolean>;
   onCancel: () => void;
 }) {
   const { t } = useTranslation('wards');
   const services = useServiceOptions('bed');
-  const form = useZodForm(bedCategoryFormSchema, {
-    name: category?.name ?? '',
-    serviceId: category?.serviceId ?? '',
-  });
+  const form = useZodForm(bedCategoryFormSchema, categoryValues(from));
+  // Read while rendering, which is what keeps it up to date.
+  const { dirtyFields } = form.formState;
+  const version = useExpectedVersion(from?.version ?? 0, latest?.version);
+  // What someone else saved meanwhile goes into the fields this person has not touched. What was
+  // typed stays, and is all that is sent.
+  const { reset } = form;
+  useEffect(() => {
+    if (latest) reset(categoryValues(latest), { keepDirtyValues: true });
+  }, [reset, latest]);
+
+  const category = latest ?? from;
   const offered = services.data ?? [];
   // The category's own service stays an option when it has been archived since.
+  const own = [from, latest].flatMap((one) =>
+    one?.serviceId && !offered.some((service) => service.id === one.serviceId)
+      ? [{ value: one.serviceId, label: one.serviceName ?? '' }]
+      : [],
+  );
   const options = [
-    ...(category?.serviceId && !offered.some((service) => service.id === category.serviceId)
-      ? [{ value: category.serviceId, label: category.serviceName ?? '' }]
-      : []),
+    ...own.filter((option, index) => own.findIndex((o) => o.value === option.value) === index),
     ...offered.map((service) => ({
       value: service.id,
       label: `${service.name} (${service.code})`,
     })),
   ];
+
+  const submit = async (values: BedCategoryFormValues) => {
+    if (!from) {
+      const create = {
+        name: values.name,
+        ...(values.serviceId ? { serviceId: values.serviceId } : {}),
+      };
+      await onSave({ create }, values.name);
+      return;
+    }
+    // Empty text takes the service away.
+    const body = {
+      ...(dirtyFields.name ? { name: values.name } : {}),
+      ...(dirtyFields.serviceId ? { serviceId: values.serviceId } : {}),
+      expectedVersion: version.expected,
+    };
+    if (await onSave({ body }, values.name)) version.conflict();
+  };
   return (
     <div className="flex max-w-xl flex-col gap-3 rounded-lg border p-4">
       <h2 className="text-base font-semibold">
@@ -53,7 +99,7 @@ function CategoryForm({
           ? t('categories.editHeading', { name: category.name })
           : t('categories.addHeading')}
       </h2>
-      <Form form={form} onSubmit={onSave}>
+      <Form form={form} onSubmit={submit}>
         <TextField
           name="name"
           label={t('categories.name')}
@@ -101,47 +147,38 @@ function Categories() {
   const [archived, setArchived] = useState(false);
   const categories = useBedCategories(archived);
   const change = useBedCategoryChange();
-  // The form that is open: for a new category, or for the one with this id.
-  const [form, setForm] = useState<'new' | string | null>(null);
+  // The form that is open: for a new category, or for one as it was when the form opened.
+  const [form, setForm] = useState<'new' | BedCategory | null>(null);
   // What was just done, said once in a status line.
   const [done, setDone] = useState<string | null>(null);
 
   const rows = useMemo(() => categories.data ?? [], [categories.data]);
-  const editing = form === 'new' ? undefined : rows.find((row) => row.id === form);
+  // The category being changed as it is now. When it is no longer in the list (archived
+  // elsewhere), its form is no longer open.
+  const latest =
+    form === null || form === 'new' ? undefined : rows.find((row) => row.id === form.id);
+  const shown = form === 'new' || latest ? form : null;
 
-  const open = (next: 'new' | string | null) => {
+  const open = (next: 'new' | BedCategory | null) => {
     change.reset();
+    // A form that is opened, or left, starts a new attempt: what is added from it is not taken
+    // for a repeat of something added from a form before it.
+    change.newAttempt();
     setDone(null);
     setForm(next);
   };
 
-  const save = async (values: BedCategoryFormValues) => {
+  const save = async (saved: Saved, name: string): Promise<boolean> => {
     setDone(null);
     try {
-      if (editing) {
-        // Only what was changed is sent, from the version that is on screen now. Empty text
-        // takes the service away.
-        const body = {
-          ...(values.name === editing.name ? {} : { name: values.name }),
-          ...(values.serviceId === (editing.serviceId ?? '')
-            ? {}
-            : { serviceId: values.serviceId }),
-          expectedVersion: editing.version,
-        };
-        await change.mutateAsync({ id: editing.id, body });
-        setDone(t('categories.saved', { name: values.name }));
-      } else {
-        await change.mutateAsync({
-          create: {
-            name: values.name,
-            ...(values.serviceId ? { serviceId: values.serviceId } : {}),
-          },
-        });
-        setDone(t('categories.added', { name: values.name }));
-      }
+      if ('create' in saved) await change.mutateAsync(saved);
+      else if (shown && shown !== 'new') await change.mutateAsync({ id: shown.id, ...saved });
+      setDone(t('create' in saved ? 'categories.added' : 'categories.saved', { name }));
       setForm(null);
-    } catch {
+      return false;
+    } catch (error) {
       // Shown from the mutation state below. The form stays, with what was typed.
+      return isApiError(error) && error.serverCode === 'conflict';
     }
   };
 
@@ -197,14 +234,14 @@ function Categories() {
           id: 'edit',
           label: t('categories.edit'),
           requires: MANAGE,
-          disabled: () => change.isPending,
-          onSelect: (row) => open(row.id),
+          disabled: () => change.isPending || shown !== null,
+          onSelect: (row) => open(row),
         },
         {
           id: 'archive',
           label: t('categories.archive'),
           requires: MANAGE,
-          disabled: () => change.isPending,
+          disabled: () => change.isPending || shown !== null,
           onSelect: (row) => setCategoryArchived(row, true),
         },
       ];
@@ -226,6 +263,8 @@ function Categories() {
           type="checkbox"
           className="h-4 w-4"
           checked={archived}
+          // Not while a change is on its way: its answer has to be seen.
+          disabled={change.isPending}
           onChange={(event) => {
             open(null);
             setArchived(event.target.checked);
@@ -258,15 +297,21 @@ function Categories() {
 
       {mayManage &&
         !archived &&
-        (form === null || (form !== 'new' && !editing) ? (
-          <Button variant="outline" className="self-start" onClick={() => open('new')}>
+        (shown === null ? (
+          <Button
+            variant="outline"
+            className="self-start"
+            disabled={change.isPending}
+            onClick={() => open('new')}
+          >
             {t('categories.addHeading')}
           </Button>
         ) : (
           <CategoryForm
             // A form for each category: choosing another starts from that one.
-            key={form}
-            category={editing}
+            key={shown === 'new' ? 'new' : shown.id}
+            from={shown === 'new' ? undefined : shown}
+            latest={latest}
             pending={change.isPending}
             onSave={save}
             onCancel={() => open(null)}
