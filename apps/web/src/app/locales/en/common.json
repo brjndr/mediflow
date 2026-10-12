@@ -122,6 +122,10 @@
     "suspendedTitle": "{{name}} is suspended",
     "suspendedDescription": "This hospital's access to Mediflow is paused. Its data is safe. Contact your hospital administrator for details."
   },
+  "desktopOnly": {
+    "title": "This screen needs a wider display",
+    "description": "Open it on a computer, or turn a tablet on its side."
+  },
   "notFound": {
     "title": "Page not found",
     "description": "This address does not match any screen. It may have been mistyped, or the page may have moved."

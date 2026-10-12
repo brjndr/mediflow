@@ -1121,6 +1121,259 @@
             "type": ["string", "null"]
           }
         }
+      },
+      "ServicePrice": {
+        "type": "object",
+        "description": "What a service costs on one price list from one date. A price is never edited: a new one takes over from its own date.",
+        "required": ["id", "serviceId", "priceListId", "amountMinor", "effectiveFrom"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "serviceId": {
+            "type": "string"
+          },
+          "priceListId": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000,
+            "description": "In the minor unit of the hospital's currency."
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date",
+            "description": "A calendar date at the hospital."
+          },
+          "effectiveTo": {
+            "type": "string",
+            "format": "date",
+            "description": "The last day it applies. Absent while no later price follows."
+          }
+        }
+      },
+      "ServicePricePage": {
+        "type": "object",
+        "description": "Cursor envelope used by every list endpoint.",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServicePrice"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "ServicePriceCreate": {
+        "type": "object",
+        "required": ["amountMinor", "effectiveFrom"],
+        "additionalProperties": false,
+        "properties": {
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000,
+            "description": "In the minor unit of the hospital's currency."
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date",
+            "description": "A calendar date at the hospital."
+          },
+          "priceListId": {
+            "type": "string"
+          }
+        }
+      },
+      "Service": {
+        "type": "object",
+        "description": "Something the hospital can charge for. Holds no patient data.",
+        "required": [
+          "id",
+          "tenantId",
+          "code",
+          "name",
+          "category",
+          "taxClass",
+          "archived",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "description": "The service's identity on bills. Never changes."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "category": {
+            "type": "string",
+            "enum": ["consultation", "procedure", "bed", "lab", "imaging", "package"]
+          },
+          "taxClass": {
+            "type": "string",
+            "enum": ["exempt", "reduced", "standard", "higher"],
+            "description": "Which tax rate applies, as a class. The rate of each class is the hospital's tax setting, so a change of rate does not touch the services."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "description": "Counts the changes. Sent back as expectedVersion."
+          },
+          "currentPrice": {
+            "$ref": "#/components/schemas/ServicePrice",
+            "description": "The price in force today on the standard list. Absent when there is none."
+          }
+        }
+      },
+      "ServicePage": {
+        "type": "object",
+        "description": "Cursor envelope used by every list endpoint.",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Service"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "ServiceCreate": {
+        "type": "object",
+        "required": ["code", "name", "category", "taxClass"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "category": {
+            "type": "string",
+            "enum": ["consultation", "procedure", "bed", "lab", "imaging", "package"]
+          },
+          "taxClass": {
+            "type": "string",
+            "enum": ["exempt", "reduced", "standard", "higher"],
+            "description": "Which tax rate applies, as a class. The rate of each class is the hospital's tax setting, so a change of rate does not touch the services."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "priceMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000,
+            "description": "In the minor unit of the hospital's currency."
+          }
+        }
+      },
+      "ServiceUpdate": {
+        "type": "object",
+        "required": ["expectedVersion"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "category": {
+            "type": "string",
+            "enum": ["consultation", "procedure", "bed", "lab", "imaging", "package"]
+          },
+          "taxClass": {
+            "type": "string",
+            "enum": ["exempt", "reduced", "standard", "higher"],
+            "description": "Which tax rate applies, as a class. The rate of each class is the hospital's tax setting, so a change of rate does not touch the services."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "expectedVersion": {
+            "type": "integer"
+          }
+        }
+      },
+      "PriceList": {
+        "type": "object",
+        "required": ["id", "name", "standard"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "standard": {
+            "type": "boolean",
+            "description": "The list used when none is named."
+          }
+        }
+      },
+      "PriceListList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceList"
+            }
+          }
+        }
       }
     },
     "responses": {
@@ -4580,6 +4833,522 @@
             "$ref": "#/components/responses/Error"
           },
           "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/services": {
+      "get": {
+        "operationId": "listServices",
+        "description": "The services the active tenant can charge for, by name, each with the price in force today on its standard price list. Requires service:read and the services feature flag. `q` matches the code or the name. Archived services are listed only when asked for.",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["consultation", "procedure", "bed", "lab", "imaging", "package"]
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of services",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "post": {
+        "operationId": "createService",
+        "description": "Adds a service. Requires service:manage. The hospital is the session's: the body carries no tenant. The code is the service's identity on bills and cannot be changed later; one already used by a service of the hospital, archived or not, is refused with 409 service_code_taken. `priceMinor`, when given, is its price on the standard list from today.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Service"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/services/{serviceId}": {
+      "get": {
+        "operationId": "getService",
+        "description": "One service. Requires service:read. A service of another hospital answers 404 service_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Service"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "patch": {
+        "operationId": "updateService",
+        "description": "Changes a service: its name, category, tax class or description, never its code. Requires service:manage. Send the version the change was made from: 409 conflict when the service has changed since. A price is not changed here: see the prices of a service. A service of another hospital answers 404 service_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The service as saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Service"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/services/{serviceId}/archive": {
+      "post": {
+        "operationId": "archiveService",
+        "description": "Archives a service: it stays on the charges and bills that name it and is no longer offered for new ones. Requires service:manage. Doing it twice changes nothing. A service of another hospital answers 404 service_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Service"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/services/{serviceId}/restore": {
+      "post": {
+        "operationId": "restoreService",
+        "description": "Brings an archived service back. Requires service:manage. Doing it twice changes nothing. A service of another hospital answers 404 service_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Service"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/services/{serviceId}/prices": {
+      "get": {
+        "operationId": "listServicePrices",
+        "description": "The prices of a service on a price list, newest first: the one in force, those before it and any that is scheduled. Requires service:read. Without `priceListId` the hospital's standard list. A service of another hospital answers 404 service_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "priceListId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of prices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePricePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "post": {
+        "operationId": "setServicePrice",
+        "description": "Gives a service a new price from a date. Requires service:manage. Prices are never edited: the price before it ends the day before, and a charge already posted keeps the price it was posted at. `effectiveFrom` is today at the hospital or later, and later than the start of the latest price on the list (409 price_date_conflict otherwise). Without `priceListId` the hospital's standard list. A service of another hospital answers 404 service_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServicePriceCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new price",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePrice"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/services/{serviceId}/prices/{priceId}": {
+      "delete": {
+        "operationId": "cancelServicePrice",
+        "description": "Withdraws a price that has not come into force yet: the price before it stays in force with no end date. Requires service:manage. A price that is or was in force cannot be withdrawn (409 price_in_force): it is history. A price that is not of this service or hospital answers 404 price_not_found. A service of another hospital answers 404 service_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "priceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Withdrawn"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/price-lists": {
+      "get": {
+        "operationId": "listPriceLists",
+        "description": "The price lists of the active tenant. Requires service:read. Every hospital has one standard list; others (for a payer or a room class) come later.",
+        "responses": {
+          "200": {
+            "description": "The price lists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceListList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
             "$ref": "#/components/responses/Error"
           },
           "409": {

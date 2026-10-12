@@ -34,6 +34,7 @@ const initialTenants: Record<string, TenantDto> = {
       notices: true,
       departments: true,
       doctors: true,
+      services: true,
       staff: true,
       ui_examples: true,
     },
@@ -61,6 +62,7 @@ const initialTenants: Record<string, TenantDto> = {
       notices: false,
       departments: true,
       doctors: true,
+      services: true,
       staff: true,
     },
     // A shared front-desk PC: the clinic asks for a shorter idle time.
@@ -94,6 +96,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'department:manage' },
   { permission: 'doctor:read' },
   { permission: 'doctor:manage' },
+  { permission: 'service:read' },
+  { permission: 'service:manage' },
   { permission: 'staff:read' },
   { permission: 'staff:invite' },
   { permission: 'staff:manage' },
@@ -110,6 +114,7 @@ const DOCTOR: PermissionGrantDto[] = [
   { permission: 'notice:read' },
   { permission: 'department:read' },
   { permission: 'doctor:read' },
+  { permission: 'service:read' },
   { permission: 'billing:read' },
   { permission: 'report:read', scope: 'own' },
 ];
