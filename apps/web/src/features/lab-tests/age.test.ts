@@ -58,6 +58,14 @@ describe('the day an age is reached', () => {
     expect(dateAtAge('2012-02-29', age(13, 'years'))).toBe('2025-02-28');
   });
 
+  it('refuses a date that is not one, and reads an early year as written', () => {
+    for (const date of ['', '2024-2-9', '2023-02-29', '2024-13-01', '2024-00-10', 'yesterday']) {
+      expect(() => dateAtAge(date, age(1, 'days'))).toThrow(RangeError);
+    }
+    expect(dateAtAge('0050-03-01', age(1, 'years'))).toBe('0051-03-01');
+    expect(dateAtAge('1900-02-28', age(1, 'days'))).toBe('1900-03-01');
+  });
+
   it('never goes back as the age grows, for any date of birth', () => {
     for (const unit of AGE_UNITS) {
       for (const born of birthdays().filter((_, index) => index % 13 === 0)) {

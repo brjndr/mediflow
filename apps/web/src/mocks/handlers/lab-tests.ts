@@ -612,8 +612,10 @@ export const labTestsHandlers = [
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
     const query = new URL(request.url).searchParams;
+    // Whole digits only: an empty value is not zero.
+    const digits = query.get('ageValue') ?? '';
     const age = readAge({
-      value: Number(query.get('ageValue') ?? 'none'),
+      value: /^\d{1,5}$/.test(digits) ? Number(digits) : Number.NaN,
       unit: query.get('ageUnit'),
     });
     const sex = oneOf(['male', 'female', 'other'] as const, query.get('sex'));

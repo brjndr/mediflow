@@ -1066,6 +1066,20 @@ describe('two hospitals', () => {
       }),
     ).rejects.toMatchObject(gone);
 
+    // An age in the lookup is whole digits with a known unit.
+    for (const query of [
+      { ageValue: '' as never, ageUnit: 'days', sex: 'male' },
+      { ageValue: '1e2' as never, ageUnit: 'days', sex: 'male' },
+      { ageValue: 151, ageUnit: 'years', sex: 'male' },
+      { ageValue: 1, ageUnit: 'decades' as never, sex: 'male' },
+    ] as const) {
+      await expect(
+        api.GET('/lab-tests/{labTestId}/ranges/resolve', {
+          params: { path: { labTestId: CBC }, query },
+        }),
+      ).rejects.toMatchObject({ serverCode: 'validation_failed' });
+    }
+
     // Nor can a test of this hospital be made of the clinic's test or charged as its service.
     const own = { path: { labTestId: CBC } };
     await expect(

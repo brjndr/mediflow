@@ -82,8 +82,16 @@ export function ageOrder(age: Age): number {
   return months * 30.4375 + days;
 }
 
-const daysInMonth = (year: number, month: number) =>
-  new Date(Date.UTC(year, month, 0)).getUTCDate();
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** A UTC date from its parts. Not `Date.UTC`, which takes the years 0 to 99 for 1900 to 1999. */
+function utcDate(year: number, monthIndex: number, day: number): Date {
+  const date = new Date(0);
+  date.setUTCFullYear(year, monthIndex, day);
+  return date;
+}
+
+const daysInMonth = (year: number, month: number) => utcDate(year, month, 0).getUTCDate();
 
 /**
  * The calendar date on which someone born on `dateOfBirth` reaches an age. Days and weeks are
@@ -92,13 +100,22 @@ const daysInMonth = (year: number, month: number) =>
  * a year older on 28 February when the year has no 29th).
  */
 export function dateAtAge(dateOfBirth: string, age: Age): string {
-  const [year = 0, month = 1, day = 1] = dateOfBirth.split('-').map(Number);
+  const parts = ISO_DATE.exec(dateOfBirth);
+  const year = Number(parts?.[1]);
+  const month = Number(parts?.[2]);
+  const day = Number(parts?.[3]);
+  // A date that is not one is refused, never read as some other date.
+  if (!parts || month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) {
+    throw new RangeError('invalid_date');
+  }
   const { months, days } = span(age);
   const total = year * 12 + (month - 1) + months;
   const atYear = Math.floor(total / 12);
   const atMonth = (total % 12) + 1;
   const atDay = Math.min(day, daysInMonth(atYear, atMonth));
-  return new Date(Date.UTC(atYear, atMonth - 1, atDay + days)).toISOString().slice(0, 10);
+  return utcDate(atYear, atMonth - 1, atDay + days)
+    .toISOString()
+    .slice(0, 10);
 }
 
 /** Whether a band holds for someone born on `dateOfBirth`, on the day `on`. */
