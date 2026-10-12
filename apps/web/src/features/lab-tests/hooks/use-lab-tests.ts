@@ -15,6 +15,7 @@ import {
   updateLabTest,
   type LabTestFilters,
 } from '../api';
+import type { AgeUnit } from '../age';
 import type { LabRange, LabTestCreate, LabTestUpdate, PatientSex } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's catalog never shows in another. */
@@ -205,7 +206,8 @@ export function useSaveLabRanges(labTestId: string) {
 /** Asks the server which saved range applies to a patient. Nothing of the answer is kept. */
 export function useResolveLabRange(labTestId: string) {
   return useMutation({
-    mutationFn: (query: { ageDays: number; sex: PatientSex }) => resolveLabRange(labTestId, query),
+    mutationFn: (query: { ageValue: number; ageUnit: AgeUnit; sex: PatientSex }) =>
+      resolveLabRange(labTestId, query),
     gcTime: 0,
   });
 }

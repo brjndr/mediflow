@@ -8,7 +8,7 @@ import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
 import { renderApp } from '@/test/render';
 import { labTestKeys } from './hooks/use-lab-tests';
-import { blankRangeRow, fromDays, rangesOverlap, toDays, toRange, toRangeRow } from './schemas';
+import { blankRangeRow, rangesOverlap, toRange, toRangeRow } from './schemas';
 
 const HEADING = { name: 'Lab tests', level: 1 };
 const NO_ACCESS = { name: 'You do not have access to this page' };
@@ -601,7 +601,7 @@ describe('reference ranges', () => {
     await userEvent.click(button('Save ranges'));
     // Both are for anyone from birth.
     expect(await range(2).findByRole('alert')).toHaveTextContent(
-      'Another range for the same people already covers some of these ages.',
+      /Another range for the same people already covers some of these ages/,
     );
 
     // Put right in the first row: the message on the second goes.
@@ -635,7 +635,15 @@ describe('reference ranges', () => {
     await waitFor(() => expect(statuses()).toContain('The reference ranges were saved.'));
     expect(bodies).toEqual([
       {
-        ranges: [{ sex: 'any', ageFromDays: 0, high: 20, criticalHigh: 100, note: 'Westergren' }],
+        ranges: [
+          {
+            sex: 'any',
+            ageFrom: { value: 0, unit: 'years' },
+            high: 20,
+            criticalHigh: 100,
+            note: 'Westergren',
+          },
+        ],
         expectedVersion: 1,
       },
     ]);
@@ -657,7 +665,7 @@ describe('reference ranges', () => {
     await userEvent.click(button('Save ranges'));
 
     expect(await range(5).findByRole('alert')).toHaveTextContent(
-      'Another range for the same people already covers some of these ages.',
+      /Another range for the same people already covers some of these ages/,
     );
     expect(bodies).toEqual([]);
 
@@ -704,7 +712,7 @@ describe('reference ranges', () => {
     ).toBeVisible();
     expect(range(1).getByText('This must not be below the highest normal value.')).toBeVisible();
     expect(
-      range(1).getByText('This age must be above the age the range starts from.'),
+      range(1).getByText('This age must be later than the age the range starts from.'),
     ).toBeVisible();
 
     await typeIn(1, /^Lowest normal/, 'ten');
@@ -738,7 +746,7 @@ describe('reference ranges', () => {
   it('keeps what was typed when someone else changed the ranges meanwhile, and saves it when asked again', async () => {
     await openRanges();
     await userEvent.click(button('Edit ranges'));
-    editMockLabRanges(HB, [{ sex: 'any', ageFromDays: 0, low: 1, high: 2 }]);
+    editMockLabRanges(HB, [{ sex: 'any', ageFrom: { value: 0, unit: 'days' }, low: 1, high: 2 }]);
     await typeIn(3, /^Highest normal/, '18');
     await userEvent.click(button('Save ranges'));
 
@@ -758,7 +766,10 @@ describe('reference ranges', () => {
       await expect(
         api.PUT('/lab-tests/{labTestId}/ranges', {
           params: { path: { labTestId } },
-          body: { ranges: [{ sex: 'any', ageFromDays: 0, low: 1 }], expectedVersion: 1 },
+          body: {
+            ranges: [{ sex: 'any', ageFrom: { value: 0, unit: 'days' }, low: 1 }],
+            expectedVersion: 1,
+          },
         }),
       ).rejects.toMatchObject({ serverCode: 'lab_test_has_no_ranges' });
     }
@@ -768,38 +779,47 @@ describe('reference ranges', () => {
         params: { path: { labTestId: ESR } },
         body: { ranges: ranges as never, expectedVersion: 1 },
       });
+    const birth = { value: 0, unit: 'days' };
+    const age = (value: number, unit: string) => ({ value, unit });
     for (const ranges of [
-      [{ sex: 'any', ageFromDays: 0 }],
-      [{ sex: 'any', ageFromDays: 0, low: 5, high: 5 }],
-      [{ sex: 'any', ageFromDays: 10, ageToDays: 9, low: 1 }],
-      [{ sex: 'any', ageFromDays: 0, low: 5, criticalLow: 6 }],
+      [{ sex: 'any', ageFrom: birth }],
+      [{ sex: 'any', ageFrom: birth, low: 5, high: 5 }],
+      [{ sex: 'any', ageFrom: birth, low: 5, criticalLow: 6 }],
+      // An age is a whole value with a known unit, of at most 150 years.
+      [{ sex: 'any', ageFrom: 0, low: 1 }],
+      [{ sex: 'any', ageFrom: age(1, 'decades'), low: 1 }],
+      [{ sex: 'any', ageFrom: age(1.5, 'years'), low: 1 }],
+      [{ sex: 'any', ageFrom: age(151, 'years'), low: 1 }],
+      // It ends later than it starts, for every date of birth.
+      [{ sex: 'any', ageFrom: age(10, 'days'), ageUntil: age(10, 'days'), low: 1 }],
+      [{ sex: 'any', ageFrom: age(1, 'months'), ageUntil: age(30, 'days'), low: 1 }],
+      // Two ranges for men that share an age, or could for some dates of birth.
       [
-        { sex: 'male', ageFromDays: 0, ageToDays: 100, low: 1 },
-        { sex: 'male', ageFromDays: 100, low: 1 },
+        { sex: 'male', ageFrom: birth, ageUntil: age(2, 'years'), low: 1 },
+        { sex: 'male', ageFrom: age(23, 'months'), low: 1 },
+      ],
+      [
+        { sex: 'male', ageFrom: birth, ageUntil: age(1, 'months'), low: 1 },
+        { sex: 'male', ageFrom: age(30, 'days'), low: 1 },
       ],
     ]) {
       await expect(put(ranges)).rejects.toMatchObject({ serverCode: 'validation_failed' });
     }
+    // Ranges that meet at the same age are taken, in months against years too.
+    const saved = await put([
+      { sex: 'male', ageFrom: birth, ageUntil: age(24, 'months'), low: 1 },
+      { sex: 'male', ageFrom: age(2, 'years'), low: 1 },
+      { sex: 'any', ageFrom: birth, low: 1 },
+    ]);
+    expect(saved.data?.ranges).toHaveLength(3);
   });
 
-  it('counts ages the same way in the form and in the lookup', () => {
-    expect(toDays(12, 'years')).toBe(4380);
-    expect(fromDays(4380)).toEqual({ value: 12, unit: 'years' });
-    expect(fromDays(30)).toEqual({ value: 1, unit: 'months' });
-    // Twelve months are a year: a range typed in months meets one typed in years.
-    expect(toDays(12, 'months')).toBe(toDays(1, 'years'));
-    expect(toDays(60, 'months')).toBe(toDays(5, 'years'));
-    expect(fromDays(toDays(18, 'months'))).toEqual({ value: 18, unit: 'months' });
-    expect(fromDays(365)).toEqual({ value: 1, unit: 'years' });
-    expect(fromDays(45)).toEqual({ value: 45, unit: 'days' });
-    expect(fromDays(0)).toEqual({ value: 0, unit: 'days' });
-
-    // "Until 12 years" is kept as the last day covered, and reads back as typed.
+  it('keeps the ages of a range as they were typed, a value with its unit', () => {
     const row = {
       ...blankRangeRow,
       sex: 'male' as const,
-      fromValue: '1',
-      fromUnit: 'months' as const,
+      fromValue: '6',
+      fromUnit: 'weeks' as const,
       untilValue: '12',
       low: '11',
       criticalLow: '-0.5',
@@ -807,17 +827,52 @@ describe('reference ranges', () => {
     const saved = toRange(row);
     expect(saved).toEqual({
       sex: 'male',
-      ageFromDays: 30,
-      ageToDays: 4379,
+      ageFrom: { value: 6, unit: 'weeks' },
+      ageUntil: { value: 12, unit: 'years' },
       low: 11,
       criticalLow: -0.5,
     });
     expect(toRangeRow(saved)).toEqual(row);
 
     const next = toRange({ ...row, fromValue: '12', fromUnit: 'years', untilValue: '' });
+    expect(next.ageUntil).toBeUndefined();
     expect(rangesOverlap(saved, next)).toBe(false);
-    expect(rangesOverlap(saved, { ...next, ageFromDays: 4379 })).toBe(true);
+    expect(rangesOverlap(saved, { ...next, ageFrom: { value: 143, unit: 'months' } })).toBe(true);
     expect(rangesOverlap(saved, { ...saved, sex: 'female' })).toBe(false);
+  });
+
+  it('reads a child against the range in weeks, and refuses limits that only some birthdays keep apart', async () => {
+    const bodies = sent('PUT');
+    await openRanges(ESR);
+    await userEvent.click(button('Edit ranges'));
+    await userEvent.click(button('Add a range'));
+    await userEvent.click(button('Add a range'));
+    await typeIn(1, /^Until age/, '4');
+    await userEvent.selectOptions(
+      range(1).getByRole('combobox', { name: /^Until age in/ }),
+      'weeks',
+    );
+    await typeIn(1, /^Highest normal/, '2');
+    // From one month: but a month is 28 to 31 days, and four weeks are 28.
+    await typeIn(2, /^From age/, '1');
+    await userEvent.selectOptions(
+      range(2).getByRole('combobox', { name: /^From age in/ }),
+      'months',
+    );
+    await typeIn(2, /^Highest normal/, '10');
+    await userEvent.click(button('Save ranges'));
+    await waitFor(() => expect(statuses()).toContain('The reference ranges were saved.'));
+    expect(await screen.findByText('Under 4 weeks')).toBeInTheDocument();
+    expect(screen.getByText('From 1 month')).toBeInTheDocument();
+
+    // Five weeks could be past one month, or not, by the month of birth.
+    await userEvent.click(button('Edit ranges'));
+    await typeIn(1, /^Until age/, '5');
+    await userEvent.click(button('Save ranges'));
+    expect(await range(2).findByRole('alert')).toHaveTextContent(
+      /or could for some dates of birth/,
+    );
+    expect(bodies).toHaveLength(1);
   });
 });
 
@@ -1007,7 +1062,7 @@ describe('two hospitals', () => {
     ).rejects.toMatchObject(gone);
     await expect(
       api.GET('/lab-tests/{labTestId}/ranges/resolve', {
-        params: { ...params, query: { ageDays: 1, sex: 'male' } },
+        params: { ...params, query: { ageValue: 1, ageUnit: 'days', sex: 'male' } },
       }),
     ).rejects.toMatchObject(gone);
 
