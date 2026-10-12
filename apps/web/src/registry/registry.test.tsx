@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FlaskConical, Receipt } from 'lucide-react';
 import { http, HttpResponse } from 'msw';
-import { setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
+import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { apiFetch } from '@/shared/api';
 import type { AccessPolicy } from '@/shared/types';
@@ -170,7 +170,8 @@ describe('permission absent', () => {
 
   it('filters slot and dashboard contributions by permission', async () => {
     const { laboratory, billing, loaders } = makeFeatures();
-    // The hospital admin can read clinical data but cannot place orders.
+    // This hospital's admin can read clinical data but has given up placing orders.
+    revokePermission(TENANT_IDS.hospital, 'admin', 'order:create');
     renderWithProviders(
       <>
         <Slot id="patient.detail.tabs" />

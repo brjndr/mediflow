@@ -302,7 +302,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Invites someone to the active hospital in one of its roles and emails them a single-use link. A newer invite to the same address replaces an older one. */
+        /** @description Invites someone to the active hospital in one of its roles and emails them a single-use link. A newer invite to the same address replaces an older one. The role may hold nothing the caller does not hold: 403 role_not_allowed otherwise. */
         post: operations["createInvite"];
         delete?: never;
         options?: never;

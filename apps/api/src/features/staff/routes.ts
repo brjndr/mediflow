@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
+import { grantsWithin } from '../../core/access/policy.js';
 import { issueInvite, sendInvite } from '../../core/auth/invites.js';
 import { HttpError } from '../../core/http/errors.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
@@ -31,7 +32,7 @@ export const staffRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['staff'],
         headers: IdempotencyHeaders,
         description:
-          'Invites someone to the active hospital in one of its roles and emails them a single-use link. A newer invite to the same address replaces an older one.',
+          'Invites someone to the active hospital in one of its roles and emails them a single-use link. A newer invite to the same address replaces an older one. The role may hold nothing the caller does not hold: 403 role_not_allowed otherwise.',
         body: Type.Object({
           email: Type.String({ minLength: 3, maxLength: 254 }),
           name: Type.String({ minLength: 1, maxLength: 200 }),
@@ -48,7 +49,22 @@ export const staffRoutes: FastifyPluginAsyncTypebox = async (app) => {
       // Row-level security limits this to the active hospital's own roles.
       const role = await request.txClient.query('select 1 from roles where id = $1', [roleId]);
       if (role.rowCount === 0) throw new HttpError(400, 'unknown_role', 'No such role here');
-
+      // An invitation never grants more than the inviter holds. Without this, anyone who may
+      // invite could invite a second address of their own as an administrator. The same goes
+      // for an open invitation to this address, which a new one replaces: otherwise a lesser
+      // invitation could be used to take away one the caller could not have sent.
+      const wanted = await request.txClient.query<{ permission: string; scope: string }>(
+        `select permission, scope from role_permissions
+         where role_id = $1
+            or role_id in (select role_id from invites
+                           where email = lower(btrim($2))
+                             and accepted_at is null and revoked_at is null)`,
+        [roleId, email],
+      );
+      const policy = await request.access.policy();
+      if (!policy || !grantsWithin(wanted.rows, policy.permissions)) {
+        throw new HttpError(403, 'role_not_allowed', 'That role holds more than you do');
+      }
       const invite = await issueInvite(request.txClient, app.config, {
         email,
         name,

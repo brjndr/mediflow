@@ -54,6 +54,7 @@
     "self": "You cannot deactivate yourself. Ask another administrator.",
     "lastAdmin": "This is the only person who can manage staff here. Give someone else that role first.",
     "unknownRole": "That role no longer exists at this hospital. Choose another.",
+    "roleNotAllowed": "You cannot invite someone into a role that may do more than your own.",
     "busy": "Too many requests just now. Wait a minute and try again."
   },
   "inviteOne": {

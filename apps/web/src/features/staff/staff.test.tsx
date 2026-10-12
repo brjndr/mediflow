@@ -267,6 +267,22 @@ describe('inviting one person', () => {
     expect(sentTo()).toEqual(['nina@sample-hospital.test']);
   });
 
+  it('says so when the role may do more than the inviter', async () => {
+    server.use(
+      http.post('*/api/invites', () =>
+        HttpResponse.json({ error: { code: 'role_not_allowed', message: 'x' } }, { status: 403 }),
+      ),
+    );
+    await openInvite();
+    await fillInvite('Nina Nurse', 'nina@sample-hospital.test', 'Admin');
+    await userEvent.click(button('Send invitation'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'You cannot invite someone into a role that may do more than your own.',
+    );
+    expect(sentTo()).toEqual([]);
+  });
+
   it('says so when the role was removed meanwhile, and keeps what was typed', async () => {
     server.use(
       http.post('*/api/invites', () =>
@@ -569,6 +585,23 @@ describe('access', () => {
 
     expect(screen.getByRole('link', { name: 'Invite staff' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^(Deactivate|Sign out everywhere)/ })).toBeNull();
+  });
+
+  it('offers, and accepts, only roles that hold no more than the inviter', async () => {
+    // A doctor who is allowed to invite: other doctors, but not an administrator.
+    grantPermission(TENANT_IDS.hospital, 'doctor', 'staff:invite');
+    signIn(USER_IDS.doctor, TENANT_IDS.hospital);
+
+    await expect(api.GET('/staff/roles')).resolves.toMatchObject({
+      data: { items: [{ id: 'doctor', name: 'Doctor' }] },
+    });
+    await expect(
+      api.POST('/invites', {
+        body: { name: 'N', email: 'n@sample-hospital.test', roleId: 'admin' },
+        params: { header: { 'idempotency-key': 'test-key-0003' } },
+      }),
+    ).rejects.toMatchObject({ serverCode: 'role_not_allowed' });
+    expect(sentTo()).toEqual([]);
   });
 
   it('does not exist for a hospital that has the module off', async () => {

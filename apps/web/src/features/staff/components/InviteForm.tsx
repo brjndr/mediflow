@@ -38,12 +38,15 @@ export function InviteForm({ roles }: { roles: StaffRole[] }) {
     }
   };
 
+  const code = isApiError(invite.error) ? invite.error.serverCode : undefined;
   const refused =
-    isApiError(invite.error) && invite.error.serverCode === 'unknown_role'
+    code === 'unknown_role'
       ? t('errors.unknownRole')
-      : isApiError(invite.error) && invite.error.serverCode === 'rate_limited'
-        ? t('errors.busy')
-        : null;
+      : code === 'role_not_allowed'
+        ? t('errors.roleNotAllowed')
+        : code === 'rate_limited'
+          ? t('errors.busy')
+          : null;
 
   return (
     <section aria-labelledby="staff-invite-one" className="flex flex-col gap-3">

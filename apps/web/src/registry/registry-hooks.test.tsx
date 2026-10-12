@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
+import { revokePermission, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { renderWithProviders } from '@/test/render';
 import { createRegistry, useRegistry, useSettingsSections, type FeatureManifest } from '.';
 
@@ -37,7 +37,8 @@ const listed = () => screen.getAllByRole('listitem').map((item) => item.textCont
 
 describe('useSettingsSections', () => {
   it('lists the sections the signed-in role may manage', async () => {
-    // The hospital admin may refund but not place orders.
+    // This hospital's admin may refund but has given up placing orders.
+    revokePermission(TENANT_IDS.hospital, 'admin', 'order:create');
     renderWithProviders(<Sections />, { registry });
     await screen.findByTestId('sections');
     expect(listed()).toEqual(['billing']);
