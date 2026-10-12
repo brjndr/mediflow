@@ -33,6 +33,7 @@ describe('shell', () => {
       'Drugs and consumables',
       'Lab tests',
       'Wards and beds',
+      'Diagnosis and procedure codes',
       'Staff',
       'Notices',
     ]);
@@ -70,6 +71,7 @@ describe('shell', () => {
       'Drugs and consumables',
       'Lab tests',
       'Wards and beds',
+      'Diagnosis and procedure codes',
       'Staff',
       'Notices',
     ]);
@@ -115,6 +117,10 @@ describe('keyboard', () => {
     expect(within(sidebar()).getByRole('link', { name: 'Lab tests' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Wards and beds' })).toHaveFocus();
+    await userEvent.tab();
+    expect(
+      within(sidebar()).getByRole('link', { name: 'Diagnosis and procedure codes' }),
+    ).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Staff' })).toHaveFocus();
     await userEvent.tab();
@@ -163,6 +169,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Drugs and consumables',
       'Lab tests',
       'Wards and beds',
+      'Diagnosis and procedure codes',
       'Staff',
       'Notices',
     ]);
@@ -209,6 +216,7 @@ describe('system pages', () => {
       'Drugs and consumables',
       'Lab tests',
       'Wards and beds',
+      'Diagnosis and procedure codes',
       'Staff',
       'Notices',
     ]);
