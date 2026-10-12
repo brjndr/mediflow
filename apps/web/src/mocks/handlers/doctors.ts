@@ -1,8 +1,9 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { onMockReset, TENANT_IDS, USER_IDS } from '../db';
+import { onMockReset } from '../db';
 import { authorize, error } from '../respond';
 import { mockDepartment } from './departments';
+import { mockStaffOf, seedStaffDirectory, type MockStaff } from './staff';
 
 type Doctor = components['schemas']['Doctor'];
 type DoctorPage = components['schemas']['DoctorPage'];
@@ -15,34 +16,11 @@ const FEATURE_FLAG = 'doctors';
 const READ = 'doctor:read';
 const MANAGE = 'doctor:manage';
 
-interface Staff extends DoctorCandidate {
-  tenantId: string;
-  roleId: string;
-}
-
-const FIRST = ['Aarav', 'Diya', 'Kabir', 'Meera', 'Rohan', 'Sana', 'Vikram', 'Zoya'];
-const LAST = ['Sharma', 'Iyer', 'Khan', 'Nair', 'Patel', 'Reddy', 'Singh', 'Verma', 'Das'];
 const SPECIALIZATIONS = ['General practice', 'Surgery', 'Paediatrics', 'Cardiology', 'Diagnostics'];
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-/** Synthetic staff: names from two short lists, so every one is distinct and none is real. */
-function staffOf(tenantId: string, prefix: string, domain: string, count: number): Staff[] {
-  return Array.from({ length: count }, (_, index) => {
-    const first = FIRST[index % FIRST.length] ?? 'Staff';
-    const last = LAST[Math.floor(index / FIRST.length) % LAST.length] ?? 'Member';
-    return {
-      tenantId,
-      userId: `${prefix}_${String(index + 1).padStart(2, '0')}`,
-      name: `${first} ${last}`,
-      email: `${first}.${last}@${domain}`.toLowerCase(),
-      roleId: 'doctor',
-    };
-  });
-}
-
 interface State {
-  staff: Staff[];
   doctors: Doctor[];
   hours: Map<string, { sessions: DoctorSession[]; version: number }>;
   created: number;
@@ -55,36 +33,9 @@ const WEEKDAY_MORNINGS: DoctorSession[] = DAYS.slice(0, 5).map((day) => ({
 }));
 
 function seed(): State {
-  const hospital = staffOf(TENANT_IDS.hospital, 'stf_h', 'sample-hospital.test', 36);
-  const clinic = staffOf(TENANT_IDS.clinic, 'stf_c', 'riverside-clinic.test', 3);
-  const staff: Staff[] = [
-    ...hospital,
-    ...clinic,
-    // The people who can sign in to the mock, at the hospitals they belong to.
-    {
-      tenantId: TENANT_IDS.hospital,
-      userId: USER_IDS.admin,
-      name: 'Sample Admin',
-      email: 'admin@sample-hospital.test',
-      roleId: 'admin',
-    },
-    ...[TENANT_IDS.hospital, TENANT_IDS.clinic].map((tenantId) => ({
-      tenantId,
-      userId: USER_IDS.doctor,
-      name: 'Sample Doctor',
-      email: 'doctor@sample-hospital.test',
-      roleId: 'doctor',
-    })),
-    {
-      tenantId: TENANT_IDS.clinic,
-      userId: USER_IDS.receptionist,
-      name: 'Sample Receptionist',
-      email: 'reception@riverside-clinic.test',
-      roleId: 'receptionist',
-    },
-  ];
+  const { hospital, clinic, all: staff } = seedStaffDirectory();
 
-  const profile = (member: Staff, id: string, departmentId: string, index: number): Doctor => ({
+  const profile = (member: MockStaff, id: string, departmentId: string, index: number): Doctor => ({
     id,
     tenantId: member.tenantId,
     userId: member.userId,
@@ -111,17 +62,17 @@ function seed(): State {
         ),
       ),
     {
-      ...profile(hospital[28] as Staff, 'doc_h_old', 'dep_h_02', 0),
+      ...profile(hospital[28] as MockStaff, 'doc_h_old', 'dep_h_02', 0),
       active: false,
       version: 2,
     },
-    profile(clinic[0] as Staff, 'doc_c_01', 'dep_c_01', 0),
-    profile(staff.at(-2) as Staff, 'doc_c_02', 'dep_c_02', 2),
+    profile(clinic[0] as MockStaff, 'doc_c_01', 'dep_c_01', 0),
+    profile(staff.at(-2) as MockStaff, 'doc_c_02', 'dep_c_02', 2),
   ];
   const hours = new Map(
     doctors.map((doctor) => [doctor.id, { sessions: [...WEEKDAY_MORNINGS], version: 1 }]),
   );
-  return { staff, doctors, hours, created: 0 };
+  return { doctors, hours, created: 0 };
 }
 
 let state = seed();
@@ -236,8 +187,8 @@ export const doctorsHandlers = [
       state.doctors.filter((d) => d.tenantId === access.tenantId).map((d) => d.userId),
     );
     // Tenant isolation: only staff of the session's hospital are ever considered.
-    const candidates = state.staff
-      .filter((member) => member.tenantId === access.tenantId && !taken.has(member.userId))
+    const candidates = mockStaffOf(access.tenantId)
+      .filter((member) => !taken.has(member.userId))
       .filter((member) => `${member.name} ${member.email}`.toLowerCase().includes(q))
       .sort(byName)
       .map(({ userId, name, email }): DoctorCandidate => ({ userId, name, email }));
@@ -269,8 +220,8 @@ export const doctorsHandlers = [
     const body = await readBody(request);
     const fields = body && readProfile(access.tenantId, body);
     // A member of this hospital only: a user id from elsewhere is not a staff member here.
-    const member = state.staff.find(
-      (candidate) => candidate.tenantId === access.tenantId && candidate.userId === body?.userId,
+    const member = mockStaffOf(access.tenantId).find(
+      (candidate) => candidate.userId === body?.userId,
     );
     if (!fields || !member || fields.active !== undefined) return invalid();
     const { departmentId, departmentName, specialization, consultationMinutes } = fields;

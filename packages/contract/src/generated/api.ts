@@ -621,6 +621,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The people of the active tenant, by name: its members, or the invitations it has sent that are not accepted yet. Requires staff:read and the staff feature flag. `q` matches the name or the email address. The hospital is the session's. */
+        get: operations["listStaff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/staff/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The roles of the active tenant that the caller may invite someone into, by name: those whose permissions are all held by the caller's own role, so an invitation never grants more than the inviter has (POST /invites refuses the others with 403 role_not_allowed). Requires staff:invite. Ids and names only: what a role may do belongs to role management. */
+        get: operations["listStaffRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/staff/{userId}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Deactivates someone's membership of the hospital: every session they have there ends at once and they cannot work there until reactivated. Their account and their memberships of other hospitals are untouched. Requires staff:manage. 409 cannot_deactivate_self for the caller's own membership, 409 last_admin when no other active member could manage staff and roles, counted with the rows locked. Doing it twice changes nothing. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. The membership is kept, marked deactivated, never deleted: accepting an invitation must not bring it back, and switching hospital or opening a link refuses it. */
+        post: operations["deactivateStaff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/staff/{userId}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Makes a deactivated membership active again, in the role it had. Requires staff:manage. Doing it twice changes nothing. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. */
+        post: operations["reactivateStaff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/staff/{userId}/revoke-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Ends every session the person has at this hospital, so they must sign in again. Requires staff:manage. The caller's own current session is kept. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. */
+        post: operations["revokeStaffSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -955,6 +1040,33 @@ export interface components {
         DoctorAvailabilityUpdate: {
             sessions: components["schemas"]["DoctorSession"][];
             expectedVersion: number;
+        };
+        /** @description Someone who works at the hospital, or has been invited to. For a member `id` is the user id; for an invitation it is the invitation id. */
+        StaffMember: {
+            id: string;
+            tenantId: string;
+            name: string;
+            email: string;
+            roleId: string;
+            roleName: string;
+            /** @enum {string} */
+            status: "active" | "deactivated" | "invited";
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        StaffPage: {
+            items: components["schemas"]["StaffMember"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        StaffRole: {
+            id: string;
+            name: string;
+        };
+        StaffRoleList: {
+            items: components["schemas"]["StaffRole"][];
+        };
+        StaffSessionsRevoked: {
+            revoked: number;
         };
     };
     responses: {
@@ -2772,6 +2884,141 @@ export interface operations {
                 };
             };
             400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listStaff: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                q?: string;
+                /** @description Which people: active members, deactivated members, or open invitations. */
+                status?: "active" | "deactivated" | "invited";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of people */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffPage"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listStaffRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The roles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffRoleList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deactivateStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The member */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMember"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    reactivateStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The member */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMember"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeStaffSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many sessions were ended */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSessionsRevoked"];
+                };
+            };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];

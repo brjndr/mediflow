@@ -109,8 +109,10 @@ describe('adding a doctor', () => {
     // Diya Sharma is a doctor here already.
     expect(screen.queryByRole('radio', { name: /Diya Sharma/ })).not.toBeInTheDocument();
     await userEvent.type(screen.getByRole('searchbox', { name: 'Find a staff member' }), 'patel');
-    await waitFor(() => expect(screen.getAllByRole('radio')).toHaveLength(4));
-    expect(screen.getByRole('radio', { name: /Meera Patel/ })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByRole('radio')).toHaveLength(3));
+    expect(screen.getByRole('radio', { name: /Kabir Patel/ })).toBeInTheDocument();
+    // Meera Patel was deactivated at this hospital: not someone to make a doctor.
+    expect(screen.queryByRole('radio', { name: /Meera Patel/ })).not.toBeInTheDocument();
   });
 
   it('creates the profile and opens it, with no working hours yet', async () => {

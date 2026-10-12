@@ -22,7 +22,8 @@ export function tenantMismatch(request: Request) {
 
 interface RouteAccess {
   permission: string;
-  featureFlag: string;
+  /** Absent for a route of the real API that belongs to no module switch. */
+  featureFlag?: string;
 }
 
 /**
@@ -42,7 +43,7 @@ export function authorize(
   if (isActiveTenantSuspended()) {
     return { denied: error(403, 'tenant_suspended', 'This hospital is suspended') };
   }
-  if (policy.features[featureFlag] !== true) {
+  if (featureFlag !== undefined && policy.features[featureFlag] !== true) {
     return { denied: error(403, 'feature_disabled', `Feature ${featureFlag} is off`) };
   }
   if (!policy.permissions.some((grant) => grant.permission === permission)) {
