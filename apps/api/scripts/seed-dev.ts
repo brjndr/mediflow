@@ -82,6 +82,7 @@ const HOSPITALS = [
     features: {
       patients: true,
       departments: true,
+      staff: true,
       appointments: true,
       clinical: true,
       laboratory: true,
@@ -102,6 +103,7 @@ const HOSPITALS = [
     features: {
       patients: true,
       departments: true,
+      staff: true,
       appointments: true,
       clinical: true,
       laboratory: false,

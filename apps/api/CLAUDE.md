@@ -99,7 +99,7 @@ A feature folder has only the files it needs: `features/health` has `index.ts` a
 
 ## Authentication
 
-- **Authentication runs as its own database role,** `mediflow_auth`, through `withAuthTransaction`. It can reach `users`, `user_identities`, `memberships`, `sessions` and the hospitals of the user it has identified, and has no grant on any table that holds hospital data. Do not grant it one. Do not query the identity tables from a tenant route: the app role cannot.
+- **Authentication runs as its own database role,** `mediflow_auth`, through `withAuthTransaction`. It can reach `users`, `user_identities`, `memberships`, `sessions` and the hospitals of the user it has identified, and has no grant on any table that holds hospital data. Do not grant it one. A tenant route (the app role) sees of the identity tables only what staff management needs, by column and by row (see Staff): do not widen that for another feature.
 - **Call `identify(userId)` only once the user is proven** (a verified password or a valid session). Before that, memberships and hospitals are invisible.
 - **The cookie holds a random token; the database holds its SHA-256 hash.** Never log, return or store the token itself. It is httpOnly, SameSite=Lax, and in production Secure with the `__Host-` prefix.
 - **Sessions end** after `SESSION_IDLE_MINUTES` (30) without a request and after `SESSION_ABSOLUTE_HOURS` (12) regardless. The token is replaced every `SESSION_ROTATE_MINUTES` (15) and on a hospital switch. The replaced token works for 30 more seconds; seen after that, it revokes the session. Time is compared on the database clock.
@@ -161,6 +161,16 @@ A feature folder has only the files it needs: `features/health` has `index.ts` a
 - **Every record has a `version`,** counted by a database trigger on each update. `PATCH /patients/{id}` requires `expectedVersion`, the version the caller read, and answers 409 `conflict` without changing anything when the record has moved on. The row is locked while the two are compared, so of two changes made from the same version exactly one goes through. Use the same pattern for any record two people can edit at once.
 - **Audit:** record reads and updates through `config.audit`; create, search and duplicate check through `request.audit`. Events carry the patient id, and `patient.updated` the names of the changed fields, never values.
 - **Unknown body fields are dropped by validation, not refused,** so a client cannot set `mrn`, `tenantId` or `id`.
+
+## Staff
+
+- **`features/staff`** is who works at the hospital: invitations (`routes.ts`), and the list, the roles someone may be invited into, deactivating, reactivating, ending sessions and withdrawing an invitation (`members.ts`, SQL in `repository.ts`). It has no module flag: a hospital cannot run without managing its staff. The web screen has its own `staff` switch.
+- **What a hospital's own requests see of people (migration 0015):** the name and email address of its own members (`users`, three columns, rows by membership), its memberships with UPDATE on `status` only, and the sessions bound to it (which ones, never a token hash) with UPDATE on the two revoke columns. Row-level security does the limiting, as everywhere. Nothing else of an account is readable from a tenant route.
+- **Deactivated is `memberships.status = 'suspended'`.** The row is kept, never deleted: accepting a new invitation cannot bring the membership back, and every check that asks for an active membership (the session resolver, the policy, switching hospital) refuses it from the next request. Deactivating also ends the sessions bound to the hospital and withdraws the open invitations the person sent. Their account and their other hospitals are untouched.
+- **Nobody acts above themselves.** Deactivate, reactivate, revoke-sessions and withdrawing an invitation refuse (403 `role_not_allowed`) a target whose role holds a permission the caller's role lacks; `GET /staff/roles` lists only the roles the caller may give. All through `grantsWithin`.
+- **A hospital is never left with nobody who can manage its staff.** Deactivating first locks, in user-id order, the active memberships whose role holds `staff:manage`, so two administrators deactivating each other at once are decided one after the other: the second finds itself the last and is refused with 409 `last_admin`. Nobody deactivates themselves (409 `cannot_deactivate_self`).
+- **The list lower-cases in the query,** for ordering and for search: a hospital's staff is hundreds of rows found through the tenant index. The cursor holds the last row's lower-cased name as the database made it, and its id.
+- **Known limits:** an invitation is judged when it is sent, so an inviter who later loses `staff:invite` (without being deactivated) leaves their open invitations standing; and a built-in role gains each new module's defaults at later deploys, so a narrow custom role can invite into a built-in role that later holds more.
 
 ## Departments
 

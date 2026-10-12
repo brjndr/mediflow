@@ -9,6 +9,7 @@ import {
   reactivateStaff,
   revokeStaffSessions,
   sendInvite,
+  withdrawInvite,
   type StaffFilters,
 } from '../api';
 import type { InviteRequest, StaffMember } from '../types';
@@ -76,7 +77,7 @@ function useRefreshLists() {
   };
 }
 
-export type StaffAction = 'deactivate' | 'reactivate' | 'revokeSessions';
+export type StaffAction = 'deactivate' | 'reactivate' | 'revokeSessions' | 'withdraw';
 
 /** What an admin does to one member. Every list is asked for again afterwards. */
 export function useStaffAction() {
@@ -85,6 +86,8 @@ export function useStaffAction() {
     mutationFn: async ({ action, member }: { action: StaffAction; member: StaffMember }) => {
       if (action === 'deactivate') await deactivateStaff(member.id);
       else if (action === 'reactivate') await reactivateStaff(member.id);
+      // For an invitation the id is the invitation's own.
+      else if (action === 'withdraw') await withdrawInvite(member.id);
       else await revokeStaffSessions(member.id);
       return { action, member };
     },

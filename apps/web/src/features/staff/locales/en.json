@@ -36,7 +36,8 @@
     "deactivate": "Deactivate",
     "reactivate": "Reactivate",
     "revokeSessions": "Sign out everywhere",
-    "resend": "Send again"
+    "resend": "Send again",
+    "withdraw": "Withdraw"
   },
   "confirm": {
     "heading": "Deactivate {{name}}?",
@@ -48,14 +49,16 @@
     "deactivate": "{{name}} was deactivated.",
     "reactivate": "{{name}} is active again.",
     "revokeSessions": "{{name}} was signed out everywhere.",
-    "resend": "The invitation to {{email}} was sent again."
+    "resend": "The invitation to {{email}} was sent again.",
+    "withdraw": "The invitation to {{name}} was withdrawn. Its link no longer works."
   },
   "errors": {
     "self": "You cannot deactivate yourself. Ask another administrator.",
     "lastAdmin": "This is the only person who can manage staff here. Give someone else that role first.",
     "unknownRole": "That role no longer exists at this hospital. Choose another.",
     "roleNotAllowed": "You cannot invite someone into a role that may do more than your own.",
-    "busy": "Too many requests just now. Wait a minute and try again."
+    "busy": "Too many requests just now. Wait a minute and try again.",
+    "inviteGone": "That invitation is no longer open. It may have been accepted or withdrawn already."
   },
   "inviteOne": {
     "pageHeading": "Invite staff",
