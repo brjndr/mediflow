@@ -1,0 +1,117 @@
+{
+  "heading": "Staff",
+  "description": "The people who work at this hospital, and the invitations that are still open.",
+  "gridLabel": "Staff",
+  "invite": "Invite staff",
+  "backToList": "Back to the staff list",
+  "filters": {
+    "search": "Search staff",
+    "searchPlaceholder": "Name or email",
+    "status": "Show",
+    "active": "Active staff",
+    "deactivated": "Deactivated staff",
+    "invited": "Open invitations"
+  },
+  "count": {
+    "active_one": "{{count}} active member of staff",
+    "active_other": "{{count}} active members of staff",
+    "deactivated_one": "{{count}} deactivated member of staff",
+    "deactivated_other": "{{count}} deactivated members of staff",
+    "invited_one": "{{count}} open invitation",
+    "invited_other": "{{count}} open invitations"
+  },
+  "empty": {
+    "active": "No active staff.",
+    "deactivated": "Nobody is deactivated.",
+    "invited": "No invitation is open.",
+    "search": "Nobody matches this search."
+  },
+  "columns": {
+    "name": "Name",
+    "email": "Email",
+    "role": "Role"
+  },
+  "you": "{{name}} (you)",
+  "actions": {
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "revokeSessions": "Sign out everywhere",
+    "resend": "Send again"
+  },
+  "confirm": {
+    "heading": "Deactivate {{name}}?",
+    "body": "They are signed out of this hospital at once and cannot work here until someone reactivates them. Their records stay as they are.",
+    "yes": "Deactivate",
+    "no": "Cancel"
+  },
+  "done": {
+    "deactivate": "{{name}} was deactivated.",
+    "reactivate": "{{name}} is active again.",
+    "revokeSessions": "{{name}} was signed out everywhere.",
+    "resend": "The invitation to {{email}} was sent again."
+  },
+  "errors": {
+    "self": "You cannot deactivate yourself. Ask another administrator.",
+    "lastAdmin": "This is the only person who can manage staff here. Give someone else that role first.",
+    "unknownRole": "That role no longer exists at this hospital. Choose another.",
+    "busy": "Too many requests just now. Wait a minute and try again."
+  },
+  "inviteOne": {
+    "pageHeading": "Invite staff",
+    "pageDescription": "An invitation is an email with a link that works once and expires in a week. The person chooses their own password.",
+    "heading": "Invite one person",
+    "name": "Name",
+    "email": "Email",
+    "emailHint": "Their work address. The invitation goes here.",
+    "role": "Role",
+    "chooseRole": "Choose a role",
+    "rolesFailed": "The roles could not be loaded.",
+    "submit": "Send invitation",
+    "sent": "An invitation was sent to {{email}}."
+  },
+  "bulk": {
+    "heading": "Invite several people from a file",
+    "description": "A CSV file with a first row naming three columns: name, email and role. Up to {{max}} people in one file. Nothing is sent until you have checked the list.",
+    "example": "Example",
+    "choose": "CSV file",
+    "another": "Choose another file",
+    "reading": "Reading the file…",
+    "gridLabel": "People in the file",
+    "summary": "{{ready}} of {{total}} rows can be sent.",
+    "summaryProblems_one": "{{count}} row has a problem and will be left out.",
+    "summaryProblems_other": "{{count}} rows have a problem and will be left out.",
+    "send_one": "Send {{count}} invitation",
+    "send_other": "Send {{count}} invitations",
+    "sending": "Sending {{done}} of {{total}}…",
+    "finished_one": "{{count}} invitation was sent.",
+    "finished_other": "{{count}} invitations were sent.",
+    "failed_one": "{{count}} could not be sent. See the list.",
+    "failed_other": "{{count}} could not be sent. See the list.",
+    "stopped": "Stopped: too many requests just now. Wait a minute, then send the rest.",
+    "columns": {
+      "line": "Line",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "result": "Result"
+    },
+    "results": {
+      "ready": "Ready",
+      "sent": "Sent",
+      "failed": "Not sent"
+    },
+    "file": {
+      "empty": "The file has no people in it.",
+      "header": "The first row must name the columns: name, email, role.",
+      "tooMany": "The file has more than {{max}} people. Split it into several files.",
+      "tooLarge": "The file is too large to be a list of staff.",
+      "unreadable": "The file could not be read."
+    },
+    "problems": {
+      "name": "No name, or a name that is too long",
+      "email": "Not an email address",
+      "role": "No such role here",
+      "duplicate": "The same address is on an earlier line"
+    }
+  }
+}

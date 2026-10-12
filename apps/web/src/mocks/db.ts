@@ -34,6 +34,7 @@ const initialTenants: Record<string, TenantDto> = {
       notices: true,
       departments: true,
       doctors: true,
+      staff: true,
       ui_examples: true,
     },
     auth: { mode: 'password', idleTimeoutMinutes: 30 },
@@ -60,6 +61,7 @@ const initialTenants: Record<string, TenantDto> = {
       notices: false,
       departments: true,
       doctors: true,
+      staff: true,
     },
     // A shared front-desk PC: the clinic asks for a shorter idle time.
     auth: { mode: 'password', idleTimeoutMinutes: 15 },
@@ -90,6 +92,9 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'department:manage' },
   { permission: 'doctor:read' },
   { permission: 'doctor:manage' },
+  { permission: 'staff:read' },
+  { permission: 'staff:invite' },
+  { permission: 'staff:manage' },
 ];
 
 const DOCTOR: PermissionGrantDto[] = [
@@ -351,6 +356,16 @@ export function switchTenant(tenantId: string): boolean {
   if (!user?.memberships.some((m) => m.tenantId === tenantId)) return false;
   state.activeTenantId = tenantId;
   return true;
+}
+
+/** Whether a role of a hospital holds a permission. */
+export function mockRoleHolds(tenantId: string, roleId: string, permission: string): boolean {
+  return (roles[tenantId]?.[roleId] ?? []).some((grant) => grant.permission === permission);
+}
+
+/** The ids of a hospital's roles. */
+export function mockRoleIds(tenantId: string): string[] {
+  return Object.keys(roles[tenantId] ?? {});
 }
 
 /** What a hospital admin does on the role screen: replace the permissions of one role. */

@@ -47,6 +47,20 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('searchbox', { name: 'Find a staff member' })).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // Staff: the list, the question before deactivating, and the invite screen with its file.
+  await goTo(page, 'Staff');
+  await expect(page.getByRole('heading', { name: 'Staff', exact: true })).toBeVisible();
+  await expect(page.getByText('Aarav Iyer')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'Deactivate: Aarav Iyer' }).click();
+  await expect(page.getByRole('heading', { name: 'Deactivate Aarav Iyer?' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('link', { name: 'Invite staff' }).click();
+  await expect(page.getByRole('heading', { name: 'Invite one person' })).toBeVisible();
+  await expect(page.getByLabel('CSV file')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   await goTo(page, 'Patients');
   await expect(page.getByRole('heading', { name: 'Patients', exact: true })).toBeVisible();
   await expectNoSidewaysScroll(page);
