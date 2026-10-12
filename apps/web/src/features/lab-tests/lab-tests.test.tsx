@@ -91,7 +91,8 @@ async function check(age: string, unit: string, sex: string) {
 function sent(method: string): unknown[] {
   const bodies: unknown[] = [];
   server.events.on('request:start', ({ request }) => {
-    if (request.method === method)
+    // A search is a POST too, and is not what these tests look at.
+    if (request.method === method && !request.url.endsWith('/search'))
       void request
         .clone()
         .json()
@@ -224,7 +225,9 @@ describe('adding a test', () => {
     await openCreate();
     await screen.findByRole('option', { name: 'Urine routine (LAB-007)' });
     server.use(
-      http.get('*/api/services', () => new HttpResponse(null, { status: 500 }), { once: true }),
+      http.post('*/api/services/search', () => new HttpResponse(null, { status: 500 }), {
+        once: true,
+      }),
     );
     await userEvent.type(
       screen.getByRole('searchbox', { name: 'Find a laboratory service' }),
@@ -886,7 +889,7 @@ describe('a screen that is too narrow', () => {
     }));
     let asked = 0;
     server.use(
-      http.get('*/api/lab-tests', () => {
+      http.post('*/api/lab-tests/search', () => {
         asked++;
         return undefined;
       }),
@@ -955,7 +958,7 @@ describe('access', () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'service:read');
     let asked = 0;
     server.use(
-      http.get('*/api/services', () => {
+      http.post('*/api/services/search', () => {
         asked++;
         return undefined;
       }),
@@ -981,7 +984,7 @@ describe('access', () => {
     setTenantFeature(TENANT_IDS.hospital, 'services', false);
     let asked = 0;
     server.use(
-      http.get('*/api/services', () => {
+      http.post('*/api/services/search', () => {
         asked++;
         return undefined;
       }),
@@ -1011,7 +1014,7 @@ describe('access', () => {
 
     expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Lab tests' })).not.toBeInTheDocument();
-    await expect(api.GET('/lab-tests', { params: { query: {} } })).rejects.toMatchObject({
+    await expect(api.POST('/lab-tests/search', { body: {} })).rejects.toMatchObject({
       code: 'forbidden',
       serverCode: 'feature_disabled',
     });
@@ -1095,7 +1098,7 @@ describe('two hospitals', () => {
       }),
     ).rejects.toMatchObject({ serverCode: 'validation_failed' });
     // The same code is free at each hospital: the clinic has its own HB.
-    const list = await api.GET('/lab-tests', { params: { query: { q: 'hb' } } });
+    const list = await api.POST('/lab-tests/search', { body: { q: 'hb' } });
     expect(new Set(list.data?.items.map((item) => item.tenantId))).toEqual(
       new Set([TENANT_IDS.hospital]),
     );

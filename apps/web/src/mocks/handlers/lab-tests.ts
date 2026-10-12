@@ -1,7 +1,7 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { onMockReset, TENANT_IDS } from '../db';
-import { authorize, error } from '../respond';
+import { authorize, error, searchBody } from '../respond';
 import { mockServiceNamed } from './services';
 // The age rules are one file, shared with the form, so the two cannot disagree.
 import {
@@ -471,10 +471,11 @@ function readRanges(value: unknown): LabRange[] | null {
 const takesRanges = (test: Stored) => test.kind === 'test' && test.resultType === 'numeric';
 
 export const labTestsHandlers = [
-  http.get('*/api/lab-tests', ({ request }) => {
+  // A search reads data only; it is a POST so that what was typed is never in an address.
+  http.post('*/api/lab-tests/search', async ({ request }) => {
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
-    const params = new URL(request.url).searchParams;
+    const params = await searchBody(request);
     const words = (params.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean);
     const archived = params.get('archived') === 'true';
     const only = (key: string, value: string) => !params.get(key) || params.get(key) === value;

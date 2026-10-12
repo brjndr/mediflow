@@ -1,7 +1,7 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { currentSession, onMockReset, TENANT_IDS } from '../db';
-import { authorize, error } from '../respond';
+import { authorize, error, searchBody } from '../respond';
 
 type Service = components['schemas']['Service'];
 type ServicePage = components['schemas']['ServicePage'];
@@ -235,8 +235,7 @@ function readDetails(body: Record<string, unknown>): Partial<Stored> | null {
 const isAmount = (value: unknown): value is number =>
   Number.isInteger(value) && (value as number) >= 0 && (value as number) <= AMOUNT_MAX;
 
-function paged<T>(request: Request, all: T[], idOf: (item: T) => string) {
-  const params = new URL(request.url).searchParams;
+function paged<T>(params: URLSearchParams, all: T[], idOf: (item: T) => string) {
   const limit = Math.min(Math.max(Number(params.get('limit') ?? 25), 1), 100);
   const cursor = params.get('cursor');
   const start = cursor ? all.findIndex((item) => idOf(item) === cursor) : 0;
@@ -258,10 +257,11 @@ export const servicesHandlers = [
     });
   }),
 
-  http.get('*/api/services', ({ request }) => {
+  // A search reads data only; it is a POST so that what was typed is never in an address.
+  http.post('*/api/services/search', async ({ request }) => {
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
-    const params = new URL(request.url).searchParams;
+    const params = await searchBody(request);
     const q = (params.get('q') ?? '').trim().toLowerCase();
     const category = params.get('category');
     const archived = params.get('archived') === 'true';
@@ -272,7 +272,7 @@ export const servicesHandlers = [
       .filter((service) => `${service.code} ${service.name}`.toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))
       .map(view);
-    const page = paged(request, visible, (service) => service.id);
+    const page = paged(params, visible, (service) => service.id);
     if (!page) return error(400, 'invalid_cursor', 'Unknown cursor');
     return HttpResponse.json<ServicePage>(page);
   }),
@@ -370,7 +370,11 @@ export const servicesHandlers = [
       new URL(request.url).searchParams.get('priceListId'),
     );
     if (!priceListId) return noSuchList();
-    const page = paged(request, pricesOf(service.id, priceListId), (price) => price.id);
+    const page = paged(
+      new URL(request.url).searchParams,
+      pricesOf(service.id, priceListId),
+      (price) => price.id,
+    );
     if (!page) return error(400, 'invalid_cursor', 'Unknown cursor');
     return HttpResponse.json<ServicePricePage>(page);
   }),

@@ -62,7 +62,8 @@ async function type(name: RegExp, text: string) {
 function sent(method: string): unknown[] {
   const bodies: unknown[] = [];
   server.events.on('request:start', ({ request }) => {
-    if (request.method === method)
+    // A search is a POST too, and is not what these tests look at.
+    if (request.method === method && !request.url.endsWith('/search'))
       void request
         .clone()
         .json()
@@ -789,7 +790,7 @@ describe('access', () => {
     setTenantFeature(TENANT_IDS.hospital, 'services', false);
     let asked = 0;
     server.use(
-      http.get('*/api/services', () => {
+      http.post('*/api/services/search', () => {
         asked++;
         return undefined;
       }),

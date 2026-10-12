@@ -21,7 +21,7 @@ import type {
 } from './types';
 
 export interface LabTestFilters {
-  /** A code or a name of a test. Not patient data, so it may be a query. */
+  /** A code or a name of a test. Sent in the body of the search, never in an address. */
   q: string;
   department: LabDepartment | '';
   kind: LabTestKind | '';
@@ -39,16 +39,15 @@ export async function fetchLabTests(
   }: LabTestFilters & { cursor?: string; limit: number },
   signal?: AbortSignal,
 ): Promise<LabTestPage> {
-  const result = await api.GET('/lab-tests', {
-    params: {
-      query: {
-        cursor,
-        limit,
-        q: q || undefined,
-        department: department || undefined,
-        kind: kind || undefined,
-        archived,
-      },
+  // The term is sent in the body, never in an address: see Searches in CLAUDE.md.
+  const result = await api.POST('/lab-tests/search', {
+    body: {
+      cursor,
+      limit,
+      q: q || undefined,
+      department: department || undefined,
+      kind: kind || undefined,
+      archived,
     },
     signal,
   });
@@ -132,8 +131,8 @@ export async function fetchLabServices(
   limit: number,
   signal?: AbortSignal,
 ): Promise<{ items: ServiceOption[]; more: boolean }> {
-  const result = await api.GET('/services', {
-    params: { query: { limit, q: q || undefined, category: 'lab', archived: false } },
+  const result = await api.POST('/services/search', {
+    body: { limit, q: q || undefined, category: 'lab', archived: false },
     signal,
   });
   const page = serviceOptionsSchema.parse(requireData(result));
