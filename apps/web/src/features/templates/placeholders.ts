@@ -70,7 +70,12 @@ export function unknownPlaceholders(kind: TemplateKind, document: RichTextDocume
 
 function fill(node: RichTextNode, values: Readonly<Record<string, string>>): RichTextNode {
   if (node.type === 'text') {
-    const text = node.text.replace(TOKEN, (whole, name: string) => values[name.trim()] ?? whole);
+    const text = node.text.replace(TOKEN, (whole: string, name: string) => {
+      // Only a value that was given: never something an object happens to have ("constructor").
+      const key = name.trim();
+      const value = Object.hasOwn(values, key) ? values[key] : undefined;
+      return typeof value === 'string' ? value : whole;
+    });
     return { ...node, text };
   }
   if ('content' in node && node.content) {
@@ -81,7 +86,12 @@ function fill(node: RichTextNode, values: Readonly<Record<string, string>>): Ric
 
 /**
  * The document with each placeholder replaced by its value. One that has no value is left as it
- * is written, so it is seen and not silently dropped. The values go in as text.
+ * is written, so it is seen and not silently dropped. The values go in as text, and what was
+ * filled in is never read for placeholders again.
+ *
+ * A screen that makes a real document from a template checks the result before it is final:
+ * `placeholdersIn(filled)` names what was left unfilled, and a filled text longer than the rich
+ * text limit would lose its end when shown, so it is refused, not cut.
  */
 export function fillPlaceholders(
   document: RichTextDocument,

@@ -253,7 +253,9 @@ function Loaded({ detail }: { detail: Detail }) {
             ? t('detail.conflict', { version: template.version })
             : code === 'template_name_taken'
               ? t('detail.nameTaken')
-              : tCommon(errorMessageKey(save.error))}
+              : code === 'template_archived'
+                ? t('detail.archivedMeanwhile')
+                : tCommon(errorMessageKey(save.error))}
         </p>
       )}
       <p role="status" className="text-sm text-muted-foreground">

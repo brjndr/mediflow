@@ -18,6 +18,10 @@ import type { TemplateKind } from '../placeholders';
 /** Every key is prefixed with the tenant: a hospital's templates are its own. */
 export const templateKeys = createTenantKeys('templates');
 
+/** One saved version of a template, under the template's own key. */
+export const templateVersionKey = (tenantId: string, templateId: string, version: number | null) =>
+  [...templateKeys.detail(tenantId, templateId), 'version', version] as const;
+
 export const TEMPLATES_PAGE_SIZE = 25;
 /** Templates change rarely. */
 const STALE_TIME_MS = 60_000;
@@ -49,7 +53,7 @@ export function useTemplate(templateId: string) {
 export function useTemplateVersion(templateId: string, version: number | null) {
   const tenantId = useTenant()?.id;
   return useQuery({
-    queryKey: [...templateKeys.detail(tenantId ?? '', templateId), 'version', version] as const,
+    queryKey: templateVersionKey(tenantId ?? '', templateId, version),
     queryFn: ({ signal }) => fetchTemplateVersion(templateId, version ?? 0, signal),
     enabled: tenantId !== undefined && version !== null,
     staleTime: Infinity,

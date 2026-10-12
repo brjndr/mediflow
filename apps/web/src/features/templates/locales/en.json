@@ -55,7 +55,7 @@
     "kindHint": "What the template is for. It cannot be changed later, and decides which placeholders it can use.",
     "chooseKind": "Choose a kind",
     "name": "Name",
-    "nameHint": "Unique among the templates of its kind.",
+    "nameHint": "Unique among the templates of its kind. Nothing about a patient.",
     "body": "Text",
     "bodyHint": "A blank form: write nothing about a real patient here. Use the list in the toolbar to put in a placeholder, which is filled in when a document is made.",
     "insert": "Insert a placeholder",
@@ -90,6 +90,7 @@
     "archivedDone": "{{name}} was archived.",
     "restoredDone": "{{name}} was restored.",
     "conflict": "Someone else saved version {{version}} while you were editing. Your text is still here. Saving again makes yours the newest version; theirs stays in the history below.",
+    "archivedMeanwhile": "This template was archived while you were editing. Restore it to save a new version.",
     "nameTaken": "Another template of this kind already has that name at this hospital. It may be archived."
   },
   "versions": {

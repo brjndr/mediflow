@@ -318,6 +318,8 @@ export const templatesHandlers = [
     if (body.kind !== undefined) return invalid();
     const template = find(access.tenantId, params.templateId);
     if (!template) return notFound();
+    // An archived template is restored before it is given a new version.
+    if (template.archived) return error(409, 'template_archived', 'The template is archived');
     const last = newest(template);
     if (last.version !== body.expectedVersion) return error(409, 'conflict', 'A newer version');
     const name = body.name === undefined ? last.name : readName(body.name);

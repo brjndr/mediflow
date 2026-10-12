@@ -3,6 +3,7 @@ export { templatesFeature } from './manifest';
 export {
   fillPlaceholders,
   placeholdersFor,
+  placeholdersIn,
   type Placeholder,
   type TemplateKind,
 } from './placeholders';

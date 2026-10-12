@@ -1456,7 +1456,7 @@ export interface paths {
         };
         /** @description One template with the text of its newest version and the list of every version it has had. Requires template:read. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
         get: operations["getTemplate"];
-        /** @description Saves a new version of a template: the name, the text, or both. Requires template:manage. Versions are append-only: nothing saved is ever changed or removed, and a document made from a template keeps the version it was made from. Send the version the change was made from: 409 conflict when a newer one has been saved since. Saving what the newest version already has makes no new version. The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
+        /** @description Saves a new version of a template: the name, the text, or both. Requires template:manage. Versions are append-only: nothing saved is ever changed or removed (the one exception to come is an audited redaction of patient data typed into a template by mistake, #292), and a document made from a template keeps the version it was made from. Send the version the change was made from: 409 conflict when a newer one has been saved since. Saving what the newest version already has makes no new version. An archived template is read-only: 409 template_archived until it is restored. The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
         put: operations["saveTemplateVersion"];
         post?: never;
         delete?: never;
@@ -2463,14 +2463,14 @@ export interface components {
             /** @description The member of staff who saved it. */
             savedByName: string;
             name: string;
-            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. */
+            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
             body: {
                 [key: string]: unknown;
             };
         };
         TemplateDetail: {
             template: components["schemas"]["Template"];
-            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. */
+            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
             body: {
                 [key: string]: unknown;
             };
@@ -2481,14 +2481,14 @@ export interface components {
             /** @enum {string} */
             kind: "prescription" | "clinical_note" | "consent" | "discharge_summary";
             name: string;
-            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. */
+            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
             body: {
                 [key: string]: unknown;
             };
         };
         TemplateSave: {
             name?: string;
-            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. */
+            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
             body?: {
                 [key: string]: unknown;
             };

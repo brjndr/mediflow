@@ -255,6 +255,20 @@ describe('a template', () => {
     expect(await screen.findByRole('button', { name: 'Edit as a new version' })).toBeEnabled();
   });
 
+  it('takes no new version while it is archived, whatever the screen offers', async () => {
+    const params = { path: { templateId: 'tpl_h_old' } };
+    await expect(
+      api.PUT('/templates/{templateId}', { params, body: { name: 'Pad', expectedVersion: 1 } }),
+    ).rejects.toMatchObject({ serverCode: 'template_archived' });
+
+    await api.POST('/templates/{templateId}/restore', { params });
+    const saved = await api.PUT('/templates/{templateId}', {
+      params,
+      body: { name: 'Pad', expectedVersion: 1 },
+    });
+    expect(saved.data?.template.version).toBe(2);
+  });
+
   it('has one answer for a template that does not exist and one of another hospital', async () => {
     renderApp({ entry: '/templates/tpl_c_rx' });
 
@@ -358,6 +372,16 @@ describe('placeholders', () => {
     expect(filled).toEqual(doc('Dear A <b>B</b>, see Dr C.', 'A <b>B</b> {{made.up}}'));
     // The template itself is not changed.
     expect(placeholdersIn(body)).toHaveLength(3);
+    // What was filled in is not read again, and what is left unfilled can be named.
+    const twice = fillPlaceholders(doc('{{patient.name}}'), {
+      'patient.name': '{{doctor.name}}',
+      'doctor.name': 'Dr C',
+    });
+    expect(twice).toEqual(doc('{{doctor.name}}'));
+    expect(placeholdersIn(filled)).toEqual(['made.up']);
+    // Only a value that was given is used: never something every object has.
+    const odd = doc('{{constructor}} {{toString}} {{__proto__}} {{hasOwnProperty}}');
+    expect(fillPlaceholders(odd, { 'patient.name': 'A' })).toEqual(odd);
   });
 });
 
