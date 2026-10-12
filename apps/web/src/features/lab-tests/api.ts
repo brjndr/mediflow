@@ -7,6 +7,7 @@ import {
   serviceOptionsSchema,
   type ServiceOption,
 } from './schemas';
+import type { AgeUnit } from './age';
 import type {
   LabDepartment,
   LabRange,
@@ -112,7 +113,7 @@ export async function saveLabRanges(
 /** The range the server would use for a patient of this age and sex, if any. */
 export async function resolveLabRange(
   labTestId: string,
-  query: { ageDays: number; sex: PatientSex },
+  query: { ageValue: number; ageUnit: AgeUnit; sex: PatientSex },
   signal?: AbortSignal,
 ): Promise<LabRange | null> {
   const result = await api.GET('/lab-tests/{labTestId}/ranges/resolve', {

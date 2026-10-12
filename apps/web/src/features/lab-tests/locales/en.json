@@ -155,12 +155,15 @@
     },
     "ageUnits": {
       "days": "days",
+      "weeks": "weeks",
       "months": "months",
       "years": "years"
     },
     "ages": {
       "days_one": "{{count}} day",
       "days_other": "{{count}} days",
+      "weeks_one": "{{count}} week",
+      "weeks_other": "{{count}} weeks",
       "months_one": "{{count}} month",
       "months_other": "{{count}} months",
       "years_one": "{{count}} year",
@@ -196,21 +199,21 @@
       "note": "Note",
       "remove": "Remove range {{number}}",
       "add": "Add a range",
-      "ageNote": "Ages are counted with a year of 365 days and a month as a twelfth of a year, so 12 months are one year.",
+      "ageNote": "A patient moves to the next range on the day they reach its age, counted on the calendar from the date of birth. Where two ranges meet, give the same age in the same unit: until 1 year, then from 1 year.",
       "save": "Save ranges",
       "cancel": "Cancel"
     },
     "errors": {
-      "untilAfterFrom": "This age must be above the age the range starts from.",
+      "untilAfterFrom": "This age must be later than the age the range starts from.",
       "oneLimit": "Give a lowest or a highest normal value.",
       "highAboveLow": "This must be above the lowest normal value.",
       "criticalLow": "This must not be above the lowest normal value.",
       "criticalHigh": "This must not be below the highest normal value.",
-      "overlap": "Another range for the same people already covers some of these ages."
+      "overlap": "Another range for the same people already covers some of these ages, or could for some dates of birth. Where two ranges meet, give the same age in the same unit."
     },
     "check": {
       "heading": "Which range applies?",
-      "description": "Enter a patient's age and sex to see the saved range a result would be read against.",
+      "description": "Enter an age and a sex to see the saved range a result would be read against. A real patient's age is counted from the date of birth to the day the sample was collected.",
       "ageValue": "Age",
       "ageUnit": "Age in",
       "sex": "Sex",

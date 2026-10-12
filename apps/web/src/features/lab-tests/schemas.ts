@@ -1,4 +1,13 @@
 import { z } from 'zod';
+import {
+  AGE_UNITS,
+  ageBefore,
+  ageOrder,
+  ageWithinMax,
+  bandsOverlap,
+  type Age,
+  type AgeUnit,
+} from './age';
 import type {
   LabRange,
   LabRanges,
@@ -66,10 +75,15 @@ export const labTestPageSchema: z.ZodType<LabTestPage> = z.object({
   total: z.number().int().optional(),
 });
 
+const labAgeSchema: z.ZodType<Age> = z.object({
+  value: z.number().int().min(0),
+  unit: z.enum(AGE_UNITS),
+});
+
 export const labRangeSchema: z.ZodType<LabRange> = z.object({
   sex: z.enum(RANGE_SEXES),
-  ageFromDays: z.number().int().min(0),
-  ageToDays: z.number().int().min(0).optional(),
+  ageFrom: labAgeSchema,
+  ageUntil: labAgeSchema.optional(),
   low: z.number().optional(),
   high: z.number().optional(),
   criticalLow: z.number().optional(),
@@ -205,32 +219,9 @@ export function toCreate(values: LabTestCreateFormValues): LabTestCreate {
   };
 }
 
-// Ages. A range is kept in days since birth and typed in days, months or years. A month counts
-// as a twelfth of a year of 365 days, here and where a range is looked up for a patient.
-
-export const AGE_UNITS = ['days', 'months', 'years'] as const;
-export type AgeUnit = (typeof AGE_UNITS)[number];
-const YEAR_DAYS = 365;
-/** 150 years: the oldest age a range can name. */
-export const AGE_MAX_DAYS = 54750;
-
-/**
- * An age in days. A year is 365 days and a month a twelfth of a year, rounded to the day, so
- * 12 months are exactly one year and a range typed in months meets one typed in years with no
- * day left between them.
- */
-export function toDays(value: number, unit: AgeUnit): number {
-  if (unit === 'years') return value * YEAR_DAYS;
-  return unit === 'months' ? Math.round((value * YEAR_DAYS) / 12) : value;
-}
-
-/** An age in days as a person would type it: in the largest unit that fits it exactly. */
-export function fromDays(days: number): { value: number; unit: AgeUnit } {
-  if (days > 0 && days % YEAR_DAYS === 0) return { value: days / YEAR_DAYS, unit: 'years' };
-  const months = Math.round((days * 12) / YEAR_DAYS);
-  if (months > 0 && toDays(months, 'months') === days) return { value: months, unit: 'months' };
-  return { value: days, unit: 'days' };
-}
+// Ages are kept as they are typed, a value with a unit, and compared on the calendar: see
+// `age.ts`, which the mock backend shares.
+export { AGE_UNITS, type AgeUnit };
 
 const WHOLE = /^\d{1,5}$/;
 const DECIMAL = /^-?\d{1,9}(\.\d{1,6})?$/;
@@ -281,16 +272,17 @@ export const blankRangeRow: RangeRowValues = {
 
 /** A row of the form as the range the API takes. */
 export function toRange(row: RangeRowValues): LabRange {
-  const until = number(row.untilValue);
   const low = number(row.low);
   const high = number(row.high);
   const criticalLow = number(row.criticalLow);
   const criticalHigh = number(row.criticalHigh);
   return {
     sex: row.sex,
-    ageFromDays: toDays(Number(row.fromValue), row.fromUnit),
-    // Kept as the last day covered.
-    ...(until === undefined ? {} : { ageToDays: toDays(until, row.untilUnit) - 1 }),
+    // The ages go as they were typed, a value with its unit.
+    ageFrom: { value: Number(row.fromValue), unit: row.fromUnit },
+    ...(row.untilValue === ''
+      ? {}
+      : { ageUntil: { value: Number(row.untilValue), unit: row.untilUnit } }),
     ...(low === undefined ? {} : { low }),
     ...(high === undefined ? {} : { high }),
     ...(criticalLow === undefined ? {} : { criticalLow }),
@@ -301,8 +293,8 @@ export function toRange(row: RangeRowValues): LabRange {
 
 /** A saved range as a row of the form. */
 export function toRangeRow(range: LabRange): RangeRowValues {
-  const from = fromDays(range.ageFromDays);
-  const until = range.ageToDays === undefined ? undefined : fromDays(range.ageToDays + 1);
+  const from = range.ageFrom;
+  const until = range.ageUntil;
   const text = (value: number | undefined) => (value === undefined ? '' : String(value));
   return {
     sex: range.sex,
@@ -318,19 +310,15 @@ export function toRangeRow(range: LabRange): RangeRowValues {
   };
 }
 
-/** Whether two ranges for the same people cover an age in common. */
-export const rangesOverlap = (a: LabRange, b: LabRange) =>
-  a.sex === b.sex &&
-  a.ageFromDays <= (b.ageToDays ?? Infinity) &&
-  b.ageFromDays <= (a.ageToDays ?? Infinity);
+/** Whether two ranges for the same people could both hold for some patient. */
+export const rangesOverlap = (a: LabRange, b: LabRange) => bandsOverlap(a, b);
 
-/**
- * The range for a patient of an age and a sex: the row for that sex covering the age, else the
- * row for any sex. The server applies the same rule; this one orders the rows on screen.
- */
+/** The ranges in the order of the ages, anyone before one sex: how they are read on screen. */
 export function sortRanges(ranges: readonly LabRange[]): LabRange[] {
   const order = (sex: LabRange['sex']) => RANGE_SEXES.indexOf(sex);
-  return [...ranges].sort((a, b) => a.ageFromDays - b.ageFromDays || order(a.sex) - order(b.sex));
+  return [...ranges].sort(
+    (a, b) => ageOrder(a.ageFrom) - ageOrder(b.ageFrom) || order(a.sex) - order(b.sex),
+  );
 }
 
 /** The ranges form. The feature's own messages are keys of its namespace. */
@@ -344,11 +332,13 @@ export const rangesFormSchema = z
     ranges.forEach((range, index) => {
       if (!range) return;
       const { low, high, criticalLow, criticalHigh } = range;
-      if (range.ageFromDays > AGE_MAX_DAYS) issue(index, 'fromValue', 'validation.too_big');
-      if (range.ageToDays !== undefined) {
-        if (range.ageToDays < range.ageFromDays) {
+      if (!ageWithinMax(range.ageFrom)) issue(index, 'fromValue', 'validation.too_big');
+      if (range.ageUntil !== undefined) {
+        if (!ageWithinMax(range.ageUntil)) issue(index, 'untilValue', 'validation.too_big');
+        // Later for every date of birth: "from 1 month until 30 days" is refused.
+        else if (!ageBefore(range.ageFrom, range.ageUntil)) {
           issue(index, 'untilValue', 'lab_tests:ranges.errors.untilAfterFrom');
-        } else if (range.ageToDays > AGE_MAX_DAYS) issue(index, 'untilValue', 'validation.too_big');
+        }
       }
       if (low === undefined && high === undefined) {
         issue(index, 'low', 'lab_tests:ranges.errors.oneLimit');
@@ -383,8 +373,8 @@ export const resolveFormSchema = z
     sex: z.enum(PATIENT_SEXES, 'validation.required'),
   })
   .superRefine((values, context) => {
-    // The age in days, whatever unit it was typed in, is what has a limit.
-    if (toDays(Number(values.ageValue), values.ageUnit) > AGE_MAX_DAYS) {
+    // The limit is 150 years, in whatever unit the age was typed.
+    if (!ageWithinMax({ value: Number(values.ageValue), unit: values.ageUnit })) {
       context.addIssue({ code: 'custom', path: ['ageValue'], message: 'validation.too_big' });
     }
   });

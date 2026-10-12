@@ -17,18 +17,17 @@ import { useLabRanges, useResolveLabRange, useSaveLabRanges } from '../hooks/use
 import {
   AGE_UNITS,
   blankRangeRow,
-  fromDays,
   PATIENT_SEXES,
   RANGE_SEXES,
   rangesFormSchema,
   resolveFormSchema,
   sortRanges,
-  toDays,
   toRange,
   toRangeRow,
   type RangesFormValues,
   type ResolveFormValues,
 } from '../schemas';
+import type { Age } from '../age';
 import type { LabRange, LabRanges } from '../types';
 
 const MANAGE = 'labTest:manage';
@@ -41,18 +40,17 @@ function useRangeText(unit: string | undefined) {
     const value = (amount: number) => format.number(amount, { maximumFractionDigits: 6 });
     // The unit goes with the number it measures: 20 mm/h or less.
     const withUnit = (amount: number) => (unit ? `${value(amount)} ${unit}` : value(amount));
-    const age = (days: number) => {
-      const { value: count, unit: ageUnit } = fromDays(days);
-      return t(`ranges.ages.${ageUnit}`, { count });
+    const age = (limit: Age) => {
+      return t(`ranges.ages.${limit.unit}`, { count: limit.value });
     };
     return {
       sex: (range: LabRange) => t(`ranges.sexes.${range.sex}`),
       age: (range: LabRange) => {
-        const until = range.ageToDays === undefined ? undefined : age(range.ageToDays + 1);
-        if (range.ageFromDays === 0) {
+        const until = range.ageUntil === undefined ? undefined : age(range.ageUntil);
+        if (range.ageFrom.value === 0) {
           return until ? t('ranges.ages.under', { until }) : t('ranges.ages.all');
         }
-        const from = age(range.ageFromDays);
+        const from = age(range.ageFrom);
         return until ? t('ranges.ages.between', { from, until }) : t('ranges.ages.from', { from });
       },
       normal: ({ low, high }: LabRange) => {
@@ -232,7 +230,11 @@ function Check({ labTestId, unit }: { labTestId: string; unit: string | undefine
 
   const submit = (values: ResolveFormValues) =>
     resolve
-      .mutateAsync({ ageDays: toDays(Number(values.ageValue), values.ageUnit), sex: values.sex })
+      .mutateAsync({
+        ageValue: Number(values.ageValue),
+        ageUnit: values.ageUnit,
+        sex: values.sex,
+      })
       .then(
         () => undefined,
         () => undefined, // Shown from the mutation state below.
@@ -393,7 +395,7 @@ function Loaded({
             label={t('ranges.gridLabel')}
             columns={columns}
             rows={rows}
-            rowId={(row) => `${row.sex}-${row.ageFromDays}`}
+            rowId={(row) => `${row.sex}-${row.ageFrom.value}-${row.ageFrom.unit}`}
             rowLabel={(row) => `${text.sex(row)}, ${text.age(row)}`}
             status="ready"
             emptyMessage={t('ranges.none')}

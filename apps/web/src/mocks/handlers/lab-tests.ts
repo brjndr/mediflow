@@ -3,6 +3,15 @@ import { http, HttpResponse } from 'msw';
 import { onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockServiceNamed } from './services';
+// The age rules are one file, shared with the form, so the two cannot disagree.
+import {
+  AGE_UNITS,
+  ageBefore,
+  ageWithinMax,
+  bandForAge,
+  bandsOverlap,
+  type Age,
+} from '@/features/lab-tests/age';
 
 type LabTest = components['schemas']['LabTest'];
 type LabTestPage = components['schemas']['LabTestPage'];
@@ -40,8 +49,6 @@ const KINDS: readonly LabTest['kind'][] = ['test', 'panel'];
 const RESULT_TYPES: readonly LabTest['resultType'][] = ['numeric', 'text'];
 const SEXES: readonly LabRange['sex'][] = ['any', 'male', 'female'];
 const CODE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const AGE_MAX = 54750;
-const YEAR = 365;
 
 /** What is stored: the components by id, and the service by id. Names are read when shown. */
 type Stored = Omit<LabTest, 'components' | 'serviceName'> & { componentIds: string[] };
@@ -167,6 +174,10 @@ interface State {
   replies: Map<string, { raw: string; id: string }>;
 }
 
+const BIRTH: Age = { value: 0, unit: 'days' };
+const MONTH: Age = { value: 1, unit: 'months' };
+const TWELVE: Age = { value: 12, unit: 'years' };
+
 /** More than one page at the hospital, in every section, with panels and ranges. */
 function seed(): State {
   const tests: Stored[] = [];
@@ -193,18 +204,18 @@ function seed(): State {
         ? { serviceId: mockServiceNamed(TENANT_IDS.hospital, 'Blood glucose fasting')?.id }
         : {}),
     });
-    ranges.set(test.id, { ranges: [{ sex: 'any', ageFromDays: 0, low, high }], version: 1 });
+    ranges.set(test.id, { ranges: [{ sex: 'any', ageFrom: BIRTH, low, high }], version: 1 });
   }
   // Haemoglobin is read by age and sex: the newborn, the child, and men and women apart.
   ranges.set('lab_h_hb', {
     version: 1,
     ranges: [
-      { sex: 'any', ageFromDays: 0, ageToDays: 29, low: 14, high: 22, criticalLow: 9 },
-      { sex: 'any', ageFromDays: 30, ageToDays: 12 * YEAR - 1, low: 11, high: 14, criticalLow: 7 },
-      { sex: 'male', ageFromDays: 12 * YEAR, low: 13, high: 17, criticalLow: 7, criticalHigh: 20 },
+      { sex: 'any', ageFrom: BIRTH, ageUntil: MONTH, low: 14, high: 22, criticalLow: 9 },
+      { sex: 'any', ageFrom: MONTH, ageUntil: TWELVE, low: 11, high: 14, criticalLow: 7 },
+      { sex: 'male', ageFrom: TWELVE, low: 13, high: 17, criticalLow: 7, criticalHigh: 20 },
       {
         sex: 'female',
-        ageFromDays: 12 * YEAR,
+        ageFrom: TWELVE,
         low: 12,
         high: 15,
         criticalLow: 7,
@@ -398,8 +409,15 @@ function applied(base: Stored, body: Record<string, unknown>): Stored | null {
 
 const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
-const isAge = (value: unknown): value is number =>
-  Number.isInteger(value) && (value as number) >= 0 && (value as number) <= AGE_MAX;
+/** An age as the contract has it: a whole value with a unit, at most 150 years. */
+function readAge(value: unknown): Age | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { value: amount, unit } = value as Record<string, unknown>;
+  const known = oneOf(AGE_UNITS, unit);
+  if (!known || !Number.isInteger(amount)) return null;
+  const age: Age = { value: amount as number, unit: known };
+  return ageWithinMax(age) ? age : null;
+}
 
 /** The ranges of a body, checked as the API would. Null when not acceptable. */
 function readRanges(value: unknown): LabRange[] | null {
@@ -408,9 +426,12 @@ function readRanges(value: unknown): LabRange[] | null {
   for (const raw of value as Record<string, unknown>[]) {
     if (typeof raw !== 'object' || raw === null) return null;
     const sex = oneOf(SEXES, raw.sex);
-    const { ageFromDays, ageToDays, low, high, criticalLow, criticalHigh, note } = raw;
-    if (!sex || !isAge(ageFromDays)) return null;
-    if (ageToDays !== undefined && (!isAge(ageToDays) || ageToDays < ageFromDays)) return null;
+    const { low, high, criticalLow, criticalHigh, note } = raw;
+    const ageFrom = readAge(raw.ageFrom);
+    const ageUntil = raw.ageUntil === undefined ? undefined : readAge(raw.ageUntil);
+    if (!sex || !ageFrom || ageUntil === null) return null;
+    // Later than where it starts, for every date of birth.
+    if (ageUntil && !ageBefore(ageFrom, ageUntil)) return null;
     for (const limit of [low, high, criticalLow, criticalHigh]) {
       if (limit !== undefined && !isNumber(limit)) return null;
     }
@@ -434,26 +455,18 @@ function readRanges(value: unknown): LabRange[] | null {
     if (note !== undefined && (typeof note !== 'string' || note.length > 150)) return null;
     const range: LabRange = {
       sex,
-      ageFromDays,
-      ...(ageToDays === undefined ? {} : { ageToDays }),
+      ageFrom,
+      ...(ageUntil ? { ageUntil } : {}),
       ...Object.fromEntries(Object.entries(numbers).filter(([, limit]) => limit !== undefined)),
       ...(note ? { note } : {}),
     };
     // Two rows for the same people never cover the same age.
-    const clash = ranges.some(
-      (other) =>
-        other.sex === range.sex &&
-        other.ageFromDays <= (range.ageToDays ?? Infinity) &&
-        range.ageFromDays <= (other.ageToDays ?? Infinity),
-    );
+    const clash = ranges.some((other) => bandsOverlap(other, range));
     if (clash) return null;
     ranges.push(range);
   }
   return ranges;
 }
-
-const covers = (range: LabRange, ageDays: number) =>
-  range.ageFromDays <= ageDays && ageDays <= (range.ageToDays ?? Infinity);
 
 const takesRanges = (test: Stored) => test.kind === 'test' && test.resultType === 'numeric';
 
@@ -599,16 +612,19 @@ export const labTestsHandlers = [
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
     const query = new URL(request.url).searchParams;
-    const ageDays = Number(query.get('ageDays') ?? 'none');
+    // Whole digits only: an empty value is not zero.
+    const digits = query.get('ageValue') ?? '';
+    const age = readAge({
+      value: /^\d{1,5}$/.test(digits) ? Number(digits) : Number.NaN,
+      unit: query.get('ageUnit'),
+    });
     const sex = oneOf(['male', 'female', 'other'] as const, query.get('sex'));
-    if (!isAge(ageDays) || !sex) return invalid();
+    if (!age || !sex) return invalid();
     const test = find(access.tenantId, params.labTestId);
     if (!test) return notFound();
     const ranges = state.ranges.get(test.id)?.ranges ?? [];
     // The row for the patient's sex comes before the row for anyone.
-    const range =
-      ranges.find((row) => row.sex === sex && covers(row, ageDays)) ??
-      ranges.find((row) => row.sex === 'any' && covers(row, ageDays));
+    const range = bandForAge(ranges, sex, age);
     return HttpResponse.json(range ? { range } : {});
   }),
 

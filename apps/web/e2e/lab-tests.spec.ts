@@ -78,9 +78,7 @@ test('add a test, set its ranges by age and sex, and look up the range for a pat
   await page.getByRole('button', { name: 'Save ranges' }).click();
   // Two ranges for men that share ages are refused before anything is sent.
   await expect(
-    range(page, 2).getByText(
-      'Another range for the same people already covers some of these ages.',
-    ),
+    range(page, 2).getByText(/Another range for the same people already covers some of these ages/),
   ).toBeVisible();
   await expectNoSidewaysScroll(page);
 

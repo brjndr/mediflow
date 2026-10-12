@@ -1011,7 +1011,7 @@ export interface paths {
         };
         /** @description The reference ranges of a numeric test, by sex and age, with their own version. Requires labTest:read. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
         get: operations["getLabTestRanges"];
-        /** @description Replaces the reference ranges of a test. Requires labTest:manage. Only a numeric single test has ranges (409 lab_test_has_no_ranges for a panel or a text test). Each row gives at least one limit, `low` below `high`, a critical limit never inside the normal range, and an upper age not below the lower. Two rows for the same sex must not cover the same age; a row for one sex and a row for any may, and the one for the sex is used. 400 otherwise. 409 conflict when the ranges have changed since the version sent. A result already reported keeps the range it was reported against. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        /** @description Replaces the reference ranges of a test. Requires labTest:manage. Only a numeric single test has ranges (409 lab_test_has_no_ranges for a panel or a text test). Each row gives at least one limit, `low` below `high`, a critical limit never inside the normal range, and an `ageUntil` that is later than `ageFrom` for every date of birth. Two rows for the same sex must never both hold for a patient: one has to end at or before the age the other starts from, for every date of birth. Years and months compare exactly with each other, and weeks and days with each other; a limit in months or years against one in weeks or days is accepted only when no date of birth can bring them together (a month is 28 to 31 days), so ranges that meet give the age in the same unit. A row for one sex and a row for any may share ages, and the one for the sex is used. 400 otherwise. 409 conflict when the ranges have changed since the version sent. A result already reported keeps the range it was reported against. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
         put: operations["setLabTestRanges"];
         post?: never;
         delete?: never;
@@ -1027,7 +1027,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The reference range that applies to a patient of an age and a sex: the row for that sex covering that age, else the row for any sex covering it, else none. A patient whose sex is recorded as other gets only a row for any. Requires labTest:read. It answers the check on the catalog screen with an age someone typed, and identifies no patient. It is not how a result is read for a real patient: the laboratory works that out on the server from the patient of the order, with this same rule, and the age or date of birth of a patient is never sent in an address. Ages are counted with a year of 365 days and a month as a twelfth of a year rounded to the day (12 months are one year), here and where the ranges are entered: a patient aged 12 years and 2 months is 12 x 365 + 61 days old, not the number of days since the date of birth. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        /** @description The reference range that applies to a patient of an age and a sex: the row for that sex covering that age, else the row for any sex covering it, else none. A patient whose sex is recorded as other gets only a row for any. Requires labTest:read. It answers the check on the catalog screen with an age someone typed, and identifies no patient: the age is tried as that of a person born on 1 January 2001, so 30 days is under one month. It is not how a result is read for a real patient: the laboratory works that out on the server from the date of birth of the patient of the order and the date the sample was collected, with the same rule (a limit is reached on the calendar day that lies that long after the birth; a month or a year lands on the same day of the month, or on the last day of a shorter month), and the age or date of birth of a patient is never sent in an address. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
         get: operations["resolveLabTestRange"];
         put?: never;
         post?: never;
@@ -1711,10 +1711,10 @@ export interface components {
              * @enum {string}
              */
             sex: "any" | "male" | "female";
-            /** @description From this age, in days since birth. */
-            ageFromDays: number;
-            /** @description Up to and including this age in days. Absent: no upper age. */
-            ageToDays?: number;
+            /** @description From this age, included: from the day the patient reaches it. */
+            ageFrom: components["schemas"]["LabAge"];
+            /** @description Until this age, not included: the day the patient reaches it belongs to the next range. Absent: no upper age. */
+            ageUntil?: components["schemas"]["LabAge"];
             /** @description The lowest normal value. Absent: no lower limit. */
             low?: number;
             /** @description The highest normal value. Absent: no upper limit. */
@@ -1737,6 +1737,12 @@ export interface components {
         LabRangeResolved: {
             /** @description Absent when no row covers that age and sex. */
             range?: components["schemas"]["LabRange"];
+        };
+        /** @description An age as it is written: a value with its unit. Never turned into a count of days: a patient reaches it on the calendar day that lies that long after the date of birth, so leap years and the lengths of months are respected. At most 150 years, in any unit. */
+        LabAge: {
+            value: number;
+            /** @enum {string} */
+            unit: "days" | "weeks" | "months" | "years";
         };
     };
     responses: {
@@ -5230,8 +5236,9 @@ export interface operations {
     resolveLabTestRange: {
         parameters: {
             query: {
-                /** @description Age in days since birth. */
-                ageDays: number;
+                /** @description The age, in the unit given. At most 150 years. */
+                ageValue: number;
+                ageUnit: "days" | "weeks" | "months" | "years";
                 sex: "male" | "female" | "other";
             };
             header?: never;
