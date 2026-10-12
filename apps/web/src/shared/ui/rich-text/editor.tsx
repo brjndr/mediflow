@@ -26,6 +26,15 @@ export interface RichTextEditorProps {
   /** Called with a sanitized document on every change. */
   onChange: (document: RichTextDocument) => void;
   disabled?: boolean;
+  /**
+   * Pieces of fixed text the person can put in where the cursor is, chosen from a list: the
+   * placeholders of a template. Plain text goes in, never markup.
+   */
+  insertable?: {
+    /** Already translated: names the list. */
+    label: string;
+    options: { value: string; label: string }[];
+  };
 }
 
 // Only what the document allowlist can hold. Links, code blocks, images and raw HTML are off:
@@ -62,6 +71,7 @@ export function RichTextEditor({
   initialValue,
   onChange,
   disabled = false,
+  insertable,
 }: RichTextEditorProps) {
   const { t } = useTranslation();
   const editor = useEditor({
@@ -134,6 +144,30 @@ export function RichTextEditor({
             <Icon className="size-4" />
           </button>
         ))}
+        {insertable && (
+          <select
+            aria-label={insertable.label}
+            disabled={disabled || !editor}
+            // Always back on its first line: it is a list of things to put in, not a setting.
+            value=""
+            onChange={(event) => {
+              const text = insertable.options.find(
+                (option) => option.value === event.target.value,
+              )?.value;
+              // As text, at the cursor: the document stays what the allowlist holds.
+              if (editor && text)
+                editor.chain().focus().insertContent({ type: 'text', text }).run();
+            }}
+            className="ml-1 h-8 max-w-56 rounded-sm border bg-background px-2 text-sm outline-none pointer-coarse:h-11 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
+          >
+            <option value="">{insertable.label}</option>
+            {insertable.options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       <EditorContent editor={editor} />
     </div>

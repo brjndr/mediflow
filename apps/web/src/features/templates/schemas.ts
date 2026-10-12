@@ -1,0 +1,50 @@
+import { z } from 'zod';
+import { sanitizeRichText } from '@/shared/ui/rich-text';
+import { TEMPLATE_KINDS } from './placeholders';
+import type { Template, TemplatePage } from './types';
+
+/** Responses are validated where they enter the app, so screens can trust their shape. */
+export const templateSchema: z.ZodType<Template> = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  kind: z.enum(TEMPLATE_KINDS),
+  name: z.string(),
+  version: z.number().int().min(1),
+  savedAt: z.string(),
+  archived: z.boolean(),
+});
+
+export const templatePageSchema: z.ZodType<TemplatePage> = z.object({
+  items: z.array(templateSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+const versionInfo = {
+  version: z.number().int().min(1),
+  savedAt: z.string(),
+  savedByName: z.string(),
+};
+// Whatever text arrives is reduced to the rich text allowlist before a screen sees it.
+const body = z.unknown().transform((value) => sanitizeRichText(value));
+
+export const templateDetailSchema = z.object({
+  template: templateSchema,
+  body,
+  versions: z.array(z.object(versionInfo)),
+});
+
+export const templateVersionSchema = z.object({ ...versionInfo, name: z.string(), body });
+
+export const NAME_MAX = 100;
+
+/** The name of a template, and for a new one its kind. Messages are keys in core `common`. */
+export const templateFormSchema = z.object({
+  name: z.string().trim().min(1, 'validation.required').max(NAME_MAX),
+});
+export type TemplateFormValues = z.infer<typeof templateFormSchema>;
+
+export const templateCreateFormSchema = templateFormSchema.extend({
+  kind: z.enum(TEMPLATE_KINDS, 'validation.required'),
+});
+export type TemplateCreateFormValues = z.infer<typeof templateCreateFormSchema>;
