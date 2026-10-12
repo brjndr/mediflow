@@ -7,7 +7,7 @@ import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SubmitButton, useZodForm } from '@/shared/ui/form';
 import { DrugFields } from '../components/DrugFields';
 import { useCheckDrugDuplicates, useCreateDrug } from '../hooks/use-drugs';
-import { drugFormSchema, toFormValues, toRequest, type DrugFormValues } from '../schemas';
+import { drugFormSchema, toCreate, toFormValues, type DrugFormValues } from '../schemas';
 import type { Drug } from '../types';
 
 const link =
@@ -85,10 +85,20 @@ function NewDrug() {
   // What was filled in, while the person looks at the possible duplicates.
   const [held, setHeld] = useState<DrugFormValues | null>(null);
   const [matches, setMatches] = useState<Drug[] | null>(null);
+  // Leaving the screen (Cancel, the back button) while the check is on its way ends the attempt:
+  // nothing is added behind the person's back.
+  const here = useRef(true);
+  useEffect(() => {
+    here.current = true;
+    return () => {
+      here.current = false;
+    };
+  }, []);
 
   const add = async (values: DrugFormValues) => {
     try {
-      const drug = await create.mutateAsync(toRequest(values));
+      const drug = await create.mutateAsync(toCreate(values));
+      if (!here.current) return;
       await navigate(`/drugs/${drug.id}`, { replace: true });
     } catch {
       // Shown from the mutation state below. Back to the form, with what was typed.
@@ -102,6 +112,7 @@ function NewDrug() {
     setHeld(values);
     try {
       const found = await check.mutateAsync({ genericName: values.genericName, form: values.form });
+      if (!here.current) return;
       if (found.length > 0) return setMatches(found);
       await add(values);
     } catch {

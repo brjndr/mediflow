@@ -908,12 +908,12 @@
       },
       "post": {
         "operationId": "createDrug",
-        "description": "Adds an item. Requires drug:manage. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check.",
+        "description": "Adds an item. Requires drug:manage. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. An optional field (brand, strength, unit) is left out when there is none. Audited.",
         "parameters": [
           {
             "name": "Idempotency-Key",
             "in": "header",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string",
               "minLength": 8,
@@ -1048,7 +1048,7 @@
       },
       "patch": {
         "operationId": "updateDrug",
-        "description": "Changes an item. Requires drug:manage. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. A dispensed or stocked item keeps what it was dispensed or received as. An item of another hospital answers 404 drug_not_found, the same as one that does not exist.",
+        "description": "Changes an item. Requires drug:manage. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. Empty text removes a brand, a strength or a unit, and a null reorder level removes the level. Every change is audited with who made it and which fields changed, and a change of `schedule` or `controlled` in particular: taking an item out of a controlled schedule must leave a trace. Records that name an item keep what it was: a dispense, a stock entry and a prescription line store the generic name, brand, form, strength, schedule and controlled flag as they were when the line was written, so renaming or reclassifying an item never changes history. An item of another hospital answers 404 drug_not_found, the same as one that does not exist.",
         "parameters": [
           {
             "name": "drugId",
@@ -1104,7 +1104,7 @@
     "/drugs/{drugId}/archive": {
       "post": {
         "operationId": "archiveDrug",
-        "description": "Archives an item: it stays on the stock, prescriptions and bills that name it and is no longer offered for new ones. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist.",
+        "description": "Archives an item: it stays on the stock, prescriptions and bills that name it and is no longer offered for new ones. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. Audited.",
         "parameters": [
           {
             "name": "drugId",
@@ -1147,7 +1147,7 @@
     "/drugs/{drugId}/restore": {
       "post": {
         "operationId": "restoreDrug",
-        "description": "Brings an archived item back. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist.",
+        "description": "Brings an archived item back. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. Audited.",
         "parameters": [
           {
             "name": "drugId",

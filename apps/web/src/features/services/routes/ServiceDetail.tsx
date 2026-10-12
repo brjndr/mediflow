@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Can } from '@/access';
@@ -45,6 +45,20 @@ function EditForm({
   });
   // Read while rendering, which is what keeps it up to date.
   const { dirtyFields } = form.formState;
+  // What someone else saved meanwhile goes into the fields this person has not touched, so the
+  // form never shows a value that is neither typed nor saved. What was typed stays.
+  const { reset } = form;
+  useEffect(() => {
+    reset(
+      {
+        name: latest.name,
+        category: latest.category,
+        taxClass: latest.taxClass,
+        description: latest.description ?? '',
+      },
+      { keepDirtyValues: true },
+    );
+  }, [reset, latest]);
   const FIELDS: ServiceField[] = ['name', 'category', 'taxClass', 'description'];
   const shown = (service: Service, field: ServiceField) =>
     field === 'category'
@@ -92,7 +106,7 @@ function EditForm({
 }
 
 /** The service's own details, with what a manager may do to them. */
-function Details({ service }: { service: Service }) {
+function Details({ service, refreshFailed }: { service: Service; refreshFailed: boolean }) {
   const { t } = useTranslation('services');
   const { t: tCommon } = useTranslation();
   const update = useUpdateService(service.id);
@@ -108,6 +122,9 @@ function Details({ service }: { service: Service }) {
 
   if (conflict === 'awaiting' && service.version !== expected) {
     setExpected(service.version);
+    setConflict('shown');
+  } else if (conflict === 'awaiting' && refreshFailed) {
+    // The service could not be read again: stop waiting, so saving can be tried once more.
     setConflict('shown');
   }
 
@@ -284,7 +301,11 @@ function ServiceScreen() {
           )}
         </p>
       </div>
-      <Details key={record.id} service={record} />
+      <Details
+        key={record.id}
+        service={record}
+        refreshFailed={service.isError && !service.isFetching}
+      />
       <Prices key={`prices-${record.id}`} serviceId={record.id} archived={record.archived} />
     </div>
   );

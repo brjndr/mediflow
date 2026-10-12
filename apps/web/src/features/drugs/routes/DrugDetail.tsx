@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Can } from '@/access';
@@ -73,6 +73,12 @@ function EditForm({
   const form = useZodForm(drugFormSchema, toFormValues(from));
   // Read while rendering, which is what keeps it up to date.
   const { dirtyFields } = form.formState;
+  // What someone else saved meanwhile goes into the fields this person has not touched, so the
+  // form never shows a value that is neither typed nor saved. What was typed stays.
+  const { reset } = form;
+  useEffect(() => {
+    reset(toFormValues(latest), { keepDirtyValues: true });
+  }, [reset, latest]);
   // Fields this person changed that someone else has changed too: saving puts this person's
   // value over theirs, so theirs is shown before that happens.
   const theirs = FIELDS.filter(
@@ -113,7 +119,7 @@ function EditForm({
 }
 
 /** The item's details, with what a manager may do to them. */
-function Details({ drug }: { drug: Drug }) {
+function Details({ drug, refreshFailed }: { drug: Drug; refreshFailed: boolean }) {
   const { t } = useTranslation('drugs');
   const { t: tCommon } = useTranslation();
   const shown = useShown();
@@ -130,6 +136,9 @@ function Details({ drug }: { drug: Drug }) {
 
   if (conflict === 'awaiting' && drug.version !== expected) {
     setExpected(drug.version);
+    setConflict('shown');
+  } else if (conflict === 'awaiting' && refreshFailed) {
+    // The item could not be read again: stop waiting, so saving can be tried once more.
     setConflict('shown');
   }
 
@@ -148,8 +157,11 @@ function Details({ drug }: { drug: Drug }) {
     const request = toRequest(values);
     // A reorder level that was cleared is sent as null, which removes it; the others as they
     // are, where empty text removes a brand, a strength or a unit.
+    const fields = changed.includes('schedule')
+      ? [...new Set([...changed, 'controlled' as const])]
+      : changed;
     const sent = Object.fromEntries(
-      changed.map((field) => [
+      fields.map((field) => [
         field,
         field === 'reorderLevel' && values.reorderLevel === '' ? null : request[field],
       ]),
@@ -301,7 +313,7 @@ function DrugScreen() {
           {record.archived && <span className={badge}>{t('detail.archived')}</span>}
         </p>
       </div>
-      <Details key={record.id} drug={record} />
+      <Details key={record.id} drug={record} refreshFailed={drug.isError && !drug.isFetching} />
     </div>
   );
 }

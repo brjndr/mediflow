@@ -216,6 +216,91 @@ describe('adding an item', () => {
     expect(textbox(/^Brand/)).toHaveValue('paracare');
   });
 
+  it('adds nothing when the screen is left while the check is on its way', async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let created = 0;
+    server.use(
+      http.post('*/api/drugs/duplicate-check', async () => {
+        await held;
+        return HttpResponse.json({ items: [] });
+      }),
+      http.post('*/api/drugs', () => {
+        created++;
+        return undefined;
+      }),
+    );
+    const { router } = await openCreate();
+    await fill('Zolpidem');
+    await userEvent.click(button('Add item'));
+    await userEvent.click(screen.getByRole('link', { name: 'Cancel' }));
+    await screen.findByRole('heading', HEADING);
+    release();
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(created).toBe(0);
+    expect(router.state.location.pathname).toBe('/drugs');
+  });
+
+  it('shows a controlled schedule as controlled, with nothing to untick', async () => {
+    await openCreate();
+    expect(
+      screen.getByRole('checkbox', { name: /Handled as a controlled drug/ }),
+    ).not.toBeChecked();
+
+    await choose(/^Drug schedule/, 'Narcotic or psychotropic');
+    expect(screen.queryByRole('checkbox', { name: /Handled as a controlled drug/ })).toBeNull();
+    expect(screen.getByText('yes, always for this schedule.')).toBeInTheDocument();
+
+    await choose(/^Drug schedule/, 'Schedule H');
+    expect(
+      screen.getByRole('checkbox', { name: /Handled as a controlled drug/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('sends no empty fields with a new item, and one item for the same request sent twice', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'POST' && request.url.endsWith('/api/drugs')) {
+        void request
+          .clone()
+          .json()
+          .then((body) => bodies.push(body as Record<string, unknown>));
+      }
+    });
+    await openCreate();
+    await fill('Zolpidem');
+    await userEvent.click(button('Add item'));
+    await screen.findByRole('heading', { name: 'Zolpidem' });
+
+    expect(bodies).toHaveLength(1);
+    expect(Object.keys(bodies[0] ?? {}).sort()).toEqual([
+      'controlled',
+      'form',
+      'genericName',
+      'schedule',
+      'taxClass',
+      'type',
+    ]);
+    server.events.removeAllListeners();
+
+    // The same request again with the same key is the same item, not a refusal of its own copy.
+    const body = {
+      type: 'medicine',
+      genericName: 'Repeat',
+      form: 'tablet',
+      schedule: 'none',
+      taxClass: 'exempt',
+    } as const;
+    const params = { header: { 'Idempotency-Key': 'repeat-key-0001' } };
+    const first = await api.POST('/drugs', { body, params });
+    const again = await api.POST('/drugs', { body, params });
+    expect(again.data?.id).toBe(first.data?.id);
+    expect(again.response.headers.get('idempotent-replayed')).toBe('true');
+  });
+
   it('adds nothing when the check for duplicates fails', async () => {
     let created = 0;
     server.use(
@@ -285,6 +370,57 @@ describe('an item', () => {
     expect(await screen.findByText('strip of 15')).toBeInTheDocument();
     // Only the unit was sent: their schedule is still there.
     expect(screen.getByText('Schedule H')).toBeInTheDocument();
+  });
+
+  it('puts what the other person saved into the fields that were not touched', async () => {
+    await openDrug();
+    await userEvent.click(button('Edit details'));
+    editMockDrug(PARACETAMOL, { schedule: 'h' });
+    await type(/^Unit/, 'strip of 15');
+    await userEvent.click(button('Save item'));
+    await screen.findByText(/Someone else changed this item/);
+
+    // The form now shows their schedule, not the one it opened with, and keeps the typed unit.
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /^Drug schedule/ })).toHaveValue('h'),
+    );
+    expect(textbox(/^Unit/)).toHaveValue('strip of 15');
+  });
+
+  it('can be saved again when the item could not be read after a conflict', async () => {
+    await openDrug();
+    await userEvent.click(button('Edit details'));
+    editMockDrug(PARACETAMOL, { schedule: 'h' });
+    await type(/^Unit/, 'strip of 15');
+    server.use(
+      http.get('*/api/drugs/:id', () => new HttpResponse(null, { status: 500 }), { once: true }),
+    );
+    await userEvent.click(button('Save item'));
+    await screen.findByText(/Someone else changed this item/);
+
+    // Not left waiting for ever: Save comes back, and the next try reads the item again.
+    await waitFor(() => expect(button('Save item')).toBeEnabled());
+    expect(button('Cancel')).toBeEnabled();
+  });
+
+  it('sends what a schedule makes of the controlled flag along with the schedule', async () => {
+    const bodies: unknown[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'PATCH')
+        void request
+          .clone()
+          .json()
+          .then((body) => bodies.push(body));
+    });
+    await openDrug();
+    await userEvent.click(button('Edit details'));
+    await choose(/^Drug schedule/, 'Schedule X');
+    await userEvent.click(button('Save item'));
+
+    await waitFor(() => expect(statuses()).toContain('The item was saved.'));
+    expect(bodies).toEqual([{ schedule: 'x', controlled: true, expectedVersion: 1 }]);
+    expect(await screen.findByText('Controlled drug')).toBeInTheDocument();
+    server.events.removeAllListeners();
   });
 
   it('does not let a change make it the same as another item', async () => {

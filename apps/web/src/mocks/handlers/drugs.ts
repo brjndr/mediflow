@@ -98,6 +98,8 @@ const CONSUMABLES = [
 interface State {
   drugs: Drug[];
   created: number;
+  /** What each Idempotency-Key was answered with, by hospital and key. */
+  replies: Map<string, { raw: string; drug: Drug }>;
 }
 
 /** About three thousand items at the hospital, so search and paging work on a real catalog. */
@@ -170,7 +172,7 @@ function seed(): State {
       version: 1,
     });
   }
-  return { drugs, created: 0 };
+  return { drugs, created: 0, replies: new Map() };
 }
 
 let state = seed();
@@ -203,9 +205,12 @@ const same = (a: Drug, b: Drug) =>
   a.form === b.form &&
   lower(a.strength) === lower(b.strength);
 
+// One collator for every comparison: a new one per comparison made each list request take a
+// fifth of a second on a catalog of three thousand.
+const collator = new Intl.Collator('en', { sensitivity: 'base' });
 const byName = (a: Drug, b: Drug) =>
-  a.genericName.localeCompare(b.genericName, 'en', { sensitivity: 'base' }) ||
-  (a.brandName ?? '').localeCompare(b.brandName ?? '', 'en', { sensitivity: 'base' }) ||
+  collator.compare(a.genericName, b.genericName) ||
+  collator.compare(a.brandName ?? '', b.brandName ?? '') ||
   a.id.localeCompare(b.id);
 
 async function readBody(request: Request): Promise<Record<string, unknown> | null> {
@@ -294,7 +299,7 @@ export const drugsHandlers = [
         return words.every((word) => haystack.includes(word));
       })
       .sort(byName);
-    const limit = Math.min(Math.max(Number(params.get('limit') ?? 25), 1), 100);
+    const limit = Math.min(Math.max(Number(params.get('limit')) || 25, 1), 100);
     const cursor = params.get('cursor');
     const start = cursor ? visible.findIndex((drug) => drug.id === cursor) : 0;
     if (start < 0) return error(400, 'invalid_cursor', 'Unknown cursor');
@@ -330,6 +335,18 @@ export const drugsHandlers = [
   http.post('*/api/drugs', async ({ request }) => {
     const access = authorize(request, { permission: MANAGE, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
+    const raw = await request.clone().text();
+    // The same key with the same request is answered as before, and nothing is added again.
+    const key = request.headers.get('idempotency-key');
+    const earlier = key ? state.replies.get(`${access.tenantId}:${key}`) : undefined;
+    if (earlier) {
+      return earlier.raw === raw
+        ? HttpResponse.json<Drug>(earlier.drug, {
+            status: 201,
+            headers: { 'Idempotent-Replayed': 'true' },
+          })
+        : error(422, 'idempotency_key_reuse', 'That key was used for another request');
+    }
     const body = await readBody(request);
     if (
       !body ||
@@ -360,6 +377,7 @@ export const drugsHandlers = [
     if (state.drugs.some((other) => same(other, drug))) return exists();
     state.created += 1;
     state.drugs.push(drug);
+    if (key) state.replies.set(`${access.tenantId}:${key}`, { raw, drug });
     return HttpResponse.json<Drug>(drug, { status: 201 });
   }),
 

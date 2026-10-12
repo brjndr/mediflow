@@ -83,6 +83,7 @@
     "schedule": "Drug schedule",
     "controlled": "Handled as a controlled drug",
     "controlledHint": "Always on for Schedule X and for narcotic or psychotropic drugs.",
+    "controlledAlways": "yes, always for this schedule.",
     "taxClass": "Tax class",
     "chooseTaxClass": "Choose a tax class",
     "reorderLevel": "Reorder level",

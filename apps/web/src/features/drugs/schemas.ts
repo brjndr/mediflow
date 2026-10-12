@@ -92,6 +92,19 @@ export const toFormValues = (drug?: Drug) => ({
 });
 
 /**
+ * A new item as the API takes it: an optional field that was left empty is left out.
+ */
+export function toCreate(values: DrugFormValues): DrugCreate {
+  const { brandName, strength, unit, ...rest } = toRequest(values);
+  return {
+    ...rest,
+    ...(brandName ? { brandName } : {}),
+    ...(strength ? { strength } : {}),
+    ...(unit ? { unit } : {}),
+  };
+}
+
+/**
  * The form's values as the API takes them. An empty optional field is sent as empty text, which
  * the API reads as "none": on a change that is how a brand or a strength is removed.
  */

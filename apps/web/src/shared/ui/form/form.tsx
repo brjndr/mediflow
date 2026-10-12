@@ -6,6 +6,7 @@ import {
   get,
   useForm,
   useFormContext,
+  useWatch,
   type DefaultValues,
   type FieldError,
   type FieldValues,
@@ -80,6 +81,14 @@ const KIND_KEYS: Record<string, string> = {
   invalid_format: 'validation.invalid_format',
   invalid_value: 'validation.invalid_value',
 };
+
+/**
+ * What a field of the surrounding form holds now, for a field whose look depends on another
+ * (a box that is always ticked for some choices). Re-renders only when that one field changes.
+ */
+export function useFieldValue(name: string): unknown {
+  return useWatch({ name });
+}
 
 /**
  * The translation key for a field error. A rule's own message is used when it is a key that

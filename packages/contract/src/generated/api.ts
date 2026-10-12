@@ -855,7 +855,7 @@ export interface paths {
         /** @description The medicines and consumables of the active tenant, by generic name then brand. Requires drug:read and the drugs feature flag. `q` matches the generic name or the brand, each word in any order. A catalog can hold tens of thousands of items: there is no unpaged form, and `total` comes with the first page only. */
         get: operations["listDrugs"];
         put?: never;
-        /** @description Adds an item. Requires drug:manage. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. */
+        /** @description Adds an item. Requires drug:manage. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. An optional field (brand, strength, unit) is left out when there is none. Audited. */
         post: operations["createDrug"];
         delete?: never;
         options?: never;
@@ -894,7 +894,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Changes an item. Requires drug:manage. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. A dispensed or stocked item keeps what it was dispensed or received as. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        /** @description Changes an item. Requires drug:manage. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. Empty text removes a brand, a strength or a unit, and a null reorder level removes the level. Every change is audited with who made it and which fields changed, and a change of `schedule` or `controlled` in particular: taking an item out of a controlled schedule must leave a trace. Records that name an item keep what it was: a dispense, a stock entry and a prescription line store the generic name, brand, form, strength, schedule and controlled flag as they were when the line was written, so renaming or reclassifying an item never changes history. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
         patch: operations["updateDrug"];
         trace?: never;
     };
@@ -907,7 +907,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Archives an item: it stays on the stock, prescriptions and bills that name it and is no longer offered for new ones. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        /** @description Archives an item: it stays on the stock, prescriptions and bills that name it and is no longer offered for new ones. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. Audited. */
         post: operations["archiveDrug"];
         delete?: never;
         options?: never;
@@ -924,7 +924,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Brings an archived item back. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        /** @description Brings an archived item back. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. Audited. */
         post: operations["restoreDrug"];
         delete?: never;
         options?: never;
@@ -4573,9 +4573,9 @@ export interface operations {
     createDrug: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 /** @description A repeat with the same key and request returns the first answer. */
-                "Idempotency-Key"?: string;
+                "Idempotency-Key": string;
             };
             path?: never;
             cookie?: never;

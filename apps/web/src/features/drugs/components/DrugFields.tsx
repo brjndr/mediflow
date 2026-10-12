@@ -1,10 +1,21 @@
 import { useTranslation } from 'react-i18next';
-import { CheckboxField, SelectField, TextField } from '@/shared/ui/form';
-import { FORMS, NAME_MAX, SCHEDULES, SHORT_MAX, TAX_CLASSES, TYPES } from '../schemas';
+import { CheckboxField, SelectField, TextField, useFieldValue } from '@/shared/ui/form';
+import {
+  alwaysControlled,
+  FORMS,
+  NAME_MAX,
+  SCHEDULES,
+  SHORT_MAX,
+  TAX_CLASSES,
+  TYPES,
+} from '../schemas';
 
 /** The fields of an item, whether it is being added or changed. Inside a form of the kit. */
 export function DrugFields() {
   const { t } = useTranslation('drugs');
+  const schedule = useFieldValue('schedule');
+  // For these schedules there is nothing to choose: the item is controlled.
+  const forced = SCHEDULES.some((value) => value === schedule && alwaysControlled(value));
   return (
     <>
       <SelectField
@@ -56,11 +67,17 @@ export function DrugFields() {
         required
         options={SCHEDULES.map((value) => ({ value, label: t(`schedules.${value}`) }))}
       />
-      <CheckboxField
-        name="controlled"
-        label={t('form.controlled')}
-        hint={t('form.controlledHint')}
-      />
+      {forced ? (
+        <p className="text-sm">
+          <span className="font-medium">{t('form.controlled')}:</span> {t('form.controlledAlways')}
+        </p>
+      ) : (
+        <CheckboxField
+          name="controlled"
+          label={t('form.controlled')}
+          hint={t('form.controlledHint')}
+        />
+      )}
       <SelectField
         name="taxClass"
         label={t('form.taxClass')}
