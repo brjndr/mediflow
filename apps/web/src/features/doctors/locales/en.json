@@ -29,6 +29,7 @@
     "department": "Department",
     "chooseDepartment": "Choose a department",
     "departmentsFailed": "The departments could not be loaded.",
+    "departmentsUnavailable": "You do not have access to this hospital's departments, so a department cannot be chosen.",
     "specialization": "Specialization",
     "specializationHint": "For example: Interventional cardiology.",
     "registrationNumber": "Registration number",
@@ -66,7 +67,8 @@
     "saved": "The profile was saved.",
     "deactivated": "{{name}} is now inactive.",
     "activated": "{{name}} is active again.",
-    "conflict": "Someone else changed this profile while you were editing. It has been updated: check it and try again.",
+    "conflict": "Someone else changed this profile while you were editing. What you changed is still here: check it and save again. The fields you did not change keep what they saved.",
+    "conflictToggle": "Someone else changed this profile just now. It has been updated: check it and try again.",
     "notGiven": "Not given"
   },
   "hours": {
@@ -85,7 +87,7 @@
     "removeFor": "Remove {{day}} session {{n}}",
     "save": "Save working hours",
     "saved": "The working hours were saved.",
-    "conflict": "Someone else changed these hours while you were editing. They have been updated: check them and try again.",
+    "conflict": "Someone else changed these hours while you were editing. What you entered is still here: check it, and save again to replace theirs.",
     "days": {
       "mon": "Monday",
       "tue": "Tuesday",

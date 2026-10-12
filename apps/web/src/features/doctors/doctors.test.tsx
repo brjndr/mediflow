@@ -143,13 +143,36 @@ describe('adding a doctor', () => {
     );
     await openCreate();
     await userEvent.click(button('Add doctor'));
+    // Everything that is missing is said at once.
     expect(await screen.findAllByText('This field is required.')).toHaveLength(2);
+    expect(screen.getByText('Choose a staff member.')).toBeInTheDocument();
 
     await chooseDepartment('Cardiology');
     await type(/^Specialization/, 'Electrophysiology');
     await userEvent.click(button('Add doctor'));
 
     expect(await screen.findByText('Choose a staff member.')).toBeInTheDocument();
+    expect(sent).toBe(0);
+  });
+
+  it('does not save the form when Enter is pressed in the staff search', async () => {
+    let sent = 0;
+    server.use(
+      http.post('*/api/doctors', () => {
+        sent++;
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+    await openCreate();
+    await userEvent.click(screen.getByRole('radio', { name: /Sample Doctor/ }));
+    await chooseDepartment('Cardiology');
+    await type(/^Specialization/, 'Electrophysiology');
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Find a staff member' }),
+      'sam{Enter}',
+    );
+
+    await screen.findByRole('radio', { name: /Sample Admin/ });
     expect(sent).toBe(0);
   });
 
@@ -173,6 +196,10 @@ describe('adding a doctor', () => {
       'This staff member already has a doctor profile.',
     );
     expect(textbox(/^Specialization/)).toHaveValue('Electrophysiology');
+    // They are no longer someone to choose.
+    await waitFor(() =>
+      expect(screen.queryByRole('radio', { name: /Sample Doctor/ })).not.toBeInTheDocument(),
+    );
   });
 });
 
@@ -207,17 +234,67 @@ describe('a doctor’s profile', () => {
     expect(screen.queryByRole('button', { name: 'Save profile' })).not.toBeInTheDocument();
   });
 
-  it('does not overwrite what someone else saved meanwhile', async () => {
+  it('keeps what was typed after a conflict, and saves it without undoing the other change', async () => {
     await openDoctor();
     await userEvent.click(button('Edit profile'));
-    editMockDoctor('doc_h_02', { specialization: 'Heart failure' });
+    // Someone else records the registration number meanwhile.
+    editMockDoctor('doc_h_02', { registrationNumber: 'REG-9' });
 
     await type(/^Specialization/, 'Cardiac surgery');
     await userEvent.click(button('Save profile'));
 
     expect(await screen.findByText(/Someone else changed this profile/)).toBeInTheDocument();
-    expect(await screen.findByText('Heart failure')).toBeInTheDocument();
-    expect(screen.queryByText('Cardiac surgery')).not.toBeInTheDocument();
+    // The form is still open with what was typed.
+    expect(textbox(/^Specialization/)).toHaveValue('Cardiac surgery');
+
+    await waitFor(() => expect(button('Save profile')).toBeEnabled());
+    await userEvent.click(button('Save profile'));
+
+    await waitFor(() => expect(statuses()).toContain('The profile was saved.'));
+    expect(await screen.findByText('Cardiac surgery')).toBeInTheDocument();
+    // Only the changed field was sent: their registration number is still there.
+    expect(screen.getByText('REG-9')).toBeInTheDocument();
+  });
+
+  it('sends only what was changed, and keeps an appointment length that is not on the list', async () => {
+    editMockDoctor('doc_h_02', { consultationMinutes: 25 });
+    const bodies: unknown[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'PATCH')
+        void request
+          .clone()
+          .json()
+          .then((body) => bodies.push(body));
+    });
+    await openDoctor();
+    await userEvent.click(button('Edit profile'));
+    expect(screen.getByRole('combobox', { name: /^Appointment length/ })).toHaveValue('25');
+
+    await type(/^Specialization/, 'Cardiac surgery');
+    await userEvent.click(button('Save profile'));
+
+    await waitFor(() => expect(statuses()).toContain('The profile was saved.'));
+    expect(bodies).toEqual([{ specialization: 'Cardiac surgery', expectedVersion: 2 }]);
+    expect(screen.getByText('25 min')).toBeInTheDocument();
+    server.events.removeAllListeners();
+  });
+
+  it('sends nothing when nothing was changed', async () => {
+    let sent = 0;
+    server.use(
+      http.patch('*/api/doctors/:id', () => {
+        sent++;
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+    await openDoctor();
+    await userEvent.click(button('Edit profile'));
+    await userEvent.click(button('Save profile'));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Save profile' })).not.toBeInTheDocument(),
+    );
+    expect(sent).toBe(0);
   });
 
   it('marks a doctor inactive and active again', async () => {
@@ -306,16 +383,65 @@ describe('working hours', () => {
     ).toEqual({ wed: 'hours.errors.overlap' });
   });
 
-  it('does not overwrite hours someone else saved meanwhile', async () => {
+  it('keeps the hours that were typed after a conflict, and replaces theirs only on a second save', async () => {
     await openDoctor();
     editMockAvailability('doc_h_02', [{ day: 'sun', start: '08:00', end: '11:00' }]);
     setTime('Monday, session 1: from', '10:00');
     await userEvent.click(button('Save working hours'));
 
     expect(await screen.findByText(/Someone else changed these hours/)).toBeInTheDocument();
-    // The editor now holds what they saved.
-    expect(await screen.findByLabelText('Sunday, session 1: from')).toHaveValue('08:00');
-    expect(screen.queryByLabelText('Monday, session 1: from')).not.toBeInTheDocument();
+    // What was typed is still in the editor.
+    expect(screen.getByLabelText('Monday, session 1: from')).toHaveValue('10:00');
+
+    await waitFor(() => expect(button('Save working hours')).toBeEnabled());
+    await userEvent.click(button('Save working hours'));
+
+    await waitFor(() => expect(statuses()).toContain('The working hours were saved.'));
+    expect(screen.queryByText(/Someone else changed these hours/)).not.toBeInTheDocument();
+    const saved = await api.GET('/doctors/{doctorId}/availability', {
+      params: { path: { doctorId: 'doc_h_02' } },
+    });
+    expect(saved.data?.sessions).toContainEqual({ day: 'mon', start: '10:00', end: '13:00' });
+    expect(saved.data?.sessions.some((session) => session.day === 'sun')).toBe(false);
+  });
+
+  it('lets nothing be typed into a save that is on its way', async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.put(
+        '*/api/doctors/:id/availability',
+        async () => {
+          await held;
+          return undefined;
+        },
+        { once: true },
+      ),
+    );
+    await openDoctor();
+    setTime('Monday, session 1: from', '10:00');
+    await userEvent.click(button('Save working hours'));
+
+    await waitFor(() => expect(screen.getByLabelText('Monday, session 1: from')).toBeDisabled());
+    expect(button('Add hours on Monday')).toBeDisabled();
+
+    release();
+    await waitFor(() => expect(statuses()).toContain('The working hours were saved.'));
+    expect(await screen.findByLabelText('Monday, session 1: from')).toHaveValue('10:00');
+    expect(screen.getByLabelText('Monday, session 1: from')).toBeEnabled();
+  });
+
+  it('is not taken away by a refresh while someone is typing', async () => {
+    const { queryClient } = await openDoctor();
+    setTime('Monday, session 1: from', '10:00');
+    // Someone else saves other hours, and this screen's data is refreshed in the background.
+    editMockAvailability('doc_h_02', [{ day: 'sun', start: '08:00', end: '11:00' }]);
+    await queryClient.invalidateQueries({ queryKey: doctorKeys.all(TENANT_IDS.hospital) });
+
+    expect(screen.getByLabelText('Monday, session 1: from')).toHaveValue('10:00');
+    expect(screen.queryByLabelText('Sunday, session 1: from')).not.toBeInTheDocument();
   });
 });
 

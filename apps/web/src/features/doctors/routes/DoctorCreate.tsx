@@ -44,8 +44,9 @@ export default function DoctorCreate() {
       });
       // Straight to the new profile, where the working hours are set.
       await navigate(`/doctors/${doctor.id}`, { replace: true });
-    } catch {
-      // Shown from the mutation state below.
+    } catch (error) {
+      // Shown from the mutation state below. Someone who has a profile now is no longer a choice.
+      if (refusal(error) === 'create.exists') setStaff(null);
     }
   };
 
@@ -64,26 +65,33 @@ export default function DoctorCreate() {
         </p>
       )}
 
-      <DoctorForm
-        pending={create.isPending}
-        submitLabel={t('create.submit')}
-        onSubmit={submit}
-        before={
-          <StaffPicker
-            selected={staff}
-            onSelect={(candidate) => {
-              setStaff(candidate);
-              setStaffMissing(false);
-            }}
-            error={staffMissing ? t('create.staffRequired') : undefined}
-          />
-        }
-        after={
-          <Link to="/doctors" className={link}>
-            {t('form.cancel')}
-          </Link>
-        }
-      />
+      {/* Any attempt to save says so when nobody is chosen, together with the field messages. */}
+      <div
+        onSubmitCapture={() => {
+          if (!staff) setStaffMissing(true);
+        }}
+      >
+        <DoctorForm
+          pending={create.isPending}
+          submitLabel={t('create.submit')}
+          onSubmit={submit}
+          before={
+            <StaffPicker
+              selected={staff}
+              onSelect={(candidate) => {
+                setStaff(candidate);
+                setStaffMissing(false);
+              }}
+              error={staffMissing ? t('create.staffRequired') : undefined}
+            />
+          }
+          after={
+            <Link to="/doctors" className={link}>
+              {t('form.cancel')}
+            </Link>
+          }
+        />
+      </div>
     </div>
   );
 }

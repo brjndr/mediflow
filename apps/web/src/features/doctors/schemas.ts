@@ -36,7 +36,7 @@ const page = <Item extends z.ZodType>(item: Item) =>
 export const doctorPageSchema: z.ZodType<DoctorPage> = page(doctorSchema);
 
 export const candidatePageSchema: z.ZodType<DoctorCandidatePage> = page(
-  z.object({ userId: z.string(), name: z.string(), email: z.string(), roleId: z.string() }),
+  z.object({ userId: z.string(), name: z.string(), email: z.string() }),
 );
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -55,7 +55,7 @@ export const availabilitySchema: z.ZodType<DoctorAvailability> = z.object({
 
 export const SPECIALIZATION_MAX = 100;
 export const REGISTRATION_MAX = 50;
-/** The appointment lengths a hospital chooses from. */
+/** The appointment lengths offered. A profile may hold another one, which the form keeps. */
 export const CONSULTATION_MINUTES = ['5', '10', '15', '20', '30', '45', '60'] as const;
 
 /** The profile form. Messages are translation keys in core `common`. */
@@ -63,9 +63,10 @@ export const doctorFormSchema = z.object({
   departmentId: z.string().min(1, 'validation.required'),
   specialization: z.string().trim().min(1, 'validation.required').max(SPECIALIZATION_MAX),
   registrationNumber: z.string().trim().max(REGISTRATION_MAX),
-  consultationMinutes: z.enum(CONSULTATION_MINUTES),
+  consultationMinutes: z.string().regex(/^\d{1,3}$/, 'validation.required'),
 });
 export type DoctorFormValues = z.infer<typeof doctorFormSchema>;
+export type DoctorField = keyof DoctorFormValues;
 
 /** What is wrong with a day's hours, as a key of this feature's strings. */
 export type HoursProblem =

@@ -96,13 +96,30 @@ export function useCreateDoctor() {
   });
 }
 
-/** Changes a profile from the version that was on screen. */
+/**
+ * Changes a profile from the version that was on screen. The answer goes into the cache at once,
+ * so the next change is made from the saved version even if the refresh that follows fails.
+ */
 export function useUpdateDoctor(doctorId: string) {
-  const refresh = useRefreshDoctors();
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
   return useMutation({
     mutationFn: (body: DoctorUpdate) => updateDoctor(doctorId, body),
-    // Also after a failure: a conflict means what is on screen is out of date.
-    onSettled: refresh,
+    onSuccess: (saved) => {
+      if (tenantId) queryClient.setQueryData(doctorKeys.detail(tenantId, doctorId), saved);
+    },
+    // Also after a failure: a conflict means what is on screen is out of date. The profile and
+    // the lists, not the working hours, which have their own version and their own editor.
+    onSettled: () => {
+      if (!tenantId) return;
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: doctorKeys.lists(tenantId) }),
+        queryClient.invalidateQueries({
+          queryKey: doctorKeys.detail(tenantId, doctorId),
+          exact: true,
+        }),
+      ]);
+    },
   });
 }
 
@@ -122,6 +139,9 @@ export function useSaveAvailability(doctorId: string) {
   return useMutation({
     mutationFn: (body: { sessions: DoctorSession[]; expectedVersion: number }) =>
       saveAvailability(doctorId, body),
+    onSuccess: (saved) => {
+      if (tenantId) queryClient.setQueryData(availabilityKey(tenantId, doctorId), saved);
+    },
     onSettled: () => {
       if (tenantId) {
         return queryClient.invalidateQueries({ queryKey: availabilityKey(tenantId, doctorId) });

@@ -91,21 +91,23 @@ export default function DoctorList() {
             />
           </span>
         </label>
-        <label className="flex min-w-44 flex-col gap-1 text-sm font-medium">
-          {t('filters.department')}
-          <select
-            value={departmentId}
-            onChange={(event) => setDepartmentId(event.target.value)}
-            className={control}
-          >
-            <option value="">{t('filters.allDepartments')}</option>
-            {(departments.data ?? []).map((department) => (
-              <option key={department.id} value={department.id}>
-                {department.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {departments.available && (
+          <label className="flex min-w-44 flex-col gap-1 text-sm font-medium">
+            {t('filters.department')}
+            <select
+              value={departmentId}
+              onChange={(event) => setDepartmentId(event.target.value)}
+              className={control}
+            >
+              <option value="">{t('filters.allDepartments')}</option>
+              {(departments.data ?? []).map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="flex items-center gap-2 text-sm font-medium pointer-coarse:min-h-11">
           <input
             type="checkbox"
@@ -118,7 +120,10 @@ export default function DoctorList() {
       </div>
 
       <p role="status" className="text-sm text-muted-foreground">
-        {total === undefined ? '' : t(inactive ? 'countInactive' : 'count', { count: total })}
+        {/* Not while the previous filter's rows are still shown: the total would be theirs. */}
+        {total === undefined || doctors.isPlaceholderData
+          ? ''
+          : t(inactive ? 'countInactive' : 'count', { count: total })}
       </p>
 
       <DataGrid

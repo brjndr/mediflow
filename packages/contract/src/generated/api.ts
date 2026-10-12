@@ -599,7 +599,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Changes a doctor profile, or makes it inactive or active again. Requires doctor:manage. Send the version the change was made from: 409 conflict when the profile has changed since. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
+        /** @description Changes a doctor profile, or makes it inactive or active again. Requires doctor:manage. A new department must be an active department of the same hospital (400 otherwise): check it against the session's hospital, never by the id alone. Send the version the change was made from: 409 conflict when the profile has changed since. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
         patch: operations["updateDoctor"];
         trace?: never;
     };
@@ -882,12 +882,11 @@ export interface components {
             description?: string;
             expectedVersion: number;
         };
-        /** @description A user who works at the hospital, with the role held there. */
+        /** @description A user who works at the hospital and has no doctor profile there. The email tells namesakes apart; nothing else of the account is given. */
         DoctorCandidate: {
             userId: string;
             name: string;
             email: string;
-            roleId: string;
         };
         /** @description Cursor envelope used by every list endpoint. */
         DoctorCandidatePage: {

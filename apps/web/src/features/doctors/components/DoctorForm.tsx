@@ -8,6 +8,7 @@ import {
   doctorFormSchema,
   REGISTRATION_MAX,
   SPECIALIZATION_MAX,
+  type DoctorField,
   type DoctorFormValues,
 } from '../schemas';
 import type { Doctor } from '../types';
@@ -18,15 +19,13 @@ interface DoctorFormProps {
   pending: boolean;
   /** Already translated. */
   submitLabel: string;
-  onSubmit: (values: DoctorFormValues) => void | Promise<void>;
+  /** Receives the values and which fields the person changed from what the form opened with. */
+  onSubmit: (values: DoctorFormValues, changed: DoctorField[]) => void | Promise<void>;
   /** Shown above the fields: the staff picker when creating. */
   before?: ReactNode;
   /** Shown beside the save button: a cancel control. */
   after?: ReactNode;
 }
-
-const isMinutes = (value: string): value is DoctorFormValues['consultationMinutes'] =>
-  (CONSULTATION_MINUTES as readonly string[]).includes(value);
 
 /** A doctor's profile fields. One column, so it reads the same on a phone. */
 export function DoctorForm({
@@ -44,8 +43,10 @@ export function DoctorForm({
     departmentId: editing?.departmentId ?? '',
     specialization: editing?.specialization ?? '',
     registrationNumber: editing?.registrationNumber ?? '',
-    consultationMinutes: isMinutes(current) ? current : '15',
+    consultationMinutes: current,
   });
+  // Read while rendering, which is what keeps it up to date.
+  const { dirtyFields } = form.formState;
 
   const departmentOptions = useMemo(() => {
     const options = (departments.data ?? []).map(({ id, name }) => ({ value: id, label: name }));
@@ -56,22 +57,31 @@ export function DoctorForm({
     return options;
   }, [departments.data, editing]);
 
-  const minuteOptions = CONSULTATION_MINUTES.map((value) => ({
-    value,
-    label: t('minutes', { count: Number(value) }),
-  }));
+  // The usual lengths, and the profile's own when it is another one (the API allows 5 to 120).
+  const minuteOptions = [...new Set([...CONSULTATION_MINUTES, current])]
+    .sort((a, b) => Number(a) - Number(b))
+    .map((value) => ({ value, label: t('minutes', { count: Number(value) }) }));
 
   return (
-    <Form form={form} onSubmit={onSubmit} className="flex max-w-xl flex-col gap-4">
+    <Form
+      form={form}
+      onSubmit={(values) =>
+        onSubmit(
+          values,
+          (Object.keys(values) as DoctorField[]).filter((field) => dirtyFields[field] === true),
+        )
+      }
+      className="flex max-w-xl flex-col gap-4"
+    >
       {before}
-      {departments.isError && (
+      {(departments.isError || !departments.available) && (
         <p role="alert" className="text-sm text-destructive">
-          {t('form.departmentsFailed')}
+          {t(departments.available ? 'form.departmentsFailed' : 'form.departmentsUnavailable')}
         </p>
       )}
       <SelectField
         // The options arrive after the form: remount so the chosen department shows as chosen.
-        key={departmentOptions.length}
+        key={departmentOptions.map((option) => option.value).join(',')}
         name="departmentId"
         label={t('form.department')}
         required

@@ -722,7 +722,7 @@
       },
       "patch": {
         "operationId": "updateDoctor",
-        "description": "Changes a doctor profile, or makes it inactive or active again. Requires doctor:manage. Send the version the change was made from: 409 conflict when the profile has changed since. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist.",
+        "description": "Changes a doctor profile, or makes it inactive or active again. Requires doctor:manage. A new department must be an active department of the same hospital (400 otherwise): check it against the session's hospital, never by the id alone. Send the version the change was made from: 409 conflict when the profile has changed since. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist.",
         "parameters": [
           {
             "name": "doctorId",
@@ -1044,8 +1044,8 @@
       },
       "DoctorCandidate": {
         "type": "object",
-        "description": "A user who works at the hospital, with the role held there.",
-        "required": ["userId", "name", "email", "roleId"],
+        "description": "A user who works at the hospital and has no doctor profile there. The email tells namesakes apart; nothing else of the account is given.",
+        "required": ["userId", "name", "email"],
         "properties": {
           "userId": {
             "type": "string"
@@ -1054,9 +1054,6 @@
             "type": "string"
           },
           "email": {
-            "type": "string"
-          },
-          "roleId": {
             "type": "string"
           }
         }

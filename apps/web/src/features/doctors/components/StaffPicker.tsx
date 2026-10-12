@@ -46,6 +46,10 @@ export function StaffPicker({ selected, onSelect, error }: StaffPickerProps) {
         autoComplete="off"
         placeholder={t('create.staffSearchPlaceholder')}
         onChange={(event) => setSearch(event.target.value)}
+        // Enter in a search box would otherwise save the form around it.
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.preventDefault();
+        }}
         className="h-9 w-full rounded-md border bg-background px-3 text-base md:text-sm pointer-coarse:h-11"
       />
       {candidates.isPending && (

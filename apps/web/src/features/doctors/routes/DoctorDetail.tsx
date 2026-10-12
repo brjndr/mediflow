@@ -9,48 +9,67 @@ import { SystemPage } from '@/shared/ui/system-page';
 import { DoctorForm } from '../components/DoctorForm';
 import { WorkingHours } from '../components/WorkingHours';
 import { useDoctor, useUpdateDoctor } from '../hooks/use-doctors';
-import type { DoctorFormValues } from '../schemas';
-import type { Doctor } from '../types';
+import type { DoctorField, DoctorFormValues } from '../schemas';
+import type { Doctor, DoctorUpdate } from '../types';
 
 const link =
   'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+
+/** The fields the person changed, as the API takes them. */
+function changes(values: DoctorFormValues, changed: DoctorField[]): Partial<DoctorUpdate> {
+  const all = {
+    departmentId: values.departmentId,
+    specialization: values.specialization,
+    registrationNumber: values.registrationNumber,
+    consultationMinutes: Number(values.consultationMinutes),
+  } satisfies Partial<DoctorUpdate>;
+  return Object.fromEntries(changed.map((field) => [field, all[field]]));
+}
 
 /** The profile, with what a manager may do to it. */
 function Profile({ doctor }: { doctor: Doctor }) {
   const { t } = useTranslation('doctors');
   const { t: tCommon } = useTranslation();
   const update = useUpdateDoctor(doctor.id);
-  const [editing, setEditing] = useState(false);
+  // The profile as it was when the form opened: the form works from this snapshot, so a refresh
+  // in the background never changes what is being typed over.
+  const [editing, setEditing] = useState<Doctor | null>(null);
+  // The version a save is made from. After a conflict it moves to the newest one while the form
+  // keeps what was typed, and only the fields the person changed are sent again.
+  const [expected, setExpected] = useState(doctor.version);
+  const [conflict, setConflict] = useState<'none' | 'awaiting' | 'shown'>('none');
   // What was just done, said once in a status line.
   const [done, setDone] = useState<string | null>(null);
 
-  const start = (next: boolean) => {
+  if (conflict === 'awaiting' && doctor.version !== expected) {
+    setExpected(doctor.version);
+    setConflict('shown');
+  }
+
+  const start = (next: Doctor | null) => {
     update.reset();
     setDone(null);
+    setConflict('none');
+    setExpected(doctor.version);
     setEditing(next);
   };
 
-  const save = async (values: DoctorFormValues) => {
+  const save = async (values: DoctorFormValues, changed: DoctorField[]) => {
     setDone(null);
+    // Nothing was changed: there is nothing to send.
+    if (changed.length === 0) return start(null);
     try {
-      await update.mutateAsync({
-        departmentId: values.departmentId,
-        specialization: values.specialization,
-        registrationNumber: values.registrationNumber,
-        consultationMinutes: Number(values.consultationMinutes),
-        expectedVersion: doctor.version,
-      });
-      setEditing(false);
+      await update.mutateAsync({ ...changes(values, changed), expectedVersion: expected });
+      setEditing(null);
+      setConflict('none');
       setDone(t('detail.saved'));
     } catch (error) {
-      // The version on screen is out of date: the form closes on the refreshed profile.
-      if (isApiError(error) && error.serverCode === 'conflict') setEditing(false);
+      if (isApiError(error) && error.serverCode === 'conflict') setConflict('awaiting');
     }
   };
 
   const setActive = (active: boolean) => {
     setDone(null);
-    setEditing(false);
     update.mutate(
       { active, expectedVersion: doctor.version },
       {
@@ -60,7 +79,7 @@ function Profile({ doctor }: { doctor: Doctor }) {
     );
   };
 
-  const conflict = isApiError(update.error) && update.error.serverCode === 'conflict';
+  const conflicted = isApiError(update.error) && update.error.serverCode === 'conflict';
 
   return (
     <section aria-labelledby="doctor-profile" className="flex flex-col gap-3">
@@ -70,9 +89,14 @@ function Profile({ doctor }: { doctor: Doctor }) {
       {!doctor.active && (
         <p className="text-sm text-muted-foreground">{t('detail.inactiveNote')}</p>
       )}
-      {update.isError && (
+      {(conflict !== 'none' || conflicted) && (
         <p role="alert" className="text-sm text-destructive">
-          {conflict ? t('detail.conflict') : tCommon(errorMessageKey(update.error))}
+          {t(editing ? 'detail.conflict' : 'detail.conflictToggle')}
+        </p>
+      )}
+      {update.isError && !conflicted && (
+        <p role="alert" className="text-sm text-destructive">
+          {tCommon(errorMessageKey(update.error))}
         </p>
       )}
       <p role="status" className="text-sm text-muted-foreground">
@@ -81,10 +105,9 @@ function Profile({ doctor }: { doctor: Doctor }) {
 
       {editing ? (
         <DoctorForm
-          // A newer version of the profile is a new form.
-          key={doctor.version}
-          editing={doctor}
-          pending={update.isPending}
+          editing={editing}
+          // Until the newest version is known after a conflict, a save would only conflict again.
+          pending={update.isPending || conflict === 'awaiting'}
           submitLabel={t('form.save')}
           onSubmit={save}
           after={
@@ -92,7 +115,7 @@ function Profile({ doctor }: { doctor: Doctor }) {
               type="button"
               variant="outline"
               disabled={update.isPending}
-              onClick={() => start(false)}
+              onClick={() => start(null)}
             >
               {t('form.cancel')}
             </Button>
@@ -120,7 +143,7 @@ function Profile({ doctor }: { doctor: Doctor }) {
           </dl>
           <Can permission="doctor:manage">
             <div className="flex flex-wrap gap-3">
-              <Button variant="outline" disabled={update.isPending} onClick={() => start(true)}>
+              <Button variant="outline" disabled={update.isPending} onClick={() => start(doctor)}>
                 {t('detail.edit')}
               </Button>
               <Button
@@ -198,8 +221,8 @@ export default function DoctorDetail() {
           )}
         </p>
       </div>
-      <Profile doctor={record} />
-      <WorkingHours doctorId={record.id} />
+      <Profile key={record.id} doctor={record} />
+      <WorkingHours key={record.id} doctorId={record.id} />
     </div>
   );
 }

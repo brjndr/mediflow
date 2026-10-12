@@ -62,83 +62,85 @@ function HoursEditor({ availability, editable, pending, onSave, onEdit }: Editor
         submit();
       }}
     >
-      <ul className="flex flex-col divide-y rounded-lg border">
-        {WEEKDAYS.map((day) => {
-          const dayName = t(`hours.days.${day}`);
-          const ofDay = rows.filter((row) => row.day === day);
-          const problem = problems[day];
-          return (
-            <li key={day} className="flex flex-col gap-2 p-3 md:flex-row md:items-start md:gap-4">
-              <h3 className="w-28 shrink-0 pt-1 text-sm font-medium">{dayName}</h3>
-              <div className="flex min-w-0 flex-1 flex-col gap-2">
-                {ofDay.length === 0 && (
-                  <p className="pt-1 text-sm text-muted-foreground">{t('hours.dayOff')}</p>
-                )}
-                {ofDay.map((row, index) => {
-                  const n = index + 1;
-                  const set = (field: 'start' | 'end', value: string) =>
-                    change(rows.map((r) => (r.key === row.key ? { ...r, [field]: value } : r)));
-                  return (
-                    <div key={row.key} className="flex flex-wrap items-center gap-2 text-sm">
-                      {editable ? (
-                        <>
-                          <input
-                            type="time"
-                            aria-label={t('hours.fromFor', { day: dayName, n })}
-                            aria-invalid={problem ? true : undefined}
-                            value={row.start}
-                            onChange={(event) => set('start', event.target.value)}
-                            className={timeInput}
-                          />
-                          <span aria-hidden="true">–</span>
-                          <input
-                            type="time"
-                            aria-label={t('hours.toFor', { day: dayName, n })}
-                            aria-invalid={problem ? true : undefined}
-                            value={row.end}
-                            onChange={(event) => set('end', event.target.value)}
-                            className={timeInput}
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            aria-label={t('hours.removeFor', { day: dayName, n })}
-                            onClick={() => change(rows.filter((r) => r.key !== row.key))}
-                          >
-                            {t('hours.remove')}
-                          </Button>
-                        </>
-                      ) : (
-                        <span>
-                          {row.start} – {row.end}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-                {problem && (
-                  <p role="alert" className="text-sm text-destructive">
-                    {t(problem)}
-                  </p>
-                )}
-                {editable && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="self-start"
-                    aria-label={t('hours.addFor', { day: dayName })}
-                    onClick={() => add(day)}
-                  >
-                    {t('hours.add')}
-                  </Button>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      <fieldset disabled={pending} className="contents">
+        <ul className="flex flex-col divide-y rounded-lg border">
+          {WEEKDAYS.map((day) => {
+            const dayName = t(`hours.days.${day}`);
+            const ofDay = rows.filter((row) => row.day === day);
+            const problem = problems[day];
+            return (
+              <li key={day} className="flex flex-col gap-2 p-3 md:flex-row md:items-start md:gap-4">
+                <h3 className="w-28 shrink-0 pt-1 text-sm font-medium">{dayName}</h3>
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  {ofDay.length === 0 && (
+                    <p className="pt-1 text-sm text-muted-foreground">{t('hours.dayOff')}</p>
+                  )}
+                  {ofDay.map((row, index) => {
+                    const n = index + 1;
+                    const set = (field: 'start' | 'end', value: string) =>
+                      change(rows.map((r) => (r.key === row.key ? { ...r, [field]: value } : r)));
+                    return (
+                      <div key={row.key} className="flex flex-wrap items-center gap-2 text-sm">
+                        {editable ? (
+                          <>
+                            <input
+                              type="time"
+                              aria-label={t('hours.fromFor', { day: dayName, n })}
+                              aria-invalid={problem ? true : undefined}
+                              value={row.start}
+                              onChange={(event) => set('start', event.target.value)}
+                              className={timeInput}
+                            />
+                            <span aria-hidden="true">–</span>
+                            <input
+                              type="time"
+                              aria-label={t('hours.toFor', { day: dayName, n })}
+                              aria-invalid={problem ? true : undefined}
+                              value={row.end}
+                              onChange={(event) => set('end', event.target.value)}
+                              className={timeInput}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t('hours.removeFor', { day: dayName, n })}
+                              onClick={() => change(rows.filter((r) => r.key !== row.key))}
+                            >
+                              {t('hours.remove')}
+                            </Button>
+                          </>
+                        ) : (
+                          <span>
+                            {row.start} – {row.end}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {problem && (
+                    <p role="alert" className="text-sm text-destructive">
+                      {t(problem)}
+                    </p>
+                  )}
+                  {editable && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="self-start"
+                      aria-label={t('hours.addFor', { day: dayName })}
+                      onClick={() => add(day)}
+                    >
+                      {t('hours.add')}
+                    </Button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </fieldset>
 
       {editable && (
         <Button type="submit" className="self-start" disabled={pending} aria-busy={pending}>
@@ -155,11 +157,30 @@ export function WorkingHours({ doctorId }: { doctorId: string }) {
   const { t: tCommon } = useTranslation();
   const editable = usePermission('doctor:manage');
   const availability = useAvailability(doctorId);
-  // Held here, not in the editor: the editor starts again when a newer version arrives, and what
-  // happened to the last save has to outlive that.
   const save = useSaveAvailability(doctorId);
   const [saved, setSaved] = useState(false);
-  const conflict = isApiError(save.error) && save.error.serverCode === 'conflict';
+  // What the editor works from: the hours as they were when it opened, not the live query, so a
+  // refresh in the background never takes away what is being typed. `round` starts the editor
+  // again when a newer version is taken up.
+  const [base, setBase] = useState<DoctorAvailability | null>(null);
+  const [round, setRound] = useState(0);
+  const [dirty, setDirty] = useState(false);
+  // The version a save is made from. After a conflict it moves to the newest one while the typed
+  // hours stay, so saving again replaces what the other person saved, knowingly.
+  const [expected, setExpected] = useState(0);
+  const [conflict, setConflict] = useState<'none' | 'awaiting' | 'shown'>('none');
+
+  const latest = availability.data;
+  if (latest && (base === null || (!dirty && latest.version !== base.version))) {
+    setBase(latest);
+    setExpected(latest.version);
+    setRound(round + 1);
+  } else if (latest && conflict === 'awaiting' && latest.version !== expected) {
+    setExpected(latest.version);
+    setConflict('shown');
+  }
+
+  const failed = save.isError && !(isApiError(save.error) && save.error.serverCode === 'conflict');
 
   return (
     <section aria-labelledby="doctor-hours" className="flex flex-col gap-3">
@@ -175,7 +196,7 @@ export function WorkingHours({ doctorId }: { doctorId: string }) {
           <Skeleton className="h-40 w-full" />
         </div>
       )}
-      {availability.isError && availability.data === undefined && (
+      {availability.isError && latest === undefined && (
         <div role="alert" className="flex items-center gap-3 rounded-lg border p-4 text-sm">
           <span className="flex-1">{t('hours.failed')}</span>
           <Button size="sm" variant="outline" onClick={() => void availability.refetch()}>
@@ -183,29 +204,48 @@ export function WorkingHours({ doctorId }: { doctorId: string }) {
           </Button>
         </div>
       )}
-      {availability.data && (
+      {base && (
         <HoursEditor
-          // A newer version from the server (after a save or a conflict) starts the editor again.
-          key={availability.data.version}
-          availability={availability.data}
+          key={round}
+          availability={base}
           editable={editable}
-          pending={save.isPending}
+          // Until the newest version is known after a conflict, a save would only conflict again.
+          pending={save.isPending || conflict === 'awaiting'}
           onEdit={() => {
             setSaved(false);
-            if (save.isError) save.reset();
+            setDirty(true);
+            if (failed) save.reset();
           }}
           onSave={(sessions) => {
             setSaved(false);
             save.mutate(
-              { sessions, expectedVersion: availability.data.version },
-              { onSuccess: () => setSaved(true) },
+              { sessions, expectedVersion: expected },
+              {
+                onSuccess: () => {
+                  // Clean again, so the saved version is taken up and shown.
+                  setDirty(false);
+                  setConflict('none');
+                  setSaved(true);
+                },
+                onError: (error) => {
+                  if (isApiError(error) && error.serverCode === 'conflict') {
+                    setDirty(true);
+                    setConflict('awaiting');
+                  }
+                },
+              },
             );
           }}
         />
       )}
-      {save.isError && (
+      {conflict !== 'none' && (
         <p role="alert" className="text-sm text-destructive">
-          {conflict ? t('hours.conflict') : tCommon(errorMessageKey(save.error))}
+          {t('hours.conflict')}
+        </p>
+      )}
+      {failed && (
+        <p role="alert" className="text-sm text-destructive">
+          {tCommon(errorMessageKey(save.error))}
         </p>
       )}
       <p role="status" className="text-sm text-muted-foreground">

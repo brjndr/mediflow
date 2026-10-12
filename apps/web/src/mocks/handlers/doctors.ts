@@ -17,6 +17,7 @@ const MANAGE = 'doctor:manage';
 
 interface Staff extends DoctorCandidate {
   tenantId: string;
+  roleId: string;
 }
 
 const FIRST = ['Aarav', 'Diya', 'Kabir', 'Meera', 'Rohan', 'Sana', 'Vikram', 'Zoya'];
@@ -239,7 +240,7 @@ export const doctorsHandlers = [
       .filter((member) => member.tenantId === access.tenantId && !taken.has(member.userId))
       .filter((member) => `${member.name} ${member.email}`.toLowerCase().includes(q))
       .sort(byName)
-      .map(({ userId, name, email, roleId }): DoctorCandidate => ({ userId, name, email, roleId }));
+      .map(({ userId, name, email }): DoctorCandidate => ({ userId, name, email }));
     const page = paged(request, candidates, (candidate) => candidate.userId);
     if (!page) return error(400, 'invalid_cursor', 'Unknown cursor');
     return HttpResponse.json<DoctorCandidatePage>(page);
@@ -314,6 +315,14 @@ export const doctorsHandlers = [
     const doctor = find(access.tenantId, params.doctorId);
     if (!doctor) return notFound();
     if (doctor.version !== body.expectedVersion) return conflict();
+    // A doctor may stay in a department that was archived, but is not moved into one.
+    if (
+      fields.departmentId !== undefined &&
+      fields.departmentId !== doctor.departmentId &&
+      mockDepartment(access.tenantId, fields.departmentId)?.archived
+    ) {
+      return invalid();
+    }
     const before = JSON.stringify(doctor);
     Object.assign(doctor, fields);
     if (doctor.registrationNumber === '') delete doctor.registrationNumber;
