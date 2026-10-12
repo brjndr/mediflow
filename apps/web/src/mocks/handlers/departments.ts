@@ -80,6 +80,10 @@ export function editMockDepartment(id: string, changes: Partial<Department>): vo
   Object.assign(department, changes, { version: department.version + 1 });
 }
 
+/** A department of a hospital, for the mocks of features that refer to one. */
+export const mockDepartment = (tenantId: string, id: string) =>
+  departments.find((candidate) => candidate.id === id && candidate.tenantId === tenantId);
+
 const byName = (a: Department, b: Department) =>
   a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }) || a.id.localeCompare(b.id);
 

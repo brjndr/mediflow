@@ -30,6 +30,23 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expectNoSidewaysScroll(page);
   await page.getByRole('button', { name: 'Cancel' }).click();
 
+  // Doctors: the list, a profile with its week of working hours, and the add form.
+  await goTo(page, 'Doctors');
+  await expect(page.getByRole('heading', { name: 'Doctors', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Aarav Iyer' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'Aarav Iyer' }).click();
+  await expect(page.getByRole('heading', { name: 'Working hours' })).toBeVisible();
+  await expect(page.getByLabel('Monday, session 1: from')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'Edit profile' }).click();
+  await expect(page.getByRole('textbox', { name: 'Specialization' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'Back to the doctor list' }).click();
+  await page.getByRole('link', { name: 'Add a doctor' }).click();
+  await expect(page.getByRole('searchbox', { name: 'Find a staff member' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   await goTo(page, 'Patients');
   await expect(page.getByRole('heading', { name: 'Patients', exact: true })).toBeVisible();
   await expectNoSidewaysScroll(page);
