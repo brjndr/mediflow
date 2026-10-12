@@ -50,16 +50,21 @@ export const staffRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const role = await request.txClient.query('select 1 from roles where id = $1', [roleId]);
       if (role.rowCount === 0) throw new HttpError(400, 'unknown_role', 'No such role here');
       // An invitation never grants more than the inviter holds. Without this, anyone who may
-      // invite could invite a second address of their own as an administrator.
+      // invite could invite a second address of their own as an administrator. The same goes
+      // for an open invitation to this address, which a new one replaces: otherwise a lesser
+      // invitation could be used to take away one the caller could not have sent.
       const wanted = await request.txClient.query<{ permission: string; scope: string }>(
-        'select permission, scope from role_permissions where role_id = $1',
-        [roleId],
+        `select permission, scope from role_permissions
+         where role_id = $1
+            or role_id in (select role_id from invites
+                           where email = lower(btrim($2))
+                             and accepted_at is null and revoked_at is null)`,
+        [roleId, email],
       );
       const policy = await request.access.policy();
       if (!policy || !grantsWithin(wanted.rows, policy.permissions)) {
         throw new HttpError(403, 'role_not_allowed', 'That role holds more than you do');
       }
-
       const invite = await issueInvite(request.txClient, app.config, {
         email,
         name,

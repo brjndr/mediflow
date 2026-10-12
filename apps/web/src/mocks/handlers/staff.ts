@@ -1,7 +1,9 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import {
+  currentPolicy,
   currentSession,
+  mockRoleGrants,
   mockRoleHolds,
   mockRoleIds,
   onMockReset,
@@ -173,12 +175,26 @@ const find = (tenantId: string, userId: unknown) =>
 /** Whether someone's role lets them manage staff: by what the role holds, never by its name. */
 const managesStaff = (member: MockStaff) => mockRoleHolds(member.tenantId, member.roleId, MANAGE);
 
+/**
+ * Whether the signed-in person may give someone a role: it holds nothing they do not hold, at no
+ * wider a scope. The API's rule (`grantsWithin`), so the picker offers what sending accepts.
+ */
+function mayGive(tenantId: string, roleId: string): boolean {
+  const held = currentPolicy()?.permissions ?? [];
+  return mockRoleGrants(tenantId, roleId).every((grant) => {
+    const own = held.find((candidate) => candidate.permission === grant.permission);
+    const ownScope = own?.scope ?? 'all';
+    return own !== undefined && (ownScope === 'all' || ownScope === (grant.scope ?? 'all'));
+  });
+}
+
 export const staffHandlers = [
   // Before the routes with a user id in the same place.
   http.get('*/api/staff/roles', ({ request }) => {
     const access = authorize(request, { permission: INVITE, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
     const items = mockRoleIds(access.tenantId)
+      .filter((id) => mayGive(access.tenantId, id))
       .map((id) => ({ id, name: roleName(id) }))
       .sort((a, b) => a.name.localeCompare(b.name));
     return HttpResponse.json<StaffRoleList>({ items });
@@ -290,6 +306,9 @@ export const staffHandlers = [
     }
     if (!mockRoleIds(access.tenantId).includes(roleId)) {
       return error(400, 'unknown_role', 'No such role here');
+    }
+    if (!mayGive(access.tenantId, roleId)) {
+      return error(403, 'role_not_allowed', 'That role holds more than you do');
     }
     const address = email.trim().toLowerCase();
     // A newer invite to the same address replaces an older one.

@@ -587,6 +587,23 @@ describe('access', () => {
     expect(screen.queryByRole('button', { name: /^(Deactivate|Sign out everywhere)/ })).toBeNull();
   });
 
+  it('offers, and accepts, only roles that hold no more than the inviter', async () => {
+    // A doctor who is allowed to invite: other doctors, but not an administrator.
+    grantPermission(TENANT_IDS.hospital, 'doctor', 'staff:invite');
+    signIn(USER_IDS.doctor, TENANT_IDS.hospital);
+
+    await expect(api.GET('/staff/roles')).resolves.toMatchObject({
+      data: { items: [{ id: 'doctor', name: 'Doctor' }] },
+    });
+    await expect(
+      api.POST('/invites', {
+        body: { name: 'N', email: 'n@sample-hospital.test', roleId: 'admin' },
+        params: { header: { 'idempotency-key': 'test-key-0003' } },
+      }),
+    ).rejects.toMatchObject({ serverCode: 'role_not_allowed' });
+    expect(sentTo()).toEqual([]);
+  });
+
   it('does not exist for a hospital that has the module off', async () => {
     setTenantFeature(TENANT_IDS.hospital, 'staff', false);
     renderApp({ entry: '/staff' });

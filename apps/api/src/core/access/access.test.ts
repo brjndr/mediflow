@@ -675,8 +675,12 @@ describe('inviting staff', () => {
   it('never grants more than the inviter holds', async () => {
     // A role that may invite and little else, as a hospital might give its HR desk.
     await pool.query(
-      "insert into roles (tenant_id, id, name) values ($1, 'hr_desk', 'HR desk'), ($1, 'wide_reader', 'Wide reader'), ($1, 'own_reader', 'Own reader')",
-      [hospital.id],
+      "insert into roles (tenant_id, id, name) values ($1, 'hr_desk', 'HR desk'), ($1, 'wide_reader', 'Wide reader'), ($1, 'own_reader', 'Own reader'), ($1, 'twin', 'Twin'), ($2, 'twin', 'Twin')",
+      [hospital.id, clinic.id],
+    );
+    await pool.query(
+      "insert into role_permissions (tenant_id, role_id, permission) values ($1, 'twin', 'probe:write')",
+      [clinic.id],
     );
     await pool.query(
       `insert into role_permissions (tenant_id, role_id, permission, scope) values
@@ -691,8 +695,8 @@ describe('inviting staff', () => {
       const as = (roleId: string) => invite(token, { email: freshEmail(), name: 'X', roleId });
 
       // An administrator holds what the HR desk does not.
-      const admin = await as('admin');
-      expect(errorOf(admin)).toEqual([403, 'role_not_allowed']);
+      const asAdministrator = await as('admin');
+      expect(errorOf(asAdministrator)).toEqual([403, 'role_not_allowed']);
       // The same permission at a wider scope is more as well.
       expect(errorOf(await as('wide_reader'))).toEqual([403, 'role_not_allowed']);
       expect(notifier.sent).toHaveLength(0);
@@ -705,19 +709,43 @@ describe('inviting staff', () => {
         ).rowCount,
       ).toBe(0);
 
+      // Nor may a lesser invitation push aside one they could not have sent.
+      const pending = freshEmail();
+      const fromAdmin = await invite(await signIn(admin), {
+        email: pending,
+        name: 'Future Admin',
+        roleId: 'admin',
+      });
+      expect(fromAdmin.statusCode).toBe(201);
+      notifier.sent.length = 0;
+      const replaced = await invite(token, { email: pending, name: 'X', roleId: 'hr_desk' });
+      expect(errorOf(replaced)).toEqual([403, 'role_not_allowed']);
+      expect(
+        (
+          await pool.query(
+            "select 1 from invites where email = $1 and role_id = 'admin' and revoked_at is null",
+            [pending],
+          )
+        ).rowCount,
+      ).toBe(1);
+
+      // A role is judged by what it holds at this hospital. The clinic's role of the same name
+      // holds more, and that is the clinic's business.
+      expect((await as('twin')).statusCode).toBe(201);
+
       // Their own role, and one that holds less, are theirs to give.
       expect((await as('hr_desk')).statusCode).toBe(201);
       expect((await as('own_reader')).statusCode).toBe(201);
-      expect(notifier.sent).toHaveLength(2);
+      expect(notifier.sent).toHaveLength(3);
     } finally {
       await pool.query(
-        "delete from invites where tenant_id = $1 and role_id in ('hr_desk', 'own_reader')",
+        "delete from invites where tenant_id = $1 and role_id in ('hr_desk', 'own_reader', 'twin')",
         [hospital.id],
       );
       await deleteUsers(pool, [hr]);
       await pool.query(
-        "delete from roles where tenant_id = $1 and id in ('hr_desk', 'wide_reader', 'own_reader')",
-        [hospital.id],
+        "delete from roles where tenant_id in ($1, $2) and id in ('hr_desk', 'wide_reader', 'own_reader', 'twin')",
+        [hospital.id, clinic.id],
       );
     }
   });

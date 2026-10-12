@@ -80,6 +80,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'appointment:create' },
   { permission: 'appointment:update' },
   { permission: 'clinical:read' },
+  { permission: 'clinical:write' },
+  { permission: 'order:create' },
   { permission: 'billing:read' },
   { permission: 'billing:create' },
   { permission: 'billing:refund' },
@@ -361,6 +363,11 @@ export function switchTenant(tenantId: string): boolean {
 /** Whether a role of a hospital holds a permission. */
 export function mockRoleHolds(tenantId: string, roleId: string, permission: string): boolean {
   return (roles[tenantId]?.[roleId] ?? []).some((grant) => grant.permission === permission);
+}
+
+/** What a role of a hospital holds. */
+export function mockRoleGrants(tenantId: string, roleId: string): PermissionGrantDto[] {
+  return roles[tenantId]?.[roleId] ?? [];
 }
 
 /** The ids of a hospital's roles. */
