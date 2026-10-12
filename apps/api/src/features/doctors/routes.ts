@@ -267,7 +267,7 @@ export const doctorRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'updateDoctor',
         tags: ['doctors'],
         description:
-          'Changes a doctor profile, or makes it inactive or active again. A new department must be an active department of the same hospital (400 otherwise). Send the version the change was made from: 409 conflict when the profile has changed since. Sending what the profile already has changes nothing.' +
+          'Changes a doctor profile, or makes it inactive or active again (active again only for someone who is still an active member, 400 otherwise). A new department must be an active department of the same hospital (400 otherwise). Send the version the change was made from: 409 conflict when the profile has changed since. Sending what the profile already has changes nothing.' +
           OTHER_HOSPITAL,
         params: Params,
         body: ref(DoctorUpdate),
@@ -282,7 +282,7 @@ export const doctorRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!current) throw notFound();
       if (current.version !== body.expectedVersion) throw conflict();
       const next = {
-        departmentId: body.departmentId ?? current.department_id,
+        departmentId: body.departmentId?.toLowerCase() ?? current.department_id,
         specialization:
           body.specialization === undefined
             ? current.specialization
@@ -292,16 +292,22 @@ export const doctorRoutes: FastifyPluginAsyncTypebox = async (app) => {
             ? current.registration_number
             : cleanRegistration(body.registrationNumber),
         consultationMinutes: body.consultationMinutes ?? current.consultation_minutes,
-        active: body.active ?? current.active,
+        active: body.active ?? current.profile_active,
       };
       if (
         next.departmentId === current.department_id &&
         next.specialization === current.specialization &&
         next.registrationNumber === current.registration_number &&
         next.consultationMinutes === current.consultation_minutes &&
-        next.active === current.active
+        next.active === current.profile_active
       ) {
         return view(current);
+      }
+      // Making a profile active is for someone who works here: reactivate the member first.
+      if (next.active && !current.profile_active) {
+        if (!(await isActiveMember(request.txClient, current.user_id))) {
+          throw invalid('Not an active member of this hospital');
+        }
       }
       // A doctor may stay in a department that was archived, but is not moved into one.
       if (next.departmentId !== current.department_id) {
@@ -344,7 +350,7 @@ export const doctorRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'setDoctorAvailability',
         tags: ['doctors'],
         description:
-          'Replaces the weekly working hours. Sessions of one day must not overlap and each must end after it starts (400 otherwise). 409 conflict when the hours have changed since the version sent. Sending the hours the doctor already has changes nothing.' +
+          'Replaces the weekly working hours. Sessions of one day must not overlap and each must end after it starts (400 otherwise); a session ends by 23:59 of its own day, so one cannot run past midnight. 409 conflict when the hours have changed since the version sent. Sending the hours the doctor already has changes nothing.' +
           OTHER_HOSPITAL,
         params: Params,
         body: ref(DoctorAvailabilityUpdate),

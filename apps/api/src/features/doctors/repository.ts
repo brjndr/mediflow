@@ -18,16 +18,24 @@ export interface DoctorRow {
   specialization: string;
   registration_number: string | null;
   consultation_minutes: number;
+  /** Practising here now: the profile is active and so is the person's membership. */
   active: boolean;
+  /** What the profile itself says, whatever became of the membership. */
+  profile_active: boolean;
   version: number;
   hours_version: number;
 }
 
+// A doctor whose membership the hospital has deactivated is not practising here, whatever the
+// profile says: scheduling must not offer someone who cannot sign in. Reactivating the member
+// brings the doctor back as they were.
 const DOCTORS = `select d.id, d.tenant_id, d.user_id, u.name, lower(u.name) as name_lower,
                         d.department_id, p.name as department_name, d.specialization,
-                        d.registration_number, d.consultation_minutes, d.active, d.version,
-                        d.hours_version
+                        d.registration_number, d.consultation_minutes,
+                        (d.active and m.status = 'active') as active,
+                        d.active as profile_active, d.version, d.hours_version
                  from doctors d
+                 join memberships m on m.user_id = d.user_id
                  join users u on u.id = d.user_id
                  join departments p on p.id = d.department_id`;
 
@@ -116,7 +124,7 @@ export function listDoctors(
 ): Promise<Page<DoctorRow> | null> {
   // The database lower-cases both sides: its idea of a letter's lower case is not JavaScript's.
   const source = `${DOCTORS}
-    where d.active = $1
+    where (d.active and m.status = 'active') = $1
       and ($2::uuid is null or d.department_id = $2)
       and ($3 = '' or position(lower($3) in lower(u.name || ' ' || d.specialization)) > 0)`;
   return paged<DoctorRow>(client, source, [active, departmentId, q], (row) => row.id, paging);

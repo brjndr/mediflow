@@ -241,10 +241,10 @@ try {
     const added = await client.query<{ id: string }>(
       `insert into doctors (tenant_id, user_id, department_id, specialization, consultation_minutes)
        select m.tenant_id, m.user_id,
-              (select id from departments
-               where tenant_id = m.tenant_id and name = 'General Medicine'),
-              'General practice', 15
+              p.id, 'General practice', 15
        from memberships m
+       -- Whatever its capitals now. A hospital that has no such department gets no profiles.
+       join departments p on p.tenant_id = m.tenant_id and p.name_lower = 'general medicine'
        where m.tenant_id = $1 and m.role_id = 'doctor'
        on conflict on constraint doctors_one_profile do nothing
        returning id`,

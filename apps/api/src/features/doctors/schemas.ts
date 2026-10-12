@@ -40,7 +40,7 @@ export const Doctor = Type.Object(
     consultationMinutes: Type.Integer(),
     active: Type.Boolean({
       description:
-        'False once the doctor no longer practises here: kept on old records, not offered for new ones.',
+        'False once the doctor no longer practises here, or while their membership of the hospital is deactivated: kept on old records, not offered for new ones.',
     }),
     version: Type.Integer({ description: 'Counts the changes. Sent back as expectedVersion.' }),
   },

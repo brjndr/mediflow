@@ -599,7 +599,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Changes a doctor profile, or makes it inactive or active again. A new department must be an active department of the same hospital (400 otherwise). Send the version the change was made from: 409 conflict when the profile has changed since. Sending what the profile already has changes nothing. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
+        /** @description Changes a doctor profile, or makes it inactive or active again (active again only for someone who is still an active member, 400 otherwise). A new department must be an active department of the same hospital (400 otherwise). Send the version the change was made from: 409 conflict when the profile has changed since. Sending what the profile already has changes nothing. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
         patch: operations["updateDoctor"];
         trace?: never;
     };
@@ -612,7 +612,7 @@ export interface paths {
         };
         /** @description A doctor's regular weekly working hours, in the hospital's timezone. Scheduling reads this. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
         get: operations["getDoctorAvailability"];
-        /** @description Replaces the weekly working hours. Sessions of one day must not overlap and each must end after it starts (400 otherwise). 409 conflict when the hours have changed since the version sent. Sending the hours the doctor already has changes nothing. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
+        /** @description Replaces the weekly working hours. Sessions of one day must not overlap and each must end after it starts (400 otherwise); a session ends by 23:59 of its own day, so one cannot run past midnight. 409 conflict when the hours have changed since the version sent. Sending the hours the doctor already has changes nothing. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
         put: operations["setDoctorAvailability"];
         post?: never;
         delete?: never;
@@ -990,7 +990,7 @@ export interface components {
             specialization: string;
             registrationNumber?: string;
             consultationMinutes: number;
-            /** @description False once the doctor no longer practises here: kept on old records, not offered for new ones. */
+            /** @description False once the doctor no longer practises here, or while their membership of the hospital is deactivated: kept on old records, not offered for new ones. */
             active: boolean;
             /** @description Counts the changes. Sent back as expectedVersion. */
             version: number;

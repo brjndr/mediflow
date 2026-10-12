@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   addMembership,
   as,
@@ -184,6 +184,19 @@ afterAll(async () => {
   await app.close();
 });
 
+afterEach(async () => {
+  await pool.query("update memberships set status = 'active' where tenant_id = any($1)", [
+    [hospital.id, clinic.id, closed.id],
+  ]);
+});
+
+/** A change that the test relies on having gone through. */
+async function changed(id: string, body: object, options: Options = {}) {
+  const response = await change(id, body, options);
+  if (response.statusCode !== 200) throw new Error('a change did not go through in a test');
+  return response.json<Doctor>();
+}
+
 describe('creating a profile', () => {
   beforeAll(clearDoctors);
 
@@ -332,8 +345,8 @@ describe('the list and a profile', () => {
     belaDoctor = await doctorFor(bela, 'Neurology');
     await doctorFor(chitra, 'Cardiology');
     const gone = await doctorFor(dev, 'Neurology');
-    await change(gone.id, { active: false, expectedVersion: 1 });
-    await change(belaDoctor.id, { specialization: 'Stroke medicine', expectedVersion: 1 });
+    await changed(gone.id, { active: false, expectedVersion: 1 });
+    await changed(belaDoctor.id, { specialization: 'Stroke medicine', expectedVersion: 1 });
   });
 
   it('lists the active doctors by name, a page at a time', async () => {
@@ -433,6 +446,46 @@ describe('the list and a profile', () => {
     expect(back.json()).toMatchObject({ active: true, version: 6 });
   });
 
+  it('counts a doctor whose membership was deactivated as inactive, until the member is back', async () => {
+    const suspend = (status: string) =>
+      pool.query('update memberships set status = $3 where user_id = $1 and tenant_id = $2', [
+        chitra.id,
+        hospital.id,
+        status,
+      ]);
+    const chitraDoctor = (await get('/doctors?q=chitra')).json<Page<Doctor>>().items[0] as Doctor;
+    await suspend('suspended');
+
+    // Not among the doctors scheduling would offer, and shown as not practising.
+    expect(names(await get('/doctors'))).not.toContain('Chitra Iyer');
+    expect(names(await get('/doctors?active=false'))).toContain('Chitra Iyer');
+    expect((await get(`/doctors/${chitraDoctor.id}`)).json()).toMatchObject({ active: false });
+
+    // The profile itself was not touched, so the member coming back is all it takes.
+    await suspend('active');
+    expect(names(await get('/doctors'))).toContain('Chitra Iyer');
+    expect((await get(`/doctors/${chitraDoctor.id}`)).json()).toMatchObject({
+      active: true,
+      version: chitraDoctor.version,
+    });
+  });
+
+  it('does not make a profile active for someone who no longer works here', async () => {
+    const gone = (await get('/doctors?active=false&q=dev')).json<Page<Doctor>>().items[0] as Doctor;
+    await pool.query(
+      "update memberships set status = 'suspended' where user_id = $1 and tenant_id = $2",
+      [dev.id, hospital.id],
+    );
+
+    const refused = await change(gone.id, { active: true, expectedVersion: gone.version });
+
+    expect(errorOf(refused)).toEqual([400, 'validation_failed']);
+    await pool.query("update memberships set status = 'active' where user_id = $1", [dev.id]);
+    const allowed = await change(gone.id, { active: true, expectedVersion: gone.version });
+    expect(allowed.json()).toMatchObject({ active: true });
+    await change(gone.id, { active: false, expectedVersion: allowed.json<Doctor>().version });
+  });
+
   it('lets one of two changes made from the same version through', async () => {
     const version = (await get(`/doctors/${belaDoctor.id}`)).json<Doctor>().version;
 
@@ -520,15 +573,38 @@ describe('working hours', () => {
     expect(await audited(hospital, doctor.id)).toEqual(['create', 'update_hours', 'update_hours']);
   });
 
-  it('is unaffected by a change to the profile', async () => {
-    await change(doctor.id, { consultationMinutes: 45, expectedVersion: 1 });
+  it('lets one of two replacements made from the same version through', async () => {
+    const version = (await get(`/doctors/${doctor.id}/availability`)).json<Availability>().version;
 
-    expect((await get(`/doctors/${doctor.id}/availability`)).json<Availability>().version).toBe(3);
+    const results = await Promise.all([
+      setHours(doctor.id, [{ day: 'thu', start: '09:00', end: '12:00' }], version),
+      setHours(doctor.id, [{ day: 'thu', start: '14:00', end: '18:00' }], version),
+    ]);
+
+    expect(results.map((response) => response.statusCode).sort()).toEqual([200, 409]);
+    const now = (await get(`/doctors/${doctor.id}/availability`)).json<Availability>();
+    expect(now.version).toBe(version + 1);
+    expect(now.sessions).toHaveLength(1);
+    // Back to what the tests after this one expect.
+    const restored = await setHours(
+      doctor.id,
+      [morning, { day: 'mon', start: '13:00', end: '17:00' }],
+      now.version,
+    );
+    expect(restored.statusCode).toBe(200);
+  });
+
+  it('is unaffected by a change to the profile', async () => {
+    const hours = () => get(`/doctors/${doctor.id}/availability`);
+    const before = (await hours()).json<Availability>().version;
+    await changed(doctor.id, { consultationMinutes: 45, expectedVersion: 1 });
+
+    expect((await hours()).json<Availability>().version).toBe(before);
     // And an empty week is a week off.
-    expect((await setHours(doctor.id, [], 3)).json()).toEqual({
+    expect((await setHours(doctor.id, [], before)).json()).toEqual({
       doctorId: doctor.id,
       sessions: [],
-      version: 4,
+      version: before + 1,
     });
   });
 
@@ -542,6 +618,15 @@ describe('working hours', () => {
 
     await expect(insert(700, 900)).rejects.toThrow(/doctor_hours_no_overlap/);
     await expect(insert(780, 900)).resolves.toBeDefined();
+
+    // The rule looks at one hospital at a time: the same doctor id and hours under another
+    // hospital are refused for the hospital they name (the foreign key), not for overlapping.
+    await expect(
+      pool.query(
+        'insert into doctor_hours (tenant_id, doctor_id, day, start_minute, end_minute) values ($1, $2, 3, 540, 780)',
+        [clinic.id, doctor.id],
+      ),
+    ).rejects.toThrow(/doctor_hours_doctor/);
   });
 });
 
