@@ -38,8 +38,15 @@ export async function fetchDoctor(doctorId: string, signal?: AbortSignal): Promi
   return doctorSchema.parse(requireData(result));
 }
 
-export async function createDoctor(body: DoctorCreate): Promise<Doctor> {
-  const result = await api.POST('/doctors', { body });
+/**
+ * Creates a profile. The key makes a repeat of the same request (a double click, a retry after a
+ * lost answer) create one profile, not fail on its own.
+ */
+export async function createDoctor(body: DoctorCreate, idempotencyKey: string): Promise<Doctor> {
+  const result = await api.POST('/doctors', {
+    body,
+    params: { header: { 'idempotency-key': idempotencyKey } },
+  });
   return doctorSchema.parse(requireData(result));
 }
 

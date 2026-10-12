@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
@@ -90,8 +90,20 @@ function useRefreshDoctors() {
 
 export function useCreateDoctor() {
   const refresh = useRefreshDoctors();
+  // A key identifies one profile as filled in: sending the same again reuses it, an edited form
+  // gets a new one.
+  const attempt = useRef<{ body: string; key: string }>(undefined);
   return useMutation({
-    mutationFn: (body: DoctorCreate) => createDoctor(body),
+    mutationFn: (body: DoctorCreate) => {
+      const serialized = JSON.stringify(body);
+      if (attempt.current?.body !== serialized) {
+        attempt.current = { body: serialized, key: crypto.randomUUID() };
+      }
+      return createDoctor(body, attempt.current.key);
+    },
+    onSuccess: () => {
+      attempt.current = undefined;
+    },
     onSettled: refresh,
   });
 }
