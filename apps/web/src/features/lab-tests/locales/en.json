@@ -86,6 +86,7 @@
     "serviceSearchPlaceholder": "Code or name of a service",
     "noService": "Not linked to a service",
     "serviceMore": "The first {{count}} services are offered. Type above to find another.",
+    "serviceFailed": "The services could not be loaded.",
     "serviceUnavailable": "The price catalog is not open to you, so the service cannot be changed here.",
     "componentIds": "Tests in this panel",
     "componentsHint": "In the order they are reported.",
@@ -195,7 +196,7 @@
       "note": "Note",
       "remove": "Remove range {{number}}",
       "add": "Add a range",
-      "ageNote": "Ages are counted with a month of 30 days and a year of 365.",
+      "ageNote": "Ages are counted with a year of 365 days and a month as a twelfth of a year, so 12 months are one year.",
       "save": "Save ranges",
       "cancel": "Cancel"
     },

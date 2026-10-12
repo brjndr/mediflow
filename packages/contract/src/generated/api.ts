@@ -1027,7 +1027,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The reference range that applies to a patient of an age and a sex: the row for that sex covering that age, else the row for any sex covering it, else none. A patient whose sex is recorded as other gets only a row for any. Requires labTest:read. This is the one place the rule lives: the result entry of the laboratory asks here. Ages are counted with a month of 30 days and a year of 365, here and where the ranges are entered: a patient aged 12 years and 2 months is 12 x 365 + 2 x 30 days old. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        /** @description The reference range that applies to a patient of an age and a sex: the row for that sex covering that age, else the row for any sex covering it, else none. A patient whose sex is recorded as other gets only a row for any. Requires labTest:read. It answers the check on the catalog screen with an age someone typed, and identifies no patient. It is not how a result is read for a real patient: the laboratory works that out on the server from the patient of the order, with this same rule, and the age or date of birth of a patient is never sent in an address. Ages are counted with a year of 365 days and a month as a twelfth of a year rounded to the day (12 months are one year), here and where the ranges are entered: a patient aged 12 years and 2 months is 12 x 365 + 61 days old, not the number of days since the date of birth. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
         get: operations["resolveLabTestRange"];
         put?: never;
         post?: never;
@@ -1633,7 +1633,7 @@ export interface components {
             turnaroundHours: number;
             /** @description The service the test is charged as: a laboratory service of the same hospital's catalog. Empty text removes the link on a change. */
             serviceId?: string;
-            /** @description The name of the linked service, when there is one. */
+            /** @description The name of the linked service, when there is one. The name alone is shown to everyone who may read the test, by decision; nothing else of the service (a price, a tax class) is ever added here. */
             serviceName?: string;
             /** @description The tests of a panel. Empty for a single test. */
             components: components["schemas"]["LabTestComponent"][];

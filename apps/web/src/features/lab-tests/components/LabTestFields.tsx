@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePermission } from '@/access';
+import { isApiError } from '@/shared/api';
+import { useFeatureFlag, usePermission } from '@/access';
 import { Button } from '@/shared/ui/button';
 import {
   SelectField,
@@ -50,8 +51,12 @@ const serviceLabel = (service: KnownService) =>
  */
 function ServiceField({ known }: { known: KnownService[] }) {
   const { t } = useTranslation('lab_tests');
+  const { t: tCommon } = useTranslation();
   const searchId = useId();
-  const maySee = usePermission('service:read');
+  // The price catalog is another module: it has to be switched on, and open to this person.
+  const allowed = usePermission('service:read');
+  const switchedOn = useFeatureFlag('services');
+  const maySee = allowed && switchedOn;
   const [search, setSearch] = useState('');
   const choices = useServiceChoices(useDebouncedValue(search, SEARCH_DEBOUNCE_MS), maySee);
   const selected = String(useFieldValue('serviceId') ?? '');
@@ -61,11 +66,18 @@ function ServiceField({ known }: { known: KnownService[] }) {
   const items = choices.data?.items ?? [];
   const hit = items.find((item) => item.id === selected);
   if (hit && hit.id !== remembered?.id) setRemembered(hit);
-  const current =
-    hit ?? (remembered?.id === selected ? remembered : known.find((item) => item.id === selected));
+  // Every service the form can name is an option, so the one that is chosen never falls out of
+  // the list: not while the search moves on, and not when someone else's link arrives.
+  const extras = [...(remembered ? [remembered] : []), ...known].filter(
+    (item, index, all) =>
+      !items.some((other) => other.id === item.id) &&
+      all.findIndex((other) => other.id === item.id) === index,
+  );
+  const current = hit ?? extras.find((item) => item.id === selected);
+  const refused = isApiError(choices.error) && choices.error.code === 'forbidden';
 
   // Without the price catalog there is nothing to pick from: the link stays as it is.
-  if (!maySee || choices.isError) {
+  if (!maySee || refused) {
     return (
       <div className="flex flex-col gap-1 text-sm">
         <span className="font-medium">{t('form.serviceId')}</span>
@@ -75,9 +87,20 @@ function ServiceField({ known }: { known: KnownService[] }) {
     );
   }
 
-  const options = current && !hit ? [current, ...items] : items;
+  const options = [...extras, ...items];
   return (
     <div className="flex flex-col gap-2">
+      {/* A search that failed leaves the picker, with what it had, and a way to ask again. */}
+      {choices.isError && (
+        <div className="flex flex-wrap items-center gap-3">
+          <p role="alert" className="text-sm text-destructive">
+            {t('form.serviceFailed')}
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={() => void choices.refetch()}>
+            {tCommon('grid.retry')}
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col gap-1.5">
         <label htmlFor={searchId} className="text-sm font-medium">
           {t('form.serviceSearch')}

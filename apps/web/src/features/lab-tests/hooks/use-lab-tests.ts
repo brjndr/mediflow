@@ -99,7 +99,9 @@ export function useServiceChoices(search: string, enabled: boolean) {
     queryKey: labTestKeys.list(tenantId ?? '', { choices: 'services', q }),
     queryFn: ({ signal }) => fetchLabServices(q, PICKER_SIZE, signal),
     enabled: enabled && tenantId !== undefined,
-    staleTime: STALE_TIME_MS,
+    // Another module's list, which nothing here hears of when it changes: asked afresh each time
+    // the form opens, so a service added a moment ago is offered.
+    staleTime: 0,
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === tenantId ? previous : undefined,
   });

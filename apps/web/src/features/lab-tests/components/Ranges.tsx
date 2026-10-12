@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
@@ -189,6 +189,15 @@ function Editor({
 }) {
   const { t } = useTranslation('lab_tests');
   const form = useZodForm(rangesFormSchema, { rows: from.map(toRangeRow) });
+  // Some rules are between fields and between rows (two ranges sharing an age), and are put right
+  // in a field other than the one that says so. Once Save has been tried, every change checks
+  // all the rows again, so no message stays that is no longer true.
+  const { isSubmitted } = form.formState;
+  useEffect(() => {
+    if (!isSubmitted) return;
+    const watching = form.watch(() => void form.trigger('rows'));
+    return () => watching.unsubscribe();
+  }, [form, isSubmitted]);
   return (
     <Form
       form={form}
@@ -214,6 +223,12 @@ function Check({ labTestId, unit }: { labTestId: string; unit: string | undefine
   const text = useRangeText(unit);
   const resolve = useResolveLabRange(labTestId);
   const form = useZodForm(resolveFormSchema, { ageValue: '', ageUnit: 'years', sex: '' });
+  // An answer is about the age and sex it was asked for: it goes when they are changed.
+  const { reset } = resolve;
+  useEffect(() => {
+    const watching = form.watch(() => reset());
+    return () => watching.unsubscribe();
+  }, [form, reset]);
 
   const submit = (values: ResolveFormValues) =>
     resolve

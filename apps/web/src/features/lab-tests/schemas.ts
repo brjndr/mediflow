@@ -206,20 +206,29 @@ export function toCreate(values: LabTestCreateFormValues): LabTestCreate {
 }
 
 // Ages. A range is kept in days since birth and typed in days, months or years. A month counts
-// as 30 days and a year as 365, here and where a range is looked up for a patient.
+// as a twelfth of a year of 365 days, here and where a range is looked up for a patient.
 
 export const AGE_UNITS = ['days', 'months', 'years'] as const;
 export type AgeUnit = (typeof AGE_UNITS)[number];
-const DAYS_IN: Record<AgeUnit, number> = { days: 1, months: 30, years: 365 };
+const YEAR_DAYS = 365;
 /** 150 years: the oldest age a range can name. */
 export const AGE_MAX_DAYS = 54750;
 
-export const toDays = (value: number, unit: AgeUnit) => value * DAYS_IN[unit];
+/**
+ * An age in days. A year is 365 days and a month a twelfth of a year, rounded to the day, so
+ * 12 months are exactly one year and a range typed in months meets one typed in years with no
+ * day left between them.
+ */
+export function toDays(value: number, unit: AgeUnit): number {
+  if (unit === 'years') return value * YEAR_DAYS;
+  return unit === 'months' ? Math.round((value * YEAR_DAYS) / 12) : value;
+}
 
 /** An age in days as a person would type it: in the largest unit that fits it exactly. */
 export function fromDays(days: number): { value: number; unit: AgeUnit } {
-  if (days > 0 && days % 365 === 0) return { value: days / 365, unit: 'years' };
-  if (days > 0 && days % 30 === 0) return { value: days / 30, unit: 'months' };
+  if (days > 0 && days % YEAR_DAYS === 0) return { value: days / YEAR_DAYS, unit: 'years' };
+  const months = Math.round((days * 12) / YEAR_DAYS);
+  if (months > 0 && toDays(months, 'months') === days) return { value: months, unit: 'months' };
   return { value: days, unit: 'days' };
 }
 
@@ -363,14 +372,20 @@ export const rangesFormSchema = z
 export type RangesFormValues = z.infer<typeof rangesFormSchema>;
 
 /** The form that asks which range applies to a patient. */
-export const resolveFormSchema = z.object({
-  ageValue: z
-    .string()
-    .trim()
-    .min(1, 'validation.required')
-    .regex(WHOLE, 'validation.invalid_format')
-    .refine((text) => !WHOLE.test(text) || Number(text) <= AGE_MAX_DAYS, 'validation.too_big'),
-  ageUnit: z.enum(AGE_UNITS),
-  sex: z.enum(PATIENT_SEXES, 'validation.required'),
-});
+export const resolveFormSchema = z
+  .object({
+    ageValue: z
+      .string()
+      .trim()
+      .min(1, 'validation.required')
+      .regex(WHOLE, 'validation.invalid_format'),
+    ageUnit: z.enum(AGE_UNITS),
+    sex: z.enum(PATIENT_SEXES, 'validation.required'),
+  })
+  .superRefine((values, context) => {
+    // The age in days, whatever unit it was typed in, is what has a limit.
+    if (toDays(Number(values.ageValue), values.ageUnit) > AGE_MAX_DAYS) {
+      context.addIssue({ code: 'custom', path: ['ageValue'], message: 'validation.too_big' });
+    }
+  });
 export type ResolveFormValues = z.infer<typeof resolveFormSchema>;

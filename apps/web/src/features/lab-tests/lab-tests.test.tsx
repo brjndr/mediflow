@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { editMockLabRanges, editMockLabTest } from '@/mocks/handlers/lab-tests';
@@ -218,6 +218,28 @@ describe('adding a test', () => {
     );
     // Only laboratory services are offered.
     expect(screen.queryByRole('option', { name: /ECG/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps the service picker when a search for services fails, with a way to ask again', async () => {
+    await openCreate();
+    await screen.findByRole('option', { name: 'Urine routine (LAB-007)' });
+    server.use(
+      http.get('*/api/services', () => new HttpResponse(null, { status: 500 }), { once: true }),
+    );
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Find a laboratory service' }),
+      'thyroid',
+    );
+
+    expect(await screen.findByText('The services could not be loaded.')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /^Charged as/ })).toBeInTheDocument();
+    await userEvent.click(button('Try again'));
+    expect(
+      await screen.findByRole('option', { name: 'Thyroid profile (LAB-006)' }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText('The services could not be loaded.')).not.toBeInTheDocument(),
+    );
   });
 
   it('adds a test whose result is text, which has no unit and no ranges', async () => {
@@ -541,6 +563,59 @@ describe('reference ranges', () => {
     );
   });
 
+  it('does not ask for an age beyond the oldest a range can name, in any unit', async () => {
+    let asked = 0;
+    server.use(
+      http.get('*/api/lab-tests/:id/ranges/resolve', () => {
+        asked++;
+        return undefined;
+      }),
+    );
+    await openRanges();
+    await check('200', 'years', 'Male');
+
+    await waitFor(() => expect(textbox(/^Age/)).toHaveAttribute('aria-invalid', 'true'));
+    expect(asked).toBe(0);
+    // The same number of days is an age.
+    await check('200', 'days', 'Male');
+    await waitFor(() => expect(asked).toBe(1));
+  });
+
+  it('drops an answer once the age or sex it was for is changed', async () => {
+    await openRanges();
+    const answer = () => statuses().find((text) => /^(Range used|No range)/.test(text ?? ''));
+    await check('30', 'years', 'Male');
+    await waitFor(() => expect(answer()).toContain('Male, From 12 years'));
+
+    await choose(/^Sex/, 'Female');
+    await waitFor(() => expect(answer()).toBeUndefined());
+  });
+
+  it('takes a message away when what it was about is put right in another field or row', async () => {
+    await openRanges(ESR);
+    await userEvent.click(button('Edit ranges'));
+    await userEvent.click(button('Add a range'));
+    await userEvent.click(button('Add a range'));
+    await typeIn(1, /^Highest normal/, '20');
+    await typeIn(2, /^Highest normal/, '30');
+    await userEvent.click(button('Save ranges'));
+    // Both are for anyone from birth.
+    expect(await range(2).findByRole('alert')).toHaveTextContent(
+      'Another range for the same people already covers some of these ages.',
+    );
+
+    // Put right in the first row: the message on the second goes.
+    await typeIn(1, /^Until age/, '12');
+    await typeIn(2, /^From age/, '12');
+    await waitFor(() => expect(range(2).queryByRole('alert')).not.toBeInTheDocument());
+
+    // And a row that is removed takes its part in a clash with it.
+    await typeIn(2, /^From age/, '5');
+    expect(await range(2).findByRole('alert')).toBeInTheDocument();
+    await userEvent.click(button('Remove range 1'));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  });
+
   it('sets the first range of a test', async () => {
     const bodies = sent('PUT');
     await openRanges(ESR);
@@ -711,6 +786,11 @@ describe('reference ranges', () => {
     expect(toDays(12, 'years')).toBe(4380);
     expect(fromDays(4380)).toEqual({ value: 12, unit: 'years' });
     expect(fromDays(30)).toEqual({ value: 1, unit: 'months' });
+    // Twelve months are a year: a range typed in months meets one typed in years.
+    expect(toDays(12, 'months')).toBe(toDays(1, 'years'));
+    expect(toDays(60, 'months')).toBe(toDays(5, 'years'));
+    expect(fromDays(toDays(18, 'months'))).toEqual({ value: 18, unit: 'months' });
+    expect(fromDays(365)).toEqual({ value: 1, unit: 'years' });
     expect(fromDays(45)).toEqual({ value: 45, unit: 'days' });
     expect(fromDays(0)).toEqual({ value: 0, unit: 'days' });
 
@@ -840,6 +920,25 @@ describe('access', () => {
     await userEvent.click(button('Save test'));
     await waitFor(() => expect(statuses()).toContain('The test was saved.'));
     expect(screen.getByText('Complete blood count', { selector: 'dd' })).toBeInTheDocument();
+  });
+
+  it('does not ask for the price catalog at a hospital that has it switched off', async () => {
+    setTenantFeature(TENANT_IDS.hospital, 'services', false);
+    let asked = 0;
+    server.use(
+      http.get('*/api/services', () => {
+        asked++;
+        return undefined;
+      }),
+    );
+    await openCreate();
+
+    expect(
+      screen.getByText(
+        'The price catalog is not open to you, so the service cannot be changed here.',
+      ),
+    ).toBeInTheDocument();
+    expect(asked).toBe(0);
   });
 
   it('has no screen and no navigation entry without the permission', async () => {
