@@ -171,6 +171,33 @@ describe('adding a department', () => {
     ]);
   });
 
+  it('keeps nothing of a request that was refused, so the same key can be used again', async () => {
+    const key = `key-${randomUUID()}`;
+    const blocker = await added('Blocked Name');
+
+    expect(errorOf(await add({ name: 'blocked name' }, { key }))).toEqual([
+      409,
+      'department_name_taken',
+    ]);
+    // The other department is renamed, and the very same request now goes through.
+    await change(blocker.id, { name: 'Unblocked', expectedVersion: 1 });
+    const retried = await add({ name: 'blocked name' }, { key });
+
+    expect(retried.statusCode).toBe(201);
+    expect(retried.headers['idempotent-replayed']).toBeUndefined();
+  });
+
+  it('refuses text the database cannot store, instead of failing', async () => {
+    const nul = String.fromCharCode(0);
+    expect((await add({ name: `Bad${nul}Name` })).statusCode).toBe(400);
+    expect((await add({ name: 'Fine Name', description: `Bad${nul}` })).statusCode).toBe(400);
+
+    const forged = Buffer.from(JSON.stringify({ n: `a${nul}`, i: randomUUID() })).toString(
+      'base64url',
+    );
+    expect(errorOf(await list(`?cursor=${forged}`))).toEqual([400, 'invalid_cursor']);
+  });
+
   it('needs a name, of a sensible length, and takes nothing else', async () => {
     expect((await add({})).statusCode).toBe(400);
     expect((await add({ name: '   ' })).statusCode).toBe(400);
@@ -279,6 +306,37 @@ describe('changing a department', () => {
     expect(
       errorOf(await change(department.id, { name: 'Cardiology', expectedVersion: 2 })),
     ).toEqual([409, 'department_name_taken']);
+  });
+
+  it('goes by the database’s idea of the same name, not JavaScript’s', async () => {
+    // Postgres and JavaScript lower-case these differently (a dotted capital I, a final sigma).
+    for (const name of ['İzmir Klinik', 'ΟΔΟΣ']) {
+      const department = await added(name);
+
+      const edited = await change(department.id, {
+        name,
+        description: 'Only the description changed',
+        expectedVersion: 1,
+      });
+
+      expect(edited.statusCode, name).toBe(200);
+      expect(edited.json(), name).toMatchObject({ name, version: 2 });
+    }
+  });
+
+  it('lets one of two changes made from the same version through', async () => {
+    const department = await added('Contested');
+
+    const results = await Promise.all([
+      change(department.id, { description: 'First', expectedVersion: 1 }),
+      change(department.id, { description: 'Second', expectedVersion: 1 }),
+    ]);
+
+    expect(results.map((response) => response.statusCode).sort()).toEqual([200, 409]);
+    const { rows } = await pool.query('select version from departments where id = $1', [
+      department.id,
+    ]);
+    expect(rows[0]).toEqual({ version: 2 });
   });
 
   it('removes a description that is sent empty', async () => {

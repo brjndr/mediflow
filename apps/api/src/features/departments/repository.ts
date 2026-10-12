@@ -36,7 +36,9 @@ function decodeCursor(cursor: string): Cursor | null {
     const value: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
     if (typeof value !== 'object' || value === null) return null;
     const { n, i } = value as Record<string, unknown>;
-    return typeof n === 'string' && typeof i === 'string' && UUID.test(i) ? { n, i } : null;
+    if (typeof n !== 'string' || typeof i !== 'string' || !UUID.test(i)) return null;
+    // A name this module stored: never longer than a name, never a character Postgres refuses.
+    return n.length <= 100 && !n.includes('\u0000') ? { n, i } : null;
   } catch {
     return null;
   }

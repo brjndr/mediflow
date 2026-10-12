@@ -118,6 +118,41 @@ describe('adding a department', () => {
     expect(screen.getByRole('textbox', { name: /^Name/ })).toHaveValue('cardiology');
   });
 
+  it('sends the same key when the same department is sent again, and a new one when it is edited', async () => {
+    const sent: { name: string; key: string | null }[] = [];
+    let failures = 1;
+    server.use(
+      http.post('*/api/departments', async ({ request }) => {
+        const body = (await request.clone().json()) as { name: string };
+        sent.push({ name: body.name, key: request.headers.get('idempotency-key') });
+        if (failures-- > 0) return new HttpResponse(null, { status: 500 });
+        return undefined;
+      }),
+    );
+    await open();
+    await userEvent.click(button('Add department'));
+    await fill(/^Name/, 'Audiology');
+    await userEvent.click(button('Save department'));
+    await screen.findByRole('alert');
+    // The answer was lost: the same thing is sent again, as the same request.
+    await userEvent.click(button('Save department'));
+    await waitFor(() => expect(status()).toBe('Audiology was added.'));
+
+    await userEvent.click(button('Add department'));
+    await fill(/^Name/, 'Speech Therapy');
+    await userEvent.click(button('Save department'));
+    await waitFor(() => expect(status()).toBe('Speech Therapy was added.'));
+
+    expect(sent.map((request) => request.name)).toEqual([
+      'Audiology',
+      'Audiology',
+      'Speech Therapy',
+    ]);
+    expect(sent[0]?.key).toMatch(/^[0-9a-f-]{36}$/);
+    expect(sent[1]?.key).toBe(sent[0]?.key);
+    expect(sent[2]?.key).not.toBe(sent[0]?.key);
+  });
+
   it('closes without saving on Cancel', async () => {
     await open();
     await userEvent.click(button('Add department'));

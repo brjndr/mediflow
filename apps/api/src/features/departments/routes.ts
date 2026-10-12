@@ -147,7 +147,9 @@ export const departmentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const description =
         body.description === undefined ? current.description : cleanDescription(body.description);
       if (name === current.name && description === current.description) return view(current);
-      if (name.toLowerCase() !== current.name_lower && (await nameTaken(request.txClient, name))) {
+      // The database decides what "the same name" is (its lower-casing is not JavaScript's), and
+      // a department is never in the way of its own name.
+      if (name !== current.name && (await nameTaken(request.txClient, name, current.id))) {
         throw taken();
       }
       let row: DepartmentRow;

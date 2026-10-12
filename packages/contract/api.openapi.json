@@ -665,10 +665,12 @@
           "name": {
             "minLength": 1,
             "maxLength": 100,
+            "pattern": "^[^\\u0000]*$",
             "type": "string"
           },
           "description": {
             "maxLength": 500,
+            "pattern": "^[^\\u0000]*$",
             "type": "string"
           }
         }
@@ -681,10 +683,12 @@
           "name": {
             "minLength": 1,
             "maxLength": 100,
+            "pattern": "^[^\\u0000]*$",
             "type": "string"
           },
           "description": {
             "maxLength": 500,
+            "pattern": "^[^\\u0000]*$",
             "type": "string"
           },
           "expectedVersion": {

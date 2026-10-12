@@ -19,8 +19,11 @@ export type Department = Static<typeof Department>;
 
 export const DepartmentPage = CursorPage(ref(Department), { $id: 'DepartmentPage' });
 
-const name = Type.String({ minLength: 1, maxLength: NAME_MAX });
-const description = Type.String({ maxLength: DESCRIPTION_MAX });
+/** Text the database can store: it refuses a NUL character, which would otherwise be a 500. */
+const NO_NUL = '^[^\\u0000]*$';
+
+const name = Type.String({ minLength: 1, maxLength: NAME_MAX, pattern: NO_NUL });
+const description = Type.String({ maxLength: DESCRIPTION_MAX, pattern: NO_NUL });
 
 export const DepartmentCreate = Type.Object(
   { name, description: Type.Optional(description) },
