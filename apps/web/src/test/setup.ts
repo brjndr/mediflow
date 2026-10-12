@@ -23,6 +23,14 @@ if (typeof HTMLDialogElement.prototype.showModal !== 'function') {
   };
 }
 
+// jsdom has no layout, so a text range has no rectangles. The rich text editor asks for them to
+// scroll the cursor into view after something is put into the text; here there is nothing to
+// scroll to, and an empty answer is the true one.
+if (typeof Range.prototype.getClientRects !== 'function') {
+  Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
+  Range.prototype.getBoundingClientRect = () => new DOMRect();
+}
+
 // Keep retry backoff out of test time. Tests that assert on timing set their own values.
 const fastRetries = () => configureApi({ baseDelayMs: 1 });
 

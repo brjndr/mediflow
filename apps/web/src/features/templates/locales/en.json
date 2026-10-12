@@ -1,0 +1,111 @@
+{
+  "heading": "Document templates",
+  "description": "The texts this hospital starts a prescription, a clinical note, a consent form or a discharge summary from. Every change is a new version: a document already made keeps the text it was made from.",
+  "gridLabel": "Document templates",
+  "add": "Add a template",
+  "backToList": "Back to the list of templates",
+  "count_one": "{{count}} template",
+  "count_other": "{{count}} templates",
+  "countArchived_one": "{{count}} archived template",
+  "countArchived_other": "{{count}} archived templates",
+  "empty": "No templates yet.",
+  "emptyArchived": "No archived templates.",
+  "emptyKind": "No template of this kind.",
+  "versionNumber": "Version {{version}}",
+  "kinds": {
+    "prescription": "Prescription",
+    "clinical_note": "Clinical note",
+    "consent": "Consent form",
+    "discharge_summary": "Discharge summary"
+  },
+  "filters": {
+    "kind": "Kind",
+    "allKinds": "All kinds",
+    "showArchived": "Show archived templates"
+  },
+  "columns": {
+    "name": "Name",
+    "kind": "Kind",
+    "version": "Version",
+    "savedAt": "Last saved"
+  },
+  "placeholders": {
+    "patient.name": "Patient's name",
+    "patient.mrn": "Patient's record number",
+    "patient.age": "Patient's age",
+    "patient.sex": "Patient's sex",
+    "doctor.name": "Doctor's name",
+    "hospital.name": "Hospital's name",
+    "date.today": "Today's date",
+    "procedure.name": "Name of the procedure",
+    "admission.date": "Date of admission",
+    "discharge.date": "Date of discharge"
+  },
+  "sample": {
+    "patientName": "Sample Patient",
+    "patientMrn": "MRN-000123",
+    "patientAge": "42 years",
+    "patientSex": "Female",
+    "doctorName": "Dr Sample Doctor",
+    "hospitalName": "Sample Hospital",
+    "procedureName": "Sample procedure"
+  },
+  "form": {
+    "kind": "Kind",
+    "kindHint": "What the template is for. It cannot be changed later, and decides which placeholders it can use.",
+    "chooseKind": "Choose a kind",
+    "name": "Name",
+    "nameHint": "Unique among the templates of its kind. Nothing about a patient.",
+    "body": "Text",
+    "bodyHint": "A blank form: write nothing about a real patient here. Use the list in the toolbar to put in a placeholder, which is filled in when a document is made.",
+    "insert": "Insert a placeholder",
+    "unknown": "This kind of template does not know these placeholders: {{names}}. Remove them or pick one from the list.",
+    "empty": "A template needs some text.",
+    "save": "Save as a new version",
+    "cancel": "Cancel"
+  },
+  "preview": {
+    "heading": "Preview",
+    "description": "How a document made from this text reads, with made-up values in place of the placeholders."
+  },
+  "create": {
+    "heading": "Add a template",
+    "description": "Choose what it is for, name it, and write its text.",
+    "submit": "Add template",
+    "kindFirst": "Choose a kind to write the text."
+  },
+  "detail": {
+    "loading": "Loading the template…",
+    "notFoundTitle": "Template not found",
+    "notFoundBody": "There is no such template at this hospital.",
+    "errorTitle": "The template could not be loaded",
+    "archived": "Archived",
+    "archivedNote": "This template is archived. It is not offered for a new document; documents made from it keep their text.",
+    "text": "Text",
+    "edit": "Edit as a new version",
+    "archive": "Archive",
+    "restore": "Restore",
+    "saved": "Saved as version {{version}}.",
+    "unchanged": "Nothing was changed, so no new version was made.",
+    "archivedDone": "{{name}} was archived.",
+    "restoredDone": "{{name}} was restored.",
+    "conflict": "Someone else saved version {{version}} while you were editing. Your text is still here. Saving again makes yours the newest version; theirs stays in the history below.",
+    "archivedMeanwhile": "This template was archived while you were editing. Restore it to save a new version.",
+    "nameTaken": "Another template of this kind already has that name at this hospital. It may be archived."
+  },
+  "versions": {
+    "heading": "Versions",
+    "description": "Every version this template has had. None is ever changed or removed.",
+    "gridLabel": "Versions",
+    "columns": {
+      "version": "Version",
+      "savedAt": "Saved",
+      "savedBy": "Saved by"
+    },
+    "view": "View",
+    "viewing": "{{version}}, as it was saved",
+    "close": "Close",
+    "loading": "Loading the version…",
+    "failed": "The version could not be loaded."
+  }
+}

@@ -2820,6 +2820,367 @@
           }
         }
       }
+    },
+    "/templates": {
+      "get": {
+        "operationId": "listTemplates",
+        "description": "The document templates of the active tenant, by name: each hospital has its own. Requires template:read and the templates feature flag. `total` comes with the first page only.",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["prescription", "clinical_note", "consent", "discharge_summary"]
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplatePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createTemplate",
+        "description": "Adds a template, as its version 1. Requires template:manage. The hospital is the session's. The kind cannot be changed later. A name another template of the same kind has at the hospital, archived or not, whatever the capitals, is refused with 409 template_name_taken. The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A repeat with the same key and request returns the first answer. A key belongs to one request of one person at one hospital on one route."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/templates/{templateId}": {
+      "get": {
+        "operationId": "getTemplate",
+        "description": "One template with the text of its newest version and the list of every version it has had. Requires template:read. A template of another hospital answers 404 template_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveTemplateVersion",
+        "description": "Saves a new version of a template: the name, the text, or both. Requires template:manage. Versions are append-only: nothing saved is ever changed or removed (the one exception to come is an audited redaction of patient data typed into a template by mistake, #292), and a document made from a template keeps the version it was made from. Send the version the change was made from: 409 conflict when a newer one has been saved since. Saving what the newest version already has makes no new version. An archived template is read-only: 409 template_archived until it is restored. The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateSave"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The template as saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/templates/{templateId}/versions/{version}": {
+      "get": {
+        "operationId": "getTemplateVersion",
+        "description": "The name and text of one version of a template, as it was saved. Requires template:read. 404 template_version_not_found for a version it never had. A template of another hospital answers 404 template_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateVersion"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/templates/{templateId}/archive": {
+      "post": {
+        "operationId": "archiveTemplate",
+        "description": "Archives a template: it is no longer offered for a new document. Documents made from it keep their text. Requires template:manage. Doing it twice changes nothing, and neither makes a new version. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/templates/{templateId}/restore": {
+      "post": {
+        "operationId": "restoreTemplate",
+        "description": "Brings an archived template back. Requires template:manage. Doing it twice changes nothing, and neither makes a new version. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4493,6 +4854,172 @@
           "archived": {
             "type": "boolean",
             "description": "Absent: false."
+          }
+        }
+      },
+      "Template": {
+        "type": "object",
+        "description": "A document template of a hospital. Holds no patient data.",
+        "required": ["id", "tenantId", "kind", "name", "version", "savedAt", "archived"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["prescription", "clinical_note", "consent", "discharge_summary"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The newest version. Sent back as expectedVersion."
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the newest version was saved."
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TemplatePage": {
+        "type": "object",
+        "description": "Cursor envelope used by every list endpoint.",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Template"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "TemplateVersionInfo": {
+        "type": "object",
+        "required": ["version", "savedAt", "savedByName"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "savedByName": {
+            "type": "string",
+            "description": "The member of staff who saved it."
+          }
+        }
+      },
+      "TemplateVersion": {
+        "type": "object",
+        "description": "One version of a template, as it was saved.",
+        "required": ["version", "savedAt", "savedByName", "name", "body"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "savedByName": {
+            "type": "string",
+            "description": "The member of staff who saved it."
+          },
+          "name": {
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "description": "The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again.",
+            "additionalProperties": true
+          }
+        }
+      },
+      "TemplateDetail": {
+        "type": "object",
+        "required": ["template", "body", "versions"],
+        "properties": {
+          "template": {
+            "$ref": "#/components/schemas/Template"
+          },
+          "body": {
+            "type": "object",
+            "description": "The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again.",
+            "additionalProperties": true
+          },
+          "versions": {
+            "type": "array",
+            "description": "Every version, the newest first.",
+            "items": {
+              "$ref": "#/components/schemas/TemplateVersionInfo"
+            }
+          }
+        }
+      },
+      "TemplateCreate": {
+        "type": "object",
+        "required": ["kind", "name", "body"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["prescription", "clinical_note", "consent", "discharge_summary"]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "body": {
+            "type": "object",
+            "description": "The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again.",
+            "additionalProperties": true
+          }
+        }
+      },
+      "TemplateSave": {
+        "type": "object",
+        "required": ["expectedVersion"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "body": {
+            "type": "object",
+            "description": "The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again.",
+            "additionalProperties": true
+          },
+          "expectedVersion": {
+            "type": "integer"
           }
         }
       }
