@@ -58,6 +58,19 @@ const SAMPLE_LAST_NAMES = [
   'Sharma',
 ];
 
+const SAMPLE_DEPARTMENTS = [
+  'Cardiology',
+  'Emergency',
+  'General Medicine',
+  'General Surgery',
+  'Gynaecology',
+  'Laboratory',
+  'Orthopaedics',
+  'Paediatrics',
+  'Pharmacy',
+  'Radiology',
+];
+
 const HOSPITALS = [
   {
     slug: 'sample-hospital',
@@ -68,6 +81,7 @@ const HOSPITALS = [
     themePrimary: '#0f766e',
     features: {
       patients: true,
+      departments: true,
       appointments: true,
       clinical: true,
       laboratory: true,
@@ -87,6 +101,7 @@ const HOSPITALS = [
     themePrimary: '#4338ca',
     features: {
       patients: true,
+      departments: true,
       appointments: true,
       clinical: true,
       laboratory: false,
@@ -203,6 +218,16 @@ try {
         [tenantIds.get(membership.slug), userId, membership.roleId],
       );
     }
+  }
+
+  // Sample departments. Only names the hospital does not have yet, so running again adds nothing.
+  for (const hospital of HOSPITALS) {
+    await client.query(
+      `insert into departments (tenant_id, name)
+       select $1, name from unnest($2::text[]) as name
+       on conflict on constraint departments_name_taken do nothing`,
+      [tenantIds.get(hospital.slug), SAMPLE_DEPARTMENTS],
+    );
   }
 
   // Synthetic patients, so the patient screens have something to show against the real API.

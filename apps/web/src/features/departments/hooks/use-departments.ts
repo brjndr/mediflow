@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
@@ -51,11 +52,21 @@ export interface SaveDepartment {
 /** Adds a department, or changes one from the version that was on screen. */
 export function useSaveDepartment() {
   const refresh = useRefreshLists();
+  // A key identifies one new department as typed: sending the same again reuses it, an edited
+  // form gets a new one.
+  const attempt = useRef<{ body: string; key: string }>(undefined);
   return useMutation({
-    mutationFn: ({ editing, values }: SaveDepartment) =>
-      editing
-        ? updateDepartment(editing.id, { ...values, expectedVersion: editing.version })
-        : createDepartment(values),
+    mutationFn: ({ editing, values }: SaveDepartment) => {
+      if (editing) {
+        return updateDepartment(editing.id, { ...values, expectedVersion: editing.version });
+      }
+      const body = JSON.stringify(values);
+      if (attempt.current?.body !== body) attempt.current = { body, key: crypto.randomUUID() };
+      return createDepartment(values, attempt.current.key);
+    },
+    onSuccess: () => {
+      attempt.current = undefined;
+    },
     // Also after a failure: a conflict means the list on screen is out of date.
     onSettled: refresh,
   });

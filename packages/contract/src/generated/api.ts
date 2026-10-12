@@ -379,6 +379,75 @@ export interface paths {
         patch: operations["updatePatient"];
         trace?: never;
     };
+    "/departments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Departments of the active tenant, by name. Archived departments are listed only when asked for. `total` comes with the first page. */
+        get: operations["listDepartments"];
+        put?: never;
+        /** @description Adds a department. The hospital is the session's: the body carries no tenant. A name already used by a department of the hospital, archived or not, whatever its capitals, is refused with 409 department_name_taken. */
+        post: operations["createDepartment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/departments/{departmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes a department. Send the version the change was made from: 409 conflict when the department has changed since, 409 department_name_taken for a name in use. Sending what the department already has changes nothing. A department of another hospital answers 404 department_not_found, the same as one that does not exist. */
+        patch: operations["updateDepartment"];
+        trace?: never;
+    };
+    "/departments/{departmentId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a department: it stays on the records that name it and is no longer offered for new ones. Doing it twice changes nothing. A department of another hospital answers 404 department_not_found, the same as one that does not exist. */
+        post: operations["archiveDepartment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/departments/{departmentId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived department back. Doing it twice changes nothing. A department of another hospital answers 404 department_not_found, the same as one that does not exist. */
+        post: operations["restoreDepartment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -475,75 +544,6 @@ export interface paths {
         put?: never;
         /** @description Archives a notice so it no longer appears in the list. Requires notice:manage. */
         post: operations["archiveNotice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/departments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Departments of the active tenant, by name. Requires department:read and the departments feature flag. Archived departments are listed only when asked for. */
-        get: operations["listDepartments"];
-        put?: never;
-        /** @description Adds a department. Requires department:manage. A name already used by a department of the hospital, archived or not, is refused with 409 department_name_taken. The hospital is the session's: the body carries no tenant. */
-        post: operations["createDepartment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/departments/{departmentId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** @description Changes a department. Requires department:manage. Send the version the change was made from: 409 conflict when the department has changed since, 409 department_name_taken for a name in use. A department of another hospital answers 404 department_not_found, the same as one that does not exist. */
-        patch: operations["updateDepartment"];
-        trace?: never;
-    };
-    "/departments/{departmentId}/archive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Archives a department: it stays on the records that name it and is no longer offered for new ones. Requires department:manage. Doing it twice changes nothing. A department of another hospital answers 404 department_not_found, the same as one that does not exist. */
-        post: operations["archiveDepartment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/departments/{departmentId}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Brings an archived department back. Requires department:manage. Doing it twice changes nothing. A department of another hospital answers 404 department_not_found, the same as one that does not exist. */
-        post: operations["restoreDepartment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -909,6 +909,31 @@ export interface components {
         PatientDuplicateMatches: {
             items: components["schemas"]["PatientDuplicateMatch"][];
         };
+        /** @description A department of one hospital. Holds no patient data. */
+        Department: {
+            id: string;
+            tenantId: string;
+            name: string;
+            description?: string;
+            archived: boolean;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        DepartmentPage: {
+            items: components["schemas"]["Department"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        DepartmentCreate: {
+            name: string;
+            description?: string;
+        };
+        DepartmentUpdate: {
+            name?: string;
+            description?: string;
+            expectedVersion: number;
+        };
         Notice: {
             id: string;
             tenantId: string;
@@ -941,31 +966,6 @@ export interface components {
         AccountSessionList: {
             items: components["schemas"]["AccountSession"][];
             nextCursor: string | null;
-        };
-        /** @description A department of one hospital. Holds no patient data. */
-        Department: {
-            id: string;
-            tenantId: string;
-            name: string;
-            description?: string;
-            archived: boolean;
-            /** @description Counts the changes. Sent back as expectedVersion. */
-            version: number;
-        };
-        /** @description Cursor envelope used by every list endpoint. */
-        DepartmentPage: {
-            items: components["schemas"]["Department"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        DepartmentCreate: {
-            name: string;
-            description?: string;
-        };
-        DepartmentUpdate: {
-            name?: string;
-            description?: string;
-            expectedVersion: number;
         };
         /** @description A user who works at the hospital and has no doctor profile there. The email tells namesakes apart; nothing else of the account is given. */
         DoctorCandidate: {
@@ -2379,6 +2379,372 @@ export interface operations {
             };
         };
     };
+    listDepartments: {
+        parameters: {
+            query?: {
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit?: number;
+                /** @description True lists the archived departments instead of the active ones. */
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepartmentPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createDepartment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentCreate"];
+            };
+        };
+        responses: {
+            /** @description A department of one hospital. Holds no patient data. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Department"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateDepartment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                departmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description A department of one hospital. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Department"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    archiveDepartment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                departmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A department of one hospital. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Department"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restoreDepartment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                departmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A department of one hospital. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Department"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     changePassword: {
         parameters: {
             query?: never;
@@ -2532,150 +2898,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Notice"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listDepartments: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-                /** @description True lists the archived departments instead of the active ones. */
-                archived?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of departments */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DepartmentPage"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createDepartment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DepartmentCreate"];
-            };
-        };
-        responses: {
-            /** @description The new department */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Department"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    updateDepartment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                departmentId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DepartmentUpdate"];
-            };
-        };
-        responses: {
-            /** @description The department as saved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Department"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    archiveDepartment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                departmentId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The department */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Department"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    restoreDepartment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                departmentId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The department */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Department"];
                 };
             };
             401: components["responses"]["Error"];

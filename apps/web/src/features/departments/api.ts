@@ -13,8 +13,18 @@ export async function fetchDepartments(
   return departmentPageSchema.parse(requireData(result));
 }
 
-export async function createDepartment(body: DepartmentCreate): Promise<Department> {
-  const result = await api.POST('/departments', { body });
+/**
+ * Adds a department. The key makes a repeat of the same request (a double click, a retry after a
+ * lost answer) add one department, not fail on its own name.
+ */
+export async function createDepartment(
+  body: DepartmentCreate,
+  idempotencyKey: string,
+): Promise<Department> {
+  const result = await api.POST('/departments', {
+    body,
+    params: { header: { 'idempotency-key': idempotencyKey } },
+  });
   return departmentSchema.parse(requireData(result));
 }
 
