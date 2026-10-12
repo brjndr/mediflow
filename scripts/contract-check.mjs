@@ -28,6 +28,7 @@ function typeOf(schema) {
   // `type: ['string', 'null']` and `anyOf: [{ type: 'string' }, { type: 'null' }]` accept the same
   // values: a hand-written schema uses the first and a generated one the second, so both are
   // described the same way.
+  if (Array.isArray(schema.type) && schema.type.length === 1) return schema.type[0];
   if (Array.isArray(schema.type)) return `union(${[...schema.type].sort().join('|')})`;
   return schema.type ?? (schema.const !== undefined ? typeof schema.const : 'unknown');
 }

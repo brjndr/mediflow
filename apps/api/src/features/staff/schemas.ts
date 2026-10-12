@@ -53,7 +53,8 @@ export const StaffListQuery = Type.Object({
   limit: Type.Optional(
     Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
   ),
-  q: Type.Optional(Type.String({ maxLength: 100 })),
+  // No NUL: the database refuses it as text, which would otherwise be a 500.
+  q: Type.Optional(Type.String({ maxLength: 100, pattern: '^[^\\u0000]*$' })),
   status: Type.Optional(
     StringEnum(STAFF_STATUSES, {
       description:

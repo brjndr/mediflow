@@ -57,6 +57,7 @@
     "lastAdmin": "This is the only person who can manage staff here. Give someone else that role first.",
     "unknownRole": "That role no longer exists at this hospital. Choose another.",
     "roleNotAllowed": "You cannot invite someone into a role that may do more than your own.",
+    "aboveYou": "That role may do more than your own, so this is not yours to do. Ask an administrator.",
     "busy": "Too many requests just now. Wait a minute and try again.",
     "inviteGone": "That invitation is no longer open. It may have been accepted or withdrawn already."
   },

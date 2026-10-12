@@ -111,11 +111,16 @@ export interface MfaStanding {
 /**
  * Where a user stands with a hospital's authenticator rule, or null when they are not an active
  * member of it. One query, because the session hook asks it on every request.
+ *
+ * Given a session, it also answers null when the hospital ended that person's sessions after
+ * this one was opened (`memberships.sessions_valid_after`): the session is no longer one of
+ * that hospital's, though it carries on elsewhere.
  */
 export async function mfaStanding(
   client: pg.PoolClient,
   tenantId: string,
   userId: string,
+  sessionId: string | null = null,
 ): Promise<MfaStanding | null> {
   const { rows } = await client.query<MfaStanding>(
     `select (select count(*) from tenant_features f
@@ -123,8 +128,11 @@ export async function mfaStanding(
             exists (select 1 from user_mfa u
                     where u.user_id = m.user_id and u.confirmed_at is not null) as enrolled
      from memberships m
-     where m.tenant_id = $1 and m.user_id = $2 and m.status = 'active'`,
-    [tenantId, userId, MFA_FEATURE, MFA_REQUIRED_FEATURE],
+     where m.tenant_id = $1 and m.user_id = $2 and m.status = 'active'
+       and ($5::uuid is null or m.sessions_valid_after is null
+            or exists (select from sessions s
+                       where s.id = $5 and s.created_at >= m.sessions_valid_after))`,
+    [tenantId, userId, MFA_FEATURE, MFA_REQUIRED_FEATURE, sessionId],
   );
   return rows[0] ?? null;
 }

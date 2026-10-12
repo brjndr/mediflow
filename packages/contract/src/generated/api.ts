@@ -387,7 +387,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Ends every session the person has at this hospital, so they must sign in again. The caller's own current session is kept. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
+        /** @description Ends every session the person has at this hospital, so they must sign in again to work here: the sessions bound to it are revoked (`revoked` counts them), and a session they have at the hospital picker or at another hospital can no longer be brought here. Their work at other hospitals carries on. For the caller's own account only the sessions bound here are ended, and the current one is kept. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
         post: operations["revokeStaffSessions"];
         delete?: never;
         options?: never;

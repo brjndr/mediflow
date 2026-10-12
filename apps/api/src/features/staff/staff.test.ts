@@ -123,6 +123,14 @@ const statusOf = async (user: TestUser, tenant: TestTenant) =>
     )
   ).rows[0]?.status;
 
+const cutOffOf = async (user: TestUser, tenant: TestTenant) =>
+  (
+    await pool.query<{ sessions_valid_after: Date | null }>(
+      'select sessions_valid_after from memberships where user_id = $1 and tenant_id = $2',
+      [user.id, tenant.id],
+    )
+  ).rows[0]?.sessions_valid_after ?? null;
+
 const audited = async (tenant: TestTenant, entity: string, entityId: string) =>
   (
     await pool.query<{ action: string }>(
@@ -178,9 +186,10 @@ afterAll(async () => {
 beforeEach(async () => {
   notifier.sent.length = 0;
   // Every test starts from everyone active.
-  await pool.query("update memberships set status = 'active' where tenant_id = any($1)", [
-    [hospital.id, clinic.id],
-  ]);
+  await pool.query(
+    "update memberships set status = 'active', sessions_valid_after = null where tenant_id = any($1)",
+    [[hospital.id, clinic.id]],
+  );
 });
 
 describe('the staff list', () => {
@@ -222,6 +231,9 @@ describe('the staff list', () => {
     const byAddress = await get(`/staff?q=${encodeURIComponent(nurse.email.toUpperCase())}`, token);
     expect(names(byAddress)).toEqual(['Nurse Nila']);
     expect(errorOf(await get('/staff?cursor=nonsense', token))).toEqual([400, 'invalid_cursor']);
+    // Text the database cannot store is refused, not passed on. And % is a character, not a wildcard.
+    expect((await get('/staff?q=%00', token)).statusCode).toBe(400);
+    expect(names(await get('/staff?q=%25', token))).toEqual([]);
   });
 
   it('shows deactivated members and open invitations as their own lists', async () => {
@@ -316,6 +328,8 @@ describe('deactivating and reactivating', () => {
 
     expect(response.json()).toMatchObject({ id: nurse.id, status: 'active', roleId: 'nurse' });
     expect((await get('/tenant', await signIn(nurse))).statusCode).toBe(200);
+    // A session from before they were deactivated is not one of this hospital's again.
+    expect(await cutOffOf(nurse, hospital)).not.toBeNull();
     expect(await audited(hospital, 'membership', nurse.id)).toContain('reactivate');
   });
 
@@ -353,6 +367,35 @@ describe('deactivating and reactivating', () => {
     expect(await statusOf(clinicAdmin, clinic)).toBe('active');
   });
 
+  it('does nothing for a caller who was deactivated while the request waited', async () => {
+    const [adminToken, hrToken] = [await signIn(admin), await signIn(hr)];
+    expect(adminToken).not.toBe('');
+    // Someone holds the locks a deactivation takes, as another deactivation in progress would.
+    const holder = await pool.connect();
+    let waiting: Promise<LightMyRequestResponse>;
+    try {
+      await holder.query('begin');
+      await holder.query(
+        "select 1 from memberships where tenant_id = $1 and status = 'active' for update",
+        [hospital.id],
+      );
+      // The HR desk asks to deactivate a colleague, and waits.
+      waiting = act(hrColleague, 'deactivate', hrToken);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      // Meanwhile the HR desk itself is deactivated.
+      await holder.query(
+        "update memberships set status = 'suspended' where tenant_id = $1 and user_id = $2",
+        [hospital.id, hr.id],
+      );
+      await holder.query('commit');
+    } finally {
+      holder.release();
+    }
+
+    expect(errorOf(await waiting)).toEqual([403, 'permission_denied']);
+    expect(await statusOf(hrColleague, hospital)).toBe('active');
+  });
+
   it('never leaves a hospital with nobody to manage its staff', async () => {
     // The clinic's two administrators deactivate each other at the same moment.
     const [one, two] = await Promise.all([signIn(clinicAdmin), signIn(clinicAdminTwo)]);
@@ -362,9 +405,11 @@ describe('deactivating and reactivating', () => {
       act(clinicAdmin, 'deactivate', two),
     ]);
 
-    expect(results.map((response) => response.statusCode).sort()).toEqual([200, 409]);
-    const refused = results.find((response) => response.statusCode === 409);
-    expect(refused?.json().error.code).toBe('last_admin');
+    // Whoever gets the locks first decides. The other was deactivated while waiting, and is
+    // refused as someone who is no longer a member.
+    expect(results.map((response) => response.statusCode).sort()).toEqual([200, 403]);
+    const refused = results.find((response) => response.statusCode === 403);
+    expect(refused?.json().error.code).toBe('permission_denied');
     const { rows } = await pool.query(
       "select 1 from memberships where tenant_id = $1 and role_id = 'admin' and status = 'active'",
       [clinic.id],
@@ -397,6 +442,38 @@ describe('ending sessions', () => {
     expect((await get('/session', here)).statusCode).toBe(200);
   });
 
+  it('covers a session that is not bound here: it can no longer be brought to this hospital', async () => {
+    const atClinic = await signIn(doctor, clinic);
+    const atPicker = await signIn(doctor);
+    const switchTo = (token: string, tenant: TestTenant) =>
+      send('POST', '/session/switch-tenant', token, { tenantId: tenant.id });
+
+    const response = await act(doctor, 'revoke-sessions', await signIn(admin));
+    expect(response.json()).toEqual({ revoked: 0 });
+
+    // Neither session was bound to the hospital, and neither can come to it now.
+    expect((await switchTo(atPicker, hospital)).statusCode).toBe(403);
+    expect((await switchTo(atClinic, hospital)).statusCode).toBe(403);
+    // The clinic is not concerned, and signing in again is all it takes.
+    expect((await switchTo(atPicker, clinic)).statusCode).toBe(200);
+    expect((await get('/tenant', await signIn(doctor, hospital))).statusCode).toBe(200);
+  });
+
+  it('does not let a session that was ended be reopened', async () => {
+    const token = await signIn(nurse);
+    await act(nurse, 'revoke-sessions', await signIn(admin));
+
+    await expect(
+      asTenantSql(pool, hospital.id, (client) =>
+        client.query(
+          'update sessions set revoked_at = null, revoke_reason = null where user_id = $1',
+          [nurse.id],
+        ),
+      ),
+    ).rejects.toThrow(/cannot be reopened/);
+    expect((await get('/session', token)).statusCode).toBe(401);
+  });
+
   it('leaves a session at another hospital alone', async () => {
     const atClinic = await signIn(doctor, clinic);
 
@@ -426,6 +503,20 @@ describe('withdrawing an invitation', () => {
       404,
       'invite_not_found',
     ]);
+  });
+
+  it('treats an expired invitation as not open: there is nothing to withdraw', async () => {
+    const token = await signIn(admin);
+    const sent = await invite(token);
+    await pool.query("update invites set expires_at = now() - interval '1 minute' where id = $1", [
+      sent.id,
+    ]);
+
+    expect(errorOf(await send('DELETE', `/invites/${sent.id}`, token))).toEqual([
+      404,
+      'invite_not_found',
+    ]);
+    expect(await audited(hospital, 'invite', sent.id)).toEqual([]);
   });
 
   it('has one answer for another hospital’s invitation and one that does not exist', async () => {

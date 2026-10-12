@@ -5,6 +5,8 @@ import { grantsWithin } from '../../core/access/policy.js';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import {
+  cutOffSessions,
+  isActiveMember,
   listPeople,
   lockMember,
   lockOpenInvite,
@@ -53,6 +55,7 @@ const member = (row: MemberRow, status: MemberRow['status']): StaffMember => ({
 
 // One answer for someone who is not a member here and a user that does not exist.
 const notFound = () => new HttpError(404, 'staff_not_found', 'No such member of staff');
+const gone = () => new HttpError(403, 'permission_denied', 'Not a member of this hospital');
 const notAllowed = () => new HttpError(403, 'role_not_allowed', 'That role holds more than you do');
 
 const OTHER_HOSPITAL =
@@ -74,6 +77,9 @@ async function heldBy(request: FastifyRequest) {
 async function memberWithin(request: FastifyRequest, userId: string): Promise<MemberRow> {
   const target = await lockMember(request.txClient, userId);
   if (!target) throw notFound();
+  // The caller was a member when the request arrived. If they were deactivated while it waited
+  // for the lock, what they asked for is no longer theirs to do.
+  if (!(await isActiveMember(request.txClient, request.session?.userId ?? ''))) throw gone();
   const roles = await roleGrants(request.txClient);
   if (!grantsWithin(roles.get(target.role_id)?.grants ?? [], await heldBy(request))) {
     throw notAllowed();
@@ -162,12 +168,18 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       // Before the member's own row, and in a fixed order: see lockStaffManagers.
       const managers = await lockStaffManagers(request.txClient, MANAGE);
+      // Whoever got these locks first has decided. A caller who was deactivated meanwhile is no
+      // longer among them, and deactivates nobody.
+      if (!managers.includes(request.session?.userId ?? '')) throw gone();
       const target = await memberWithin(request, userId);
       if (managers.includes(target.user_id) && managers.length === 1) {
         throw new HttpError(409, 'last_admin', 'Nobody else could manage the staff here');
       }
       if (await setMemberStatus(request.txClient, target.user_id, 'suspended')) {
         await revokeSessionsHere(request.txClient, target.user_id);
+        // So that a session they have elsewhere is not one of this hospital's again if they are
+        // reactivated: they sign in afresh.
+        await cutOffSessions(request.txClient, target.user_id);
         await revokeInvitesSentBy(request.txClient, target.user_id);
         request.audit('deactivate', 'membership', target.user_id);
       }
@@ -207,7 +219,7 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'revokeStaffSessions',
         tags: ['staff'],
         description:
-          "Ends every session the person has at this hospital, so they must sign in again. The caller's own current session is kept." +
+          "Ends every session the person has at this hospital, so they must sign in again to work here: the sessions bound to it are revoked (`revoked` counts them), and a session they have at the hospital picker or at another hospital can no longer be brought here. Their work at other hospitals carries on. For the caller's own account only the sessions bound here are ended, and the current one is kept." +
           CEILING +
           OTHER_HOSPITAL,
         params: UserParams,
@@ -216,11 +228,18 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request) => {
       const target = await memberWithin(request, request.params.userId);
+      const own = target.user_id === request.session?.userId;
+      // Ending one's own other sessions keeps this one, so it has to be known which this one is.
+      if (own && !request.session?.id) {
+        throw new HttpError(409, 'session_unknown', 'This session cannot be told apart');
+      }
       const revoked = await revokeSessionsHere(
         request.txClient,
         target.user_id,
-        target.user_id === request.session?.userId ? request.session.id : undefined,
+        own ? request.session?.id : undefined,
       );
+      // Not for oneself: the session making this request was opened before now too.
+      if (!own) await cutOffSessions(request.txClient, target.user_id);
       request.audit('revoke_sessions', 'membership', target.user_id);
       return { revoked };
     },

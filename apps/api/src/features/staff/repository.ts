@@ -39,7 +39,8 @@ function decodeCursor(cursor: string): Cursor | null {
     if (typeof value !== 'object' || value === null) return null;
     const { n, i } = value as Record<string, unknown>;
     if (typeof n !== 'string' || typeof i !== 'string' || !UUID.test(i)) return null;
-    return n.length <= 200 && !n.includes('\u0000') ? { n, i } : null;
+    // Twice a name's limit: that limit counts characters, this counts UTF-16 units.
+    return n.length <= 400 && !n.includes('\u0000') ? { n, i } : null;
   } catch {
     return null;
   }
@@ -167,6 +168,20 @@ export async function lockMember(client: pg.ClientBase, userId: string): Promise
   return rows[0] ?? null;
 }
 
+/**
+ * Whether someone is an active member of this hospital right now. Asked again once the rows a
+ * request acts on are locked: the caller passed the guard when the request arrived, and may have
+ * been deactivated while it waited.
+ */
+export async function isActiveMember(client: pg.ClientBase, userId: string): Promise<boolean> {
+  if (!UUID.test(userId)) return false;
+  const { rowCount } = await client.query(
+    "select 1 from memberships where user_id = $1 and status = 'active'",
+    [userId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 /** False when the membership already had that status: nothing was written. */
 export async function setMemberStatus(
   client: pg.ClientBase,
@@ -198,6 +213,18 @@ export async function revokeSessionsHere(
   return rowCount ?? 0;
 }
 
+/**
+ * Ends, for this hospital, every session the person opened before now, wherever it is bound:
+ * one at the hospital picker or at another hospital can no longer be brought here. They sign
+ * in again. See migration 0016.
+ */
+export async function cutOffSessions(client: pg.ClientBase, userId: string): Promise<void> {
+  await client.query(
+    'update memberships set sessions_valid_after = now(), updated_at = now() where user_id = $1',
+    [userId],
+  );
+}
+
 /** Withdraws the open invitations a person sent: nobody joins on the word of someone who left. */
 export async function revokeInvitesSentBy(client: pg.ClientBase, userId: string): Promise<number> {
   const { rowCount } = await client.query(
@@ -216,7 +243,7 @@ export async function lockOpenInvite(
   if (!UUID.test(inviteId)) return null;
   const { rows } = await client.query<{ id: string; role_id: string }>(
     `select id, role_id from invites
-     where id = $1 and accepted_at is null and revoked_at is null
+     where id = $1 and accepted_at is null and revoked_at is null and expires_at > now()
      for update`,
     [inviteId],
   );

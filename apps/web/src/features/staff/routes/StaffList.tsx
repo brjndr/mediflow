@@ -31,7 +31,7 @@ function refusal(error: unknown) {
   if (error.serverCode === 'cannot_deactivate_self') return 'errors.self' as const;
   if (error.serverCode === 'last_admin') return 'errors.lastAdmin' as const;
   if (error.serverCode === 'unknown_role') return 'errors.unknownRole' as const;
-  if (error.serverCode === 'role_not_allowed') return 'errors.roleNotAllowed' as const;
+  if (error.serverCode === 'role_not_allowed') return 'errors.aboveYou' as const;
   if (error.serverCode === 'rate_limited') return 'errors.busy' as const;
   if (error.serverCode === 'invite_not_found') return 'errors.inviteGone' as const;
   return null;

@@ -115,7 +115,7 @@ describe('the views and their actions', () => {
 
     // While the invitations load, the active staff are gone: nothing to "send again" to.
     await waitFor(() => expect(screen.queryByText('Aarav Iyer')).not.toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: /^Send again/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(Send again|Withdraw)/ })).toBeNull();
 
     release();
     expect(await screen.findByRole('button', { name: 'Send again: Invited Ira' })).toBeEnabled();
@@ -234,6 +234,22 @@ describe('withdrawing an invitation', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'That invitation is no longer open.',
     );
+  });
+
+  it('says so when the invitation is for a role above the caller’s own', async () => {
+    server.use(
+      http.delete('*/api/invites/:id', () =>
+        HttpResponse.json({ error: { code: 'role_not_allowed', message: 'x' } }, { status: 403 }),
+      ),
+    );
+    await openList();
+    await show('Open invitations');
+    await userEvent.click(await screen.findByRole('button', { name: 'Withdraw: Invited Ira' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'That role may do more than your own, so this is not yours to do.',
+    );
+    expect(screen.getByText('Invited Ira')).toBeInTheDocument();
   });
 
   it('cannot withdraw another hospital’s invitation', async () => {
