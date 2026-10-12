@@ -65,3 +65,8 @@ export async function sendInvite(body: InviteRequest, idempotencyKey: string): P
   });
   return inviteSchema.parse(requireData(result));
 }
+
+/** Withdraws an open invitation: its link stops working. */
+export async function withdrawInvite(inviteId: string): Promise<void> {
+  await api.DELETE('/invites/{inviteId}', { params: { path: { inviteId } } });
+}

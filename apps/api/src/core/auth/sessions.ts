@@ -218,7 +218,7 @@ export async function resolveSession(
   let tenantId = row.active_tenant_id;
   let mfaPending = false;
   if (tenantId) {
-    const standing = await mfaStanding(client, tenantId, row.user_id);
+    const standing = await mfaStanding(client, tenantId, row.user_id, row.id);
     if (standing === null) {
       await client.query('update sessions set active_tenant_id = null where id = $1', [row.id]);
       tenantId = null;
@@ -245,9 +245,14 @@ export async function switchTenant(
   session: ActiveSession,
   tenantId: string,
 ): Promise<{ token: string } | null> {
+  // An active member, in a session the hospital has not ended since (see mfaStanding).
   const member = await client.query(
-    "select 1 from memberships where tenant_id = $1 and user_id = $2 and status = 'active'",
-    [tenantId, session.userId],
+    `select 1 from memberships m
+     where m.tenant_id = $1 and m.user_id = $2 and m.status = 'active'
+       and (m.sessions_valid_after is null
+            or exists (select from sessions s
+                       where s.id = $3 and s.created_at >= m.sessions_valid_after))`,
+    [tenantId, session.userId, session.id],
   );
   if (member.rowCount === 0) return null;
   const next = newToken();

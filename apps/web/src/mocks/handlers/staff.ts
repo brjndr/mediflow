@@ -273,6 +273,21 @@ export const staffHandlers = [
     return HttpResponse.json({ revoked: 1 });
   }),
 
+  http.delete('*/api/invites/:inviteId', ({ request, params }) => {
+    const access = authorize(request, { permission: INVITE });
+    if ('denied' in access) return access.denied;
+    // An invitation of another hospital does not exist as far as this session is concerned.
+    const invite = state.invites.find(
+      (candidate) => candidate.id === params.inviteId && candidate.tenantId === access.tenantId,
+    );
+    if (!invite) return error(404, 'invite_not_found', 'No such open invitation');
+    if (!mayGive(access.tenantId, invite.roleId)) {
+      return error(403, 'role_not_allowed', 'That role holds more than you do');
+    }
+    state.invites = state.invites.filter((candidate) => candidate !== invite);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   // The real API has this one (features/staff). No feature flag there either.
   http.post('*/api/invites', async ({ request }) => {
     // No module switch, as in the real API: only the permission.

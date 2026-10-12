@@ -176,6 +176,26 @@ test('writing the same alternatives as anyOf instead of oneOf is not breaking', 
   assert.equal(findBreakingChanges(nullable('oneOf'), narrowed).length, 1);
 });
 
+test('a list of types and the same alternatives as anyOf are one type', () => {
+  // A hand-written schema says `type: ['string', 'null']`; the API generates anyOf for it.
+  const cursor = (schema) => {
+    const spec = base();
+    spec.components.schemas.Patient.properties.nextCursor = schema;
+    return spec;
+  };
+  const written = cursor({ type: ['string', 'null'] });
+  const generated = cursor({ anyOf: [{ type: 'string' }, { type: 'null' }] });
+  assert.deepEqual(findBreakingChanges(written, generated), []);
+  assert.deepEqual(findBreakingChanges(generated, written), []);
+
+  // Losing the null, or changing the other type, is still a change.
+  assert.equal(findBreakingChanges(written, cursor({ type: 'string' })).length, 1);
+  assert.equal(
+    findBreakingChanges(written, cursor({ anyOf: [{ type: 'integer' }, { type: 'null' }] })).length,
+    1,
+  );
+});
+
 test('version comparison', () => {
   assert.equal(versionRaised('0.3.0', '0.3.1'), true);
   assert.equal(versionRaised('0.3.0', '0.3.0'), false);
