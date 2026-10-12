@@ -491,7 +491,7 @@ export interface paths {
         /** @description Departments of the active tenant, by name. Requires department:read and the departments feature flag. Archived departments are listed only when asked for. */
         get: operations["listDepartments"];
         put?: never;
-        /** @description Adds a department. Requires department:manage. A name already used by a department of the hospital, archived or not, is refused with 409 department_name_taken. */
+        /** @description Adds a department. Requires department:manage. A name already used by a department of the hospital, archived or not, is refused with 409 department_name_taken. The hospital is the session's: the body carries no tenant. */
         post: operations["createDepartment"];
         delete?: never;
         options?: never;
@@ -512,7 +512,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Changes a department. Requires department:manage. Send the version the change was made from: 409 conflict when the department has changed since, 409 department_name_taken for a name in use. */
+        /** @description Changes a department. Requires department:manage. Send the version the change was made from: 409 conflict when the department has changed since, 409 department_name_taken for a name in use. A department of another hospital answers 404 department_not_found, the same as one that does not exist. */
         patch: operations["updateDepartment"];
         trace?: never;
     };
@@ -525,7 +525,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Archives a department: it stays on the records that name it and is no longer offered for new ones. Requires department:manage. Doing it twice changes nothing. */
+        /** @description Archives a department: it stays on the records that name it and is no longer offered for new ones. Requires department:manage. Doing it twice changes nothing. A department of another hospital answers 404 department_not_found, the same as one that does not exist. */
         post: operations["archiveDepartment"];
         delete?: never;
         options?: never;
@@ -542,7 +542,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Brings an archived department back. Requires department:manage. Doing it twice changes nothing. */
+        /** @description Brings an archived department back. Requires department:manage. Doing it twice changes nothing. A department of another hospital answers 404 department_not_found, the same as one that does not exist. */
         post: operations["restoreDepartment"];
         delete?: never;
         options?: never;

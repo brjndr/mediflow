@@ -317,7 +317,7 @@
       },
       "post": {
         "operationId": "createDepartment",
-        "description": "Adds a department. Requires department:manage. A name already used by a department of the hospital, archived or not, is refused with 409 department_name_taken.",
+        "description": "Adds a department. Requires department:manage. A name already used by a department of the hospital, archived or not, is refused with 409 department_name_taken. The hospital is the session's: the body carries no tenant.",
         "requestBody": {
           "required": true,
           "content": {
@@ -360,7 +360,7 @@
     "/departments/{departmentId}": {
       "patch": {
         "operationId": "updateDepartment",
-        "description": "Changes a department. Requires department:manage. Send the version the change was made from: 409 conflict when the department has changed since, 409 department_name_taken for a name in use.",
+        "description": "Changes a department. Requires department:manage. Send the version the change was made from: 409 conflict when the department has changed since, 409 department_name_taken for a name in use. A department of another hospital answers 404 department_not_found, the same as one that does not exist.",
         "parameters": [
           {
             "name": "departmentId",
@@ -416,7 +416,7 @@
     "/departments/{departmentId}/archive": {
       "post": {
         "operationId": "archiveDepartment",
-        "description": "Archives a department: it stays on the records that name it and is no longer offered for new ones. Requires department:manage. Doing it twice changes nothing.",
+        "description": "Archives a department: it stays on the records that name it and is no longer offered for new ones. Requires department:manage. Doing it twice changes nothing. A department of another hospital answers 404 department_not_found, the same as one that does not exist.",
         "parameters": [
           {
             "name": "departmentId",
@@ -459,7 +459,7 @@
     "/departments/{departmentId}/restore": {
       "post": {
         "operationId": "restoreDepartment",
-        "description": "Brings an archived department back. Requires department:manage. Doing it twice changes nothing.",
+        "description": "Brings an archived department back. Requires department:manage. Doing it twice changes nothing. A department of another hospital answers 404 department_not_found, the same as one that does not exist.",
         "parameters": [
           {
             "name": "departmentId",
@@ -647,7 +647,8 @@
             "type": "string",
             "maxLength": 500
           }
-        }
+        },
+        "additionalProperties": false
       },
       "DepartmentUpdate": {
         "type": "object",
@@ -665,7 +666,8 @@
           "expectedVersion": {
             "type": "integer"
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "responses": {

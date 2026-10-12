@@ -85,7 +85,8 @@ export default function DepartmentsPage() {
         },
       );
     };
-    const busy = () => archive.isPending;
+    // One change at a time: a save or an archive in flight is not overtaken by another action.
+    const busy = () => archive.isPending || save.isPending;
     return archivedView
       ? [
           {
@@ -147,6 +148,7 @@ export default function DepartmentsPage() {
             type="checkbox"
             className="h-4 w-4"
             checked={archivedView}
+            disabled={save.isPending || archive.isPending}
             onChange={(event) => {
               open(null);
               setArchivedView(event.target.checked);

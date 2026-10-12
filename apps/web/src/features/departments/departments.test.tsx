@@ -162,6 +162,36 @@ describe('changing a department', () => {
     expect(screen.queryByRole('button', { name: 'Save department' })).not.toBeInTheDocument();
   });
 
+  it('lets nothing else start while a save is on its way', async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.patch(
+        '*/api/departments/:id',
+        async () => {
+          await held;
+          return undefined;
+        },
+        { once: true },
+      ),
+    );
+    await open();
+    await userEvent.click(button('Edit: Cardiology'));
+    await fill(/^Name/, 'Cardiac Sciences');
+    await userEvent.click(button('Save department'));
+
+    // Another edit, an archive or the other list would overtake the save and lose its answer.
+    await waitFor(() => expect(button('Edit: Dentistry')).toBeDisabled());
+    expect(button('Archive: Dentistry')).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: 'Show archived departments' })).toBeDisabled();
+
+    release();
+    await waitFor(() => expect(status()).toBe('Cardiac Sciences was saved.'));
+    expect(button('Edit: Dentistry')).toBeEnabled();
+  });
+
   it('archives a department and restores it', async () => {
     await open();
     await userEvent.click(button('Archive: Cardiology'));
