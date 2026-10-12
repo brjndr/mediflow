@@ -14,6 +14,11 @@ export type DateInput = string | Date | number;
 export interface Formatters {
   /** Calendar date in the hospital's timezone. */
   date(value: DateInput): string;
+  /**
+   * A calendar date that is not an instant (a date of birth, the day a price starts), given as
+   * YYYY-MM-DD. The same day whatever the hospital's timezone: it is never shifted.
+   */
+  calendarDate(isoDate: string): string;
   /** Time of day in the hospital's timezone. */
   time(value: DateInput): string;
   dateTime(value: DateInput): string;
@@ -48,6 +53,8 @@ function build(config: FormatConfig): Formatters {
     ) ?? FALLBACK_FORMAT.timezone;
 
   const date = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone });
+  // Read as midnight UTC and shown in UTC, so no timezone can move it to a neighbouring day.
+  const calendar = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' });
   const time = new Intl.DateTimeFormat(locale, { timeStyle: 'short', timeZone });
   const dateTime = new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
@@ -63,6 +70,10 @@ function build(config: FormatConfig): Formatters {
 
   return {
     date: (value) => date.format(new Date(value)),
+    calendarDate: (isoDate) => {
+      const day = new Date(`${isoDate}T00:00:00Z`);
+      return Number.isNaN(day.getTime()) ? isoDate : calendar.format(day);
+    },
     time: (value) => time.format(new Date(value)),
     dateTime: (value) => dateTime.format(new Date(value)),
     number: (value, options) =>

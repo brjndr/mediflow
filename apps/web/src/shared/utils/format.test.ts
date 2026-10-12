@@ -32,6 +32,18 @@ describe('formatters', () => {
     expect(hospital.number(0.256, { style: 'percent', maximumFractionDigits: 1 })).toBe('25.6%');
   });
 
+  it('shows a calendar date as the same day in every timezone', () => {
+    const far = createFormatters({ locale: 'en-GB', timezone: 'Pacific/Kiritimati' });
+    const west = createFormatters({ locale: 'en-GB', timezone: 'Pacific/Pago_Pago' });
+    for (const format of [hospital, clinic, far, west]) {
+      expect(format.calendarDate('2025-04-01')).toMatch(/\b1 Apr 2025$|^Apr 1, 2025$|01-Apr-2025/);
+    }
+    expect(far.calendarDate('2025-12-31')).toContain('31');
+    expect(west.calendarDate('2025-01-01')).toContain('2025');
+    // Not a date: shown as it came, never as "Invalid Date".
+    expect(hospital.calendarDate('soon')).toBe('soon');
+  });
+
   it('formats money from minor units in the hospital’s currency', () => {
     expect(plain(hospital.money(12345678))).toBe('₹1,23,456.78');
     expect(plain(clinic.money(12345678))).toBe('AED 123,456.78');

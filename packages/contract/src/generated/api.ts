@@ -723,6 +723,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The services the active tenant can charge for, by name, each with the price in force on its standard price list today, where today is the date at the hospital in its own timezone. Requires service:read and the services feature flag. `q` matches the code or the name. Archived services are listed only when asked for. */
+        get: operations["listServices"];
+        put?: never;
+        /** @description Adds a service. Requires service:manage. The hospital is the session's: the body carries no tenant. The code is the service's identity on bills and cannot be changed later; one already used by a service of the hospital, archived or not, is refused with 409 service_code_taken. `priceMinor`, when given, is its price on the standard list from today. */
+        post: operations["createService"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/services/{serviceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One service. Requires service:read. A service of another hospital answers 404 service_not_found, the same as one that does not exist. */
+        get: operations["getService"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes a service: its name, category, tax class or description, never its code. Requires service:manage. Send the version the change was made from: 409 conflict when the service has changed since. A price is not changed here: see the prices of a service. A service of another hospital answers 404 service_not_found, the same as one that does not exist. */
+        patch: operations["updateService"];
+        trace?: never;
+    };
+    "/services/{serviceId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a service: it stays on the charges and bills that name it and is no longer offered for new ones. Requires service:manage. Doing it twice changes nothing. A service of another hospital answers 404 service_not_found, the same as one that does not exist. */
+        post: operations["archiveService"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/services/{serviceId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived service back. Requires service:manage. Doing it twice changes nothing. A service of another hospital answers 404 service_not_found, the same as one that does not exist. */
+        post: operations["restoreService"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/services/{serviceId}/prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The prices of a service on a price list, newest first: the one in force, those before it and any that is scheduled. Requires service:read. Without `priceListId` the hospital's standard list. A service of another hospital answers 404 service_not_found, the same as one that does not exist. A `priceListId` must be a price list of the session's own hospital: any other, known elsewhere or not, answers 404 price_list_not_found. Store the reference together with the hospital (a composite key), since foreign keys are checked without row-level security. */
+        get: operations["listServicePrices"];
+        put?: never;
+        /** @description Gives a service a new price from a date. Requires service:manage. Prices are never edited, and a charge already posted keeps the price, the tax class and the category it was posted with. The first price of a service may start today at the hospital (its timezone) or later. Once a price is in force, a new one starts tomorrow or later, never today: charges posted this morning used the price that was in force. The price in force then ends the day before the new one starts. At most one price is scheduled at a time: while one is, a second is refused with 409 price_date_conflict until it is withdrawn. An archived service takes no new price (409 service_archived). Two requests at once must not leave overlapping periods: lock the service and keep an exclusion constraint on (hospital, service, list, period). A `priceListId` must be a price list of the session's own hospital: any other, known elsewhere or not, answers 404 price_list_not_found. Store the reference together with the hospital (a composite key), since foreign keys are checked without row-level security. A service of another hospital answers 404 service_not_found, the same as one that does not exist. */
+        post: operations["setServicePrice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/services/{serviceId}/prices/{priceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Withdraws a price that has not come into force yet: the price before it stays in force with no end date. Requires service:manage. A price that is or was in force cannot be withdrawn (409 price_in_force): it is history. A price that is not of this service or hospital answers 404 price_not_found. A service of another hospital answers 404 service_not_found, the same as one that does not exist. */
+        delete: operations["cancelServicePrice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/price-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The price lists of the active tenant. Requires service:read. Every hospital has one standard list; others (for a payer or a room class) come later. */
+        get: operations["listPriceLists"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1082,6 +1204,102 @@ export interface components {
         AccountSessionList: {
             items: components["schemas"]["AccountSession"][];
             nextCursor: string | null;
+        };
+        /** @description What a service costs on one price list from one date. A price is never edited: a new one takes over from its own date. */
+        ServicePrice: {
+            id: string;
+            serviceId: string;
+            priceListId: string;
+            /** @description In the minor unit of the hospital's currency. */
+            amountMinor: number;
+            /**
+             * Format: date
+             * @description A calendar date at the hospital.
+             */
+            effectiveFrom: string;
+            /**
+             * Format: date
+             * @description The last day it applies. Absent while no later price follows.
+             */
+            effectiveTo?: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ServicePricePage: {
+            items: components["schemas"]["ServicePrice"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ServicePriceCreate: {
+            /** @description In the minor unit of the hospital's currency. */
+            amountMinor: number;
+            /**
+             * Format: date
+             * @description A calendar date at the hospital.
+             */
+            effectiveFrom: string;
+            priceListId?: string;
+        };
+        /** @description Something the hospital can charge for. Holds no patient data. Its name, category and tax class can be changed, and a charge keeps what they were when it was posted: changing them never changes an old bill. */
+        Service: {
+            id: string;
+            tenantId: string;
+            /** @description The service's identity on bills. Never changes. */
+            code: string;
+            name: string;
+            /** @enum {string} */
+            category: "consultation" | "procedure" | "bed" | "lab" | "imaging" | "package";
+            /**
+             * @description Which tax rate applies, as a class. The rate of each class is the hospital's tax setting, so a change of rate does not touch the services.
+             * @enum {string}
+             */
+            taxClass: "exempt" | "reduced" | "standard" | "higher";
+            description?: string;
+            archived: boolean;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
+            /** @description The price in force today on the standard list. Absent when there is none. */
+            currentPrice?: components["schemas"]["ServicePrice"];
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ServicePage: {
+            items: components["schemas"]["Service"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ServiceCreate: {
+            code: string;
+            name: string;
+            /** @enum {string} */
+            category: "consultation" | "procedure" | "bed" | "lab" | "imaging" | "package";
+            /**
+             * @description Which tax rate applies, as a class. The rate of each class is the hospital's tax setting, so a change of rate does not touch the services.
+             * @enum {string}
+             */
+            taxClass: "exempt" | "reduced" | "standard" | "higher";
+            description?: string;
+            /** @description In the minor unit of the hospital's currency. */
+            priceMinor?: number;
+        };
+        ServiceUpdate: {
+            name?: string;
+            /** @enum {string} */
+            category?: "consultation" | "procedure" | "bed" | "lab" | "imaging" | "package";
+            /**
+             * @description Which tax rate applies, as a class. The rate of each class is the hospital's tax setting, so a change of rate does not touch the services.
+             * @enum {string}
+             */
+            taxClass?: "exempt" | "reduced" | "standard" | "higher";
+            description?: string;
+            expectedVersion: number;
+        };
+        PriceList: {
+            id: string;
+            name: string;
+            /** @description The list used when none is named. */
+            standard: boolean;
+        };
+        PriceListList: {
+            items: components["schemas"]["PriceList"][];
         };
     };
     responses: {
@@ -3830,6 +4048,299 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listServices: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                q?: string;
+                category?: "consultation" | "procedure" | "bed" | "lab" | "imaging" | "package";
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of services */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createService: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A repeat with the same key and request returns the first answer. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceCreate"];
+            };
+        };
+        responses: {
+            /** @description The new service */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Service"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getService: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The service */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Service"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateService: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceUpdate"];
+            };
+        };
+        responses: {
+            /** @description The service as saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Service"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveService: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The service */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Service"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreService: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The service */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Service"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listServicePrices: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                priceListId?: string;
+            };
+            header?: never;
+            path: {
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of prices */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePricePage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setServicePrice: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A repeat with the same key and request returns the first answer. */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServicePriceCreate"];
+            };
+        };
+        responses: {
+            /** @description The new price */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePrice"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelServicePrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serviceId: string;
+                priceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listPriceLists: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The price lists */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceListList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

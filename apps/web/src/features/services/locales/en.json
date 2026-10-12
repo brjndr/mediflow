@@ -1,0 +1,120 @@
+{
+  "heading": "Services and prices",
+  "description": "Everything this hospital charges for, and what each costs. A charge keeps the price it was posted at, so changing a price never changes an old bill.",
+  "gridLabel": "Services",
+  "add": "Add a service",
+  "backToList": "Back to the list of services",
+  "count_one": "{{count}} service",
+  "count_other": "{{count}} services",
+  "countArchived_one": "{{count}} archived service",
+  "countArchived_other": "{{count}} archived services",
+  "empty": "No services yet.",
+  "emptyArchived": "No archived services.",
+  "emptySearch": "No service matches these filters.",
+  "filters": {
+    "search": "Search services",
+    "searchPlaceholder": "Code or name",
+    "category": "Category",
+    "allCategories": "All categories",
+    "showArchived": "Show archived services"
+  },
+  "columns": {
+    "name": "Name",
+    "code": "Code",
+    "category": "Category",
+    "taxClass": "Tax class",
+    "price": "Price today"
+  },
+  "noPrice": "No price",
+  "categories": {
+    "consultation": "Consultation",
+    "procedure": "Procedure",
+    "bed": "Bed and room",
+    "lab": "Laboratory",
+    "imaging": "Imaging",
+    "package": "Package"
+  },
+  "taxClasses": {
+    "exempt": "Exempt",
+    "reduced": "Reduced rate",
+    "standard": "Standard rate",
+    "higher": "Higher rate"
+  },
+  "form": {
+    "code": "Code",
+    "codeHint": "How the service is named on bills. Letters, digits, dots and dashes. It cannot be changed later.",
+    "name": "Name",
+    "category": "Category",
+    "chooseCategory": "Choose a category",
+    "taxClass": "Tax class",
+    "taxClassHint": "Which tax rate applies. The rates themselves are set for the hospital, not here.",
+    "chooseTaxClass": "Choose a tax class",
+    "description": "Description",
+    "descriptionHint": "Optional. What the service includes.",
+    "price": "Price from today ({{currency}})",
+    "priceHint": "Optional: a service can be set up first and priced later. Use a point for decimals, for example 1250.50.",
+    "save": "Save service",
+    "cancel": "Cancel"
+  },
+  "create": {
+    "heading": "Add a service",
+    "description": "A service is one line a patient can be charged for.",
+    "submit": "Add service",
+    "codeTaken": "This hospital already has a service with that code. It may be archived."
+  },
+  "detail": {
+    "loading": "Loading the service…",
+    "notFoundTitle": "Service not found",
+    "notFoundBody": "There is no such service at this hospital.",
+    "errorTitle": "The service could not be loaded",
+    "details": "Details",
+    "archived": "Archived",
+    "archivedNote": "This service is archived. It stays on the charges and bills that name it and is not offered for new ones.",
+    "edit": "Edit details",
+    "archive": "Archive",
+    "restore": "Restore",
+    "saved": "The service was saved.",
+    "archivedDone": "{{name}} was archived.",
+    "restoredDone": "{{name}} was restored.",
+    "conflict": "Someone else changed this service while you were editing. What you changed is still here: check it and save again. The fields you did not change keep what they saved.",
+    "theySaved": "They also changed something you changed. Saving puts your value in place of theirs:",
+    "notGiven": "Not given"
+  },
+  "prices": {
+    "heading": "Prices",
+    "description": "A price is never edited. A new price takes over from its own date and the one before it ends the day before.",
+    "loading": "Loading the prices…",
+    "failed": "The prices could not be loaded.",
+    "gridLabel": "Price history",
+    "none": "This service has no price yet.",
+    "columns": {
+      "from": "From",
+      "to": "Until",
+      "amount": "Price",
+      "status": "Status"
+    },
+    "openEnded": "No end date",
+    "status": {
+      "inForce": "In force",
+      "scheduled": "Scheduled",
+      "past": "Past"
+    },
+    "withdraw": "Withdraw",
+    "withdrawn": "The scheduled price was withdrawn.",
+    "newHeading": "Set a new price",
+    "amount": "Price ({{currency}})",
+    "effectiveFrom": "From",
+    "amountHint": "Use a point for decimals, for example 1250.50.",
+    "fromTodayHint": "Today or a later date at this hospital.",
+    "fromTomorrowHint": "Tomorrow or a later date at this hospital. Today stays at the price that is in force.",
+    "scheduledFirst": "A price is already scheduled. Withdraw it before setting another: one price at a time is scheduled.",
+    "submit": "Set price",
+    "saved": "The price from {{date}} was set.",
+    "errors": {
+      "dateConflict": "A price is already scheduled for this service. Withdraw it first, then set the new one.",
+      "archived": "This service is archived, so it takes no new price. Restore it first.",
+      "inForce": "That price is already in force, so it cannot be withdrawn. Set a new price instead.",
+      "gone": "That price is no longer there. The list has been updated."
+    }
+  }
+}
