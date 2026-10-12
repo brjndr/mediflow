@@ -158,14 +158,18 @@ const view = (tenantId: string, code: Omit<Code, 'favourite'>): Code => ({
 const plain = (text: string) => text.toLowerCase().replace(/\./g, '');
 
 export const codesHandlers = [
-  http.get('*/api/codes', ({ request }) => {
+  // A search reads data only; it is a POST so that what was typed is never in an address.
+  http.post('*/api/codes/search', async ({ request }) => {
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
-    const params = new URL(request.url).searchParams;
-    const system = SYSTEMS.find((value) => value === params.get('system'));
-    if (!system) return error(400, 'validation_failed', 'The request is not valid');
-    const words = (params.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean);
-    const only = params.get('favourites') === 'true';
+    const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+    const system = SYSTEMS.find((value) => value === body.system);
+    const typed = body.q ?? '';
+    if (!system || typeof typed !== 'string' || typed.length > 100) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const words = typed.toLowerCase().split(/\s+/).filter(Boolean);
+    const only = body.favourites === true;
     // The favourites are the session's hospital's, whatever the request says.
     const own = marked(access.tenantId);
     const visible = CODES.filter((code) => code.system === system)
@@ -180,8 +184,8 @@ export const codesHandlers = [
       })
       // Favourites first, then the codes in order (they are stored in order).
       .sort((a, b) => Number(own.has(b.id)) - Number(own.has(a.id)));
-    const limit = Math.min(Math.max(Number(params.get('limit')) || 25, 1), 100);
-    const cursor = params.get('cursor');
+    const limit = Math.min(Math.max(Number(body.limit) || 25, 1), 100);
+    const cursor = typeof body.cursor === 'string' ? body.cursor : null;
     const start = cursor ? visible.findIndex((code) => code.id === cursor) : 0;
     if (start < 0) return error(400, 'invalid_cursor', 'Unknown cursor');
     const next = visible[start + limit];

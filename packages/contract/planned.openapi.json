@@ -2860,88 +2860,6 @@
         }
       }
     },
-    "/codes": {
-      "get": {
-        "operationId": "listCodes",
-        "description": "Diagnosis and procedure codes, searched on the server: the code sets are large and are never sent whole or bundled into the web app. Requires code:read and the codes feature flag. The codes themselves are the same for every hospital; `favourite` is the active tenant's own mark, taken from the session, never from the client. `q` is words in any order: each matches the start of the code (with or without its dot) or a word of the title. The hospital's favourites come first, then the codes in order. `favourites=true` gives the favourites only, which is what a search box shows before anything is typed. `total` comes with the first page only. A search names a code, never a patient: which patient a diagnosis is being recorded for is not part of this request.",
-        "parameters": [
-          {
-            "name": "system",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "enum": ["icd10", "procedure"]
-            },
-            "description": "The code set to search."
-          },
-          {
-            "name": "q",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "maxLength": 100
-            }
-          },
-          {
-            "name": "favourites",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 25
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "One page of codes",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CodePage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
     "/codes/{codeId}/favourite": {
       "put": {
         "operationId": "addFavouriteCode",
@@ -3015,6 +2933,49 @@
             "$ref": "#/components/responses/Error"
           },
           "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/codes/search": {
+      "post": {
+        "operationId": "searchCodes",
+        "description": "Diagnosis and procedure codes, searched on the server: the code sets are large and are never sent whole or bundled into the web app. Requires code:read and the codes feature flag. It reads data only. The search term travels in the body, never in a query string: it is free text typed while a patient's record may be open, and a diagnosis term beside a patient id in an access log is patient data. The API does not log the body. The codes themselves are the same for every hospital; `favourite` is the active tenant's own mark, taken from the session, never from the client. `q` is words in any order: each matches the start of the code (with or without its dot) or the start of a word of the title. The hospital's favourites come first, then the codes in order. `favourites: true` gives the favourites only, which is what a search box shows before anything is typed. `total` comes with the first page only. The response is the active tenant's view (favourite marks and ordering) and is private to the session: `Cache-Control: private, no-store`, never cached at the CDN or in a server cache keyed without the tenant. The code rows may be cached on the server; the join with the favourites may not. The favourites table carries the tenant and row-level security; the code table is shared and read-only to hospitals.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One page of codes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
             "$ref": "#/components/responses/Error"
           },
           "409": {
@@ -4550,6 +4511,35 @@
           },
           "total": {
             "type": "integer"
+          }
+        }
+      },
+      "CodeSearchRequest": {
+        "type": "object",
+        "required": ["system"],
+        "additionalProperties": false,
+        "properties": {
+          "system": {
+            "type": "string",
+            "enum": ["icd10", "procedure"],
+            "description": "The code set to search."
+          },
+          "q": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "favourites": {
+            "type": "boolean",
+            "description": "Absent: false."
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Absent: 25."
           }
         }
       }

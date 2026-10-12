@@ -1,11 +1,12 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
-import { renderApp } from '@/test/render';
+import { renderApp, renderWithProviders } from '@/test/render';
+import { CodeSearch } from './components/CodeSearch';
 import { codeKeys } from './hooks/use-codes';
 
 const HEADING = { name: 'Diagnosis and procedure codes', level: 1 };
@@ -38,9 +39,15 @@ afterEach(() => {
 
 describe('the code sets', () => {
   it('are listed a page at a time, the hospital’s favourites first, and never whole', async () => {
-    const asked: string[] = [];
+    const asked: { limit?: number }[] = [];
+    const urls: string[] = [];
     server.events.on('request:start', ({ request }) => {
-      if (request.url.includes('/api/codes')) asked.push(new URL(request.url).search);
+      if (!request.url.includes('/api/codes/search')) return;
+      urls.push(new URL(request.url).search);
+      void request
+        .clone()
+        .json()
+        .then((body) => asked.push(body as { limit?: number }));
     });
     await openCodes();
 
@@ -50,7 +57,9 @@ describe('the code sets', () => {
     expect(listed().slice(0, 5)).toEqual(['E11.9', 'I10', 'J06.9', 'A01.0', 'A09']);
     // One page of a set of more than a thousand.
     expect(listed()).toHaveLength(25);
-    expect(asked.every((query) => query.includes('limit=25'))).toBe(true);
+    expect(asked.every((body) => body.limit === 25)).toBe(true);
+    // Nothing of a search is ever in an address.
+    expect(urls.every((query) => query === '')).toBe(true);
 
     await userEvent.click(button('Load more'));
     await waitFor(() => expect(listed()).toHaveLength(50));
@@ -101,7 +110,8 @@ describe('favourites', () => {
   it('are added and removed, and move to the top of the list', async () => {
     const sent: string[] = [];
     server.events.on('request:start', ({ request }) => {
-      if (request.method !== 'GET') sent.push(`${request.method} ${new URL(request.url).pathname}`);
+      if (request.method !== 'GET' && !request.url.endsWith('/search'))
+        sent.push(`${request.method} ${new URL(request.url).pathname}`);
     });
     await openCodes();
     expect(button('Add to favourites: I10')).toBeDisabled();
@@ -153,10 +163,13 @@ describe('the search box', () => {
   it('finds codes as they are typed, a few at a time, and tells the screen which was chosen', async () => {
     const asked: string[] = [];
     server.events.on('request:start', ({ request }) => {
-      const url = new URL(request.url);
-      if (url.pathname.endsWith('/codes') && url.searchParams.get('limit') === '10') {
-        asked.push(url.searchParams.get('q') ?? '');
-      }
+      if (!request.url.endsWith('/codes/search')) return;
+      void request
+        .clone()
+        .json()
+        .then((body: { limit?: number; q?: string }) => {
+          if (body.limit === 10) asked.push(body.q ?? '');
+        });
     });
     await openCodes();
     await userEvent.type(box(), 'fever');
@@ -207,12 +220,61 @@ describe('the search box', () => {
     expect(box()).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('offers nothing of an earlier search while a new one is on its way', async () => {
+    await openCodes();
+    await userEvent.type(box(), 'ast');
+    await screen.findByRole('option', { name: /Asthma, unspecified/ });
+
+    // The next answer is slow: until it comes, the old match cannot be chosen.
+    server.use(
+      http.post('*/api/codes/search', async () => {
+        await delay(400);
+        return undefined;
+      }),
+    );
+    await userEvent.type(box(), 'x');
+    expect(options()).toEqual([]);
+    await userEvent.keyboard('{Enter}');
+    expect(statuses().some((text) => text?.startsWith('Chosen'))).toBe(false);
+    expect(box()).toHaveValue('astx');
+
+    await waitFor(() => expect(statuses()).toContain('No code matches.'));
+  });
+
+  it('says so, and asks for nothing, where the codes are not open to the person', async () => {
+    let asked = 0;
+    server.events.on('request:start', ({ request }) => {
+      if (request.url.endsWith('/codes/search')) asked++;
+    });
+    revokePermission(TENANT_IDS.hospital, 'admin', 'code:read');
+    // On a screen of another module, as a clinical screen will use it.
+    renderWithProviders(<CodeSearch system="icd10" label="Diagnosis" onSelect={() => {}} />);
+
+    const input = await screen.findByRole('combobox', { name: 'Diagnosis' });
+    expect(input).toBeDisabled();
+    expect(
+      screen.getByText('The diagnosis and procedure codes are not open to you at this hospital.'),
+    ).toBeInTheDocument();
+    expect(asked).toBe(0);
+  });
+
+  it('works on a screen of another module, with its own strings', async () => {
+    const chosen: string[] = [];
+    renderWithProviders(
+      <CodeSearch system="icd10" label="Diagnosis" onSelect={(code) => chosen.push(code.code)} />,
+    );
+    await userEvent.type(await screen.findByRole('combobox', { name: 'Diagnosis' }), 'cough');
+    await userEvent.click(await screen.findByRole('option', { name: /Cough/ }));
+
+    expect(chosen).toEqual(['R05']);
+  });
+
   it('says when nothing matches, and when the search failed', async () => {
     await openCodes();
     await userEvent.type(box(), 'zzzz');
     await waitFor(() => expect(statuses()).toContain('No code matches.'));
 
-    server.use(http.get('*/api/codes', () => new HttpResponse(null, { status: 500 })));
+    server.use(http.post('*/api/codes/search', () => new HttpResponse(null, { status: 500 })));
     await userEvent.clear(box());
     await userEvent.type(box(), 'asthma');
     await waitFor(() =>
@@ -242,7 +304,7 @@ describe('a screen that is too narrow', () => {
     }));
     let asked = 0;
     server.use(
-      http.get('*/api/codes', () => {
+      http.post('*/api/codes/search', () => {
         asked++;
         return undefined;
       }),
@@ -295,9 +357,10 @@ describe('access', () => {
     renderApp({ entry: '/codes' });
 
     expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
-    await expect(
-      api.GET('/codes', { params: { query: { system: 'icd10' } } }),
-    ).rejects.toMatchObject({ code: 'forbidden', serverCode: 'feature_disabled' });
+    await expect(api.POST('/codes/search', { body: { system: 'icd10' } })).rejects.toMatchObject({
+      code: 'forbidden',
+      serverCode: 'feature_disabled',
+    });
   });
 });
 
@@ -333,15 +396,13 @@ describe('two hospitals', () => {
   it('change only their own favourites', async () => {
     // The hospital's admin takes away a favourite both hospitals have.
     await api.DELETE('/codes/{codeId}/favourite', { params: { path: { codeId: 'icd10_j069' } } });
-    const own = await api.GET('/codes', {
-      params: { query: { system: 'icd10', favourites: true } },
-    });
+    const own = await api.POST('/codes/search', { body: { system: 'icd10', favourites: true } });
     expect(own.data?.items.map((item) => item.code)).toEqual(['E11.9', 'I10']);
 
     // The clinic still has it.
     signIn(USER_IDS.doctor, TENANT_IDS.clinic);
-    const theirs = await api.GET('/codes', {
-      params: { query: { system: 'icd10', favourites: true } },
+    const theirs = await api.POST('/codes/search', {
+      body: { system: 'icd10', favourites: true },
     });
     expect(theirs.data?.items.map((item) => item.code)).toEqual(['J06.9']);
   });

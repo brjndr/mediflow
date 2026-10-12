@@ -1,5 +1,6 @@
 import { useId, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useFeatureFlag, usePermission } from '@/access';
 import { SEARCH_DEBOUNCE_MS, useCodeSuggestions, useDebouncedValue } from '../hooks/use-codes';
 import type { Code, CodeSystem } from '../types';
 
@@ -29,7 +30,12 @@ export function CodeSearch({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const typed = useDebouncedValue(text, SEARCH_DEBOUNCE_MS);
-  const suggestions = useCodeSuggestions(system, typed, open);
+  // The codes are a module of their own: switched on for the hospital, and open to this person.
+  // Without them the box says so and asks the server for nothing.
+  const allowed = usePermission('code:read');
+  const switchedOn = useFeatureFlag('codes');
+  const available = allowed && switchedOn;
+  const suggestions = useCodeSuggestions(system, typed, open && available);
   // What is listed belongs to what was typed: while a search is on its way nothing of an
   // earlier one can be chosen by mistake.
   const settled = typed === text && !suggestions.isPlaceholderData;
@@ -85,7 +91,7 @@ export function CodeSearch({
         type="text"
         role="combobox"
         aria-expanded={open}
-        aria-controls={listId}
+        aria-controls={open ? listId : undefined}
         aria-autocomplete="list"
         aria-activedescendant={
           open && settled && options.length > 0 ? optionId(highlighted) : undefined
@@ -93,7 +99,9 @@ export function CodeSearch({
         value={text}
         maxLength={100}
         autoComplete="off"
-        placeholder={t('search.placeholder')}
+        disabled={!available}
+        aria-describedby={available ? undefined : `${inputId}-unavailable`}
+        placeholder={available ? t('search.placeholder') : ''}
         onChange={(event) => {
           setText(event.target.value);
           setOpen(true);
@@ -105,7 +113,12 @@ export function CodeSearch({
         onKeyDown={onKeyDown}
         className="h-9 w-full rounded-md border bg-background px-3 text-base outline-none md:text-sm focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11"
       />
-      {open && (
+      {!available && (
+        <p id={`${inputId}-unavailable`} className="text-xs text-muted-foreground">
+          {t('search.unavailable')}
+        </p>
+      )}
+      {open && available && (
         <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-md border bg-background shadow-md">
           <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
             {message}

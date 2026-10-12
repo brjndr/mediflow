@@ -4,7 +4,10 @@ import type { Code, CodePage, CodeSystem } from './types';
 
 export interface CodeFilters {
   system: CodeSystem;
-  /** A code or words of a title. Names a code, never a patient, so it may be a query. */
+  /**
+   * A code or words of a title. Sent in the body, never in an address: it is typed while a
+   * patient's record may be open, and a diagnosis beside a patient in a log is patient data.
+   */
   q: string;
   favourites: boolean;
 }
@@ -13,8 +16,8 @@ export async function fetchCodes(
   { system, q, favourites, cursor, limit }: CodeFilters & { cursor?: string; limit: number },
   signal?: AbortSignal,
 ): Promise<CodePage> {
-  const result = await api.GET('/codes', {
-    params: { query: { system, q: q || undefined, favourites, cursor, limit } },
+  const result = await api.POST('/codes/search', {
+    body: { system, ...(q ? { q } : {}), favourites, ...(cursor ? { cursor } : {}), limit },
     signal,
   });
   return codePageSchema.parse(requireData(result));

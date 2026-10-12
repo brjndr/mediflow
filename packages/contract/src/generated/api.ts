@@ -1346,23 +1346,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/codes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Diagnosis and procedure codes, searched on the server: the code sets are large and are never sent whole or bundled into the web app. Requires code:read and the codes feature flag. The codes themselves are the same for every hospital; `favourite` is the active tenant's own mark, taken from the session, never from the client. `q` is words in any order: each matches the start of the code (with or without its dot) or a word of the title. The hospital's favourites come first, then the codes in order. `favourites=true` gives the favourites only, which is what a search box shows before anything is typed. `total` comes with the first page only. A search names a code, never a patient: which patient a diagnosis is being recorded for is not part of this request. */
-        get: operations["listCodes"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/codes/{codeId}/favourite": {
         parameters: {
             query?: never;
@@ -1376,6 +1359,23 @@ export interface paths {
         post?: never;
         /** @description Takes a code out of the active tenant's favourites. Requires code:manage. Doing it twice changes nothing. Audited. 404 code_not_found for a code that does not exist. */
         delete: operations["removeFavouriteCode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/codes/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Diagnosis and procedure codes, searched on the server: the code sets are large and are never sent whole or bundled into the web app. Requires code:read and the codes feature flag. It reads data only. The search term travels in the body, never in a query string: it is free text typed while a patient's record may be open, and a diagnosis term beside a patient id in an access log is patient data. The API does not log the body. The codes themselves are the same for every hospital; `favourite` is the active tenant's own mark, taken from the session, never from the client. `q` is words in any order: each matches the start of the code (with or without its dot) or the start of a word of the title. The hospital's favourites come first, then the codes in order. `favourites: true` gives the favourites only, which is what a search box shows before anything is typed. `total` comes with the first page only. The response is the active tenant's view (favourite marks and ordering) and is private to the session: `Cache-Control: private, no-store`, never cached at the CDN or in a server cache keyed without the tenant. The code rows may be cached on the server; the join with the favourites may not. The favourites table carries the tenant and row-level security; the code table is shared and read-only to hospitals. */
+        post: operations["searchCodes"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2239,6 +2239,19 @@ export interface components {
             items: components["schemas"]["Code"][];
             nextCursor: string | null;
             total?: number;
+        };
+        CodeSearchRequest: {
+            /**
+             * @description The code set to search.
+             * @enum {string}
+             */
+            system: "icd10" | "procedure";
+            q?: string;
+            /** @description Absent: false. */
+            favourites?: boolean;
+            cursor?: string;
+            /** @description Absent: 25. */
+            limit?: number;
         };
     };
     responses: {
@@ -6397,38 +6410,6 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    listCodes: {
-        parameters: {
-            query: {
-                /** @description The code set to search. */
-                system: "icd10" | "procedure";
-                q?: string;
-                favourites?: boolean;
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of codes */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CodePage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
     addFavouriteCode: {
         parameters: {
             query?: never;
@@ -6479,6 +6460,35 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    searchCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description One page of codes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodePage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

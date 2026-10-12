@@ -7,6 +7,9 @@ import type { FeatureManifest } from '@/registry';
  * up and marks favourites; `CodeSearch`, exported from this feature, is the search box the
  * clinical screens record a code with.
  *
+ * A screen that uses `CodeSearch` needs this module switched on for the hospital and
+ * `code:read` for the person, as doctors need departments; without them the box says so.
+ *
  * Master data: the screen is desktop-only (CLAUDE.md, Responsive Design). The search box works
  * at every width.
  */

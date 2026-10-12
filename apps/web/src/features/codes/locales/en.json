@@ -30,6 +30,7 @@
   },
   "search": {
     "placeholder": "Type a code or a few words",
+    "unavailable": "The diagnosis and procedure codes are not open to you at this hospital.",
     "loading": "Searching…",
     "failed": "The codes could not be searched. Type again to retry.",
     "none": "No code matches.",
