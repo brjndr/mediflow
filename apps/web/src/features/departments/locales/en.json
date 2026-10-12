@@ -1,0 +1,41 @@
+{
+  "heading": "Departments",
+  "description": "The departments of this hospital. Doctors and appointments are assigned to them.",
+  "gridLabel": "Departments",
+  "add": "Add department",
+  "showArchived": "Show archived departments",
+  "count_one": "{{count}} department",
+  "count_other": "{{count}} departments",
+  "countArchived_one": "{{count}} archived department",
+  "countArchived_other": "{{count}} archived departments",
+  "empty": "No departments yet.",
+  "emptyArchived": "No archived departments.",
+  "columns": {
+    "name": "Name",
+    "description": "Description"
+  },
+  "actions": {
+    "edit": "Edit",
+    "archive": "Archive",
+    "restore": "Restore"
+  },
+  "form": {
+    "addHeading": "Add a department",
+    "editHeading": "Edit {{name}}",
+    "name": "Name",
+    "description": "Description",
+    "descriptionHint": "Optional. What the department does, or where it is.",
+    "save": "Save department",
+    "cancel": "Cancel"
+  },
+  "saved": {
+    "added": "{{name}} was added.",
+    "changed": "{{name}} was saved.",
+    "archived": "{{name}} was archived.",
+    "restored": "{{name}} was restored."
+  },
+  "errors": {
+    "nameTaken": "This hospital already has a department with that name. It may be archived.",
+    "conflict": "Someone else changed this department while you were editing. The list has been updated: check it and try again."
+  }
+}

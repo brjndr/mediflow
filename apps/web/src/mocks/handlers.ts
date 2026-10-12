@@ -9,6 +9,7 @@ import {
   switchTenant,
 } from './db';
 import { accountHandlers } from './handlers/auth';
+import { departmentsHandlers } from './handlers/departments';
 import { examplesHandlers } from './handlers/examples';
 import { mfaHandlers, mfaLoginHandlers } from './handlers/mfa';
 import { noticesHandlers } from './handlers/notices';
@@ -100,6 +101,7 @@ export const handlers = [
   ...noticesHandlers,
   ...examplesHandlers,
   ...patientsHandlers,
+  ...departmentsHandlers,
   ...accountHandlers,
   ...mfaHandlers,
   ...profileHandlers,

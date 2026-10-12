@@ -24,7 +24,7 @@ describe('shell', () => {
   it('has the landmarks, the sidebar from the registry and the signed-in user', async () => {
     renderApp();
     await home();
-    expect(linkNames(sidebar())).toEqual(['Home', 'Patients', 'Notices']);
+    expect(linkNames(sidebar())).toEqual(['Home', 'Patients', 'Departments', 'Notices']);
     expect(within(sidebar()).getByRole('link', { name: 'Home' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -50,7 +50,7 @@ describe('shell', () => {
       'false',
     );
     // Names are still exposed to assistive technology, and as a tooltip for mouse users.
-    expect(linkNames(sidebar())).toEqual(['Home', 'Patients', 'Notices']);
+    expect(linkNames(sidebar())).toEqual(['Home', 'Patients', 'Departments', 'Notices']);
     expect(within(sidebar()).getByRole('link', { name: 'Notices' })).toHaveAttribute(
       'title',
       'Notices',
@@ -81,6 +81,8 @@ describe('keyboard', () => {
     expect(within(sidebar()).getByRole('link', { name: 'Home' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Patients' })).toHaveFocus();
+    await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Departments' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Notices' })).toHaveFocus();
     await userEvent.tab();
@@ -121,6 +123,7 @@ describe('navigation drawer (narrow screens)', () => {
     expect(linkNames(within(drawer()).getByRole('navigation'))).toEqual([
       'Home',
       'Patients',
+      'Departments',
       'Notices',
     ]);
     await expectNoAxeViolations(drawer());
@@ -157,7 +160,7 @@ describe('system pages', () => {
   it('shows a not-found page inside the shell for an unknown address', async () => {
     const { router } = renderApp({ entry: '/no/such/page' });
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
-    expect(linkNames(sidebar())).toEqual(['Home', 'Patients', 'Notices']);
+    expect(linkNames(sidebar())).toEqual(['Home', 'Patients', 'Departments', 'Notices']);
     await expectNoAxeViolations();
 
     await userEvent.click(screen.getByRole('link', { name: 'Back to home' }));

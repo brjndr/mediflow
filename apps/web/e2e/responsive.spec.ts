@@ -20,6 +20,16 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Staff notices' })).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // Departments: the list, and the form that opens above it.
+  await goTo(page, 'Departments');
+  await expect(page.getByRole('heading', { name: 'Departments', exact: true })).toBeVisible();
+  await expect(page.getByText('Cardiology')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'Add department' }).click();
+  await expect(page.getByRole('textbox', { name: 'Name' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+
   await goTo(page, 'Patients');
   await expect(page.getByRole('heading', { name: 'Patients', exact: true })).toBeVisible();
   await expectNoSidewaysScroll(page);
