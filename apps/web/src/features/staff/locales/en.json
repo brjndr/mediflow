@@ -88,6 +88,7 @@
     "failed_one": "{{count}} could not be sent. See the list.",
     "failed_other": "{{count}} could not be sent. See the list.",
     "stopped": "Stopped: too many requests just now. Wait a minute, then send the rest.",
+    "interrupted": "Stopped before the end: {{reason}} The rows that were not sent are still listed.",
     "columns": {
       "line": "Line",
       "name": "Name",
@@ -98,11 +99,11 @@
     "results": {
       "ready": "Ready",
       "sent": "Sent",
-      "failed": "Not sent"
+      "failed": "Not sent: {{reason}}"
     },
     "file": {
       "empty": "The file has no people in it.",
-      "header": "The first row must name the columns: name, email, role.",
+      "header": "The first row must name three columns: name, email and role.",
       "tooMany": "The file has more than {{max}} people. Split it into several files.",
       "tooLarge": "The file is too large to be a list of staff.",
       "unreadable": "The file could not be read."
@@ -110,7 +111,8 @@
     "problems": {
       "name": "No name, or a name that is too long",
       "email": "Not an email address",
-      "role": "No such role here",
+      "role": "No such role here, or not one you may invite into",
+      "roleAmbiguous": "More than one role matches: use the role's id",
       "duplicate": "The same address is on an earlier line"
     }
   }

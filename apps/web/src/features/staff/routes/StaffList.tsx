@@ -83,6 +83,12 @@ export default function StaffList() {
   const [confirming, setConfirming] = useState<StaffMember | null>(null);
   // What was just done, said once in a status line.
   const [done, setDone] = useState<string | null>(null);
+  const statusLine = useRef<HTMLParagraphElement>(null);
+  // The question closes and its buttons go: the keyboard moves to where the answer is said.
+  const closeQuestion = () => {
+    setConfirming(null);
+    statusLine.current?.focus();
+  };
   const q = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const staff = useStaff({ q, status });
   const action = useStaffAction();
@@ -100,7 +106,7 @@ export default function StaffList() {
 
   const run = (kind: StaffAction, member: StaffMember) => {
     clear();
-    setConfirming(null);
+    if (confirming) closeQuestion();
     action.mutate(
       { action: kind, member },
       { onSuccess: () => setDone(t(`done.${kind}`, { name: member.name })) },
@@ -129,7 +135,7 @@ export default function StaffList() {
             id: 'revokeSessions',
             label: t('actions.revokeSessions'),
             requires: MANAGE,
-            disabled: () => busy,
+            disabled: (row) => busy || row.status !== 'active',
             onSelect: (row) => run('revokeSessions', row),
           },
           {
@@ -137,7 +143,7 @@ export default function StaffList() {
             label: t('actions.deactivate'),
             requires: MANAGE,
             // Nobody deactivates themselves: the server refuses it too.
-            disabled: (row) => busy || row.id === ownId,
+            disabled: (row) => busy || row.status !== 'active' || row.id === ownId,
             onSelect: (row) => {
               clear();
               setConfirming(row);
@@ -150,7 +156,7 @@ export default function StaffList() {
               id: 'reactivate',
               label: t('actions.reactivate'),
               requires: MANAGE,
-              disabled: () => busy,
+              disabled: (row) => busy || row.status !== 'deactivated',
               onSelect: (row) => run('reactivate', row),
             },
           ]
@@ -159,7 +165,7 @@ export default function StaffList() {
               id: 'resend',
               label: t('actions.resend'),
               requires: INVITE,
-              disabled: () => busy,
+              disabled: (row) => busy || row.status !== 'invited',
               onSelect: (row) => {
                 clear();
                 resend.mutate(
@@ -235,7 +241,7 @@ export default function StaffList() {
             member={confirming}
             pending={busy}
             onConfirm={() => run('deactivate', confirming)}
-            onCancel={() => setConfirming(null)}
+            onCancel={closeQuestion}
           />
         </Can>
       )}
@@ -245,7 +251,12 @@ export default function StaffList() {
           {refused ? t(refused) : tCommon(errorMessageKey(failure))}
         </p>
       )}
-      <p role="status" className="text-sm text-muted-foreground">
+      <p
+        ref={statusLine}
+        tabIndex={-1}
+        role="status"
+        className="text-sm text-muted-foreground outline-none"
+      >
         {/* Not while the previous view's rows are still shown: the total would be theirs. */}
         {done ??
           (total === undefined || staff.isPlaceholderData

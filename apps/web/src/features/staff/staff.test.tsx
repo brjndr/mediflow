@@ -94,6 +94,42 @@ describe('the staff list', () => {
   });
 });
 
+describe('the views and their actions', () => {
+  it('never offers one view’s actions on another view’s rows', async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await openList();
+    server.use(
+      http.get(
+        '*/api/staff',
+        async () => {
+          await held;
+          return undefined;
+        },
+        { once: true },
+      ),
+    );
+    await show('Open invitations');
+
+    // While the invitations load, the active staff are gone: nothing to "send again" to.
+    await waitFor(() => expect(screen.queryByText('Aarav Iyer')).not.toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /^Send again/ })).not.toBeInTheDocument();
+
+    release();
+    expect(await screen.findByRole('button', { name: 'Send again: Invited Ira' })).toBeEnabled();
+  });
+
+  it('moves the keyboard to the answer when the question closes', async () => {
+    await openList();
+    await userEvent.click(button('Deactivate: Aarav Iyer'));
+    await userEvent.click(button('Cancel'));
+
+    expect(document.activeElement).toHaveAttribute('role', 'status');
+  });
+});
+
 describe('what an admin does to a member', () => {
   it('asks before deactivating, and does nothing on Cancel', async () => {
     await openList();
@@ -204,6 +240,33 @@ describe('inviting one person', () => {
     expect(sentTo()).toEqual([]);
   });
 
+  it('sends one invitation when the same form is sent again after a failure', async () => {
+    const keys: (string | null)[] = [];
+    let fail = true;
+    server.use(
+      http.post('*/api/invites', ({ request }) => {
+        keys.push(request.headers.get('idempotency-key'));
+        if (!fail) return undefined;
+        fail = false;
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+    await openInvite();
+    await fillInvite('Nina Nurse', 'nina@sample-hospital.test', 'Doctor');
+    await userEvent.click(button('Send invitation'));
+    await screen.findByRole('alert');
+    await userEvent.click(button('Send invitation'));
+
+    await waitFor(() =>
+      expect(statuses()).toContain('An invitation was sent to nina@sample-hospital.test.'),
+    );
+    // The same key both times: had the first one arrived after all, this is its repeat.
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(keys[1]).toBe(keys[0]);
+    expect(sentTo()).toEqual(['nina@sample-hospital.test']);
+  });
+
   it('says so when the role was removed meanwhile, and keeps what was typed', async () => {
     server.use(
       http.post('*/api/invites', () =>
@@ -242,7 +305,11 @@ describe('inviting from a file', () => {
     );
     expect(screen.getByText('Rao, Vikram')).toBeInTheDocument();
     expect(screen.getByText('Not an email address')).toBeInTheDocument();
-    expect(screen.getByText('No such role here')).toBeInTheDocument();
+    expect(
+      screen.getByText('No such role here, or not one you may invite into'),
+    ).toBeInTheDocument();
+    // The role is shown as the hospital names it, whatever the file's capitals.
+    expect(screen.getAllByText('Admin').length).toBeGreaterThan(0);
     expect(screen.getByText('The same address is on an earlier line')).toBeInTheDocument();
     expect(sentTo()).toEqual([]);
   });
@@ -276,7 +343,11 @@ describe('inviting from a file', () => {
       expect(statuses()).toContain('1 invitation was sent. 1 could not be sent. See the list.'),
     );
     expect(sentTo()).toEqual(['vikram.rao@sample-hospital.test']);
-    expect(screen.getByText('Not sent: No such role here')).toBeInTheDocument();
+    expect(
+      screen.getByText('Not sent: No such role here, or not one you may invite into'),
+    ).toBeInTheDocument();
+    // A row the server refused is not offered again.
+    expect(screen.queryByRole('button', { name: /^Send \d+ invitation/ })).not.toBeInTheDocument();
   });
 
   it('stops when the hospital is asked to slow down, and sends the rest later without repeats', async () => {
@@ -310,7 +381,7 @@ describe('inviting from a file', () => {
     await openInvite();
     await upload('person,address\nAsha,asha@sample-hospital.test');
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'The first row must name the columns: name, email, role.',
+      'The first row must name three columns: name, email and role.',
     );
 
     await upload('name,email,role\n');
@@ -325,36 +396,117 @@ describe('inviting from a file', () => {
     );
   });
 
-  it('reads CSV as spreadsheets write it', () => {
-    expect(parseCsv('﻿a,b\r\n"x ""y"", z",2\n\n 3 ,4')).toEqual([
-      ['a', 'b'],
-      ['x "y", z', '2'],
-      ['3', '4'],
-    ]);
-    // Columns in any order, and a role by its name or its id.
-    expect(
-      readInvites(
-        'Role,Name,Email\nDOCTOR,Asha,Asha@Example.org\nadmin,Ben,ben@example.org',
-        ROLES,
+  it('stops at a failure that is not about the row, and keeps the rest to send', async () => {
+    server.use(
+      http.post('*/api/invites', () => new HttpResponse(null, { status: 500 }), { once: true }),
+    );
+    await openInvite();
+    await upload(FILE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Send 2 invitations' }));
+
+    expect(await screen.findByText(/Stopped before the end/)).toBeInTheDocument();
+    expect(sentTo()).toEqual([]);
+
+    // Nothing was marked as refused: both rows go out on the next try.
+    await userEvent.click(await screen.findByRole('button', { name: 'Send 2 invitations' }));
+    await waitFor(() => expect(statuses()).toContain('2 invitations were sent.'));
+  });
+
+  it('stops sending when the screen is left', async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post(
+        '*/api/invites',
+        async () => {
+          await held;
+          return undefined;
+        },
+        { once: true },
       ),
-    ).toEqual({
+    );
+    const { router } = await openInvite();
+    await upload(FILE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Send 2 invitations' }));
+    await waitFor(() => expect(statuses()).toContain('Sending 0 of 2…'));
+
+    await router.navigate('/staff');
+    await screen.findByRole('heading', HEADING);
+    release();
+
+    // The one that was already on its way arrives; the rest of the list is not sent unseen.
+    await waitFor(() => expect(sentTo()).toEqual(['asha.rao@sample-hospital.test']));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(sentTo()).toEqual(['asha.rao@sample-hospital.test']);
+  });
+
+  it('reads CSV as spreadsheets write it', () => {
+    const bom = String.fromCharCode(0xfeff);
+    expect(parseCsv(bom + 'a,b\r\n"x ""y"", z",2\n\n 3 ,4')).toEqual([
+      { line: 1, fields: ['a', 'b'] },
+      { line: 2, fields: ['x "y", z', '2'] },
+      { line: 4, fields: ['3', '4'] },
+    ]);
+    // Semicolons, as a spreadsheet in a European locale exports, with or without saying so.
+    expect(parseCsv('a;b\n1,5;2')).toEqual([
+      { line: 1, fields: ['a', 'b'] },
+      { line: 2, fields: ['1,5', '2'] },
+    ]);
+    expect(parseCsv('sep=;\na;b\n1;2')).toEqual([
+      { line: 2, fields: ['a', 'b'] },
+      { line: 3, fields: ['1', '2'] },
+    ]);
+    // A line break inside quotes belongs to the field, and the next row knows its own line.
+    expect(parseCsv('a,b\n"two\nlines",1\nnext,2')).toEqual([
+      { line: 1, fields: ['a', 'b'] },
+      { line: 2, fields: ['two\nlines', '1'] },
+      { line: 4, fields: ['next', '2'] },
+    ]);
+  });
+
+  it('understands the columns in any order and a role by its name or its id', () => {
+    const file = 'Role;Name;Email\nDOCTOR;Asha;Asha@Example.org\n\nadmin;Ben;ben@example.org';
+    expect(readInvites(file, ROLES)).toEqual({
       rows: [
         {
           line: 2,
           name: 'Asha',
           email: 'asha@example.org',
-          role: 'DOCTOR',
+          role: 'Doctor',
           request: { name: 'Asha', email: 'asha@example.org', roleId: 'doctor' },
         },
         {
-          line: 3,
+          line: 4,
           name: 'Ben',
           email: 'ben@example.org',
-          role: 'admin',
+          role: 'Admin',
           request: { name: 'Ben', email: 'ben@example.org', roleId: 'admin' },
         },
       ],
     });
+  });
+
+  it('does not guess between two roles a word could mean', () => {
+    // A custom role that someone named like the built-in role's id.
+    const roles = [...ROLES, { id: 'ward_admin', name: 'admin' }];
+    const result = readInvites('name,email,role\nBen,ben@example.org,admin', roles);
+
+    expect(result).toMatchObject({
+      rows: [{ problem: 'bulk.problems.roleAmbiguous', role: 'admin' }],
+    });
+    expect('rows' in result && result.rows[0]?.request).toBeUndefined();
+  });
+
+  it('refuses a row whose quote is never closed, instead of sending what follows it', () => {
+    const result = readInvites(
+      'name,email,role\n"Asha,asha@example.org,Doctor\nBen,ben@example.org,Doctor',
+      ROLES,
+    );
+
+    expect(result).toMatchObject({ rows: [{ line: 2, problem: 'bulk.problems.email' }] });
+    expect('rows' in result && result.rows).toHaveLength(1);
   });
 });
 

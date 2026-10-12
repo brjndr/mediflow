@@ -127,7 +127,13 @@ function seed() {
       roleId: 'receptionist',
     },
   ];
-  return { members, invites, created: 0, sent: [] as MockInvite[] };
+  return {
+    members,
+    invites,
+    created: 0,
+    sent: [] as MockInvite[],
+    replies: new Map<string, { raw: string; invite: Invite }>(),
+  };
 }
 
 let state = seed();
@@ -152,6 +158,7 @@ const notFound = () => error(404, 'staff_not_found', 'No such member of staff');
 
 const view = (member: MockStaff): StaffMember => ({
   id: member.userId,
+  tenantId: member.tenantId,
   name: member.name,
   email: member.email,
   roleId: member.roleId,
@@ -192,6 +199,7 @@ export const staffHandlers = [
             .filter((invite) => invite.tenantId === access.tenantId)
             .map((invite) => ({
               id: invite.id,
+              tenantId: invite.tenantId,
               name: invite.name,
               email: invite.email,
               roleId: invite.roleId,
@@ -251,9 +259,27 @@ export const staffHandlers = [
 
   // The real API has this one (features/staff). No feature flag there either.
   http.post('*/api/invites', async ({ request }) => {
-    const access = authorize(request, { permission: INVITE, featureFlag: FEATURE_FLAG });
+    // No module switch, as in the real API: only the permission.
+    const access = authorize(request, { permission: INVITE });
     if ('denied' in access) return access.denied;
-    const body: unknown = await request.json().catch(() => null);
+    const raw = await request.text();
+    // The same key with the same request is answered as before, and nothing is sent again.
+    const key = `${access.tenantId}:${request.headers.get('idempotency-key') ?? ''}`;
+    const earlier = state.replies.get(key);
+    if (earlier && request.headers.get('idempotency-key')) {
+      return earlier.raw === raw
+        ? HttpResponse.json<Invite>(earlier.invite, {
+            status: 201,
+            headers: { 'Idempotent-Replayed': 'true' },
+          })
+        : error(422, 'idempotency_key_reuse', 'That key was used for another request');
+    }
+    let body: unknown = null;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      // Left as null: refused below.
+    }
     const { email, name, roleId } =
       typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
     if (typeof email !== 'string' || typeof name !== 'string' || typeof roleId !== 'string') {
@@ -279,9 +305,8 @@ export const staffHandlers = [
     };
     state.invites.push(invite);
     state.sent.push(invite);
-    return HttpResponse.json<Invite>(
-      { id: invite.id, email: invite.email, roleId, expiresInHours: 168 },
-      { status: 201 },
-    );
+    const reply: Invite = { id: invite.id, email: invite.email, roleId, expiresInHours: 168 };
+    state.replies.set(key, { raw, invite: reply });
+    return HttpResponse.json<Invite>(reply, { status: 201 });
   }),
 ];

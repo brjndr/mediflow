@@ -645,7 +645,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The roles of the active tenant that someone can be invited into, by name. Requires staff:invite. Ids and names only: what a role may do belongs to role management. */
+        /** @description The roles of the active tenant that the caller may invite someone into, by name: those whose permissions are all held by the caller's own role, so an invitation never grants more than the inviter has (POST /invites refuses the others with 403 role_not_allowed). Requires staff:invite. Ids and names only: what a role may do belongs to role management. */
         get: operations["listStaffRoles"];
         put?: never;
         post?: never;
@@ -664,7 +664,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Deactivates someone's membership of the hospital: every session they have there ends at once and they cannot work there until reactivated. Their account and their memberships of other hospitals are untouched. Requires staff:manage. 409 cannot_deactivate_self for the caller's own membership, 409 last_admin when no other active member could manage staff. Doing it twice changes nothing. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
+        /** @description Deactivates someone's membership of the hospital: every session they have there ends at once and they cannot work there until reactivated. Their account and their memberships of other hospitals are untouched. Requires staff:manage. 409 cannot_deactivate_self for the caller's own membership, 409 last_admin when no other active member could manage staff and roles, counted with the rows locked. Doing it twice changes nothing. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. The membership is kept, marked deactivated, never deleted: accepting an invitation must not bring it back, and switching hospital or opening a link refuses it. */
         post: operations["deactivateStaff"];
         delete?: never;
         options?: never;
@@ -681,7 +681,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Makes a deactivated membership active again, in the role it had. Requires staff:manage. Doing it twice changes nothing. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
+        /** @description Makes a deactivated membership active again, in the role it had. Requires staff:manage. Doing it twice changes nothing. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. */
         post: operations["reactivateStaff"];
         delete?: never;
         options?: never;
@@ -698,7 +698,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Ends every session the person has at this hospital, so they must sign in again. Requires staff:manage. The caller's own current session is kept. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
+        /** @description Ends every session the person has at this hospital, so they must sign in again. Requires staff:manage. The caller's own current session is kept. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. */
         post: operations["revokeStaffSessions"];
         delete?: never;
         options?: never;
@@ -1044,6 +1044,7 @@ export interface components {
         /** @description Someone who works at the hospital, or has been invited to. For a member `id` is the user id; for an invitation it is the invitation id. */
         StaffMember: {
             id: string;
+            tenantId: string;
             name: string;
             email: string;
             roleId: string;

@@ -45,7 +45,15 @@ export function useStaff(filters: StaffFilters) {
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: tenantId !== undefined,
     staleTime: STALE_TIME_MS,
-    placeholderData: (previous) => previous,
+    // The last page stays while a search is typed, but only of the same view at the same
+    // hospital: the actions offered go with the view, and must never meet another view's rows.
+    placeholderData: (previous, previousQuery) => {
+      const [, previousTenant, , , previousFilters] = previousQuery?.queryKey ?? [];
+      const sameView =
+        previousTenant === tenantId &&
+        (previousFilters as StaffFilters | undefined)?.status === filters.status;
+      return sameView ? previous : undefined;
+    },
   });
 }
 

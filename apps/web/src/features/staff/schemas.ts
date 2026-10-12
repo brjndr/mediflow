@@ -6,6 +6,7 @@ export const STAFF_STATUSES = ['active', 'deactivated', 'invited'] as const;
 /** Responses are validated where they enter the app, so screens can trust their shape. */
 export const staffMemberSchema: z.ZodType<StaffMember> = z.object({
   id: z.string(),
+  tenantId: z.string(),
   name: z.string(),
   email: z.string(),
   roleId: z.string(),

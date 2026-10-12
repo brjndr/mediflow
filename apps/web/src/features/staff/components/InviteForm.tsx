@@ -21,12 +21,14 @@ export function InviteForm({ roles }: { roles: StaffRole[] }) {
 
   const submit = async (values: InviteFormValues) => {
     setSentTo(null);
-    const serialized = JSON.stringify(values);
+    // Addresses are kept in lower case, as the bulk invite sends them.
+    const body = { ...values, email: values.email.toLowerCase() };
+    const serialized = JSON.stringify(body);
     if (attempt.current?.body !== serialized) {
       attempt.current = { body: serialized, key: crypto.randomUUID() };
     }
     try {
-      const sent = await invite.mutateAsync({ body: values, idempotencyKey: attempt.current.key });
+      const sent = await invite.mutateAsync({ body, idempotencyKey: attempt.current.key });
       attempt.current = undefined;
       setSentTo(sent.email);
       // Ready for the next person, in the same role.
