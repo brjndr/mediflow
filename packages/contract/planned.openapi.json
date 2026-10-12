@@ -498,6 +498,379 @@
           }
         }
       }
+    },
+    "/doctors/candidates": {
+      "get": {
+        "operationId": "listDoctorCandidates",
+        "description": "Staff members of the active tenant who have no doctor profile yet, by name: who a profile can be created for. Requires doctor:manage and the doctors feature flag. `q` matches the name or the email address. Staff are users, not patients.",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of staff members",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorCandidatePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/doctors": {
+      "get": {
+        "operationId": "listDoctors",
+        "description": "Doctors of the active tenant, by name. Requires doctor:read and the doctors feature flag. `q` matches the name or the specialization.",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "departmentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            },
+            "description": "False lists the doctors who are no longer active instead."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of doctors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDoctor",
+        "description": "Gives a staff member of the hospital a doctor profile. Requires doctor:manage. The hospital is the session's: the body carries no tenant. 409 doctor_exists when that person already has one, 400 when the user is not a member or the department is not an active department of the hospital.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DoctorCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new doctor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Doctor"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/doctors/{doctorId}": {
+      "get": {
+        "operationId": "getDoctor",
+        "description": "One doctor. Requires doctor:read. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The doctor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Doctor"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateDoctor",
+        "description": "Changes a doctor profile, or makes it inactive or active again. Requires doctor:manage. A new department must be an active department of the same hospital (400 otherwise): check it against the session's hospital, never by the id alone. Send the version the change was made from: 409 conflict when the profile has changed since. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DoctorUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The doctor as saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Doctor"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/doctors/{doctorId}/availability": {
+      "get": {
+        "operationId": "getDoctorAvailability",
+        "description": "A doctor's regular weekly working hours, in the hospital's timezone. Requires doctor:read. Scheduling reads this. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The working hours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorAvailability"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "put": {
+        "operationId": "setDoctorAvailability",
+        "description": "Replaces the weekly working hours. Requires doctor:manage. Sessions of one day must not overlap and each must end after it starts (400 otherwise). 409 conflict when the hours have changed since the version sent. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DoctorAvailabilityUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The working hours as saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorAvailability"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -668,6 +1041,240 @@
           }
         },
         "additionalProperties": false
+      },
+      "DoctorCandidate": {
+        "type": "object",
+        "description": "A user who works at the hospital and has no doctor profile there. The email tells namesakes apart; nothing else of the account is given.",
+        "required": ["userId", "name", "email"],
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "DoctorCandidatePage": {
+        "type": "object",
+        "description": "Cursor envelope used by every list endpoint.",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DoctorCandidate"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "Doctor": {
+        "type": "object",
+        "description": "A doctor profile: a staff member of one hospital, in one department. Holds no patient data.",
+        "required": [
+          "id",
+          "tenantId",
+          "userId",
+          "name",
+          "departmentId",
+          "departmentName",
+          "specialization",
+          "consultationMinutes",
+          "active",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "The staff member's name."
+          },
+          "departmentId": {
+            "type": "string"
+          },
+          "specialization": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "registrationNumber": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "The medical council registration number."
+          },
+          "consultationMinutes": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 120,
+            "description": "The usual length of one appointment."
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "False once the doctor no longer practises here: kept on old records, not offered for new ones."
+          },
+          "version": {
+            "type": "integer",
+            "description": "Counts the changes. Sent back as expectedVersion."
+          }
+        }
+      },
+      "DoctorPage": {
+        "type": "object",
+        "description": "Cursor envelope used by every list endpoint.",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Doctor"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "DoctorCreate": {
+        "type": "object",
+        "required": ["userId", "departmentId", "specialization", "consultationMinutes"],
+        "additionalProperties": false,
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "departmentId": {
+            "type": "string"
+          },
+          "specialization": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "registrationNumber": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "The medical council registration number."
+          },
+          "consultationMinutes": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 120,
+            "description": "The usual length of one appointment."
+          }
+        }
+      },
+      "DoctorUpdate": {
+        "type": "object",
+        "required": ["expectedVersion"],
+        "additionalProperties": false,
+        "properties": {
+          "departmentId": {
+            "type": "string"
+          },
+          "specialization": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "registrationNumber": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "The medical council registration number."
+          },
+          "consultationMinutes": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 120,
+            "description": "The usual length of one appointment."
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "expectedVersion": {
+            "type": "integer"
+          }
+        }
+      },
+      "DoctorSession": {
+        "type": "object",
+        "required": ["day", "start", "end"],
+        "additionalProperties": false,
+        "properties": {
+          "day": {
+            "type": "string",
+            "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+          },
+          "start": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "description": "24-hour HH:MM at the hospital."
+          },
+          "end": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "description": "24-hour HH:MM at the hospital."
+          }
+        }
+      },
+      "DoctorAvailability": {
+        "type": "object",
+        "description": "Regular weekly working hours. A day without a session is a day off.",
+        "required": ["doctorId", "sessions", "version"],
+        "properties": {
+          "doctorId": {
+            "type": "string"
+          },
+          "sessions": {
+            "type": "array",
+            "maxItems": 42,
+            "items": {
+              "$ref": "#/components/schemas/DoctorSession"
+            }
+          },
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "DoctorAvailabilityUpdate": {
+        "type": "object",
+        "required": ["sessions", "expectedVersion"],
+        "additionalProperties": false,
+        "properties": {
+          "sessions": {
+            "type": "array",
+            "maxItems": 42,
+            "items": {
+              "$ref": "#/components/schemas/DoctorSession"
+            }
+          },
+          "expectedVersion": {
+            "type": "integer"
+          }
+        }
       }
     },
     "responses": {
