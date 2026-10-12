@@ -82,6 +82,7 @@ const HOSPITALS = [
     features: {
       patients: true,
       departments: true,
+      doctors: true,
       staff: true,
       appointments: true,
       clinical: true,
@@ -103,6 +104,7 @@ const HOSPITALS = [
     features: {
       patients: true,
       departments: true,
+      doctors: true,
       staff: true,
       appointments: true,
       clinical: true,
@@ -230,6 +232,31 @@ try {
        on conflict on constraint departments_name_taken do nothing`,
       [tenantIds.get(hospital.slug), SAMPLE_DEPARTMENTS],
     );
+  }
+
+  // A doctor profile, with weekday morning hours, for every sample member in the doctor role who
+  // has none: so the doctors screen has something to show. Running again adds nothing.
+  for (const hospital of HOSPITALS) {
+    const tenantId = tenantIds.get(hospital.slug);
+    const added = await client.query<{ id: string }>(
+      `insert into doctors (tenant_id, user_id, department_id, specialization, consultation_minutes)
+       select m.tenant_id, m.user_id,
+              p.id, 'General practice', 15
+       from memberships m
+       -- Whatever its capitals now. A hospital that has no such department gets no profiles.
+       join departments p on p.tenant_id = m.tenant_id and p.name_lower = 'general medicine'
+       where m.tenant_id = $1 and m.role_id = 'doctor'
+       on conflict on constraint doctors_one_profile do nothing
+       returning id`,
+      [tenantId],
+    );
+    for (const doctor of added.rows) {
+      await client.query(
+        `insert into doctor_hours (tenant_id, doctor_id, day, start_minute, end_minute)
+         select $1, $2, day, 540, 780 from generate_series(1, 5) as day`,
+        [tenantId, doctor.id],
+      );
+    }
   }
 
   // Synthetic patients, so the patient screens have something to show against the real API.

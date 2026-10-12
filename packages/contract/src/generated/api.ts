@@ -550,6 +550,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/doctors/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Active staff members of the active tenant who have no doctor profile yet, by name: who a profile can be created for. `q` matches the name or the email address. Staff are users, not patients. */
+        get: operations["listDoctorCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/doctors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Doctors of the active tenant, by name. `q` matches the name or the specialization. `total` comes with the first page. */
+        get: operations["listDoctors"];
+        put?: never;
+        /** @description Gives a staff member of the hospital a doctor profile. The hospital is the session's: the body carries no tenant. 409 doctor_exists when that person already has one, 400 when the user is not an active member or the department is not an active department of the hospital. */
+        post: operations["createDoctor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/doctors/{doctorId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One doctor. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
+        get: operations["getDoctor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes a doctor profile, or makes it inactive or active again (active again only for someone who is still an active member, 400 otherwise). A new department must be an active department of the same hospital (400 otherwise). Send the version the change was made from: 409 conflict when the profile has changed since. Sending what the profile already has changes nothing. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
+        patch: operations["updateDoctor"];
+        trace?: never;
+    };
+    "/doctors/{doctorId}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A doctor's regular weekly working hours, in the hospital's timezone. Scheduling reads this. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
+        get: operations["getDoctorAvailability"];
+        /** @description Replaces the weekly working hours. Sessions of one day must not overlap and each must end after it starts (400 otherwise); a session ends by 23:59 of its own day, so one cannot run past midnight. 409 conflict when the hours have changed since the version sent. Sending the hours the doctor already has changes nothing. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
+        put: operations["setDoctorAvailability"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -646,77 +717,6 @@ export interface paths {
         put?: never;
         /** @description Archives a notice so it no longer appears in the list. Requires notice:manage. */
         post: operations["archiveNotice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/doctors/candidates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Staff members of the active tenant who have no doctor profile yet, by name: who a profile can be created for. Requires doctor:manage and the doctors feature flag. `q` matches the name or the email address. Staff are users, not patients. */
-        get: operations["listDoctorCandidates"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/doctors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Doctors of the active tenant, by name. Requires doctor:read and the doctors feature flag. `q` matches the name or the specialization. */
-        get: operations["listDoctors"];
-        put?: never;
-        /** @description Gives a staff member of the hospital a doctor profile. Requires doctor:manage. The hospital is the session's: the body carries no tenant. 409 doctor_exists when that person already has one, 400 when the user is not a member or the department is not an active department of the hospital. */
-        post: operations["createDoctor"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/doctors/{doctorId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description One doctor. Requires doctor:read. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
-        get: operations["getDoctor"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** @description Changes a doctor profile, or makes it inactive or active again. Requires doctor:manage. A new department must be an active department of the same hospital (400 otherwise): check it against the session's hospital, never by the id alone. Send the version the change was made from: 409 conflict when the profile has changed since. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
-        patch: operations["updateDoctor"];
-        trace?: never;
-    };
-    "/doctors/{doctorId}/availability": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description A doctor's regular weekly working hours, in the hospital's timezone. Requires doctor:read. Scheduling reads this. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
-        get: operations["getDoctorAvailability"];
-        /** @description Replaces the weekly working hours. Requires doctor:manage. Sessions of one day must not overlap and each must end after it starts (400 otherwise). 409 conflict when the hours have changed since the version sent. A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist. */
-        put: operations["setDoctorAvailability"];
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -978,6 +978,78 @@ export interface components {
             description?: string;
             expectedVersion: number;
         };
+        /** @description A doctor profile: a staff member of one hospital, in one department. Holds no patient data. */
+        Doctor: {
+            id: string;
+            tenantId: string;
+            userId: string;
+            /** @description The staff member's name. */
+            name: string;
+            departmentId: string;
+            departmentName: string;
+            specialization: string;
+            registrationNumber?: string;
+            consultationMinutes: number;
+            /** @description False once the doctor no longer practises here, or while their membership of the hospital is deactivated: kept on old records, not offered for new ones. */
+            active: boolean;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        DoctorPage: {
+            items: components["schemas"]["Doctor"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        DoctorCreate: {
+            userId: string;
+            departmentId: string;
+            specialization: string;
+            /** @description The medical council registration number. */
+            registrationNumber?: string;
+            /** @description The usual length of one appointment. */
+            consultationMinutes: number;
+        };
+        DoctorUpdate: {
+            departmentId?: string;
+            specialization?: string;
+            /** @description The medical council registration number. */
+            registrationNumber?: string;
+            /** @description The usual length of one appointment. */
+            consultationMinutes?: number;
+            active?: boolean;
+            expectedVersion: number;
+        };
+        /** @description A user who works at the hospital and has no doctor profile there. The email tells namesakes apart; nothing else of the account is given. */
+        DoctorCandidate: {
+            userId: string;
+            name: string;
+            email: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        DoctorCandidatePage: {
+            items: components["schemas"]["DoctorCandidate"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        DoctorSession: {
+            /** @enum {string} */
+            day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+            /** @description 24-hour HH:MM at the hospital. */
+            start: string;
+            /** @description 24-hour HH:MM at the hospital. */
+            end: string;
+        };
+        /** @description Regular weekly working hours. A day without a session is a day off. */
+        DoctorAvailability: {
+            doctorId: string;
+            sessions: components["schemas"]["DoctorSession"][];
+            version: number;
+        };
+        DoctorAvailabilityUpdate: {
+            sessions: components["schemas"]["DoctorSession"][];
+            expectedVersion: number;
+        };
         Notice: {
             id: string;
             tenantId: string;
@@ -1010,80 +1082,6 @@ export interface components {
         AccountSessionList: {
             items: components["schemas"]["AccountSession"][];
             nextCursor: string | null;
-        };
-        /** @description A user who works at the hospital and has no doctor profile there. The email tells namesakes apart; nothing else of the account is given. */
-        DoctorCandidate: {
-            userId: string;
-            name: string;
-            email: string;
-        };
-        /** @description Cursor envelope used by every list endpoint. */
-        DoctorCandidatePage: {
-            items: components["schemas"]["DoctorCandidate"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        /** @description A doctor profile: a staff member of one hospital, in one department. Holds no patient data. */
-        Doctor: {
-            id: string;
-            tenantId: string;
-            userId: string;
-            /** @description The staff member's name. */
-            name: string;
-            departmentId: string;
-            specialization: string;
-            /** @description The medical council registration number. */
-            registrationNumber?: string;
-            /** @description The usual length of one appointment. */
-            consultationMinutes: number;
-            departmentName: string;
-            /** @description False once the doctor no longer practises here: kept on old records, not offered for new ones. */
-            active: boolean;
-            /** @description Counts the changes. Sent back as expectedVersion. */
-            version: number;
-        };
-        /** @description Cursor envelope used by every list endpoint. */
-        DoctorPage: {
-            items: components["schemas"]["Doctor"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        DoctorCreate: {
-            userId: string;
-            departmentId: string;
-            specialization: string;
-            /** @description The medical council registration number. */
-            registrationNumber?: string;
-            /** @description The usual length of one appointment. */
-            consultationMinutes: number;
-        };
-        DoctorUpdate: {
-            departmentId?: string;
-            specialization?: string;
-            /** @description The medical council registration number. */
-            registrationNumber?: string;
-            /** @description The usual length of one appointment. */
-            consultationMinutes?: number;
-            active?: boolean;
-            expectedVersion: number;
-        };
-        DoctorSession: {
-            /** @enum {string} */
-            day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
-            /** @description 24-hour HH:MM at the hospital. */
-            start: string;
-            /** @description 24-hour HH:MM at the hospital. */
-            end: string;
-        };
-        /** @description Regular weekly working hours. A day without a session is a day off. */
-        DoctorAvailability: {
-            doctorId: string;
-            sessions: components["schemas"]["DoctorSession"][];
-            version: number;
-        };
-        DoctorAvailabilityUpdate: {
-            sessions: components["schemas"]["DoctorSession"][];
-            expectedVersion: number;
         };
     };
     responses: {
@@ -3156,6 +3154,524 @@ export interface operations {
             };
         };
     };
+    listDoctorCandidates: {
+        parameters: {
+            query?: {
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit?: number;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoctorCandidatePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listDoctors: {
+        parameters: {
+            query?: {
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit?: number;
+                q?: string;
+                departmentId?: string;
+                /** @description False lists the doctors who are no longer active instead. */
+                active?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoctorPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createDoctor: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DoctorCreate"];
+            };
+        };
+        responses: {
+            /** @description A doctor profile: a staff member of one hospital, in one department. Holds no patient data. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Doctor"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDoctor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doctorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A doctor profile: a staff member of one hospital, in one department. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Doctor"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateDoctor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doctorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DoctorUpdate"];
+            };
+        };
+        responses: {
+            /** @description A doctor profile: a staff member of one hospital, in one department. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Doctor"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDoctorAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doctorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Regular weekly working hours. A day without a session is a day off. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoctorAvailability"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setDoctorAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doctorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DoctorAvailabilityUpdate"];
+            };
+        };
+        responses: {
+            /** @description Regular weekly working hours. A day without a session is a day off. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoctorAvailability"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     changePassword: {
         parameters: {
             query?: never;
@@ -3311,212 +3827,6 @@ export interface operations {
                     "application/json": components["schemas"]["Notice"];
                 };
             };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listDoctorCandidates: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-                q?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of staff members */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DoctorCandidatePage"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listDoctors: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-                q?: string;
-                departmentId?: string;
-                /** @description False lists the doctors who are no longer active instead. */
-                active?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of doctors */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DoctorPage"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createDoctor: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DoctorCreate"];
-            };
-        };
-        responses: {
-            /** @description The new doctor */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Doctor"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getDoctor: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                doctorId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The doctor */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Doctor"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    updateDoctor: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                doctorId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DoctorUpdate"];
-            };
-        };
-        responses: {
-            /** @description The doctor as saved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Doctor"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getDoctorAvailability: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                doctorId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The working hours */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DoctorAvailability"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    setDoctorAvailability: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                doctorId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DoctorAvailabilityUpdate"];
-            };
-        };
-        responses: {
-            /** @description The working hours as saved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DoctorAvailability"];
-                };
-            };
-            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];

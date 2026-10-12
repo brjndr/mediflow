@@ -99,7 +99,7 @@ A feature folder has only the files it needs: `features/health` has `index.ts` a
 
 ## Authentication
 
-- **Authentication runs as its own database role,** `mediflow_auth`, through `withAuthTransaction`. It can reach `users`, `user_identities`, `memberships`, `sessions` and the hospitals of the user it has identified, and has no grant on any table that holds hospital data. Do not grant it one. A tenant route (the app role) sees of the identity tables only what staff management needs, by column and by row (see Staff): do not widen that for another feature.
+- **Authentication runs as its own database role,** `mediflow_auth`, through `withAuthTransaction`. It can reach `users`, `user_identities`, `memberships`, `sessions` and the hospitals of the user it has identified, and has no grant on any table that holds hospital data. Do not grant it one. A tenant route (the app role) sees of the identity tables only what staff management needs, by column and by row (see Staff). Another feature may read a member's name through that same grant, as doctors does; do not widen the grant itself.
 - **Call `identify(userId)` only once the user is proven** (a verified password or a valid session). Before that, memberships and hospitals are invisible.
 - **The cookie holds a random token; the database holds its SHA-256 hash.** Never log, return or store the token itself. It is httpOnly, SameSite=Lax, and in production Secure with the `__Host-` prefix.
 - **Sessions end** after `SESSION_IDLE_MINUTES` (30) without a request and after `SESSION_ABSOLUTE_HOURS` (12) regardless. The token is replaced every `SESSION_ROTATE_MINUTES` (15) and on a hospital switch. The replaced token works for 30 more seconds; seen after that, it revokes the session. Time is compared on the database clock.
@@ -173,6 +173,17 @@ A feature folder has only the files it needs: `features/health` has `index.ts` a
 - **A session that was ended stays ended:** a trigger refuses any change to `revoked_at` or `revoke_reason` once set, for every role.
 - **The list lower-cases in the query,** for ordering and for search: a hospital's staff is hundreds of rows found through the tenant index. The cursor holds the last row's lower-cased name as the database made it, and its id.
 - **Known limits:** the count of who can still manage staff goes by memberships, and a hospital's requests cannot see whether an account is disabled, so the manager left may be someone who cannot sign in; an invitation is judged when it is sent, so an inviter who later loses `staff:invite` (without being deactivated) leaves their open invitations standing; and a built-in role gains each new module's defaults at later deploys, so a narrow custom role can invite into a built-in role that later holds more.
+
+## Doctors
+
+- **`features/doctors`** is a member of staff's profile as a doctor, in one department, and their regular weekly working hours. Behind the `doctors` module flag (a hospital with it on has `departments` on too), with `doctor:read` for everyone who works with patients and `doctor:manage` for the admin.
+- **A doctor is a member of this hospital, in a department of this hospital,** and the database says so: `(tenant_id, user_id)` references `memberships` and `(tenant_id, department_id)` references `departments`. The route checks first (an active member, a department that is not archived) to answer 400 `validation_failed`; the foreign keys hold whatever the route does.
+- **Practising means the profile is active and the membership is.** A doctor whose membership the hospital deactivated is listed as inactive, so scheduling never offers someone who cannot sign in. The profile is not touched: reactivating the member brings the doctor back. `PATCH` does not make a profile active for someone who is not an active member.
+- **One profile per person per hospital** (409 `doctor_exists`). A profile is made inactive, never deleted; someone who works at two hospitals has a profile at each.
+- **The name is the account's,** read through the staff grant on `users`, and the lists are ordered by the name as the database lower-cases it.
+- **Two versions.** The profile and the working hours are changed by different people at different times, so each has its own (`version`, `hours_version`), counted by the trigger only when what it stands for changed. `PATCH` takes the profile's, `PUT .../availability` the hours'.
+- **Working hours** are sessions of a weekday in minutes after midnight at the hospital. `PUT` replaces the week. Sessions of a day may touch and may not overlap: the route says so with a 400, and an exclusion constraint (`doctor_hours_no_overlap`, which names the hospital too, as every constraint on a tenant table should) makes it true whatever the code does. A session cannot run past midnight yet.
+- **`GET /doctors/candidates`** is the active members with no profile: who a profile can be made for. It needs `doctor:manage` and gives a name and an email address, nothing else of the account.
 
 ## Departments
 

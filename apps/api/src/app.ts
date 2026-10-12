@@ -25,6 +25,7 @@ import { tenancyPlugin } from './core/tenancy/plugin.js';
 import { tenantRoutes } from './core/tenancy/routes.js';
 import { healthFeature } from './features/health/index.js';
 import { departmentsFeature } from './features/departments/index.js';
+import { doctorsFeature } from './features/doctors/index.js';
 import { patientsFeature } from './features/patients/index.js';
 import { staffFeature } from './features/staff/index.js';
 
@@ -97,6 +98,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(staffFeature);
   await app.register(patientsFeature);
   await app.register(departmentsFeature);
+  await app.register(doctorsFeature);
 
   return app;
 }
