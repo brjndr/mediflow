@@ -862,6 +862,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lab-tests/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The tests and panels the laboratory of the active tenant offers, by name, a panel with its components. Every word of `q` must be in the code or the name, in any order. `total` comes with the first page only. It reads data only. What is searched for travels in the body, never in a query string: the same search is made from prescribing, ordering and billing screens while a patient record is open, and a search term beside a patient id in an access log is patient data. The API does not log the body. */
+        post: operations["searchLabTests"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a test or a panel. The hospital is the session's: the body carries no tenant. The code is the test's identity on orders and reports and cannot be changed later; one already used by a test of the hospital, archived or not, whatever its capitals, is refused with 409 lab_test_code_taken. A single test is recorded as text unless `resultType` says numeric; a panel has no result of its own, whatever is sent. A `serviceId` must be a laboratory service of the same hospital, and every component of a panel a single test of the same hospital, not archived; a panel has at least one component, none twice, and a single test has none (400 otherwise). Audited. */
+        post: operations["createLabTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-tests/{labTestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One test or panel, a panel with its components. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        get: operations["getLabTest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes a test: never its code, and never its kind (a test with results cannot become a panel). Send the version the change was made from: 409 conflict when the test has changed since. Empty text removes a unit, a container or the link to a service. A test that has reference ranges cannot become a text test until they are removed (409 lab_test_has_ranges). Sending what the test already has changes nothing. A result already reported keeps the name, unit and reference range it was reported with. Audited. A `serviceId` must be a laboratory service of the same hospital, and every component of a panel a single test of the same hospital, not archived; a panel has at least one component, none twice, and a single test has none (400 otherwise). A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        patch: operations["updateLabTest"];
+        trace?: never;
+    };
+    "/lab-tests/{labTestId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a test: it stays on the orders and reports that name it and is no longer offered for new ones. A test that is a component of a panel that is not archived is refused with 409 lab_test_in_panel: take it out of the panel first. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        post: operations["archiveLabTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-tests/{labTestId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived test back. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        post: operations["restoreLabTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-tests/{labTestId}/ranges/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The reference range that applies to a patient of an age and a sex: the row for that sex covering that age, else the row for any sex covering it, else none. A patient whose sex is recorded as other gets only a row for any. It answers the check on the catalog screen with an age someone typed, and identifies no patient: the age is tried as that of a person born on 1 January 2001, so 30 days is under one month. It is not how a result is read for a real patient: the laboratory works that out on the server from the date of birth of the patient of the order and the date the sample was collected, with the same rule (a limit is reached on the calendar day that lies that long after the birth; a month or a year lands on the same day of the month, or on the last day of a shorter month), and the age or date of birth of a patient is never sent in an address. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        get: operations["resolveLabTestRange"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-tests/{labTestId}/ranges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The reference ranges of a numeric test, by sex and age, with their own version. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        get: operations["getLabTestRanges"];
+        /** @description Replaces the reference ranges of a test. Only a numeric single test has ranges (409 lab_test_has_no_ranges for a panel or a text test). Each row gives at least one limit, `low` below `high`, a critical limit never inside the normal range, and an `ageUntil` that is later than `ageFrom` for every date of birth. Two rows for the same sex must never both hold for a patient: one has to end at or before the age the other starts from, for every date of birth. Years and months compare exactly with each other, and weeks and days with each other; a limit in months or years against one in weeks or days is accepted only when no date of birth can bring them together (a month is 28 to 31 days), so ranges that meet give the age in the same unit. A row for one sex and a row for any may share ages, and the one for the sex is used. 400 otherwise. 409 conflict when the ranges have changed since the version sent. A limit is a number: one sent as null or as text is refused, never read as 0. A result already reported keeps the range it was reported against. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        put: operations["setLabTestRanges"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -958,110 +1079,6 @@ export interface paths {
         put?: never;
         /** @description Archives a notice so it no longer appears in the list. Requires notice:manage. */
         post: operations["archiveNotice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/lab-tests": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Adds a test or a panel. Requires labTest:manage. The hospital is the session's: the body carries no tenant. The code is the test's identity on orders and reports and cannot be changed later; one already used by a test of the hospital, archived or not, is refused with 409 lab_test_code_taken. A `serviceId` must be a laboratory service of the same hospital, and every component of a panel a single test of the same hospital, not archived; a panel has at least one component, none twice, and a single test has none (400 otherwise): check each against the session's hospital, never by the id alone. Audited. */
-        post: operations["createLabTest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/lab-tests/{labTestId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description One test or panel, a panel with its components. Requires labTest:read. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
-        get: operations["getLabTest"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** @description Changes a test: never its code, and never its kind (a test with results cannot become a panel). Requires labTest:manage. Send the version the change was made from: 409 conflict when the test has changed since. The same rules as on adding hold for `serviceId` and `componentIds`. A test that has reference ranges cannot become a text test until they are removed (409 lab_test_has_ranges). A result already reported keeps the name, unit and reference range it was reported with. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
-        patch: operations["updateLabTest"];
-        trace?: never;
-    };
-    "/lab-tests/{labTestId}/archive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Archives a test: it stays on the orders and reports that name it and is no longer offered for new ones. A test that is a component of a panel that is not archived is refused with 409 lab_test_in_panel: take it out of the panel first. Requires labTest:manage. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
-        post: operations["archiveLabTest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/lab-tests/{labTestId}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Brings an archived test back. Requires labTest:manage. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
-        post: operations["restoreLabTest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/lab-tests/{labTestId}/ranges": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The reference ranges of a numeric test, by sex and age, with their own version. Requires labTest:read. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
-        get: operations["getLabTestRanges"];
-        /** @description Replaces the reference ranges of a test. Requires labTest:manage. Only a numeric single test has ranges (409 lab_test_has_no_ranges for a panel or a text test). Each row gives at least one limit, `low` below `high`, a critical limit never inside the normal range, and an `ageUntil` that is later than `ageFrom` for every date of birth. Two rows for the same sex must never both hold for a patient: one has to end at or before the age the other starts from, for every date of birth. Years and months compare exactly with each other, and weeks and days with each other; a limit in months or years against one in weeks or days is accepted only when no date of birth can bring them together (a month is 28 to 31 days), so ranges that meet give the age in the same unit. A row for one sex and a row for any may share ages, and the one for the sex is used. 400 otherwise. 409 conflict when the ranges have changed since the version sent. A result already reported keeps the range it was reported against. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
-        put: operations["setLabTestRanges"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/lab-tests/{labTestId}/ranges/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The reference range that applies to a patient of an age and a sex: the row for that sex covering that age, else the row for any sex covering it, else none. A patient whose sex is recorded as other gets only a row for any. Requires labTest:read. It answers the check on the catalog screen with an age someone typed, and identifies no patient: the age is tried as that of a person born on 1 January 2001, so 30 days is under one month. It is not how a result is read for a real patient: the laboratory works that out on the server from the date of birth of the patient of the order and the date the sample was collected, with the same rule (a limit is reached on the calendar day that lies that long after the birth; a month or a year lands on the same day of the month, or on the last day of a shorter month), and the age or date of birth of a patient is never sent in an address. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
-        get: operations["resolveLabTestRange"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1406,23 +1423,6 @@ export interface paths {
         put?: never;
         /** @description Diagnosis and procedure codes, searched on the server: the code sets are large and are never sent whole or bundled into the web app. Requires code:read and the codes feature flag. It reads data only. The search term travels in the body, never in a query string: it is free text typed while a patient's record may be open, and a diagnosis term beside a patient id in an access log is patient data. The API does not log the body. The codes themselves are the same for every hospital; `favourite` is the active tenant's own mark, taken from the session, never from the client. `q` is words in any order: each matches the start of the code (with or without its dot) or the start of a word of the title. The hospital's favourites come first, then the codes in order. `favourites: true` gives the favourites only, which is what a search box shows before anything is typed. `total` comes with the first page only. The response is the active tenant's view (favourite marks and ordering) and is private to the session: `Cache-Control: private, no-store`, never cached at the CDN or in a server cache keyed without the tenant. The code rows may be cached on the server; the join with the favourites may not. The favourites table carries the tenant and row-level security; the code table is shared and read-only to hospitals. */
         post: operations["searchCodes"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/lab-tests/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description The tests and panels the laboratory of the active tenant offers, by name. Requires labTest:read and the lab_tests feature flag. `q` matches the code or the name. `total` comes with the first page only. It reads data only. What is searched for travels in the body, never in a query string: the same search is made from prescribing, ordering and billing screens while a patient record is open, and a search term beside a patient id in an access log is patient data. The API does not log the body. */
-        post: operations["searchLabTests"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2069,39 +2069,6 @@ export interface components {
         DrugDuplicateMatches: {
             items: components["schemas"]["Drug"][];
         };
-        Notice: {
-            id: string;
-            tenantId: string;
-            title: string;
-            body: string;
-            /**
-             * Format: date-time
-             * @description ISO datetime (UTC)
-             */
-            createdAt: string;
-            archived: boolean;
-        };
-        /** @description Cursor envelope used by every list endpoint. */
-        NoticePage: {
-            items: components["schemas"]["Notice"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        AccountSession: {
-            id: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            lastSeenAt: string;
-            /** @description The browser as it described itself at sign-in, for the person to recognise the device. */
-            userAgent: string | null;
-            /** @description True for the session making this call. */
-            current: boolean;
-        };
-        AccountSessionList: {
-            items: components["schemas"]["AccountSession"][];
-            nextCursor: string | null;
-        };
         LabTestComponent: {
             id: string;
             code: string;
@@ -2137,7 +2104,6 @@ export interface components {
             container?: string;
             /** @description How long a result usually takes from collection. */
             turnaroundHours: number;
-            /** @description The service the test is charged as: a laboratory service of the same hospital's catalog. Empty text removes the link on a change. */
             serviceId?: string;
             /** @description The name of the linked service, when there is one. The name alone is shown to everyone who may read the test, by decision; nothing else of the service (a price, a tax class) is ever added here. */
             serviceName?: string;
@@ -2210,16 +2176,33 @@ export interface components {
             componentIds?: string[];
             expectedVersion: number;
         };
-        /** @description What is normal for one sex in one span of age. */
+        LabTestSearchRequest: {
+            /** @description Opaque. Pass the nextCursor of the previous page. */
+            cursor?: string;
+            /** @description Absent: 25. */
+            limit?: number;
+            q?: string;
+            /** @enum {string} */
+            department?: "biochemistry" | "haematology" | "microbiology" | "serology" | "hormones" | "pathology" | "other";
+            /** @enum {string} */
+            kind?: "test" | "panel";
+            /** @description True lists the archived tests instead of the active ones. Absent: false. */
+            archived?: boolean;
+        };
+        /** @description An age as it is written: a value with its unit. Never turned into a count of days: a patient reaches it on the calendar day that lies that long after the date of birth, so leap years and the lengths of months are respected. At most 150 years, in any unit. */
+        LabAge: {
+            value: number;
+            /** @enum {string} */
+            unit: "days" | "weeks" | "months" | "years";
+        };
+        /** @description What is normal for one sex in one span of age: from `ageFrom`, included (the day the patient reaches it), until `ageUntil`, not included (that day belongs to the next range). No `ageUntil`: no upper age. */
         LabRange: {
             /**
              * @description Whom the row is for. A row for one sex is used before a row for any.
              * @enum {string}
              */
             sex: "any" | "male" | "female";
-            /** @description From this age, included: from the day the patient reaches it. */
             ageFrom: components["schemas"]["LabAge"];
-            /** @description Until this age, not included: the day the patient reaches it belongs to the next range. Absent: no upper age. */
             ageUntil?: components["schemas"]["LabAge"];
             /** @description The lowest normal value. Absent: no lower limit. */
             low?: number;
@@ -2240,15 +2223,42 @@ export interface components {
             ranges: components["schemas"]["LabRange"][];
             expectedVersion: number;
         };
+        /** @description `range` is absent when no row covers that age and sex. */
         LabRangeResolved: {
-            /** @description Absent when no row covers that age and sex. */
             range?: components["schemas"]["LabRange"];
         };
-        /** @description An age as it is written: a value with its unit. Never turned into a count of days: a patient reaches it on the calendar day that lies that long after the date of birth, so leap years and the lengths of months are respected. At most 150 years, in any unit. */
-        LabAge: {
-            value: number;
-            /** @enum {string} */
-            unit: "days" | "weeks" | "months" | "years";
+        Notice: {
+            id: string;
+            tenantId: string;
+            title: string;
+            body: string;
+            /**
+             * Format: date-time
+             * @description ISO datetime (UTC)
+             */
+            createdAt: string;
+            archived: boolean;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        NoticePage: {
+            items: components["schemas"]["Notice"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        AccountSession: {
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastSeenAt: string;
+            /** @description The browser as it described itself at sign-in, for the person to recognise the device. */
+            userAgent: string | null;
+            /** @description True for the session making this call. */
+            current: boolean;
+        };
+        AccountSessionList: {
+            items: components["schemas"]["AccountSession"][];
+            nextCursor: string | null;
         };
         /** @description A class of bed (general ward, private room, intensive care), which decides what a day in it is charged as. The charge itself is posted by the admissions module from the linked service, at the price in force that day. An admission keeps the category and the service of its bed as they were when the patient was given it, so a change made here applies to stays that start after it. */
         BedCategory: {
@@ -2414,18 +2424,6 @@ export interface components {
             cursor?: string;
             /** @description Absent: 25. */
             limit?: number;
-        };
-        LabTestSearchRequest: {
-            cursor?: string;
-            /** @description Absent: 25. */
-            limit?: number;
-            q?: string;
-            /** @enum {string} */
-            department?: "biochemistry" | "haematology" | "microbiology" | "serology" | "hormones" | "pathology" | "other";
-            /** @enum {string} */
-            kind?: "test" | "panel";
-            /** @description Absent: false. */
-            archived?: boolean;
         };
         /** @description A document template of a hospital. Holds no patient data. */
         Template: {
@@ -6310,6 +6308,664 @@ export interface operations {
             };
         };
     };
+    searchLabTests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabTestSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTestPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createLabTest: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabTestCreate"];
+            };
+        };
+        responses: {
+            /** @description A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTest"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getLabTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTest"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateLabTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabTestUpdate"];
+            };
+        };
+        responses: {
+            /** @description A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTest"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    archiveLabTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTest"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restoreLabTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTest"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resolveLabTestRange: {
+        parameters: {
+            query: {
+                ageValue: number;
+                ageUnit: "days" | "weeks" | "months" | "years";
+                sex: "male" | "female" | "other";
+            };
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `range` is absent when no row covers that age and sex. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabRangeResolved"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getLabTestRanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabRanges"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setLabTestRanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                labTestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabRangesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabRanges"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     changePassword: {
         parameters: {
             query?: never;
@@ -6465,243 +7121,6 @@ export interface operations {
                     "application/json": components["schemas"]["Notice"];
                 };
             };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createLabTest: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A repeat with the same key and request returns the first answer. */
-                "Idempotency-Key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LabTestCreate"];
-            };
-        };
-        responses: {
-            /** @description The new test */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabTest"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getLabTest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                labTestId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The test */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabTest"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    updateLabTest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                labTestId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LabTestUpdate"];
-            };
-        };
-        responses: {
-            /** @description The test as saved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabTest"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    archiveLabTest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                labTestId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The test */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabTest"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    restoreLabTest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                labTestId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The test */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabTest"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getLabTestRanges: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                labTestId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The ranges */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabRanges"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    setLabTestRanges: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                labTestId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LabRangesUpdate"];
-            };
-        };
-        responses: {
-            /** @description The ranges as saved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabRanges"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    resolveLabTestRange: {
-        parameters: {
-            query: {
-                /** @description The age, in the unit given. At most 150 years. */
-                ageValue: number;
-                ageUnit: "days" | "weeks" | "months" | "years";
-                sex: "male" | "female" | "other";
-            };
-            header?: never;
-            path: {
-                labTestId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The range that applies, if any */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabRangeResolved"];
-                };
-            };
-            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
@@ -7418,35 +7837,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CodePage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    searchLabTests: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LabTestSearchRequest"];
-            };
-        };
-        responses: {
-            /** @description One page of tests */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabTestPage"];
                 };
             };
             400: components["responses"]["Error"];

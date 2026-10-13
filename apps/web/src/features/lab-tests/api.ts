@@ -69,7 +69,7 @@ export async function fetchLabTest(labTestId: string, signal?: AbortSignal): Pro
 export async function createLabTest(body: LabTestCreate, idempotencyKey: string): Promise<LabTest> {
   const result = await api.POST('/lab-tests', {
     body,
-    params: { header: { 'Idempotency-Key': idempotencyKey } },
+    params: { header: { 'idempotency-key': idempotencyKey } },
   });
   return labTestSchema.parse(requireData(result));
 }

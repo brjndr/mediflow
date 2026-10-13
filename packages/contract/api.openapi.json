@@ -1682,6 +1682,474 @@
             }
           }
         }
+      },
+      "LabTestComponent": {
+        "type": "object",
+        "required": ["id", "code", "name"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "LabTest": {
+        "description": "A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "code",
+          "name",
+          "department",
+          "kind",
+          "resultType",
+          "sampleType",
+          "turnaroundHours",
+          "components",
+          "archived",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "code": {
+            "description": "The test's identity on orders and reports. Never changes.",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 150,
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "enum": [
+              "biochemistry",
+              "haematology",
+              "microbiology",
+              "serology",
+              "hormones",
+              "pathology",
+              "other"
+            ],
+            "description": "The section of the laboratory."
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["test", "panel"],
+            "description": "A single test, or a panel: a named set of tests ordered together (a lipid profile). A panel has components and no result of its own."
+          },
+          "resultType": {
+            "type": "string",
+            "enum": ["numeric", "text"],
+            "description": "How a result is recorded: a number against a reference range, or text (positive, negative, a description). For a panel it means nothing."
+          },
+          "unit": {
+            "maxLength": 30,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "description": "The unit of a numeric result: g/dL.",
+            "type": "string"
+          },
+          "sampleType": {
+            "type": "string",
+            "enum": [
+              "blood",
+              "serum",
+              "plasma",
+              "urine",
+              "stool",
+              "swab",
+              "sputum",
+              "csf",
+              "tissue",
+              "other"
+            ]
+          },
+          "container": {
+            "maxLength": 50,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "description": "What the sample is collected in.",
+            "type": "string"
+          },
+          "turnaroundHours": {
+            "minimum": 1,
+            "maximum": 720,
+            "description": "How long a result usually takes from collection.",
+            "type": "integer"
+          },
+          "serviceId": {
+            "type": "string"
+          },
+          "serviceName": {
+            "description": "The name of the linked service, when there is one. The name alone is shown to everyone who may read the test, by decision; nothing else of the service (a price, a tax class) is ever added here.",
+            "type": "string"
+          },
+          "components": {
+            "description": "The tests of a panel. Empty for a single test.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabTestComponent"
+            }
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion.",
+            "type": "integer"
+          }
+        }
+      },
+      "LabTestPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabTest"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "LabTestCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["code", "name", "department", "kind", "sampleType", "turnaroundHours"],
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "maxLength": 30,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 150,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "enum": [
+              "biochemistry",
+              "haematology",
+              "microbiology",
+              "serology",
+              "hormones",
+              "pathology",
+              "other"
+            ],
+            "description": "The section of the laboratory."
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["test", "panel"],
+            "description": "A single test, or a panel: a named set of tests ordered together (a lipid profile). A panel has components and no result of its own."
+          },
+          "resultType": {
+            "type": "string",
+            "enum": ["numeric", "text"],
+            "description": "How a result is recorded: a number against a reference range, or text (positive, negative, a description). For a panel it means nothing."
+          },
+          "unit": {
+            "maxLength": 30,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "description": "The unit of a numeric result: g/dL.",
+            "type": "string"
+          },
+          "sampleType": {
+            "type": "string",
+            "enum": [
+              "blood",
+              "serum",
+              "plasma",
+              "urine",
+              "stool",
+              "swab",
+              "sputum",
+              "csf",
+              "tissue",
+              "other"
+            ]
+          },
+          "container": {
+            "maxLength": 50,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "description": "What the sample is collected in.",
+            "type": "string"
+          },
+          "turnaroundHours": {
+            "minimum": 1,
+            "maximum": 720,
+            "description": "How long a result usually takes from collection.",
+            "type": "integer"
+          },
+          "serviceId": {
+            "maxLength": 64,
+            "description": "The service the test is charged as: a laboratory service of the same hospital's catalog. Empty text removes the link on a change.",
+            "type": "string"
+          },
+          "componentIds": {
+            "maxItems": 60,
+            "description": "The single tests of a panel, in the order they are reported.",
+            "type": "array",
+            "items": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        }
+      },
+      "LabTestUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 150,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "enum": [
+              "biochemistry",
+              "haematology",
+              "microbiology",
+              "serology",
+              "hormones",
+              "pathology",
+              "other"
+            ],
+            "description": "The section of the laboratory."
+          },
+          "resultType": {
+            "type": "string",
+            "enum": ["numeric", "text"],
+            "description": "How a result is recorded: a number against a reference range, or text (positive, negative, a description). For a panel it means nothing."
+          },
+          "unit": {
+            "maxLength": 30,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "description": "The unit of a numeric result: g/dL.",
+            "type": "string"
+          },
+          "sampleType": {
+            "type": "string",
+            "enum": [
+              "blood",
+              "serum",
+              "plasma",
+              "urine",
+              "stool",
+              "swab",
+              "sputum",
+              "csf",
+              "tissue",
+              "other"
+            ]
+          },
+          "container": {
+            "maxLength": 50,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "description": "What the sample is collected in.",
+            "type": "string"
+          },
+          "turnaroundHours": {
+            "minimum": 1,
+            "maximum": 720,
+            "description": "How long a result usually takes from collection.",
+            "type": "integer"
+          },
+          "serviceId": {
+            "maxLength": 64,
+            "description": "The service the test is charged as: a laboratory service of the same hospital's catalog. Empty text removes the link on a change.",
+            "type": "string"
+          },
+          "componentIds": {
+            "maxItems": 60,
+            "description": "The single tests of a panel, in the order they are reported.",
+            "type": "array",
+            "items": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          "expectedVersion": {
+            "type": "integer"
+          }
+        }
+      },
+      "LabTestSearchRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "maxLength": 1024,
+            "description": "Opaque. Pass the nextCursor of the previous page.",
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Absent: 25.",
+            "type": "integer"
+          },
+          "q": {
+            "maxLength": 100,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "enum": [
+              "biochemistry",
+              "haematology",
+              "microbiology",
+              "serology",
+              "hormones",
+              "pathology",
+              "other"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["test", "panel"]
+          },
+          "archived": {
+            "description": "True lists the archived tests instead of the active ones. Absent: false.",
+            "type": "boolean"
+          }
+        }
+      },
+      "LabAge": {
+        "additionalProperties": false,
+        "description": "An age as it is written: a value with its unit. Never turned into a count of days: a patient reaches it on the calendar day that lies that long after the date of birth, so leap years and the lengths of months are respected. At most 150 years, in any unit.",
+        "type": "object",
+        "required": ["value", "unit"],
+        "properties": {
+          "value": {
+            "minimum": 0,
+            "maximum": 54750,
+            "type": "integer"
+          },
+          "unit": {
+            "type": "string",
+            "enum": ["days", "weeks", "months", "years"]
+          }
+        }
+      },
+      "LabRange": {
+        "additionalProperties": false,
+        "description": "What is normal for one sex in one span of age: from `ageFrom`, included (the day the patient reaches it), until `ageUntil`, not included (that day belongs to the next range). No `ageUntil`: no upper age.",
+        "type": "object",
+        "required": ["sex", "ageFrom"],
+        "properties": {
+          "sex": {
+            "type": "string",
+            "enum": ["any", "male", "female"],
+            "description": "Whom the row is for. A row for one sex is used before a row for any."
+          },
+          "ageFrom": {
+            "$ref": "#/components/schemas/LabAge"
+          },
+          "ageUntil": {
+            "$ref": "#/components/schemas/LabAge"
+          },
+          "low": {
+            "description": "The lowest normal value. Absent: no lower limit.",
+            "type": "number"
+          },
+          "high": {
+            "description": "The highest normal value. Absent: no upper limit.",
+            "type": "number"
+          },
+          "criticalLow": {
+            "description": "At or below this the result is critical. Never above `low`.",
+            "type": "number"
+          },
+          "criticalHigh": {
+            "description": "At or above this the result is critical. Never below `high`.",
+            "type": "number"
+          },
+          "note": {
+            "maxLength": 150,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "type": "string"
+          }
+        }
+      },
+      "LabRanges": {
+        "type": "object",
+        "required": ["labTestId", "ranges", "version"],
+        "properties": {
+          "labTestId": {
+            "type": "string"
+          },
+          "ranges": {
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabRange"
+            }
+          },
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "LabRangesUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["ranges", "expectedVersion"],
+        "properties": {
+          "ranges": {
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabRange"
+            }
+          },
+          "expectedVersion": {
+            "type": "integer"
+          }
+        }
+      },
+      "LabRangeResolved": {
+        "description": "`range` is absent when no row covers that age and sex.",
+        "type": "object",
+        "properties": {
+          "range": {
+            "$ref": "#/components/schemas/LabRange"
+          }
+        }
       }
     }
   },
@@ -6323,6 +6791,821 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Drug"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab-tests/search": {
+      "post": {
+        "operationId": "searchLabTests",
+        "tags": ["lab-tests"],
+        "description": "The tests and panels the laboratory of the active tenant offers, by name, a panel with its components. Every word of `q` must be in the code or the name, in any order. `total` comes with the first page only. It reads data only. What is searched for travels in the body, never in a query string: the same search is made from prescribing, ordering and billing screens while a patient record is open, and a search term beside a patient id in an access log is patient data. The API does not log the body.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabTestSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabTestPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab-tests": {
+      "post": {
+        "operationId": "createLabTest",
+        "tags": ["lab-tests"],
+        "description": "Adds a test or a panel. The hospital is the session's: the body carries no tenant. The code is the test's identity on orders and reports and cannot be changed later; one already used by a test of the hospital, archived or not, whatever its capitals, is refused with 409 lab_test_code_taken. A single test is recorded as text unless `resultType` says numeric; a panel has no result of its own, whatever is sent. A `serviceId` must be a laboratory service of the same hospital, and every component of a panel a single test of the same hospital, not archived; a panel has at least one component, none twice, and a single test has none (400 otherwise). Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabTestCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabTest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab-tests/{labTestId}": {
+      "get": {
+        "operationId": "getLabTest",
+        "tags": ["lab-tests"],
+        "description": "One test or panel, a panel with its components. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "labTestId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabTest"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateLabTest",
+        "tags": ["lab-tests"],
+        "description": "Changes a test: never its code, and never its kind (a test with results cannot become a panel). Send the version the change was made from: 409 conflict when the test has changed since. Empty text removes a unit, a container or the link to a service. A test that has reference ranges cannot become a text test until they are removed (409 lab_test_has_ranges). Sending what the test already has changes nothing. A result already reported keeps the name, unit and reference range it was reported with. Audited. A `serviceId` must be a laboratory service of the same hospital, and every component of a panel a single test of the same hospital, not archived; a panel has at least one component, none twice, and a single test has none (400 otherwise). A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabTestUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "labTestId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabTest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab-tests/{labTestId}/archive": {
+      "post": {
+        "operationId": "archiveLabTest",
+        "tags": ["lab-tests"],
+        "description": "Archives a test: it stays on the orders and reports that name it and is no longer offered for new ones. A test that is a component of a panel that is not archived is refused with 409 lab_test_in_panel: take it out of the panel first. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "labTestId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabTest"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab-tests/{labTestId}/restore": {
+      "post": {
+        "operationId": "restoreLabTest",
+        "tags": ["lab-tests"],
+        "description": "Brings an archived test back. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "labTestId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A test or a panel the laboratory offers: what it is, how it is collected and how its result is read. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabTest"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab-tests/{labTestId}/ranges/resolve": {
+      "get": {
+        "operationId": "resolveLabTestRange",
+        "tags": ["lab-tests"],
+        "description": "The reference range that applies to a patient of an age and a sex: the row for that sex covering that age, else the row for any sex covering it, else none. A patient whose sex is recorded as other gets only a row for any. It answers the check on the catalog screen with an age someone typed, and identifies no patient: the age is tried as that of a person born on 1 January 2001, so 30 days is under one month. It is not how a result is read for a real patient: the laboratory works that out on the server from the date of birth of the patient of the order and the date the sample was collected, with the same rule (a limit is reached on the calendar day that lies that long after the birth; a month or a year lands on the same day of the month, or on the last day of a shorter month), and the age or date of birth of a patient is never sent in an address. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "minimum": 0,
+              "maximum": 54750,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "ageValue",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["days", "weeks", "months", "years"]
+            },
+            "in": "query",
+            "name": "ageUnit",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["male", "female", "other"]
+            },
+            "in": "query",
+            "name": "sex",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "labTestId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "`range` is absent when no row covers that age and sex.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabRangeResolved"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab-tests/{labTestId}/ranges": {
+      "get": {
+        "operationId": "getLabTestRanges",
+        "tags": ["lab-tests"],
+        "description": "The reference ranges of a numeric test, by sex and age, with their own version. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "labTestId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabRanges"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setLabTestRanges",
+        "tags": ["lab-tests"],
+        "description": "Replaces the reference ranges of a test. Only a numeric single test has ranges (409 lab_test_has_no_ranges for a panel or a text test). Each row gives at least one limit, `low` below `high`, a critical limit never inside the normal range, and an `ageUntil` that is later than `ageFrom` for every date of birth. Two rows for the same sex must never both hold for a patient: one has to end at or before the age the other starts from, for every date of birth. Years and months compare exactly with each other, and weeks and days with each other; a limit in months or years against one in weeks or days is accepted only when no date of birth can bring them together (a month is 28 to 31 days), so ranges that meet give the age in the same unit. A row for one sex and a row for any may share ages, and the one for the sex is used. 400 otherwise. 409 conflict when the ranges have changed since the version sent. A limit is a number: one sent as null or as text is refused, never read as 0. A result already reported keeps the range it was reported against. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabRangesUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "labTestId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabRanges"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }

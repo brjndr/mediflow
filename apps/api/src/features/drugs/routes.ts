@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
+import { tidy, tidyOptional } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   drugExists,
@@ -66,12 +67,6 @@ const detailsOf = (row: DrugRow): DrugDetails => ({
 const notFound = () => new HttpError(404, 'drug_not_found', 'No such item');
 const exists = () => new HttpError(409, 'drug_exists', 'The hospital has exactly this item');
 
-/**
- * Text as it is stored: in one normal form, so that the same letters typed two ways are the same
- * item, with runs of spaces made one and none at the ends.
- */
-const tidy = (text: string): string => text.normalize('NFC').replace(/\s+/g, ' ').trim();
-
 /** A name as it is stored, and not empty once it is tidied. */
 function cleanName(name: string): string {
   const tidied = tidy(name);
@@ -79,9 +74,7 @@ function cleanName(name: string): string {
   return tidied;
 }
 
-/** Optional text is absent, never empty. */
-const optional = (text: string | undefined): string | null =>
-  text === undefined ? null : tidy(text) || null;
+const optional = tidyOptional;
 
 /** What makes an item the one it is: see `drugs_exists`. */
 const IDENTITY = ['genericName', 'brandName', 'form', 'strength'] as const;
