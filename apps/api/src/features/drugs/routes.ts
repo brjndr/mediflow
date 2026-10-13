@@ -66,15 +66,25 @@ const detailsOf = (row: DrugRow): DrugDetails => ({
 const notFound = () => new HttpError(404, 'drug_not_found', 'No such item');
 const exists = () => new HttpError(409, 'drug_exists', 'The hospital has exactly this item');
 
-/** A name as it is stored: trimmed, and not empty once it is. */
+/**
+ * Text as it is stored: in one normal form, so that the same letters typed two ways are the same
+ * item, with runs of spaces made one and none at the ends.
+ */
+const tidy = (text: string): string => text.normalize('NFC').replace(/\s+/g, ' ').trim();
+
+/** A name as it is stored, and not empty once it is tidied. */
 function cleanName(name: string): string {
-  const trimmed = name.trim();
-  if (trimmed === '') throw new HttpError(400, 'validation_failed', 'A generic name is required');
-  return trimmed;
+  const tidied = tidy(name);
+  if (tidied === '') throw new HttpError(400, 'validation_failed', 'A generic name is required');
+  return tidied;
 }
 
 /** Optional text is absent, never empty. */
-const optional = (text: string | undefined): string | null => (text?.trim() ? text.trim() : null);
+const optional = (text: string | undefined): string | null =>
+  text === undefined ? null : tidy(text) || null;
+
+/** What makes an item the one it is: see `drugs_exists`. */
+const IDENTITY = ['genericName', 'brandName', 'form', 'strength'] as const;
 
 /** Schedule X and narcotic items are controlled, whatever was sent. */
 const controlledFor = (details: DrugDetails): DrugDetails =>
@@ -268,7 +278,13 @@ export const drugRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const changed = FIELDS.filter((field) => next[field] !== before[field]);
       if (changed.length === 0) return view(current);
       // The database decides what "the same" is, and an item is never in the way of itself.
-      if (await drugExists(request.txClient, next, current.id)) throw exists();
+      // Only a change of what it is can make it the same as another.
+      if (
+        IDENTITY.some((field) => changed.includes(field)) &&
+        (await drugExists(request.txClient, next, current.id))
+      ) {
+        throw exists();
+      }
       let row: DrugRow;
       try {
         row = await updateDrug(request.txClient, current.id, next);

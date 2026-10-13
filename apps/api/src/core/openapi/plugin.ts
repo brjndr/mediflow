@@ -8,7 +8,7 @@ import { SHARED_SCHEMAS } from '../http/schemas.js';
  * base branch and fails on a breaking change that leaves this unchanged. While the major version
  * is 0, a breaking change bumps the minor.
  */
-export const CONTRACT_VERSION = '0.7.0';
+export const CONTRACT_VERSION = '0.8.0';
 
 /**
  * Builds the OpenAPI document from the route schemas. Must be registered before any route.

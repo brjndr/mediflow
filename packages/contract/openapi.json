@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Mediflow API",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "description": "Generated from the API route schemas by `pnpm gen:api`. Do not edit by hand."
   },
   "components": {
@@ -1353,13 +1353,13 @@
           "genericName": {
             "minLength": 1,
             "maxLength": 150,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "description": "The generic name of a medicine, or what a consumable is.",
             "type": "string"
           },
           "brandName": {
             "maxLength": 150,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "type": "string"
           },
           "form": {
@@ -1382,13 +1382,13 @@
           },
           "strength": {
             "maxLength": 30,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "description": "As written on the pack: \"500 mg\".",
             "type": "string"
           },
           "unit": {
             "maxLength": 30,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "description": "What one unit of stock is: \"strip of 10\", \"100 ml bottle\", \"piece\".",
             "type": "string"
           },
@@ -1460,13 +1460,13 @@
           "genericName": {
             "minLength": 1,
             "maxLength": 150,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "description": "The generic name of a medicine, or what a consumable is.",
             "type": "string"
           },
           "brandName": {
             "maxLength": 150,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "type": "string"
           },
           "form": {
@@ -1489,13 +1489,13 @@
           },
           "strength": {
             "maxLength": 30,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "description": "As written on the pack: \"500 mg\".",
             "type": "string"
           },
           "unit": {
             "maxLength": 30,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "description": "What one unit of stock is: \"strip of 10\", \"100 ml bottle\", \"piece\".",
             "type": "string"
           },
@@ -1513,10 +1513,10 @@
             "enum": ["exempt", "reduced", "standard", "higher"]
           },
           "reorderLevel": {
+            "type": ["integer", "null"],
             "minimum": 0,
             "maximum": 1000000,
-            "description": "Stock at or below this many units is low. Absent: no level set.",
-            "type": "integer"
+            "description": "Stock at or below this many units is low. Absent or null: no level."
           }
         }
       },
@@ -1533,13 +1533,13 @@
           "genericName": {
             "minLength": 1,
             "maxLength": 150,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "description": "The generic name of a medicine, or what a consumable is.",
             "type": "string"
           },
           "brandName": {
             "maxLength": 150,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "type": "string"
           },
           "form": {
@@ -1562,13 +1562,13 @@
           },
           "strength": {
             "maxLength": 30,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "description": "As written on the pack: \"500 mg\".",
             "type": "string"
           },
           "unit": {
             "maxLength": 30,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "description": "What one unit of stock is: \"strip of 10\", \"100 ml bottle\", \"piece\".",
             "type": "string"
           },
@@ -1586,17 +1586,10 @@
             "enum": ["exempt", "reduced", "standard", "higher"]
           },
           "reorderLevel": {
-            "description": "Null removes the level. An empty brand, strength or unit removes that too.",
-            "anyOf": [
-              {
-                "type": "null"
-              },
-              {
-                "minimum": 0,
-                "maximum": 1000000,
-                "type": "integer"
-              }
-            ]
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "maximum": 1000000,
+            "description": "Null removes the level. An empty brand, strength or unit removes that too."
           },
           "expectedVersion": {
             "type": "integer"
@@ -1608,6 +1601,7 @@
         "type": "object",
         "properties": {
           "cursor": {
+            "maxLength": 1024,
             "description": "Opaque. Pass the nextCursor of the previous page.",
             "type": "string"
           },
@@ -1619,7 +1613,7 @@
           },
           "q": {
             "maxLength": 100,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "type": "string"
           },
           "type": {
@@ -1666,7 +1660,7 @@
           "genericName": {
             "minLength": 1,
             "maxLength": 150,
-            "pattern": "^[^\\u0000]*$",
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
             "description": "The generic name of a medicine, or what a consumable is.",
             "type": "string"
           },

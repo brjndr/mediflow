@@ -634,3 +634,103 @@ describe('two hospitals', () => {
     );
   });
 });
+
+describe('found in review', () => {
+  it('keeps a reorder level of 0 as 0, and takes null as no level', async () => {
+    const zero = await added('Review Zero', { reorderLevel: 0 });
+    expect(zero.reorderLevel).toBe(0);
+    const none = await added('Review Null', { reorderLevel: null });
+    expect(none).not.toHaveProperty('reorderLevel');
+
+    const five = await added('Review Five', { reorderLevel: 5 });
+    const toZero = await change(five.id, { reorderLevel: 0, expectedVersion: 1 });
+    expect(toZero.json()).toMatchObject({ reorderLevel: 0, version: 2 });
+    const toNone = await change(five.id, { reorderLevel: null, expectedVersion: 2 });
+    expect(toNone.json<Drug>()).not.toHaveProperty('reorderLevel');
+    expect(toNone.json<Drug>().version).toBe(3);
+    const back = await change(five.id, { reorderLevel: 0, expectedVersion: 3 });
+    expect(back.json()).toMatchObject({ reorderLevel: 0, version: 4 });
+  });
+
+  it('pages through the same generic name and brand in several strengths, each row once', async () => {
+    const ids: string[] = [];
+    for (const strength of ['125 mg', '250 mg', '500 mg']) {
+      ids.push((await added('Review Strengths', { brandName: 'Same', strength })).id);
+    }
+    const seen: string[] = [];
+    let cursor: string | null | undefined;
+    do {
+      const page = (
+        await search({ q: 'Review Strengths', limit: 1, ...(cursor ? { cursor } : {}) })
+      ).json<Page>();
+      seen.push(...page.items.map((item) => item.id));
+      cursor = page.nextCursor;
+    } while (cursor);
+    expect(seen.sort()).toEqual(ids.sort());
+  });
+
+  it('refuses a cursor that is not one of its own, whatever its shape', async () => {
+    const cursor = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+    for (const forged of [
+      cursor({ g: 'a', b: 'b', i: 'not-a-uuid' }),
+      cursor({ g: 1, b: 'b', i: randomUUID() }),
+      cursor({ g: 'a', i: randomUUID() }),
+      cursor(['a', 'b', randomUUID()]),
+      cursor({ g: 'x'.repeat(151), b: '', i: randomUUID() }),
+    ]) {
+      expect(errorOf(await search({ cursor: forged })), forged).toEqual([400, 'invalid_cursor']);
+    }
+    expect((await search({ cursor: 'x'.repeat(1025) })).statusCode).toBe(400);
+  });
+
+  it('stores a name in one form, with single spaces, so look-alikes are the same item', async () => {
+    // "é" typed as one character and as e + a combining accent.
+    const first = await added('Review Café  Forte ');
+    expect(first.genericName).toBe('Review Café Forte');
+    expect(errorOf(await add({ ...TABLET, genericName: 'Review Café Forte' }))).toEqual([
+      409,
+      'drug_exists',
+    ]);
+  });
+
+  it('refuses text that would not read as it was typed', async () => {
+    const bad = [
+      'Review\nNewline',
+      'Review‮Override',
+      'Review⁦Isolate',
+      'Review​ZeroWidth',
+      '​',
+      'Review\tTab',
+    ];
+    for (const genericName of bad) {
+      expect((await add({ ...TABLET, genericName })).statusCode, JSON.stringify(genericName)).toBe(
+        400,
+      );
+      expect(
+        (await add({ ...TABLET, genericName: 'Review Fine', brandName: genericName })).statusCode,
+      ).toBe(400);
+    }
+    // The joiners Indic scripts need are text like any other.
+    const hindi = await added('क्‍ष Review');
+    expect(hindi.genericName).toBe('क्‍ष Review');
+  });
+
+  it('lets an archived item be changed, as the catalog screen does', async () => {
+    const drug = await added('Review Archived');
+    await act(drug.id, 'archive');
+    const response = await change(drug.id, { unit: 'box', expectedVersion: 2 });
+    expect(response.json()).toMatchObject({ unit: 'box', archived: true, version: 3 });
+  });
+
+  it('counts the version in the database, and never moves an item to another hospital', async () => {
+    const drug = await added('Review Trigger');
+    const { rows } = await pool.query<{ version: number }>(
+      "update drugs set unit = 'box', version = 99 where id = $1 returning version",
+      [drug.id],
+    );
+    expect(rows[0]?.version).toBe(2);
+    await expect(
+      pool.query('update drugs set tenant_id = $2 where id = $1', [drug.id, clinic.id]),
+    ).rejects.toThrow(/cannot be changed/);
+  });
+});

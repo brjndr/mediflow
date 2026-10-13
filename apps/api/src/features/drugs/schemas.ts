@@ -33,8 +33,14 @@ export type DrugSchedule = (typeof DRUG_SCHEDULES)[number];
 export const TAX_CLASSES = ['exempt', 'reduced', 'standard', 'higher'] as const;
 export type TaxClass = (typeof TAX_CLASSES)[number];
 
-/** Text the database can store: it refuses a NUL character, which would otherwise be a 500. */
-const NO_NUL = '^[^\\u0000]*$';
+/**
+ * Text that is safe to store and to print on a label: no control characters (the database
+ * refuses a NUL, which would otherwise be a 500), no zero-width space, and none of the characters
+ * that override the direction of text, which can make one name read as another. The joiners that
+ * Indic scripts need (U+200C, U+200D) are allowed.
+ */
+const PLAIN_TEXT =
+  '^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$';
 
 const TypeSchema = StringEnum(DRUG_TYPES, {
   description: 'A medicine, or a consumable such as gloves or a syringe.',
@@ -48,18 +54,18 @@ const TaxClassSchema = StringEnum(TAX_CLASSES);
 const GenericName = Type.String({
   minLength: 1,
   maxLength: NAME_MAX,
-  pattern: NO_NUL,
+  pattern: PLAIN_TEXT,
   description: 'The generic name of a medicine, or what a consumable is.',
 });
-const BrandName = Type.String({ maxLength: NAME_MAX, pattern: NO_NUL });
+const BrandName = Type.String({ maxLength: NAME_MAX, pattern: PLAIN_TEXT });
 const Strength = Type.String({
   maxLength: SHORT_MAX,
-  pattern: NO_NUL,
+  pattern: PLAIN_TEXT,
   description: 'As written on the pack: "500 mg".',
 });
 const Unit = Type.String({
   maxLength: SHORT_MAX,
-  pattern: NO_NUL,
+  pattern: PLAIN_TEXT,
   description: 'What one unit of stock is: "strip of 10", "100 ml bottle", "piece".',
 });
 const Controlled = Type.Boolean({
@@ -71,6 +77,19 @@ const ReorderLevel = Type.Integer({
   maximum: REORDER_MAX,
   description: 'Stock at or below this many units is low. Absent: no level set.',
 });
+
+/**
+ * A level or null, in a request. One schema with both types, not a union of two: the validator
+ * coerces types, and with a union it coerces to whichever branch it tries first, so a null became
+ * 0 or a 0 became null. It matches a value against the listed types before it coerces anything.
+ */
+const NullableReorderLevel = (description: string) =>
+  Type.Unsafe<number | null>({
+    type: ['integer', 'null'],
+    minimum: 0,
+    maximum: REORDER_MAX,
+    description,
+  });
 
 export const Drug = Type.Object(
   {
@@ -110,7 +129,9 @@ export const DrugCreate = Type.Object(
     schedule: Schedule,
     controlled: Type.Optional(Controlled),
     taxClass: TaxClassSchema,
-    reorderLevel: Type.Optional(ReorderLevel),
+    reorderLevel: Type.Optional(
+      NullableReorderLevel('Stock at or below this many units is low. Absent or null: no level.'),
+    ),
   },
   { $id: 'DrugCreate', additionalProperties: false },
 );
@@ -128,10 +149,9 @@ export const DrugUpdate = Type.Object(
     controlled: Type.Optional(Controlled),
     taxClass: Type.Optional(TaxClassSchema),
     reorderLevel: Type.Optional(
-      // Null first: the validator coerces types, and tried as an integer first a null becomes 0.
-      Type.Union([Type.Null(), Type.Integer({ minimum: 0, maximum: REORDER_MAX })], {
-        description: 'Null removes the level. An empty brand, strength or unit removes that too.',
-      }),
+      NullableReorderLevel(
+        'Null removes the level. An empty brand, strength or unit removes that too.',
+      ),
     ),
     expectedVersion: Type.Integer(),
   },
@@ -146,12 +166,15 @@ export type DrugUpdate = Static<typeof DrugUpdate>;
 export const DrugSearchRequest = Type.Object(
   {
     cursor: Type.Optional(
-      Type.String({ description: 'Opaque. Pass the nextCursor of the previous page.' }),
+      Type.String({
+        maxLength: 1024,
+        description: 'Opaque. Pass the nextCursor of the previous page.',
+      }),
     ),
     limit: Type.Optional(
       Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, description: 'Absent: 25.' }),
     ),
-    q: Type.Optional(Type.String({ maxLength: 100, pattern: NO_NUL })),
+    q: Type.Optional(Type.String({ maxLength: 100, pattern: PLAIN_TEXT })),
     type: Type.Optional(StringEnum(DRUG_TYPES)),
     form: Type.Optional(Form),
     schedule: Type.Optional(StringEnum(DRUG_SCHEDULES)),

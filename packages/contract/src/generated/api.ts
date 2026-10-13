@@ -2012,8 +2012,8 @@ export interface components {
             controlled?: boolean;
             /** @enum {string} */
             taxClass: "exempt" | "reduced" | "standard" | "higher";
-            /** @description Stock at or below this many units is low. Absent: no level set. */
-            reorderLevel?: number;
+            /** @description Stock at or below this many units is low. Absent or null: no level. */
+            reorderLevel?: number | null;
         };
         DrugUpdate: {
             /**
@@ -2040,7 +2040,7 @@ export interface components {
             /** @enum {string} */
             taxClass?: "exempt" | "reduced" | "standard" | "higher";
             /** @description Null removes the level. An empty brand, strength or unit removes that too. */
-            reorderLevel?: null | number;
+            reorderLevel?: number | null;
             expectedVersion: number;
         };
         DrugSearchRequest: {
