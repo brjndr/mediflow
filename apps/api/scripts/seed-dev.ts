@@ -3,6 +3,8 @@
 // Fills the local database with the same two sample hospitals and four sample staff the web
 // app's mock API has, so the real API can be signed in to. Synthetic data only. Safe to run
 // again: existing rows are updated in place.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { MRN_DIGITS, mrnPrefix } from '../src/features/patients/repository.js';
 import { buildApp } from '../src/app.js';
@@ -10,6 +12,7 @@ import { syncRoleDefaults } from '../src/core/access/sync.js';
 import { hashPassword } from '../src/core/auth/password.js';
 import { loadConfig } from '../src/core/config/config.js';
 import { seedDecision } from '../src/core/db/seed-guard.js';
+import { loadCodes } from '../src/features/codes/load.js';
 
 /** The one password of every sample account. Printed below; it protects nothing. */
 const DEV_PASSWORD = 'sample-staff-local-only';
@@ -302,6 +305,13 @@ const SAMPLE_WARDS: readonly [
   ],
 ];
 
+/** The sample code sets (see sample-codes/README.md), and each hospital's favourites among them. */
+const SAMPLE_CODE_FILES = [
+  ['icd10', 'icd10.csv'],
+  ['procedure', 'procedures.csv'],
+] as const;
+const SAMPLE_FAVOURITE_CODES = ['I10', 'E11.9', 'J06.9', 'PR-0003'];
+
 const HOSPITALS = [
   {
     slug: 'sample-hospital',
@@ -319,6 +329,7 @@ const HOSPITALS = [
       drugs: true,
       lab_tests: true,
       wards: true,
+      codes: true,
       appointments: true,
       clinical: true,
       laboratory: true,
@@ -345,6 +356,7 @@ const HOSPITALS = [
       drugs: true,
       lab_tests: true,
       wards: true,
+      codes: true,
       appointments: true,
       clinical: true,
       laboratory: false,
@@ -656,6 +668,21 @@ try {
        where tenant_id = $1 and number = 'G-08' and status = 'available' and version = 1
          and ward_id = (select id from wards where tenant_id = $1 and code = 'GEN')`,
       [tenantId],
+    );
+  }
+
+  // The sample code sets, shared by every hospital, and a few favourites for each. Loading a set
+  // again adds nothing, and a favourite that is marked already stays as it is.
+  for (const [system, file] of SAMPLE_CODE_FILES) {
+    const path = fileURLToPath(new URL(`../sample-codes/${file}`, import.meta.url));
+    await loadCodes(client, system, readFileSync(path, 'utf8'));
+  }
+  for (const hospital of HOSPITALS) {
+    await client.query(
+      `insert into code_favourites (tenant_id, code_id)
+       select $1, id from codes where code = any($2::text[])
+       on conflict do nothing`,
+      [tenantIds.get(hospital.slug), SAMPLE_FAVOURITE_CODES],
     );
   }
 

@@ -2580,6 +2580,90 @@
             "type": "string"
           }
         }
+      },
+      "Code": {
+        "description": "A diagnosis code (ICD-10) or a procedure code. Reference data shared by every hospital, so it carries no tenant; only `favourite` is the hospital’s own.",
+        "type": "object",
+        "required": ["id", "system", "code", "title", "favourite"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "system": {
+            "type": "string",
+            "enum": ["icd10", "procedure"]
+          },
+          "code": {
+            "description": "As it is written: A09, E11.9.",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "favourite": {
+            "description": "Whether the active tenant marked it.",
+            "type": "boolean"
+          }
+        }
+      },
+      "CodePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Code"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "CodeSearchRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["system"],
+        "properties": {
+          "system": {
+            "type": "string",
+            "enum": ["icd10", "procedure"],
+            "description": "The code set to search."
+          },
+          "q": {
+            "maxLength": 100,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "type": "string"
+          },
+          "favourites": {
+            "description": "True gives the favourites only. Absent: false.",
+            "type": "boolean"
+          },
+          "cursor": {
+            "maxLength": 1024,
+            "description": "Opaque. Pass the nextCursor of the previous page.",
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Absent: 25.",
+            "type": "integer"
+          }
+        }
       }
     }
   },
@@ -10071,6 +10155,243 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/codes/search": {
+      "post": {
+        "operationId": "searchCodes",
+        "tags": ["codes"],
+        "description": "Diagnosis and procedure codes, searched on the server: the code sets are large and are never sent whole or bundled into the web app. It reads data only. The search term travels in the body, never in a query string: it is free text typed while a patient's record may be open, and a diagnosis term beside a patient id in an access log is patient data. The API does not log the body. The codes themselves are the same for every hospital; `favourite` is the active tenant's own mark, taken from the session, never from the client. `q` is words in any order: each matches the start of the code (with or without its dot) or the start of a word of the title. The hospital's favourites come first, then the other codes, each in the order of the codes. `favourites: true` gives the favourites only, which is what a search box shows before anything is typed. `total` comes with the first page only. The answer is the active tenant's view and is private to the session: `Cache-Control: private, no-store`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/codes/{codeId}/favourite": {
+      "put": {
+        "operationId": "addFavouriteCode",
+        "tags": ["codes"],
+        "description": "Marks a code as one of the active tenant's favourites, for every member of its staff. Doing it twice changes nothing. Audited. 404 code_not_found for a code that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "codeId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A diagnosis code (ICD-10) or a procedure code. Reference data shared by every hospital, so it carries no tenant; only `favourite` is the hospital’s own.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Code"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeFavouriteCode",
+        "tags": ["codes"],
+        "description": "Takes a code out of the active tenant's favourites. Doing it twice changes nothing. Audited. 404 code_not_found for a code that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "codeId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A diagnosis code (ICD-10) or a procedure code. Reference data shared by every hospital, so it carries no tenant; only `favourite` is the hospital’s own.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Code"
                 }
               }
             }

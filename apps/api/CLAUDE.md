@@ -255,6 +255,16 @@ A feature folder has only the files it needs: `features/health` has `index.ts` a
 - **The list of wards is a `GET` with `q` in the address:** a ward's name says nothing of a patient (Searches in the root `CLAUDE.md`).
 - **Changes are audited** (`bed_category`, `ward`, `room`, `bed`, with `block` and `unblock` as actions of their own) and emit `master.changed`, an update with the names of the fields that changed. Each bed archived with its room has its own entry and event. Archiving a ward tells of the ward only: its rooms and beds stay as they are.
 
+## Diagnosis and procedure codes
+
+- **`features/codes`** is the code sets a diagnosis or a procedure is recorded with, and each hospital's favourites among them. Behind the `codes` module flag, with `code:read` for everyone who records, reads or bills a diagnosis, and `code:manage` for the admin, who chooses the favourites.
+- **The codes are shared by every hospital:** `codes` has no `tenant_id` and no row-level security, and the app role can only read it. It is the one table of hospital-facing data like that, because nothing in it is a hospital's own. Only `code_favourites` carries the tenant.
+- **A set is loaded by an operator, never by a request,** and none is in the repository: `pnpm --filter api codes:load --system=icd10 --file=<path>` (`load-cli.ts`), from comma-separated text whose first line is `code,title`. The whole file is checked before anything is written, in one transaction, and a refusal names the line and never a value. Loading a set again adds the codes it gained and changes the titles that changed. Nothing is ever removed: a diagnosis recorded with a code, and a favourite, still name it. `apps/api/sample-codes` holds a sample for development, which `db:seed` loads. Which edition the pilot hospital loads is #304.
+- **The search is `POST /codes/search`** with the term in the body (Searches in the root `CLAUDE.md`), and its answer is `Cache-Control: private, no-store`: the favourite marks and the order are one hospital's. Each word starts the code, with or without its dot, or starts a word of the title. It is not audited.
+- **Favourites first, then the other codes, each in the order of the codes,** read as two reads along the index of the codes in order, not as one sort of the whole set: a page costs the same wherever it is. The cursor says which of the two it is in. The order is byte order (`COLLATE "C"`), which is the order the sets are published in and the same on every database.
+- **A text index is used here,** which it never is on a tenant table (Sessions, tenants and row-level security): `codes` has no policy, so the trigram index on the title and the prefix index on the code are both read.
+- **Marking and unmarking a favourite twice changes nothing,** is audited (`favourite`, `unfavourite` on `code`) and emits `master.changed`. It needs `code:read` as well as `code:manage`, because the answer is the code.
+
 ## Contract
 
 - The OpenAPI document is generated from route schemas. After changing a route or a schema, run `pnpm gen:api` from the repo root and commit `packages/contract`. A test and a CI step both fail if the committed files are stale.
