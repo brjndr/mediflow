@@ -31,6 +31,8 @@ function rows(text: string): { line: number; cells: string[] }[] {
   let cells: string[] = [];
   let cell = '';
   let quoted = false;
+  /** A quoted value has just ended: only a comma or the end of the line may follow. */
+  let closed = false;
   let line = 1;
   let startedOn = 1;
   const endRow = () => {
@@ -49,21 +51,27 @@ function rows(text: string): { line: number; cells: string[] }[] {
           at++;
         } else {
           quoted = false;
+          closed = true;
         }
       } else {
         if (char === '\n') line++;
         cell += char;
       }
-    } else if (char === '"' && cell === '') {
-      quoted = true;
     } else if (char === ',') {
       cells.push(cell);
       cell = '';
+      closed = false;
     } else if (char === '\n' || char === '\r') {
       if (char === '\r' && text[at + 1] === '\n') at++;
       endRow();
+      closed = false;
       line++;
       startedOn = line;
+    } else if (closed) {
+      // `"Colitis"x` is a mistake in the file, not the title Colitisx.
+      throw new CodeFileError('a quoted value is followed by more text', line);
+    } else if (char === '"' && cell === '') {
+      quoted = true;
     } else {
       cell += char;
     }

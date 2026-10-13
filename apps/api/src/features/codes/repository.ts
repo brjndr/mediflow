@@ -49,8 +49,14 @@ function decodeCursor(cursor: string): Cursor | null {
 }
 
 const likeEscaped = (text: string) => text.replace(/[\\%_]/g, (char) => `\\${char}`);
-/** A word as a regular expression that matches it and nothing else. */
-const regexEscaped = (text: string) => text.replace(/[^\p{L}\p{N}]/gu, (char) => `\\${char}`);
+/**
+ * A word as a regular expression that matches it and nothing else. Every character with a meaning
+ * in an expression is ASCII, and only those are escaped: a backslash before a letter is an escape
+ * of its own, and what counts as a letter outside ASCII (the vowel signs of Devanagari, say) is
+ * the database's locale's to decide.
+ */
+const regexEscaped = (text: string) =>
+  text.replace(/[^A-Za-z0-9\u0080-\u{10FFFF}]/gu, (char) => `\\${char}`);
 
 /**
  * The words of what was typed, as conditions on `c`: each word starts the code, with or without
@@ -62,14 +68,16 @@ function wordConditions(q: string | undefined, params: unknown[]): string[] {
     .split(/\s+/)
     .filter(Boolean)
     .map((word) => {
-      // Codes are written in letters, digits, dots and dashes: lower case is the same anywhere.
-      params.push(`${likeEscaped(word.toLowerCase().replace(/\./g, ''))}%`);
-      const code = params.length;
       // `\m` is the start of a word. The database lower-cases the word: its idea of lower case
       // is not JavaScript's.
       params.push(regexEscaped(word));
-      const title = params.length;
-      return `(c.code_plain like $${code} or c.title_lower ~ ('\\m' || lower($${title})))`;
+      const title = `c.title_lower ~ ('\\m' || lower($${params.length}))`;
+      // Codes are written in letters, digits, dots and dashes: lower case is the same anywhere.
+      const plain = word.toLowerCase().replace(/\./g, '');
+      // A word of dots alone is the start of no code: without this it would be the start of all.
+      if (plain === '') return title;
+      params.push(`${likeEscaped(plain)}%`);
+      return `(c.code_plain like $${params.length} or ${title})`;
     });
 }
 

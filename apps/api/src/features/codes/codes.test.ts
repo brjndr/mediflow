@@ -17,7 +17,7 @@ import {
   type TestUser,
 } from '../../../test/helpers.js';
 import { CodeFileError, parseCodeFile } from './csv.js';
-import { checkedCodes, loadCodes } from './load.js';
+import { checkedCodes, decodeCodeFile, loadCodes } from './load.js';
 
 /**
  * The codes API through the real app and database: reading a code file, loading a set, the
@@ -36,6 +36,8 @@ let admin: TestUser;
 let doctor: TestUser;
 /** No code permissions at all. */
 let storeKeeper: TestUser;
+/** A role the hospital made: it may choose favourites and may not read codes. */
+let chooser: TestUser;
 
 const ICD10 = `code,title
 A09,"Infectious gastroenteritis and colitis, unspecified"
@@ -136,6 +138,16 @@ beforeAll(async () => {
   for (const tenant of tenants) await addMembership(pool, admin, tenant, 'admin');
   await addMembership(pool, doctor, hospital, 'doctor');
   await addMembership(pool, storeKeeper, hospital, 'store_keeper');
+  chooser = await createUser(pool, 'Codes Chooser', { withPassword: false });
+  await pool.query(
+    "insert into roles (tenant_id, id, name) values ($1, 'favourites_only', 'Favourites only')",
+    [hospital.id],
+  );
+  await pool.query(
+    "insert into role_permissions (tenant_id, role_id, permission) values ($1, 'favourites_only', 'code:manage')",
+    [hospital.id],
+  );
+  await addMembership(pool, chooser, hospital, 'favourites_only');
   await loadCodes(pool as unknown as pg.ClientBase, 'icd10', ICD10);
   await loadCodes(pool as unknown as pg.ClientBase, 'procedure', PROCEDURES);
 });
@@ -143,7 +155,7 @@ beforeAll(async () => {
 afterAll(async () => {
   try {
     await clearCodes();
-    await deleteUsers(pool, [admin, doctor, storeKeeper].filter(Boolean));
+    await deleteUsers(pool, [admin, doctor, storeKeeper, chooser].filter(Boolean));
     await deleteTenants(pool, [hospital, clinic, closed].filter(Boolean));
   } finally {
     await app.close();
@@ -152,7 +164,8 @@ afterAll(async () => {
 
 describe('a code file', () => {
   it('is read as a spreadsheet writes it', () => {
-    const text = '﻿code,title\r\nA09,"Colitis, unspecified"\r\n\r\nB1,"Said ""so"""\nC2, Spaced \n';
+    const text =
+      '\uFEFFcode,title\r\nA09,"Colitis, unspecified"\r\n\r\nB1,"Said ""so"""\nC2, Spaced \n';
     expect(parseCodeFile(text)).toEqual([
       { line: 2, code: 'A09', title: 'Colitis, unspecified' },
       { line: 4, code: 'B1', title: 'Said "so"' },
@@ -173,6 +186,7 @@ describe('a code file', () => {
       [/line 3: expected a code and a title, found 3/, 'code,title\nA,b\nC,d,e'],
       [/line 2: expected a code and a title, found 1/, 'code,title\nonly'],
       [/line 2: a quoted value is not closed/, 'code,title\nA,"open\nB,c'],
+      [/line 3: a quoted value is followed by more text/, 'code,title\nA,b\nC,"Colitis"x'],
     ];
     for (const [message, text] of bad) {
       expect(() => parseCodeFile(text), text).toThrow(message);
@@ -184,12 +198,30 @@ describe('a code file', () => {
       [/line 3: the title is empty/, 'code,title\nA,b\nC,"  "'],
       [/line 2: the title is empty or longer/, `code,title\nA,${'x'.repeat(301)}`],
       [/line 2: the title has a character that is not text/, 'code,title\nA,"two\nlines"'],
-      [/line 4: the code A09 is also on line 2/, 'code,title\nA09,x\nB,y\nA09,z'],
+      [/line 4: the code is also on line 2/, 'code,title\nA09,x\nB,y\nA09,z'],
+      // One code however it is written: other capitals, or without its dot.
+      [/line 3: the code is also on line 2/, 'code,title\nA09,x\na09,y'],
+      [/line 3: the code is also on line 2/, 'code,title\nE11.9,x\nE119,y'],
+      // What is left of a title read in the wrong encoding.
+      [/line 2: the title has a character that is not text/, 'code,title\nH81.0,M\uFFFDni\uFFFDre'],
     ];
     for (const [message, text] of checked) expect(() => checkedCodes(text), text).toThrow(message);
     expect(checkedCodes('code,title\n A09 ,"  Colitis,   unspecified "')).toEqual([
-      { code: 'A09', title: 'Colitis, unspecified' },
+      { line: 2, code: 'A09', title: 'Colitis, unspecified' },
     ]);
+  });
+
+  it('is UTF-8, or it is refused: another encoding would damage every accent', () => {
+    const utf8 = new TextEncoder().encode('code,title\nH81.0,Ménière disease\n');
+    expect(checkedCodes(decodeCodeFile(utf8))[0]?.title).toBe('Ménière disease');
+    // The same line as a spreadsheet saves it on Windows: é and è are one byte each.
+    const windows = Uint8Array.from(
+      [...'code,title\nH81.0,M']
+        .map((c) => c.charCodeAt(0))
+        .concat(0xe9, 0x6e, 0x69, 0xe8, 0x72, 0x65),
+    );
+    expect(() => decodeCodeFile(windows)).toThrow(/the file is not UTF-8 text/);
+    expect(() => decodeCodeFile(windows)).toThrow(CodeFileError);
   });
 });
 
@@ -234,6 +266,44 @@ describe('loading a set', () => {
     const before = await count('procedure');
     await expect(load('code,title\nPR-0009,New one\nbad code,Another\n')).rejects.toThrow(/line 3/);
     expect(await count('procedure')).toBe(before);
+  });
+
+  it('refuses a code the set already holds written another way, and writes nothing', async () => {
+    const before = await count('procedure');
+    for (const [message, text] of [
+      [
+        /line 3: the set already holds this code, written another way/,
+        'code,title\nPR-0008,New\npr-0002,Knee\n',
+      ],
+      [/line 2: the set already holds this code/, 'code,title\nPR-00.03,Section\n'],
+    ] as const) {
+      await expect(load(text), text).rejects.toThrow(message);
+    }
+    expect(await count('procedure')).toBe(before);
+    // And the database says so whatever the loader does.
+    await expect(
+      pool.query("insert into codes (system, code, title) values ('procedure', 'pr-0002', 'Knee')"),
+    ).rejects.toThrow(/codes_by_code_plain/);
+  });
+
+  it('counts what it did across more than one statement', async () => {
+    const lines = (title: string) =>
+      `code,title\n${Array.from({ length: 2500 }, (_, n) => `Y${String(n).padStart(4, '0')},${title} ${n}`).join('\n')}\n`;
+    try {
+      expect(await load(lines('First wording'))).toEqual({
+        read: 2500,
+        added: 2500,
+        retitled: 0,
+        unchanged: 0,
+      });
+      const again = lines('First wording').replace(
+        /First wording (\d*[05])\n/g,
+        'Second wording $1\n',
+      );
+      expect(await load(again)).toEqual({ read: 2500, added: 0, retitled: 500, unchanged: 2000 });
+    } finally {
+      await pool.query("delete from codes where system = 'procedure' and code like 'Y%'");
+    }
   });
 
   it('is never something a request can do: the app role reads codes and no more', async () => {
@@ -318,6 +388,25 @@ describe('the search', () => {
     expect(codes(await search({ q: '%' }))).toEqual([]);
     expect(codes(await search({ q: '.*' }))).toEqual([]);
     expect(codes(await search({ q: 'primary' }))).toEqual(['I10']);
+    // A word of dots is the start of no code, and no word of a title.
+    expect(codes(await search({ q: '.' }))).toEqual([]);
+    expect(codes(await search({ q: 'e11 .' }))).toEqual([]);
+  });
+
+  it('finds a title in any script, from the start of a word', async () => {
+    const load = (text: string) => loadCodes(pool as unknown as pg.ClientBase, 'icd10', text);
+    await load('code,title\nX90.1,मधुमेह का रोग\nX90.2,Ménière disease\nX90.3,நீரிழிவு நோய்\n');
+    try {
+      const found = async (q: string) => codes(await search({ q }));
+      expect(await found('मधुमेह')).toEqual(['X90.1']);
+      expect(await found('का')).toEqual(['X90.1']);
+      expect(await found('ménière')).toEqual(['X90.2']);
+      expect(await found('MÉN')).toEqual(['X90.2']);
+      expect(await found('நோய்')).toEqual(['X90.3']);
+      expect(await found('x90 रोग')).toEqual(['X90.1']);
+    } finally {
+      await pool.query("delete from codes where code like 'X90.%'");
+    }
   });
 
   it('refuses a search it does not understand', async () => {
@@ -377,10 +466,19 @@ describe('favourites', () => {
       [hospital.id, hypertension],
     );
     expect(rows.map((row) => row.action)).toEqual(['favourite']);
+    const auditOf = async () =>
+      (
+        await pool.query<{ action: string }>(
+          `select action from audit_log where tenant_id = $1 and entity = 'code' and entity_id = $2 order by at`,
+          [hospital.id, hypertension],
+        )
+      ).rows.map((row) => row.action);
 
     const gone = await unmark(hypertension);
     expect(gone.json()).toMatchObject({ code: 'I10', favourite: false });
     expect((await unmark(hypertension)).statusCode).toBe(200);
+    // Taking the mark away is audited once, as marking was.
+    expect(await auditOf()).toEqual(['favourite', 'unfavourite']);
     expect(codes(await search({ favourites: true }))).toEqual(['J18.9']);
     const events = await pool.query<{ payload: unknown }>(
       `select payload from outbox where tenant_id = $1 and event = 'master.changed' and entity_id = $2 order by occurred_at, id`,
@@ -413,6 +511,20 @@ describe('favourites', () => {
       'J18.9',
       'N18.9',
     ]);
+    // Every match a favourite: the other codes are still looked for, and there are none.
+    for (const limit of [1, 2, 3]) {
+      expect((await all({ limit, q: 'e11.9' })).map((item) => item.code)).toEqual(['E11.9']);
+      expect((await all({ limit, q: 'headache' })).map((item) => item.code)).toEqual(['R51']);
+    }
+    // A cursor from one kind of search, sent with the other: no error, and no code twice.
+    const amongOthers = (await search({ limit: 4 })).json<Page>().nextCursor;
+    expect(codes(await search({ limit: 4, favourites: true, cursor: amongOthers }))).toEqual([]);
+    const amongFavourites = (await search({ limit: 1, favourites: true })).json<Page>().nextCursor;
+    expect(codes(await search({ limit: 3, cursor: amongFavourites }))).toEqual([
+      'J06.9',
+      'R51',
+      'A09',
+    ]);
     for (const code of marked) await unmark(await idOf(code));
   });
 
@@ -431,6 +543,15 @@ describe('access', () => {
     const id = await idOf('A09');
     expect(errorOf(await mark(id, options))).toEqual([403, 'permission_denied']);
     expect(errorOf(await unmark(id, options))).toEqual([403, 'permission_denied']);
+  });
+
+  it('needs both permissions of whoever chooses a favourite: the answer is the code', async () => {
+    const options = { user: chooser };
+    const id = await idOf('A09');
+    expect(errorOf(await search({}, options))).toEqual([403, 'permission_denied']);
+    expect(errorOf(await mark(id, options))).toEqual([403, 'permission_denied']);
+    expect(errorOf(await unmark(id, options))).toEqual([403, 'permission_denied']);
+    expect(codes(await search({ favourites: true }))).toEqual([]);
   });
 
   it('shows nothing to a role without the permission', async () => {

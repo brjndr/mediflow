@@ -28,26 +28,52 @@ export interface LoadResult {
   unchanged: number;
 }
 
+export interface CheckedCode {
+  /** The line of the file it is on. */
+  line: number;
+  code: string;
+  title: string;
+}
+
+/**
+ * The text of a code file from its bytes. The file must be UTF-8: read as anything else, a title
+ * with an accent in it would be stored damaged and the load would still say it went well. A
+ * spreadsheet's plain "CSV" on Windows is not UTF-8; its "CSV UTF-8" is.
+ */
+export function decodeCodeFile(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    throw new CodeFileError('the file is not UTF-8 text');
+  }
+}
+
+/** A code as the search compares it: `E11.9`, `e11.9` and `E119` are one code. */
+const plainCode = (code: string) => code.toLowerCase().replaceAll('.', '');
+
 /** The codes of a file, checked and tidied. Throws a `CodeFileError` naming the first bad line. */
-export function checkedCodes(text: string): { code: string; title: string }[] {
+export function checkedCodes(text: string): CheckedCode[] {
   const seen = new Map<string, number>();
   return parseCodeFile(text).map(({ line, code: written, title: typed }) => {
     const code = written.trim();
     if (!CODE.test(code) || code.length > CODE_MAX) {
       throw new CodeFileError('the code is not letters, digits, dots and dashes, at most 20', line);
     }
-    if (!plain.test(typed))
+    // The replacement character is what is left of text that was once read in the wrong encoding.
+    if (!plain.test(typed) || typed.includes('�')) {
       throw new CodeFileError('the title has a character that is not text', line);
+    }
     const title = tidy(typed);
     if (title === '' || [...title].length > TITLE_MAX) {
       throw new CodeFileError('the title is empty or longer than 300 characters', line);
     }
-    const first = seen.get(code);
+    // One code however it is written: a set never holds A09 and a09, or E11.9 and E119.
+    const first = seen.get(plainCode(code));
     if (first !== undefined) {
-      throw new CodeFileError(`the code ${code} is also on line ${first}`, line);
+      throw new CodeFileError(`the code is also on line ${first}`, line);
     }
-    seen.set(code, line);
-    return { code, title };
+    seen.set(plainCode(code), line);
+    return { line, code, title };
   });
 }
 
@@ -61,9 +87,29 @@ export async function loadCodes(
   text: string,
 ): Promise<LoadResult> {
   const codes = checkedCodes(text);
-  const result: LoadResult = { read: codes.length, added: 0, retitled: 0, unchanged: 0 };
+  const batches: CheckedCode[][] = [];
   for (let start = 0; start < codes.length; start += BATCH) {
-    const batch = codes.slice(start, start + BATCH);
+    batches.push(codes.slice(start, start + BATCH));
+  }
+
+  // A code the set already holds written another way (other capitals, or without its dot) would
+  // become a second code that nothing could ever remove. Refused before anything is written.
+  for (const batch of batches) {
+    const { rows } = await client.query<{ code: string }>(
+      `select written.code from unnest($2::text[]) as written (code)
+       join codes c on c.system = $1 and c.code_plain = lower(replace(written.code, '.', ''))
+       where c.code <> written.code
+       limit 1`,
+      [system, batch.map((each) => each.code)],
+    );
+    const clash = batch.find((each) => each.code === rows[0]?.code);
+    if (clash) {
+      throw new CodeFileError('the set already holds this code, written another way', clash.line);
+    }
+  }
+
+  const result: LoadResult = { read: codes.length, added: 0, retitled: 0, unchanged: 0 };
+  for (const batch of batches) {
     const { rows } = await client.query<{ added: boolean }>(
       `insert into codes (system, code, title)
        select $1, code, title from unnest($2::text[], $3::text[]) as written (code, title)
