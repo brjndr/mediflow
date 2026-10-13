@@ -1,5 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { CursorPage, MAX_PAGE_SIZE, ref, StringEnum } from '../../core/http/schemas.js';
+import { PLAIN_TEXT } from '../../core/http/text.js';
 
 export const NAME_MAX = 150;
 export const SHORT_MAX = 30;
@@ -32,15 +33,6 @@ export type DrugSchedule = (typeof DRUG_SCHEDULES)[number];
 
 export const TAX_CLASSES = ['exempt', 'reduced', 'standard', 'higher'] as const;
 export type TaxClass = (typeof TAX_CLASSES)[number];
-
-/**
- * Text that is safe to store and to print on a label: no control characters (the database
- * refuses a NUL, which would otherwise be a 500), no zero-width space, and none of the characters
- * that override the direction of text, which can make one name read as another. The joiners that
- * Indic scripts need (U+200C, U+200D) are allowed.
- */
-const PLAIN_TEXT =
-  '^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$';
 
 const TypeSchema = StringEnum(DRUG_TYPES, {
   description: 'A medicine, or a consumable such as gloves or a syringe.',

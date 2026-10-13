@@ -147,6 +147,109 @@ const SAMPLE_CONSUMABLES = [
   'Syringe 5 ml',
 ];
 
+/**
+ * Single tests: [code, name, section, sample, container, hours, unit or null for a text result,
+ * the laboratory service it is charged as or null].
+ */
+const SAMPLE_LAB_TESTS: readonly [
+  string,
+  string,
+  string,
+  string,
+  string,
+  number,
+  string | null,
+  string | null,
+][] = [
+  ['HB', 'Haemoglobin', 'haematology', 'blood', 'EDTA tube', 4, 'g/dL', null],
+  ['WBC', 'White cell count', 'haematology', 'blood', 'EDTA tube', 4, '10^3/uL', null],
+  ['PLT', 'Platelet count', 'haematology', 'blood', 'EDTA tube', 4, '10^3/uL', null],
+  [
+    'GLU-F',
+    'Glucose, fasting',
+    'biochemistry',
+    'plasma',
+    'Fluoride tube',
+    4,
+    'mg/dL',
+    'Blood glucose fasting',
+  ],
+  ['CHOL', 'Total cholesterol', 'biochemistry', 'serum', 'Gel tube', 12, 'mg/dL', null],
+  ['TG', 'Triglycerides', 'biochemistry', 'serum', 'Gel tube', 12, 'mg/dL', null],
+  ['TSH', 'Thyroid stimulating hormone', 'hormones', 'serum', 'Gel tube', 24, 'mIU/L', null],
+  ['ABO', 'Blood group and Rh type', 'serology', 'blood', 'EDTA tube', 2, null, null],
+  [
+    'UCS',
+    'Urine culture and sensitivity',
+    'microbiology',
+    'urine',
+    'Sterile container',
+    72,
+    null,
+    'Urine routine',
+  ],
+];
+
+/** Panels: [code, name, section, sample, container, hours, service or null, component codes]. */
+const SAMPLE_LAB_PANELS: readonly [
+  string,
+  string,
+  string,
+  string,
+  string,
+  number,
+  string | null,
+  string[],
+][] = [
+  [
+    'CBC',
+    'Complete blood count',
+    'haematology',
+    'blood',
+    'EDTA tube',
+    4,
+    'Complete blood count',
+    ['HB', 'WBC', 'PLT'],
+  ],
+  [
+    'LIPID',
+    'Lipid profile',
+    'biochemistry',
+    'serum',
+    'Gel tube',
+    12,
+    'Lipid profile',
+    ['CHOL', 'TG'],
+  ],
+];
+
+/**
+ * Reference ranges by test code: [sex, from value, from unit, until value, until unit, low, high,
+ * critical low, critical high]. Illustrative, not a laboratory's.
+ */
+const SAMPLE_LAB_RANGES: Record<
+  string,
+  [
+    string,
+    number,
+    string,
+    number | null,
+    string | null,
+    number,
+    number,
+    number | null,
+    number | null,
+  ][]
+> = {
+  HB: [
+    ['male', 12, 'years', null, null, 13, 17, 7, 20],
+    ['female', 12, 'years', null, null, 12, 15, 7, 20],
+    ['any', 0, 'days', 1, 'months', 14, 22, 10, null],
+    ['any', 1, 'months', 12, 'years', 11, 14, 7, null],
+  ],
+  'GLU-F': [['any', 0, 'days', null, null, 70, 100, 40, 400]],
+};
+
 const HOSPITALS = [
   {
     slug: 'sample-hospital',
@@ -162,6 +265,7 @@ const HOSPITALS = [
       staff: true,
       services: true,
       drugs: true,
+      lab_tests: true,
       appointments: true,
       clinical: true,
       laboratory: true,
@@ -186,6 +290,7 @@ const HOSPITALS = [
       staff: true,
       services: true,
       drugs: true,
+      lab_tests: true,
       appointments: true,
       clinical: true,
       laboratory: false,
@@ -379,6 +484,69 @@ try {
          values ($1, 'consumable', $2, 'device', 'piece', 'none', 'standard')
          on conflict on constraint drugs_exists do nothing`,
         [tenantId, genericName],
+      );
+    }
+  }
+
+  // Lab tests and panels, a test charged as a laboratory service where the hospital has one of
+  // that name. Only codes the hospital does not have yet, so running again adds nothing.
+  for (const hospital of HOSPITALS) {
+    const tenantId = tenantIds.get(hospital.slug);
+    const addTest = async (
+      values: [string, string, string, string, string, string, number, string | null],
+      resultType: string,
+      service: string | null,
+    ) => {
+      const added = await client.query<{ id: string }>(
+        `insert into lab_tests (tenant_id, code, name, department, kind, sample_type, container,
+           turnaround_hours, unit, result_type, service_id)
+         select $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+           (select id from services
+            where tenant_id = $1 and name = $11 and category = 'lab' limit 1)
+         on conflict on constraint lab_tests_code_taken do nothing
+         returning id`,
+        [tenantId, ...values, resultType, service],
+      );
+      return added.rows[0]?.id;
+    };
+    for (const [code, name, section, sample, container, hours, unit, service] of SAMPLE_LAB_TESTS) {
+      const id = await addTest(
+        [code, name, section, 'test', sample, container, hours, unit],
+        unit === null ? 'text' : 'numeric',
+        service,
+      );
+      if (!id) continue;
+      for (const [position, row] of (SAMPLE_LAB_RANGES[code] ?? []).entries()) {
+        await client.query(
+          `insert into lab_test_ranges (tenant_id, lab_test_id, position, sex, age_from_value,
+             age_from_unit, age_until_value, age_until_unit, low, high, critical_low, critical_high)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          [tenantId, id, position, ...row],
+        );
+      }
+    }
+    for (const [
+      code,
+      name,
+      section,
+      sample,
+      container,
+      hours,
+      service,
+      parts,
+    ] of SAMPLE_LAB_PANELS) {
+      const id = await addTest(
+        [code, name, section, 'panel', sample, container, hours, null],
+        'text',
+        service,
+      );
+      if (!id) continue;
+      await client.query(
+        `insert into lab_test_components (tenant_id, panel_id, component_id, position)
+         select $1, $2, t.id, part.position - 1
+         from unnest($3::text[]) with ordinality as part (code, position)
+         join lab_tests t on t.tenant_id = $1 and t.code = part.code and t.kind = 'test'`,
+        [tenantId, id, parts],
       );
     }
   }

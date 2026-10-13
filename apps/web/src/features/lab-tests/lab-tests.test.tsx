@@ -329,7 +329,7 @@ describe('adding a test', () => {
       sampleType: 'serum',
       turnaroundHours: 6,
     } as const;
-    const params = { header: { 'Idempotency-Key': 'test-key-0001' } };
+    const params = { header: { 'idempotency-key': 'test-key-0001' } };
     const first = await api.POST('/lab-tests', { body, params });
     const again = await api.POST('/lab-tests', { body, params });
 
@@ -348,7 +348,7 @@ describe('adding a test', () => {
     const add = (body: object, key: string) =>
       api.POST('/lab-tests', {
         body: { ...base, ...body } as never,
-        params: { header: { 'Idempotency-Key': key } },
+        params: { header: { 'idempotency-key': key } },
       });
 
     // A consultation is in the price catalog, and is not what a test is charged as.
@@ -937,7 +937,7 @@ describe('access', () => {
           sampleType: 'blood',
           turnaroundHours: 1,
         },
-        params: { header: { 'Idempotency-Key': 'test-key-0001' } },
+        params: { header: { 'idempotency-key': 'test-key-0001' } },
       }),
     ).rejects.toMatchObject({ code: 'forbidden' });
     await expect(
