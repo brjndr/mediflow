@@ -12,8 +12,7 @@ GitHub issues are the source of truth for scope and progress. `scripts/github/ro
    node scripts/github/seed.mjs --start 2026-10-12
    ```
    The repo is a monorepo, so one run seeds frontend and backend issues together.
-4. Add scripts to `package.json` once it exists: `"roadmap:seed": "node scripts/github/seed.mjs"`, `"roadmap:status": "node scripts/github/status.mjs"`.
-5. Create a GitHub Project (Projects, New project, Board) with Status values Backlog, Ready, In progress, In review, Done. Turn on the built-in workflows: auto-add items from this repo, set Done when an issue closes or a PR merges. Add views: Board (group by Status), Table (group by Milestone), Roadmap (by milestone dates).
+4. Create a GitHub Project (Projects, New project, Board) with Status values Backlog, Ready, In progress, In review, Done. Turn on the built-in workflows: auto-add items from this repo, set Done when an issue closes or a PR merges. Add views: Board (group by Status), Table (group by Milestone), Roadmap (by milestone dates).
 
 ## Conventions
 
@@ -30,7 +29,7 @@ GitHub issues are the source of truth for scope and progress. `scripts/github/ro
 
 1. Pick the next `Ready` issue in the current milestone (P0 first, dependencies closed).
 2. Add `status:in-progress`.
-3. Start `claude` in the repo and use the "Implement an issue" prompt from `docs/CLAUDE_PROMPTS.md`.
+3. Start `claude` in the repo and use the "Implement any issue" prompt from `docs/CLAUDE_PROMPTS.md`.
 4. Review the plan and approve. Claude opens the PR, waits for CI and merges when it is green (`/finish-issue`). Ask before the work starts if you want to review the PR yourself; it then stops with `status:in-review`.
 5. Anything discovered but out of scope becomes a new issue (use the Feature template), not part of the current PR.
 
