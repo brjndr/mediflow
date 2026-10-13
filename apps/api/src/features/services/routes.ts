@@ -21,6 +21,7 @@ import {
   lockService,
   priceListId,
   searchServices,
+  serviceExists,
   setArchived,
   setLastDay,
   updateService,
@@ -207,11 +208,18 @@ export const serviceRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (body.priceMinor !== undefined) {
         const listId = await priceListId(request.txClient);
         if (!listId) throw noSuchList();
-        await insertPrice(request.txClient, {
+        const price = await insertPrice(request.txClient, {
           serviceId: id,
           listId,
           amountMinor: body.priceMinor,
           effectiveFrom: today,
+        });
+        // A first price is a price like any other to whoever follows prices.
+        request.audit('create', 'service_price', price.id);
+        await request.emit('master.changed', id, {
+          kind: 'service_price',
+          change: 'created',
+          priceId: price.id,
         });
       }
       request.audit('create', 'service', id);
@@ -340,12 +348,11 @@ export const serviceRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request) => {
       const { cursor, limit = DEFAULT_PAGE_SIZE } = request.query;
-      const today = await todayAtHospital(request.txClient);
-      const service = await findService(request.txClient, request.params.serviceId, today);
-      if (!service) throw notFound();
+      const { serviceId } = request.params;
+      if (!(await serviceExists(request.txClient, serviceId))) throw notFound();
       const listId = await priceListId(request.txClient, request.query.priceListId);
       if (!listId) throw noSuchList();
-      const list = await listPrices(request.txClient, service.id, listId, { cursor, limit });
+      const list = await listPrices(request.txClient, serviceId, listId, { cursor, limit });
       if (!list) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
       return {
         items: list.rows.map(priceView),

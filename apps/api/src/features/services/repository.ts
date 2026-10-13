@@ -69,9 +69,12 @@ const servicesWithPrice = (today: number) => `
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** A date that is on the calendar: 2026-02-30 has the right shape and is not one. */
+/**
+ * A date that is on the calendar, and that the database takes: 2026-02-30 has the right shape and
+ * is not one, and Postgres has no year 0.
+ */
 export function isCalendarDate(value: string): boolean {
-  if (!DATE.test(value)) return false;
+  if (!DATE.test(value) || value < '0001-01-01') return false;
   const day = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === value;
 }
@@ -91,8 +94,9 @@ function decode(cursor: string): Record<string, unknown> | null {
 function decodeServiceCursor(cursor: string): { n: string; i: string } | null {
   const { n, i } = decode(cursor) ?? {};
   if (typeof n !== 'string' || typeof i !== 'string' || !UUID.test(i)) return null;
-  // A name this module stored: never longer than a name, never a character Postgres refuses.
-  return n.length <= 150 && !n.includes('\u0000') ? { n, i } : null;
+  // A name this module stored: never longer than a name (in characters, as the database
+  // counts them), never a character Postgres refuses.
+  return [...n].length <= 150 && !n.includes('\u0000') ? { n, i } : null;
 }
 
 /** Where the next page of prices starts: after this row, newest first. A date and an id. */
@@ -185,6 +189,13 @@ export async function findService(
     today,
   ]);
   return rows[0] ?? null;
+}
+
+/** Whether this hospital has such a service. */
+export async function serviceExists(client: pg.ClientBase, id: string): Promise<boolean> {
+  if (!UUID.test(id)) return false;
+  const { rowCount } = await client.query('select 1 from services where id = $1', [id]);
+  return rowCount === 1;
 }
 
 /** The service, locked until the transaction ends, or null when this hospital has none such. */
@@ -334,10 +345,12 @@ export async function setLastDay(
   priceId: string,
   lastDay: string | null,
 ): Promise<void> {
-  await client.query('update service_prices set effective_to = $2::date where id = $1', [
-    priceId,
-    lastDay,
-  ]);
+  const { rowCount } = await client.query(
+    'update service_prices set effective_to = $2::date where id = $1',
+    [priceId, lastDay],
+  );
+  // Doing nothing here would leave the periods of a service wrong behind a success.
+  if (rowCount !== 1) throw new Error('the last day of a price was not set');
 }
 
 /** The day before a date, by the calendar. */
@@ -367,7 +380,11 @@ export async function insertPrice(
 
 /** Marks a price withdrawn. The database refuses one that is or was in force. */
 export async function withdrawPrice(client: pg.ClientBase, priceId: string): Promise<void> {
-  await client.query('update service_prices set withdrawn_at = now() where id = $1', [priceId]);
+  const { rowCount } = await client.query(
+    'update service_prices set withdrawn_at = now() where id = $1',
+    [priceId],
+  );
+  if (rowCount !== 1) throw new Error('price was not withdrawn');
 }
 
 /** One page of the prices of a service on a list, newest first. Null for a bad cursor. */

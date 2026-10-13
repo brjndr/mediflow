@@ -904,3 +904,185 @@ describe('two hospitals', () => {
     ).rejects.toThrow(/service_prices_service/);
   });
 });
+
+describe('found in review', () => {
+  it('pages a search that has a category and several words, and tells same-named services apart', async () => {
+    const twins = [
+      await added('Twin Scan Review', {}, { category: 'imaging' }),
+      await added('Twin Scan Review', {}, { category: 'imaging' }),
+    ];
+    await added('Twin Scan Review', {}, { category: 'lab' });
+    const body = { q: 'review TWIN', category: 'imaging', limit: 1 };
+
+    const first = (await search(body)).json<Page<Service>>();
+    expect(first.total).toBe(2);
+    const second = (await search({ ...body, cursor: first.nextCursor })).json<Page<Service>>();
+    expect(second.nextCursor).toBeNull();
+    expect([first.items[0]?.id, second.items[0]?.id].sort()).toEqual(
+      twins.map((twin) => twin.id).sort(),
+    );
+  });
+
+  it('shows in a search the price in force today: not a scheduled, ended or withdrawn one', async () => {
+    const list = await standardList(hospital);
+    const unpriced = await added('Review Price None');
+    const scheduledOnly = await added('Review Price Later');
+    await setPrice(scheduledOnly.id, { amountMinor: 900, effectiveFrom: day(5) });
+    const moved = await added('Review Price Moved');
+    await pool.query(
+      `insert into service_prices
+         (tenant_id, service_id, price_list_id, amount_minor, effective_from, effective_to)
+       values ($1, $2, $3, 100, '2024-01-01', '2024-12-31'), ($1, $2, $3, 200, '2025-01-01', null)`,
+      [hospital.id, moved.id, list],
+    );
+    const next = (
+      await setPrice(moved.id, { amountMinor: 300, effectiveFrom: day(7) })
+    ).json<Price>();
+    await withdraw(moved.id, next.id);
+
+    const found = (await search({ q: 'Review Price', limit: 100 })).json<Page<Service>>().items;
+    const priceOf = (id: string) => found.find((item) => item.id === id)?.currentPrice?.amountMinor;
+    expect(found).toHaveLength(3);
+    expect(priceOf(unpriced.id)).toBeUndefined();
+    expect(priceOf(scheduledOnly.id)).toBeUndefined();
+    expect(priceOf(moved.id)).toBe(200);
+  });
+
+  it('lets a client work out what a service cost on a past date from its list of prices', async () => {
+    const service = await added('Review Past Dates');
+    await pool.query(
+      `insert into service_prices
+         (tenant_id, service_id, price_list_id, amount_minor, effective_from, effective_to)
+       values ($1, $2, $3, 300, '2023-04-01', '2024-03-31'), ($1, $2, $3, 400, '2024-04-01', null)`,
+      [hospital.id, service.id, await standardList(hospital)],
+    );
+    const items = (await prices(service.id)).json<Page<Price>>().items;
+    const on = (date: string) =>
+      items
+        .filter(
+          (price) =>
+            price.effectiveFrom <= date &&
+            (price.effectiveTo === undefined || price.effectiveTo >= date),
+        )
+        .map((price) => price.amountMinor);
+    expect(on('2023-12-25')).toEqual([300]);
+    expect(on('2024-03-31')).toEqual([300]);
+    expect(on('2024-04-01')).toEqual([400]);
+    expect(on(day())).toEqual([400]);
+    expect(on('2023-03-31')).toEqual([]);
+  });
+
+  it('records a price that comes with a new service as a price of its own', async () => {
+    const service = await added('Review First Price', {}, { priceMinor: 700 });
+    const priceId = service.currentPrice?.id ?? '';
+    expect(await audited(hospital, 'service_price', priceId)).toEqual(['create']);
+    expect(await events(hospital, service.id)).toEqual(
+      expect.arrayContaining([
+        { kind: 'service_price', change: 'created', priceId },
+        { kind: 'service', change: 'created' },
+      ]),
+    );
+  });
+
+  it('withdraws a first price that had not started, leaving the service with none', async () => {
+    const service = await added('Review Sole Price');
+    const price = (
+      await setPrice(service.id, { amountMinor: 100, effectiveFrom: day(3) })
+    ).json<Price>();
+    expect((await withdraw(service.id, price.id)).statusCode).toBe(204);
+    expect((await prices(service.id)).json<Page<Price>>()).toMatchObject({ items: [], total: 0 });
+    expect((await events(hospital, service.id)).at(-1)).toEqual({
+      kind: 'service_price',
+      change: 'withdrawn',
+      priceId: price.id,
+    });
+  });
+
+  it('goes by the date at the hospital for every rule about today', async () => {
+    const options = { tenant: ahead };
+    const service = await added('Review Ahead', options, { priceMinor: 100 });
+    const theirs = (days: number) => dateIn(AHEAD_ZONE, days);
+    // Their today already has a price in force, so the next one starts on their tomorrow.
+    expect(
+      errorOf(await setPrice(service.id, { amountMinor: 200, effectiveFrom: theirs(0) }, options)),
+    ).toEqual([400, 'validation_failed']);
+    const next = await setPrice(
+      service.id,
+      { amountMinor: 200, effectiveFrom: theirs(1) },
+      options,
+    );
+    expect(next.statusCode).toBe(201);
+    // The one that started on their today is in force, whatever the date is elsewhere.
+    expect(errorOf(await withdraw(service.id, service.currentPrice?.id ?? '', options))).toEqual([
+      409,
+      'price_in_force',
+    ]);
+    expect((await withdraw(service.id, next.json<Price>().id, options)).statusCode).toBe(204);
+  });
+
+  it('refuses a cursor with a date the database does not have', async () => {
+    const service = await added('Review Cursor');
+    const cursor = Buffer.from(JSON.stringify({ f: '0000-01-01', i: randomUUID() })).toString(
+      'base64url',
+    );
+    expect(errorOf(await prices(service.id, `?cursor=${cursor}`))).toEqual([400, 'invalid_cursor']);
+  });
+
+  it('keeps the past of a price as it was, whatever the SQL', async () => {
+    const service = await added('Review Guarded Past');
+    const list = await standardList(hospital);
+    await pool.query(
+      `insert into service_prices
+         (tenant_id, service_id, price_list_id, amount_minor, effective_from, effective_to)
+       values ($1, $2, $3, 300, '2023-04-01', '2024-03-31'), ($1, $2, $3, 400, '2024-04-01', null)`,
+      [hospital.id, service.id, list],
+    );
+    const scheduled = (
+      await setPrice(service.id, { amountMinor: 500, effectiveFrom: day(10) })
+    ).json<Price>();
+    await withdraw(service.id, scheduled.id);
+    const sql = (text: string, params: unknown[] = []) =>
+      asTenantSql(pool, hospital.id, (client) => client.query(text, params));
+
+    // A period that has ended is not cut short or reopened.
+    for (const lastDay of ["'2023-06-30'", 'null']) {
+      await expect(
+        sql(
+          `update service_prices set effective_to = ${lastDay}
+           where service_id = $1 and effective_from = '2023-04-01'`,
+          [service.id],
+        ),
+      ).rejects.toThrow(/not rewritten/);
+    }
+    // The price in force is not made to have ended in the past.
+    await expect(
+      sql(
+        `update service_prices set effective_to = '2025-01-01'
+         where service_id = $1 and effective_from = '2024-04-01'`,
+        [service.id],
+      ),
+    ).rejects.toThrow(/not rewritten/);
+    // A withdrawn price is not brought back or changed.
+    await expect(
+      sql('update service_prices set withdrawn_at = null where id = $1', [scheduled.id]),
+    ).rejects.toThrow(/withdrawn price is not changed/);
+    // A period does not end before it starts, and a hospital has one standard list.
+    await expect(
+      pool.query(
+        `insert into service_prices
+           (tenant_id, service_id, price_list_id, amount_minor, effective_from, effective_to)
+         values ($1, $2, $3, 1, '2030-02-01', '2030-01-01')`,
+        [hospital.id, service.id, list],
+      ),
+    ).rejects.toThrow(/check constraint/);
+    await expect(
+      pool.query("insert into price_lists (tenant_id, name, standard) values ($1, 'Other', true)", [
+        hospital.id,
+      ]),
+    ).rejects.toThrow(/price_lists_one_standard/);
+    // And a list that has prices is not removed.
+    await expect(pool.query('delete from price_lists where id = $1', [list])).rejects.toThrow(
+      /service_prices_price_list/,
+    );
+  });
+});
