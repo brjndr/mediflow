@@ -129,15 +129,15 @@ export const ServiceSearchRequest = Type.Object(
     cursor: Type.Optional(
       Type.String({ description: 'Opaque. Pass the nextCursor of the previous page.' }),
     ),
+    // No default value on the fields of a body: the generated client would make them required.
     limit: Type.Optional(
-      Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
+      Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, description: 'Absent: 25.' }),
     ),
     q: Type.Optional(Type.String({ maxLength: 100, pattern: NO_NUL })),
     category: Type.Optional(Category),
     archived: Type.Optional(
       Type.Boolean({
-        default: false,
-        description: 'True lists the archived services instead of the active ones.',
+        description: 'True lists the archived services instead of the active ones. Absent: false.',
       }),
     ),
   },

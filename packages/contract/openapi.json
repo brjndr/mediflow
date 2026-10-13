@@ -1255,7 +1255,7 @@
           "limit": {
             "minimum": 1,
             "maximum": 100,
-            "default": 25,
+            "description": "Absent: 25.",
             "type": "integer"
           },
           "q": {
@@ -1268,8 +1268,7 @@
             "enum": ["consultation", "procedure", "bed", "lab", "imaging", "package"]
           },
           "archived": {
-            "default": false,
-            "description": "True lists the archived services instead of the active ones.",
+            "description": "True lists the archived services instead of the active ones. Absent: false.",
             "type": "boolean"
           }
         }

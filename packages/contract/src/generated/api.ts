@@ -1922,16 +1922,13 @@ export interface components {
         ServiceSearchRequest: {
             /** @description Opaque. Pass the nextCursor of the previous page. */
             cursor?: string;
-            /** @default 25 */
-            limit: number;
+            /** @description Absent: 25. */
+            limit?: number;
             q?: string;
             /** @enum {string} */
             category?: "consultation" | "procedure" | "bed" | "lab" | "imaging" | "package";
-            /**
-             * @description True lists the archived services instead of the active ones.
-             * @default false
-             */
-            archived: boolean;
+            /** @description True lists the archived services instead of the active ones. Absent: false. */
+            archived?: boolean;
         };
         ServicePriceCreate: {
             /** @description In the minor unit of the hospital's currency. */
