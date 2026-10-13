@@ -24,7 +24,7 @@ export interface WardFilters {
   archived: boolean;
 }
 
-const idempotent = (key: string) => ({ header: { 'Idempotency-Key': key } });
+const idempotent = (key: string) => ({ header: { 'idempotency-key': key } });
 
 export async function fetchWards(
   { cursor, limit, q, archived }: WardFilters & { cursor?: string; limit: number },

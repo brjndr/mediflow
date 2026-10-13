@@ -2158,6 +2158,428 @@
             "$ref": "#/components/schemas/LabRange"
           }
         }
+      },
+      "BedCategory": {
+        "description": "A class of bed (general ward, private room, intensive care), which decides what a day in it is charged as. The charge itself is posted by the admissions module from the linked service, at the price in force that day. An admission keeps the category and the service of its bed as they were when the patient was given it, so a change made here applies to stays that start after it.",
+        "type": "object",
+        "required": ["id", "tenantId", "name", "bedCount", "archived", "version"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          },
+          "serviceId": {
+            "type": "string"
+          },
+          "serviceName": {
+            "description": "The name of the linked service, when there is one. The name alone is shown to everyone who may read wards, by decision; nothing else of the service (a price, a tax class) is ever added here.",
+            "type": "string"
+          },
+          "bedCount": {
+            "description": "The beds in use that have this category.",
+            "type": "integer"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion.",
+            "type": "integer"
+          }
+        }
+      },
+      "BedCategoryPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BedCategory"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "BedCategoryCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "type": "string"
+          },
+          "serviceId": {
+            "maxLength": 64,
+            "description": "The bed-day service a day in a bed of this category is charged as: a service of the same hospital's catalog in its bed category. Empty text removes the link on a change.",
+            "type": "string"
+          }
+        }
+      },
+      "BedCategoryUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "type": "string"
+          },
+          "serviceId": {
+            "maxLength": 64,
+            "description": "The bed-day service a day in a bed of this category is charged as: a service of the same hospital's catalog in its bed category. Empty text removes the link on a change.",
+            "type": "string"
+          },
+          "expectedVersion": {
+            "type": "integer"
+          }
+        }
+      },
+      "Ward": {
+        "description": "A ward of the hospital. Holds no patient data.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "code",
+          "name",
+          "roomCount",
+          "bedCount",
+          "archived",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "code": {
+            "description": "Short and unique in the hospital. Never changes.",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          },
+          "floor": {
+            "maxLength": 50,
+            "type": "string"
+          },
+          "departmentId": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "roomCount": {
+            "description": "Rooms in use.",
+            "type": "integer"
+          },
+          "bedCount": {
+            "description": "Beds in use.",
+            "type": "integer"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion.",
+            "type": "integer"
+          }
+        }
+      },
+      "WardPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Ward"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "WardCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["code", "name"],
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "maxLength": 20,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "type": "string"
+          },
+          "floor": {
+            "maxLength": 50,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "description": "Where it is: a floor, a block, a wing.",
+            "type": "string"
+          },
+          "departmentId": {
+            "maxLength": 64,
+            "description": "The department the ward belongs to, when it belongs to one. Empty text removes it on a change.",
+            "type": "string"
+          }
+        }
+      },
+      "WardUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "type": "string"
+          },
+          "floor": {
+            "maxLength": 50,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "description": "Where it is: a floor, a block, a wing.",
+            "type": "string"
+          },
+          "departmentId": {
+            "maxLength": 64,
+            "description": "The department the ward belongs to, when it belongs to one. Empty text removes it on a change.",
+            "type": "string"
+          },
+          "expectedVersion": {
+            "type": "integer"
+          }
+        }
+      },
+      "Bed": {
+        "description": "A bed. Its status says whether it can take a patient; who is in it is the admission module, never here.",
+        "type": "object",
+        "required": [
+          "id",
+          "roomId",
+          "number",
+          "bedCategoryId",
+          "bedCategoryName",
+          "status",
+          "archived",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "roomId": {
+            "type": "string"
+          },
+          "number": {
+            "minLength": 1,
+            "maxLength": 20,
+            "type": "string"
+          },
+          "bedCategoryId": {
+            "type": "string"
+          },
+          "bedCategoryName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["available", "occupied", "cleaning", "blocked"],
+            "description": "available: free to take a patient. occupied: a patient is admitted to it (set by admissions). cleaning: being made ready after a discharge (set by housekeeping). blocked: taken out of use here, with a reason."
+          },
+          "blockedReason": {
+            "type": "string",
+            "enum": ["repair", "maintenance", "deep_cleaning", "reserved", "other"],
+            "description": "Why it is blocked."
+          },
+          "blockedNote": {
+            "description": "A few words more about why. About the bed, never about a patient.",
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion.",
+            "type": "integer"
+          }
+        }
+      },
+      "Room": {
+        "type": "object",
+        "required": ["id", "name", "beds", "archived", "version"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "beds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Bed"
+            }
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion.",
+            "type": "integer"
+          }
+        }
+      },
+      "WardDetail": {
+        "description": "A ward with its rooms and their beds, archived ones included.",
+        "type": "object",
+        "required": ["ward", "rooms"],
+        "properties": {
+          "ward": {
+            "$ref": "#/components/schemas/Ward"
+          },
+          "rooms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Room"
+            }
+          }
+        }
+      },
+      "RoomCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "type": "string"
+          }
+        }
+      },
+      "RoomUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "expectedVersion"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "type": "string"
+          },
+          "expectedVersion": {
+            "type": "integer"
+          }
+        }
+      },
+      "BedCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["number", "bedCategoryId"],
+        "properties": {
+          "number": {
+            "minLength": 1,
+            "maxLength": 20,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "description": "What is written on the bed: unique in its ward.",
+            "type": "string"
+          },
+          "bedCategoryId": {
+            "maxLength": 64,
+            "type": "string"
+          }
+        }
+      },
+      "BedUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "number": {
+            "minLength": 1,
+            "maxLength": 20,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "description": "What is written on the bed: unique in its ward.",
+            "type": "string"
+          },
+          "bedCategoryId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "expectedVersion": {
+            "type": "integer"
+          }
+        }
+      },
+      "BedBlock": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": ["repair", "maintenance", "deep_cleaning", "reserved", "other"]
+          },
+          "note": {
+            "maxLength": 100,
+            "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+            "description": "A few words more: about the bed, never about a patient. Free text, so the API treats it as possibly sensitive: it is not written to logs or to event payloads.",
+            "type": "string"
+          }
+        }
       }
     }
   },
@@ -7614,6 +8036,2041 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bed-categories": {
+      "get": {
+        "operationId": "listBedCategories",
+        "tags": ["wards"],
+        "description": "The bed categories of the active tenant, by name: the classes of bed it has, each charged as a bed-day service of the price catalog. `total` comes with the first page only.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "archived",
+            "required": false,
+            "description": "True lists the archived bed categories instead of the active ones."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BedCategoryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBedCategory",
+        "tags": ["wards"],
+        "description": "Adds a bed category. The hospital is the session's. A name already used by a category of the hospital, archived or not, whatever the capitals, is refused with 409 bed_category_name_taken. A `serviceId` must be a service of the same hospital in the bed category of the price catalog that is not archived (400 otherwise; on a change, the one the category already has may stay). Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BedCategoryCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A class of bed (general ward, private room, intensive care), which decides what a day in it is charged as. The charge itself is posted by the admissions module from the linked service, at the price in force that day. An admission keeps the category and the service of its bed as they were when the patient was given it, so a change made here applies to stays that start after it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BedCategory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bed-categories/{bedCategoryId}": {
+      "patch": {
+        "operationId": "updateBedCategory",
+        "tags": ["wards"],
+        "description": "Changes a bed category. 409 conflict when it has changed since the version sent. The same rules as on adding hold. Empty text for `serviceId` removes the link. Sending what it already has changes nothing. A change applies to stays that start after it. Audited. A category of another hospital answers 404, the same as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BedCategoryUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "bedCategoryId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A class of bed (general ward, private room, intensive care), which decides what a day in it is charged as. The charge itself is posted by the admissions module from the linked service, at the price in force that day. An admission keeps the category and the service of its bed as they were when the patient was given it, so a change made here applies to stays that start after it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BedCategory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bed-categories/{bedCategoryId}/archive": {
+      "post": {
+        "operationId": "archiveBedCategory",
+        "tags": ["wards"],
+        "description": "Archives a bed category: it is no longer offered for a bed. Refused with 409 bed_category_in_use while a bed that is not archived has it. Doing it twice changes nothing. Audited. A category of another hospital answers 404, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "bedCategoryId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A class of bed (general ward, private room, intensive care), which decides what a day in it is charged as. The charge itself is posted by the admissions module from the linked service, at the price in force that day. An admission keeps the category and the service of its bed as they were when the patient was given it, so a change made here applies to stays that start after it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BedCategory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bed-categories/{bedCategoryId}/restore": {
+      "post": {
+        "operationId": "restoreBedCategory",
+        "tags": ["wards"],
+        "description": "Brings an archived bed category back. Doing it twice changes nothing. Audited. A category of another hospital answers 404, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "bedCategoryId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A class of bed (general ward, private room, intensive care), which decides what a day in it is charged as. The charge itself is posted by the admissions module from the linked service, at the price in force that day. An admission keeps the category and the service of its bed as they were when the patient was given it, so a change made here applies to stays that start after it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BedCategory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards": {
+      "get": {
+        "operationId": "listWards",
+        "tags": ["wards"],
+        "description": "The wards of the active tenant, by name, each with how many rooms and beds it has (archived ones not counted). Every word of `q` must be in the code or the name. `total` comes with the first page only.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 100,
+              "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "q",
+            "required": false
+          },
+          {
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "archived",
+            "required": false,
+            "description": "True lists the archived wards instead of the active ones."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createWard",
+        "tags": ["wards"],
+        "description": "Adds a ward, with no rooms yet. The hospital is the session's. The code cannot be changed later; one already used by a ward of the hospital, archived or not, whatever its capitals, is refused with 409 ward_code_taken. A `departmentId` must be a department of the same hospital that is not archived (400 otherwise). Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WardCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}": {
+      "get": {
+        "operationId": "getWard",
+        "tags": ["wards"],
+        "description": "One ward with its rooms and their beds, archived ones included, rooms and beds in the order people count them. A bed carries its status, and holds nothing about a patient. A ward of another hospital answers 404, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateWard",
+        "tags": ["wards"],
+        "description": "Changes a ward: never its code. 409 conflict when the ward has changed since the version sent. Empty text removes the floor or the department; a new department must be one of the hospital that is not archived. Sending what the ward already has changes nothing. Audited. A ward of another hospital answers 404, the same as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WardUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/archive": {
+      "post": {
+        "operationId": "archiveWard",
+        "tags": ["wards"],
+        "description": "Archives a ward: it and its beds are no longer offered for an admission. Refused with 409 ward_has_occupied_beds while a bed of it is occupied, and the database refuses it too. Doing it twice changes nothing. Audited. A ward of another hospital answers 404, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/restore": {
+      "post": {
+        "operationId": "restoreWard",
+        "tags": ["wards"],
+        "description": "Brings an archived ward back. Doing it twice changes nothing. Audited. A ward of another hospital answers 404, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/rooms": {
+      "post": {
+        "operationId": "createRoom",
+        "tags": ["wards"],
+        "description": "Adds a room to a ward. Every bed is in a room: an open ward is one room with many beds. A name another room of the ward has, archived or not, whatever its capitals, is refused with 409 room_name_taken. A ward has at most 200 rooms, archived ones counted (409 ward_room_limit). A repeat with the same Idempotency-Key adds nothing and is answered with the ward as it is then: the answer is the whole ward, which can hold notes on blocked beds, so nothing of it is kept. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A ward of another hospital answers 404, the same as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/rooms/{roomId}": {
+      "patch": {
+        "operationId": "updateRoom",
+        "tags": ["wards"],
+        "description": "Renames a room. An archived room is restored before it is changed (409 room_archived). 409 conflict when the room has changed since the version sent, 409 room_name_taken for a name another room of the ward has. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A room or a bed is looked up inside the ward named, and the ward at the session hospital: one of another ward or hospital answers 404.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "roomId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/rooms/{roomId}/archive": {
+      "post": {
+        "operationId": "archiveRoom",
+        "tags": ["wards"],
+        "description": "Archives a room and with it the beds in it, each keeping its status. Refused with 409 room_has_occupied_beds while a bed of it is occupied. Doing it twice changes nothing. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A room or a bed is looked up inside the ward named, and the ward at the session hospital: one of another ward or hospital answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "roomId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/rooms/{roomId}/restore": {
+      "post": {
+        "operationId": "restoreRoom",
+        "tags": ["wards"],
+        "description": "Brings an archived room back. Its beds stay archived until each is restored. Doing it twice changes nothing. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A room or a bed is looked up inside the ward named, and the ward at the session hospital: one of another ward or hospital answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "roomId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/rooms/{roomId}/beds": {
+      "post": {
+        "operationId": "createBed",
+        "tags": ["wards"],
+        "description": "Adds a bed to a room, available. A number another bed of the ward has, archived or not, whatever its capitals, is refused with 409 bed_number_taken. The room must be in use (409 room_archived), and the category a bed category of the same hospital that is not archived (400 otherwise). A ward has at most 1000 beds, archived ones counted (409 ward_bed_limit). A repeat with the same Idempotency-Key adds nothing and is answered with the ward as it is then: nothing of the answer is kept. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A room or a bed is looked up inside the ward named, and the ward at the session hospital: one of another ward or hospital answers 404.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BedCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "roomId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/beds/{bedId}": {
+      "patch": {
+        "operationId": "updateBed",
+        "tags": ["wards"],
+        "description": "Changes the number or the category of a bed: never its status, which only the actions below and the admissions and housekeeping modules change. An archived bed is restored before it is changed (409 bed_archived). 409 conflict when the bed has changed since the version sent. A new category must be one of the hospital that is not archived; the one the bed has may have been archived since. A change of category applies to stays that start after it: an admission keeps the category and the service of the bed as they were when the patient was given it. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A room or a bed is looked up inside the ward named, and the ward at the session hospital: one of another ward or hospital answers 404.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BedUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "bedId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/beds/{bedId}/block": {
+      "post": {
+        "operationId": "blockBed",
+        "tags": ["wards"],
+        "description": "Takes an available bed out of use, with a reason from the list and an optional note. Only an available bed that is not archived can be blocked: 409 bed_not_available otherwise. The transition is checked on the row, so two people cannot both make it. The note is never written to a log, an audit entry or an event. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A room or a bed is looked up inside the ward named, and the ward at the session hospital: one of another ward or hospital answers 404.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BedBlock"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "bedId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/beds/{bedId}/unblock": {
+      "post": {
+        "operationId": "unblockBed",
+        "tags": ["wards"],
+        "description": "Puts a blocked bed back in use, available. 409 bed_not_blocked when it is not blocked, or is archived. The transition is checked on the row, so two people cannot both make it. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A room or a bed is looked up inside the ward named, and the ward at the session hospital: one of another ward or hospital answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "bedId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/beds/{bedId}/archive": {
+      "post": {
+        "operationId": "archiveBed",
+        "tags": ["wards"],
+        "description": "Archives a bed: it is no longer offered for an admission. Refused with 409 bed_occupied while it is occupied, and the database refuses it too. Archiving never changes the status: a bed that is being cleaned or blocked is still that when it is restored, so archiving is no way round housekeeping. Doing it twice changes nothing. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A room or a bed is looked up inside the ward named, and the ward at the session hospital: one of another ward or hospital answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "bedId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wards/{wardId}/beds/{bedId}/restore": {
+      "post": {
+        "operationId": "restoreBed",
+        "tags": ["wards"],
+        "description": "Brings an archived bed back, in the status it had. Its room has to be in use (409 room_archived) and its category too (409 bed_category_archived). Doing it twice changes nothing. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A room or a bed is looked up inside the ward named, and the ward at the session hospital: one of another ward or hospital answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "wardId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "bedId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A ward with its rooms and their beds, archived ones included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDetail"
                 }
               }
             }

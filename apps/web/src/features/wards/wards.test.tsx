@@ -545,7 +545,7 @@ describe('beds', () => {
       api.POST('/wards/{wardId}/rooms/{roomId}/beds', {
         params: {
           path: { wardId: W07, roomId: 'ward_h_w-07_r1' },
-          header: { 'Idempotency-Key': 'test-key-0001' },
+          header: { 'idempotency-key': 'test-key-0001' },
         },
         body: { number: 'X-1', bedCategoryId: 'bcat_h_general' },
       });
@@ -556,7 +556,7 @@ describe('beds', () => {
       api.POST('/wards/{wardId}/rooms/{roomId}/beds', {
         params: {
           path: { wardId: W07, roomId: 'ward_h_w-07_r2' },
-          header: { 'Idempotency-Key': 'test-key-0001' },
+          header: { 'idempotency-key': 'test-key-0001' },
         },
         body: { number: 'X-1', bedCategoryId: 'bcat_h_general' },
       }),
@@ -681,7 +681,7 @@ describe('bed categories', () => {
     const add = (serviceId: string, key: string) =>
       api.POST('/bed-categories', {
         body: { name: `Category ${key}`, serviceId },
-        params: { header: { 'Idempotency-Key': key } },
+        params: { header: { 'idempotency-key': key } },
       });
     // A consultation is in the price catalog, and is not what a bed is charged as.
     await expect(add('svc_h_01', 'test-key-0001')).rejects.toMatchObject({
@@ -757,7 +757,7 @@ describe('access', () => {
 
   it('is refused by the server too, whatever the screen offers', async () => {
     signIn(USER_IDS.doctor, TENANT_IDS.hospital);
-    const key = { 'Idempotency-Key': 'test-key-0001' };
+    const key = { 'idempotency-key': 'test-key-0001' };
     const forbidden = { code: 'forbidden' };
 
     await expect(
@@ -872,7 +872,7 @@ describe('two hospitals', () => {
     );
     await expect(
       api.POST('/wards/{wardId}/rooms', {
-        params: { path, header: { 'Idempotency-Key': 'test-key-0001' } },
+        params: { path, header: { 'idempotency-key': 'test-key-0001' } },
         body: { name: 'x' },
       }),
     ).rejects.toMatchObject(gone);
