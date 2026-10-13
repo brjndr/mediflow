@@ -10,6 +10,7 @@ import { authRoutes } from './core/auth/routes.js';
 import type { Config } from './core/config/config.js';
 import { dbPlugin } from './core/db/plugin.js';
 import { registerErrorHandling } from './core/http/errors.js';
+import { registerStrictBodies } from './core/http/strict-body.js';
 import { jobsPlugin } from './core/jobs/plugin.js';
 import type { JobQueue } from './core/jobs/queue.js';
 import { loggerOptions } from './core/logging/logger.js';
@@ -72,6 +73,8 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
 
   app.decorate('config', config);
   registerErrorHandling(app);
+  // Before any route: a JSON body is checked for the types it was sent with.
+  registerStrictBodies(app);
 
   // Core. OpenAPI comes first: it has to see every route as it is registered.
   await app.register(openApiPlugin);

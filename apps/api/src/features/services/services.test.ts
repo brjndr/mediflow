@@ -1086,3 +1086,20 @@ describe('found in review', () => {
     );
   });
 });
+
+describe('a price that was not sent as a number', () => {
+  it('is refused, and never read as a price of 0', async () => {
+    const good = { code: code(), name: 'Null Price', category: 'lab', taxClass: 'exempt' };
+    for (const priceMinor of [null, true, '500']) {
+      expect((await add({ ...good, priceMinor })).statusCode, String(priceMinor)).toBe(400);
+    }
+    expect(names(await search({ q: 'Null Price' }))).toEqual([]);
+
+    const service = await added('Null Amount');
+    for (const amountMinor of [null, false, '500']) {
+      const response = await setPrice(service.id, { amountMinor, effectiveFrom: day() });
+      expect(response.statusCode, String(amountMinor)).toBe(400);
+    }
+    expect((await prices(service.id)).json<Page<Price>>().total).toBe(0);
+  });
+});
