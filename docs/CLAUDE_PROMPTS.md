@@ -2,37 +2,7 @@
 
 Run `claude` in the repo root. Claude reads CLAUDE.md automatically. The hooks, permissions, skills and subagents in `.claude/` apply.
 
-## 1. Scaffold the project (milestone M0)
-
-```
-Read CLAUDE.md in full, then read the open issues in milestone "M0 Setup" with `gh issue list --milestone "M0 Setup"` and `gh issue view <n>`.
-
-Implement S-01 through S-07 in order, one issue at a time. The repo already contains CLAUDE.md, .claude/, docs/ and scripts/. This is a pnpm monorepo: scaffold the web app in apps/web, with packages/contract for shared API types, and a root pnpm-workspace.yaml (see Repository Layout in CLAUDE.md).
-
-For each issue: show a short plan and wait for my approval, work on a branch named chore/<issue-number>-<slug> (or feat/ for features), commit with Conventional Commits that include the issue number, run pnpm lint, pnpm typecheck and pnpm test, then open a PR whose body ends with `Closes #<number>` and stop for my review.
-
-Use pnpm only. Do not add dependencies beyond those named in CLAUDE.md and the issues without asking me first.
-```
-
-## 2. Build the foundation (milestone M1)
-
-```
-Read CLAUDE.md in full, then read every open issue in milestone "M1 Foundation" that is labeled area:frontend (`gh issue list --milestone "M1 Foundation" --label area:frontend`, then `gh issue view <n>` for each).
-
-Implement them one at a time in numeric order, F-01 through F-14 (the order already respects dependencies). Check that each issue's dependencies are closed before starting it.
-
-For each issue:
-1. Enter plan mode. Present a short plan (files, types, tests) and wait for my approval.
-2. Create branch feat/<issue-number>-<slug>.
-3. Implement against the MSW mock backend. Follow CLAUDE.md: feature folder structure, tenant-scoped query keys, usePermission and Can (never role names), i18n keys, server-side pagination, no PHI in logs or storage.
-4. Add tests: happy path, permission absent, flag off, and two tenants where relevant.
-5. Run pnpm lint, pnpm typecheck and pnpm test. Then run /tenant-safety-check and /phi-check on the diff and fix every finding.
-6. Commit as `feat(<scope>): <summary> (#<number>)`, open a PR whose body ends with `Closes #<number>`, and stop for my review before starting the next issue.
-
-Constraints: no hardcoded hospital data, stay within the bundle budgets, libraries only per the dependency policy in CLAUDE.md (state the reason, size and licence in the PR), and ask me when a requirement is ambiguous instead of guessing.
-```
-
-## 3. Implement any issue
+## 1. Implement any issue
 
 ```
 Implement issue #<number>.
@@ -44,25 +14,25 @@ Work on branch <type>/<number>-<slug>. Follow CLAUDE.md. For a new feature use t
 If you find work outside this issue, do not do it. Propose a new issue (title, labels, milestone, tasks) instead.
 ```
 
-## 4. Fix a bug
+## 2. Fix a bug
 
 ```
 Investigate bug #<number> (`gh issue view <number>`). First reproduce it with a failing test, explain the root cause, and wait for my approval of the fix. Then fix it on branch fix/<number>-<slug>, keep the regression test, run the full checks, run the security-reviewer subagent if it touches auth, tenancy or patient data, and open a PR ending with `Closes #<number>`.
 ```
 
-## 5. Review a PR before merging
+## 3. Review a PR before merging
 
 ```
 Review PR #<number>. Use the code-reviewer subagent and the security-reviewer subagent on the diff, then summarize Must fix, Should fix and Nice to have. Do not change code.
 ```
 
-## 6. Weekly planning
+## 4. Weekly planning
 
 ```
 Run `node scripts/github/status.mjs` and summarize: progress per milestone, anything overdue or blocked, and open P0 work. Recommend what to cut, defer or re-estimate to hit the current milestone's exit criteria. Propose issue edits, but do not apply them until I approve.
 ```
 
-## 7. Plan a module milestone before building it
+## 5. Plan a module milestone before building it
 
 Use this at the start of every module milestone (lab, pharmacy, admissions, billing and so on).
 
@@ -75,41 +45,5 @@ Do not write code yet. Produce a design for the whole milestone:
 3. Permissions (resource:action) and default role grants, feature flag, per-hospital settings, and extension slots it contributes to.
 4. API endpoints (TypeBox schemas) and the screens, mapped to the issues.
 5. Risks, open questions, and anything in CLAUDE.md that should change.
-Wait for my approval, then implement the issues one at a time using prompt 3.
-```
-
-## 8. Run three issues in parallel with an agent team
-
-Use this to move faster when several issues are unblocked. Each lane is one teammate in its own git worktree and branch. Pick lanes that own different folders, and run only one API lane at a time, because every API lane adds the next migration number. Replace the issue numbers, branches and folders with the current ones. The dev machine handles three lanes at most.
-
-```
-Create an agent team to work three issues in parallel, one per teammate, each in
-its own git worktree and branch off origin/main. Keep token use low.
-
-Lanes (teammates on Sonnet):
-1. web-auth: #40, worktree ../mediflow-40, branch feat/40-invite-reset-pages.
-   Owns apps/web/src/features/auth/.
-2. api-core: #46, worktree ../mediflow-46, branch feat/46-audit-outbox.
-   Owns apps/api/src/core/ and migrations. Only this lane adds migrations.
-3. web-patients: #49, worktree ../mediflow-49, branch feat/49-patient-list.
-   Owns apps/web/src/features/patients/. Builds against the MSW mock.
-
-Each teammate: run `pnpm install` in its worktree, read its issue with
-`gh issue view`, send the lead a plan of 10 lines or fewer, and wait. Lead sends
-me the three plans together and waits for my approval before any code.
-
-Rules:
-- Stay in your own worktree and folders. Shared files (registry/features.ts,
-  packages/contract/planned.openapi.json, apps/web/src/mocks/db.ts): make the
-  smallest additive edit and tell the lead.
-- One test command at a time across the whole team; ask the lead for the turn.
-  Targeted runs only, output through `tail -20`. API tests: api-core lane only.
-- Message only the lead, only when blocked or done, 5 lines or fewer.
-- pnpm only, no new dependencies, no scope beyond the lane's issue.
-
-Finishing a lane: follow /finish-issue in that worktree, open one PR ending
-"Closes #<n>". Lead runs the security-reviewer subagent once per PR, merges when
-CI is green, and has the other lanes rebase on main. Then the lane takes its
-next issue (#39, #47, #50) with a new plan for my approval. Stop all lanes after
-those three follow-ups are merged and report in 15 lines or fewer.
+Wait for my approval, then implement the issues one at a time using prompt 1.
 ```

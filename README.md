@@ -3,6 +3,9 @@
 Multi-tenant hospital management system for hospital staff: OPD, inpatient, emergency, diagnostics, pharmacy, billing, insurance and records, served to many hospitals from one deployment and one URL.
 
 - **Project rules and architecture:** [`CLAUDE.md`](CLAUDE.md)
+- **Backend rules:** [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md)
+- **What was decided for each module:** `apps/web/src/features/<folder>/CLAUDE.md`
+- **Reference for work not started (infrastructure, platform admin, patient messaging):** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - **Roadmap (milestones and issues):** [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - **How we work with GitHub issues:** [`docs/WORKFLOW.md`](docs/WORKFLOW.md)
 - **Prompts for Claude Code:** [`docs/CLAUDE_PROMPTS.md`](docs/CLAUDE_PROMPTS.md)
@@ -11,7 +14,7 @@ Multi-tenant hospital management system for hospital staff: OPD, inpatient, emer
 
 ```
 apps/web/            React 18 SPA (Vite, Tailwind + shadcn/ui, React Query, MSW mock API)
-apps/api/            Fastify API (arrives in milestone M1, issue BE-01)
+apps/api/            Fastify API (Postgres with row-level security, sessions, access, audit, jobs)
 packages/contract/   OpenAPI spec + generated TypeScript types shared by web and api
 scripts/github/      Roadmap seeding and progress status
 docs/  .claude/  .github/
@@ -19,7 +22,7 @@ docs/  .claude/  .github/
 
 ## Run locally on Windows
 
-Requirements: Node.js 22 LTS (22.13 or newer), Git, Docker Desktop (only needed once the API exists). WSL is not required.
+Requirements: Node.js 22 LTS (22.13 or newer), Git, Docker Desktop (for the API's Postgres and Mailpit; the web app alone runs against the mock without it). WSL is not required.
 
 ```powershell
 # Once per machine
@@ -44,19 +47,34 @@ docker compose ps             # all services should be healthy
 
 Mailpit UI: http://localhost:8025. Data lives in named Docker volumes and survives restarts. `docker compose down -v` deletes it.
 
+The API, and the web app against it instead of the mock:
+
+```powershell
+pnpm --filter api db:migrate      # apply migrations, then default role permissions
+pnpm --filter api db:seed         # sample hospitals, staff and patients (this machine only)
+pnpm --filter api dev             # the API on http://localhost:3000
+$env:VITE_API_MOCKING = "disabled"; pnpm dev
+```
+
+How to sign in, and what works against the real API so far, is in [`CLAUDE.md`](CLAUDE.md) under Commands and Current Status.
+
 ## Commands
 
-| Command          | What it does                                                    |
-| ---------------- | --------------------------------------------------------------- |
-| `pnpm dev`       | Vite dev server with the MSW mock API                           |
-| `pnpm build`     | Type-check and production build of every package                |
-| `pnpm lint`      | ESLint across the repo                                          |
-| `pnpm typecheck` | TypeScript across the repo                                      |
-| `pnpm test`      | Vitest (max 2 workers)                                          |
-| `pnpm e2e`       | Playwright smoke tests (Chromium)                               |
-| `pnpm analyze`   | Bundle report at `apps/web/stats.html`                          |
-| `pnpm gen:api`   | Regenerate contract types from `packages/contract/openapi.json` |
-| `pnpm format`    | Prettier                                                        |
+| Command                  | What it does                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| `pnpm dev`               | Vite dev server with the MSW mock API                                         |
+| `pnpm build`             | Type-check and production build of every package                              |
+| `pnpm lint`              | ESLint across the repo                                                        |
+| `pnpm typecheck`         | TypeScript across the repo                                                    |
+| `pnpm test`              | Vitest (max 2 workers)                                                        |
+| `pnpm test:coverage`     | Vitest with the coverage thresholds CI enforces                               |
+| `pnpm --filter api test` | API tests against the `mediflow_test` database                                |
+| `pnpm e2e`               | Playwright end-to-end tests at desktop, tablet and phone width (Chromium)     |
+| `pnpm analyze`           | Bundle report at `apps/web/stats.html`                                        |
+| `pnpm budget`            | Check the built bundle against the budgets (after `pnpm build`)               |
+| `pnpm gen:api`           | Regenerate the OpenAPI contract from the API routes, and the web client types |
+| `pnpm test:scripts`      | Tests of the repo scripts                                                     |
+| `pnpm format`            | Prettier (`pnpm format:check` is what CI runs)                                |
 
 First Playwright run on a new machine: `pnpm --filter web exec playwright install chromium`.
 

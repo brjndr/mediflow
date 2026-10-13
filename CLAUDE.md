@@ -2,7 +2,7 @@
 
 ## Overview
 
-Permission-based, **multi-tenant** web app serving **multiple hospitals** from one deployment. Covers patient records, appointments, clinical workflows, and billing. It is an **end-to-end HMS**: it covers the whole patient journey from arrival to exit (OPD, inpatient, emergency, diagnostics, pharmacy, billing, insurance and records), like a conventional hospital management system. See Product Scope. Must handle **very high traffic** (many hospitals, many concurrent users). This is a **pnpm monorepo** holding the React SPA (`apps/web`), the Fastify API (`apps/api`) and a shared contract package (`packages/contract`). See Repository Layout. The web app runs against an MSW mock API by default; the real API so far covers authentication, tenancy and access (see Current Status).
+Permission-based, **multi-tenant** web app serving **multiple hospitals** from one deployment. Covers patient records, appointments, clinical workflows, and billing. It is an **end-to-end HMS**: it covers the whole patient journey from arrival to exit (OPD, inpatient, emergency, diagnostics, pharmacy, billing, insurance and records), like a conventional hospital management system. See Product Scope. Must handle **very high traffic** (many hospitals, many concurrent users). This is a **pnpm monorepo** holding the React SPA (`apps/web`), the Fastify API (`apps/api`) and a shared contract package (`packages/contract`). See Repository Layout. The web app runs against an MSW mock API by default; the real API so far covers authentication, tenancy, access, staff, patients, departments and doctors (see Current Status).
 
 **Staff-only application.** Only hospital staff (and platform admins) have accounts and can sign in. Patients are records managed by staff (registered, scheduled, treated, billed). There is no patient login, patient portal, or patient self-service anywhere in this product. Outbound patient reminders are a planned future feature: v1 must be built so it (or any other feature) can be added as a plug-in module without changing core code. See "Adding a new feature later".
 
@@ -282,7 +282,7 @@ hms/
   CLAUDE.md  pnpm-workspace.yaml  package.json
 ```
 
-- One repo, one issue tracker, one `CLAUDE.md`. API and UI changes for a feature land in the same PR.
+- One repo and one issue tracker. This `CLAUDE.md` holds the rules for everything; `apps/api/CLAUDE.md` adds the backend-only rules and each feature folder's own `CLAUDE.md` what was decided for that module. API and UI changes for a feature land in the same PR.
 - Run per-app scripts with filters: `pnpm --filter web dev`, `pnpm --filter api dev`. Root scripts (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`) run across all packages.
 - `apps/web` imports types only from `packages/contract`. It never imports code from `apps/api`, and `apps/api` never imports from `apps/web`.
 - Contract flow (`pnpm gen:api`): the API writes `packages/contract/api.openapi.json` from its route schemas; that is merged with `planned.openapi.json` (hand-written endpoints the web app is built against that the API does not implement yet) into `openapi.json`; and the web client types are generated from the result. The API always wins: when it implements a planned endpoint, delete that endpoint from the planned file, and the merge fails until you do. CI fails if the committed files are stale, or if the contract has a breaking change without a raised `CONTRACT_VERSION`.
@@ -375,7 +375,7 @@ apps/web/src/
   access/           # permissions, AccessPolicyProvider, usePermission, <Can>, PermissionGuard
   registry/         # feature registry: collects feature manifests, builds routes + navigation
   features/
-    auth/           # login page (exists); invite, reset and MFA pages (M2); per-tenant SSO (later)
+    auth/           # exists: login, invite, password reset, the authenticator pages, the account page; per-tenant SSO (later)
     notices/        # exists: the sample feature and the template for new modules
     ui-examples/    # exists: working examples of the shared building blocks
     patients/       # exists: list, registration, the patient screen, editing
