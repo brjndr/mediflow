@@ -1,5 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { CursorPage, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, ref } from '../../core/http/schemas.js';
+import { PLAIN_LINES, PLAIN_TEXT } from '../../core/http/text.js';
 
 export const NAME_MAX = 100;
 export const DESCRIPTION_MAX = 500;
@@ -19,11 +20,8 @@ export type Department = Static<typeof Department>;
 
 export const DepartmentPage = CursorPage(ref(Department), { $id: 'DepartmentPage' });
 
-/** Text the database can store: it refuses a NUL character, which would otherwise be a 500. */
-const NO_NUL = '^[^\\u0000]*$';
-
-const name = Type.String({ minLength: 1, maxLength: NAME_MAX, pattern: NO_NUL });
-const description = Type.String({ maxLength: DESCRIPTION_MAX, pattern: NO_NUL });
+const name = Type.String({ minLength: 1, maxLength: NAME_MAX, pattern: PLAIN_TEXT });
+const description = Type.String({ maxLength: DESCRIPTION_MAX, pattern: PLAIN_LINES });
 
 export const DepartmentCreate = Type.Object(
   { name, description: Type.Optional(description) },

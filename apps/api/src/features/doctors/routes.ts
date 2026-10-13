@@ -3,6 +3,7 @@ import { Type } from '@sinclair/typebox';
 import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
+import { tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   departmentState,
@@ -31,6 +32,8 @@ import {
   DoctorListQuery,
   DoctorPage,
   DoctorUpdate,
+  REGISTRATION_MAX,
+  SPECIALIZATION_MAX,
   WEEKDAYS,
   type DoctorSession,
 } from './schemas.js';
@@ -61,16 +64,16 @@ const conflict = () => new HttpError(409, 'conflict', 'It has changed');
 const OTHER_HOSPITAL =
   ' A doctor of another hospital answers 404 doctor_not_found, the same as one that does not exist.';
 
-/** A specialization as it is stored: trimmed, and not empty once it is. */
+/** A specialization as it is stored, and not empty once it is tidied. */
 function cleanSpecialization(text: string): string {
-  const trimmed = text.trim();
-  if (trimmed === '') throw invalid('A specialization is required');
-  return trimmed;
+  const tidied = tidyWithin(text, SPECIALIZATION_MAX);
+  if (tidied === '') throw invalid('A specialization is required');
+  return tidied;
 }
 
 /** An empty registration number is none. */
 const cleanRegistration = (text: string | undefined): string | null =>
-  text?.trim() ? text.trim() : null;
+  tidyOptional(text, REGISTRATION_MAX);
 
 /**
  * A department a doctor may be put in: one of this hospital, and not archived. Row-level

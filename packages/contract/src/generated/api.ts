@@ -802,7 +802,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Adds an item. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. An optional field (brand, strength, unit) is left out when there is none. Audited. */
+        /** @description Adds an item. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. An optional field (brand, strength, unit) is left out when there is none. Audited, and a second time as `beside_controlled` when the item is not controlled and the hospital has a controlled one of the same generic name in the same form, archived or not. */
         post: operations["createDrug"];
         delete?: never;
         options?: never;
@@ -824,7 +824,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Changes an item. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. Empty text removes a brand, a strength or a unit, and a null reorder level removes the level. Sending what the item already has changes nothing. Every change is audited with who made it, and the event names the fields that changed; a change of `schedule` or `controlled` is audited as `reclassify`, so taking an item out of a controlled schedule leaves its own trace. Records that name an item keep what it was: a dispense, a stock entry and a prescription line store the generic name, brand, form, strength, schedule and controlled flag as they were when the line was written, so renaming or reclassifying an item never changes history. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        /** @description Changes an item. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. Empty text removes a brand, a strength or a unit, and a null reorder level removes the level. Sending what the item already has changes nothing. Every change is audited with who made it, and the event names the fields that changed; a change of `schedule` or `controlled` is audited as `reclassify`, so taking an item out of a controlled schedule leaves its own trace, and an item that is not controlled, renamed or moved to a form in which the hospital has a controlled item of the same generic name, is audited a second time as `beside_controlled`. Records that name an item keep what it was: a dispense, a stock entry and a prescription line store the generic name, brand, form, strength, schedule and controlled flag as they were when the line was written, so renaming or reclassifying an item never changes history. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
         patch: operations["updateDrug"];
         trace?: never;
     };

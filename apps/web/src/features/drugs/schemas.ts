@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Drug, DrugCreate, DrugPage, DrugSchedule } from './types';
+import { PLAIN_TEXT } from '@/shared/utils/text';
 
 export const TYPES = ['medicine', 'consumable'] as const;
 export const FORMS = [
@@ -57,11 +58,16 @@ const REORDER_MAX = 1_000_000;
 /** The add and edit form. Messages are translation keys in core `common`. */
 export const drugFormSchema = z.object({
   type: z.enum(TYPES, 'validation.required'),
-  genericName: z.string().trim().min(1, 'validation.required').max(NAME_MAX),
-  brandName: z.string().trim().max(NAME_MAX),
+  genericName: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(NAME_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  brandName: z.string().trim().max(NAME_MAX).regex(PLAIN_TEXT, 'validation.plain_text'),
   form: z.enum(FORMS, 'validation.required'),
-  strength: z.string().trim().max(SHORT_MAX),
-  unit: z.string().trim().max(SHORT_MAX),
+  strength: z.string().trim().max(SHORT_MAX).regex(PLAIN_TEXT, 'validation.plain_text'),
+  unit: z.string().trim().max(SHORT_MAX).regex(PLAIN_TEXT, 'validation.plain_text'),
   schedule: z.enum(SCHEDULES, 'validation.required'),
   controlled: z.boolean(),
   taxClass: z.enum(TAX_CLASSES, 'validation.required'),

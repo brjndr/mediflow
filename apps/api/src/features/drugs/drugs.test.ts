@@ -734,3 +734,51 @@ describe('found in review', () => {
     ).rejects.toThrow(/cannot be changed/);
   });
 });
+
+describe('beside a controlled item', () => {
+  // Entries of one request are written at the same moment, so their order is not theirs.
+  const trace = async (tenant: TestTenant, id: string) => (await audited(tenant, id)).sort();
+
+  it('leaves a second trace when an item that is not controlled is added beside one', async () => {
+    const controlled = await added('Tracol', { schedule: 'x', strength: '10 mg' });
+    expect(await trace(hospital, controlled.id)).toEqual(['create']);
+    // Out of use, and in again under another spelling of its strength, with no schedule.
+    await act(controlled.id, 'archive');
+    const plain = await added('TRACOL', { strength: '10mg' });
+    expect(plain).toMatchObject({ schedule: 'none', controlled: false });
+    expect(await trace(hospital, plain.id)).toEqual(['beside_controlled', 'create']);
+  });
+
+  it('leaves none for a controlled item, another form, or another generic name', async () => {
+    const strong = await added('Tracol', { schedule: 'narcotic', strength: '20 mg' });
+    const syrup = await added('Tracol', { form: 'syrup' });
+    const other = await added('Freeol');
+    for (const drug of [strong, syrup, other]) {
+      expect(await trace(hospital, drug.id)).toEqual(['create']);
+    }
+  });
+
+  it('leaves one when an item is renamed, or moved to the form, of a controlled one', async () => {
+    const renamed = await added('Plainol');
+    await change(renamed.id, { genericName: 'tracol', strength: '5 mg', expectedVersion: 1 });
+    expect(await trace(hospital, renamed.id)).toEqual(['beside_controlled', 'create', 'update']);
+
+    const moved = await added('Tracol', { form: 'drops' });
+    await change(moved.id, { form: 'tablet', strength: '1 mg', expectedVersion: 1 });
+    expect(await trace(hospital, moved.id)).toEqual(['beside_controlled', 'create', 'update']);
+
+    // Any other change says nothing new about what the item stands beside.
+    await change(moved.id, { unit: 'strip of 10', expectedVersion: 2 });
+    expect(await trace(hospital, moved.id)).toEqual([
+      'beside_controlled',
+      'create',
+      'update',
+      'update',
+    ]);
+  });
+
+  it('goes by the items of the hospital itself', async () => {
+    const theirs = await added('Tracol', {}, { tenant: clinic });
+    expect(await trace(clinic, theirs.id)).toEqual(['create']);
+  });
+});

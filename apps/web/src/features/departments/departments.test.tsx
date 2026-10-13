@@ -106,6 +106,28 @@ describe('adding a department', () => {
     expect(sent).toBe(0);
   });
 
+  it('refuses a pasted character that cannot be seen, and says which field', async () => {
+    let sent = 0;
+    server.use(
+      http.post('*/api/departments', () => {
+        sent++;
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+    await open();
+    await userEvent.click(button('Add department'));
+    // A zero-width space, as a name copied from a document can carry.
+    await fill(/^Name/, `Renal${String.fromCodePoint(0x200b)}Unit`);
+    await userEvent.click(button('Save department'));
+
+    expect(
+      await screen.findByText(
+        'This text has a character that cannot be seen. Type it again instead of pasting it.',
+      ),
+    ).toBeInTheDocument();
+    expect(sent).toBe(0);
+  });
+
   it('refuses a name the hospital already uses, and keeps what was typed', async () => {
     await open();
     await userEvent.click(button('Add department'));

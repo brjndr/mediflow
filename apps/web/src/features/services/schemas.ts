@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Service, ServicePage, ServicePrice, ServicePricePage } from './types';
+import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 
 export const CATEGORIES = [
   'consultation',
@@ -112,10 +113,15 @@ export function todayIn(timeZone: string): string {
 }
 
 const details = {
-  name: z.string().trim().min(1, 'validation.required').max(NAME_MAX),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(NAME_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
   category: z.enum(CATEGORIES, 'validation.required'),
   taxClass: z.enum(TAX_CLASSES, 'validation.required'),
-  description: z.string().trim().max(DESCRIPTION_MAX),
+  description: z.string().trim().max(DESCRIPTION_MAX).regex(PLAIN_LINES, 'validation.plain_text'),
 };
 
 /** Changing a service. The code is not here: it never changes. */

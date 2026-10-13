@@ -751,3 +751,32 @@ describe('two hospitals', () => {
     await expect(insert(bela.id, departments.Family)).rejects.toThrow(/doctors_department/);
   });
 });
+
+describe('the text of a profile', () => {
+  beforeAll(clearDoctors);
+
+  it('is stored tidied, and refused when it would not read as it was typed', async () => {
+    // Written by code point, so that this file holds no character that cannot be seen.
+    const override = String.fromCodePoint(0x202e);
+    const zeroWidth = String.fromCodePoint(0x200b);
+    for (const extra of [
+      { specialization: `Cardio${override}logy` },
+      { specialization: zeroWidth },
+      { registrationNumber: `MCI${zeroWidth}1` },
+    ]) {
+      const response = await create(profile(asha, 'Cardiology', extra));
+      expect(response.statusCode, JSON.stringify(extra)).toBe(400);
+    }
+
+    const response = await create(
+      profile(asha, 'Cardiology', {
+        specialization: ' Interventional   cardiology ',
+        registrationNumber: ' MCI   77 ',
+      }),
+    );
+    expect(response.json()).toMatchObject({
+      specialization: 'Interventional cardiology',
+      registrationNumber: 'MCI 77',
+    });
+  });
+});

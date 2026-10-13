@@ -34,3 +34,31 @@ export function tidyWithin(text: string, max: number): string {
 /** Optional text is absent, never empty. */
 export const tidyOptional = (text: string | undefined, max: number): string | null =>
   text === undefined ? null : tidyWithin(text, max) || null;
+
+/**
+ * `PLAIN_TEXT` for text of several lines (a description): the same, with line breaks allowed.
+ */
+export const PLAIN_LINES =
+  '^[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u200B\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]*$';
+
+/**
+ * Text of several lines as it is stored: each line tidied, one kind of line break, at most one
+ * empty line between two paragraphs and none at the ends.
+ */
+export const tidyLines = (text: string): string =>
+  text
+    .split(/\r\n|\r|\n/)
+    .map(tidy)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+/** Optional text of several lines: absent, never empty, and refused (400) when too long. */
+export function tidyLinesOptional(text: string | undefined, max: number): string | null {
+  if (text === undefined) return null;
+  const tidied = tidyLines(text);
+  if ([...tidied].length > max) {
+    throw new HttpError(400, 'validation_failed', 'A text is too long once it is normalised');
+  }
+  return tidied || null;
+}

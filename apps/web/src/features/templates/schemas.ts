@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { sanitizeRichText } from '@/shared/ui/rich-text';
 import { TEMPLATE_KINDS } from './placeholders';
 import { REDACTION_REASONS, type Template, type TemplatePage } from './types';
+import { PLAIN_TEXT } from '@/shared/utils/text';
 
 /** Responses are validated where they enter the app, so screens can trust their shape. */
 export const templateSchema: z.ZodType<Template> = z.object({
@@ -48,7 +49,12 @@ export const NAME_MAX = 100;
 
 /** The name of a template, and for a new one its kind. Messages are keys in core `common`. */
 export const templateFormSchema = z.object({
-  name: z.string().trim().min(1, 'validation.required').max(NAME_MAX),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(NAME_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
 });
 export type TemplateFormValues = z.infer<typeof templateFormSchema>;
 
