@@ -9,18 +9,24 @@ import {
   fetchTemplate,
   fetchTemplates,
   fetchTemplateVersion,
+  redactTemplateVersion,
   saveTemplate,
   setTemplateArchived,
   type TemplateFilters,
 } from '../api';
 import type { TemplateKind } from '../placeholders';
+import type { RedactionReason } from '../types';
 
 /** Every key is prefixed with the tenant: a hospital's templates are its own. */
 export const templateKeys = createTenantKeys('templates');
 
 /** One saved version of a template, under the template's own key. */
-export const templateVersionKey = (tenantId: string, templateId: string, version: number | null) =>
-  [...templateKeys.detail(tenantId, templateId), 'version', version] as const;
+export const templateVersionKey = (
+  tenantId: string,
+  templateId: string,
+  version: number | null,
+  redactedAt: string | null = null,
+) => [...templateKeys.detail(tenantId, templateId), 'version', version, redactedAt] as const;
 
 export const TEMPLATES_PAGE_SIZE = 25;
 /** Templates change rarely. */
@@ -49,14 +55,23 @@ export function useTemplate(templateId: string) {
   });
 }
 
-/** One version of a template, as it was saved. It never changes, so it is never asked twice. */
-export function useTemplateVersion(templateId: string, version: number | null) {
+/**
+ * One version of a template, as it was saved. The only thing that ever happens to it is a
+ * redaction, which may be made by someone else: `redactedAt` is what the template's own list of
+ * versions says of it, and is part of the key, so that what was read of a version before it was
+ * redacted is not what is shown once the list says it is.
+ */
+export function useTemplateVersion(
+  templateId: string,
+  version: number | null,
+  redactedAt: string | null,
+) {
   const tenantId = useTenant()?.id;
   return useQuery({
-    queryKey: templateVersionKey(tenantId ?? '', templateId, version),
+    queryKey: templateVersionKey(tenantId ?? '', templateId, version, redactedAt),
     queryFn: ({ signal }) => fetchTemplateVersion(templateId, version ?? 0, signal),
     enabled: tenantId !== undefined && version !== null,
-    staleTime: Infinity,
+    staleTime: STALE_TIME_MS,
   });
 }
 
@@ -89,7 +104,7 @@ export function useCreateTemplate() {
   });
 }
 
-/** Saves a new version of a template, or archives and restores it. */
+/** Saves a new version of a template, archives and restores it, or redacts an older version. */
 export function useSaveTemplate(templateId: string) {
   const queryClient = useQueryClient();
   const tenantId = useTenant()?.id;
@@ -98,17 +113,27 @@ export function useSaveTemplate(templateId: string) {
     mutationFn: (
       change:
         | { save: { name?: string; body?: RichTextDocument; expectedVersion: number } }
-        | { archived: boolean },
+        | { archived: boolean }
+        | { redact: { version: number; reason: RedactionReason } },
     ) =>
       'save' in change
         ? saveTemplate(templateId, change.save)
-        : setTemplateArchived(templateId, change.archived),
-    onSuccess: (saved) => {
+        : 'redact' in change
+          ? redactTemplateVersion(templateId, change.redact.version, change.redact.reason)
+          : setTemplateArchived(templateId, change.archived),
+    onSuccess: (saved, change) => {
       // Nothing is written if the answer arrives after the session ended or moved to another
       // hospital: the cache it would go into is no longer this person's at this hospital.
       const session = queryClient.getQueryData<Session | null>(sessionKey);
       if (!tenantId || session?.activeTenant?.id !== tenantId) return;
       queryClient.setQueryData(templateKeys.detail(tenantId, templateId), saved);
+      // What was read of a version that is now redacted is dropped at once, not kept until it
+      // is collected: its text is what was to be removed.
+      if ('redact' in change) {
+        queryClient.removeQueries({
+          queryKey: [...templateKeys.detail(tenantId, templateId), 'version'],
+        });
+      }
     },
     // Also after a failure: a conflict means what is on screen is out of date.
     onSettled: refresh,

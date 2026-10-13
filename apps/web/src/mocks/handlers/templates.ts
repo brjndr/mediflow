@@ -24,14 +24,20 @@ type TemplateVersion = Schemas['TemplateVersion'];
 const FEATURE_FLAG = 'templates';
 const READ = 'template:read';
 const MANAGE = 'template:manage';
+const REDACT = 'template:redact';
+const REDACTION_REASONS = ['patient_data', 'personal_data', 'confidential', 'other'] as const;
 
-/** One saved version. Never changed once it is in the list. */
+/** One saved version. Never changed once it is in the list, except to redact it. */
 interface Saved {
   version: number;
   name: string;
   body: RichTextDocument;
   savedAt: string;
   savedByName: string;
+  /** Set by a redaction, which empties the name and the text. */
+  redactedAt?: string;
+  redactedByName?: string;
+  redactionReason?: (typeof REDACTION_REASONS)[number];
 }
 interface Stored {
   id: string;
@@ -154,7 +160,28 @@ export function saveMockTemplateVersion(id: string, lines: string[]): void {
   });
 }
 
+/** What another member of staff does meanwhile: redacts an older version. */
+export function redactMockTemplateVersion(id: string, version: number): void {
+  const saved = state.templates
+    .find((candidate) => candidate.id === id)
+    ?.versions.find((one) => one.version === version);
+  if (!saved) throw new Error(`Unknown mock template version: ${id} ${version}`);
+  saved.name = '';
+  saved.body = { type: 'doc', content: [] };
+  saved.redactedAt = new Date().toISOString();
+  saved.redactedByName = 'Someone Else';
+  saved.redactionReason = 'patient_data';
+}
+
 const invalid = () => error(400, 'validation_failed', 'The request is not valid');
+
+/** A change answers with the template, so it needs the permission to read one as well. */
+function authorizeChange(request: Request, permission: string) {
+  const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+  return 'denied' in access
+    ? access
+    : authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
+}
 const notFound = () => error(404, 'template_not_found', 'No such template');
 
 /** A template of another hospital does not exist as far as this session is concerned. */
@@ -188,7 +215,12 @@ function detail(template: Stored): TemplateDetail {
     body: asBody(newest(template).body),
     versions: [...template.versions]
       .reverse()
-      .map(({ version, savedAt, savedByName }) => ({ version, savedAt, savedByName })),
+      .map(({ version, savedAt, savedByName, redactedAt }) => ({
+        version,
+        savedAt,
+        savedByName,
+        ...(redactedAt ? { redactedAt } : {}),
+      })),
   };
 }
 
@@ -248,7 +280,7 @@ export const templatesHandlers = [
   }),
 
   http.post('*/api/templates', async ({ request }) => {
-    const access = authorize(request, { permission: MANAGE, featureFlag: FEATURE_FLAG });
+    const access = authorizeChange(request, MANAGE);
     if ('denied' in access) return access.denied;
     const raw = await request.clone().text();
     // The same key with the same request is answered as before, and nothing is added again.
@@ -310,12 +342,10 @@ export const templatesHandlers = [
   }),
 
   http.put('*/api/templates/:templateId', async ({ request, params }) => {
-    const access = authorize(request, { permission: MANAGE, featureFlag: FEATURE_FLAG });
+    const access = authorizeChange(request, MANAGE);
     if ('denied' in access) return access.denied;
     const body = await readBody(request);
     if (!body || typeof body.expectedVersion !== 'number') return invalid();
-    // The kind is never changed.
-    if (body.kind !== undefined) return invalid();
     const template = find(access.tenantId, params.templateId);
     if (!template) return notFound();
     // An archived template is restored before it is given a new version.
@@ -342,9 +372,34 @@ export const templatesHandlers = [
     return HttpResponse.json<TemplateDetail>(detail(template));
   }),
 
+  http.post('*/api/templates/:templateId/versions/:version/redact', async ({ request, params }) => {
+    const access = authorizeChange(request, REDACT);
+    if ('denied' in access) return access.denied;
+    const body = await readBody(request);
+    const reason = REDACTION_REASONS.find((value) => value === body?.reason);
+    if (!reason) return invalid();
+    const template = find(access.tenantId, params.templateId);
+    if (!template) return notFound();
+    const saved = template.versions.find((one) => String(one.version) === params.version);
+    if (!saved) return error(404, 'template_version_not_found', 'No such version');
+    // The newest version is the template as it is used: a corrected one is saved first.
+    if (saved === newest(template)) {
+      return error(409, 'template_version_current', 'The newest version is not redacted');
+    }
+    // Twice changes nothing.
+    if (!saved.redactedAt) {
+      saved.name = '';
+      saved.body = { type: 'doc', content: [] };
+      saved.redactedAt = new Date().toISOString();
+      saved.redactedByName = currentSession()?.user.name ?? '';
+      saved.redactionReason = reason;
+    }
+    return HttpResponse.json<TemplateDetail>(detail(template));
+  }),
+
   ...(['archive', 'restore'] as const).map((action) =>
     http.post(`*/api/templates/:templateId/${action}`, ({ request, params }) => {
-      const access = authorize(request, { permission: MANAGE, featureFlag: FEATURE_FLAG });
+      const access = authorizeChange(request, MANAGE);
       if ('denied' in access) return access.denied;
       const template = find(access.tenantId, params.templateId);
       if (!template) return notFound();

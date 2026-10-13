@@ -118,6 +118,7 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'code:manage' },
   { permission: 'template:read' },
   { permission: 'template:manage' },
+  { permission: 'template:redact' },
   { permission: 'staff:read' },
   { permission: 'staff:invite' },
   { permission: 'staff:manage' },

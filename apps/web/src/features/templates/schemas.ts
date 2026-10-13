@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { sanitizeRichText } from '@/shared/ui/rich-text';
 import { TEMPLATE_KINDS } from './placeholders';
-import type { Template, TemplatePage } from './types';
+import { REDACTION_REASONS, type Template, type TemplatePage } from './types';
 
 /** Responses are validated where they enter the app, so screens can trust their shape. */
 export const templateSchema: z.ZodType<Template> = z.object({
@@ -24,6 +24,8 @@ const versionInfo = {
   version: z.number().int().min(1),
   savedAt: z.string(),
   savedByName: z.string(),
+  // Present once the name and the text of the version were removed.
+  redactedAt: z.string().optional(),
 };
 // Whatever text arrives is reduced to the rich text allowlist before a screen sees it.
 const body = z.unknown().transform((value) => sanitizeRichText(value));
@@ -34,7 +36,13 @@ export const templateDetailSchema = z.object({
   versions: z.array(z.object(versionInfo)),
 });
 
-export const templateVersionSchema = z.object({ ...versionInfo, name: z.string(), body });
+export const templateVersionSchema = z.object({
+  ...versionInfo,
+  name: z.string(),
+  body,
+  redactedByName: z.string().optional(),
+  redactionReason: z.enum(REDACTION_REASONS).optional(),
+});
 
 export const NAME_MAX = 100;
 
@@ -43,6 +51,12 @@ export const templateFormSchema = z.object({
   name: z.string().trim().min(1, 'validation.required').max(NAME_MAX),
 });
 export type TemplateFormValues = z.infer<typeof templateFormSchema>;
+
+/** The reason a version is redacted for. */
+export const redactFormSchema = z.object({
+  reason: z.enum(REDACTION_REASONS, 'validation.required'),
+});
+export type RedactFormValues = z.infer<typeof redactFormSchema>;
 
 export const templateCreateFormSchema = templateFormSchema.extend({
   kind: z.enum(TEMPLATE_KINDS, 'validation.required'),
