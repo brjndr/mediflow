@@ -910,7 +910,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Changes a test: never its code, and never its kind (a test with results cannot become a panel). Send the version the change was made from: 409 conflict when the test has changed since. Empty text removes a unit, a container or the link to a service. A test that has reference ranges cannot become a text test until they are removed (409 lab_test_has_ranges). Sending what the test already has changes nothing. A result already reported keeps the name, unit and reference range it was reported with. Audited. A `serviceId` must be a laboratory service of the same hospital, and every component of a panel a single test of the same hospital, not archived; a panel has at least one component, none twice, and a single test has none (400 otherwise). A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        /** @description Changes a test: never its code, and never its kind (a test with results cannot become a panel). Send the version the change was made from: 409 conflict when the test has changed since. Empty text removes a unit, a container or the link to a service. A test that has reference ranges cannot become a text test, or change its unit, until they are removed (409 lab_test_has_ranges): the ranges are numbers in that unit. Sending what the test already has changes nothing. A result already reported keeps the name, unit and reference range it was reported with. Audited. A `serviceId` must be a laboratory service of the same hospital, and every component of a panel a single test of the same hospital, not archived; a panel has at least one component, none twice, and a single test has none (400 otherwise). A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
         patch: operations["updateLabTest"];
         trace?: never;
     };
@@ -940,7 +940,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Brings an archived test back. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        /** @description Brings an archived test back. A panel one of whose tests is archived is refused with 409 lab_test_component_archived: restore that test, or take it out of the panel, first. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
         post: operations["restoreLabTest"];
         delete?: never;
         options?: never;

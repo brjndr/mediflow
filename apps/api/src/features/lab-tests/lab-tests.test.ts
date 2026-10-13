@@ -183,7 +183,11 @@ const cleanUp = async (tenants: TestTenant[]) => {
 };
 
 beforeAll(async () => {
-  app = await buildTestApp({ resolveSession: resolveTestSession });
+  app = await buildTestApp({
+    resolveSession: resolveTestSession,
+    // This file makes more requests in a minute than one person is allowed.
+    config: { RATE_LIMIT_USER_PER_MINUTE: 100_000, RATE_LIMIT_TENANT_PER_MINUTE: 100_000 },
+  });
   pool = app.database.pool;
   const on = { features: { lab_tests: true, services: true } };
   hospital = await createTenant(pool, 'Lab Hospital', on);
@@ -983,5 +987,214 @@ describe('two hospitals', () => {
       [text.id],
     );
     expect(rows[0]).toEqual({ version: 2, ranges_version: 1 });
+  });
+});
+
+describe('found in review', () => {
+  const adult: Range = { sex: 'any', ageFrom: BIRTH, low: 70, high: 100, criticalLow: 40 };
+
+  it('keeps the unit of a test that has reference ranges, as it keeps it numeric', async () => {
+    const test = await numeric('Review Unit', { unit: 'mg/dL' });
+    await setRanges(test.id, [adult]);
+    // The ranges are numbers in mg/dL: they do not stand for a test in another unit, or in none.
+    for (const unit of ['mmol/L', '']) {
+      expect(errorOf(await change(test.id, { unit, expectedVersion: 1 })), unit).toEqual([
+        409,
+        'lab_test_has_ranges',
+      ]);
+    }
+    expect((await read(test.id)).json()).toMatchObject({ unit: 'mg/dL', version: 1 });
+    expect((await ranges(test.id)).json<Ranges>().ranges).toEqual([adult]);
+    // The same unit, and everything else, still changes; and the database holds the rule too.
+    const renamed = await change(test.id, {
+      name: 'Review Unit Renamed',
+      unit: ' mg/dL ',
+      expectedVersion: 1,
+    });
+    expect(renamed.json()).toMatchObject({ unit: 'mg/dL', version: 2 });
+    await expect(
+      pool.query("update lab_tests set unit = 'mmol/L' where id = $1", [test.id]),
+    ).rejects.toThrow(/keeps its unit/);
+    // Once the ranges are removed the unit can change, and new ranges be entered for it.
+    await setRanges(test.id, [], 2);
+    expect((await change(test.id, { unit: 'mmol/L', expectedVersion: 2 })).json()).toMatchObject({
+      unit: 'mmol/L',
+      version: 3,
+    });
+  });
+
+  it('does not bring back a panel while a test it is made of is archived', async () => {
+    const part = await added('Review Part Gone');
+    const other = await added('Review Part Stays');
+    const made = await panel('Review Panel Back', [part, other]);
+    await act(made.id, 'archive');
+    await act(part.id, 'archive');
+
+    expect(errorOf(await act(made.id, 'restore'))).toEqual([409, 'lab_test_component_archived']);
+    expect((await read(made.id)).json()).toMatchObject({ archived: true, version: 2 });
+    // Its details can still be changed with the list it has, which is not looked at again.
+    const renamed = await change(made.id, {
+      name: 'Review Panel Renamed',
+      componentIds: [part.id, other.id],
+      expectedVersion: 2,
+    });
+    expect(renamed.json()).toMatchObject({ name: 'Review Panel Renamed', version: 3 });
+    // Take the archived test out, and the panel comes back.
+    await change(made.id, { componentIds: [other.id], expectedVersion: 3 });
+    expect((await act(made.id, 'restore')).json()).toMatchObject({ archived: false });
+    expect((await events(hospital, made.id)).map((payload) => payload.change)).toEqual([
+      'created',
+      'archived',
+      'updated',
+      'updated',
+      'restored',
+    ]);
+  });
+
+  it('gives a panel no result of its own on a change either', async () => {
+    const part = await added('Review Panel Part');
+    const made = await panel('Review Panel Result', [part]);
+    const response = await change(made.id, {
+      resultType: 'numeric',
+      unit: 'mg/dL',
+      name: 'Review Panel Result Renamed',
+      expectedVersion: 1,
+    });
+    const saved = response.json<LabTest>();
+    expect(saved).toMatchObject({ resultType: 'text', name: 'Review Panel Result Renamed' });
+    expect(saved).not.toHaveProperty('unit');
+    expect((await events(hospital, made.id)).at(-1)).toMatchObject({ fields: ['name'] });
+  });
+
+  it('answers two panels that name each other with a refusal each, never a failure', async () => {
+    const [a, b] = [await added('Review Loop A'), await added('Review Loop B')];
+    const [first, second] = [
+      await panel('Review Loop One', [a]),
+      await panel('Review Loop Two', [b]),
+    ];
+    const results = await Promise.all([
+      change(first.id, { componentIds: [a.id, second.id], expectedVersion: 1 }),
+      change(second.id, { componentIds: [b.id, first.id], expectedVersion: 1 }),
+    ]);
+    expect(results.map((response) => response.statusCode)).toEqual([400, 400]);
+  });
+
+  it('never adds to a panel a test that was archived at the same moment', async () => {
+    const part = await added('Review Late Part');
+    const base = await added('Review Base Part');
+    const made = await panel('Review Late Panel', [base]);
+    const [changed, archived] = await Promise.all([
+      change(made.id, { componentIds: [base.id, part.id], expectedVersion: 1 }),
+      act(part.id, 'archive'),
+    ]);
+    expect([
+      [200, 409],
+      [400, 200],
+    ]).toContainEqual([changed.statusCode, archived.statusCode]);
+    const now = (await read(part.id)).json<LabTest>();
+    expect(now.archived).toBe(changed.statusCode !== 200);
+  });
+
+  it('lets one of two saves of the ranges made from the same version through', async () => {
+    const test = await numeric('Review Two Saves');
+    const results = await Promise.all([
+      setRanges(test.id, [adult]),
+      setRanges(test.id, [{ ...adult, low: 60 }]),
+    ]);
+    expect(results.map((response) => response.statusCode).sort()).toEqual([200, 409]);
+    expect((await ranges(test.id)).json()).toMatchObject({ version: 2 });
+  });
+
+  it('never leaves a text test with ranges, whichever of the two changes comes first', async () => {
+    const test = await numeric('Review Text Race');
+    const [toText, saved] = await Promise.all([
+      change(test.id, { resultType: 'text', expectedVersion: 1 }),
+      setRanges(test.id, [adult]),
+    ]);
+    // Either it became text and the ranges were refused, or it has ranges and stayed numeric.
+    expect([
+      [200, 409],
+      [409, 200],
+    ]).toContainEqual([toText.statusCode, saved.statusCode]);
+    const now = (await read(test.id)).json<LabTest>();
+    const held = (await ranges(test.id)).json<Ranges>().ranges;
+    expect(now.resultType === 'numeric' || held.length === 0).toBe(true);
+  });
+
+  it('links a test to a service that is in use, and leaves a link it already has alone', async () => {
+    const retired = await service(hospital, 'Retired lab service', 'lab');
+    const test = await added('Review Linked', { serviceId: retired });
+    await pool.query('update services set archived = true where id = $1', [retired]);
+
+    // The link stays, and a change that names it again is not a new link.
+    const renamed = await change(test.id, {
+      name: 'Review Linked Renamed',
+      serviceId: retired.toUpperCase(),
+      expectedVersion: 1,
+    });
+    expect(renamed.json()).toMatchObject({ serviceId: retired, version: 2 });
+    expect((await events(hospital, test.id)).at(-1)).toMatchObject({ fields: ['name'] });
+    // But no test is newly linked to an archived service.
+    expect(
+      (await add({ ...BASE, code: code(), name: 'Review New Link', serviceId: retired }))
+        .statusCode,
+    ).toBe(400);
+    const other = await added('Review Other');
+    expect((await change(other.id, { serviceId: retired, expectedVersion: 1 })).statusCode).toBe(
+      400,
+    );
+  });
+
+  it('stores text in one form, and refuses what would not read as it was typed', async () => {
+    const test = await added('Review Café  test ', { container: 'Gel  tube' });
+    expect(test).toMatchObject({ name: 'Review Café test', container: 'Gel tube' });
+    const good = { ...BASE, code: 'RV-TEXT', name: 'Review Text' };
+    const bad: object[] = [
+      { ...good, name: 'zero​width' },
+      { ...good, name: 'over‮ride' },
+      { ...good, unit: 'g\u0000dL' },
+      { ...good, container: 'a\ttube' },
+      // Long enough only once it is in its normal form.
+      { ...good, name: 'क़'.repeat(100) },
+      { ...good, unit: 'क़'.repeat(20), resultType: 'numeric' },
+    ];
+    for (const body of bad) {
+      expect((await add(body)).statusCode, JSON.stringify(body)).toBe(400);
+    }
+    expect((await search({ q: 'zero​width' })).statusCode).toBe(400);
+    const ranged = await numeric('Review Note');
+    for (const note of ['two\nlines', 'क़'.repeat(100)]) {
+      expect((await setRanges(ranged.id, [{ ...adult, note }])).statusCode).toBe(400);
+    }
+  });
+
+  it('takes what was typed in a search as text, whatever it holds', async () => {
+    await added('Review 100% under_score back\\slash');
+    for (const q of ['100%', 'under_score', 'back\\slash']) {
+      expect(names(await search({ q: `Review ${q}` })), q).toEqual([
+        'Review 100% under_score back\\slash',
+      ]);
+    }
+    expect(names(await search({ q: 'Review under.score' }))).toEqual([]);
+    expect(names(await search({ q: 'Review _' }))).toEqual(['Review 100% under_score back\\slash']);
+  });
+
+  it('takes an age up to 150 years in any unit, and a limit of any size a screen can show', async () => {
+    const test = await numeric('Review Edges');
+    const oldest: Range[] = [
+      { sex: 'male', ageFrom: age(150, 'years'), low: -999999999 },
+      { sex: 'female', ageFrom: age(1800, 'months'), high: 999999999 },
+      { sex: 'any', ageFrom: age(54750, 'days'), low: 0.001, high: 0.002 },
+    ];
+    expect((await setRanges(test.id, oldest)).json<Ranges>().ranges).toEqual(oldest);
+    for (const limit of [1e9, -1e9, 1e21]) {
+      expect(
+        (await setRanges(test.id, [{ sex: 'any', ageFrom: BIRTH, low: limit }], 2)).statusCode,
+        String(limit),
+      ).toBe(400);
+    }
+    expect((await resolve(test.id, 'ageValue=150&ageUnit=years&sex=male')).json()).toEqual({
+      range: oldest[0],
+    });
   });
 });

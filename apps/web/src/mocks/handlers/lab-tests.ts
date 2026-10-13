@@ -573,9 +573,17 @@ export const labTestsHandlers = [
     const test = find(access.tenantId, params.labTestId);
     if (!test) return notFound();
     if (test.version !== body.expectedVersion) return error(409, 'conflict', 'It has changed');
-    const next = applied(test, body);
+    // A panel has no result of its own, whatever was sent.
+    const next = applied(
+      test,
+      test.kind === 'panel' ? { ...body, resultType: 'text', unit: '' } : body,
+    );
     if (!next) return invalid();
-    if (!takesRanges(next) && (state.ranges.get(test.id)?.ranges.length ?? 0) > 0) {
+    // The ranges are numbers in the test's unit: they stand only while it is numeric and in it.
+    if (
+      (!takesRanges(next) || next.unit !== test.unit) &&
+      (state.ranges.get(test.id)?.ranges.length ?? 0) > 0
+    ) {
       return error(409, 'lab_test_has_ranges', 'Remove the reference ranges first');
     }
     // Sending what the test already has changes nothing.
@@ -601,6 +609,11 @@ export const labTestsHandlers = [
       );
       if (archived && inPanel) {
         return error(409, 'lab_test_in_panel', 'The test is part of a panel in use');
+      }
+      // A panel in use is made of tests in use.
+      const partArchived = test.componentIds.some((id) => find(access.tenantId, id)?.archived);
+      if (!archived && partArchived) {
+        return error(409, 'lab_test_component_archived', 'A test of the panel is archived');
       }
       test.archived = archived;
       test.version += 1;

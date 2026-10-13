@@ -273,6 +273,7 @@ describe('the range for a patient', () => {
   });
 });
 
+// THE COPY: keep this block the last of the file. What follows it is not compared.
 describe('the copy the web app holds', () => {
   // The API may not import from the web app, so the rule exists twice. Reading the other file is
   // not importing it: this only makes sure the two cannot drift apart unnoticed.
@@ -281,11 +282,14 @@ describe('the copy the web app holds', () => {
       .split('\r\n')
       .join('\n');
   /** A file without its opening comment and its imports, which differ by design. */
-  const body = (text: string) => text.slice(text.indexOf('export const AGE_UNITS'));
-  const cases = (text: string) =>
-    text
-      .slice(text.indexOf('const age = (value'))
-      .split("describe('the copy the web app holds'")[0] ?? '';
+  /** From a marker on. A file without the marker fails here, and is never compared short. */
+  const from = (text: string, marker: string) => {
+    const at = text.indexOf(marker);
+    expect(at, `missing: ${marker}`).toBeGreaterThan(0);
+    return text.slice(at);
+  };
+  const body = (text: string) => from(text, 'export const AGE_UNITS');
+  const cases = (text: string) => from(text, 'const age = (value').split('// THE COPY')[0] ?? '';
 
   it('has the same rule', () => {
     const web = read('../../../../web/src/features/lab-tests/age.ts');

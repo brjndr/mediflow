@@ -3,7 +3,7 @@ import type { FastifyRequest } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidy, tidyOptional } from '../../core/http/text.js';
+import { tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   ageBefore,
@@ -17,6 +17,7 @@ import {
   codeTaken,
   componentsOf,
   findLabTest,
+  hasArchivedComponent,
   hasRanges,
   inPanelInUse,
   insertLabTest,
@@ -34,6 +35,7 @@ import {
   type LabTestRow,
 } from './repository.js';
 import {
+  CONTAINER_MAX,
   LAB_TEST_SCHEMAS,
   LabRangeResolved,
   LabRangeResolveQuery,
@@ -44,6 +46,9 @@ import {
   LabTestPage,
   LabTestSearchRequest,
   LabTestUpdate,
+  NAME_MAX,
+  NOTE_MAX,
+  UNIT_MAX,
   type LabRange,
   type LabTestComponent,
 } from './schemas.js';
@@ -90,10 +95,13 @@ const invalid = (message: string) => new HttpError(400, 'validation_failed', mes
 
 /** A name as it is stored, and not empty once it is tidied. */
 function cleanName(name: string): string {
-  const tidied = tidy(name);
+  const tidied = tidyWithin(name, NAME_MAX);
   if (tidied === '') throw invalid('A name is required');
   return tidied;
 }
+
+/** The same id, whatever its capitals: a UUID is written either way. */
+const sameId = (sent: string, held: string | null) => sent.toLowerCase() === held;
 
 /** Only a numeric single test has reference ranges. */
 const takesRanges = (kind: string, resultType: string) =>
@@ -142,7 +150,7 @@ function checkedRanges(ranges: readonly LabRange[]): LabRange[] {
     if (criticalHigh !== undefined && ceiling !== undefined && criticalHigh < ceiling) {
       throw invalid(`${at}: criticalHigh is inside the normal range`);
     }
-    const note = tidyOptional(range.note);
+    const note = tidyOptional(range.note, NOTE_MAX);
     const row: LabRange = {
       sex: range.sex,
       ageFrom: range.ageFrom,
@@ -184,9 +192,9 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
   async function serviceFor(request: FastifyRequest, sent: string): Promise<string | null> {
     if (sent === '') return null;
     if (!(await isLabService(request.txClient, sent))) {
-      throw invalid('serviceId is not a laboratory service of this hospital');
+      throw invalid('serviceId is not a laboratory service of this hospital that is in use');
     }
-    return sent;
+    return sent.toLowerCase();
   }
 
   /** The components a request names for a panel, checked and locked. */
@@ -260,9 +268,9 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
         department: body.department,
         // A panel has no result of its own, whatever was sent.
         resultType: panel ? 'text' : (body.resultType ?? 'text'),
-        unit: panel ? null : tidyOptional(body.unit),
+        unit: panel ? null : tidyOptional(body.unit, UNIT_MAX),
         sampleType: body.sampleType,
-        container: tidyOptional(body.container),
+        container: tidyOptional(body.container, CONTAINER_MAX),
         turnaroundHours: body.turnaroundHours,
         serviceId: body.serviceId === undefined ? null : await serviceFor(request, body.serviceId),
       };
@@ -311,7 +319,7 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'updateLabTest',
         tags: ['lab-tests'],
         description:
-          'Changes a test: never its code, and never its kind (a test with results cannot become a panel). Send the version the change was made from: 409 conflict when the test has changed since. Empty text removes a unit, a container or the link to a service. A test that has reference ranges cannot become a text test until they are removed (409 lab_test_has_ranges). Sending what the test already has changes nothing. A result already reported keeps the name, unit and reference range it was reported with. Audited.' +
+          'Changes a test: never its code, and never its kind (a test with results cannot become a panel). Send the version the change was made from: 409 conflict when the test has changed since. Empty text removes a unit, a container or the link to a service. A test that has reference ranges cannot become a text test, or change its unit, until they are removed (409 lab_test_has_ranges): the ranges are numbers in that unit. Sending what the test already has changes nothing. A result already reported keeps the name, unit and reference range it was reported with. Audited.' +
           NAMED_AT_HOSPITAL +
           OTHER_HOSPITAL,
         params: Params,
@@ -334,12 +342,20 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
         name: body.name === undefined ? before.name : cleanName(body.name),
         department: body.department ?? before.department,
         resultType: panel ? 'text' : (body.resultType ?? before.resultType),
-        unit: panel ? null : body.unit === undefined ? before.unit : tidyOptional(body.unit),
+        unit: panel
+          ? null
+          : body.unit === undefined
+            ? before.unit
+            : tidyOptional(body.unit, UNIT_MAX),
         sampleType: body.sampleType ?? before.sampleType,
-        container: body.container === undefined ? before.container : tidyOptional(body.container),
+        container:
+          body.container === undefined
+            ? before.container
+            : tidyOptional(body.container, CONTAINER_MAX),
         turnaroundHours: body.turnaroundHours ?? before.turnaroundHours,
+        // The link it already has is left as it is: a service is checked when it is linked.
         serviceId:
-          body.serviceId === undefined
+          body.serviceId === undefined || sameId(body.serviceId, before.serviceId)
             ? before.serviceId
             : await serviceFor(request, body.serviceId),
       };
@@ -351,11 +367,13 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
       let componentIds: string[] | undefined;
       if (body.componentIds !== undefined) {
         if (panel) {
-          await componentsFor(request, body.componentIds);
-          const same =
-            had?.length === body.componentIds.length &&
-            had.every((id, index) => id === body.componentIds?.[index]);
-          if (!same) componentIds = body.componentIds;
+          const sent = body.componentIds.map((id) => id.toLowerCase());
+          const same = had?.length === sent.length && had.every((id, index) => id === sent[index]);
+          // The list it already has is left as it is; a new one is checked and locked.
+          if (!same) {
+            await componentsFor(request, sent);
+            componentIds = sent;
+          }
         } else if (body.componentIds.length > 0) {
           throw invalid('A single test has no components');
         }
@@ -364,8 +382,10 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const changed: string[] = DETAIL_FIELDS.filter((field) => next[field] !== before[field]);
       if (componentIds) changed.push('componentIds');
       if (changed.length === 0) return saved(request, current.id);
+      // The ranges are numbers in the test's unit: they stand only while it is numeric and in
+      // that unit.
       if (
-        !takesRanges(current.kind, next.resultType) &&
+        (!takesRanges(current.kind, next.resultType) || next.unit !== before.unit) &&
         (await hasRanges(request.txClient, current.id))
       ) {
         throw new HttpError(409, 'lab_test_has_ranges', 'Remove the reference ranges first');
@@ -395,7 +415,7 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
           description:
             (action === 'archive'
               ? 'Archives a test: it stays on the orders and reports that name it and is no longer offered for new ones. A test that is a component of a panel that is not archived is refused with 409 lab_test_in_panel: take it out of the panel first.'
-              : 'Brings an archived test back.') +
+              : 'Brings an archived test back. A panel one of whose tests is archived is refused with 409 lab_test_component_archived: restore that test, or take it out of the panel, first.') +
             ' Doing it twice changes nothing. Audited.' +
             OTHER_HOSPITAL,
           params: Params,
@@ -409,6 +429,20 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (!current) throw notFound();
         if (archive && !current.archived && (await inPanelInUse(request.txClient, current.id))) {
           throw new HttpError(409, 'lab_test_in_panel', 'The test is part of a panel in use');
+        }
+        // A panel in use is made of tests in use: one whose test was archived while it was
+        // archived itself comes back only once that test is restored or taken out of it.
+        if (
+          !archive &&
+          current.archived &&
+          current.kind === 'panel' &&
+          (await hasArchivedComponent(request.txClient, current.id))
+        ) {
+          throw new HttpError(
+            409,
+            'lab_test_component_archived',
+            'A test this panel is made of is archived',
+          );
         }
         if (await setArchived(request.txClient, current.id, archive)) {
           request.audit(action, 'lab_test', current.id);

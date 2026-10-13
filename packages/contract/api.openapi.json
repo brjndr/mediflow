@@ -2084,18 +2084,26 @@
             "$ref": "#/components/schemas/LabAge"
           },
           "low": {
+            "minimum": -999999999,
+            "maximum": 999999999,
             "description": "The lowest normal value. Absent: no lower limit.",
             "type": "number"
           },
           "high": {
+            "minimum": -999999999,
+            "maximum": 999999999,
             "description": "The highest normal value. Absent: no upper limit.",
             "type": "number"
           },
           "criticalLow": {
+            "minimum": -999999999,
+            "maximum": 999999999,
             "description": "At or below this the result is critical. Never above `low`.",
             "type": "number"
           },
           "criticalHigh": {
+            "minimum": -999999999,
+            "maximum": 999999999,
             "description": "At or above this the result is critical. Never below `high`.",
             "type": "number"
           },
@@ -7111,7 +7119,7 @@
       "patch": {
         "operationId": "updateLabTest",
         "tags": ["lab-tests"],
-        "description": "Changes a test: never its code, and never its kind (a test with results cannot become a panel). Send the version the change was made from: 409 conflict when the test has changed since. Empty text removes a unit, a container or the link to a service. A test that has reference ranges cannot become a text test until they are removed (409 lab_test_has_ranges). Sending what the test already has changes nothing. A result already reported keeps the name, unit and reference range it was reported with. Audited. A `serviceId` must be a laboratory service of the same hospital, and every component of a panel a single test of the same hospital, not archived; a panel has at least one component, none twice, and a single test has none (400 otherwise). A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist.",
+        "description": "Changes a test: never its code, and never its kind (a test with results cannot become a panel). Send the version the change was made from: 409 conflict when the test has changed since. Empty text removes a unit, a container or the link to a service. A test that has reference ranges cannot become a text test, or change its unit, until they are removed (409 lab_test_has_ranges): the ranges are numbers in that unit. Sending what the test already has changes nothing. A result already reported keeps the name, unit and reference range it was reported with. Audited. A `serviceId` must be a laboratory service of the same hospital, and every component of a panel a single test of the same hospital, not archived; a panel has at least one component, none twice, and a single test has none (400 otherwise). A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist.",
         "requestBody": {
           "required": true,
           "content": {
@@ -7291,7 +7299,7 @@
       "post": {
         "operationId": "restoreLabTest",
         "tags": ["lab-tests"],
-        "description": "Brings an archived test back. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist.",
+        "description": "Brings an archived test back. A panel one of whose tests is archived is refused with 409 lab_test_component_archived: restore that test, or take it out of the panel, first. Doing it twice changes nothing. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist.",
         "parameters": [
           {
             "schema": {

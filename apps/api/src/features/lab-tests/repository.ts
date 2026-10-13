@@ -213,11 +213,11 @@ export const isCodeTaken = (error: unknown): boolean =>
   (error as { code?: unknown }).code === '23505' &&
   (error as { constraint?: unknown }).constraint === 'lab_tests_code_taken';
 
-/** Whether this is a laboratory service of the hospital: what a test can be charged as. */
+/** Whether this is a laboratory service of the hospital that is in use: what a test can be linked to. */
 export async function isLabService(client: pg.ClientBase, id: string): Promise<boolean> {
   if (!UUID.test(id)) return false;
   const { rowCount } = await client.query(
-    "select 1 from services where id = $1 and category = 'lab'",
+    "select 1 from services where id = $1 and category = 'lab' and not archived",
     [id],
   );
   return rowCount === 1;
@@ -234,11 +234,29 @@ export async function lockUsableComponents(
   ids: readonly string[],
 ): Promise<boolean> {
   if (ids.some((id) => !UUID.test(id))) return false;
-  const { rows } = await client.query<{ kind: LabKind; archived: boolean }>(
-    'select kind, archived from lab_tests where id = any($1::uuid[]) order by id for update',
+  // Single tests only are locked: a panel named by mistake is refused without being held, so
+  // two panels that name each other cannot wait on each other.
+  const { rows } = await client.query<{ archived: boolean }>(
+    `select archived from lab_tests
+     where id = any($1::uuid[]) and kind = 'test' order by id for update`,
     [ids],
   );
-  return rows.length === ids.length && rows.every((row) => row.kind === 'test' && !row.archived);
+  return rows.length === ids.length && rows.every((row) => !row.archived);
+}
+
+/** Whether any of the tests a panel is made of is archived. */
+export async function hasArchivedComponent(
+  client: pg.ClientBase,
+  panelId: string,
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    `select 1 from lab_test_components c
+     join lab_tests t on t.tenant_id = c.tenant_id and t.id = c.component_id
+     where c.panel_id = $1 and t.archived
+     limit 1`,
+    [panelId],
+  );
+  return (rowCount ?? 0) > 0;
 }
 
 export async function insertLabTest(

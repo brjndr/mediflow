@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidy, tidyOptional } from '../../core/http/text.js';
+import { tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   drugExists,
@@ -27,6 +27,8 @@ import {
   DrugSearchRequest,
   DrugUpdate,
   DUPLICATES_MAX,
+  NAME_MAX,
+  SHORT_MAX,
 } from './schemas.js';
 
 const FEATURE = 'drugs';
@@ -69,12 +71,10 @@ const exists = () => new HttpError(409, 'drug_exists', 'The hospital has exactly
 
 /** A name as it is stored, and not empty once it is tidied. */
 function cleanName(name: string): string {
-  const tidied = tidy(name);
+  const tidied = tidyWithin(name, NAME_MAX);
   if (tidied === '') throw new HttpError(400, 'validation_failed', 'A generic name is required');
   return tidied;
 }
-
-const optional = tidyOptional;
 
 /** What makes an item the one it is: see `drugs_exists`. */
 const IDENTITY = ['genericName', 'brandName', 'form', 'strength'] as const;
@@ -185,10 +185,10 @@ export const drugRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const details = controlledFor({
         type: body.type,
         genericName: cleanName(body.genericName),
-        brandName: optional(body.brandName),
+        brandName: tidyOptional(body.brandName, NAME_MAX),
         form: body.form,
-        strength: optional(body.strength),
-        unit: optional(body.unit),
+        strength: tidyOptional(body.strength, SHORT_MAX),
+        unit: tidyOptional(body.unit, SHORT_MAX),
         schedule: body.schedule,
         controlled: body.controlled ?? false,
         taxClass: body.taxClass,
@@ -253,16 +253,16 @@ export const drugRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(409, 'conflict', 'The item has changed');
       }
       const before = detailsOf(current);
-      const text = (sent: string | undefined, now: string | null) =>
-        sent === undefined ? now : optional(sent);
+      const text = (sent: string | undefined, now: string | null, max: number) =>
+        sent === undefined ? now : tidyOptional(sent, max);
       const next = controlledFor({
         type: body.type ?? before.type,
         genericName:
           body.genericName === undefined ? before.genericName : cleanName(body.genericName),
-        brandName: text(body.brandName, before.brandName),
+        brandName: text(body.brandName, before.brandName, NAME_MAX),
         form: body.form ?? before.form,
-        strength: text(body.strength, before.strength),
-        unit: text(body.unit, before.unit),
+        strength: text(body.strength, before.strength, SHORT_MAX),
+        unit: text(body.unit, before.unit, SHORT_MAX),
         schedule: body.schedule ?? before.schedule,
         controlled: body.controlled ?? before.controlled,
         taxClass: body.taxClass ?? before.taxClass,

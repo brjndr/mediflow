@@ -10,6 +10,11 @@ export const CONTAINER_MAX = 50;
 export const NOTE_MAX = 150;
 /** The most components a panel has, and the most reference ranges a test has. */
 export const LIST_MAX = 60;
+/**
+ * The largest a limit can be, either side of zero: what the catalog screen can show without an
+ * exponent, and far beyond any laboratory value.
+ */
+export const LIMIT_MAX = 999_999_999;
 /** The oldest age a limit can name, in days: 150 years. Each unit has its own (age.ts). */
 export const AGE_VALUE_MAX = 54750;
 
@@ -211,6 +216,8 @@ export const LabAge = Type.Object(
 );
 export type LabAge = Static<typeof LabAge>;
 
+const LIMIT = { minimum: -LIMIT_MAX, maximum: LIMIT_MAX };
+
 export const LabRange = Type.Object(
   {
     sex: StringEnum(RANGE_SEXES, {
@@ -219,18 +226,26 @@ export const LabRange = Type.Object(
     ageFrom: ref(LabAge),
     ageUntil: Type.Optional(ref(LabAge)),
     low: Type.Optional(
-      Type.Number({ description: 'The lowest normal value. Absent: no lower limit.' }),
+      Type.Number({
+        ...LIMIT,
+        description: 'The lowest normal value. Absent: no lower limit.',
+      }),
     ),
     high: Type.Optional(
-      Type.Number({ description: 'The highest normal value. Absent: no upper limit.' }),
+      Type.Number({
+        ...LIMIT,
+        description: 'The highest normal value. Absent: no upper limit.',
+      }),
     ),
     criticalLow: Type.Optional(
       Type.Number({
+        ...LIMIT,
         description: 'At or below this the result is critical. Never above `low`.',
       }),
     ),
     criticalHigh: Type.Optional(
       Type.Number({
+        ...LIMIT,
         description: 'At or above this the result is critical. Never below `high`.',
       }),
     ),

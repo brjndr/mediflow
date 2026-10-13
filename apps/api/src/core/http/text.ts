@@ -1,3 +1,5 @@
+import { HttpError } from './errors.js';
+
 /**
  * Text a person types that is stored and later printed: a name, a unit, a brand.
  *
@@ -15,6 +17,20 @@ export const PLAIN_TEXT =
  */
 export const tidy = (text: string): string => text.normalize('NFC').replace(/\s+/g, ' ').trim();
 
+/**
+ * The same, refused (400) when it is longer than `max` characters once tidied. A schema checks
+ * the length of what was sent, and a few letters become two characters in the normal form
+ * (Devanagari U+0958 to U+095F among them): without this the database's own check would refuse
+ * the text as a 500. Counted in characters, as the database counts.
+ */
+export function tidyWithin(text: string, max: number): string {
+  const tidied = tidy(text);
+  if ([...tidied].length > max) {
+    throw new HttpError(400, 'validation_failed', 'A text is too long once it is normalised');
+  }
+  return tidied;
+}
+
 /** Optional text is absent, never empty. */
-export const tidyOptional = (text: string | undefined): string | null =>
-  text === undefined ? null : tidy(text) || null;
+export const tidyOptional = (text: string | undefined, max: number): string | null =>
+  text === undefined ? null : tidyWithin(text, max) || null;
