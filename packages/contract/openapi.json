@@ -600,26 +600,12 @@
             "type": "string"
           },
           "email": {
-            "anyOf": [
-              {
-                "maxLength": 254,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": ["string", "null"],
+            "maxLength": 254
           },
           "address": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": ["string", "null"],
+            "maxLength": 500
           },
           "contactConsent": {
             "type": "object",

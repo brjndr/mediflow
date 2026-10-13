@@ -1,13 +1,14 @@
-import { Type } from '@sinclair/typebox';
+import { Type, type TSchema } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildTestApp } from '../../../test/helpers.js';
 import { ref } from './schemas.js';
-import { wrongType } from './strict-body.js';
+import { notFollowable, wrongType } from './strict-body.js';
 
 /**
  * A JSON body is checked for the types it was sent with, before the validator can coerce them.
- * Query strings and path parameters are text, and are coerced as before.
+ * Query strings and path parameters are text, and are coerced as before. A body schema the check
+ * cannot follow stops the app from starting.
  */
 
 const Line = Type.Object(
@@ -24,10 +25,11 @@ const Body = Type.Object(
     rate: Type.Optional(Type.Number()),
     active: Type.Optional(Type.Boolean()),
     name: Type.Optional(Type.String()),
-    // A number or nothing, said as one schema with both types.
+    // A number or nothing, and a text or nothing: one schema with both types.
     level: Type.Optional(Type.Unsafe<number | null>({ type: ['integer', 'null'] })),
-    // The same, said as a union. Not for a number that can be 0: see the test below.
-    either: Type.Optional(Type.Union([Type.Null(), Type.Integer()])),
+    email: Type.Optional(Type.Unsafe<string | null>({ type: ['string', 'null'] })),
+    // No type: an enum is the validator's alone, and it does not coerce one.
+    colour: Type.Optional(Type.Unsafe<string>({ enum: ['red', 'blue'] })),
     tags: Type.Optional(Type.Array(Type.String())),
     lines: Type.Optional(Type.Array(ref(Line))),
   },
@@ -81,7 +83,8 @@ describe('a JSON body', () => {
       active: false,
       name: '',
       level: null,
-      either: 7,
+      email: '',
+      colour: 'red',
       tags: ['a'],
       lines: [{ amount: 2, note: 'x' }],
     };
@@ -90,19 +93,13 @@ describe('a JSON body', () => {
     expect(response.json()).toEqual(body);
   });
 
-  it('keeps a 0 as 0 and a null as null where one schema allows both', async () => {
-    expect((await send({ amount: 1, level: 0, either: null })).json()).toEqual({
-      amount: 1,
-      level: 0,
-      either: null,
-    });
-    expect((await send({ amount: 1, level: null })).json()).toEqual({ amount: 1, level: null });
-  });
-
-  it('cannot save a union of null and a number from the validator, which is why none is used', async () => {
-    // Both types are allowed, so the 0 passes the check, and the validator then turns it into the
-    // first branch of the union. A nullable number is one schema with both types (`level`).
-    expect((await send({ amount: 1, either: 0 })).json()).toEqual({ amount: 1, either: null });
+  it('keeps a 0 as 0, an empty text as empty and a null as null where the schema allows both', async () => {
+    for (const body of [
+      { amount: 1, level: 0, email: null },
+      { amount: 1, level: null, email: '' },
+    ]) {
+      expect((await send(body)).json()).toEqual(body);
+    }
   });
 
   it('refuses a value sent as another type, where it used to be turned into one', async () => {
@@ -118,7 +115,8 @@ describe('a JSON body', () => {
       ['body.name', { amount: 1, name: null }],
       ['body.name', { amount: 1, name: 5 }],
       ['body.level', { amount: 1, level: '3' }],
-      ['body.either', { amount: 1, either: false }],
+      ['body.level', { amount: 1, level: false }],
+      ['body.email', { amount: 1, email: 0 }],
       // A single value is not a list of one.
       ['body.tags', { amount: 1, tags: 'a' }],
       ['body.tags.1', { amount: 1, tags: ['a', 2] }],
@@ -149,10 +147,13 @@ describe('a JSON body', () => {
   });
 
   it('leaves everything else to the validator', async () => {
-    // A missing required field, a value out of range and an unknown field are not its business.
+    // A missing required field, a value out of range, a value not in a list and an unknown field
+    // are not its business.
     expect((await send({})).statusCode).toBe(400);
     expect((await send({ amount: -1 })).statusCode).toBe(400);
     expect((await send({ amount: 1.5 })).statusCode).toBe(400);
+    expect((await send({ amount: 1, colour: 'green' })).statusCode).toBe(400);
+    expect((await send({ amount: 1, colour: null })).statusCode).toBe(400);
     expect((await send({ amount: 1, unknown: null })).json()).toEqual({ amount: 1 });
   });
 
@@ -176,21 +177,99 @@ describe('what is not a JSON body', () => {
   });
 });
 
-describe('wrongType', () => {
+describe('a body schema the check cannot follow', () => {
+  const starting = (body: TSchema, register?: TSchema) =>
+    buildTestApp({
+      async extend(instance) {
+        await instance.register(async (feature) => {
+          if (register) feature.addSchema(register);
+          feature.post(
+            '/strict-refused',
+            { config: { access: 'public' }, schema: { body } },
+            async () => ({}),
+          );
+        });
+      },
+    });
+
+  it('stops the app from starting, and says which route and why', async () => {
+    const cases: [RegExp, TSchema][] = [
+      // A union: both types pass the check and the validator then coerces to its first branch.
+      [/body\.level uses anyOf/, Type.Object({ level: Type.Union([Type.Null(), Type.Integer()]) })],
+      [/body uses allOf/, Type.Intersect([Type.Object({ a: Type.Integer() }), Type.Object({})])],
+      [/body\.pair has a list of schemas/, Type.Object({ pair: Type.Tuple([Type.Integer()]) })],
+      [
+        /body\.map uses patternProperties/,
+        Type.Object({ map: Type.Record(Type.String(), Type.Integer()) }),
+      ],
+      [
+        /body gives a schema for unnamed properties/,
+        Type.Object({}, { additionalProperties: Type.Integer() }),
+      ],
+      [
+        /body\.line refers to StrictMissing, which is not registered/,
+        Type.Object({
+          line: Type.Unsafe({ $ref: 'StrictMissing#' }),
+        }),
+      ],
+      [
+        /body\.part refers to a part of a schema/,
+        Type.Object({
+          part: Type.Unsafe({ $ref: '#/properties/other' }),
+        }),
+      ],
+      [/body\.when has the type date/, Type.Object({ when: Type.Unsafe({ type: 'date' }) })],
+      [
+        /body\.list\[\]\.n uses oneOf/,
+        Type.Object({
+          list: Type.Array(Type.Object({ n: Type.Unsafe({ oneOf: [{ type: 'integer' }] }) })),
+        }),
+      ],
+    ];
+    for (const [reason, body] of cases) {
+      await expect(starting(body), String(reason)).rejects.toThrow(reason);
+    }
+    await expect(
+      starting(Type.Object({ n: Type.Union([Type.Null(), Type.Integer()]) })),
+    ).rejects.toThrow(/POST \/strict-refused: the types of its body cannot be checked/);
+  });
+
+  it('refuses a schema that contains itself', async () => {
+    const Node = Type.Object(
+      { next: Type.Optional(Type.Unsafe({ $ref: 'StrictNode#' })) },
+      { $id: 'StrictNode' },
+    );
+    await expect(starting(Type.Unsafe({ $ref: 'StrictNode#' }), Node)).rejects.toThrow(
+      /refers back to StrictNode/,
+    );
+  });
+});
+
+describe('the two walks', () => {
   const none = () => undefined;
 
-  it('follows a schema that is too deep or unknown no further, and reports nothing', () => {
+  it('follow what a body schema is made of', () => {
+    const schema = {
+      type: 'object',
+      properties: { n: { type: ['integer', 'null'] }, list: { type: 'array', items: Line } },
+    };
+    expect(notFollowable(schema, none)).toBeNull();
+    expect(wrongType(schema, { n: null, list: [{ amount: 1 }] }, none)).toBeNull();
+    expect(wrongType(schema, { n: '1' }, none)).toBe('body.n');
+    // Its own fields only: every object has a `toString`, and one that was not sent is not looked at.
+    const named = { type: 'object', properties: { toString: { type: 'string' } } };
+    expect(wrongType(named, {}, none)).toBeNull();
+    expect(wrongType(named, { toString: 5 }, none)).toBe('body.toString');
+    expect(wrongType(schema, { list: [{ amount: 1 }, { amount: '1' }] }, none)).toBe(
+      'body.list.1.amount',
+    );
+  });
+
+  it('report a schema that is none at all', () => {
+    expect(notFollowable(undefined, none)).toBe('body is not a schema');
+    expect(notFollowable({ properties: { a: {} } }, none)).toBe(
+      'body has properties or items and no type',
+    );
     expect(wrongType(undefined, 5, none)).toBeNull();
-    expect(wrongType({ $ref: 'Missing#' }, 5, none)).toBeNull();
-    expect(wrongType({ type: 'made-up' }, 5, none)).toBeNull();
-    const loop: Record<string, unknown> = { type: 'object' };
-    loop.properties = { next: loop };
-    const nested: Record<string, unknown> = {};
-    let cursor = nested;
-    for (let depth = 0; depth < 40; depth++) {
-      cursor.next = {};
-      cursor = cursor.next as Record<string, unknown>;
-    }
-    expect(wrongType(loop, nested, none)).toBeNull();
   });
 });
