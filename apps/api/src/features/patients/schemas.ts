@@ -97,8 +97,11 @@ export const PatientUpdate = Type.Object(
     dob: Type.Optional(IsoDate),
     gender: Type.Optional(Gender),
     phone: Type.Optional(Phone),
-    email: Type.Optional(Type.Union([Type.String({ maxLength: 254 }), Type.Null()])),
-    address: Type.Optional(Type.Union([Type.String({ maxLength: 500 }), Type.Null()])),
+    // Text or null (which removes it), as one schema with both types: see core/http/strict-body.
+    email: Type.Optional(Type.Unsafe<string | null>({ type: ['string', 'null'], maxLength: 254 })),
+    address: Type.Optional(
+      Type.Unsafe<string | null>({ type: ['string', 'null'], maxLength: 500 }),
+    ),
     contactConsent: Type.Optional(ConsentDecision),
   },
   {
