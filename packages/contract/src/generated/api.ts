@@ -759,6 +759,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/drugs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The medicines and consumables of the active tenant, by generic name then brand. Every word of `q` must be in the generic name or the brand, in any order. A catalog can hold tens of thousands of items: there is no unpaged form, and `total` comes with the first page only. It reads data only. What is searched for travels in the body, never in a query string: the same search is made from prescribing, ordering and billing screens while a patient record is open, and a search term beside a patient id in an access log is patient data. The API does not log the body. */
+        post: operations["searchDrugs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drugs/duplicate-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Finds items of the hospital, archived or not, that may be the one about to be added: the same generic name in the same form, whatever the brand or the strength, whatever the capitals. At most ten, by brand. It reads data only. */
+        post: operations["checkDrugDuplicates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drugs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds an item. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. An optional field (brand, strength, unit) is left out when there is none. Audited. */
+        post: operations["createDrug"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drugs/{drugId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One item. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        get: operations["getDrug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes an item. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. Empty text removes a brand, a strength or a unit, and a null reorder level removes the level. Sending what the item already has changes nothing. Every change is audited with who made it, and the event names the fields that changed; a change of `schedule` or `controlled` is audited as `reclassify`, so taking an item out of a controlled schedule leaves its own trace. Records that name an item keep what it was: a dispense, a stock entry and a prescription line store the generic name, brand, form, strength, schedule and controlled flag as they were when the line was written, so renaming or reclassifying an item never changes history. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        patch: operations["updateDrug"];
+        trace?: never;
+    };
+    "/drugs/{drugId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives an item: it stays on the stock, prescriptions and bills that name it and is no longer offered for new ones. Doing it twice changes nothing. Audited. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        post: operations["archiveDrug"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drugs/{drugId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived item back. Doing it twice changes nothing. Audited. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
+        post: operations["restoreDrug"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -855,92 +958,6 @@ export interface paths {
         put?: never;
         /** @description Archives a notice so it no longer appears in the list. Requires notice:manage. */
         post: operations["archiveNotice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/drugs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Adds an item. Requires drug:manage. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. An optional field (brand, strength, unit) is left out when there is none. Audited. */
-        post: operations["createDrug"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/drugs/duplicate-check": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Finds items of the hospital, archived or not, that may be the one about to be added: the same generic name in the same form, whatever the brand or the strength. Requires drug:manage. At most ten, the closest first. */
-        post: operations["checkDrugDuplicates"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/drugs/{drugId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description One item. Requires drug:read. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
-        get: operations["getDrug"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** @description Changes an item. Requires drug:manage. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. Empty text removes a brand, a strength or a unit, and a null reorder level removes the level. Every change is audited with who made it and which fields changed, and a change of `schedule` or `controlled` in particular: taking an item out of a controlled schedule must leave a trace. Records that name an item keep what it was: a dispense, a stock entry and a prescription line store the generic name, brand, form, strength, schedule and controlled flag as they were when the line was written, so renaming or reclassifying an item never changes history. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. */
-        patch: operations["updateDrug"];
-        trace?: never;
-    };
-    "/drugs/{drugId}/archive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Archives an item: it stays on the stock, prescriptions and bills that name it and is no longer offered for new ones. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. Audited. */
-        post: operations["archiveDrug"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/drugs/{drugId}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Brings an archived item back. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. Audited. */
-        post: operations["restoreDrug"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1389,23 +1406,6 @@ export interface paths {
         put?: never;
         /** @description Diagnosis and procedure codes, searched on the server: the code sets are large and are never sent whole or bundled into the web app. Requires code:read and the codes feature flag. It reads data only. The search term travels in the body, never in a query string: it is free text typed while a patient's record may be open, and a diagnosis term beside a patient id in an access log is patient data. The API does not log the body. The codes themselves are the same for every hospital; `favourite` is the active tenant's own mark, taken from the session, never from the client. `q` is words in any order: each matches the start of the code (with or without its dot) or the start of a word of the title. The hospital's favourites come first, then the codes in order. `favourites: true` gives the favourites only, which is what a search box shows before anything is typed. `total` comes with the first page only. The response is the active tenant's view (favourite marks and ordering) and is private to the session: `Cache-Control: private, no-store`, never cached at the CDN or in a server cache keyed without the tenant. The code rows may be cached on the server; the join with the favourites may not. The favourites table carries the tenant and row-level security; the code table is shared and read-only to hospitals. */
         post: operations["searchCodes"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/drugs/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description The medicines and consumables of the active tenant, by generic name then brand. Requires drug:read and the drugs feature flag. `q` matches the generic name or the brand, each word in any order. A catalog can hold tens of thousands of items: there is no unpaged form, and `total` comes with the first page only. It reads data only. What is searched for travels in the body, never in a query string: the same search is made from prescribing, ordering and billing screens while a patient record is open, and a search term beside a patient id in an access log is patient data. The API does not log the body. */
-        post: operations["searchDrugs"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1949,39 +1949,6 @@ export interface components {
         PriceListList: {
             items: components["schemas"]["PriceList"][];
         };
-        Notice: {
-            id: string;
-            tenantId: string;
-            title: string;
-            body: string;
-            /**
-             * Format: date-time
-             * @description ISO datetime (UTC)
-             */
-            createdAt: string;
-            archived: boolean;
-        };
-        /** @description Cursor envelope used by every list endpoint. */
-        NoticePage: {
-            items: components["schemas"]["Notice"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        AccountSession: {
-            id: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            lastSeenAt: string;
-            /** @description The browser as it described itself at sign-in, for the person to recognise the device. */
-            userAgent: string | null;
-            /** @description True for the session making this call. */
-            current: boolean;
-        };
-        AccountSessionList: {
-            items: components["schemas"]["AccountSession"][];
-            nextCursor: string | null;
-        };
         /** @description A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data. */
         Drug: {
             id: string;
@@ -2045,8 +2012,8 @@ export interface components {
             controlled?: boolean;
             /** @enum {string} */
             taxClass: "exempt" | "reduced" | "standard" | "higher";
-            /** @description Stock at or below this many units is low. Absent: no level set. */
-            reorderLevel?: number;
+            /** @description Stock at or below this many units is low. Absent or null: no level. */
+            reorderLevel?: number | null;
         };
         DrugUpdate: {
             /**
@@ -2076,6 +2043,23 @@ export interface components {
             reorderLevel?: number | null;
             expectedVersion: number;
         };
+        DrugSearchRequest: {
+            /** @description Opaque. Pass the nextCursor of the previous page. */
+            cursor?: string;
+            /** @description Absent: 25. */
+            limit?: number;
+            q?: string;
+            /** @enum {string} */
+            type?: "medicine" | "consumable";
+            /** @enum {string} */
+            form?: "tablet" | "capsule" | "syrup" | "suspension" | "injection" | "infusion" | "cream" | "ointment" | "drops" | "inhaler" | "powder" | "device" | "other";
+            /** @enum {string} */
+            schedule?: "none" | "h" | "h1" | "x" | "g" | "narcotic";
+            /** @description True lists only controlled drugs. */
+            controlled?: boolean;
+            /** @description True lists the archived items instead of the active ones. Absent: false. */
+            archived?: boolean;
+        };
         DrugDuplicateQuery: {
             /** @description The generic name of a medicine, or what a consumable is. */
             genericName: string;
@@ -2084,6 +2068,39 @@ export interface components {
         };
         DrugDuplicateMatches: {
             items: components["schemas"]["Drug"][];
+        };
+        Notice: {
+            id: string;
+            tenantId: string;
+            title: string;
+            body: string;
+            /**
+             * Format: date-time
+             * @description ISO datetime (UTC)
+             */
+            createdAt: string;
+            archived: boolean;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        NoticePage: {
+            items: components["schemas"]["Notice"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        AccountSession: {
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastSeenAt: string;
+            /** @description The browser as it described itself at sign-in, for the person to recognise the device. */
+            userAgent: string | null;
+            /** @description True for the session making this call. */
+            current: boolean;
+        };
+        AccountSessionList: {
+            items: components["schemas"]["AccountSession"][];
+            nextCursor: string | null;
         };
         LabTestComponent: {
             id: string;
@@ -2397,22 +2414,6 @@ export interface components {
             cursor?: string;
             /** @description Absent: 25. */
             limit?: number;
-        };
-        DrugSearchRequest: {
-            cursor?: string;
-            /** @description Absent: 25. */
-            limit?: number;
-            q?: string;
-            /** @enum {string} */
-            type?: "medicine" | "consumable";
-            /** @enum {string} */
-            form?: "tablet" | "capsule" | "syrup" | "suspension" | "injection" | "infusion" | "cream" | "ointment" | "drops" | "inhaler" | "powder" | "device" | "other";
-            /** @enum {string} */
-            schedule?: "none" | "h" | "h1" | "x" | "g" | "narcotic";
-            /** @description True lists only controlled drugs. */
-            controlled?: boolean;
-            /** @description Absent: false. */
-            archived?: boolean;
         };
         LabTestSearchRequest: {
             cursor?: string;
@@ -5809,6 +5810,506 @@ export interface operations {
             };
         };
     };
+    searchDrugs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrugSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrugPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkDrugDuplicates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrugDuplicateQuery"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrugDuplicateMatches"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createDrug: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrugCreate"];
+            };
+        };
+        responses: {
+            /** @description A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drug"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDrug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drugId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drug"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateDrug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drugId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrugUpdate"];
+            };
+        };
+        responses: {
+            /** @description A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drug"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    archiveDrug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drugId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drug"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restoreDrug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drugId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drug"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     changePassword: {
         parameters: {
             query?: never;
@@ -5962,180 +6463,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Notice"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createDrug: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A repeat with the same key and request returns the first answer. */
-                "Idempotency-Key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DrugCreate"];
-            };
-        };
-        responses: {
-            /** @description The new item */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Drug"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    checkDrugDuplicates: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DrugDuplicateQuery"];
-            };
-        };
-        responses: {
-            /** @description Possible duplicates */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DrugDuplicateMatches"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getDrug: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                drugId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The item */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Drug"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    updateDrug: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                drugId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DrugUpdate"];
-            };
-        };
-        responses: {
-            /** @description The item as saved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Drug"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    archiveDrug: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                drugId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The item */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Drug"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    restoreDrug: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                drugId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The item */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Drug"];
                 };
             };
             401: components["responses"]["Error"];
@@ -7091,35 +7418,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CodePage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    searchDrugs: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DrugSearchRequest"];
-            };
-        };
-        responses: {
-            /** @description One page of items */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DrugPage"];
                 };
             };
             400: components["responses"]["Error"];

@@ -109,6 +109,44 @@ const SAMPLE_SERVICES: readonly [string, string, string, number][] = [
   ['package', 'PKG', 'Normal delivery package', 4500000],
 ];
 
+/**
+ * Medicines: [generic name, schedule]. Each is added in two strengths as a tablet, with a brand
+ * made up from its name. Synthetic: not a formulary.
+ */
+const SAMPLE_MEDICINES: readonly [string, string][] = [
+  ['Aceclofenac', 'h'],
+  ['Alprazolam', 'x'],
+  ['Amlodipine', 'h'],
+  ['Amoxicillin', 'h'],
+  ['Atorvastatin', 'h'],
+  ['Azithromycin', 'h'],
+  ['Cefixime', 'h1'],
+  ['Cetirizine', 'none'],
+  ['Ciprofloxacin', 'h'],
+  ['Diclofenac', 'h'],
+  ['Glimepiride', 'g'],
+  ['Ibuprofen', 'none'],
+  ['Levofloxacin', 'h1'],
+  ['Losartan', 'h'],
+  ['Metformin', 'g'],
+  ['Morphine', 'narcotic'],
+  ['Omeprazole', 'h'],
+  ['Pantoprazole', 'h'],
+  ['Paracetamol', 'none'],
+  ['Tramadol', 'h1'],
+];
+
+const SAMPLE_CONSUMABLES = [
+  'Cotton roll',
+  'Examination gloves',
+  'Gauze swab',
+  'IV cannula 20G',
+  'IV set',
+  'Surgical mask',
+  'Syringe 2 ml',
+  'Syringe 5 ml',
+];
+
 const HOSPITALS = [
   {
     slug: 'sample-hospital',
@@ -123,6 +161,7 @@ const HOSPITALS = [
       doctors: true,
       staff: true,
       services: true,
+      drugs: true,
       appointments: true,
       clinical: true,
       laboratory: true,
@@ -146,6 +185,7 @@ const HOSPITALS = [
       doctors: true,
       staff: true,
       services: true,
+      drugs: true,
       appointments: true,
       clinical: true,
       laboratory: false,
@@ -307,6 +347,38 @@ try {
                    ($4::bigint, date '2025-04-01', null)) as p (amount, starts, ends)
          where l.tenant_id = $1 and l.standard`,
         [tenantId, serviceId, Math.round(amount * 0.9), amount],
+      );
+    }
+  }
+
+  // Medicines and consumables. Only items the hospital does not have yet, so running again adds
+  // nothing.
+  for (const hospital of HOSPITALS) {
+    const tenantId = tenantIds.get(hospital.slug);
+    for (const [genericName, schedule] of SAMPLE_MEDICINES) {
+      for (const strength of ['250 mg', '500 mg']) {
+        await client.query(
+          `insert into drugs (tenant_id, type, generic_name, brand_name, form, strength, unit,
+             schedule, controlled, tax_class, reorder_level)
+           values ($1, 'medicine', $2, $3, 'tablet', $4, 'strip of 10', $5, $6, 'reduced', 50)
+           on conflict on constraint drugs_exists do nothing`,
+          [
+            tenantId,
+            genericName,
+            `${genericName.slice(0, 4)}care`,
+            strength,
+            schedule,
+            schedule === 'x' || schedule === 'narcotic',
+          ],
+        );
+      }
+    }
+    for (const genericName of SAMPLE_CONSUMABLES) {
+      await client.query(
+        `insert into drugs (tenant_id, type, generic_name, form, unit, schedule, tax_class)
+         values ($1, 'consumable', $2, 'device', 'piece', 'none', 'standard')
+         on conflict on constraint drugs_exists do nothing`,
+        [tenantId, genericName],
       );
     }
   }
