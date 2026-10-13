@@ -312,7 +312,7 @@ const SAMPLE_CODE_FILES = [
 ] as const;
 const SAMPLE_FAVOURITE_CODES = ['I10', 'E11.9', 'J06.9', 'PR-0003'];
 
-/** Blank forms, one or two of each kind, with the placeholders their kind knows. */
+/** Blank forms, one of each kind, with the placeholders their kind knows. */
 const SAMPLE_TEMPLATES = [
   {
     kind: 'prescription',

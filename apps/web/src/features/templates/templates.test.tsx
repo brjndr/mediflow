@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { http } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
-import { saveMockTemplateVersion } from '@/mocks/handlers/templates';
+import { redactMockTemplateVersion, saveMockTemplateVersion } from '@/mocks/handlers/templates';
 import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
 import type { RichTextDocument } from '@/shared/ui/rich-text';
@@ -500,6 +500,65 @@ describe('redacting a version', () => {
       redactedByName: 'Sample Admin',
       redactionReason: 'patient_data',
     });
+  });
+
+  it('keeps the form and says so when the server refuses, and starts afresh when it is cancelled', async () => {
+    await openTemplate(DISCHARGE);
+    server.use(
+      http.post('*/api/templates/:templateId/versions/:version/redact', () =>
+        Response.json(
+          { error: { code: 'template_version_current', message: 'x' } },
+          { status: 409 },
+        ),
+      ),
+    );
+    await userEvent.click(button('Redact: Version 1'));
+    const form = within(await screen.findByRole('region', { name: 'Redact Version 1' }));
+    // Focus is on the form that opened below the list.
+    expect(screen.getByRole('heading', { name: 'Redact Version 1' })).toHaveFocus();
+    await userEvent.selectOptions(
+      form.getByRole('combobox', { name: /^Reason/ }),
+      'Another reason',
+    );
+    await userEvent.click(form.getByRole('button', { name: 'Remove the name and the text' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /The newest version is the template as it is used/,
+    );
+    expect(screen.getByRole('region', { name: 'Redact Version 1' })).toBeInTheDocument();
+    await userEvent.click(form.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('region', { name: 'Redact Version 1' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Versions' })).toHaveFocus();
+  });
+
+  it('stops showing what was read of a version once the list says someone else redacted it', async () => {
+    const { queryClient } = await openTemplate(DISCHARGE);
+    await userEvent.click(button('View: Version 1'));
+    const shown = within(await screen.findByRole('region', { name: 'Version 1, as it was saved' }));
+    expect(await shown.findByText('Patient: {{patient.name}}')).toBeInTheDocument();
+
+    // Another member of staff redacts it; this screen learns of it when the template is read again.
+    redactMockTemplateVersion(DISCHARGE, 1);
+    await queryClient.invalidateQueries({
+      queryKey: templateKeys.detail(TENANT_IDS.hospital, DISCHARGE),
+      exact: true,
+    });
+    expect(await shown.findByText(/were removed on/)).toBeInTheDocument();
+    expect(shown.queryByText('Patient: {{patient.name}}')).not.toBeInTheDocument();
+  });
+
+  it('says when a template has as many versions as one can have', async () => {
+    await openTemplate();
+    server.use(
+      http.put('*/api/templates/:templateId', () =>
+        Response.json({ error: { code: 'template_version_limit', message: 'x' } }, { status: 409 }),
+      ),
+    );
+    await userEvent.click(button('Edit as a new version'));
+    await typeName('Another name');
+    await userEvent.click(button('Save as a new version'));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/as many versions as one can have/);
   });
 
   it('needs its own permission: keeping the templates is not enough', async () => {

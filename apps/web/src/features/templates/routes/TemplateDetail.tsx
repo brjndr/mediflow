@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Can } from '@/access';
@@ -110,6 +110,23 @@ function EditForm({
 }
 
 /**
+ * The heading of a panel that opens below the list of versions, which can be long. Focus moves
+ * to it when it opens, so the panel is brought into view and announced.
+ */
+function PanelHeading({ id, children }: { id: string; children: string }) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus();
+    heading.current?.scrollIntoView?.({ block: 'nearest' });
+  }, []);
+  return (
+    <h3 id={id} ref={heading} tabIndex={-1} className="text-base font-semibold outline-none">
+      {children}
+    </h3>
+  );
+}
+
+/**
  * Asks why, and says what it does, before the name and the text of a version are removed. A
  * reason is chosen from a list: free text here could repeat what is being removed.
  */
@@ -131,9 +148,9 @@ function RedactForm({
       aria-labelledby="template-version-redact"
       className="flex flex-col gap-3 rounded-lg border border-destructive/50 p-4"
     >
-      <h3 id="template-version-redact" className="text-base font-semibold">
+      <PanelHeading id="template-version-redact">
         {t('versions.redactHeading', { version: t('versionNumber', { version }) })}
-      </h3>
+      </PanelHeading>
       <p className="text-sm text-muted-foreground">{t('versions.redactWarning')}</p>
       <Form
         form={form}
@@ -168,17 +185,31 @@ function Versions({
   detail,
   pending,
   onRedact,
+  onReset,
 }: {
   detail: Detail;
   pending: boolean;
   /** Answers whether the version was redacted. */
   onRedact: (version: number, reason: RedactionReason) => Promise<boolean>;
+  /** Clears what the last change said: a panel opened or closed starts afresh. */
+  onReset: () => void;
 }) {
   const { t } = useTranslation('templates');
   const format = useFormatters();
   const [viewing, setViewing] = useState<number | null>(null);
   const [redacting, setRedacting] = useState<number | null>(null);
-  const version = useTemplateVersion(detail.template.id, viewing);
+  // What the list says of the version shown: once it says redacted, what was read before is not shown.
+  const viewedRedactedAt =
+    detail.versions.find((row) => row.version === viewing)?.redactedAt ?? null;
+  const version = useTemplateVersion(detail.template.id, viewing, viewedRedactedAt);
+  // Where focus goes back to when a panel closes: its own button may be gone or disabled.
+  const heading = useRef<HTMLHeadingElement>(null);
+  const close = () => {
+    onReset();
+    setViewing(null);
+    setRedacting(null);
+    heading.current?.focus();
+  };
 
   const columns = useMemo<GridColumn<TemplateVersionInfo>[]>(
     () => [
@@ -207,6 +238,7 @@ function Versions({
       id: 'view',
       label: t('versions.view'),
       onSelect: (row) => {
+        onReset();
         setRedacting(null);
         setViewing(row.version);
       },
@@ -218,6 +250,7 @@ function Versions({
       // The newest version is the template as it is used, and a version is redacted once.
       disabled: (row) => row.version === detail.template.version || Boolean(row.redactedAt),
       onSelect: (row) => {
+        onReset();
         setViewing(null);
         setRedacting(row.version);
       },
@@ -227,10 +260,18 @@ function Versions({
   return (
     <section aria-labelledby="template-versions" className="flex flex-col gap-3">
       <div className="space-y-1">
-        <h2 id="template-versions" className="text-lg font-semibold">
+        <h2
+          id="template-versions"
+          ref={heading}
+          tabIndex={-1}
+          className="text-lg font-semibold outline-none"
+        >
           {t('versions.heading')}
         </h2>
         <p className="text-sm text-muted-foreground">{t('versions.description')}</p>
+        <Can permission="template:redact">
+          <p className="text-sm text-muted-foreground">{t('versions.redactHint')}</p>
+        </Can>
       </div>
       <DataGrid
         label={t('versions.gridLabel')}
@@ -249,10 +290,12 @@ function Versions({
           pending={pending}
           onRedact={(reason) =>
             void onRedact(redacting, reason).then((done) => {
-              if (done) setRedacting(null);
+              if (!done) return;
+              setRedacting(null);
+              heading.current?.focus();
             })
           }
-          onCancel={() => setRedacting(null)}
+          onCancel={close}
         />
       )}
       {viewing !== null && (
@@ -260,16 +303,21 @@ function Versions({
           aria-labelledby="template-version-shown"
           className="flex flex-col gap-3 rounded-lg border p-4"
         >
-          <h3 id="template-version-shown" className="text-base font-semibold">
+          <PanelHeading key={viewing} id="template-version-shown">
             {t('versions.viewing', { version: t('versionNumber', { version: viewing }) })}
-          </h3>
+          </PanelHeading>
           {version.data?.redactedAt ? (
             <p className="text-sm text-muted-foreground">
-              {t('versions.redactedNote', {
-                date: format.dateTime(version.data.redactedAt),
-                name: version.data.redactedByName ?? '',
-                reason: t(`versions.reasons.${version.data.redactionReason ?? 'other'}`),
-              })}
+              {t(
+                version.data.redactedByName
+                  ? 'versions.redactedNote'
+                  : 'versions.redactedNoteNoName',
+                {
+                  date: format.dateTime(version.data.redactedAt),
+                  name: version.data.redactedByName ?? '',
+                  reason: t(`versions.reasons.${version.data.redactionReason ?? 'other'}`),
+                },
+              )}
             </p>
           ) : version.data ? (
             <>
@@ -285,7 +333,7 @@ function Versions({
               {t('versions.loading')}
             </p>
           )}
-          <Button variant="outline" className="self-start" onClick={() => setViewing(null)}>
+          <Button variant="outline" className="self-start" onClick={close}>
             {t('versions.close')}
           </Button>
         </section>
@@ -322,7 +370,12 @@ function Loaded({ detail }: { detail: Detail }) {
     try {
       const saved = await save.mutateAsync({ save: change });
       setEditing(null);
-      setDone(t('detail.saved', { version: saved.template.version }));
+      // The server tidies a name: one that differs only in its spaces is the same name.
+      setDone(
+        saved.template.version === change.expectedVersion
+          ? t('detail.unchanged')
+          : t('detail.saved', { version: saved.template.version }),
+      );
       return false;
     } catch (error) {
       // Shown from the mutation state below. The form stays, with what was typed.
@@ -388,7 +441,9 @@ function Loaded({ detail }: { detail: Detail }) {
                 ? t('detail.archivedMeanwhile')
                 : code === 'template_version_current'
                   ? t('versions.redactCurrent')
-                  : tCommon(errorMessageKey(save.error))}
+                  : code === 'template_version_limit'
+                    ? t('detail.versionLimit')
+                    : tCommon(errorMessageKey(save.error))}
         </p>
       )}
       <p role="status" className="text-sm text-muted-foreground">
@@ -428,7 +483,15 @@ function Loaded({ detail }: { detail: Detail }) {
               </div>
             </Can>
           </section>
-          <Versions detail={detail} pending={save.isPending} onRedact={onRedact} />
+          <Versions
+            detail={detail}
+            pending={save.isPending}
+            onRedact={onRedact}
+            onReset={() => {
+              save.reset();
+              setDone(null);
+            }}
+          />
         </>
       )}
     </div>

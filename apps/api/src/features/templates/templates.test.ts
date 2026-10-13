@@ -201,7 +201,12 @@ describe('adding a template', () => {
     });
     expect(await auditOf(detail.template.id)).toEqual(['create']);
     expect(await eventsOf(detail.template.id)).toEqual([{ kind: 'template', change: 'created' }]);
-    expect((await read(detail.template.id)).json()).toEqual(detail);
+    const again = await read(detail.template.id);
+    expect(again.json()).toEqual(detail);
+    // A template's text is kept by no cache: a copy there is one no redaction reaches.
+    for (const answer of [response, again, await list(), await version(detail.template.id, 1)]) {
+      expect(answer.headers['cache-control']).toBe('private, no-store');
+    }
   });
 
   it('keeps of the text only what a document may hold', async () => {
@@ -321,15 +326,47 @@ describe('adding a template', () => {
       'select response_body from idempotency_keys where tenant_id = $1 and key = $2',
       [hospital.id, key],
     );
-    expect(stored.rows).toEqual([{ response_body: null }]);
+    // Of the answer, the id of the template and nothing else: no name and no text.
+    expect(stored.rows).toEqual([{ response_body: { id } }]);
     // The same key with another request is refused.
     expect(errorOf(await add({ ...body, name: 'Another' }, { key }))).toEqual([
       422,
       'idempotency_key_reuse',
     ]);
-    // A repeat is answered with the template as it is now.
-    await save(id, { body: doc('Complaints', 'Examination', 'Plan'), expectedVersion: 1 });
-    expect((await add(body, { key })).json<Detail>().template.version).toBe(2);
+    // A repeat is answered with the template as it is now: found by its id, so also once it
+    // has another name, another template has the name it was added with, and it is archived.
+    await save(id, { name: 'Asked twice, renamed', expectedVersion: 1 });
+    const other = await added('Asked twice', { kind: 'clinical_note' });
+    await archive(id);
+    const later = await add(body, { key });
+    expect(later.statusCode).toBe(201);
+    expect(later.json<Detail>().template).toMatchObject({
+      id,
+      name: 'Asked twice, renamed',
+      version: 2,
+      archived: true,
+    });
+    expect(other.template.id).not.toBe(id);
+  });
+
+  it('refuses a text nested too deep to be written out again, with or without a key', async () => {
+    // Written as text: a document this deep cannot be written out by the test either.
+    const levels = 30_000;
+    const payload =
+      '{"kind":"prescription","name":"Too deep","body":{"type":"doc","content":[' +
+      '{"type":"paragraph","content":['.repeat(levels) +
+      '{"type":"text","text":"x"}' +
+      ']}'.repeat(levels) +
+      ']}}';
+    const send = (key?: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/templates',
+        headers: { ...headers({ key }), 'content-type': 'application/json' },
+        payload,
+      });
+    expect(errorOf(await send(`tpl-${randomUUID()}`))).toEqual([400, 'validation_failed']);
+    expect(errorOf(await send())).toEqual([400, 'validation_failed']);
   });
 });
 
@@ -372,6 +409,11 @@ describe('saving a version', () => {
       { kind: 'template', change: 'updated', fields: ['name'], version: 3 },
     ]);
     expect(errorOf(await version(template.id, 4))).toEqual([404, 'template_version_not_found']);
+    expect(errorOf(await version(template.id, 2_147_483_647))).toEqual([
+      404,
+      'template_version_not_found',
+    ]);
+    expect((await version(template.id, 2_147_483_648)).statusCode).toBe(400);
     expect((await version(template.id, 0)).statusCode).toBe(400);
     expect((await version(template.id, 'one')).statusCode).toBe(400);
   });
@@ -389,6 +431,79 @@ describe('saving a version', () => {
       1,
     );
     expect(await auditOf(template.id)).toEqual(['create']);
+  });
+
+  it('knows the same text however the database gives it back', async () => {
+    // Every kind of node, with its keys in the order the app writes them, which is not the
+    // order a stored document comes back in.
+    const rich = {
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: 'Advice' }] },
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Plan' }] },
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Take ', marks: [{ type: 'bold' }, { type: 'italic' }] },
+            { type: 'hardBreak' },
+            { type: 'text', text: '{{patient.name}}' },
+          ],
+        },
+        {
+          type: 'bulletList',
+          content: [
+            {
+              type: 'listItem',
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Rest' }] }],
+            },
+          ],
+        },
+        { type: 'paragraph' },
+      ],
+    };
+    const { template, body } = await added('Rich text', { body: rich });
+    expect(body).toEqual(rich);
+    const same = await save(template.id, { body: rich, expectedVersion: 1 });
+    expect(same.json<Detail>().template.version).toBe(1);
+    // One mark fewer is another text.
+    const changed = JSON.parse(
+      JSON.stringify(rich).replace(',{"type":"italic"}', ''),
+    ) as typeof rich;
+    expect(changed).not.toEqual(rich);
+    expect(
+      (await save(template.id, { body: changed, expectedVersion: 1 })).json<Detail>().template
+        .version,
+    ).toBe(2);
+  });
+
+  it('keeps the last of its 500 versions for whoever may redact, so a correction is always possible', async () => {
+    const { template } = await added('Many versions');
+    // 498 more versions, written as the owner: each is the next number, then the template's.
+    await pool.query(
+      `do $$
+       declare n integer;
+       begin
+         for n in 2..499 loop
+           insert into template_versions (tenant_id, template_id, version, name, body, saved_at, saved_by)
+             values ('${hospital.id}', '${template.id}', n, 'Many versions', '{"type": "doc", "content": []}', now(), '${admin.id}');
+           update templates set version = n, saved_at = now() where id = '${template.id}';
+         end loop;
+       end $$`,
+    );
+    const last = { body: doc('Typed by mistake'), expectedVersion: 499 };
+    expect(errorOf(await save(template.id, last, { user: editor }))).toEqual([
+      409,
+      'template_version_limit',
+    ]);
+    expect((await save(template.id, last)).json<Detail>().template.version).toBe(500);
+    expect(errorOf(await save(template.id, { body: doc('More'), expectedVersion: 500 }))).toEqual([
+      409,
+      'template_version_limit',
+    ]);
+    // What the one before it held can still be removed.
+    expect((await redact(template.id, 499)).statusCode).toBe(200);
+    expect((await read(template.id)).json<Detail>().versions).toHaveLength(500);
+    expect(errorOf(await version(template.id, 501))).toEqual([404, 'template_version_not_found']);
   });
 
   it('refuses a save made from a version that is no longer the newest, and of two at once lets one through', async () => {
@@ -734,6 +849,29 @@ describe('the database', () => {
         template.id,
       ]),
     ).rejects.toThrow(/never changed/);
+
+    // A template is added as its version 1, and a redaction is dated by the database.
+    await expect(
+      asTenantSql(pool, hospital.id, (client) =>
+        client.query(
+          "insert into templates (tenant_id, kind, name, version) values (app_tenant_id(), 'consent', 'Planted at seven', 7)",
+        ),
+      ),
+    ).rejects.toThrow(/added as its version 1/);
+    const backdated = await asTenantSql(pool, hospital.id, async (client) => {
+      await client.query(
+        `update template_versions set name = '', body = '{"type": "doc", "content": []}',
+           redacted_at = '2001-01-01', redacted_by = $2, redaction_reason = 'other'
+         where template_id = $1 and version = 1`,
+        [template.id, admin.id],
+      );
+      const { rows } = await client.query<{ recent: boolean }>(
+        "select redacted_at > now() - interval '1 hour' as recent from template_versions where template_id = $1 and version = 1",
+        [template.id],
+      );
+      return rows[0]?.recent;
+    });
+    expect(backdated).toBe(true);
 
     await redact(template.id, 1);
     await expect(

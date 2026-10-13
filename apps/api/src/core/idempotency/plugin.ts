@@ -31,6 +31,14 @@ declare module 'fastify' {
      * work. A handler of such a route checks it first and answers without doing the work again.
      */
     replayOf: number | null;
+    /**
+     * The id of the record the request made, on a route that keeps nothing else of its answer
+     * (`idempotent: { body: 'none' }`) and has no id in its path to find the record by. The
+     * handler sets it when it has done the work; on a repeat it is given back, beside
+     * `replayOf`, so the handler answers from that record and never from a name that may have
+     * changed since. Null when the handler set none.
+     */
+    idempotentId: string | null;
   }
   interface FastifyContextConfig {
     /** Makes a create or charge route accept an `Idempotency-Key` header. `true` means defaults. */
@@ -116,7 +124,8 @@ export const idempotencyStorePlugin = fp(
       const declared = request.routeOptions.config.idempotent;
       const keep = declared === undefined ? 'ids' : (settings(declared).body ?? 'ids');
       const sent = keep === 'none' ? null : sentJson(payload, reply.getHeader('content-type'));
-      const id = (sent as { id?: unknown } | null)?.id;
+      // Nothing of the answer is kept: only the id the handler named, when it named one.
+      const id = keep === 'none' ? request.idempotentId : (sent as { id?: unknown } | null)?.id;
       const stored = keep === 'full' ? sent : typeof id === 'string' ? { id } : null;
 
       await request.txClient.query(
@@ -151,6 +160,7 @@ export const idempotencyStorePlugin = fp(
 export const idempotencyPlugin = fp(
   async (app) => {
     app.decorateRequest('replayOf', null);
+    app.decorateRequest('idempotentId', null);
 
     app.addHook('onRoute', (route) => {
       if (!route.config?.idempotent) return;
@@ -187,7 +197,13 @@ export const idempotencyPlugin = fp(
       const userId = request.session?.userId;
       if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
 
-      const hash = requestHash(request);
+      let hash: string;
+      try {
+        hash = requestHash(request);
+      } catch {
+        // A body nested too deep to be written out again (tens of thousands of levels).
+        throw new HttpError(400, 'validation_failed', 'The request body is nested too deep');
+      }
 
       // A live key conflicts and returns nothing; an expired one is reclaimed.
       const claim = await request.txClient.query(
@@ -235,6 +251,8 @@ export const idempotencyPlugin = fp(
       if (settings(declared).body === 'none') {
         // Nothing was kept to answer with: the handler answers again, and does no work.
         request.replayOf = stored.response_status;
+        const kept = (stored.response_body as { id?: unknown } | null)?.id;
+        request.idempotentId = typeof kept === 'string' ? kept : null;
         void reply.header('idempotent-replayed', 'true');
         return;
       }

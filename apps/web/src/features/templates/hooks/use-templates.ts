@@ -21,8 +21,12 @@ import type { RedactionReason } from '../types';
 export const templateKeys = createTenantKeys('templates');
 
 /** One saved version of a template, under the template's own key. */
-export const templateVersionKey = (tenantId: string, templateId: string, version: number | null) =>
-  [...templateKeys.detail(tenantId, templateId), 'version', version] as const;
+export const templateVersionKey = (
+  tenantId: string,
+  templateId: string,
+  version: number | null,
+  redactedAt: string | null = null,
+) => [...templateKeys.detail(tenantId, templateId), 'version', version, redactedAt] as const;
 
 export const TEMPLATES_PAGE_SIZE = 25;
 /** Templates change rarely. */
@@ -52,16 +56,22 @@ export function useTemplate(templateId: string) {
 }
 
 /**
- * One version of a template, as it was saved. It never changes, so it is never asked twice,
- * unless it is redacted: every change to a template drops what was read of it.
+ * One version of a template, as it was saved. The only thing that ever happens to it is a
+ * redaction, which may be made by someone else: `redactedAt` is what the template's own list of
+ * versions says of it, and is part of the key, so that what was read of a version before it was
+ * redacted is not what is shown once the list says it is.
  */
-export function useTemplateVersion(templateId: string, version: number | null) {
+export function useTemplateVersion(
+  templateId: string,
+  version: number | null,
+  redactedAt: string | null,
+) {
   const tenantId = useTenant()?.id;
   return useQuery({
-    queryKey: templateVersionKey(tenantId ?? '', templateId, version),
+    queryKey: templateVersionKey(tenantId ?? '', templateId, version, redactedAt),
     queryFn: ({ signal }) => fetchTemplateVersion(templateId, version ?? 0, signal),
     enabled: tenantId !== undefined && version !== null,
-    staleTime: Infinity,
+    staleTime: STALE_TIME_MS,
   });
 }
 
@@ -111,17 +121,19 @@ export function useSaveTemplate(templateId: string) {
         : 'redact' in change
           ? redactTemplateVersion(templateId, change.redact.version, change.redact.reason)
           : setTemplateArchived(templateId, change.archived),
-    onSuccess: (saved) => {
+    onSuccess: (saved, change) => {
       // Nothing is written if the answer arrives after the session ended or moved to another
       // hospital: the cache it would go into is no longer this person's at this hospital.
       const session = queryClient.getQueryData<Session | null>(sessionKey);
       if (!tenantId || session?.activeTenant?.id !== tenantId) return;
       queryClient.setQueryData(templateKeys.detail(tenantId, templateId), saved);
-      // What was read of a version that is now redacted is dropped at once, not kept until the
-      // refresh below: its text is what was to be removed.
-      queryClient.removeQueries({
-        queryKey: [...templateKeys.detail(tenantId, templateId), 'version'],
-      });
+      // What was read of a version that is now redacted is dropped at once, not kept until it
+      // is collected: its text is what was to be removed.
+      if ('redact' in change) {
+        queryClient.removeQueries({
+          queryKey: [...templateKeys.detail(tenantId, templateId), 'version'],
+        });
+      }
     },
     // Also after a failure: a conflict means what is on screen is out of date.
     onSettled: refresh,

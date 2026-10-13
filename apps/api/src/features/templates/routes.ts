@@ -133,10 +133,17 @@ const OTHER_HOSPITAL =
 export const templateRoutes: FastifyPluginAsyncTypebox = async (app) => {
   for (const schema of TEMPLATE_SCHEMAS) app.addSchema(schema);
 
+  // A template's text is what a redaction may have to remove, so no answer of these routes is
+  // kept by a browser or anything between it and the API: a copy there is one no redaction reaches.
+  app.addHook('onSend', async (_request, reply) => {
+    void reply.header('cache-control', 'private, no-store');
+  });
+
   const Params = Type.Object({ templateId: Type.String({ maxLength: 64 }) });
   const VersionParams = Type.Object({
     templateId: Type.String({ maxLength: 64 }),
-    version: Type.Integer({ minimum: 1, maximum: VERSIONS_MAX }),
+    // Any number the database can hold: a version the template never had is a 404, not a 400.
+    version: Type.Integer({ minimum: 1, maximum: 2_147_483_647 }),
   });
 
   app.get(
@@ -188,9 +195,11 @@ export const templateRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const sent = request.body as TemplateCreate;
       const name = cleanName(sent.name);
       if (request.replayOf !== null) {
-        // The same request as before: the template it added, as it is now. Renamed since, it is
-        // no longer found by the name it was added with.
-        const added = await findByName(request.txClient, sent.kind, name);
+        // The same request as before: the template it added, as it is now, found by its id and
+        // never by its name, which may have changed since.
+        const added = request.idempotentId
+          ? await findTemplate(request.txClient, request.idempotentId)
+          : null;
         if (!added) throw notFound();
         return reply.status(201).send(await detail(request, added));
       }
@@ -208,6 +217,7 @@ export const templateRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (isNameTaken(error)) throw taken();
         throw error;
       }
+      request.idempotentId = id;
       request.audit('create', 'template', id);
       await request.emit('master.changed', id, { kind: 'template', change: 'created' });
       const template = await findTemplate(request.txClient, id);
@@ -245,7 +255,7 @@ export const templateRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'saveTemplateVersion',
         tags: ['templates'],
         description:
-          `Saves a new version of a template: the name, the text, or both. Requires template:manage and template:read. Versions are append-only: nothing saved is ever changed or removed, except by a redaction, and a document made from a template keeps the version it was made from. Send the version the change was made from: 409 conflict when a newer one has been saved since. Saving what the newest version already has makes no new version. An archived template is read-only: 409 template_archived until it is restored. A template has at most ${VERSIONS_MAX} versions (409 template_version_limit).` +
+          `Saves a new version of a template: the name, the text, or both. Requires template:manage and template:read. Versions are append-only: nothing saved is ever changed or removed, except by a redaction, and a document made from a template keeps the version it was made from. Send the version the change was made from: 409 conflict when a newer one has been saved since. Saving what the newest version already has makes no new version. An archived template is read-only: 409 template_archived until it is restored. A template has at most ${VERSIONS_MAX} versions (409 template_version_limit), the last of which only someone who holds template:redact may save, so that a correction is always possible.` +
           PLACEHOLDERS +
           ' Audited.' +
           OTHER_HOSPITAL,
@@ -283,7 +293,13 @@ export const templateRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (changed.length === 0) return detail(request, template);
       const other = await findByName(request.txClient, template.kind, name);
       if (other && other.id !== template.id) throw taken();
-      if (template.version >= VERSIONS_MAX) {
+      // The last version is kept for whoever may redact: what was typed by mistake into the one
+      // before it can then still be replaced, and so removed.
+      const policy = await request.access.policy();
+      const room = policy?.permissions.some((grant) => grant.permission === REDACT)
+        ? VERSIONS_MAX
+        : VERSIONS_MAX - 1;
+      if (template.version >= room) {
         throw new HttpError(409, 'template_version_limit', 'The template has too many versions');
       }
       try {
@@ -335,7 +351,7 @@ export const templateRoutes: FastifyPluginAsyncTypebox = async (app) => {
           ? {}
           : {
               redactedAt: row.redacted_at.toISOString(),
-              redactedByName: row.redacted_by_name ?? '',
+              ...(row.redacted_by_name === null ? {} : { redactedByName: row.redacted_by_name }),
               ...(row.redaction_reason === null ? {} : { redactionReason: row.redaction_reason }),
             }),
       };

@@ -160,7 +160,28 @@ export function saveMockTemplateVersion(id: string, lines: string[]): void {
   });
 }
 
+/** What another member of staff does meanwhile: redacts an older version. */
+export function redactMockTemplateVersion(id: string, version: number): void {
+  const saved = state.templates
+    .find((candidate) => candidate.id === id)
+    ?.versions.find((one) => one.version === version);
+  if (!saved) throw new Error(`Unknown mock template version: ${id} ${version}`);
+  saved.name = '';
+  saved.body = { type: 'doc', content: [] };
+  saved.redactedAt = new Date().toISOString();
+  saved.redactedByName = 'Someone Else';
+  saved.redactionReason = 'patient_data';
+}
+
 const invalid = () => error(400, 'validation_failed', 'The request is not valid');
+
+/** A change answers with the template, so it needs the permission to read one as well. */
+function authorizeChange(request: Request, permission: string) {
+  const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+  return 'denied' in access
+    ? access
+    : authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
+}
 const notFound = () => error(404, 'template_not_found', 'No such template');
 
 /** A template of another hospital does not exist as far as this session is concerned. */
@@ -259,7 +280,7 @@ export const templatesHandlers = [
   }),
 
   http.post('*/api/templates', async ({ request }) => {
-    const access = authorize(request, { permission: MANAGE, featureFlag: FEATURE_FLAG });
+    const access = authorizeChange(request, MANAGE);
     if ('denied' in access) return access.denied;
     const raw = await request.clone().text();
     // The same key with the same request is answered as before, and nothing is added again.
@@ -321,7 +342,7 @@ export const templatesHandlers = [
   }),
 
   http.put('*/api/templates/:templateId', async ({ request, params }) => {
-    const access = authorize(request, { permission: MANAGE, featureFlag: FEATURE_FLAG });
+    const access = authorizeChange(request, MANAGE);
     if ('denied' in access) return access.denied;
     const body = await readBody(request);
     if (!body || typeof body.expectedVersion !== 'number') return invalid();
@@ -352,7 +373,7 @@ export const templatesHandlers = [
   }),
 
   http.post('*/api/templates/:templateId/versions/:version/redact', async ({ request, params }) => {
-    const access = authorize(request, { permission: REDACT, featureFlag: FEATURE_FLAG });
+    const access = authorizeChange(request, REDACT);
     if ('denied' in access) return access.denied;
     const body = await readBody(request);
     const reason = REDACTION_REASONS.find((value) => value === body?.reason);
@@ -378,7 +399,7 @@ export const templatesHandlers = [
 
   ...(['archive', 'restore'] as const).map((action) =>
     http.post(`*/api/templates/:templateId/${action}`, ({ request, params }) => {
-      const access = authorize(request, { permission: MANAGE, featureFlag: FEATURE_FLAG });
+      const access = authorizeChange(request, MANAGE);
       if ('denied' in access) return access.denied;
       const template = find(access.tenantId, params.templateId);
       if (!template) return notFound();

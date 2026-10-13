@@ -91,7 +91,8 @@
     "restoredDone": "{{name}} was restored.",
     "conflict": "Someone else saved version {{version}} while you were editing. Your text is still here. Saving again makes yours the newest version; theirs stays in the history below.",
     "archivedMeanwhile": "This template was archived while you were editing. Restore it to save a new version.",
-    "nameTaken": "Another template of this kind already has that name at this hospital. It may be archived."
+    "nameTaken": "Another template of this kind already has that name at this hospital. It may be archived.",
+    "versionLimit": "This template has as many versions as one can have. Add a new template to go on from here."
   },
   "versions": {
     "heading": "Versions",
@@ -112,7 +113,7 @@
     "redactedNote": "The name and the text of this version were removed on {{date}} by {{name}}. Reason: {{reason}}.",
     "redact": "Redact",
     "redactHeading": "Redact {{version}}",
-    "redactWarning": "This removes the name and the text of this version for good. It cannot be undone. The version stays in the list, with who saved it and who removed it. Documents already made from it keep their own text.",
+    "redactWarning": "This removes the name and the text of this version for good. It cannot be undone. The version stays in the list, with who saved it and who removed it. Other versions may hold the same name or text: look at each of them. Documents already made from it keep their own text.",
     "redactReason": "Reason",
     "redactReasonPlaceholder": "Choose a reason",
     "redactConfirm": "Remove the name and the text",
@@ -124,6 +125,8 @@
       "personal_data": "It holds someone’s personal details",
       "confidential": "It holds something confidential",
       "other": "Another reason"
-    }
+    },
+    "redactHint": "To remove something that should not be kept, use Redact on the version that holds it. The newest version cannot be redacted: save a corrected version first.",
+    "redactedNoteNoName": "The name and the text of this version were removed on {{date}}. Reason: {{reason}}."
   }
 }

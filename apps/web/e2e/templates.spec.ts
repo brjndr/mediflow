@@ -4,8 +4,8 @@ import { expectNoSidewaysScroll, goTo } from './support';
 /**
  * Document templates in a real browser, against the mock backend. Master data, so a
  * desktop-only screen (CLAUDE.md, Responsive Design): at desktop width the journey of writing a
- * template with a placeholder, seeing its preview, saving a second version and looking at the
- * first again; below that the notice.
+ * template with a placeholder, seeing its preview, saving a second version, looking at the
+ * first again and redacting it; below that the notice.
  *
  * A full page load resets the mock, so everything after the first load happens inside the app.
  */
@@ -66,6 +66,19 @@ test('write a template with a placeholder, preview it, and keep both versions', 
   const first = page.getByRole('region', { name: 'Version 1, as it was saved' });
   await expect(first).toContainText('Reviewed by {{doctor.name}}');
   await expect(first).not.toContainText('date.today');
+  await expectNoSidewaysScroll(page);
+
+  // What should not have been typed into the first version is removed: its name and its text.
+  await expect(page.getByRole('button', { name: 'Redact: Version 2', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Redact: Version 1', exact: true }).click();
+  const redact = page.getByRole('region', { name: 'Redact Version 1' });
+  await expect(redact.getByRole('heading', { name: 'Redact Version 1' })).toBeFocused();
+  await redact.getByRole('combobox', { name: /^Reason/ }).selectOption({ label: 'Another reason' });
+  await redact.getByRole('button', { name: 'Remove the name and the text' }).click();
+  await expect(status(page, 'The name and the text of Version 1 were removed.')).toBeVisible();
+  await page.getByRole('button', { name: 'View: Version 1', exact: true }).click();
+  await expect(first).toContainText('were removed on');
+  await expect(first).not.toContainText('doctor.name');
   await expectNoSidewaysScroll(page);
 });
 
