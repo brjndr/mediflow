@@ -39,6 +39,8 @@ export const DOMAIN_EVENTS = [
   'surgery.completed',
   'claim.submitted',
   'claim.settled',
+  // A record of a catalog (a service, a price, later a drug, a test, a bed) was added or changed.
+  'master.changed',
 ] as const;
 
 export type DomainEvent = (typeof DOMAIN_EVENTS)[number];

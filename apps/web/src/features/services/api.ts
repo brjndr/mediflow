@@ -50,7 +50,7 @@ export async function fetchService(serviceId: string, signal?: AbortSignal): Pro
 export async function createService(body: ServiceCreate, idempotencyKey: string): Promise<Service> {
   const result = await api.POST('/services', {
     body,
-    params: { header: { 'Idempotency-Key': idempotencyKey } },
+    params: { header: { 'idempotency-key': idempotencyKey } },
   });
   return serviceSchema.parse(requireData(result));
 }
@@ -91,7 +91,7 @@ export async function setServicePrice(
   idempotencyKey: string,
 ): Promise<ServicePrice> {
   const result = await api.POST('/services/{serviceId}/prices', {
-    params: { path: { serviceId }, header: { 'Idempotency-Key': idempotencyKey } },
+    params: { path: { serviceId }, header: { 'idempotency-key': idempotencyKey } },
     body,
   });
   return servicePriceSchema.parse(requireData(result));

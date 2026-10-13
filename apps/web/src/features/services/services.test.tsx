@@ -352,7 +352,7 @@ describe('prices', () => {
     expect(screen.queryByRole('button', { name: 'Set price' })).not.toBeInTheDocument();
     await expect(
       api.POST('/services/{serviceId}/prices', {
-        params: { path: { serviceId: ECG }, header: { 'Idempotency-Key': 'test-key-0001' } },
+        params: { path: { serviceId: ECG }, header: { 'idempotency-key': 'test-key-0001' } },
         body: { amountMinor: 42000, effectiveFrom: '2100-01-01' },
       }),
     ).rejects.toMatchObject({ serverCode: 'price_date_conflict' });
@@ -399,7 +399,7 @@ describe('prices', () => {
       api.POST('/services/{serviceId}/prices', {
         params: {
           path: { serviceId: CONSULTATION },
-          header: { 'Idempotency-Key': `k-${effectiveFrom}` },
+          header: { 'idempotency-key': `k-${effectiveFrom}` },
         },
         body: { amountMinor: 65000, effectiveFrom },
       });
@@ -429,7 +429,7 @@ describe('prices', () => {
       api.POST('/services/{serviceId}/prices', {
         params: {
           path: { serviceId: CONSULTATION },
-          header: { 'Idempotency-Key': 'test-key-0002' },
+          header: { 'idempotency-key': 'test-key-0002' },
         },
         body: { amountMinor: 65000, effectiveFrom: MOCK_FUTURE_DATE },
       }),
@@ -510,7 +510,7 @@ describe('prices', () => {
     ).rejects.toMatchObject({ serverCode: 'price_list_not_found' });
     await expect(
       api.POST('/services/{serviceId}/prices', {
-        params: { path, header: { 'Idempotency-Key': 'test-key-0003' } },
+        params: { path, header: { 'idempotency-key': 'test-key-0003' } },
         body: {
           amountMinor: 1,
           effectiveFrom: MOCK_FUTURE_DATE,
@@ -580,7 +580,7 @@ describe('access', () => {
     await expect(
       api.POST('/services', {
         body: { code: 'X-1', name: 'X', category: 'lab', taxClass: 'exempt' },
-        params: { header: { 'Idempotency-Key': 'test-key-0004' } },
+        params: { header: { 'idempotency-key': 'test-key-0004' } },
       }),
     ).rejects.toMatchObject({ code: 'forbidden' });
     await expect(
@@ -677,7 +677,7 @@ describe('two hospitals', () => {
     await expect(
       api.POST('/services', {
         body: { code: 'PRO-001', name: 'Second', category: 'procedure', taxClass: 'exempt' },
-        params: { header: { 'Idempotency-Key': 'test-key-0005' } },
+        params: { header: { 'idempotency-key': 'test-key-0005' } },
       }),
     ).rejects.toMatchObject({ serverCode: 'service_code_taken' });
   });
