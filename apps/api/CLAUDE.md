@@ -238,6 +238,21 @@ A feature folder has only the files it needs: `features/health` has `index.ts` a
 - **`POST /lab-tests` accepts an Idempotency-Key** and stores the whole answer for a replay.
 - **Changes are audited** (`lab_test`, `lab_test_ranges`) and emit `master.changed`.
 
+## Wards, rooms and beds
+
+- **`features/wards`** is the hospital's wards, the rooms of each and the beds of each room, and the bed categories that decide what a day in a bed is charged as. A bed carries its status and nothing about a patient. Behind the `wards` module flag, with `ward:read` for those who admit, nurse and round, and `ward:manage` for the admin.
+- **Every change within a ward locks the ward first** (`lockWard`), so changes to its rooms and beds take their turn: a room name and a bed number are one in the ward, and what can be archived depends on the other rows. A room or a bed is looked up inside the ward named, never by its id alone.
+- **Nothing of an archived ward is changed** (409 `ward_archived`); the ward itself can still be read, changed and restored. An archived room or bed is restored before it is changed (409 `room_archived`, `bed_archived`).
+- **A bed is `available`, `occupied`, `cleaning` or `blocked`.** From this API it is only blocked (from available, with a reason from a list and an optional note) and put back in use. Occupied and being cleaned are set by admissions and housekeeping (R2), which will lock the bed and check that its ward and room are in use. A change of status is one statement that names the status it starts from (`moveBed`), so of two people making it only one does.
+- **What a patient is in is never archived:** a bed (409 `bed_occupied`, and a check constraint), a room (409 `room_has_occupied_beds`) and a ward (409 `ward_has_occupied_beds`, and the trigger). A room is archived with its beds and comes back without them. Archiving never changes a bed's status, and a trigger refuses a change of status on an archived bed: a bed being cleaned or blocked is still that when it is restored.
+- **The note of a block is free text, so it is treated as possibly sensitive:** it is in the ward's answer and nowhere else. Not in an audit entry, not in an event (the event carries the reason, which is from a list), not in a log.
+- **Adding a room or a bed is not replayed.** The answer is the whole ward, with the notes of its blocked beds, so it is not kept in the idempotency table. The header is accepted and ignored; a repeat is refused by the name or the number being taken. Adding a ward or a category is replayed with the whole answer, which holds no note.
+- **The tariff is on the category,** as a link to a bed-day service of the hospital's price catalog that is in use when the link is made; the one a category already has may have been archived since. The same holds for a ward's department and a bed's category. A category a bed in use has is not archived (409 `bed_category_in_use`); giving a bed a category holds the category (`for share`), so it is not archived at the same moment.
+- **An admission will keep the category and the service of its bed** as they were when the patient was given it, so a change here applies to stays that start after it. That is the admission module's to store.
+- **Rooms and beds are put in order in the route,** the way people count them ("Bed 2" before "Bed 10"): a ward has a bounded number. The list of wards is paged, so it is in the database's order of the lower-cased name.
+- **The list of wards is a `GET` with `q` in the address:** a ward's name says nothing of a patient (Searches in the root `CLAUDE.md`).
+- **Changes are audited** (`bed_category`, `ward`, `room`, `bed`, with `block` and `unblock` as actions of their own) and emit `master.changed`.
+
 ## Contract
 
 - The OpenAPI document is generated from route schemas. After changing a route or a schema, run `pnpm gen:api` from the repo root and commit `packages/contract`. A test and a CI step both fail if the committed files are stale.

@@ -250,6 +250,58 @@ const SAMPLE_LAB_RANGES: Record<
   'GLU-F': [['any', 0, 'days', null, null, 70, 100, 40, 400]],
 };
 
+/** Bed categories: [name, the bed-day service of the price catalog it is charged as]. */
+const SAMPLE_BED_CATEGORIES: readonly [string, string][] = [
+  ['General ward', 'General ward bed day'],
+  ['Semi-private room', 'Semi-private room day'],
+  ['Private room', 'Private room day'],
+  ['Intensive care', 'ICU bed day'],
+];
+
+/**
+ * Wards: [code, name, floor, department or null, rooms], a room being [name, bed category, the
+ * numbers of its beds]. An open ward is one room with many beds.
+ */
+const SAMPLE_WARDS: readonly [
+  string,
+  string,
+  string,
+  string | null,
+  [string, string, string[]][],
+][] = [
+  [
+    'GEN',
+    'General ward',
+    'First floor',
+    'General Medicine',
+    [
+      [
+        'Open ward',
+        'General ward',
+        ['G-01', 'G-02', 'G-03', 'G-04', 'G-05', 'G-06', 'G-07', 'G-08'],
+      ],
+    ],
+  ],
+  [
+    'PVT',
+    'Private wing',
+    'Second floor',
+    null,
+    [
+      ['Room 201', 'Private room', ['201']],
+      ['Room 202', 'Private room', ['202']],
+      ['Room 203', 'Semi-private room', ['203-A', '203-B']],
+    ],
+  ],
+  [
+    'ICU',
+    'Intensive care unit',
+    'Ground floor',
+    null,
+    [['ICU', 'Intensive care', ['ICU-1', 'ICU-2', 'ICU-3', 'ICU-4']]],
+  ],
+];
+
 const HOSPITALS = [
   {
     slug: 'sample-hospital',
@@ -266,6 +318,7 @@ const HOSPITALS = [
       services: true,
       drugs: true,
       lab_tests: true,
+      wards: true,
       appointments: true,
       clinical: true,
       laboratory: true,
@@ -291,6 +344,7 @@ const HOSPITALS = [
       services: true,
       drugs: true,
       lab_tests: true,
+      wards: true,
       appointments: true,
       clinical: true,
       laboratory: false,
@@ -549,6 +603,58 @@ try {
         [tenantId, id, parts],
       );
     }
+  }
+
+  // Bed categories, then wards with their rooms and beds. Only names and codes the hospital does
+  // not have yet, so running again adds nothing.
+  for (const hospital of HOSPITALS) {
+    const tenantId = tenantIds.get(hospital.slug);
+    for (const [name, service] of SAMPLE_BED_CATEGORIES) {
+      await client.query(
+        `insert into bed_categories (tenant_id, name, service_id)
+         select $1, $2,
+           (select id from services
+            where tenant_id = $1 and name = $3 and category = 'bed' limit 1)
+         on conflict on constraint bed_categories_name_taken do nothing`,
+        [tenantId, name, service],
+      );
+    }
+    for (const [code, name, floor, department, rooms] of SAMPLE_WARDS) {
+      const added = await client.query<{ id: string }>(
+        `insert into wards (tenant_id, code, name, floor, department_id)
+         select $1, $2, $3, $4,
+           (select id from departments where tenant_id = $1 and name = $5 limit 1)
+         on conflict on constraint wards_code_taken do nothing
+         returning id`,
+        [tenantId, code, name, floor, department],
+      );
+      const wardId = added.rows[0]?.id;
+      if (!wardId) continue;
+      for (const [roomName, category, numbers] of rooms) {
+        const room = await client.query<{ id: string }>(
+          'insert into rooms (tenant_id, ward_id, name) values ($1, $2, $3) returning id',
+          [tenantId, wardId, roomName],
+        );
+        await client.query(
+          `insert into beds (tenant_id, ward_id, room_id, number, bed_category_id)
+           select $1, $2, $3, number, c.id
+           from unnest($4::text[]) as number
+           join bed_categories c on c.tenant_id = $1 and c.name = $5`,
+          [tenantId, wardId, room.rows[0]?.id, numbers, category],
+        );
+      }
+    }
+    // One bed out of use and one being made ready, so the screen shows every status but occupied.
+    await client.query(
+      `update beds set status = 'blocked', blocked_reason = 'repair'
+       where tenant_id = $1 and number = 'ICU-4' and status = 'available' and version = 1`,
+      [tenantId],
+    );
+    await client.query(
+      `update beds set status = 'cleaning'
+       where tenant_id = $1 and number = 'G-08' and status = 'available' and version = 1`,
+      [tenantId],
+    );
   }
 
   // A doctor profile, with weekday morning hours, for every sample member in the doctor role who
