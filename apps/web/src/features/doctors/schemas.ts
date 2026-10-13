@@ -7,6 +7,7 @@ import type {
   DoctorSession,
   Weekday,
 } from './types';
+import { PLAIN_TEXT } from '@/shared/utils/text';
 
 /** Monday first, as a hospital's week is written. */
 export const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
@@ -61,8 +62,17 @@ export const CONSULTATION_MINUTES = ['5', '10', '15', '20', '30', '45', '60'] as
 /** The profile form. Messages are translation keys in core `common`. */
 export const doctorFormSchema = z.object({
   departmentId: z.string().min(1, 'validation.required'),
-  specialization: z.string().trim().min(1, 'validation.required').max(SPECIALIZATION_MAX),
-  registrationNumber: z.string().trim().max(REGISTRATION_MAX),
+  specialization: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(SPECIALIZATION_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  registrationNumber: z
+    .string()
+    .trim()
+    .max(REGISTRATION_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
   consultationMinutes: z.string().regex(/^\d{1,3}$/, 'validation.required'),
 });
 export type DoctorFormValues = z.infer<typeof doctorFormSchema>;

@@ -448,3 +448,44 @@ describe('two hospitals', () => {
     ).rejects.toThrow(/permission denied/);
   });
 });
+
+describe('the text of a name and a description', () => {
+  // Written by code point, so that this file holds no character that cannot be seen.
+  const zeroWidth = String.fromCodePoint(0x200b);
+  const override = String.fromCodePoint(0x202e);
+  const composed = `Caf${String.fromCodePoint(0xe9)} Clinic`;
+  const decomposed = `Cafe${String.fromCodePoint(0x301)} Clinic`;
+
+  it('stores a name with single spaces and in one normal form, so the same name is one row', async () => {
+    const response = await add({ name: '  Renal   Medicine ' });
+    expect(response.json()).toMatchObject({ name: 'Renal Medicine' });
+    expect(errorOf(await add({ name: 'renal  medicine' }))).toEqual([409, 'department_name_taken']);
+
+    // An accented letter typed as a letter and a combining accent is the same name as the one
+    // typed as a single character.
+    expect((await add({ name: decomposed })).json()).toMatchObject({ name: composed });
+    expect(errorOf(await add({ name: composed }))).toEqual([409, 'department_name_taken']);
+  });
+
+  it('refuses a name that would not read as it was typed', async () => {
+    for (const name of [zeroWidth, `Ward${zeroWidth}A`, `Ward${override}A`, 'Two\nlines']) {
+      expect((await add({ name })).statusCode, JSON.stringify(name)).toBe(400);
+    }
+    const hidden = await add({ name: 'Plain Enough', description: `Hidden${override}` });
+    expect(hidden.statusCode).toBe(400);
+  });
+
+  it('keeps the lines of a description, each one tidied', async () => {
+    const response = await add({
+      name: 'Lined Department',
+      description: '  First   line \r\n\r\n\r\n\r\n second line  \n',
+    });
+    expect(response.json()).toMatchObject({ description: 'First line\n\nsecond line' });
+  });
+
+  it('takes a name sent with other spacing as the name it already has', async () => {
+    const department = (await add({ name: 'Spaced Out' })).json();
+    const same = await change(department.id, { name: ' Spaced   Out ', expectedVersion: 1 });
+    expect(same.json()).toMatchObject({ name: 'Spaced Out', version: 1 });
+  });
+});

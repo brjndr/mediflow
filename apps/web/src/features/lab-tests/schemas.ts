@@ -16,6 +16,7 @@ import type {
   LabTestCreate,
   LabTestPage,
 } from './types';
+import { PLAIN_TEXT } from '@/shared/utils/text';
 
 export const DEPARTMENTS = [
   'biochemistry',
@@ -118,11 +119,16 @@ export const joinIds = (ids: readonly string[]) => ids.join(',');
 export const splitIds = (text: string) => (text ? text.split(',') : []);
 
 const sharedFields = {
-  name: z.string().trim().min(1, 'validation.required').max(NAME_MAX),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(NAME_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
   department: z.enum(DEPARTMENTS, 'validation.required'),
-  unit: z.string().trim().max(UNIT_MAX),
+  unit: z.string().trim().max(UNIT_MAX).regex(PLAIN_TEXT, 'validation.plain_text'),
   sampleType: z.enum(SAMPLE_TYPES, 'validation.required'),
-  container: z.string().trim().max(CONTAINER_MAX),
+  container: z.string().trim().max(CONTAINER_MAX).regex(PLAIN_TEXT, 'validation.plain_text'),
   // Typed as text.
   turnaroundHours: z
     .string()
@@ -253,7 +259,7 @@ const rangeRowSchema = z.object({
   high: limit,
   criticalLow: limit,
   criticalHigh: limit,
-  note: z.string().trim().max(150),
+  note: z.string().trim().max(150).regex(PLAIN_TEXT, 'validation.plain_text'),
 });
 export type RangeRowValues = z.infer<typeof rangeRowSchema>;
 

@@ -3,6 +3,7 @@ import type { FastifyRequest } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
+import { tidyLinesOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { todayAtHospital } from '../../core/tenancy/today.js';
 import {
@@ -30,6 +31,8 @@ import {
   type ServiceRow,
 } from './repository.js';
 import {
+  DESCRIPTION_MAX,
+  NAME_MAX,
   PriceListList,
   Service,
   SERVICE_SCHEMAS,
@@ -92,16 +95,16 @@ const priceConflict = () =>
   new HttpError(409, 'price_date_conflict', 'A price is already scheduled for this service');
 const invalid = (message: string) => new HttpError(400, 'validation_failed', message);
 
-/** A name as it is stored: trimmed, and not empty once it is. */
+/** A name as it is stored, and not empty once it is tidied. */
 function cleanName(name: string): string {
-  const trimmed = name.trim();
-  if (trimmed === '') throw invalid('A name is required');
-  return trimmed;
+  const tidied = tidyWithin(name, NAME_MAX);
+  if (tidied === '') throw invalid('A name is required');
+  return tidied;
 }
 
 /** An empty description is no description. */
 const cleanDescription = (description: string | undefined): string | null =>
-  description?.trim() ? description.trim() : null;
+  tidyLinesOptional(description, DESCRIPTION_MAX);
 
 const OTHER_HOSPITAL =
   ' A service of another hospital answers 404 service_not_found, the same as one that does not exist.';

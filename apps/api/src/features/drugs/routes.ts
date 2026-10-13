@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
+import type { FastifyRequest } from 'fastify';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { tidyOptional, tidyWithin } from '../../core/http/text.js';
@@ -7,6 +8,7 @@ import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   drugExists,
   findDrug,
+  hasControlledSibling,
   insertDrug,
   isDrugExists,
   lockDrug,
@@ -74,6 +76,19 @@ function cleanName(name: string): string {
   const tidied = tidyWithin(name, NAME_MAX);
   if (tidied === '') throw new HttpError(400, 'validation_failed', 'A generic name is required');
   return tidied;
+}
+
+/**
+ * An item that is not controlled, added or renamed beside a controlled one of the same generic
+ * name in the same form, archived or not, leaves a second audit entry. Archiving a controlled
+ * item and adding it again under another spelling of its strength breaks no rule in any one
+ * request, and without this it would take the item out of its schedule with no `reclassify`.
+ */
+async function traceBesideControlled(request: FastifyRequest, row: DrugRow): Promise<void> {
+  if (row.controlled) return;
+  if (await hasControlledSibling(request.txClient, row.generic_name, row.form, row.id)) {
+    request.audit('beside_controlled', 'drug', row.id);
+  }
 }
 
 /** What makes an item the one it is: see `drugs_exists`. */
@@ -175,7 +190,7 @@ export const drugRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['drugs'],
         headers: IdempotencyHeaders,
         description:
-          "Adds an item. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. An optional field (brand, strength, unit) is left out when there is none. Audited.",
+          "Adds an item. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. An optional field (brand, strength, unit) is left out when there is none. Audited, and a second time as `beside_controlled` when the item is not controlled and the hospital has a controlled one of the same generic name in the same form, archived or not.",
         body: ref(DrugCreate),
         response: { 201: ref(Drug), ...errors(400, 401, 403, 409, 422, 429) },
       },
@@ -204,6 +219,7 @@ export const drugRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw error;
       }
       request.audit('create', 'drug', row.id);
+      await traceBesideControlled(request, row);
       await request.emit('master.changed', row.id, { kind: 'drug', change: 'created' });
       return reply.status(201).send(view(row));
     },
@@ -236,7 +252,7 @@ export const drugRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'updateDrug',
         tags: ['drugs'],
         description:
-          'Changes an item. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. Empty text removes a brand, a strength or a unit, and a null reorder level removes the level. Sending what the item already has changes nothing. Every change is audited with who made it, and the event names the fields that changed; a change of `schedule` or `controlled` is audited as `reclassify`, so taking an item out of a controlled schedule leaves its own trace. Records that name an item keep what it was: a dispense, a stock entry and a prescription line store the generic name, brand, form, strength, schedule and controlled flag as they were when the line was written, so renaming or reclassifying an item never changes history.' +
+          'Changes an item. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. Empty text removes a brand, a strength or a unit, and a null reorder level removes the level. Sending what the item already has changes nothing. Every change is audited with who made it, and the event names the fields that changed; a change of `schedule` or `controlled` is audited as `reclassify`, so taking an item out of a controlled schedule leaves its own trace, and an item that is not controlled, renamed or moved to a form in which the hospital has a controlled item of the same generic name, is audited a second time as `beside_controlled`. Records that name an item keep what it was: a dispense, a stock entry and a prescription line store the generic name, brand, form, strength, schedule and controlled flag as they were when the line was written, so renaming or reclassifying an item never changes history.' +
           OTHER_HOSPITAL,
         params: Params,
         body: ref(DrugUpdate),
@@ -287,6 +303,10 @@ export const drugRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       const reclassified = changed.includes('schedule') || changed.includes('controlled');
       request.audit(reclassified ? 'reclassify' : 'update', 'drug', row.id);
+      // Renamed, or moved to another form: it may now stand beside a controlled item.
+      if (changed.includes('genericName') || changed.includes('form')) {
+        await traceBesideControlled(request, row);
+      }
       // The names of the fields, never their values.
       await request.emit('master.changed', row.id, {
         kind: 'drug',

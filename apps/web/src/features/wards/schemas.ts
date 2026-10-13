@@ -9,6 +9,7 @@ import type {
   WardDetail,
   WardPage,
 } from './types';
+import { PLAIN_TEXT } from '@/shared/utils/text';
 
 export const BED_STATUSES = ['available', 'occupied', 'cleaning', 'blocked'] as const;
 /** Why a bed is out of use: a list, so that nothing about a patient is written as the reason. */
@@ -93,8 +94,13 @@ export const NOTE_MAX = 100;
 
 /** The ward form. Messages are translation keys in core `common`. */
 export const wardFormSchema = z.object({
-  name: z.string().trim().min(1, 'validation.required').max(NAME_MAX),
-  floor: z.string().trim().max(FLOOR_MAX),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(NAME_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  floor: z.string().trim().max(FLOOR_MAX).regex(PLAIN_TEXT, 'validation.plain_text'),
   departmentId: z.string(),
 });
 export type WardFormValues = z.infer<typeof wardFormSchema>;
@@ -128,24 +134,39 @@ export function toWardCreate(values: WardCreateFormValues): WardCreate {
 }
 
 export const bedCategoryFormSchema = z.object({
-  name: z.string().trim().min(1, 'validation.required').max(NAME_MAX),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(NAME_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
   serviceId: z.string(),
 });
 export type BedCategoryFormValues = z.infer<typeof bedCategoryFormSchema>;
 
 export const roomFormSchema = z.object({
-  name: z.string().trim().min(1, 'validation.required').max(ROOM_NAME_MAX),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(ROOM_NAME_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
 });
 export type RoomFormValues = z.infer<typeof roomFormSchema>;
 
 export const bedFormSchema = z.object({
-  number: z.string().trim().min(1, 'validation.required').max(BED_NUMBER_MAX),
+  number: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(BED_NUMBER_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
   bedCategoryId: z.string().min(1, 'validation.required'),
 });
 export type BedFormValues = z.infer<typeof bedFormSchema>;
 
 export const blockFormSchema = z.object({
   reason: z.enum(BLOCK_REASONS, 'validation.required'),
-  note: z.string().trim().max(NOTE_MAX),
+  note: z.string().trim().max(NOTE_MAX).regex(PLAIN_TEXT, 'validation.plain_text'),
 });
 export type BlockFormValues = z.infer<typeof blockFormSchema>;

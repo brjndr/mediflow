@@ -190,6 +190,25 @@ export async function similarDrugs(
 }
 
 /**
+ * Whether the hospital has a controlled item of this generic name in this form, archived or not,
+ * other than the one named.
+ */
+export async function hasControlledSibling(
+  client: pg.ClientBase,
+  genericName: string,
+  form: DrugForm,
+  exceptId: string,
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    `select 1 from drugs
+     where generic_lower = lower($1) and form = $2 and controlled and id <> $3
+     limit 1`,
+    [genericName, form, exceptId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/**
  * Whether the hospital already has exactly this item: generic name, brand, form and strength,
  * whatever the capitals, archived or not.
  */

@@ -6,19 +6,25 @@ import {
   ref,
   StringEnum,
 } from '../../core/http/schemas.js';
+import { PLAIN_TEXT } from '../../core/http/text.js';
 
 /** Monday first, as a hospital's week is written. The index plus one is the stored day. */
 export const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 
-/** Text the database can store: it refuses a NUL character, which would otherwise be a 500. */
-const NO_NUL = '^[^\\u0000]*$';
+export const SPECIALIZATION_MAX = 100;
+export const REGISTRATION_MAX = 50;
+
 const TIME = '^([01][0-9]|2[0-3]):[0-5][0-9]$';
 
-const specialization = Type.String({ minLength: 1, maxLength: 100, pattern: NO_NUL });
+const specialization = Type.String({
+  minLength: 1,
+  maxLength: SPECIALIZATION_MAX,
+  pattern: PLAIN_TEXT,
+});
 const registrationNumber = Type.String({
-  maxLength: 50,
-  pattern: NO_NUL,
+  maxLength: REGISTRATION_MAX,
+  pattern: PLAIN_TEXT,
   description: 'The medical council registration number.',
 });
 const consultationMinutes = Type.Integer({
@@ -124,7 +130,7 @@ const cursor = Type.Optional(
 const limit = Type.Optional(
   Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
 );
-const q = Type.Optional(Type.String({ maxLength: 100, pattern: NO_NUL }));
+const q = Type.Optional(Type.String({ maxLength: 100, pattern: PLAIN_TEXT }));
 
 /** Every parameter may be left out: a client asks for the first page of active doctors. */
 export const DoctorListQuery = Type.Object({

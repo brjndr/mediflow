@@ -6,6 +6,7 @@ import {
   ref,
   StringEnum,
 } from '../../core/http/schemas.js';
+import { PLAIN_LINES, PLAIN_TEXT } from '../../core/http/text.js';
 
 export const CODE_MAX = 30;
 export const NAME_MAX = 150;
@@ -88,11 +89,8 @@ export type Service = Static<typeof Service>;
 
 export const ServicePage = CursorPage(ref(Service), { $id: 'ServicePage' });
 
-/** Text the database can store: it refuses a NUL character, which would otherwise be a 500. */
-const NO_NUL = '^[^\\u0000]*$';
-
-const name = Type.String({ minLength: 1, maxLength: NAME_MAX, pattern: NO_NUL });
-const description = Type.String({ maxLength: DESCRIPTION_MAX, pattern: NO_NUL });
+const name = Type.String({ minLength: 1, maxLength: NAME_MAX, pattern: PLAIN_TEXT });
+const description = Type.String({ maxLength: DESCRIPTION_MAX, pattern: PLAIN_LINES });
 
 export const ServiceCreate = Type.Object(
   {
@@ -133,7 +131,7 @@ export const ServiceSearchRequest = Type.Object(
     limit: Type.Optional(
       Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, description: 'Absent: 25.' }),
     ),
-    q: Type.Optional(Type.String({ maxLength: 100, pattern: NO_NUL })),
+    q: Type.Optional(Type.String({ maxLength: 100, pattern: PLAIN_TEXT })),
     category: Type.Optional(Category),
     archived: Type.Optional(
       Type.Boolean({

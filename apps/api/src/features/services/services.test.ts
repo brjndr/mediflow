@@ -1103,3 +1103,47 @@ describe('a price that was not sent as a number', () => {
     expect((await prices(service.id)).json<Page<Price>>().total).toBe(0);
   });
 });
+
+describe('the text of a name and a description', () => {
+  // Written by code point, so that this file holds no character that cannot be seen.
+  const zeroWidth = String.fromCodePoint(0x200b);
+  const override = String.fromCodePoint(0x202e);
+  const composed = `Caf${String.fromCodePoint(0xe9)}`;
+  const decomposed = `Cafe${String.fromCodePoint(0x301)}`;
+  const body = () => ({ code: code('TX'), name: 'Fine', category: 'lab', taxClass: 'exempt' });
+
+  it('stores a name with single spaces and in one normal form', async () => {
+    const response = await add({ ...body(), name: `  ${decomposed}   screening  ` });
+    expect(response.statusCode).toBe(201);
+    const service = response.json<Service>();
+    expect(service.name).toBe(`${composed} screening`);
+    // Sent again with other spacing, it is the name the service already has.
+    const same = await change(service.id, {
+      name: `${composed}    screening`,
+      expectedVersion: 1,
+    });
+    expect(same.json()).toMatchObject({ version: 1 });
+  });
+
+  it('refuses text that would not read as it was typed', async () => {
+    const bad: object[] = [
+      { ...body(), name: zeroWidth },
+      { ...body(), name: `Scan${override}A` },
+      { ...body(), name: 'Two\nlines' },
+      { ...body(), description: `Hidden${override}` },
+      { ...body(), description: 'A\ttab' },
+    ];
+    for (const sent of bad) {
+      expect((await add(sent)).statusCode, JSON.stringify(sent)).toBe(400);
+    }
+    expect((await search({ q: `x${override}` })).statusCode).toBe(400);
+  });
+
+  it('keeps the lines of a description, each one tidied', async () => {
+    const response = await add({
+      ...body(),
+      description: '  First   line \r\n\r\n\r\n second line  ',
+    });
+    expect(response.json()).toMatchObject({ description: 'First line\n\nsecond line' });
+  });
+});

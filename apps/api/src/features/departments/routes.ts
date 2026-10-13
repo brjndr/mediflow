@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
+import { tidyLinesOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   insertDepartment,
@@ -20,6 +21,8 @@ import {
   DepartmentListQuery,
   DepartmentPage,
   DepartmentUpdate,
+  DESCRIPTION_MAX,
+  NAME_MAX,
 } from './schemas.js';
 
 const FEATURE = 'departments';
@@ -40,16 +43,16 @@ const notFound = () => new HttpError(404, 'department_not_found', 'No such depar
 const taken = () =>
   new HttpError(409, 'department_name_taken', 'This hospital has a department of that name');
 
-/** A name as it is stored: trimmed, and not empty once it is. */
+/** A name as it is stored, and not empty once it is tidied. */
 function cleanName(name: string): string {
-  const trimmed = name.trim();
-  if (trimmed === '') throw new HttpError(400, 'validation_failed', 'A name is required');
-  return trimmed;
+  const tidied = tidyWithin(name, NAME_MAX);
+  if (tidied === '') throw new HttpError(400, 'validation_failed', 'A name is required');
+  return tidied;
 }
 
 /** An empty description is no description. */
 const cleanDescription = (description: string | undefined): string | null =>
-  description?.trim() ? description.trim() : null;
+  tidyLinesOptional(description, DESCRIPTION_MAX);
 
 const OTHER_HOSPITAL =
   ' A department of another hospital answers 404 department_not_found, the same as one that does not exist.';
