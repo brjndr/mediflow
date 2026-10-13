@@ -309,7 +309,7 @@ describe('adding an item', () => {
       schedule: 'none',
       taxClass: 'exempt',
     } as const;
-    const params = { header: { 'Idempotency-Key': 'repeat-key-0001' } };
+    const params = { header: { 'idempotency-key': 'repeat-key-0001' } };
     const first = await api.POST('/drugs', { body, params });
     const again = await api.POST('/drugs', { body, params });
     expect(again.data?.id).toBe(first.data?.id);
@@ -524,7 +524,7 @@ describe('access', () => {
           schedule: 'none',
           taxClass: 'exempt',
         },
-        params: { header: { 'Idempotency-Key': 'test-key-0001' } },
+        params: { header: { 'idempotency-key': 'test-key-0001' } },
       }),
     ).rejects.toMatchObject({ code: 'forbidden' });
     await expect(

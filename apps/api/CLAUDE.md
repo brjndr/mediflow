@@ -209,11 +209,24 @@ A feature folder has only the files it needs: `features/health` has `index.ts` a
 - **Changes are audited** (`service`, `service_price`) and emit `master.changed` with the kind of record, what happened and, for an update, the names of the changed fields. Never a value. A price that comes with a new service (`priceMinor`) is audited and announced as a price of its own.
 - **`POST /services` and `POST /services/{id}/prices` accept an Idempotency-Key** and store the whole answer for a replay, since it holds no patient data.
 
+## Drugs and consumables
+
+- **`features/drugs`** is what each medicine and consumable the hospital keeps is: no price and no stock, which go with the batch in the pharmacy. Reference data with no patient data. Behind the `drugs` module flag, with `drug:read` for those who prescribe, request, dispense and store, and `drug:manage` for the admin.
+- **The same item is not added twice:** generic name, brand, form and strength, whatever the capitals, archived or not (409 `drug_exists`), by a unique constraint on stored lower-case columns in which a missing brand or strength is the empty text. Items that are only similar are the caller's to judge: `POST /drugs/duplicate-check` gives up to ten with the same generic name in the same form.
+- **Schedule X and narcotic items are controlled, whatever is sent,** in the route and by a check constraint. The schedules are India's and fixed in the contract for now (Open Decisions in the root `CLAUDE.md`).
+- **A change of `schedule` or `controlled` is audited as `reclassify`,** any other change as `update`, so taking an item out of a controlled schedule leaves its own trace. The event names the changed fields, never their values.
+- **Optional text is absent, never empty:** an empty brand, strength or unit in a change removes it, and a null reorder level removes the level. In a body schema a nullable number is `Type.Union([Type.Null(), Type.Integer()])`, null first: the validator coerces types, and tried as an integer first a null becomes 0.
+- **The search is `POST /drugs/search`,** by generic name then brand, every word in either, with filters for type, form, schedule and controlled. Like the services search it matches the stored `search_text` of the hospital's rows and is not audited.
+- **A dispense, a stock entry and a prescription line will store what the item was** (name, brand, form, strength, schedule, controlled) when the line was written, so renaming or reclassifying here never changes history. That is theirs to do (M7, M10); nothing here keeps versions of an item.
+- **`POST /drugs` accepts an Idempotency-Key** and stores the whole answer for a replay.
+
 ## Contract
 
 - The OpenAPI document is generated from route schemas. After changing a route or a schema, run `pnpm gen:api` from the repo root and commit `packages/contract`. A test and a CI step both fail if the committed files are stale.
 - **Name what the web app needs.** A schema with an `$id` that is registered with `app.addSchema` and used through `ref(Schema)` appears once in the contract as `components.schemas.<$id>` and gets a named type in the client. Shared schemas are registered in `core/http/schemas.ts`; a feature registers its own in its plugin.
 - **Errors:** `response: { 200: ref(Thing), ...errors(401, 403, 404) }`. Every error status uses the one `Error` body.
+- **No `default` on a field of a request body schema.** The generated client makes such a field required. Say the default in the description. After `pnpm gen:api`, check the web app with `pnpm --filter web exec tsc -b --force`: the usual typecheck is incremental and can pass on a stale build.
+- **The idempotency header is `idempotency-key`** in the generated client, lower case, and the web app sends it so.
 - **Lists:** query with `CursorQuery`, respond with `CursorPage(ref(Item), { $id: 'ItemPage' })`. There is no unpaginated list.
 - **Implementing a planned endpoint:** delete it (and the schemas only it uses) from `packages/contract/planned.openapi.json` in the same PR. The merge refuses to run while both files define the same path or schema.
 - **Breaking changes** (a removed path, operation, success response, schema or property; a changed type; a removed enum value; something newly required) need `CONTRACT_VERSION` raised in `core/openapi/plugin.ts`: the minor while it is 0.x, the major after. Update the web app in the same PR.

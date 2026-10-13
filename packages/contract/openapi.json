@@ -1323,6 +1323,386 @@
           }
         }
       },
+      "Drug": {
+        "description": "A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "type",
+          "genericName",
+          "form",
+          "schedule",
+          "controlled",
+          "taxClass",
+          "archived",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["medicine", "consumable"],
+            "description": "A medicine, or a consumable such as gloves or a syringe."
+          },
+          "genericName": {
+            "minLength": 1,
+            "maxLength": 150,
+            "pattern": "^[^\\u0000]*$",
+            "description": "The generic name of a medicine, or what a consumable is.",
+            "type": "string"
+          },
+          "brandName": {
+            "maxLength": 150,
+            "pattern": "^[^\\u0000]*$",
+            "type": "string"
+          },
+          "form": {
+            "type": "string",
+            "enum": [
+              "tablet",
+              "capsule",
+              "syrup",
+              "suspension",
+              "injection",
+              "infusion",
+              "cream",
+              "ointment",
+              "drops",
+              "inhaler",
+              "powder",
+              "device",
+              "other"
+            ]
+          },
+          "strength": {
+            "maxLength": 30,
+            "pattern": "^[^\\u0000]*$",
+            "description": "As written on the pack: \"500 mg\".",
+            "type": "string"
+          },
+          "unit": {
+            "maxLength": 30,
+            "pattern": "^[^\\u0000]*$",
+            "description": "What one unit of stock is: \"strip of 10\", \"100 ml bottle\", \"piece\".",
+            "type": "string"
+          },
+          "schedule": {
+            "type": "string",
+            "enum": ["none", "h", "h1", "x", "g", "narcotic"],
+            "description": "The drug schedule the item falls under, recorded as a class. What each schedule requires (registers, prescriptions kept) is the pharmacy module's to enforce."
+          },
+          "controlled": {
+            "description": "Whether it is handled as a controlled drug. Always true for schedule x and narcotic, whatever is sent.",
+            "type": "boolean"
+          },
+          "taxClass": {
+            "type": "string",
+            "enum": ["exempt", "reduced", "standard", "higher"]
+          },
+          "reorderLevel": {
+            "minimum": 0,
+            "maximum": 1000000,
+            "description": "Stock at or below this many units is low. Absent: no level set.",
+            "type": "integer"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion.",
+            "type": "integer"
+          }
+        }
+      },
+      "DrugPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Drug"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "DrugCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["type", "genericName", "form", "schedule", "taxClass"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["medicine", "consumable"],
+            "description": "A medicine, or a consumable such as gloves or a syringe."
+          },
+          "genericName": {
+            "minLength": 1,
+            "maxLength": 150,
+            "pattern": "^[^\\u0000]*$",
+            "description": "The generic name of a medicine, or what a consumable is.",
+            "type": "string"
+          },
+          "brandName": {
+            "maxLength": 150,
+            "pattern": "^[^\\u0000]*$",
+            "type": "string"
+          },
+          "form": {
+            "type": "string",
+            "enum": [
+              "tablet",
+              "capsule",
+              "syrup",
+              "suspension",
+              "injection",
+              "infusion",
+              "cream",
+              "ointment",
+              "drops",
+              "inhaler",
+              "powder",
+              "device",
+              "other"
+            ]
+          },
+          "strength": {
+            "maxLength": 30,
+            "pattern": "^[^\\u0000]*$",
+            "description": "As written on the pack: \"500 mg\".",
+            "type": "string"
+          },
+          "unit": {
+            "maxLength": 30,
+            "pattern": "^[^\\u0000]*$",
+            "description": "What one unit of stock is: \"strip of 10\", \"100 ml bottle\", \"piece\".",
+            "type": "string"
+          },
+          "schedule": {
+            "type": "string",
+            "enum": ["none", "h", "h1", "x", "g", "narcotic"],
+            "description": "The drug schedule the item falls under, recorded as a class. What each schedule requires (registers, prescriptions kept) is the pharmacy module's to enforce."
+          },
+          "controlled": {
+            "description": "Whether it is handled as a controlled drug. Always true for schedule x and narcotic, whatever is sent.",
+            "type": "boolean"
+          },
+          "taxClass": {
+            "type": "string",
+            "enum": ["exempt", "reduced", "standard", "higher"]
+          },
+          "reorderLevel": {
+            "minimum": 0,
+            "maximum": 1000000,
+            "description": "Stock at or below this many units is low. Absent: no level set.",
+            "type": "integer"
+          }
+        }
+      },
+      "DrugUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["medicine", "consumable"],
+            "description": "A medicine, or a consumable such as gloves or a syringe."
+          },
+          "genericName": {
+            "minLength": 1,
+            "maxLength": 150,
+            "pattern": "^[^\\u0000]*$",
+            "description": "The generic name of a medicine, or what a consumable is.",
+            "type": "string"
+          },
+          "brandName": {
+            "maxLength": 150,
+            "pattern": "^[^\\u0000]*$",
+            "type": "string"
+          },
+          "form": {
+            "type": "string",
+            "enum": [
+              "tablet",
+              "capsule",
+              "syrup",
+              "suspension",
+              "injection",
+              "infusion",
+              "cream",
+              "ointment",
+              "drops",
+              "inhaler",
+              "powder",
+              "device",
+              "other"
+            ]
+          },
+          "strength": {
+            "maxLength": 30,
+            "pattern": "^[^\\u0000]*$",
+            "description": "As written on the pack: \"500 mg\".",
+            "type": "string"
+          },
+          "unit": {
+            "maxLength": 30,
+            "pattern": "^[^\\u0000]*$",
+            "description": "What one unit of stock is: \"strip of 10\", \"100 ml bottle\", \"piece\".",
+            "type": "string"
+          },
+          "schedule": {
+            "type": "string",
+            "enum": ["none", "h", "h1", "x", "g", "narcotic"],
+            "description": "The drug schedule the item falls under, recorded as a class. What each schedule requires (registers, prescriptions kept) is the pharmacy module's to enforce."
+          },
+          "controlled": {
+            "description": "Whether it is handled as a controlled drug. Always true for schedule x and narcotic, whatever is sent.",
+            "type": "boolean"
+          },
+          "taxClass": {
+            "type": "string",
+            "enum": ["exempt", "reduced", "standard", "higher"]
+          },
+          "reorderLevel": {
+            "description": "Null removes the level. An empty brand, strength or unit removes that too.",
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "minimum": 0,
+                "maximum": 1000000,
+                "type": "integer"
+              }
+            ]
+          },
+          "expectedVersion": {
+            "type": "integer"
+          }
+        }
+      },
+      "DrugSearchRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "description": "Opaque. Pass the nextCursor of the previous page.",
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Absent: 25.",
+            "type": "integer"
+          },
+          "q": {
+            "maxLength": 100,
+            "pattern": "^[^\\u0000]*$",
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["medicine", "consumable"]
+          },
+          "form": {
+            "type": "string",
+            "enum": [
+              "tablet",
+              "capsule",
+              "syrup",
+              "suspension",
+              "injection",
+              "infusion",
+              "cream",
+              "ointment",
+              "drops",
+              "inhaler",
+              "powder",
+              "device",
+              "other"
+            ]
+          },
+          "schedule": {
+            "type": "string",
+            "enum": ["none", "h", "h1", "x", "g", "narcotic"]
+          },
+          "controlled": {
+            "description": "True lists only controlled drugs.",
+            "type": "boolean"
+          },
+          "archived": {
+            "description": "True lists the archived items instead of the active ones. Absent: false.",
+            "type": "boolean"
+          }
+        }
+      },
+      "DrugDuplicateQuery": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["genericName", "form"],
+        "properties": {
+          "genericName": {
+            "minLength": 1,
+            "maxLength": 150,
+            "pattern": "^[^\\u0000]*$",
+            "description": "The generic name of a medicine, or what a consumable is.",
+            "type": "string"
+          },
+          "form": {
+            "type": "string",
+            "enum": [
+              "tablet",
+              "capsule",
+              "syrup",
+              "suspension",
+              "injection",
+              "infusion",
+              "cream",
+              "ointment",
+              "drops",
+              "inhaler",
+              "powder",
+              "device",
+              "other"
+            ]
+          }
+        }
+      },
+      "DrugDuplicateMatches": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Drug"
+            }
+          }
+        }
+      },
       "Notice": {
         "type": "object",
         "required": ["id", "tenantId", "title", "body", "createdAt", "archived"],
@@ -1407,317 +1787,6 @@
           },
           "nextCursor": {
             "type": ["string", "null"]
-          }
-        }
-      },
-      "Drug": {
-        "type": "object",
-        "description": "A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data.",
-        "required": [
-          "id",
-          "tenantId",
-          "type",
-          "genericName",
-          "form",
-          "schedule",
-          "controlled",
-          "taxClass",
-          "archived",
-          "version"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["medicine", "consumable"],
-            "description": "A medicine, or a consumable such as gloves or a syringe."
-          },
-          "genericName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 150,
-            "description": "The generic name of a medicine, or what a consumable is."
-          },
-          "brandName": {
-            "type": "string",
-            "maxLength": 150
-          },
-          "form": {
-            "type": "string",
-            "enum": [
-              "tablet",
-              "capsule",
-              "syrup",
-              "suspension",
-              "injection",
-              "infusion",
-              "cream",
-              "ointment",
-              "drops",
-              "inhaler",
-              "powder",
-              "device",
-              "other"
-            ]
-          },
-          "strength": {
-            "type": "string",
-            "maxLength": 30,
-            "description": "As written on the pack: \"500 mg\"."
-          },
-          "unit": {
-            "type": "string",
-            "maxLength": 30,
-            "description": "What one unit of stock is: \"strip of 10\", \"100 ml bottle\", \"piece\"."
-          },
-          "schedule": {
-            "type": "string",
-            "enum": ["none", "h", "h1", "x", "g", "narcotic"],
-            "description": "The drug schedule the item falls under, recorded as a class. What each schedule requires (registers, prescriptions kept) is the pharmacy module's to enforce."
-          },
-          "controlled": {
-            "type": "boolean",
-            "description": "Whether it is handled as a controlled drug. Always true for schedule x and narcotic, whatever is sent."
-          },
-          "taxClass": {
-            "type": "string",
-            "enum": ["exempt", "reduced", "standard", "higher"]
-          },
-          "reorderLevel": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 1000000,
-            "description": "Stock at or below this many units is low. Absent: no level set."
-          },
-          "archived": {
-            "type": "boolean"
-          },
-          "version": {
-            "type": "integer",
-            "description": "Counts the changes. Sent back as expectedVersion."
-          }
-        }
-      },
-      "DrugPage": {
-        "type": "object",
-        "description": "Cursor envelope used by every list endpoint.",
-        "required": ["items", "nextCursor"],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Drug"
-            }
-          },
-          "nextCursor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "total": {
-            "type": "integer"
-          }
-        }
-      },
-      "DrugCreate": {
-        "type": "object",
-        "required": ["type", "genericName", "form", "schedule", "taxClass"],
-        "additionalProperties": false,
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["medicine", "consumable"],
-            "description": "A medicine, or a consumable such as gloves or a syringe."
-          },
-          "genericName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 150,
-            "description": "The generic name of a medicine, or what a consumable is."
-          },
-          "brandName": {
-            "type": "string",
-            "maxLength": 150
-          },
-          "form": {
-            "type": "string",
-            "enum": [
-              "tablet",
-              "capsule",
-              "syrup",
-              "suspension",
-              "injection",
-              "infusion",
-              "cream",
-              "ointment",
-              "drops",
-              "inhaler",
-              "powder",
-              "device",
-              "other"
-            ]
-          },
-          "strength": {
-            "type": "string",
-            "maxLength": 30,
-            "description": "As written on the pack: \"500 mg\"."
-          },
-          "unit": {
-            "type": "string",
-            "maxLength": 30,
-            "description": "What one unit of stock is: \"strip of 10\", \"100 ml bottle\", \"piece\"."
-          },
-          "schedule": {
-            "type": "string",
-            "enum": ["none", "h", "h1", "x", "g", "narcotic"],
-            "description": "The drug schedule the item falls under, recorded as a class. What each schedule requires (registers, prescriptions kept) is the pharmacy module's to enforce."
-          },
-          "controlled": {
-            "type": "boolean",
-            "description": "Whether it is handled as a controlled drug. Always true for schedule x and narcotic, whatever is sent."
-          },
-          "taxClass": {
-            "type": "string",
-            "enum": ["exempt", "reduced", "standard", "higher"]
-          },
-          "reorderLevel": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 1000000,
-            "description": "Stock at or below this many units is low. Absent: no level set."
-          }
-        }
-      },
-      "DrugUpdate": {
-        "type": "object",
-        "required": ["expectedVersion"],
-        "additionalProperties": false,
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["medicine", "consumable"],
-            "description": "A medicine, or a consumable such as gloves or a syringe."
-          },
-          "genericName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 150,
-            "description": "The generic name of a medicine, or what a consumable is."
-          },
-          "brandName": {
-            "type": "string",
-            "maxLength": 150
-          },
-          "form": {
-            "type": "string",
-            "enum": [
-              "tablet",
-              "capsule",
-              "syrup",
-              "suspension",
-              "injection",
-              "infusion",
-              "cream",
-              "ointment",
-              "drops",
-              "inhaler",
-              "powder",
-              "device",
-              "other"
-            ]
-          },
-          "strength": {
-            "type": "string",
-            "maxLength": 30,
-            "description": "As written on the pack: \"500 mg\"."
-          },
-          "unit": {
-            "type": "string",
-            "maxLength": 30,
-            "description": "What one unit of stock is: \"strip of 10\", \"100 ml bottle\", \"piece\"."
-          },
-          "schedule": {
-            "type": "string",
-            "enum": ["none", "h", "h1", "x", "g", "narcotic"],
-            "description": "The drug schedule the item falls under, recorded as a class. What each schedule requires (registers, prescriptions kept) is the pharmacy module's to enforce."
-          },
-          "controlled": {
-            "type": "boolean",
-            "description": "Whether it is handled as a controlled drug. Always true for schedule x and narcotic, whatever is sent."
-          },
-          "taxClass": {
-            "type": "string",
-            "enum": ["exempt", "reduced", "standard", "higher"]
-          },
-          "reorderLevel": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 1000000
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Null removes the level. An empty brand, strength or unit removes that too."
-          },
-          "expectedVersion": {
-            "type": "integer"
-          }
-        }
-      },
-      "DrugDuplicateQuery": {
-        "type": "object",
-        "required": ["genericName", "form"],
-        "additionalProperties": false,
-        "properties": {
-          "genericName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 150,
-            "description": "The generic name of a medicine, or what a consumable is."
-          },
-          "form": {
-            "type": "string",
-            "enum": [
-              "tablet",
-              "capsule",
-              "syrup",
-              "suspension",
-              "injection",
-              "infusion",
-              "cream",
-              "ointment",
-              "drops",
-              "inhaler",
-              "powder",
-              "device",
-              "other"
-            ]
-          }
-        }
-      },
-      "DrugDuplicateMatches": {
-        "type": "object",
-        "required": ["items"],
-        "properties": {
-          "items": {
-            "type": "array",
-            "maxItems": 10,
-            "items": {
-              "$ref": "#/components/schemas/Drug"
-            }
           }
         }
       },
@@ -2620,59 +2689,6 @@
             "minimum": 1,
             "maximum": 100,
             "description": "Absent: 25."
-          }
-        }
-      },
-      "DrugSearchRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 100,
-            "description": "Absent: 25."
-          },
-          "q": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "type": {
-            "type": "string",
-            "enum": ["medicine", "consumable"]
-          },
-          "form": {
-            "type": "string",
-            "enum": [
-              "tablet",
-              "capsule",
-              "syrup",
-              "suspension",
-              "injection",
-              "infusion",
-              "cream",
-              "ointment",
-              "drops",
-              "inhaler",
-              "powder",
-              "device",
-              "other"
-            ]
-          },
-          "schedule": {
-            "type": "string",
-            "enum": ["none", "h", "h1", "x", "g", "narcotic"]
-          },
-          "controlled": {
-            "type": "boolean",
-            "description": "True lists only controlled drugs."
-          },
-          "archived": {
-            "type": "boolean",
-            "description": "Absent: false."
           }
         }
       },
@@ -6992,6 +7008,604 @@
         }
       }
     },
+    "/drugs/search": {
+      "post": {
+        "operationId": "searchDrugs",
+        "tags": ["drugs"],
+        "description": "The medicines and consumables of the active tenant, by generic name then brand. Every word of `q` must be in the generic name or the brand, in any order. A catalog can hold tens of thousands of items: there is no unpaged form, and `total` comes with the first page only. It reads data only. What is searched for travels in the body, never in a query string: the same search is made from prescribing, ordering and billing screens while a patient record is open, and a search term beside a patient id in an access log is patient data. The API does not log the body.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrugSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrugPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/drugs/duplicate-check": {
+      "post": {
+        "operationId": "checkDrugDuplicates",
+        "tags": ["drugs"],
+        "description": "Finds items of the hospital, archived or not, that may be the one about to be added: the same generic name in the same form, whatever the brand or the strength, whatever the capitals. At most ten, by brand. It reads data only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrugDuplicateQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrugDuplicateMatches"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/drugs": {
+      "post": {
+        "operationId": "createDrug",
+        "tags": ["drugs"],
+        "description": "Adds an item. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. An optional field (brand, strength, unit) is left out when there is none. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrugCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Drug"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/drugs/{drugId}": {
+      "get": {
+        "operationId": "getDrug",
+        "tags": ["drugs"],
+        "description": "One item. An item of another hospital answers 404 drug_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "drugId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Drug"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateDrug",
+        "tags": ["drugs"],
+        "description": "Changes an item. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. Empty text removes a brand, a strength or a unit, and a null reorder level removes the level. Sending what the item already has changes nothing. Every change is audited with who made it, and the event names the fields that changed; a change of `schedule` or `controlled` is audited as `reclassify`, so taking an item out of a controlled schedule leaves its own trace. Records that name an item keep what it was: a dispense, a stock entry and a prescription line store the generic name, brand, form, strength, schedule and controlled flag as they were when the line was written, so renaming or reclassifying an item never changes history. An item of another hospital answers 404 drug_not_found, the same as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrugUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "drugId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Drug"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/drugs/{drugId}/archive": {
+      "post": {
+        "operationId": "archiveDrug",
+        "tags": ["drugs"],
+        "description": "Archives an item: it stays on the stock, prescriptions and bills that name it and is no longer offered for new ones. Doing it twice changes nothing. Audited. An item of another hospital answers 404 drug_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "drugId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Drug"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/drugs/{drugId}/restore": {
+      "post": {
+        "operationId": "restoreDrug",
+        "tags": ["drugs"],
+        "description": "Brings an archived item back. Doing it twice changes nothing. Audited. An item of another hospital answers 404 drug_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "drugId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A medicine or a consumable the hospital keeps. What the item is, not what it costs or how much is in stock: those belong to the pharmacy and its batches. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Drug"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/password/change": {
       "post": {
         "operationId": "changePassword",
@@ -7226,294 +7840,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Notice"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/drugs": {
-      "post": {
-        "operationId": "createDrug",
-        "description": "Adds an item. Requires drug:manage. The hospital is the session's: the body carries no tenant. An item with the same generic name, brand, form and strength as one the hospital has, archived or not, whatever the capitals, is refused with 409 drug_exists. Items that are only similar are the caller's to judge: see the duplicate check. An optional field (brand, strength, unit) is left out when there is none. Audited.",
-        "parameters": [
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A repeat with the same key and request returns the first answer."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DrugCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The new item",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Drug"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/drugs/duplicate-check": {
-      "post": {
-        "operationId": "checkDrugDuplicates",
-        "description": "Finds items of the hospital, archived or not, that may be the one about to be added: the same generic name in the same form, whatever the brand or the strength. Requires drug:manage. At most ten, the closest first.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DrugDuplicateQuery"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Possible duplicates",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DrugDuplicateMatches"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/drugs/{drugId}": {
-      "get": {
-        "operationId": "getDrug",
-        "description": "One item. Requires drug:read. An item of another hospital answers 404 drug_not_found, the same as one that does not exist.",
-        "parameters": [
-          {
-            "name": "drugId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The item",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Drug"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      },
-      "patch": {
-        "operationId": "updateDrug",
-        "description": "Changes an item. Requires drug:manage. Send the version the change was made from: 409 conflict when the item has changed since, 409 drug_exists when the change would make it the same as another. Empty text removes a brand, a strength or a unit, and a null reorder level removes the level. Every change is audited with who made it and which fields changed, and a change of `schedule` or `controlled` in particular: taking an item out of a controlled schedule must leave a trace. Records that name an item keep what it was: a dispense, a stock entry and a prescription line store the generic name, brand, form, strength, schedule and controlled flag as they were when the line was written, so renaming or reclassifying an item never changes history. An item of another hospital answers 404 drug_not_found, the same as one that does not exist.",
-        "parameters": [
-          {
-            "name": "drugId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DrugUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The item as saved",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Drug"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/drugs/{drugId}/archive": {
-      "post": {
-        "operationId": "archiveDrug",
-        "description": "Archives an item: it stays on the stock, prescriptions and bills that name it and is no longer offered for new ones. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. Audited.",
-        "parameters": [
-          {
-            "name": "drugId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The item",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Drug"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/drugs/{drugId}/restore": {
-      "post": {
-        "operationId": "restoreDrug",
-        "description": "Brings an archived item back. Requires drug:manage. Doing it twice changes nothing. An item of another hospital answers 404 drug_not_found, the same as one that does not exist. Audited.",
-        "parameters": [
-          {
-            "name": "drugId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The item",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Drug"
                 }
               }
             }
@@ -9250,50 +9576,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CodePage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/drugs/search": {
-      "post": {
-        "operationId": "searchDrugs",
-        "description": "The medicines and consumables of the active tenant, by generic name then brand. Requires drug:read and the drugs feature flag. `q` matches the generic name or the brand, each word in any order. A catalog can hold tens of thousands of items: there is no unpaged form, and `total` comes with the first page only. It reads data only. What is searched for travels in the body, never in a query string: the same search is made from prescribing, ordering and billing screens while a patient record is open, and a search term beside a patient id in an access log is patient data. The API does not log the body.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DrugSearchRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "One page of items",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DrugPage"
                 }
               }
             }

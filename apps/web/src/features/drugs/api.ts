@@ -74,7 +74,7 @@ export async function checkDrugDuplicates(
 export async function createDrug(body: DrugCreate, idempotencyKey: string): Promise<Drug> {
   const result = await api.POST('/drugs', {
     body,
-    params: { header: { 'Idempotency-Key': idempotencyKey } },
+    params: { header: { 'idempotency-key': idempotencyKey } },
   });
   return drugSchema.parse(requireData(result));
 }
