@@ -133,12 +133,6 @@ const OTHER_HOSPITAL =
 export const templateRoutes: FastifyPluginAsyncTypebox = async (app) => {
   for (const schema of TEMPLATE_SCHEMAS) app.addSchema(schema);
 
-  // A template's text is what a redaction may have to remove, so no answer of these routes is
-  // kept by a browser or anything between it and the API: a copy there is one no redaction reaches.
-  app.addHook('onSend', async (_request, reply) => {
-    void reply.header('cache-control', 'private, no-store');
-  });
-
   const Params = Type.Object({ templateId: Type.String({ maxLength: 64 }) });
   const VersionParams = Type.Object({
     templateId: Type.String({ maxLength: 64 }),
