@@ -9,11 +9,13 @@ import {
   fetchTemplate,
   fetchTemplates,
   fetchTemplateVersion,
+  redactTemplateVersion,
   saveTemplate,
   setTemplateArchived,
   type TemplateFilters,
 } from '../api';
 import type { TemplateKind } from '../placeholders';
+import type { RedactionReason } from '../types';
 
 /** Every key is prefixed with the tenant: a hospital's templates are its own. */
 export const templateKeys = createTenantKeys('templates');
@@ -49,7 +51,10 @@ export function useTemplate(templateId: string) {
   });
 }
 
-/** One version of a template, as it was saved. It never changes, so it is never asked twice. */
+/**
+ * One version of a template, as it was saved. It never changes, so it is never asked twice,
+ * unless it is redacted: every change to a template drops what was read of it.
+ */
 export function useTemplateVersion(templateId: string, version: number | null) {
   const tenantId = useTenant()?.id;
   return useQuery({
@@ -89,7 +94,7 @@ export function useCreateTemplate() {
   });
 }
 
-/** Saves a new version of a template, or archives and restores it. */
+/** Saves a new version of a template, archives and restores it, or redacts an older version. */
 export function useSaveTemplate(templateId: string) {
   const queryClient = useQueryClient();
   const tenantId = useTenant()?.id;
@@ -98,17 +103,25 @@ export function useSaveTemplate(templateId: string) {
     mutationFn: (
       change:
         | { save: { name?: string; body?: RichTextDocument; expectedVersion: number } }
-        | { archived: boolean },
+        | { archived: boolean }
+        | { redact: { version: number; reason: RedactionReason } },
     ) =>
       'save' in change
         ? saveTemplate(templateId, change.save)
-        : setTemplateArchived(templateId, change.archived),
+        : 'redact' in change
+          ? redactTemplateVersion(templateId, change.redact.version, change.redact.reason)
+          : setTemplateArchived(templateId, change.archived),
     onSuccess: (saved) => {
       // Nothing is written if the answer arrives after the session ended or moved to another
       // hospital: the cache it would go into is no longer this person's at this hospital.
       const session = queryClient.getQueryData<Session | null>(sessionKey);
       if (!tenantId || session?.activeTenant?.id !== tenantId) return;
       queryClient.setQueryData(templateKeys.detail(tenantId, templateId), saved);
+      // What was read of a version that is now redacted is dropped at once, not kept until the
+      // refresh below: its text is what was to be removed.
+      queryClient.removeQueries({
+        queryKey: [...templateKeys.detail(tenantId, templateId), 'version'],
+      });
     },
     // Also after a failure: a conflict means what is on screen is out of date.
     onSettled: refresh,

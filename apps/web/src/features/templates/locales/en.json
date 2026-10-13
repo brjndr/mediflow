@@ -95,17 +95,35 @@
   },
   "versions": {
     "heading": "Versions",
-    "description": "Every version this template has had. None is ever changed or removed.",
+    "description": "Every version this template has had. None is ever changed or removed, unless something was typed into one that should not be kept: its name and text can then be removed.",
     "gridLabel": "Versions",
     "columns": {
       "version": "Version",
       "savedAt": "Saved",
-      "savedBy": "Saved by"
+      "savedBy": "Saved by",
+      "state": "State"
     },
     "view": "View",
     "viewing": "{{version}}, as it was saved",
     "close": "Close",
     "loading": "Loading the version…",
-    "failed": "The version could not be loaded."
+    "failed": "The version could not be loaded.",
+    "redacted": "Redacted",
+    "redactedNote": "The name and the text of this version were removed on {{date}} by {{name}}. Reason: {{reason}}.",
+    "redact": "Redact",
+    "redactHeading": "Redact {{version}}",
+    "redactWarning": "This removes the name and the text of this version for good. It cannot be undone. The version stays in the list, with who saved it and who removed it. Documents already made from it keep their own text.",
+    "redactReason": "Reason",
+    "redactReasonPlaceholder": "Choose a reason",
+    "redactConfirm": "Remove the name and the text",
+    "redactCancel": "Cancel",
+    "redactDone": "The name and the text of {{version}} were removed.",
+    "redactCurrent": "The newest version is the template as it is used. Save a corrected version first, then redact this one.",
+    "reasons": {
+      "patient_data": "It holds a patient’s details",
+      "personal_data": "It holds someone’s personal details",
+      "confidential": "It holds something confidential",
+      "other": "Another reason"
+    }
   }
 }

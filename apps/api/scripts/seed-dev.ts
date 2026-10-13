@@ -312,6 +312,54 @@ const SAMPLE_CODE_FILES = [
 ] as const;
 const SAMPLE_FAVOURITE_CODES = ['I10', 'E11.9', 'J06.9', 'PR-0003'];
 
+/** Blank forms, one or two of each kind, with the placeholders their kind knows. */
+const SAMPLE_TEMPLATES = [
+  {
+    kind: 'prescription',
+    name: 'Standard prescription',
+    lines: [
+      '{{hospital.name}}',
+      'Patient: {{patient.name}} ({{patient.mrn}}), {{patient.age}}, {{patient.sex}}',
+      'Date: {{date.today}}',
+      'Rx',
+      'Prescribed by {{doctor.name}}',
+    ],
+  },
+  {
+    kind: 'clinical_note',
+    name: 'OPD consultation note',
+    lines: [
+      'Complaints',
+      'History',
+      'Examination',
+      'Plan',
+      'Seen by {{doctor.name}} on {{date.today}}',
+    ],
+  },
+  {
+    kind: 'consent',
+    name: 'Consent for a procedure',
+    lines: [
+      'I, {{patient.name}}, consent to {{procedure.name}} at {{hospital.name}}.',
+      'The procedure, its risks and the alternatives have been explained to me by {{doctor.name}}.',
+      'Date: {{date.today}}',
+    ],
+  },
+  {
+    kind: 'discharge_summary',
+    name: 'Discharge summary',
+    lines: [
+      'Discharge summary',
+      'Patient: {{patient.name}} ({{patient.mrn}})',
+      'Admitted {{admission.date}}, discharged {{discharge.date}}',
+      'Diagnosis',
+      'Course in hospital',
+      'Advice on discharge',
+      '{{doctor.name}}',
+    ],
+  },
+] as const;
+
 const HOSPITALS = [
   {
     slug: 'sample-hospital',
@@ -330,6 +378,7 @@ const HOSPITALS = [
       lab_tests: true,
       wards: true,
       codes: true,
+      templates: true,
       appointments: true,
       clinical: true,
       laboratory: true,
@@ -357,6 +406,7 @@ const HOSPITALS = [
       lab_tests: true,
       wards: true,
       codes: true,
+      templates: true,
       appointments: true,
       clinical: true,
       laboratory: false,
@@ -684,6 +734,39 @@ try {
        on conflict do nothing`,
       [tenantIds.get(hospital.slug), SAMPLE_FAVOURITE_CODES],
     );
+  }
+
+  // Sample templates, each as its version 1, saved by a member of the hospital's staff. Only for
+  // a hospital that has none, so running the seed again adds nothing.
+  for (const hospital of HOSPITALS) {
+    const tenantId = tenantIds.get(hospital.slug);
+    const existing = await client.query('select 1 from templates where tenant_id = $1 limit 1', [
+      tenantId,
+    ]);
+    const author = await client.query<{ user_id: string }>(
+      `select user_id from memberships where tenant_id = $1 order by (role_id = 'admin') desc, user_id limit 1`,
+      [tenantId],
+    );
+    const savedBy = author.rows[0]?.user_id;
+    if ((existing.rowCount ?? 0) > 0 || !savedBy) continue;
+    for (const template of SAMPLE_TEMPLATES) {
+      const body = {
+        type: 'doc',
+        content: template.lines.map((line) => ({
+          type: 'paragraph',
+          content: [{ type: 'text', text: line }],
+        })),
+      };
+      const added = await client.query<{ id: string }>(
+        'insert into templates (tenant_id, kind, name, saved_at) values ($1, $2, $3, now()) returning id',
+        [tenantId, template.kind, template.name],
+      );
+      await client.query(
+        `insert into template_versions (tenant_id, template_id, version, name, body, saved_at, saved_by)
+         values ($1, $2, 1, $3, $4::jsonb, now(), $5)`,
+        [tenantId, added.rows[0]?.id, template.name, JSON.stringify(body), savedBy],
+      );
+    }
   }
 
   // A doctor profile, with weekday morning hours, for every sample member in the doctor role who

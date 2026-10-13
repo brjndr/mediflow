@@ -6,7 +6,7 @@ import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
-import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
+import { Form, SelectField, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { isEmptyRichText, type RichTextDocument } from '@/shared/ui/rich-text';
 import { SystemPage } from '@/shared/ui/system-page';
@@ -14,8 +14,19 @@ import { useFormatters } from '@/tenancy';
 import { TemplateBody, TemplateEditor, TemplatePreview } from '../components/TemplateText';
 import { useSaveTemplate, useTemplate, useTemplateVersion } from '../hooks/use-templates';
 import { unknownPlaceholders } from '../placeholders';
-import { NAME_MAX, templateFormSchema, type TemplateFormValues } from '../schemas';
-import type { TemplateDetail as Detail, TemplateVersionInfo } from '../types';
+import {
+  NAME_MAX,
+  redactFormSchema,
+  templateFormSchema,
+  type RedactFormValues,
+  type TemplateFormValues,
+} from '../schemas';
+import {
+  REDACTION_REASONS,
+  type RedactionReason,
+  type TemplateDetail as Detail,
+  type TemplateVersionInfo,
+} from '../types';
 
 const link =
   'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
@@ -98,11 +109,75 @@ function EditForm({
   );
 }
 
+/**
+ * Asks why, and says what it does, before the name and the text of a version are removed. A
+ * reason is chosen from a list: free text here could repeat what is being removed.
+ */
+function RedactForm({
+  version,
+  pending,
+  onRedact,
+  onCancel,
+}: {
+  version: number;
+  pending: boolean;
+  onRedact: (reason: RedactionReason) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation('templates');
+  const form = useZodForm(redactFormSchema, { reason: '' as RedactFormValues['reason'] });
+  return (
+    <section
+      aria-labelledby="template-version-redact"
+      className="flex flex-col gap-3 rounded-lg border border-destructive/50 p-4"
+    >
+      <h3 id="template-version-redact" className="text-base font-semibold">
+        {t('versions.redactHeading', { version: t('versionNumber', { version }) })}
+      </h3>
+      <p className="text-sm text-muted-foreground">{t('versions.redactWarning')}</p>
+      <Form
+        form={form}
+        onSubmit={(values: RedactFormValues) => onRedact(values.reason)}
+        className="flex flex-col gap-4"
+      >
+        <div className="max-w-sm">
+          <SelectField
+            name="reason"
+            label={t('versions.redactReason')}
+            required
+            placeholder={t('versions.redactReasonPlaceholder')}
+            options={REDACTION_REASONS.map((reason) => ({
+              value: reason,
+              label: t(`versions.reasons.${reason}`),
+            }))}
+          />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <SubmitButton pending={pending}>{t('versions.redactConfirm')}</SubmitButton>
+          <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
+            {t('versions.redactCancel')}
+          </Button>
+        </div>
+      </Form>
+    </section>
+  );
+}
+
 /** Every version of the template, and one of them shown as it was saved. */
-function Versions({ detail }: { detail: Detail }) {
+function Versions({
+  detail,
+  pending,
+  onRedact,
+}: {
+  detail: Detail;
+  pending: boolean;
+  /** Answers whether the version was redacted. */
+  onRedact: (version: number, reason: RedactionReason) => Promise<boolean>;
+}) {
   const { t } = useTranslation('templates');
   const format = useFormatters();
   const [viewing, setViewing] = useState<number | null>(null);
+  const [redacting, setRedacting] = useState<number | null>(null);
   const version = useTemplateVersion(detail.template.id, viewing);
 
   const columns = useMemo<GridColumn<TemplateVersionInfo>[]>(
@@ -119,11 +194,34 @@ function Versions({ detail }: { detail: Detail }) {
         value: (row) => format.dateTime(row.savedAt),
       },
       { id: 'savedBy', header: t('versions.columns.savedBy'), value: (row) => row.savedByName },
+      {
+        id: 'state',
+        header: t('versions.columns.state'),
+        value: (row) => (row.redactedAt ? t('versions.redacted') : ''),
+      },
     ],
     [t, format],
   );
   const actions: GridAction<TemplateVersionInfo>[] = [
-    { id: 'view', label: t('versions.view'), onSelect: (row) => setViewing(row.version) },
+    {
+      id: 'view',
+      label: t('versions.view'),
+      onSelect: (row) => {
+        setRedacting(null);
+        setViewing(row.version);
+      },
+    },
+    {
+      id: 'redact',
+      label: t('versions.redact'),
+      requires: 'template:redact',
+      // The newest version is the template as it is used, and a version is redacted once.
+      disabled: (row) => row.version === detail.template.version || Boolean(row.redactedAt),
+      onSelect: (row) => {
+        setViewing(null);
+        setRedacting(row.version);
+      },
+    },
   ];
 
   return (
@@ -144,6 +242,19 @@ function Versions({ detail }: { detail: Detail }) {
         status="ready"
         emptyMessage=""
       />
+      {redacting !== null && (
+        <RedactForm
+          key={redacting}
+          version={redacting}
+          pending={pending}
+          onRedact={(reason) =>
+            void onRedact(redacting, reason).then((done) => {
+              if (done) setRedacting(null);
+            })
+          }
+          onCancel={() => setRedacting(null)}
+        />
+      )}
       {viewing !== null && (
         <section
           aria-labelledby="template-version-shown"
@@ -152,7 +263,15 @@ function Versions({ detail }: { detail: Detail }) {
           <h3 id="template-version-shown" className="text-base font-semibold">
             {t('versions.viewing', { version: t('versionNumber', { version: viewing }) })}
           </h3>
-          {version.data ? (
+          {version.data?.redactedAt ? (
+            <p className="text-sm text-muted-foreground">
+              {t('versions.redactedNote', {
+                date: format.dateTime(version.data.redactedAt),
+                name: version.data.redactedByName ?? '',
+                reason: t(`versions.reasons.${version.data.redactionReason ?? 'other'}`),
+              })}
+            </p>
+          ) : version.data ? (
             <>
               <p className="text-sm text-muted-foreground">{version.data.name}</p>
               <TemplateBody body={version.data.body} />
@@ -226,6 +345,18 @@ function Loaded({ detail }: { detail: Detail }) {
     );
   };
 
+  const onRedact = async (version: number, reason: RedactionReason): Promise<boolean> => {
+    setDone(null);
+    try {
+      await save.mutateAsync({ redact: { version, reason } });
+      setDone(t('versions.redactDone', { version: t('versionNumber', { version }) }));
+      return true;
+    } catch {
+      // Shown from the mutation state below.
+      return false;
+    }
+  };
+
   const code = isApiError(save.error) ? save.error.serverCode : undefined;
   const badge = 'ml-2 rounded-full border px-2 py-0.5 text-xs font-medium';
 
@@ -255,7 +386,9 @@ function Loaded({ detail }: { detail: Detail }) {
               ? t('detail.nameTaken')
               : code === 'template_archived'
                 ? t('detail.archivedMeanwhile')
-                : tCommon(errorMessageKey(save.error))}
+                : code === 'template_version_current'
+                  ? t('versions.redactCurrent')
+                  : tCommon(errorMessageKey(save.error))}
         </p>
       )}
       <p role="status" className="text-sm text-muted-foreground">
@@ -295,7 +428,7 @@ function Loaded({ detail }: { detail: Detail }) {
               </div>
             </Can>
           </section>
-          <Versions detail={detail} />
+          <Versions detail={detail} pending={save.isPending} onRedact={onRedact} />
         </>
       )}
     </div>

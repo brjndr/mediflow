@@ -2,7 +2,7 @@ import { api, requireData } from '@/shared/api';
 import type { RichTextDocument } from '@/shared/ui/rich-text';
 import type { TemplateKind } from './placeholders';
 import { templateDetailSchema, templatePageSchema, templateVersionSchema } from './schemas';
-import type { TemplateDetail, TemplatePage, TemplateVersion } from './types';
+import type { RedactionReason, TemplateDetail, TemplatePage, TemplateVersion } from './types';
 
 export interface TemplateFilters {
   kind: TemplateKind | '';
@@ -53,7 +53,7 @@ export async function createTemplate(
 ): Promise<TemplateDetail> {
   const result = await api.POST('/templates', {
     body: { ...template, body: asBody(template.body) },
-    params: { header: { 'Idempotency-Key': idempotencyKey } },
+    params: { header: { 'idempotency-key': idempotencyKey } },
   });
   return templateDetailSchema.parse(requireData(result));
 }
@@ -67,6 +67,22 @@ export async function saveTemplate(
   const result = await api.PUT('/templates/{templateId}', {
     params: { path: { templateId } },
     body: { ...rest, ...(body ? { body: asBody(body) } : {}) },
+  });
+  return templateDetailSchema.parse(requireData(result));
+}
+
+/**
+ * Removes the name and the text of one older version, for good. The reason is from a list, so
+ * that it cannot repeat what is being removed.
+ */
+export async function redactTemplateVersion(
+  templateId: string,
+  version: number,
+  reason: RedactionReason,
+): Promise<TemplateDetail> {
+  const result = await api.POST('/templates/{templateId}/versions/{version}/redact', {
+    params: { path: { templateId, version } },
+    body: { reason },
   });
   return templateDetailSchema.parse(requireData(result));
 }

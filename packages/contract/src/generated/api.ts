@@ -1327,6 +1327,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The document templates of the active tenant, by name: each hospital has its own. Requires template:read and the templates feature flag. `total` comes with the first page only. */
+        get: operations["listTemplates"];
+        put?: never;
+        /** @description Adds a template, as its version 1. Requires template:manage and template:read. The hospital is the session’s. The kind cannot be changed later. A name another template of the same kind has at the hospital, archived or not, whatever the capitals, is refused with 409 template_name_taken. The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited. A repeat with the same Idempotency-Key adds nothing and answers with the template as it is now. */
+        post: operations["createTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/templates/{templateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One template with the text of its newest version and the list of every version it has had. Requires template:read. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
+        get: operations["getTemplate"];
+        /** @description Saves a new version of a template: the name, the text, or both. Requires template:manage and template:read. Versions are append-only: nothing saved is ever changed or removed, except by a redaction, and a document made from a template keeps the version it was made from. Send the version the change was made from: 409 conflict when a newer one has been saved since. Saving what the newest version already has makes no new version. An archived template is read-only: 409 template_archived until it is restored. A template has at most 500 versions (409 template_version_limit). The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
+        put: operations["saveTemplateVersion"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/templates/{templateId}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The name and text of one version of a template, as it was saved. Requires template:read. 404 template_version_not_found for a version it never had. A redacted version answers with an empty name and text, and when, by whom and why it was redacted. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
+        get: operations["getTemplateVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/templates/{templateId}/versions/{version}/redact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Removes the name and the text of one older version of a template, for when something was typed into it that should not be kept: a real patient’s details, say. It is the one change ever made to a saved version, and it cannot be undone. The version stays in the history with its number, who saved it and when, and who redacted it, when and why; the reason is from a list. Requires template:redact and template:read. The newest version is the template as it is used, so it is not redacted (409 template_version_current): save a corrected version first, and restore an archived template to do so. Redacting a version twice changes nothing. A document already made from the version keeps its own text. Audited. 404 template_version_not_found for a version it never had. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
+        post: operations["redactTemplateVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/templates/{templateId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a template: it is no longer offered for a new document. Documents made from it keep their text. Requires template:manage and template:read. Doing it twice changes nothing, and neither makes a new version. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
+        post: operations["archiveTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/templates/{templateId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived template back. Requires template:manage and template:read. Doing it twice changes nothing, and neither makes a new version. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
+        post: operations["restoreTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -1423,93 +1527,6 @@ export interface paths {
         put?: never;
         /** @description Archives a notice so it no longer appears in the list. Requires notice:manage. */
         post: operations["archiveNotice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/templates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The document templates of the active tenant, by name: each hospital has its own. Requires template:read and the templates feature flag. `total` comes with the first page only. */
-        get: operations["listTemplates"];
-        put?: never;
-        /** @description Adds a template, as its version 1. Requires template:manage. The hospital is the session's. The kind cannot be changed later. A name another template of the same kind has at the hospital, archived or not, whatever the capitals, is refused with 409 template_name_taken. The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited. */
-        post: operations["createTemplate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/templates/{templateId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description One template with the text of its newest version and the list of every version it has had. Requires template:read. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
-        get: operations["getTemplate"];
-        /** @description Saves a new version of a template: the name, the text, or both. Requires template:manage. Versions are append-only: nothing saved is ever changed or removed (the one exception to come is an audited redaction of patient data typed into a template by mistake, #292), and a document made from a template keeps the version it was made from. Send the version the change was made from: 409 conflict when a newer one has been saved since. Saving what the newest version already has makes no new version. An archived template is read-only: 409 template_archived until it is restored. The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
-        put: operations["saveTemplateVersion"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/templates/{templateId}/versions/{version}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The name and text of one version of a template, as it was saved. Requires template:read. 404 template_version_not_found for a version it never had. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
-        get: operations["getTemplateVersion"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/templates/{templateId}/archive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Archives a template: it is no longer offered for a new document. Documents made from it keep their text. Requires template:manage. Doing it twice changes nothing, and neither makes a new version. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
-        post: operations["archiveTemplate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/templates/{templateId}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Brings an archived template back. Requires template:manage. Doing it twice changes nothing, and neither makes a new version. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
-        post: operations["restoreTemplate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2389,6 +2406,92 @@ export interface components {
             /** @description Absent: 25. */
             limit?: number;
         };
+        /** @description A document template of a hospital. Holds no patient data. */
+        Template: {
+            id: string;
+            tenantId: string;
+            /** @enum {string} */
+            kind: "prescription" | "clinical_note" | "consent" | "discharge_summary";
+            name: string;
+            version: number;
+            /** Format: date-time */
+            savedAt: string;
+            archived: boolean;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        TemplatePage: {
+            items: components["schemas"]["Template"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        TemplateVersionInfo: {
+            version: number;
+            /** Format: date-time */
+            savedAt: string;
+            /** @description The member of staff who saved it. */
+            savedByName: string;
+            /**
+             * Format: date-time
+             * @description When the name and the text of this version were removed. Absent otherwise.
+             */
+            redactedAt?: string;
+        };
+        /** @description One version of a template, as it was saved. A redacted version has an empty name and an empty text, and says when, by whom and why. */
+        TemplateVersion: {
+            version: number;
+            /** Format: date-time */
+            savedAt: string;
+            /** @description The member of staff who saved it. */
+            savedByName: string;
+            /**
+             * Format: date-time
+             * @description When the name and the text of this version were removed. Absent otherwise.
+             */
+            redactedAt?: string;
+            /** @description Empty for a redacted version. */
+            name: string;
+            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
+            body: {
+                [key: string]: unknown;
+            };
+            /** @description The member of staff who redacted it. */
+            redactedByName?: string;
+            /** @enum {string} */
+            redactionReason?: "patient_data" | "personal_data" | "confidential" | "other";
+        };
+        TemplateDetail: {
+            template: components["schemas"]["Template"];
+            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
+            body: {
+                [key: string]: unknown;
+            };
+            /** @description Every version, the newest first. */
+            versions: components["schemas"]["TemplateVersionInfo"][];
+        };
+        TemplateCreate: {
+            /** @enum {string} */
+            kind: "prescription" | "clinical_note" | "consent" | "discharge_summary";
+            name: string;
+            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
+            body: {
+                [key: string]: unknown;
+            };
+        };
+        TemplateSave: {
+            name?: string;
+            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
+            body?: {
+                [key: string]: unknown;
+            };
+            expectedVersion: number;
+        };
+        TemplateRedact: {
+            /**
+             * @description Why the version is removed, from a list: free text here could repeat what is being removed.
+             * @enum {string}
+             */
+            reason: "patient_data" | "personal_data" | "confidential" | "other";
+        };
         Notice: {
             id: string;
             tenantId: string;
@@ -2421,74 +2524,6 @@ export interface components {
         AccountSessionList: {
             items: components["schemas"]["AccountSession"][];
             nextCursor: string | null;
-        };
-        /** @description A document template of a hospital. Holds no patient data. */
-        Template: {
-            id: string;
-            tenantId: string;
-            /** @enum {string} */
-            kind: "prescription" | "clinical_note" | "consent" | "discharge_summary";
-            name: string;
-            /** @description The newest version. Sent back as expectedVersion. */
-            version: number;
-            /**
-             * Format: date-time
-             * @description When the newest version was saved.
-             */
-            savedAt: string;
-            archived: boolean;
-        };
-        /** @description Cursor envelope used by every list endpoint. */
-        TemplatePage: {
-            items: components["schemas"]["Template"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        TemplateVersionInfo: {
-            version: number;
-            /** Format: date-time */
-            savedAt: string;
-            /** @description The member of staff who saved it. */
-            savedByName: string;
-        };
-        /** @description One version of a template, as it was saved. */
-        TemplateVersion: {
-            version: number;
-            /** Format: date-time */
-            savedAt: string;
-            /** @description The member of staff who saved it. */
-            savedByName: string;
-            name: string;
-            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
-            body: {
-                [key: string]: unknown;
-            };
-        };
-        TemplateDetail: {
-            template: components["schemas"]["Template"];
-            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
-            body: {
-                [key: string]: unknown;
-            };
-            /** @description Every version, the newest first. */
-            versions: components["schemas"]["TemplateVersionInfo"][];
-        };
-        TemplateCreate: {
-            /** @enum {string} */
-            kind: "prescription" | "clinical_note" | "consent" | "discharge_summary";
-            name: string;
-            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
-            body: {
-                [key: string]: unknown;
-            };
-        };
-        TemplateSave: {
-            name?: string;
-            /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
-            body?: {
-                [key: string]: unknown;
-            };
-            expectedVersion: number;
         };
     };
     responses: {
@@ -8734,6 +8769,607 @@ export interface operations {
             };
         };
     };
+    listTemplates: {
+        parameters: {
+            query?: {
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit?: number;
+                kind?: "prescription" | "clinical_note" | "consent" | "discharge_summary";
+                /** @description True lists the archived templates instead of the ones in use. */
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplatePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createTemplate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    saveTemplateVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateSave"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTemplateVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One version of a template, as it was saved. A redacted version has an empty name and an empty text, and says when, by whom and why. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateVersion"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    redactTemplateVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateRedact"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    archiveTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restoreTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     changePassword: {
         parameters: {
             query?: never;
@@ -8887,209 +9523,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Notice"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listTemplates: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-                kind?: "prescription" | "clinical_note" | "consent" | "discharge_summary";
-                archived?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of templates */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TemplatePage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createTemplate: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A repeat with the same key and request returns the first answer. A key belongs to one request of one person at one hospital on one route. */
-                "Idempotency-Key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TemplateCreate"];
-            };
-        };
-        responses: {
-            /** @description The new template */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TemplateDetail"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getTemplate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                templateId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The template */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TemplateDetail"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    saveTemplateVersion: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                templateId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TemplateSave"];
-            };
-        };
-        responses: {
-            /** @description The template as saved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TemplateDetail"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getTemplateVersion: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                templateId: string;
-                version: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The version */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TemplateVersion"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    archiveTemplate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                templateId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The template */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TemplateDetail"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    restoreTemplate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                templateId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The template */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TemplateDetail"];
                 };
             };
             401: components["responses"]["Error"];

@@ -24,14 +24,20 @@ type TemplateVersion = Schemas['TemplateVersion'];
 const FEATURE_FLAG = 'templates';
 const READ = 'template:read';
 const MANAGE = 'template:manage';
+const REDACT = 'template:redact';
+const REDACTION_REASONS = ['patient_data', 'personal_data', 'confidential', 'other'] as const;
 
-/** One saved version. Never changed once it is in the list. */
+/** One saved version. Never changed once it is in the list, except to redact it. */
 interface Saved {
   version: number;
   name: string;
   body: RichTextDocument;
   savedAt: string;
   savedByName: string;
+  /** Set by a redaction, which empties the name and the text. */
+  redactedAt?: string;
+  redactedByName?: string;
+  redactionReason?: (typeof REDACTION_REASONS)[number];
 }
 interface Stored {
   id: string;
@@ -188,7 +194,12 @@ function detail(template: Stored): TemplateDetail {
     body: asBody(newest(template).body),
     versions: [...template.versions]
       .reverse()
-      .map(({ version, savedAt, savedByName }) => ({ version, savedAt, savedByName })),
+      .map(({ version, savedAt, savedByName, redactedAt }) => ({
+        version,
+        savedAt,
+        savedByName,
+        ...(redactedAt ? { redactedAt } : {}),
+      })),
   };
 }
 
@@ -314,8 +325,6 @@ export const templatesHandlers = [
     if ('denied' in access) return access.denied;
     const body = await readBody(request);
     if (!body || typeof body.expectedVersion !== 'number') return invalid();
-    // The kind is never changed.
-    if (body.kind !== undefined) return invalid();
     const template = find(access.tenantId, params.templateId);
     if (!template) return notFound();
     // An archived template is restored before it is given a new version.
@@ -338,6 +347,31 @@ export const templatesHandlers = [
         savedAt: new Date().toISOString(),
         savedByName: currentSession()?.user.name ?? '',
       });
+    }
+    return HttpResponse.json<TemplateDetail>(detail(template));
+  }),
+
+  http.post('*/api/templates/:templateId/versions/:version/redact', async ({ request, params }) => {
+    const access = authorize(request, { permission: REDACT, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const body = await readBody(request);
+    const reason = REDACTION_REASONS.find((value) => value === body?.reason);
+    if (!reason) return invalid();
+    const template = find(access.tenantId, params.templateId);
+    if (!template) return notFound();
+    const saved = template.versions.find((one) => String(one.version) === params.version);
+    if (!saved) return error(404, 'template_version_not_found', 'No such version');
+    // The newest version is the template as it is used: a corrected one is saved first.
+    if (saved === newest(template)) {
+      return error(409, 'template_version_current', 'The newest version is not redacted');
+    }
+    // Twice changes nothing.
+    if (!saved.redactedAt) {
+      saved.name = '';
+      saved.body = { type: 'doc', content: [] };
+      saved.redactedAt = new Date().toISOString();
+      saved.redactedByName = currentSession()?.user.name ?? '';
+      saved.redactionReason = reason;
     }
     return HttpResponse.json<TemplateDetail>(detail(template));
   }),

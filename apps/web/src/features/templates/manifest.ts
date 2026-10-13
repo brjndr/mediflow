@@ -36,5 +36,5 @@ export const templatesFeature: FeatureManifest = {
     },
   ],
   nav: { icon: FileText, order: 100, requires: ['template:read'] },
-  permissions: ['template:read', 'template:manage'],
+  permissions: ['template:read', 'template:manage', 'template:redact'],
 };
