@@ -23,7 +23,7 @@ GitHub issues are the source of truth for scope and progress. `scripts/github/ro
 - **Sizes** assume one developer using Claude Code: S about half a day, M one to two days, L three to five days. Split anything larger.
 - **Branches:** `feat/<number>-<slug>`, `fix/<number>-<slug>`, `chore/<number>-<slug>`.
 - **Commits:** Conventional Commits with the issue number, for example `feat(patients): add search (#42)`.
-- **PRs:** one issue per PR, body contains `Closes #<number>`, CI must be green. Merging closes the issue.
+- **PRs:** a PR does the work of one issue, body contains `Closes #<number>`, CI must be green. If the change also fully resolves another open issue, the body has a `Closes` line for that one too, with a sentence saying why. Merging closes the issues. An issue is closed directly only when no PR can do it (a duplicate, one that will not be done, or one found resolved after the merge), with a comment naming the PR or the reason.
 - **Definition of ready:** dependencies closed, acceptance criteria clear, sized. **Definition of done:** the checklist at the bottom of each issue.
 
 ## Daily loop with Claude Code

@@ -1,6 +1,8 @@
 ## Summary
 
-<!-- What changed and why. One issue per PR. -->
+<!-- What changed and why. The PR does the work of one issue. -->
+
+<!-- One "Closes" line per issue this change fully resolves: the issue it was opened for, and any other, with a sentence saying why. -->
 
 Closes #
 

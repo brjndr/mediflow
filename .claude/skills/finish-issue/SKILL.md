@@ -16,16 +16,16 @@ The issue number comes from the branch name (`feat/<n>-<slug>`). If the branch i
    - **Quality:** run the `code-reviewer` subagent for an issue sized M or L.
    - `pnpm analyze`: a dependency was added or a chunk may have grown by more than 30 KB. Put the size impact in the PR.
    - `pnpm gen:api`: API route schemas changed. The committed contract must not be stale.
-4. **Scope check:** `git diff main...HEAD --stat`. Everything in the diff must belong to this issue. Propose new issues for anything else.
+4. **Scope check:** `git diff main...HEAD --stat`. Everything in the diff must belong to this issue. Propose new issues for anything else. Then look at the other open issues of the milestone (`gh issue list --milestone "<name>"`): if this change fully resolves one of them, note its number for the PR body. One that is only partly resolved stays open and gets a comment saying what is done and what remains.
 5. **Commit:** Conventional Commits with the issue number, e.g. `feat(patients): add search (#42)`. Small, reviewable commits.
-6. **Push and open the PR:** `git push -u origin <branch>`, then `gh pr create` with the title in the same style as the commit and a body covering what changed and why, how it was tested, the check results from step 3, and any follow-up issues proposed. The body ends with `Closes #<n>`.
+6. **Push and open the PR:** `git push -u origin <branch>`, then `gh pr create` with the title in the same style as the commit and a body covering what changed and why, how it was tested, the check results from step 3, and any follow-up issues proposed. The body ends with `Closes #<n>`, and with one more `Closes #<m>` line for each other issue step 4 found fully resolved, each with a sentence saying why.
 7. **Wait for CI:** `gh pr checks <pr> --watch`. If a check fails, read its log, fix the cause, push, and wait again.
-8. **Merge when every check is green:** `gh pr merge <pr> --merge --delete-branch`. Merging closes the issue.
+8. **Merge when every check is green:** `gh pr merge <pr> --merge --delete-branch`. Merging closes every issue the body lists.
 9. **Clean up:** `gh issue edit <n> --remove-label status:in-progress`, then `git switch main`, `git pull --ff-only` and `git fetch --prune`, so the next issue starts from an up-to-date main.
 10. **Report:** the PR URL, what was verified, and anything left open.
 
 ## Do not
 
-- Close the issue by hand. Merging the PR closes it.
+- Close the issue by hand. Merging the PR closes it. An issue is closed directly only when no PR can do it (a duplicate, one that will not be done, or one found resolved after the merge), with a comment naming the PR or the reason.
 - Merge with a failed or pending check, or when the user asked to review the PR first. Then add `status:in-review` in place of `status:in-progress` and stop after step 7.
 - Force push, or bypass the pre-commit hook with `--no-verify`.
