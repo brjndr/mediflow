@@ -71,6 +71,44 @@ const SAMPLE_DEPARTMENTS = [
   'Radiology',
 ];
 
+/**
+ * A price catalog in every category: [category, code prefix, name, price in minor units]. A price
+ * of 0 is a service set up and not priced yet.
+ */
+const SAMPLE_SERVICES: readonly [string, string, string, number][] = [
+  ['consultation', 'CON', 'General consultation', 50000],
+  ['consultation', 'CON', 'Specialist consultation', 90000],
+  ['consultation', 'CON', 'Follow-up consultation', 30000],
+  ['consultation', 'CON', 'Emergency consultation', 120000],
+  ['consultation', 'CON', 'Tele-review', 0],
+  ['procedure', 'PRO', 'Wound dressing', 25000],
+  ['procedure', 'PRO', 'Suturing', 80000],
+  ['procedure', 'PRO', 'Injection administration', 10000],
+  ['procedure', 'PRO', 'Nebulisation', 15000],
+  ['procedure', 'PRO', 'ECG', 40000],
+  ['procedure', 'PRO', 'Plaster application', 150000],
+  ['bed', 'BED', 'General ward bed day', 200000],
+  ['bed', 'BED', 'Semi-private room day', 350000],
+  ['bed', 'BED', 'Private room day', 600000],
+  ['bed', 'BED', 'ICU bed day', 1200000],
+  ['bed', 'BED', 'Day-care bed', 100000],
+  ['lab', 'LAB', 'Complete blood count', 35000],
+  ['lab', 'LAB', 'Blood glucose fasting', 12000],
+  ['lab', 'LAB', 'Lipid profile', 70000],
+  ['lab', 'LAB', 'Liver function test', 85000],
+  ['lab', 'LAB', 'Kidney function test', 80000],
+  ['lab', 'LAB', 'Thyroid profile', 65000],
+  ['lab', 'LAB', 'Urine routine', 15000],
+  ['imaging', 'IMG', 'Chest X-ray', 45000],
+  ['imaging', 'IMG', 'Abdominal ultrasound', 130000],
+  ['imaging', 'IMG', 'CT head plain', 350000],
+  ['imaging', 'IMG', 'MRI brain', 800000],
+  ['imaging', 'IMG', 'Echocardiography', 220000],
+  ['package', 'PKG', 'Basic health check', 250000],
+  ['package', 'PKG', 'Executive health check', 750000],
+  ['package', 'PKG', 'Normal delivery package', 4500000],
+];
+
 const HOSPITALS = [
   {
     slug: 'sample-hospital',
@@ -84,6 +122,7 @@ const HOSPITALS = [
       departments: true,
       doctors: true,
       staff: true,
+      services: true,
       appointments: true,
       clinical: true,
       laboratory: true,
@@ -106,6 +145,7 @@ const HOSPITALS = [
       departments: true,
       doctors: true,
       staff: true,
+      services: true,
       appointments: true,
       clinical: true,
       laboratory: false,
@@ -232,6 +272,43 @@ try {
        on conflict on constraint departments_name_taken do nothing`,
       [tenantIds.get(hospital.slug), SAMPLE_DEPARTMENTS],
     );
+  }
+
+  // A price catalog, each service with last year's price and the one in force since. Only codes
+  // the hospital does not have yet, so running again adds nothing.
+  for (const hospital of HOSPITALS) {
+    const tenantId = tenantIds.get(hospital.slug);
+    const counters = new Map<string, number>();
+    for (const [category, prefix, name, amount] of SAMPLE_SERVICES) {
+      const n = (counters.get(prefix) ?? 0) + 1;
+      counters.set(prefix, n);
+      const added = await client.query<{ id: string }>(
+        `insert into services (tenant_id, code, name, category, tax_class)
+         values ($1, $2, $3, $4, $5)
+         on conflict on constraint services_code_taken do nothing
+         returning id`,
+        [
+          tenantId,
+          `${prefix}-${String(n).padStart(3, '0')}`,
+          name,
+          category,
+          // Clinical services are exempt; rooms and packages carry a rate.
+          category === 'bed' || category === 'package' ? 'standard' : 'exempt',
+        ],
+      );
+      const serviceId = added.rows[0]?.id;
+      if (!serviceId || amount === 0) continue;
+      await client.query(
+        `insert into service_prices
+           (tenant_id, service_id, price_list_id, amount_minor, effective_from, effective_to)
+         select $1, $2, l.id, p.amount, p.starts, p.ends
+         from price_lists l,
+           (values ($3::bigint, date '2024-04-01', date '2025-03-31'),
+                   ($4::bigint, date '2025-04-01', null)) as p (amount, starts, ends)
+         where l.tenant_id = $1 and l.standard`,
+        [tenantId, serviceId, Math.round(amount * 0.9), amount],
+      );
+    }
   }
 
   // A doctor profile, with weekday morning hours, for every sample member in the doctor role who
