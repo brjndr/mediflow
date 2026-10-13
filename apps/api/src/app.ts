@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import { auditPlugin } from './core/audit/plugin.js';
 import { authPlugin } from './core/auth/plugin.js';
 import { accessPlugin } from './core/access/plugin.js';
@@ -9,6 +9,7 @@ import { accountRoutes } from './core/auth/account-routes.js';
 import { authRoutes } from './core/auth/routes.js';
 import type { Config } from './core/config/config.js';
 import { dbPlugin } from './core/db/plugin.js';
+import { NO_STORE, registerCacheDefault } from './core/http/cache.js';
 import { registerErrorHandling } from './core/http/errors.js';
 import { registerStrictBodies } from './core/http/strict-body.js';
 import { jobsPlugin } from './core/jobs/plugin.js';
@@ -73,10 +74,27 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
     bodyLimit: 1_048_576,
     // Behind a load balancer the client address comes from the forwarded header.
     trustProxy: config.TRUST_PROXY,
+    // An address the router cannot read is refused before any hook runs, so the answer is made
+    // here: the standard body, which does not repeat the address, and not to be stored.
+    frameworkErrors: (_error, request, reply) => {
+      void (reply as FastifyReply)
+        .status(400)
+        .header('cache-control', NO_STORE)
+        .header('x-request-id', request.id)
+        .send({
+          error: {
+            code: 'bad_request',
+            message: 'The request could not be processed',
+            requestId: request.id,
+          },
+        });
+    },
   }).withTypeProvider<TypeBoxTypeProvider>();
 
   app.decorate('config', config);
   registerErrorHandling(app);
+  // No answer is kept by a browser or a cache unless its route says otherwise.
+  registerCacheDefault(app);
   // Before any route: a JSON body is checked for the types it was sent with.
   registerStrictBodies(app);
 

@@ -27,7 +27,7 @@ export const codeRoutes: FastifyPluginAsyncTypebox = async (app) => {
         response: { 200: ref(CodePage), ...errors(400, 401, 403, 409, 429) },
       },
     },
-    async (request, reply) => {
+    async (request) => {
       const body = request.body as CodeSearchRequest;
       const result = await searchCodes(request.txClient, {
         system: body.system,
@@ -37,8 +37,6 @@ export const codeRoutes: FastifyPluginAsyncTypebox = async (app) => {
         limit: body.limit ?? DEFAULT_PAGE_SIZE,
       });
       if (!result) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
-      // The favourite marks and the order are one hospital's: never kept by anything in between.
-      void reply.header('cache-control', 'private, no-store');
       return {
         items: result.rows,
         nextCursor: result.nextCursor,
