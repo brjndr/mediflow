@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "db:migrate": "tsx src/core/db/migrate-cli.ts",
     "db:seed": "tsx scripts/seed-dev.ts",
+    "codes:load": "tsx src/features/codes/load-cli.ts",
     "gen:openapi": "tsx src/core/openapi/generate.ts"
   },
   "dependencies": {

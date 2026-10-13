@@ -334,6 +334,31 @@ describe('the row-level security template', () => {
     }
   });
 
+  it('lets a hospital’s requests reach no table without it, but the ones named here', async () => {
+    // The test above finds tables by their tenant_id column, so a table made without one, and
+    // granted to the app role, would pass it unseen. Shared reference data is such a table by
+    // design: it is listed here with exactly what a request may do to it, which is read it.
+    const SHARED: Record<string, string[]> = { codes: ['SELECT'] };
+    const { rows } = await pool.query<{ table_name: string; privileges: string[] }>(`
+      select c.relname as table_name,
+             array(
+               select p from unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) as p
+               where has_table_privilege('mediflow_app', c.oid, p)
+             ) as privileges
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
+      where c.relkind in ('r', 'p')
+        and not (c.relrowsecurity and c.relforcerowsecurity)
+        and has_any_column_privilege('mediflow_app', c.oid, 'SELECT, INSERT, UPDATE')
+      order by 1`);
+    const open = Object.fromEntries(
+      rows
+        .filter((row) => row.table_name !== 'rls_probe')
+        .map((row) => [row.table_name, row.privileges]),
+    );
+    expect(open).toEqual(SHARED);
+  });
+
   it('protects the tenants table too', async () => {
     const { rows } = await pool.query(
       "select relrowsecurity, relforcerowsecurity from pg_class where relname = 'tenants' and relnamespace = 'public'::regnamespace",
