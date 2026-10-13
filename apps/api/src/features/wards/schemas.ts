@@ -14,6 +14,12 @@ export const FLOOR_MAX = 50;
 export const ROOM_NAME_MAX = 50;
 export const BED_NUMBER_MAX = 20;
 export const NOTE_MAX = 100;
+/**
+ * The most rooms and beds a ward can have, archived ones counted: every change of a ward answers
+ * with the whole ward, and nothing of it is ever deleted. Far above any real ward.
+ */
+export const ROOMS_PER_WARD_MAX = 200;
+export const BEDS_PER_WARD_MAX = 1000;
 
 export const BED_STATUSES = ['available', 'occupied', 'cleaning', 'blocked'] as const;
 export type BedStatus = (typeof BED_STATUSES)[number];

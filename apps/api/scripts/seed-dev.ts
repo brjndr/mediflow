@@ -647,12 +647,14 @@ try {
     // One bed out of use and one being made ready, so the screen shows every status but occupied.
     await client.query(
       `update beds set status = 'blocked', blocked_reason = 'repair'
-       where tenant_id = $1 and number = 'ICU-4' and status = 'available' and version = 1`,
+       where tenant_id = $1 and number = 'ICU-4' and status = 'available' and version = 1
+         and ward_id = (select id from wards where tenant_id = $1 and code = 'ICU')`,
       [tenantId],
     );
     await client.query(
       `update beds set status = 'cleaning'
-       where tenant_id = $1 and number = 'G-08' and status = 'available' and version = 1`,
+       where tenant_id = $1 and number = 'G-08' and status = 'available' and version = 1
+         and ward_id = (select id from wards where tenant_id = $1 and code = 'GEN')`,
       [tenantId],
     );
   }

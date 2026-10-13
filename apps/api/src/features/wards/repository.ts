@@ -334,13 +334,30 @@ export async function updateWard(
   if (rowCount !== 1) throw new Error('ward was not updated');
 }
 
-/** Whether a bed of the ward that is not archived is occupied. */
+/**
+ * Holds the beds of the ward that are not archived until the transaction ends, and says whether
+ * one is occupied. Held, not only read: a bed being given a patient at the same moment waits, or
+ * is waited for, so a ward is never archived with a patient in it.
+ */
 export async function wardHasOccupiedBed(client: pg.ClientBase, wardId: string): Promise<boolean> {
-  const { rowCount } = await client.query(
-    "select 1 from beds where ward_id = $1 and status = 'occupied' and not archived limit 1",
+  const { rows } = await client.query<{ status: BedStatus }>(
+    'select status from beds where ward_id = $1 and not archived order by id for update',
     [wardId],
   );
-  return (rowCount ?? 0) > 0;
+  return rows.some((row) => row.status === 'occupied');
+}
+
+/** How many rooms and beds the ward has, archived ones counted. */
+export async function wardSize(
+  client: pg.ClientBase,
+  wardId: string,
+): Promise<{ rooms: number; beds: number }> {
+  const { rows } = await client.query<{ rooms: number; beds: number }>(
+    `select (select count(*)::int from rooms where ward_id = $1) as rooms,
+       (select count(*)::int from beds where ward_id = $1) as beds`,
+    [wardId],
+  );
+  return rows[0] ?? { rooms: 0, beds: 0 };
 }
 
 /** Archives or restores a row of a table. False when it is already as asked: nothing is written. */
@@ -453,13 +470,25 @@ export async function renameRoom(
   if (rowCount !== 1) throw new Error('room was not renamed');
 }
 
-/** Whether a bed of the room that is not archived is occupied. */
+/** The same for a room: its beds that are not archived are held, and one may be occupied. */
 export async function roomHasOccupiedBed(client: pg.ClientBase, roomId: string): Promise<boolean> {
-  const { rowCount } = await client.query(
-    "select 1 from beds where room_id = $1 and status = 'occupied' and not archived limit 1",
+  const { rows } = await client.query<{ status: BedStatus }>(
+    'select status from beds where room_id = $1 and not archived order by id for update',
     [roomId],
   );
-  return (rowCount ?? 0) > 0;
+  return rows.some((row) => row.status === 'occupied');
+}
+
+/**
+ * Archives a bed unless a patient is in it, on the row as it is: false when it is occupied, so
+ * the refusal is the route's and never the database's.
+ */
+export async function archiveBed(client: pg.ClientBase, bedId: string): Promise<boolean> {
+  const { rowCount } = await client.query(
+    "update beds set archived = true where id = $1 and not archived and status <> 'occupied'",
+    [bedId],
+  );
+  return rowCount === 1;
 }
 
 /** Archives the beds of a room that are not archived yet, each keeping its status. Their ids. */

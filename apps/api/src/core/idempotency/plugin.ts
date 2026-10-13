@@ -13,13 +13,25 @@ export interface IdempotentConfig {
    *   whose response contains patient data, so no PHI copy is kept.
    * - `'full'`: the whole response body, as it was sent. Only for routes that return no patient
    *   data.
+   * - `'none'`: the status only. A repeat is not answered here: it reaches the handler with
+   *   `request.replayOf` set to the first status, and the handler answers again with what is true
+   *   now, doing no work. For a route whose response holds text that must not be kept a second
+   *   time and has no single `id` (a whole ward, with the notes on its blocked beds).
    */
-  body?: 'ids' | 'full';
+  body?: 'ids' | 'full' | 'none';
   /** Refuse a request that has no Idempotency-Key. Use it for payments. */
   required?: boolean;
 }
 
 declare module 'fastify' {
+  interface FastifyRequest {
+    /**
+     * The status the first request with this Idempotency-Key was answered with, on a route that
+     * keeps nothing else (`idempotent: { body: 'none' }`). Null for a request that is to do its
+     * work. A handler of such a route checks it first and answers without doing the work again.
+     */
+    replayOf: number | null;
+  }
   interface FastifyContextConfig {
     /** Makes a create or charge route accept an `Idempotency-Key` header. `true` means defaults. */
     idempotent?: true | IdempotentConfig;
@@ -102,10 +114,10 @@ export const idempotencyStorePlugin = fp(
       if (reply.statusCode >= 400) return payload;
 
       const declared = request.routeOptions.config.idempotent;
-      const full = declared !== undefined && settings(declared).body === 'full';
-      const sent = sentJson(payload, reply.getHeader('content-type'));
+      const keep = declared === undefined ? 'ids' : (settings(declared).body ?? 'ids');
+      const sent = keep === 'none' ? null : sentJson(payload, reply.getHeader('content-type'));
       const id = (sent as { id?: unknown } | null)?.id;
-      const stored = full ? sent : typeof id === 'string' ? { id } : null;
+      const stored = keep === 'full' ? sent : typeof id === 'string' ? { id } : null;
 
       await request.txClient.query(
         `update idempotency_keys set response_status = $1, response_body = $2
@@ -138,6 +150,8 @@ export const idempotencyStorePlugin = fp(
  */
 export const idempotencyPlugin = fp(
   async (app) => {
+    app.decorateRequest('replayOf', null);
+
     app.addHook('onRoute', (route) => {
       if (!route.config?.idempotent) return;
       if (route.method === 'GET' || route.method === 'HEAD') {
@@ -218,6 +232,12 @@ export const idempotencyPlugin = fp(
       }
 
       replayed.add(request);
+      if (settings(declared).body === 'none') {
+        // Nothing was kept to answer with: the handler answers again, and does no work.
+        request.replayOf = stored.response_status;
+        void reply.header('idempotent-replayed', 'true');
+        return;
+      }
       void reply.status(stored.response_status).header('idempotent-replayed', 'true');
       if (stored.response_status === 204) return reply.send();
       // A string payload skips the route's response serializer, so a reduced body is not rejected

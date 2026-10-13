@@ -664,15 +664,6 @@ describe('rooms', () => {
     }
   });
 
-  it('are not added twice by a repeat of the request, which is refused as a name that is taken', async () => {
-    const { ward } = await addWard();
-    const key = `wards-${randomUUID()}`;
-    const first = await post(`/wards/${ward.id}/rooms`, { name: 'Once' }, { key });
-    const second = await post(`/wards/${ward.id}/rooms`, { name: 'Once' }, { key });
-    expect([first.statusCode, ...errorOf(second)]).toEqual([201, 409, 'room_name_taken']);
-    expect((await read(ward.id)).rooms).toHaveLength(1);
-  });
-
   it('are renamed from the version that was read', async () => {
     const { ward } = await addWard();
     await addRoom(ward.id, 'Left');
@@ -1187,5 +1178,262 @@ describe('two hospitals', () => {
       [second.room.id],
     );
     expect(rows[0]?.version).toBe(2);
+  });
+});
+
+describe('found in review', () => {
+  it('answers a repeat of adding a room or a bed with the ward as it is, and adds nothing', async () => {
+    const { ward, room, addBed, act } = await wardWithRoom();
+    const blocked = await addBed('RP-0');
+    await act(blocked.id, 'block', { reason: 'other', note: 'Replay secret' });
+
+    const roomKey = `wards-${randomUUID()}`;
+    const first = await post(`/wards/${ward.id}/rooms`, { name: 'Once' }, { key: roomKey });
+    // Something else changes before the answer is asked for again.
+    await addBed('RP-1');
+    const second = await post(`/wards/${ward.id}/rooms`, { name: 'Once' }, { key: roomKey });
+    expect([first.statusCode, second.statusCode]).toEqual([201, 201]);
+    expect(second.headers['idempotent-replayed']).toBe('true');
+    const again = second.json<Detail>();
+    expect(again.rooms.map((each) => each.name)).toEqual(['Once', 'Room 1']);
+    expect(again.rooms[1]?.beds.map((each) => each.number)).toEqual(['RP-0', 'RP-1']);
+
+    const bedKey = `wards-${randomUUID()}`;
+    const body = { number: 'RP-2', bedCategoryId: general };
+    const url = `/wards/${ward.id}/rooms/${room.id}/beds`;
+    expect((await post(url, body, { key: bedKey })).statusCode).toBe(201);
+    const replayed = await post(url, body, { key: bedKey });
+    expect(replayed.statusCode).toBe(201);
+    expect(replayed.json<Detail>().ward.bedCount).toBe(3);
+    // Without the key, or with it for another request, it is a new request.
+    expect(errorOf(await post(url, body))).toEqual([409, 'bed_number_taken']);
+    expect(errorOf(await post(url, { ...body, number: 'RP-3' }, { key: bedKey }))).toEqual([
+      422,
+      'idempotency_key_reuse',
+    ]);
+
+    // Nothing of the answers was kept: not the note, not the ward.
+    const { rows } = await pool.query<{ status: number; body: unknown }>(
+      `select response_status as status, response_body as body from idempotency_keys
+       where tenant_id = $1 and key = any($2::text[])`,
+      [hospital.id, [roomKey, bedKey]],
+    );
+    expect(rows).toEqual([
+      { status: 201, body: null },
+      { status: 201, body: null },
+    ]);
+    // And the work was audited once.
+    const made = again.rooms.find((each) => each.name === 'Once');
+    expect(await audited('room', made?.id ?? '')).toEqual(['create']);
+  });
+
+  it('answers a repeat of adding a ward with the same ward', async () => {
+    const key = `wards-${randomUUID()}`;
+    const body = { code: unique('W'), name: 'Ward Once' };
+    const first = await post('/wards', body, { key });
+    const second = await post('/wards', body, { key });
+    expect(second.statusCode).toBe(201);
+    expect(second.headers['idempotent-replayed']).toBe('true');
+    expect(second.json()).toEqual(first.json());
+  });
+
+  it('says which fields changed, and tells of each bed that goes with its room', async () => {
+    const category = await addCategory();
+    const { ward, room, addBed } = await wardWithRoom();
+    const bed = await addBed('EV-1');
+    const last = async (id: string) => (await events(id)).at(-1);
+
+    await patch(`/bed-categories/${category.id}`, { name: unique('Renamed'), expectedVersion: 1 });
+    expect(await last(category.id)).toEqual({
+      kind: 'bed_category',
+      change: 'updated',
+      fields: ['name'],
+    });
+    await patch(`/wards/${ward.id}`, {
+      floor: 'Third',
+      departmentId: department,
+      expectedVersion: 1,
+    });
+    expect(await last(ward.id)).toEqual({
+      kind: 'ward',
+      change: 'updated',
+      fields: ['floor', 'departmentId'],
+    });
+    await patch(`/wards/${ward.id}/rooms/${room.id}`, { name: 'Renamed Room', expectedVersion: 1 });
+    expect(await last(room.id)).toEqual({ kind: 'room', change: 'updated', fields: ['name'] });
+    await patch(`/wards/${ward.id}/beds/${bed.id}`, {
+      number: 'EV-1a',
+      bedCategoryId: category.id,
+      expectedVersion: 1,
+    });
+    expect(await last(bed.id)).toEqual({
+      kind: 'bed',
+      change: 'updated',
+      fields: ['number', 'bedCategoryId'],
+    });
+
+    await post(`/wards/${ward.id}/rooms/${room.id}/archive`);
+    expect(await last(bed.id)).toEqual({ kind: 'bed', change: 'archived' });
+    expect(await last(room.id)).toEqual({ kind: 'room', change: 'archived' });
+  });
+
+  it('lets a room, a bed and a category change the capitals of its own name', async () => {
+    const category = await addCategory('recased category');
+    const { ward, room, addBed, bed } = await wardWithRoom();
+    const one = await addBed('recased');
+
+    const renamed = await patch(`/bed-categories/${category.id}`, {
+      name: 'Recased Category',
+      expectedVersion: 1,
+    });
+    expect(renamed.json()).toMatchObject({ name: 'Recased Category', version: 2 });
+    const detail = await ok<Detail>(
+      await patch(`/wards/${ward.id}/rooms/${room.id}`, { name: 'ROOM 1', expectedVersion: 1 }),
+    );
+    expect(detail.rooms[0]).toMatchObject({ name: 'ROOM 1', version: 2 });
+    await patch(`/wards/${ward.id}/beds/${one.id}`, { number: 'RECASED', expectedVersion: 1 });
+    expect(await bed(one.id)).toMatchObject({ number: 'RECASED', version: 2 });
+  });
+
+  it('never gives a bed a category that was archived at the same moment', async () => {
+    for (let round = 0; round < 3; round++) {
+      const category = await addCategory();
+      const { ward, room } = await wardWithRoom();
+      const [added, archived] = await Promise.all([
+        post(`/wards/${ward.id}/rooms/${room.id}/beds`, {
+          number: 'CR-1',
+          bedCategoryId: category.id,
+        }),
+        post(`/bed-categories/${category.id}/archive`),
+      ]);
+      // Either the bed has it and it stays in use, or it was archived and the bed was refused.
+      expect([
+        [201, 409],
+        [400, 200],
+      ]).toContainEqual([added.statusCode, archived.statusCode]);
+    }
+  });
+
+  it('never brings a bed back with a category that was archived at the same moment', async () => {
+    const category = await addCategory();
+    const { addBed, bed, act } = await wardWithRoom();
+    const one = await addBed('CR-2', category.id);
+    await act(one.id, 'archive');
+    const [restored, archived] = await Promise.all([
+      act(one.id, 'restore'),
+      post(`/bed-categories/${category.id}/archive`),
+    ]);
+    expect([
+      [200, 409],
+      [409, 200],
+    ]).toContainEqual([restored.statusCode, archived.statusCode]);
+    expect((await bed(one.id)).archived).toBe(restored.statusCode !== 200);
+  });
+
+  it('gives a ward no more rooms and beds than a ward can have', async () => {
+    const { ward, room } = await wardWithRoom();
+    // Up to the limits, as bulk work would leave it: archived ones count.
+    await pool.query(
+      `insert into rooms (tenant_id, ward_id, name, archived)
+       select $1, $2, 'Filler ' || n, true from generate_series(1, 199) as n`,
+      [hospital.id, ward.id],
+    );
+    await pool.query(
+      `insert into beds (tenant_id, ward_id, room_id, number, bed_category_id, archived)
+       select $1, $2, $3, 'F-' || n, $4, n > 500 from generate_series(1, 999) as n`,
+      [hospital.id, ward.id, room.id, general],
+    );
+    expect(errorOf(await post(`/wards/${ward.id}/rooms`, { name: 'One too many' }))).toEqual([
+      409,
+      'ward_room_limit',
+    ]);
+    const beds = `/wards/${ward.id}/rooms/${room.id}/beds`;
+    expect((await post(beds, { number: 'Last', bedCategoryId: general })).statusCode).toBe(201);
+    expect(errorOf(await post(beds, { number: 'Over', bedCategoryId: general }))).toEqual([
+      409,
+      'ward_bed_limit',
+    ]);
+    // A full ward is still read, in the order people count, with every bed in its room.
+    const detail = await read(ward.id);
+    expect(detail.rooms).toHaveLength(200);
+    expect(detail.rooms.find((each) => each.id === room.id)?.beds).toHaveLength(1000);
+    expect(detail.ward).toMatchObject({ roomCount: 1, bedCount: 501 });
+  });
+
+  it('needs the right to read wards as well as to change them', async () => {
+    // A role a hospital made for itself: it may manage wards, and may not read them.
+    await pool.query(
+      "insert into roles (tenant_id, id, name, built_in) values ($1, 'ward_fixer', 'Ward fixer', false)",
+      [hospital.id],
+    );
+    await pool.query(
+      "insert into role_permissions (tenant_id, role_id, permission, scope) values ($1, 'ward_fixer', 'ward:manage', 'all')",
+      [hospital.id],
+    );
+    const fixer = await createUser(pool, 'Wards Fixer', { withPassword: false });
+    await addMembership(pool, fixer, hospital, 'ward_fixer');
+    try {
+      const { ward } = await addWard();
+      const options = { user: fixer };
+      const denied = [403, 'permission_denied'];
+      // Restoring a ward that is in use changes nothing, and used to answer with all of it.
+      expect(errorOf(await post(`/wards/${ward.id}/restore`, undefined, options))).toEqual(denied);
+      expect(errorOf(await post(`/wards/${ward.id}/rooms`, { name: 'X' }, options))).toEqual(
+        denied,
+      );
+      expect(errorOf(await get(`/wards/${ward.id}`, options))).toEqual(denied);
+    } finally {
+      await deleteUsers(pool, [fixer]);
+    }
+  });
+
+  it('holds what a patient is in, whichever of two changes comes first', async () => {
+    const { ward, addBed } = await wardWithRoom();
+    const bed = await addBed('RC-1');
+    // As admissions will: a patient is given the bed in a transaction that is still open.
+    const admission = await pool.connect();
+    try {
+      await admission.query('begin');
+      await admission.query("update beds set status = 'occupied' where id = $1", [bed.id]);
+      const archiving = post(`/wards/${ward.id}/archive`);
+      // The archive waits for the bed. It is answered only once the admission ends.
+      const early = await Promise.race([
+        archiving.then(() => 'answered'),
+        new Promise((done) => setTimeout(() => done('waiting'), 300)),
+      ]);
+      expect(early).toBe('waiting');
+      await admission.query('commit');
+      expect(errorOf(await archiving)).toEqual([409, 'ward_has_occupied_beds']);
+    } finally {
+      admission.release();
+    }
+    expect((await read(ward.id)).ward.archived).toBe(false);
+  });
+
+  it('refuses in the database what the routes refuse', async () => {
+    const { ward, room, addBed } = await wardWithRoom();
+    const bed = await addBed('DB-R1');
+    const other = await addBed('DB-R2');
+    // A room is archived with its beds, and a bed does not come back into an archived room.
+    await expect(
+      pool.query('update rooms set archived = true where id = $1', [room.id]),
+    ).rejects.toThrow(/with its beds/);
+    await post(`/wards/${ward.id}/rooms/${room.id}/archive`);
+    await expect(
+      pool.query('update beds set archived = false where id = $1', [bed.id]),
+    ).rejects.toThrow(/archived room/);
+    // A patient is not put in a bed of an archived room, or of an archived ward.
+    await post(`/wards/${ward.id}/rooms/${room.id}/restore`);
+    await post(`/wards/${ward.id}/beds/${other.id}/restore`);
+    await post(`/wards/${ward.id}/archive`);
+    await expect(
+      pool.query("update beds set status = 'occupied' where id = $1", [other.id]),
+    ).rejects.toThrow(/takes no patient/);
+    // Another table can refer to a room and to a bed together with its hospital.
+    const { rows } = await pool.query<{ name: string }>(
+      `select conname as name from pg_constraint
+       where conname in ('rooms_tenant_id_id', 'beds_tenant_id_id') order by 1`,
+    );
+    expect(rows.map((row) => row.name)).toEqual(['beds_tenant_id_id', 'rooms_tenant_id_id']);
   });
 });

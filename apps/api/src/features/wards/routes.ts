@@ -6,6 +6,7 @@ import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
+  archiveBed,
   archiveBedsOfRoom,
   bedNumberTaken,
   bedService,
@@ -36,6 +37,7 @@ import {
   updateWard,
   wardCodeTaken,
   wardHasOccupiedBed,
+  wardSize,
   type BedRow,
   type CategoryRow,
   type WardRow,
@@ -43,6 +45,7 @@ import {
 import type { Ward } from './schemas.js';
 import {
   BED_NUMBER_MAX,
+  BEDS_PER_WARD_MAX,
   BedBlock,
   BedCategory,
   BedCategoryCreate,
@@ -55,6 +58,7 @@ import {
   NAME_MAX,
   NOTE_MAX,
   ROOM_NAME_MAX,
+  ROOMS_PER_WARD_MAX,
   RoomCreate,
   RoomUpdate,
   WARD_SCHEMAS,
@@ -155,6 +159,12 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const ward = await findWard(request.txClient, wardId);
     if (!ward) throw gone('ward');
     const { rooms, beds } = await roomsAndBeds(request.txClient, ward.id);
+    const byRoom = new Map<string, BedRow[]>();
+    for (const bed of beds) {
+      const list = byRoom.get(bed.room_id);
+      if (list) list.push(bed);
+      else byRoom.set(bed.room_id, [bed]);
+    }
     return {
       ward: wardView(ward),
       rooms: rooms
@@ -162,8 +172,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
         .map((room) => ({
           id: room.id,
           name: room.name,
-          beds: beds
-            .filter((bed) => bed.room_id === room.id)
+          beds: (byRoom.get(room.id) ?? [])
             .sort((a, b) => natural.compare(a.number, b.number) || a.id.localeCompare(b.id))
             .map(bedView),
           archived: room.archived,
@@ -232,8 +241,20 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
     return category.id;
   }
 
-  const changed = (request: FastifyRequest, kind: string, id: string, change: string) =>
-    request.emit('master.changed', id, { kind, change });
+  // An update names the fields that changed, never their values.
+  const changed = (
+    request: FastifyRequest,
+    kind: string,
+    id: string,
+    change: string,
+    fields?: string[],
+  ) => request.emit('master.changed', id, { kind, change, ...(fields ? { fields } : {}) });
+
+  /** The names of the fields that differ. */
+  const differing = (pairs: Record<string, boolean>): string[] =>
+    Object.entries(pairs)
+      .filter(([, differs]) => differs)
+      .map(([field]) => field);
 
   // --- bed categories --------------------------------------------------------------------------
 
@@ -266,7 +287,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
     '/bed-categories',
     {
       // No patient data in the answer, so a replay can return it whole.
-      config: { permissions: [MANAGE], feature: FEATURE, idempotent: { body: 'full' } },
+      config: { permissions: [MANAGE, READ], feature: FEATURE, idempotent: { body: 'full' } },
       schema: {
         operationId: 'createBedCategory',
         tags: ['wards'],
@@ -304,7 +325,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     '/bed-categories/:bedCategoryId',
     {
-      config: { permissions: [MANAGE], feature: FEATURE },
+      config: { permissions: [MANAGE, READ], feature: FEATURE },
       schema: {
         operationId: 'updateBedCategory',
         tags: ['wards'],
@@ -330,7 +351,11 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
         body.serviceId === undefined
           ? current.service_id
           : await serviceFor(request, body.serviceId, current.service_id);
-      if (name !== current.name || serviceId !== current.service_id) {
+      const fields = differing({
+        name: name !== current.name,
+        serviceId: serviceId !== current.service_id,
+      });
+      if (fields.length > 0) {
         try {
           await updateCategory(request.txClient, current.id, { name, serviceId });
         } catch (error) {
@@ -338,7 +363,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
           throw error;
         }
         request.audit('update', 'bed_category', current.id);
-        await changed(request, 'bed_category', current.id, 'updated');
+        await changed(request, 'bed_category', current.id, 'updated', fields);
       }
       const row = await findCategory(request.txClient, current.id);
       if (!row) throw gone('bed_category');
@@ -350,7 +375,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
     app.post(
       `/bed-categories/:bedCategoryId/${action}`,
       {
-        config: { permissions: [MANAGE], feature: FEATURE },
+        config: { permissions: [MANAGE, READ], feature: FEATURE },
         schema: {
           operationId: `${action}BedCategory`,
           tags: ['wards'],
@@ -413,7 +438,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
     '/wards',
     {
       // A new ward has no beds, so its answer holds no note: a replay can return it whole.
-      config: { permissions: [MANAGE], feature: FEATURE, idempotent: { body: 'full' } },
+      config: { permissions: [MANAGE, READ], feature: FEATURE, idempotent: { body: 'full' } },
       schema: {
         operationId: 'createWard',
         tags: ['wards'],
@@ -465,7 +490,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     '/wards/:wardId',
     {
-      config: { permissions: [MANAGE], feature: FEATURE },
+      config: { permissions: [MANAGE, READ], feature: FEATURE },
       schema: {
         operationId: 'updateWard',
         tags: ['wards'],
@@ -490,14 +515,15 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
             ? current.department_id
             : await departmentFor(request, body.departmentId, current.department_id),
       };
-      if (
-        next.name !== current.name ||
-        next.floor !== current.floor ||
-        next.departmentId !== current.department_id
-      ) {
+      const fields = differing({
+        name: next.name !== current.name,
+        floor: next.floor !== current.floor,
+        departmentId: next.departmentId !== current.department_id,
+      });
+      if (fields.length > 0) {
         await updateWard(request.txClient, current.id, next);
         request.audit('update', 'ward', current.id);
-        await changed(request, 'ward', current.id, 'updated');
+        await changed(request, 'ward', current.id, 'updated', fields);
       }
       return detail(request, current.id);
     },
@@ -507,7 +533,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
     app.post(
       `/wards/:wardId/${action}`,
       {
-        config: { permissions: [MANAGE], feature: FEATURE },
+        config: { permissions: [MANAGE, READ], feature: FEATURE },
         schema: {
           operationId: `${action}Ward`,
           tags: ['wards'],
@@ -546,24 +572,32 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     '/wards/:wardId/rooms',
     {
-      config: { permissions: [MANAGE], feature: FEATURE },
+      // The answer is the whole ward, with the notes of its blocked beds: none of it is kept.
+      config: { permissions: [MANAGE, READ], feature: FEATURE, idempotent: { body: 'none' } },
       schema: {
         operationId: 'createRoom',
         tags: ['wards'],
         headers: IdempotencyHeaders,
         description:
-          'Adds a room to a ward. Every bed is in a room: an open ward is one room with many beds. A name another room of the ward has, archived or not, whatever its capitals, is refused with 409 room_name_taken. The answer is the whole ward, which can hold notes on blocked beds, so it is not kept for a replay: a repeat of the request is refused as a name that is taken, and nothing is added twice. Audited.' +
+          'Adds a room to a ward. Every bed is in a room: an open ward is one room with many beds. A name another room of the ward has, archived or not, whatever its capitals, is refused with 409 room_name_taken. A ward has at most 200 rooms, archived ones counted (409 ward_room_limit). A repeat with the same Idempotency-Key adds nothing and is answered with the ward as it is then: the answer is the whole ward, which can hold notes on blocked beds, so nothing of it is kept. Audited.' +
           ARCHIVED_WARD +
           OTHER_HOSPITAL,
         params: WardParams,
         body: ref(RoomCreate),
-        response: { 201: ref(WardDetail), ...errors(400, 401, 403, 404, 409, 429) },
+        response: { 201: ref(WardDetail), ...errors(400, 401, 403, 404, 409, 422, 429) },
       },
     },
     async (request, reply) => {
+      // A repeat of a request that went through: the ward as it is now, and no second room.
+      if (request.replayOf !== null) {
+        return reply.status(201).send(await detail(request, request.params.wardId));
+      }
       const body = request.body as RoomCreate;
       const name = cleanName(body.name, ROOM_NAME_MAX);
       const ward = await wardToChange(request, request.params.wardId);
+      if ((await wardSize(request.txClient, ward.id)).rooms >= ROOMS_PER_WARD_MAX) {
+        throw refuse('ward_room_limit', 'The ward has as many rooms as a ward can have');
+      }
       const taken = () => refuse('room_name_taken', 'The ward has a room of that name');
       if (await roomNameTaken(request.txClient, ward.id, name)) throw taken();
       let id: string;
@@ -582,7 +616,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     '/wards/:wardId/rooms/:roomId',
     {
-      config: { permissions: [MANAGE], feature: FEATURE },
+      config: { permissions: [MANAGE, READ], feature: FEATURE },
       schema: {
         operationId: 'updateRoom',
         tags: ['wards'],
@@ -613,7 +647,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
           throw error;
         }
         request.audit('update', 'room', room.id);
-        await changed(request, 'room', room.id, 'updated');
+        await changed(request, 'room', room.id, 'updated', ['name']);
       }
       return detail(request, ward.id);
     },
@@ -623,7 +657,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
     app.post(
       `/wards/:wardId/rooms/:roomId/${action}`,
       {
-        config: { permissions: [MANAGE], feature: FEATURE },
+        config: { permissions: [MANAGE, READ], feature: FEATURE },
         schema: {
           operationId: `${action}Room`,
           tags: ['wards'],
@@ -651,6 +685,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
             // A room goes with its beds; coming back, each bed is restored on its own.
             for (const bedId of await archiveBedsOfRoom(request.txClient, room.id)) {
               request.audit('archive', 'bed', bedId);
+              await changed(request, 'bed', bedId, 'archived');
             }
           }
           await setArchived(request.txClient, 'rooms', room.id, archive);
@@ -667,24 +702,31 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     '/wards/:wardId/rooms/:roomId/beds',
     {
-      config: { permissions: [MANAGE], feature: FEATURE },
+      config: { permissions: [MANAGE, READ], feature: FEATURE, idempotent: { body: 'none' } },
       schema: {
         operationId: 'createBed',
         tags: ['wards'],
         headers: IdempotencyHeaders,
         description:
-          'Adds a bed to a room, available. A number another bed of the ward has, archived or not, whatever its capitals, is refused with 409 bed_number_taken. The room must be in use (409 room_archived), and the category a bed category of the same hospital that is not archived (400 otherwise). The answer is the whole ward, which can hold notes on blocked beds, so it is not kept for a replay: a repeat of the request is refused as a number that is taken, and nothing is added twice. Audited.' +
+          'Adds a bed to a room, available. A number another bed of the ward has, archived or not, whatever its capitals, is refused with 409 bed_number_taken. The room must be in use (409 room_archived), and the category a bed category of the same hospital that is not archived (400 otherwise). A ward has at most 1000 beds, archived ones counted (409 ward_bed_limit). A repeat with the same Idempotency-Key adds nothing and is answered with the ward as it is then: nothing of the answer is kept. Audited.' +
           ARCHIVED_WARD +
           INSIDE,
         params: RoomParams,
         body: ref(BedCreate),
-        response: { 201: ref(WardDetail), ...errors(400, 401, 403, 404, 409, 429) },
+        response: { 201: ref(WardDetail), ...errors(400, 401, 403, 404, 409, 422, 429) },
       },
     },
     async (request, reply) => {
+      // A repeat of a request that went through: the ward as it is now, and no second bed.
+      if (request.replayOf !== null) {
+        return reply.status(201).send(await detail(request, request.params.wardId));
+      }
       const body = request.body as BedCreate;
       const number = cleanName(body.number, BED_NUMBER_MAX);
       const ward = await wardToChange(request, request.params.wardId);
+      if ((await wardSize(request.txClient, ward.id)).beds >= BEDS_PER_WARD_MAX) {
+        throw refuse('ward_bed_limit', 'The ward has as many beds as a ward can have');
+      }
       const room = await findRoom(request.txClient, ward.id, request.params.roomId);
       if (!room) throw gone('room');
       if (room.archived) throw refuse('room_archived', 'Restore the room first');
@@ -712,7 +754,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.patch(
     '/wards/:wardId/beds/:bedId',
     {
-      config: { permissions: [MANAGE], feature: FEATURE },
+      config: { permissions: [MANAGE, READ], feature: FEATURE },
       schema: {
         operationId: 'updateBed',
         tags: ['wards'],
@@ -745,7 +787,11 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
         body.bedCategoryId === undefined
           ? bed.bed_category_id
           : await categoryFor(request, body.bedCategoryId, bed.bed_category_id);
-      if (number !== bed.number || categoryId !== bed.bed_category_id) {
+      const fields = differing({
+        number: number !== bed.number,
+        bedCategoryId: categoryId !== bed.bed_category_id,
+      });
+      if (fields.length > 0) {
         try {
           await updateBed(request.txClient, bed.id, { number, categoryId });
         } catch (error) {
@@ -753,7 +799,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
           throw error;
         }
         request.audit('update', 'bed', bed.id);
-        await changed(request, 'bed', bed.id, 'updated');
+        await changed(request, 'bed', bed.id, 'updated', fields);
       }
       return detail(request, ward.id);
     },
@@ -762,7 +808,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     '/wards/:wardId/beds/:bedId/block',
     {
-      config: { permissions: [MANAGE], feature: FEATURE },
+      config: { permissions: [MANAGE, READ], feature: FEATURE },
       schema: {
         operationId: 'blockBed',
         tags: ['wards'],
@@ -799,7 +845,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     '/wards/:wardId/beds/:bedId/unblock',
     {
-      config: { permissions: [MANAGE], feature: FEATURE },
+      config: { permissions: [MANAGE, READ], feature: FEATURE },
       schema: {
         operationId: 'unblockBed',
         tags: ['wards'],
@@ -828,7 +874,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
     app.post(
       `/wards/:wardId/beds/:bedId/${action}`,
       {
-        config: { permissions: [MANAGE], feature: FEATURE },
+        config: { permissions: [MANAGE, READ], feature: FEATURE },
         schema: {
           operationId: `${action}Bed`,
           tags: ['wards'],
@@ -850,7 +896,9 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (!bed) throw gone('bed');
         if (bed.archived !== archive) {
           if (archive) {
-            if (bed.status === 'occupied') throw refuse('bed_occupied', 'The bed is occupied');
+            if (!(await archiveBed(request.txClient, bed.id))) {
+              throw refuse('bed_occupied', 'The bed is occupied');
+            }
           } else {
             const room = await findRoom(request.txClient, ward.id, bed.room_id);
             if (room?.archived) throw refuse('room_archived', 'Restore the room first');
@@ -860,7 +908,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
               throw refuse('bed_category_archived', 'Restore the bed category first');
             }
           }
-          await setArchived(request.txClient, 'beds', bed.id, archive);
+          if (!archive) await setArchived(request.txClient, 'beds', bed.id, false);
           request.audit(action, 'bed', bed.id);
           await changed(request, 'bed', bed.id, archive ? 'archived' : 'restored');
         }

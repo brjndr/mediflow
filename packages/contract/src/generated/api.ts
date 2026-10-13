@@ -1131,7 +1131,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Adds a room to a ward. Every bed is in a room: an open ward is one room with many beds. A name another room of the ward has, archived or not, whatever its capitals, is refused with 409 room_name_taken. The answer is the whole ward, which can hold notes on blocked beds, so it is not kept for a replay: a repeat of the request is refused as a name that is taken, and nothing is added twice. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A ward of another hospital answers 404, the same as one that does not exist. */
+        /** @description Adds a room to a ward. Every bed is in a room: an open ward is one room with many beds. A name another room of the ward has, archived or not, whatever its capitals, is refused with 409 room_name_taken. A ward has at most 200 rooms, archived ones counted (409 ward_room_limit). A repeat with the same Idempotency-Key adds nothing and is answered with the ward as it is then: the answer is the whole ward, which can hold notes on blocked beds, so nothing of it is kept. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A ward of another hospital answers 404, the same as one that does not exist. */
         post: operations["createRoom"];
         delete?: never;
         options?: never;
@@ -1199,7 +1199,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Adds a bed to a room, available. A number another bed of the ward has, archived or not, whatever its capitals, is refused with 409 bed_number_taken. The room must be in use (409 room_archived), and the category a bed category of the same hospital that is not archived (400 otherwise). The answer is the whole ward, which can hold notes on blocked beds, so it is not kept for a replay: a repeat of the request is refused as a number that is taken, and nothing is added twice. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A room or a bed is looked up inside the ward named, and the ward at the session hospital: one of another ward or hospital answers 404. */
+        /** @description Adds a bed to a room, available. A number another bed of the ward has, archived or not, whatever its capitals, is refused with 409 bed_number_taken. The room must be in use (409 room_archived), and the category a bed category of the same hospital that is not archived (400 otherwise). A ward has at most 1000 beds, archived ones counted (409 ward_bed_limit). A repeat with the same Idempotency-Key adds nothing and is answered with the ward as it is then: nothing of the answer is kept. Audited. Nothing of an archived ward is changed (409 ward_archived): restore the ward first. A room or a bed is looked up inside the ward named, and the ward at the session hospital: one of another ward or hospital answers 404. */
         post: operations["createBed"];
         delete?: never;
         options?: never;
@@ -7835,6 +7835,15 @@ export interface operations {
                 };
             };
             /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8128,6 +8137,15 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
