@@ -98,6 +98,8 @@ export default function AppointmentList() {
         id: 'status',
         header: t('columns.status'),
         value: (row) => t(`status.${row.status}`),
+        // It holds other features' badges too: hiding it would hide theirs.
+        hideable: false,
         render: (row, text) => (
           <span className="inline-flex flex-wrap items-center gap-1">
             <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[row.status]}`}>
@@ -226,7 +228,8 @@ export default function AppointmentList() {
             }
             onRetry={() => void appointments.refetch()}
             emptyMessage={filtered ? t('emptyFiltered') : t(oneDay ? 'emptyDay' : 'empty')}
-            hasNextPage={appointments.hasNextPage}
+            // Not the next page of the previous filter's rows, while those are still shown.
+            hasNextPage={appointments.hasNextPage && !appointments.isPlaceholderData}
             loadingMore={appointments.isFetchingNextPage}
             onLoadMore={() => void appointments.fetchNextPage()}
           />

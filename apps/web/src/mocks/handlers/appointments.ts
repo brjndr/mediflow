@@ -1,7 +1,7 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { dayBoundsUtc, todayIn, zonedToUtc } from '@/shared/utils/timezone';
-import { onMockReset, TENANT_IDS } from '../db';
+import { mockTenantTimezone, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockDoctor } from './doctors';
 import { mockPatient } from './patients';
@@ -32,8 +32,8 @@ interface StoredAppointment {
   version: number;
 }
 
-const HOSPITAL = { tenantId: TENANT_IDS.hospital, timezone: 'Asia/Kolkata', patient: 'pth' };
-const CLINIC = { tenantId: TENANT_IDS.clinic, timezone: 'Asia/Dubai', patient: 'ptc' };
+const HOSPITAL = { tenantId: TENANT_IDS.hospital, patient: 'pth' };
+const CLINIC = { tenantId: TENANT_IDS.clinic, patient: 'ptc' };
 
 /** The calendar day this many days from another, counted at UTC noon so no day is skipped. */
 const shiftDay = (day: string, by: number) => {
@@ -62,7 +62,8 @@ function seed(now = new Date()): StoredAppointment[] {
     { site: CLINIC, doctors: ['doc_c_01', 'doc_c_02'], perDoctor: 3, patients: 40 },
   ];
   for (const { site, doctors, perDoctor, patients } of plan) {
-    const today = todayIn(site.timezone, now);
+    const timezone = mockTenantTimezone(site.tenantId);
+    const today = todayIn(timezone, now);
     let n = 0;
     for (let offset = -3; offset <= 7; offset++) {
       const day = shiftDay(today, offset);
@@ -86,8 +87,8 @@ function seed(now = new Date()): StoredAppointment[] {
             tenantId: site.tenantId,
             patientId: `${site.patient}_${pad(((n * 37 + d) % patients) + 1, 5)}`,
             doctorId,
-            startsAt: zonedToUtc(day, start, site.timezone),
-            endsAt: zonedToUtc(day, end, site.timezone),
+            startsAt: zonedToUtc(day, start, timezone),
+            endsAt: zonedToUtc(day, end, timezone),
             status,
             version: 1,
           });
@@ -140,7 +141,10 @@ export const appointmentsHandlers = [
     const to = params.get('to') ?? '';
     const doctorId = params.get('doctorId');
     const status = params.get('status');
-    const limit = Math.min(Math.max(Number(params.get('limit') ?? 25), 1), 100);
+    const limit = Number(params.get('limit') ?? 25);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return error(400, 'validation_failed', 'Bad limit');
+    }
     const cursor = params.get('cursor');
     if (!DAY.test(from) || !DAY.test(to)) return error(400, 'validation_failed', 'Bad days');
     const span = days(from, to);
@@ -151,7 +155,7 @@ export const appointmentsHandlers = [
       return error(400, 'validation_failed', 'Unknown status');
     }
     // The hospital's own days, in its own timezone: the session's tenant, never the request's.
-    const timezone = access.tenantId === CLINIC.tenantId ? CLINIC.timezone : HOSPITAL.timezone;
+    const timezone = mockTenantTimezone(access.tenantId);
     const start = dayBoundsUtc(from, timezone).start;
     const end = dayBoundsUtc(to, timezone).end;
     const visible = appointments
@@ -159,14 +163,16 @@ export const appointmentsHandlers = [
       .filter((item) => item.startsAt >= start && item.startsAt < end)
       .filter((item) => !doctorId || item.doctorId === doctorId)
       .filter((item) => !status || item.status === status)
-      .sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.id.localeCompare(b.id))
-      .map(summaryOf)
-      .filter((item): item is AppointmentSummary => item !== null);
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.id.localeCompare(b.id));
     const first = cursor ? visible.findIndex((item) => item.id === cursor) : 0;
     if (first < 0) return error(400, 'invalid_cursor', 'Unknown cursor');
     const next = visible[first + limit];
     return HttpResponse.json<AppointmentPage>({
-      items: visible.slice(first, first + limit),
+      // Names are looked up for the page only.
+      items: visible
+        .slice(first, first + limit)
+        .map(summaryOf)
+        .filter((item): item is AppointmentSummary => item !== null),
       nextCursor: next ? next.id : null,
       // With the first page only, as the API gives it.
       ...(cursor ? {} : { total: visible.length }),

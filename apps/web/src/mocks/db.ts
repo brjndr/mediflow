@@ -309,6 +309,11 @@ export function openLink(kind: string, id: string): boolean {
 
 const resetListeners: (() => void)[] = [];
 
+/** A hospital's timezone, as its config says: for a mock that counts in the hospital's days. */
+export function mockTenantTimezone(tenantId: string): string {
+  return tenants[tenantId]?.timezone ?? 'UTC';
+}
+
 /** Lets a feature's mock handlers restore their own data when the mock backend is reset. */
 export function onMockReset(listener: () => void): void {
   resetListeners.push(listener);

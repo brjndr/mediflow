@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { editMockDoctor } from '@/mocks/handlers/doctors';
 import { server } from '@/mocks/node';
-import { api } from '@/shared/api';
+import { api, createTenantKeys } from '@/shared/api';
 import { renderApp } from '@/test/render';
 import { appointmentKeys } from './hooks/use-appointments';
 
@@ -95,6 +95,11 @@ describe('the appointment list', () => {
     setDay('To', later(1));
     await waitFor(() => expect(statuses()).toContain('96 appointments'));
 
+    // 31 days, both ends counted: the most one list covers, on the screen and at the server.
+    // The mock has appointments up to a week ahead: eight days of 48.
+    setDay('To', later(30));
+    await waitFor(() => expect(statuses()).toContain('384 appointments'));
+
     const asked = seen.length;
     setDay('To', later(31));
     expect(await screen.findByRole('alert')).toHaveTextContent('Choose at most 31 days.');
@@ -141,14 +146,25 @@ describe('a doctor', () => {
   it('sees their own schedule first, and can widen it to every doctor', async () => {
     editMockDoctor('doc_h_01', { userId: USER_IDS.doctor });
     signIn(USER_IDS.doctor, TENANT_IDS.hospital);
-    renderApp({ entry: '/appointments' });
+    const seen = watchRequests();
+    const { queryClient } = renderApp({ entry: '/appointments' });
 
     await waitFor(() => expect(statuses()).toContain('8 appointments'));
+    // Never the whole hospital first, while it was not yet known whose schedule to show.
+    expect(seen.map((params) => params.get('doctorId'))).toEqual(seen.map(() => 'doc_h_01'));
     const doctor = screen.getByRole('combobox', { name: 'Doctor' }) as HTMLSelectElement;
     expect(doctor.selectedOptions[0]?.textContent).toMatch(/\(you\)$/);
 
     await userEvent.selectOptions(doctor, 'All doctors');
     await waitFor(() => expect(statuses()).toContain('48 appointments'));
+
+    // The choice is kept when the doctors are asked for again.
+    await queryClient.invalidateQueries({
+      queryKey: createTenantKeys('doctors').all(TENANT_IDS.hospital),
+    });
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    expect(doctor.value).toBe('');
+    expect(statuses()).toContain('48 appointments');
   });
 
   it('who has no profile here sees every doctor’s', async () => {

@@ -1677,7 +1677,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The appointments of the active tenant that start on the days from `from` to `to` (calendar days at the hospital, both included, at most 31 days), by start time then id. Filtered by doctor and by status. A list, not a search: nothing in its address is typed about a patient, so it is a GET. Each row names its patient (name and MRN) for anyone who may read appointments, and every page read is audited. `total` comes with the first page only. Planned with the appointments API (#75). */
+        /** @description The appointments of the active tenant that start on the days from `from` to `to` (calendar days at the hospital, both included, at most 31 days), by start time then id. Filtered by doctor and by status. A list, not a search: nothing in its address is typed about a patient, so it is a GET. Each row names its patient (name and MRN) for anyone who may read appointments. The scope of the caller's `appointment:read` is applied on the server, whatever the filters say: with scope `own`, only the appointments of the caller's own doctor profile are returned, a `doctorId` of another doctor gives an empty page (not a refusal that would tell anything), and `total` counts only what the caller may see. The default grant to doctors is the whole hospital (scope all); the web app opens on the signed-in doctor's own schedule, which is a default of the screen, not a limit. Every page read is audited, with the actor and the ids of the appointments returned. `total` comes with the first page only. Planned with the appointments API (#75). */
         get: operations["listAppointments"];
         put?: never;
         post?: never;
