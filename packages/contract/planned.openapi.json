@@ -350,6 +350,123 @@
             "$ref": "#/components/responses/Error"
           }
         }
+      },
+      "post": {
+        "operationId": "createAppointment",
+        "description": "Books an appointment for a patient with a doctor, starting at one of the doctor's free slots (see `/appointments/free-slots`); the server sets its end from the slot length. Needs `appointment:create`. Two bookings can never hold the same doctor at the same time: a database exclusion constraint on the doctor's scheduled appointments decides between simultaneous requests, and the loser is refused with 409 `slot_taken`. A patient cannot be booked at a time that overlaps one of their own scheduled appointments, with any doctor: 409 `patient_overlap`. A start that is not a slot of the doctor's working hours, or is already past, is refused with 422 `outside_hours`. An unknown or inactive patient or doctor gives 422 `unknown_patient` or `unknown_doctor`. `extensions` holds the values of the fields other features add to the booking form (the `appointment.form.fields` slot), keyed by feature id; each feature registers a schema its part is checked against, and a part for a feature that is off or registered no schema is refused (422 `unknown_extension`). The reason is stored as plain text (no control or invisible characters, single spaces). The same `idempotency-key` returns the first answer. The answer names the patient (name and MRN) under the same rule as the list: to anyone who may book, without `patient:read`, since a booking means nothing without whom it is for; the web app offers booking only to someone who may find patients. An unknown patient id gives the same 422 `unknown_patient` whether the id belongs to another hospital or to none. Writes `appointment.created` to the outbox and the audit log in the same transaction. Planned with the appointments API (#75).",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value (such as a UUID) chosen by the client, required: a booking without one is refused (400). Repeating the request with the same key returns the first result instead of booking again; the same key with a different body is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The appointment booked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/appointments/free-slots": {
+      "get": {
+        "operationId": "listFreeSlots",
+        "description": "A doctor's free slots on one calendar day at the hospital, in order: the slots of the doctor's weekly working hours (cut into the doctor's consultation length, `consultationMinutes` of the profile) that overlap no scheduled appointment of the doctor and have not started yet. Cancelled and no-show appointments free their slot. Needs `appointment:create`, as it is asked for only to book. A list of times for a doctor and a day: nothing in its address is about a patient, so it is a GET. A day more than 90 days ahead, or before today, gives an empty list. An unknown or inactive doctor gives 404. Planned with the appointments API (#75).",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "doctorId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "A day at the hospital."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The free slots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreeSlots"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
       }
     }
   },
@@ -532,6 +649,148 @@
           "total": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "TimeSlot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["startsAt", "endsAt"],
+        "properties": {
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC."
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC."
+          }
+        }
+      },
+      "FreeSlots": {
+        "description": "A doctor's free slots on one day at the hospital.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["doctorId", "day", "slotMinutes", "slots"],
+        "properties": {
+          "doctorId": {
+            "type": "string"
+          },
+          "day": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "slotMinutes": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 240
+          },
+          "slots": {
+            "type": "array",
+            "maxItems": 288,
+            "items": {
+              "$ref": "#/components/schemas/TimeSlot"
+            }
+          }
+        }
+      },
+      "AppointmentCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["patientId", "doctorId", "startsAt"],
+        "properties": {
+          "patientId": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC. The start of one of the free slots."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Why the patient is coming. Plain text."
+          },
+          "extensions": {
+            "type": "object",
+            "description": "Values of the fields other features add to the booking form, keyed by feature id. Each part is checked against the schema its feature registers.",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "Appointment": {
+        "description": "An appointment record: the list fields, and the reason for the visit.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "tenantId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "doctorId",
+          "doctorName",
+          "startsAt",
+          "endsAt",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string",
+            "description": "The doctor's department. Absent when it has none."
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC."
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC."
+          },
+          "status": {
+            "$ref": "#/components/schemas/AppointmentStatus"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
           }
         }
       }

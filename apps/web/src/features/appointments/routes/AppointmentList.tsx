@@ -1,11 +1,13 @@
 import { differenceInCalendarDays } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Can } from '@/access';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
 import { Slot } from '@/registry';
 import { errorMessageKey } from '@/shared/api';
+import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
 import { todayIn, type DayString } from '@/shared/utils/timezone';
@@ -132,9 +134,16 @@ export default function AppointmentList() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
-        <p className="text-muted-foreground">{t('description')}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
+          <p className="text-muted-foreground">{t('description')}</p>
+        </div>
+        <Can permission="appointment:create">
+          <Button asChild>
+            <Link to="/appointments/new">{t('book.open')}</Link>
+          </Button>
+        </Can>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">

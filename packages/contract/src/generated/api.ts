@@ -1680,6 +1680,24 @@ export interface paths {
         /** @description The appointments of the active tenant that start on the days from `from` to `to` (calendar days at the hospital, both included, at most 31 days), by start time then id. Filtered by doctor and by status. A list, not a search: nothing in its address is typed about a patient, so it is a GET. Each row names its patient (name and MRN) for anyone who may read appointments. The scope of the caller's `appointment:read` is applied on the server, whatever the filters say: with scope `own`, only the appointments of the caller's own doctor profile are returned, a `doctorId` of another doctor gives an empty page (not a refusal that would tell anything), and `total` counts only what the caller may see. The default grant to doctors is the whole hospital (scope all); the web app opens on the signed-in doctor's own schedule, which is a default of the screen, not a limit. Every page read is audited, with the actor and the ids of the appointments returned. `total` comes with the first page only. Planned with the appointments API (#75). */
         get: operations["listAppointments"];
         put?: never;
+        /** @description Books an appointment for a patient with a doctor, starting at one of the doctor's free slots (see `/appointments/free-slots`); the server sets its end from the slot length. Needs `appointment:create`. Two bookings can never hold the same doctor at the same time: a database exclusion constraint on the doctor's scheduled appointments decides between simultaneous requests, and the loser is refused with 409 `slot_taken`. A patient cannot be booked at a time that overlaps one of their own scheduled appointments, with any doctor: 409 `patient_overlap`. A start that is not a slot of the doctor's working hours, or is already past, is refused with 422 `outside_hours`. An unknown or inactive patient or doctor gives 422 `unknown_patient` or `unknown_doctor`. `extensions` holds the values of the fields other features add to the booking form (the `appointment.form.fields` slot), keyed by feature id; each feature registers a schema its part is checked against, and a part for a feature that is off or registered no schema is refused (422 `unknown_extension`). The reason is stored as plain text (no control or invisible characters, single spaces). The same `idempotency-key` returns the first answer. The answer names the patient (name and MRN) under the same rule as the list: to anyone who may book, without `patient:read`, since a booking means nothing without whom it is for; the web app offers booking only to someone who may find patients. An unknown patient id gives the same 422 `unknown_patient` whether the id belongs to another hospital or to none. Writes `appointment.created` to the outbox and the audit log in the same transaction. Planned with the appointments API (#75). */
+        post: operations["createAppointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/appointments/free-slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A doctor's free slots on one calendar day at the hospital, in order: the slots of the doctor's weekly working hours (cut into the doctor's consultation length, `consultationMinutes` of the profile) that overlap no scheduled appointment of the doctor and have not started yet. Cancelled and no-show appointments free their slot. Needs `appointment:create`, as it is asked for only to book. A list of times for a doctor and a day: nothing in its address is about a patient, so it is a GET. A day more than 90 days ahead, or before today, gives an empty list. An unknown or inactive doctor gives 404. Planned with the appointments API (#75). */
+        get: operations["listFreeSlots"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2789,6 +2807,68 @@ export interface components {
             items: components["schemas"]["AppointmentSummary"][];
             nextCursor: string | null;
             total?: number;
+        };
+        TimeSlot: {
+            /**
+             * Format: date-time
+             * @description UTC.
+             */
+            startsAt: string;
+            /**
+             * Format: date-time
+             * @description UTC.
+             */
+            endsAt: string;
+        };
+        /** @description A doctor's free slots on one day at the hospital. */
+        FreeSlots: {
+            doctorId: string;
+            /** Format: date */
+            day: string;
+            slotMinutes: number;
+            slots: components["schemas"]["TimeSlot"][];
+        };
+        AppointmentCreate: {
+            patientId: string;
+            doctorId: string;
+            /**
+             * Format: date-time
+             * @description UTC. The start of one of the free slots.
+             */
+            startsAt: string;
+            /** @description Why the patient is coming. Plain text. */
+            reason?: string;
+            /** @description Values of the fields other features add to the booking form, keyed by feature id. Each part is checked against the schema its feature registers. */
+            extensions?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        /** @description An appointment record: the list fields, and the reason for the visit. */
+        Appointment: {
+            id: string;
+            tenantId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            doctorId: string;
+            doctorName: string;
+            /** @description The doctor's department. Absent when it has none. */
+            departmentName?: string;
+            /**
+             * Format: date-time
+             * @description UTC.
+             */
+            startsAt: string;
+            /**
+             * Format: date-time
+             * @description UTC.
+             */
+            endsAt: string;
+            status: components["schemas"]["AppointmentStatus"];
+            version: number;
+            reason?: string;
         };
     };
     responses: {
@@ -10471,6 +10551,70 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createAppointment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a booking without one is refused (400). Repeating the request with the same key returns the first result instead of booking again; the same key with a different body is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentCreate"];
+            };
+        };
+        responses: {
+            /** @description The appointment booked */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listFreeSlots: {
+        parameters: {
+            query: {
+                doctorId: string;
+                /** @description A day at the hospital. */
+                day: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The free slots */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreeSlots"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
