@@ -70,9 +70,28 @@ const titleOf = async (code: string) =>
 
 const GOOD = 'code,title\nCLI-1,Loaded from the command\nCLI-2,Loaded from the command too\n';
 
-beforeAll(() => {
+beforeAll(async () => {
   pool = new pg.Pool({ connectionString: DATABASE_URL });
   folder = mkdtempSync(join(tmpdir(), 'codes-load-'));
+  // What a run that was stopped before its end may have left.
+  await pool.query("delete from codes where code like 'CLI-%'");
+});
+
+describe('the record of the loads', () => {
+  it('is out of reach of every role a request or a job runs as', async () => {
+    const { rows } = await pool.query<{ role: string; privileges: string[] }>(`
+      select role, array(
+               select p from unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) as p
+               where has_table_privilege(role, 'code_loads', p)
+             ) as privileges
+      from unnest(array['mediflow_app', 'mediflow_worker', 'mediflow_auth']) as role
+      order by role`);
+    expect(rows).toEqual([
+      { role: 'mediflow_app', privileges: [] },
+      { role: 'mediflow_auth', privileges: [] },
+      { role: 'mediflow_worker', privileges: [] },
+    ]);
+  });
 });
 
 afterAll(async () => {

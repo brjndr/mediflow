@@ -118,6 +118,8 @@ async function all(body: object, options: Options = {}): Promise<Code[]> {
 const clearCodes = async () => {
   await pool.query('delete from code_favourites');
   await pool.query('delete from codes');
+  // The record of the loads this file made, with them.
+  await pool.query('delete from code_loads');
 };
 
 beforeAll(async () => {
