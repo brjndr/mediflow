@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useId, type ComponentProps, type ReactNode } from 'react';
+import { useCallback, useId, type ComponentProps, type ReactNode } from 'react';
 import {
   FormProvider,
   get,
@@ -104,11 +104,16 @@ export function fieldErrorKey(error: FieldError, exists: (key: string) => boolea
 /**
  * Sets a field of the surrounding form from code, for a field that is not typed into (a list
  * built by picking). It counts as the person's change: the field becomes dirty and is checked.
+ * The function is the same on every render, so an effect can depend on it without running again
+ * after each render it causes.
  */
 export function useSetFieldValue(): (name: string, value: unknown) => void {
   const { setValue } = useFormContext();
-  return (name, value) =>
-    setValue(name, value, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+  return useCallback(
+    (name: string, value: unknown) =>
+      setValue(name, value, { shouldDirty: true, shouldTouch: true, shouldValidate: true }),
+    [setValue],
+  );
 }
 
 /** The translated message of a field's error, for a field drawn outside the kit's own fields. */

@@ -1695,10 +1695,95 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A doctor's free slots on one calendar day at the hospital, in order: the slots of the doctor's weekly working hours (cut into the doctor's consultation length, `consultationMinutes` of the profile) that overlap no scheduled appointment of the doctor and have not started yet. Cancelled and no-show appointments free their slot. Needs `appointment:create`, as it is asked for only to book. A list of times for a doctor and a day: nothing in its address is about a patient, so it is a GET. A day more than 90 days ahead, or before today, gives an empty list. An unknown or inactive doctor gives 404. Planned with the appointments API (#75). */
+        /** @description A doctor's free slots on one calendar day at the hospital, in order: the slots of the doctor's weekly working hours (cut into the doctor's consultation length, `consultationMinutes` of the profile) that overlap no scheduled appointment of the doctor and have not started yet. Cancelled and no-show appointments free their slot. Needs `appointment:create` or `appointment:update` (to book, or to move a booking). A list of times for a doctor and a day: nothing in its address is about a patient, so it is a GET. A day more than 90 days ahead, or before today, gives an empty list. An unknown or inactive doctor gives 404. Planned with the appointments API (#75). */
         get: operations["listFreeSlots"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/appointments/{appointmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One appointment: the list fields, the reason for the visit and, when cancelled, why. Needs `appointment:read`, under the same rule as the list for naming the patient. An appointment of another hospital answers 404 `appointment_not_found`, the same as one that does not exist. Every read is audited. Planned with the appointments API (#75). */
+        get: operations["getAppointment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/appointments/{appointmentId}/reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Moves a scheduled appointment to one of a doctor's free slots, with the same doctor or another, and a reason. Its id stays. The free times and refusals are those of booking: 409 `slot_taken` when another appointment holds the doctor (the exclusion constraint decides), 409 `patient_overlap` when the patient has another appointment then, 422 `outside_hours` for a time that is not a free slot or has started, and 422 `unknown_doctor`. The appointment's own old time never counts against it. Writes `appointment.rescheduled` to the outbox with the old and the new start. Needs `appointment:update`. Only a scheduled appointment changes: completed, cancelled and no-show are final, and a change of one gives 409 `invalid_transition`. The `version` must be the current one, or 409 `conflict`. The rules are the server's, enforced in the same transaction as the change; the web app only offers what they allow. An appointment of another hospital answers 404 `appointment_not_found`, the same as one that does not exist. The same `idempotency-key` returns the first answer. Audited. Planned with the appointments API (#75). */
+        post: operations["rescheduleAppointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/appointments/{appointmentId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cancels a scheduled appointment that has not ended, with a reason from the list and a note (required for `other`). Its time is freed at once. One that has ended is refused with 422 `too_late`: it is completed or a no-show. Writes `appointment.cancelled` to the outbox. Needs `appointment:update`. Only a scheduled appointment changes: completed, cancelled and no-show are final, and a change of one gives 409 `invalid_transition`. The `version` must be the current one, or 409 `conflict`. The rules are the server's, enforced in the same transaction as the change; the web app only offers what they allow. An appointment of another hospital answers 404 `appointment_not_found`, the same as one that does not exist. The same `idempotency-key` returns the first answer. Audited. Planned with the appointments API (#75). */
+        post: operations["cancelAppointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/appointments/{appointmentId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Marks a scheduled appointment as completed: the patient was seen. Not before it starts (422 `too_early`). Writes `appointment.completed` to the outbox. Closing an OPD encounter will complete its appointment the same way (M7). Needs `appointment:update`. Only a scheduled appointment changes: completed, cancelled and no-show are final, and a change of one gives 409 `invalid_transition`. The `version` must be the current one, or 409 `conflict`. The rules are the server's, enforced in the same transaction as the change; the web app only offers what they allow. An appointment of another hospital answers 404 `appointment_not_found`, the same as one that does not exist. The same `idempotency-key` returns the first answer. Audited. Planned with the appointments API (#75). */
+        post: operations["completeAppointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/appointments/{appointmentId}/no-show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Marks a scheduled appointment as a no-show: the patient did not come. Not before it starts (422 `too_early`). Its time is freed. Writes `appointment.no_show` to the outbox. Needs `appointment:update`. Only a scheduled appointment changes: completed, cancelled and no-show are final, and a change of one gives 409 `invalid_transition`. The `version` must be the current one, or 409 `conflict`. The rules are the server's, enforced in the same transaction as the change; the web app only offers what they allow. An appointment of another hospital answers 404 `appointment_not_found`, the same as one that does not exist. The same `idempotency-key` returns the first answer. Audited. Planned with the appointments API (#75). */
+        post: operations["markAppointmentNoShow"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2845,7 +2930,7 @@ export interface components {
                 };
             };
         };
-        /** @description An appointment record: the list fields, and the reason for the visit. */
+        /** @description An appointment record: the list fields, the reason for the visit and, when cancelled, why. */
         Appointment: {
             id: string;
             tenantId: string;
@@ -2869,6 +2954,48 @@ export interface components {
             status: components["schemas"]["AppointmentStatus"];
             version: number;
             reason?: string;
+            cancellation?: components["schemas"]["AppointmentCancellation"];
+        };
+        /**
+         * @description Why an appointment was cancelled.
+         * @enum {string}
+         */
+        AppointmentCancelReason: "patient_request" | "doctor_unavailable" | "hospital" | "duplicate" | "other";
+        /**
+         * @description Why an appointment was moved.
+         * @enum {string}
+         */
+        AppointmentRescheduleReason: "patient_request" | "doctor_unavailable" | "hospital" | "other";
+        /** @description Why the appointment was cancelled. Present on a cancelled appointment only. */
+        AppointmentCancellation: {
+            reason: components["schemas"]["AppointmentCancelReason"];
+            /** @description Plain text (no control or invisible characters, single spaces). Required when the reason is `other`. */
+            note?: string;
+        };
+        AppointmentReschedule: {
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
+            /** @description The same doctor, or another one. */
+            doctorId: string;
+            /**
+             * Format: date-time
+             * @description UTC. The start of one of the doctor's free slots.
+             */
+            startsAt: string;
+            reason: components["schemas"]["AppointmentRescheduleReason"];
+            /** @description Plain text (no control or invisible characters, single spaces). Required when the reason is `other`. */
+            note?: string;
+        };
+        AppointmentCancel: {
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
+            reason: components["schemas"]["AppointmentCancelReason"];
+            /** @description Plain text (no control or invisible characters, single spaces). Required when the reason is `other`. */
+            note?: string;
+        };
+        AppointmentStatusChange: {
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
         };
     };
     responses: {
@@ -10615,6 +10742,181 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getAppointment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The appointment as it is now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    rescheduleAppointment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required. Repeating the request with the same key returns the first result; the same key with a different body is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                appointmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentReschedule"];
+            };
+        };
+        responses: {
+            /** @description The appointment as it is now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelAppointment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required. Repeating the request with the same key returns the first result; the same key with a different body is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                appointmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentCancel"];
+            };
+        };
+        responses: {
+            /** @description The appointment as it is now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    completeAppointment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required. Repeating the request with the same key returns the first result; the same key with a different body is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                appointmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentStatusChange"];
+            };
+        };
+        responses: {
+            /** @description The appointment as it is now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    markAppointmentNoShow: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required. Repeating the request with the same key returns the first result; the same key with a different body is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                appointmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentStatusChange"];
+            };
+        };
+        responses: {
+            /** @description The appointment as it is now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
             429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

@@ -66,6 +66,21 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Appointments', exact: true })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: '48 appointments' })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // An appointment: the record stacks on a phone, and stays inside the width. A scheduled one,
+  // which can be moved.
+  await page.getByRole('combobox', { name: 'Status' }).selectOption('scheduled');
+  await page
+    .getByRole('button', { name: /^Open the appointment/ })
+    .first()
+    .click();
+  await expect(page.getByRole('heading', { name: 'Appointment', exact: true })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  // Moving it: the densest panel of the screen.
+  await page.getByRole('button', { name: 'Move', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Move the appointment' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'Back to the appointments' }).click();
+  await expect(page.getByRole('heading', { name: 'Appointments', exact: true })).toBeVisible();
   // The calendar: one doctor's day on a phone or a tablet, the week as well on a desktop.
   await page.getByRole('link', { name: 'Calendar', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Appointments calendar' })).toBeVisible();

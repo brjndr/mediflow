@@ -37,6 +37,7 @@
     "no_show": "No-show"
   },
   "actions": {
+    "open": "Open the appointment",
     "openPatient": "Open the patient"
   },
   "book": {
@@ -117,5 +118,74 @@
     "truncated": "More than {{count}} appointments on these days: not all are shown. Choose the day view.",
     "needsDoctors": "The calendar shows one doctor's appointments, and choosing a doctor is not available to you here. Use the list.",
     "noDoctors": "This hospital has no practising doctors yet."
+  },
+  "detail": {
+    "heading": "Appointment",
+    "loading": "Loading the appointment…",
+    "notFound": "This appointment is not available. It may have been removed, or belong to another hospital.",
+    "when": "When",
+    "noReason": "No reason given.",
+    "cancelledBecause": "Cancelled because"
+  },
+  "change": {
+    "reason": "Reason",
+    "chooseReason": "Choose a reason",
+    "note": "Note",
+    "noteHint": "Required when the reason is \"Other\".",
+    "saving": "Saving…",
+    "back": "Back",
+    "cancelReasons": {
+      "patient_request": "The patient asked",
+      "doctor_unavailable": "The doctor is not available",
+      "hospital": "The hospital rearranged it",
+      "duplicate": "Booked twice by mistake",
+      "other": "Other"
+    },
+    "rescheduleReasons": {
+      "patient_request": "The patient asked",
+      "doctor_unavailable": "The doctor is not available",
+      "hospital": "The hospital rearranged it",
+      "other": "Other"
+    },
+    "reschedule": {
+      "open": "Move",
+      "heading": "Move the appointment",
+      "submit": "Move to this time"
+    },
+    "cancel": {
+      "open": "Cancel the appointment",
+      "heading": "Cancel the appointment",
+      "submit": "Cancel the appointment",
+      "back": "Keep it"
+    },
+    "complete": {
+      "open": "Mark as completed",
+      "heading": "Mark as completed",
+      "confirm": "{{patient}} was seen. This cannot be undone.",
+      "submit": "Mark as completed"
+    },
+    "no_show": {
+      "open": "Mark as no-show",
+      "heading": "Mark as no-show",
+      "confirm": "{{patient}} did not come. The time is freed, and this cannot be undone.",
+      "submit": "Mark as no-show"
+    },
+    "done": {
+      "reschedule": "The appointment was moved.",
+      "cancel": "The appointment was cancelled.",
+      "complete": "The appointment was marked as completed.",
+      "no_show": "The appointment was marked as a no-show."
+    },
+    "refused": {
+      "conflict": "Someone changed this appointment meanwhile. It is shown as it is now: check it and try again.",
+      "invalid_transition": "This appointment is no longer scheduled, so it cannot be changed. It is shown as it is now.",
+      "too_early": "The appointment has not started yet. It can be completed or marked a no-show once it starts.",
+      "too_late": "The appointment has ended, so it cannot be cancelled. Mark it as completed or as a no-show.",
+      "unknown_doctor": "That doctor no longer takes appointments. Choose another doctor."
+    },
+    "errors": {
+      "reason": "Choose a reason.",
+      "note": "Say why, when the reason is \"Other\"."
+    }
   }
 }

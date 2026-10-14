@@ -75,7 +75,34 @@ test('one doctor’s calendar, by day and by week where there is room', async ({
   await page.getByRole('button', { name: 'Next day' }).click();
   await expect(status(page, '8 appointments')).toBeVisible();
 
-  // An appointment opens its patient, by id.
+  // An appointment opens its own screen, by id.
   await blocks.first().click();
-  await expect(page).toHaveURL(/\/patients\/pth_\d{5}$/);
+  await expect(page).toHaveURL(/\/appointments\/apt_\w+$/);
+  await expect(page.getByRole('heading', { name: 'Appointment', exact: true })).toBeVisible();
+});
+
+test('cancel an appointment with a reason', async ({ page }) => {
+  // Tomorrow at the hospital (Asia/Kolkata), whose appointments have not started.
+  const tomorrow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(
+    new Date(Date.now() + 86_400_000),
+  );
+  await page.goto('/');
+  await goTo(page, 'Appointments');
+  await page.getByLabel('To', { exact: true }).fill(tomorrow);
+  await page.getByLabel('From', { exact: true }).fill(tomorrow);
+  await page.getByRole('combobox', { name: 'Status' }).selectOption('scheduled');
+  await expect(status(page, /\d+ appointments?/)).toBeVisible();
+  await page
+    .getByRole('button', { name: /^Open the appointment/ })
+    .first()
+    .click();
+  await expect(page.getByRole('heading', { name: 'Appointment', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mark as completed' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Cancel the appointment' }).click();
+  await page.getByRole('combobox', { name: /^Reason/ }).selectOption('patient_request');
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'Cancel the appointment' }).click();
+  await expect(page.getByText('The appointment was cancelled.')).toBeVisible();
+  await expect(page.getByText('The patient asked')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Move' })).toHaveCount(0);
 });
