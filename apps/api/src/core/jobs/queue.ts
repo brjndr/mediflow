@@ -3,6 +3,12 @@ import { PgBoss } from 'pg-boss';
 export interface SendOptions {
   /** The job id. Sending an id that already exists is a no-op, which makes a send repeatable. */
   id?: string;
+  /** Failed attempts retried before the job is given up. The in-memory queue does not retry. */
+  retryLimit?: number;
+  /** Seconds before the first retry. */
+  retryDelay?: number;
+  /** Doubles the delay before each further retry. */
+  retryBackoff?: boolean;
 }
 
 /**

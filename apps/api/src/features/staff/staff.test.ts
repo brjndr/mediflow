@@ -15,6 +15,7 @@ import {
   type TestTenant,
   type TestUser,
 } from '../../../test/helpers.js';
+import { MemoryQueue } from '../../core/jobs/queue.js';
 import { createMemoryNotifier } from '../../core/notifier/notifier.js';
 
 /**
@@ -26,6 +27,7 @@ import { createMemoryNotifier } from '../../core/notifier/notifier.js';
 const COOKIE = 'mediflow_session';
 const ORIGIN = testConfig().APP_BASE_URL;
 const notifier = createMemoryNotifier(ORIGIN);
+const queue = new MemoryQueue();
 
 let app: FastifyInstance;
 let pool: pg.Pool;
@@ -111,6 +113,7 @@ async function invite(token: string, roleId = 'nurse') {
   const email = freshEmail();
   const response = await send('POST', '/invites', token, { email, name: 'Invited Ira', roleId });
   if (response.statusCode !== 201) throw new Error('invite failed in test setup');
+  await queue.drain();
   const link = notifier.sent.at(-1)?.text.match(/token=([A-Za-z0-9_-]{43})/)?.[1] ?? '';
   return { id: response.json<{ id: string }>().id, email, link };
 }
@@ -146,7 +149,11 @@ async function newUser(name: string) {
 }
 
 beforeAll(async () => {
-  app = await buildTestApp({ config: { AUTH_RATE_LIMIT_PER_MINUTE: 10_000 }, notifier });
+  app = await buildTestApp({
+    config: { AUTH_RATE_LIMIT_PER_MINUTE: 10_000 },
+    notifier,
+    jobQueue: queue,
+  });
   pool = app.database.pool;
   hospital = await createTenant(pool, 'Staff Hospital');
   clinic = await createTenant(pool, 'Staff Clinic');
@@ -342,6 +349,7 @@ describe('deactivating and reactivating', () => {
       name: 'Nurse Nila',
       roleId: 'nurse',
     });
+    await queue.drain();
     const link = notifier.sent.at(-1)?.text.match(/token=([A-Za-z0-9_-]{43})/)?.[1] ?? '';
 
     await app.inject({

@@ -1,7 +1,8 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import { grantsWithin } from '../../core/access/policy.js';
-import { issueInvite, sendInvite } from '../../core/auth/invites.js';
+import { queueInviteEmail } from '../../core/auth/emails.js';
+import { issueInvite } from '../../core/auth/invites.js';
 import { HttpError } from '../../core/http/errors.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { errors, ref } from '../../core/http/schemas.js';
@@ -71,8 +72,11 @@ export const staffRoutes: FastifyPluginAsyncTypebox = async (app) => {
         roleId,
         invitedBy: request.session?.userId ?? null,
       });
-      // Only once the invite is really saved, and without holding the response for the mailer.
-      request.afterCommit(() => sendInvite(app.notifier, invite));
+      // Only once the invite is really saved. A job sends it, so the mail server never holds up
+      // the response, and a failed send is retried.
+      request.afterCommit(() =>
+        queueInviteEmail(app.jobs, { tenantId: invite.tenantId, inviteId: invite.id }),
+      );
 
       return reply.status(201).send({
         id: invite.id,

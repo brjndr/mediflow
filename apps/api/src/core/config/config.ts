@@ -59,7 +59,10 @@ const ConfigSchema = Type.Object({
    * `openssl rand -base64 32`. Losing it means every user must set their authenticator up again.
    */
   MFA_ENCRYPTION_KEY: Type.String({ pattern: '^[A-Za-z0-9+/]{43}=$' }),
-  /** Runs the job queue (pg-boss) and the outbox poller. Off in tests, which drive them by hand. */
+  /**
+   * Runs the job queue (pg-boss) and the outbox poller. Off in tests, which drive them by hand.
+   * Never off in a deployment: staff email (invitations, password resets) is sent by jobs.
+   */
   JOBS_ENABLED: Type.Boolean({ default: true }),
   /** How often pending domain events are handed to the job queue. */
   OUTBOX_POLL_MS: Type.Integer({ minimum: 100, maximum: 60_000, default: 1000 }),
