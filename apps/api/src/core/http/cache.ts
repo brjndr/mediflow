@@ -4,8 +4,8 @@ import type { FastifyInstance } from 'fastify';
 export const NO_STORE = 'private, no-store';
 
 /**
- * Every answer says it is not to be stored, unless its route said something else on purpose (the
- * access policy is `private, no-cache` with an ETag, so a refresh is cheap). A patient record read
+ * Every answer says it is not to be stored, unless its route said something else on purpose (none
+ * does today: even the access policy, served with an ETag, is not stored). A patient record read
  * on a shared hospital PC must not be readable from the browser's cache after sign-out, and no
  * feature has to remember that. Errors and public routes get it too: nothing the API answers is
  * meant to be kept.

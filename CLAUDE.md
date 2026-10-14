@@ -209,7 +209,7 @@ Goal: a fast, smooth, reliable application under heavy daily use. Capability com
 - No state is persisted to browser storage, and none is needed by default (see Stack).
 - Lists use cursor pagination with page sizes of 25 to 100, TanStack Table for grids and TanStack Virtual for long lists and timelines. Never load a full dataset into the browser.
 - Use sparse fieldsets (`fields=`) and compact payloads. List rows never fetch full records.
-- HTTP caching: ETag and 304 for session policy and tenant config (private). Debounce, cancel and dedupe requests. Prefetch the next page and likely routes only on hover or when idle.
+- HTTP caching: ETag and 304 for the session policy, revalidated by the app itself (it keeps the policy and the ETag in memory); every API answer is `private, no-store`, so no browser keeps a copy. Debounce, cancel and dedupe requests. Prefetch the next page and likely routes only on hover or when idle.
 - Avoid re-render storms: colocate state, split contexts (session, tenant, policy), and memoize only after profiling.
 - Images are SVG or WebP, lazy-loaded, and logos are capped at 50 KB.
 

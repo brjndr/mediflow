@@ -241,7 +241,8 @@ describe('the access policy', () => {
 
     expect(first.statusCode).toBe(200);
     expect(etag).toBe(`"${first.json<AccessPolicy>().version}"`);
-    expect(first.headers['cache-control']).toBe('private, no-cache');
+    expect(first.headers['cache-control']).toBe('private, no-store');
+    expect(unchanged.headers['cache-control']).toBe('private, no-store');
     expect(unchanged.statusCode).toBe(304);
     expect(unchanged.body).toBe('');
     expect(unchanged.headers.etag).toBe(etag);

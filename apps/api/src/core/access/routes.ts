@@ -15,7 +15,7 @@ export const accessRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'getSessionPolicy',
         tags: ['auth'],
         description:
-          'The effective access policy for the active tenant. Supports ETag and If-None-Match so a refresh is cheap. Returns 409 tenant_mismatch when X-Tenant-ID differs from the session tenant.',
+          'The effective access policy for the active tenant. Supports ETag and If-None-Match so a refresh is cheap. The answer is `Cache-Control: private, no-store`: the client keeps the policy and its ETag itself, and no browser keeps a copy. Returns 409 tenant_mismatch when X-Tenant-ID differs from the session tenant.',
         headers: Type.Object({ 'If-None-Match': Type.Optional(Type.String()) }),
         response: {
           200: {
@@ -34,8 +34,9 @@ export const accessRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!policy) throw new HttpError(403, 'permission_denied', 'Not a member of this hospital');
 
       const etag = `"${policy.version}"`;
-      // Private to the user and revalidated every time: cheap, and never stale after a change.
-      void reply.header('etag', etag).header('cache-control', 'private, no-cache');
+      // Not stored by the browser (the core default, `private, no-store`): the web app holds the
+      // policy and its ETag in memory and sends If-None-Match itself, so a refresh is still a 304.
+      void reply.header('etag', etag);
       if (request.headers['if-none-match'] === etag) {
         // A 304 has no body at all, which the typed reply has no way to say.
         return reply.status(304).send(undefined as unknown as null);
