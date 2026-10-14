@@ -4,7 +4,7 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 ## What exists
 
-**Patients (web and API):** the list with server-side search, sort and cursor paging; registration with a duplicate check while typing and on saving; the patient screen, which hosts the `patient.detail.tabs` and `patient.detail.actions` slots; editing with optimistic save and conflict detection; a field-level permission for contact details (`patient.contact:read`); deep links to a patient; audit of every read and write, and the `patient.registered` and `patient.updated` events.
+**Patients (web and API):** the list with server-side search, sort and cursor paging; registration with a duplicate check while typing and on saving; the patient screen, which hosts the `patient.detail.tabs` and `patient.detail.actions` slots; editing with optimistic save and conflict detection; a field-level permission for contact details (`patient.contact:read`); deep links to a patient; audit of every read and write, and the `patient.registered` and `patient.updated` events. Exports `PatientSearch` (#71), the box another feature's screen chooses a patient with (booking an appointment): the term goes in the body of `POST /patients/search`, nothing is asked for until something is typed, and an option shows the name, the MRN and the date of birth, to tell two patients of one name apart. It needs `patient:read` and the `patients` switch, and says so without them.
 
 ## Decided
 
