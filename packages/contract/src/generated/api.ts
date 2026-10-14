@@ -249,7 +249,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The effective access policy for the active tenant. Supports ETag and If-None-Match so a refresh is cheap. Returns 409 tenant_mismatch when X-Tenant-ID differs from the session tenant. */
+        /** @description The effective access policy for the active tenant. Supports ETag and If-None-Match so a refresh is cheap. The answer is `Cache-Control: private, no-store`: the client keeps the policy and its ETag itself, and no browser keeps a copy. Returns 409 tenant_mismatch when X-Tenant-ID differs from the session tenant. */
         get: operations["getSessionPolicy"];
         put?: never;
         post?: never;
