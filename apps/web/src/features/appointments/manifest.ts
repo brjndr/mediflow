@@ -6,7 +6,9 @@ import type { FeatureManifest } from '@/registry';
  * calendar (#72) and the changes of status (#73) follow. It chooses the doctor from the doctors
  * feature when that is on, and names a patient by id only, opening the patient's own screen.
  *
- * It hosts the `appointment.row.badges` slot: each row's badges, given the appointment's id.
+ * It hosts the `appointment.row.badges` slot (each row's badges, given the appointment's id) and
+ * the `appointment.form.fields` slot (fields of other features on the booking form, given the
+ * chosen doctor's id and the day).
  */
 export const appointmentsFeature: FeatureManifest = {
   id: 'appointments',
@@ -22,6 +24,11 @@ export const appointmentsFeature: FeatureManifest = {
       path: 'appointments',
       lazy: () => import('./routes/AppointmentList'),
       requires: ['appointment:read'],
+    },
+    {
+      path: 'appointments/new',
+      lazy: () => import('./routes/AppointmentBook'),
+      requires: ['appointment:create'],
     },
   ],
   nav: { icon: CalendarClock, order: 25, requires: ['appointment:read'] },

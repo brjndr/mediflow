@@ -38,5 +38,58 @@
   },
   "actions": {
     "openPatient": "Open the patient"
+  },
+  "book": {
+    "open": "Book an appointment",
+    "heading": "Book an appointment",
+    "description": "Choose the patient, the doctor and one of the doctor's free times.",
+    "patient": "Patient",
+    "patientMrn": "MRN {{mrn}}",
+    "changePatient": "Change patient",
+    "doctor": "Doctor",
+    "chooseDoctor": "Choose a doctor",
+    "doctorsLoading": "Loading doctors…",
+    "day": "Day",
+    "reason": "Reason for the visit",
+    "reasonHint": "Optional. Shown when the appointment is opened, not in the list.",
+    "submit": "Book",
+    "submitting": "Booking…",
+    "cancel": "Cancel",
+    "back": "Back to the appointments",
+    "patientOverlap": "This patient already has an appointment at this time. Choose another time.",
+    "slots": {
+      "label": "Time",
+      "chooseFirst": "Choose a doctor and a day to see the free times.",
+      "loading": "Loading the free times…",
+      "none": "The doctor has no free time on this day. Choose another day.",
+      "retry": "Try again",
+      "outOfRange": "Choose a day from today to 90 days ahead."
+    },
+    "unavailable": {
+      "doctors": "Booking needs the doctors module and access to doctors. Ask your administrator.",
+      "patients": "Booking needs access to patient records, to find the patient. Ask your administrator."
+    },
+    "errors": {
+      "patient": "Choose the patient.",
+      "doctor": "Choose a doctor.",
+      "day": "Choose a day.",
+      "slot": "Choose a time.",
+      "dayRange": "Choose a day from today to 90 days ahead."
+    },
+    "booked": {
+      "heading": "Appointment booked",
+      "summary": "{{patient}} is booked with {{doctor}} on {{when}}.",
+      "another": "Book another"
+    },
+    "refused": {
+      "taken": {
+        "alternatives": "Someone booked that time a moment ago. The next free times are {{times}}, marked below.",
+        "noneLater": "Someone booked that time a moment ago, and no later time is free on this day. Choose another time or day."
+      },
+      "outside_hours": {
+        "alternatives": "That time is no longer in the doctor's working hours. The next free times are {{times}}, marked below.",
+        "noneLater": "That time is no longer in the doctor's working hours, and no later time is free on this day. Choose another time or day."
+      }
+    }
   }
 }

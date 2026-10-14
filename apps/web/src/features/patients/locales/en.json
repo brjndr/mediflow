@@ -103,5 +103,14 @@
     "title": "No patient matches “{{term}}”.",
     "hint": "Check the spelling, or search by a different detail: part of the name, the MRN, or the phone number.",
     "clear": "Clear the search"
+  },
+  "picker": {
+    "loading": "Searching…",
+    "failed": "The search failed. Try again.",
+    "none": "No patient matches this search.",
+    "found_one": "{{count}} patient found",
+    "found_other": "{{count}} patients found",
+    "details": "MRN {{mrn}} · born {{dob}}",
+    "unavailable": "Finding a patient needs access to patient records."
   }
 }

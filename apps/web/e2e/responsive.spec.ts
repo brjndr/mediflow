@@ -66,6 +66,21 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Appointments', exact: true })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: '48 appointments' })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // Booking: one column on a phone, the free times wrapping inside the width.
+  await page.getByRole('link', { name: 'Book an appointment' }).click();
+  await expect(page.getByRole('heading', { name: 'Book an appointment' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Patient' })).toBeVisible();
+  await page.getByRole('combobox', { name: /^Doctor/ }).selectOption({ index: 1 });
+  // A weekday more than a week ahead: the doctor's morning is free whatever today is.
+  const ahead = new Date();
+  ahead.setUTCDate(ahead.getUTCDate() + 8);
+  while (ahead.getUTCDay() === 0 || ahead.getUTCDay() === 6)
+    ahead.setUTCDate(ahead.getUTCDate() + 1);
+  await page.getByLabel(/^Day/).fill(ahead.toISOString().slice(0, 10));
+  await expect(
+    page.getByRole('group', { name: /^Time/ }).getByRole('button').first(),
+  ).toBeVisible();
+  await expectNoSidewaysScroll(page);
 
   await goTo(page, 'Patients');
   await expect(page.getByRole('heading', { name: 'Patients', exact: true })).toBeVisible();

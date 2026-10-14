@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { createTenantKeys, isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
@@ -65,6 +65,30 @@ export function usePatients({ q, sort, limit }: PatientFilters) {
     // The search is a POST so that the term stays out of the address, which means the fetch
     // wrapper does not retry it as it would a GET. It only reads, so a passing failure (no
     // network, a timeout, a server that is restarting) is tried again here.
+    retry: (failures, error) => failures < 2 && isApiError(error) && RETRYABLE.has(error.code),
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
+  });
+}
+
+/** How many patients a search box offers. The rest are found by typing more. */
+export const SUGGESTIONS = 10;
+
+/**
+ * What a search box offers for what has been typed: the first few matches. Nothing is asked for
+ * until something is typed: a box that chooses a patient never lists the hospital's patients.
+ */
+export function usePatientSuggestions(search: string, enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  const q = search.trim();
+  return useQuery({
+    queryKey: patientKeys.list(tenantId ?? '', { as: 'suggestions', q }),
+    queryFn: ({ signal }) => fetchPatients({ q, limit: SUGGESTIONS }, signal),
+    enabled: enabled && q !== '' && tenantId !== undefined,
+    staleTime: STALE_TIME_MS,
+    select: (page) => page.items,
+    // The last matches stay while more is typed, at the same hospital only.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === tenantId ? previous : undefined,
     retry: (failures, error) => failures < 2 && isApiError(error) && RETRYABLE.has(error.code),
     retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
   });
