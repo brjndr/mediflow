@@ -12,6 +12,7 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import { maskMrn } from '@/shared/utils/mask';
 import { todayIn, type DayString } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
+import { ViewSwitch } from '../components/ViewSwitch';
 import { useAppointments } from '../hooks/use-appointments';
 import { APPOINTMENT_STATUSES, MAX_RANGE_DAYS } from '../schemas';
 import type { AppointmentStatus, AppointmentSummary } from '../types';
@@ -139,11 +140,14 @@ export default function AppointmentList() {
           <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
           <p className="text-muted-foreground">{t('description')}</p>
         </div>
-        <Can permission="appointment:create">
-          <Button asChild>
-            <Link to="/appointments/new">{t('book.open')}</Link>
-          </Button>
-        </Can>
+        <div className="flex flex-wrap items-center gap-2">
+          <ViewSwitch />
+          <Can permission="appointment:create">
+            <Button asChild>
+              <Link to="/appointments/new">{t('book.open')}</Link>
+            </Button>
+          </Can>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">

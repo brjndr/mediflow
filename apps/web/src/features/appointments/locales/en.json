@@ -91,5 +91,31 @@
         "noneLater": "That time is no longer in the doctor's working hours, and no later time is free on this day. Choose another time or day."
       }
     }
+  },
+  "views": {
+    "label": "Appointments view",
+    "list": "List",
+    "calendar": "Calendar"
+  },
+  "calendar": {
+    "description": "One doctor's appointments, by day or by week, at the hospital's time.",
+    "label": "Appointments calendar",
+    "goTo": "Go to date",
+    "view": "Calendar view",
+    "views": {
+      "day": "Day",
+      "week": "Week"
+    },
+    "previousDay": "Previous day",
+    "nextDay": "Next day",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "weekRange": "{{start}} to {{end}}",
+    "eventWithStatus": "{{name}} ({{status}})",
+    "loading": "Loading appointments…",
+    "retry": "Try again",
+    "truncated": "More than {{count}} appointments on these days: not all are shown. Choose the day view.",
+    "needsDoctors": "The calendar shows one doctor's appointments, and choosing a doctor is not available to you here. Use the list.",
+    "noDoctors": "This hospital has no practising doctors yet."
   }
 }

@@ -43,7 +43,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('example pages', () => {
-  it('lists the four building blocks and links to each', async () => {
+  it('lists the five building blocks and links to each', async () => {
     const { router } = renderApp({ entry: '/examples' });
     expect(
       await screen.findByRole('heading', { name: 'Shared building blocks' }),
@@ -54,6 +54,7 @@ describe('example pages', () => {
       'Charts',
       'Form kit',
       'Rich text',
+      'Calendar',
     ]);
     await expectNoAxeViolations();
 
@@ -190,5 +191,18 @@ describe('editor example', () => {
     ).toBeInTheDocument();
     expect(within(preview).getByText('document').closest('strong')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('63 characters of text');
+  });
+});
+
+describe('calendar example', () => {
+  it('draws the events of the day, and says which one is chosen', async () => {
+    renderApp({ entry: '/examples/calendar' });
+    const calendar = await screen.findByRole('region', { name: 'Calendar' });
+    await within(calendar).findByText('Example event 1');
+    expect(within(calendar).getByText('Example event 5')).toBeInTheDocument();
+    await expectNoAxeViolations();
+
+    await userEvent.click(within(calendar).getByText('Example event 4'));
+    expect(screen.getByRole('status')).toHaveTextContent('Chosen: event-4');
   });
 });

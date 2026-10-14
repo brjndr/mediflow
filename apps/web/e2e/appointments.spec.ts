@@ -4,7 +4,8 @@ import { expectNoSidewaysScroll, goTo } from './support';
 /**
  * The appointment list in a real browser against the mock backend, at every supported width:
  * today's appointments at the hospital, a page at a time, narrowed by doctor and by status, over
- * several days, and from a row to the patient's own screen.
+ * several days, and from a row to the patient's own screen; and one doctor's calendar, by day
+ * everywhere and by week where there is room.
  *
  * A full page load resets the mock, so everything after the first load happens inside the app.
  */
@@ -42,4 +43,39 @@ test('list today’s appointments, narrow them, and open a patient', async ({ pa
     .click();
   await expect(page).toHaveURL(/\/patients\/pth_\d{5}$/);
   await expect(page.getByRole('tab', { name: 'Details' })).toBeVisible();
+});
+
+test('one doctor’s calendar, by day and by week where there is room', async ({ page }) => {
+  await page.goto('/');
+  await goTo(page, 'Appointments');
+  await page.getByRole('link', { name: 'Calendar', exact: true }).click();
+  const calendar = page.getByRole('region', { name: 'Appointments calendar' });
+  await expect(calendar).toBeVisible();
+  // One of the six doctors with a morning of appointments each day.
+  await page.getByRole('combobox', { name: 'Doctor' }).selectOption('doc_h_01');
+  const blocks = calendar.locator('.rbc-event');
+  await expect(blocks.first()).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
+  const wide = (page.viewportSize()?.width ?? 0) >= 1024;
+  // The week is for desktop width only (CLAUDE.md, Responsive Design).
+  await expect(page.getByRole('button', { name: 'Week', exact: true })).toHaveCount(wide ? 1 : 0);
+  if (wide) {
+    await page.getByRole('button', { name: 'Day', exact: true }).click();
+  }
+  await expect(status(page, '8 appointments')).toBeVisible();
+  await expect(blocks).toHaveCount(8);
+
+  // Where the pointer is a finger, a fifteen-minute appointment is still a finger's target.
+  if (await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches)) {
+    const box = await blocks.first().boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(43);
+  }
+
+  await page.getByRole('button', { name: 'Next day' }).click();
+  await expect(status(page, '8 appointments')).toBeVisible();
+
+  // An appointment opens its patient, by id.
+  await blocks.first().click();
+  await expect(page).toHaveURL(/\/patients\/pth_\d{5}$/);
 });

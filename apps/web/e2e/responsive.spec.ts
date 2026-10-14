@@ -66,6 +66,10 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Appointments', exact: true })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: '48 appointments' })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // The calendar: one doctor's day on a phone or a tablet, the week as well on a desktop.
+  await page.getByRole('link', { name: 'Calendar', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Appointments calendar' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
   // Booking: one column on a phone, the free times wrapping inside the width.
   await page.getByRole('link', { name: 'Book an appointment' }).click();
   await expect(page.getByRole('heading', { name: 'Book an appointment' })).toBeVisible();

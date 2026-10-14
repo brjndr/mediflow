@@ -9,7 +9,9 @@
     "form": "Form kit",
     "formSummary": "React Hook Form with a Zod schema, translated messages and accessible fields.",
     "editor": "Rich text",
-    "editorSummary": "An editor whose output is a sanitized document, and a lightweight viewer."
+    "editorSummary": "An editor whose output is a sanitized document, and a lightweight viewer.",
+    "calendar": "Calendar",
+    "calendarSummary": "A day or week time grid that loads on demand, drawn at the hospital's time whatever the browser's timezone."
   },
   "back": "All examples",
   "grid": {
@@ -58,5 +60,12 @@
     "neurology": "Neurology",
     "orthopaedics": "Orthopaedics",
     "paediatrics": "Paediatrics"
+  },
+  "calendar": {
+    "heading": "Calendar",
+    "day": "Day",
+    "week": "Week",
+    "event": "Example event {{number}}",
+    "selected": "Chosen: {{id}}"
   }
 }

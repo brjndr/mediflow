@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-const PAGES = ['grid', 'charts', 'form', 'editor'] as const;
+const PAGES = ['grid', 'charts', 'form', 'editor', 'calendar'] as const;
 
 export default function ExamplesIndex() {
   const { t } = useTranslation('ui_examples');
