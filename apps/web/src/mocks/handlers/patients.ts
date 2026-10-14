@@ -53,6 +53,18 @@ let counters = new Map<string, number>();
 let records = new Map<string, PatientRecord>();
 
 /**
+ * A patient of this hospital as another feature's mock names one (an appointment's patient), or
+ * undefined when the hospital has none such.
+ */
+export function mockPatient(
+  tenantId: string,
+  id: string,
+): { id: string; name: string; mrn: string } | undefined {
+  const found = patients.find((patient) => patient.id === id && patient.tenantId === tenantId);
+  return found && { id: found.id, name: `${found.firstName} ${found.lastName}`, mrn: found.mrn };
+}
+
+/**
  * The whole record of a patient. Listed patients are summaries: each is given the rest of a
  * registration, the same every time, until it is changed.
  */

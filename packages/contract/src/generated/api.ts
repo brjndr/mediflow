@@ -1670,6 +1670,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/appointments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The appointments of the active tenant that start on the days from `from` to `to` (calendar days at the hospital, both included, at most 31 days), by start time then id. Filtered by doctor and by status. A list, not a search: nothing in its address is typed about a patient, so it is a GET. Each row names its patient (name and MRN) for anyone who may read appointments. The scope of the caller's `appointment:read` is applied on the server, whatever the filters say: with scope `own`, only the appointments of the caller's own doctor profile are returned, a `doctorId` of another doctor gives an empty page (not a refusal that would tell anything), and `total` counts only what the caller may see. The default grant to doctors is the whole hospital (scope all); the web app opens on the signed-in doctor's own schedule, which is a default of the screen, not a limit. Every page read is audited, with the actor and the ids of the appointments returned. `total` comes with the first page only. Planned with the appointments API (#75). */
+        get: operations["listAppointments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2740,6 +2757,38 @@ export interface components {
         AccountSessionList: {
             items: components["schemas"]["AccountSession"][];
             nextCursor: string | null;
+        };
+        /** @enum {string} */
+        AppointmentStatus: "scheduled" | "completed" | "cancelled" | "no_show";
+        /** @description An appointment as a list shows it: when, with whom, for whom and its status. Not the whole record: the reason is not in a list. */
+        AppointmentSummary: {
+            id: string;
+            tenantId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            doctorId: string;
+            doctorName: string;
+            /** @description The doctor's department. Absent when it has none. */
+            departmentName?: string;
+            /**
+             * Format: date-time
+             * @description UTC.
+             */
+            startsAt: string;
+            /**
+             * Format: date-time
+             * @description UTC.
+             */
+            endsAt: string;
+            status: components["schemas"]["AppointmentStatus"];
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        AppointmentPage: {
+            items: components["schemas"]["AppointmentSummary"][];
+            nextCursor: string | null;
+            total?: number;
         };
     };
     responses: {
@@ -10386,6 +10435,43 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listAppointments: {
+        parameters: {
+            query: {
+                /** @description The first day, at the hospital. */
+                from: string;
+                /** @description The last day, at the hospital, included. At most 30 days after `from`. */
+                to: string;
+                /** @description Only this doctor's appointments. */
+                doctorId?: string;
+                status?: components["schemas"]["AppointmentStatus"];
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of appointments */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

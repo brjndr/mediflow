@@ -254,6 +254,103 @@
           }
         }
       }
+    },
+    "/appointments": {
+      "get": {
+        "operationId": "listAppointments",
+        "description": "The appointments of the active tenant that start on the days from `from` to `to` (calendar days at the hospital, both included, at most 31 days), by start time then id. Filtered by doctor and by status. A list, not a search: nothing in its address is typed about a patient, so it is a GET. Each row names its patient (name and MRN) for anyone who may read appointments. The scope of the caller's `appointment:read` is applied on the server, whatever the filters say: with scope `own`, only the appointments of the caller's own doctor profile are returned, a `doctorId` of another doctor gives an empty page (not a refusal that would tell anything), and `total` counts only what the caller may see. The default grant to doctors is the whole hospital (scope all); the web app opens on the signed-in doctor's own schedule, which is a default of the screen, not a limit. Every page read is audited, with the actor and the ids of the appointments returned. `total` comes with the first page only. Planned with the appointments API (#75).",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "The first day, at the hospital."
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "The last day, at the hospital, included. At most 30 days after `from`."
+          },
+          {
+            "in": "query",
+            "name": "doctorId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only this doctor's appointments."
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/AppointmentStatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of appointments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -342,6 +439,99 @@
           },
           "nextCursor": {
             "type": ["string", "null"]
+          }
+        }
+      },
+      "AppointmentStatus": {
+        "type": "string",
+        "enum": ["scheduled", "completed", "cancelled", "no_show"]
+      },
+      "AppointmentSummary": {
+        "description": "An appointment as a list shows it: when, with whom, for whom and its status. Not the whole record: the reason is not in a list.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "tenantId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "doctorId",
+          "doctorName",
+          "startsAt",
+          "endsAt",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string",
+            "description": "The doctor's department. Absent when it has none."
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC."
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC."
+          },
+          "status": {
+            "$ref": "#/components/schemas/AppointmentStatus"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "AppointmentPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppointmentSummary"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       }

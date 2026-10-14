@@ -61,6 +61,12 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByLabel('CSV file')).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // Appointments: the filters wrap and the list becomes cards on a phone.
+  await goTo(page, 'Appointments');
+  await expect(page.getByRole('heading', { name: 'Appointments', exact: true })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: '48 appointments' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   await goTo(page, 'Patients');
   await expect(page.getByRole('heading', { name: 'Patients', exact: true })).toBeVisible();
   await expectNoSidewaysScroll(page);

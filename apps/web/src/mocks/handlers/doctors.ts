@@ -80,6 +80,10 @@ onMockReset(() => {
   state = seed();
 });
 
+/** A doctor of this hospital as another feature's mock names one, or undefined. */
+export const mockDoctor = (tenantId: string, id: string): Doctor | undefined =>
+  state.doctors.find((doctor) => doctor.id === id && doctor.tenantId === tenantId);
+
 /** What another member of staff does meanwhile: changes a profile behind the open screen. */
 export function editMockDoctor(id: string, changes: Partial<Doctor>): void {
   const doctor = state.doctors.find((candidate) => candidate.id === id);

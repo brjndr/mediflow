@@ -27,6 +27,7 @@ describe('shell', () => {
     expect(linkNames(sidebar())).toEqual([
       'Home',
       'Patients',
+      'Appointments',
       'Departments',
       'Doctors',
       'Services and prices',
@@ -67,6 +68,7 @@ describe('shell', () => {
     expect(linkNames(sidebar())).toEqual([
       'Home',
       'Patients',
+      'Appointments',
       'Departments',
       'Doctors',
       'Services and prices',
@@ -109,6 +111,8 @@ describe('keyboard', () => {
     expect(within(sidebar()).getByRole('link', { name: 'Home' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Patients' })).toHaveFocus();
+    await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Appointments' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Departments' })).toHaveFocus();
     await userEvent.tab();
@@ -171,6 +175,7 @@ describe('navigation drawer (narrow screens)', () => {
     expect(linkNames(within(drawer()).getByRole('navigation'))).toEqual([
       'Home',
       'Patients',
+      'Appointments',
       'Departments',
       'Doctors',
       'Services and prices',
@@ -220,6 +225,7 @@ describe('system pages', () => {
     expect(linkNames(sidebar())).toEqual([
       'Home',
       'Patients',
+      'Appointments',
       'Departments',
       'Doctors',
       'Services and prices',

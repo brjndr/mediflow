@@ -133,7 +133,8 @@ const DOCTOR: PermissionGrantDto[] = [
   { permission: 'patient:read' },
   { permission: 'patient.contact:read' },
   { permission: 'patient:update' },
-  { permission: 'appointment:read', scope: 'own' },
+  // The whole hospital's: the list opens on the doctor's own schedule, which they can widen.
+  { permission: 'appointment:read' },
   { permission: 'clinical:read' },
   { permission: 'clinical:write' },
   { permission: 'order:create' },
@@ -307,6 +308,11 @@ export function openLink(kind: string, id: string): boolean {
 }
 
 const resetListeners: (() => void)[] = [];
+
+/** A hospital's timezone, as its config says: for a mock that counts in the hospital's days. */
+export function mockTenantTimezone(tenantId: string): string {
+  return tenants[tenantId]?.timezone ?? 'UTC';
+}
 
 /** Lets a feature's mock handlers restore their own data when the mock backend is reset. */
 export function onMockReset(listener: () => void): void {
