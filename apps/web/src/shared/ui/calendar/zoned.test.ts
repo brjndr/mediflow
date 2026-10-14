@@ -47,13 +47,19 @@ describe('visible days', () => {
 });
 
 describe('the first day of the week', () => {
-  it('is Monday where the locale says nothing, and for an unknown locale', () => {
-    expect(weekStartFor('not a locale')).toBe(1);
-    expect([0, 1]).toContain(weekStartFor('en'));
+  it('follows the region of the locale, the same in every browser', () => {
+    expect(weekStartFor('en-IN')).toBe(0);
+    expect(weekStartFor('hi-IN')).toBe(0);
+    expect(weekStartFor('en-US')).toBe(0);
+    expect(weekStartFor('en-GB')).toBe(1);
+    expect(weekStartFor('fr-FR')).toBe(1);
+    expect(weekStartFor('ar-AE')).toBe(6);
   });
 
-  it('follows the region where the runtime knows it', () => {
-    expect([0, 1]).toContain(weekStartFor('en-IN'));
-    expect(weekStartFor('en-GB')).toBe(1);
+  it('takes the likely region of a language alone, and Monday for an unknown locale', () => {
+    // English alone is the US's.
+    expect(weekStartFor('en')).toBe(0);
+    expect(weekStartFor('fr')).toBe(1);
+    expect(weekStartFor('not a locale')).toBe(1);
   });
 });

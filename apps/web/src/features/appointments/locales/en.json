@@ -100,7 +100,7 @@
   "calendar": {
     "description": "One doctor's appointments, by day or by week, at the hospital's time.",
     "label": "Appointments calendar",
-    "goTo": "Day",
+    "goTo": "Go to date",
     "view": "Calendar view",
     "views": {
       "day": "Day",

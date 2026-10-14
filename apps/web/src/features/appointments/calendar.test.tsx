@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { addMockAppointment } from '@/mocks/handlers/appointments';
@@ -8,6 +8,7 @@ import { editMockDoctor } from '@/mocks/handlers/doctors';
 import { server } from '@/mocks/node';
 import { addDays, visibleDays, weekStartFor } from '@/shared/ui/calendar/zoned';
 import { todayIn, zonedToUtc } from '@/shared/utils/timezone';
+import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 import { appointmentKeys } from './hooks/use-appointments';
 
@@ -19,10 +20,12 @@ const HOSPITAL_LOCALE = 'en-IN';
 const statuses = () => screen.getAllByRole('status').map((status) => status.textContent);
 const calendar = () => screen.getByRole('region', { name: 'Appointments calendar' });
 /** The appointment blocks drawn on the calendar. */
-const blocks = () =>
-  within(calendar())
-    .queryAllByRole('button')
-    .filter((element) => element.classList.contains('rbc-event'));
+const blocks = () => [...calendar().querySelectorAll<HTMLElement>('.rbc-event')];
+/** The day headings drawn, in order. */
+const headings = () =>
+  [...calendar().querySelectorAll('.rbc-time-header .rbc-header')].map(
+    (heading) => heading.textContent ?? '',
+  );
 
 /** Every request the calendar made, as the server saw its address. */
 function watchRequests(): URLSearchParams[] {
@@ -154,6 +157,10 @@ describe('the appointment calendar', () => {
 
   it('says the status in words, and opens the patient by id', async () => {
     const { router } = await openCalendar();
+    // A tooltip stays in the page after a hover: it holds the time and the status, never a name.
+    for (const block of blocks()) {
+      expect(block.getAttribute('title')).toMatch(/: (Scheduled|Completed|Cancelled|No-show)$/);
+    }
     expect(
       blocks().some((block) => /\((Cancelled|Completed|No-show)\)/.test(block.textContent ?? '')),
     ).toBe(true);
@@ -168,11 +175,93 @@ describe('the appointment calendar', () => {
     await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/patients\/pth_\d{5}$/));
   });
 
-  it('opens no patient for someone who may not read patients', async () => {
+  it('opens no patient for someone who may not read patients, and offers no buttons', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'patient:read');
     const { router } = await openCalendar();
+    // Plain text: a block that looks like a button and does nothing is worse than none.
+    expect(blocks().every((block) => !block.hasAttribute('role'))).toBe(true);
+    expect(blocks().every((block) => !block.hasAttribute('tabindex'))).toBe(true);
     await userEvent.click(blocks()[0] as HTMLElement);
     expect(router.state.location.pathname).toBe('/appointments/calendar');
+  });
+
+  it('starts the week on the hospital’s first day, and draws seven days', async () => {
+    await openCalendar();
+    // The hospital's locale is en-IN: its week starts on Sunday, in every browser.
+    const drawn = headings();
+    expect(drawn).toHaveLength(7);
+    expect(drawn[0]).toMatch(/^Sun/);
+    const { from } = visibleDays('week', today(), 0);
+    expect(drawn[0]).toContain(String(Number(from.slice(8))));
+  });
+
+  it('never draws one doctor’s appointments under another’s name', async () => {
+    await openCalendar();
+    server.use(
+      http.get('*/api/appointments', async () => {
+        await delay('infinite');
+        return HttpResponse.json({ items: [], nextCursor: null });
+      }),
+    );
+    await chooseDoctor('doc_h_02');
+    await waitFor(() => expect(blocks()).toHaveLength(0));
+    expect(statuses()).toContain('Loading appointments…');
+  });
+
+  it('opens on the first doctor by name for someone with no profile here', async () => {
+    const seen = watchRequests();
+    renderApp({ entry: '/appointments/calendar' });
+    const doctor = (await screen.findByRole('combobox', { name: 'Doctor' })) as HTMLSelectElement;
+    await waitFor(() => expect(doctor.options.length).toBeGreaterThan(0));
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    expect(doctor.value).toBe(doctor.options[0]?.value);
+    expect(new Set(seen.map((params) => params.get('doctorId')))).toEqual(new Set([doctor.value]));
+  });
+
+  it('draws a busy week in full', async () => {
+    const week = visibleDays('week', today(), 0);
+    server.use(
+      http.get('*/api/appointments', () =>
+        HttpResponse.json({
+          // Five days of forty ten-minute appointments, from eight in the morning.
+          items: Array.from({ length: 200 }, (_, i) => {
+            const day = addDays(week.from, 1 + Math.floor(i / 40));
+            const minutes = 8 * 60 + (i % 40) * 10;
+            const at = (m: number) =>
+              `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+            return {
+              id: `apt_busy_${i}`,
+              tenantId: TENANT_IDS.hospital,
+              patientId: 'pth_00001',
+              patientName: `Patient ${i}`,
+              patientMrn: 'MRN-PTH-00001',
+              doctorId: 'doc_h_01',
+              doctorName: 'Doctor',
+              startsAt: zonedToUtc(day, at(minutes), HOSPITAL_TZ),
+              endsAt: zonedToUtc(day, at(minutes + 10), HOSPITAL_TZ),
+              status: 'scheduled',
+              version: 1,
+            };
+          }),
+          nextCursor: null,
+        }),
+      ),
+    );
+    renderApp({ entry: '/appointments/calendar' });
+    await chooseDoctor();
+    await waitFor(() => expect(statuses()).toContain('200 appointments'));
+    expect(blocks()).toHaveLength(200);
+  });
+
+  it('has no accessibility violations in the day and the week', async () => {
+    await openCalendar();
+    await expectNoAxeViolations();
+    await userEvent.click(screen.getByRole('button', { name: 'Day' }));
+    await waitFor(() => expect(statuses()).toContain('8 appointments'));
+    await chooseDoctor('doc_h_02');
+    await waitFor(() => expect(statuses()).toContain('8 appointments'));
+    expect(within(calendar()).queryAllByRole('columnheader')).toEqual([]);
+    await expectNoAxeViolations();
   });
 
   it('says so when the server fails, and tries again', async () => {

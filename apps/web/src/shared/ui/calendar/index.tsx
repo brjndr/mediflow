@@ -12,7 +12,7 @@ export type { CalendarView } from './zoned';
 /** One block on the calendar. Instants, as stored: the calendar shows them at the hospital. */
 export interface CalendarEventItem {
   id: string;
-  /** What the block says, after its time. */
+  /** What the block says, after its time. Never used as a tooltip: see `hint`. */
   title: string;
   /** UTC ISO strings. */
   start: string;
@@ -39,8 +39,8 @@ export interface CalendarProps {
   onSelectEvent?: (id: string) => void;
   /** A day heading of the week chosen, to show that day. */
   onOpenDay?: (day: DayString) => void;
-  /** In pixels. The hours scroll inside it. */
-  height?: number;
+  /** In pixels, or a CSS length such as `min(640px, 70dvh)`. The hours scroll inside it. */
+  height?: number | string;
 }
 
 const LazyCalendar = lazy(() => import('./calendar'));

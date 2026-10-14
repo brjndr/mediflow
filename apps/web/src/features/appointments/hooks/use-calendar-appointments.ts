@@ -10,6 +10,16 @@ export const CALENDAR_PAGE_SIZE = 100;
 /** One doctor's week stays far below this. Past it, the calendar says some are not shown. */
 export const CALENDAR_MAX_APPOINTMENTS = 500;
 
+/**
+ * The key of a calendar's range: under the hospital's appointments, so a booking's invalidation
+ * of `appointmentKeys.all` refreshes it, but not under `lists`, whose entries are the list's
+ * pages. An update aimed at the lists never meets data of another shape.
+ */
+export const calendarKey = (
+  tenantId: string,
+  range: { from: DayString; to: DayString; doctorId: string },
+) => [...appointmentKeys.all(tenantId), 'calendar', range] as const;
+
 /** Live data, as the list: the desk books and changes appointments all day. */
 const STALE_TIME_MS = 15_000;
 
@@ -30,7 +40,7 @@ export function useCalendarAppointments(
 ) {
   const tenantId = useTenant()?.id;
   return useQuery({
-    queryKey: appointmentKeys.list(tenantId ?? '', { view: 'calendar', from, to, doctorId }),
+    queryKey: calendarKey(tenantId ?? '', { from, to, doctorId }),
     queryFn: async ({ signal }): Promise<CalendarAppointments> => {
       const items: AppointmentSummary[] = [];
       let cursor: string | undefined;
@@ -46,7 +56,11 @@ export function useCalendarAppointments(
     },
     enabled: enabled && tenantId !== undefined && doctorId !== '',
     staleTime: STALE_TIME_MS,
-    // The previous range stays drawn while the next one loads, marked as loading.
-    placeholderData: (previous) => previous,
+    // The same doctor's previous range stays drawn while the next one loads, marked as loading.
+    // Never another doctor's: their appointments would be drawn, and opened, under this name.
+    placeholderData: (previous, previousQuery) =>
+      (previousQuery?.queryKey.at(-1) as { doctorId?: string } | undefined)?.doctorId === doctorId
+        ? previous
+        : undefined,
   });
 }

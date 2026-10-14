@@ -93,6 +93,23 @@ const TONE_CLASS: Record<WallEvent['tone'], string> = {
 const BROKEN_ROLES = '[role="columnheader"], [role="row"], [role="rowgroup"]';
 
 /**
+ * Removes the broken roles, and makes the blocks plain text when choosing one does nothing: the
+ * library draws every block as a focusable button.
+ */
+function tidy(root: HTMLElement, interactive: boolean) {
+  root.querySelectorAll(BROKEN_ROLES).forEach((element) => {
+    element.removeAttribute('role');
+    element.removeAttribute('aria-sort');
+  });
+  if (!interactive) {
+    root.querySelectorAll('.rbc-event[role="button"]').forEach((element) => {
+      element.removeAttribute('role');
+      element.removeAttribute('tabindex');
+    });
+  }
+}
+
+/**
  * What a block says, on one line so a fifteen-minute block of a week column can hold it: the
  * start and the title, with the end for assistive technology. The library's own two-line label
  * is hidden by `calendar.css`.
@@ -123,6 +140,7 @@ export default function CalendarImpl({
   onOpenDay,
   height = 640,
 }: CalendarProps) {
+  const interactive = onSelectEvent !== undefined;
   const localizer = useMemo(() => intlLocalizer(locale), [locale]);
   // Stable, so the library does not remount every block on each render.
   const components = useMemo<Components<WallEvent>>(
@@ -131,13 +149,15 @@ export default function CalendarImpl({
   );
   const root = useRef<HTMLElement>(null);
 
-  // After every render, since the library draws new headings for another day or view.
+  // Whenever the library adds nodes, on its own updates as well as on this component's renders.
   useLayoutEffect(() => {
-    root.current?.querySelectorAll(BROKEN_ROLES).forEach((element) => {
-      element.removeAttribute('role');
-      element.removeAttribute('aria-sort');
-    });
-  });
+    const element = root.current;
+    if (!element) return;
+    tidy(element, interactive);
+    const observer = new MutationObserver(() => tidy(element, interactive));
+    observer.observe(element, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [interactive]);
 
   const wallEvents = useMemo<WallEvent[]>(
     () =>
@@ -181,6 +201,9 @@ export default function CalendarImpl({
   return (
     <section ref={root} aria-label={label} className="cal rounded-lg border" style={{ height }}>
       <BigCalendar<WallEvent>
+        // Drawn again when blocks become choosable or stop being so: the roles removed by `tidy`
+        // are not put back by React on a node it keeps.
+        key={interactive ? 'interactive' : 'read-only'}
         localizer={localizer}
         culture={locale}
         events={wallEvents}
@@ -199,7 +222,8 @@ export default function CalendarImpl({
         step={15}
         timeslots={4}
         scrollToTime={scrollToTime}
-        tooltipAccessor={(event) => event.hint ?? event.title}
+        // Never the title: a tooltip of a patient name would stay in the page after a hover.
+        tooltipAccessor="hint"
         eventPropGetter={(event) => ({ className: TONE_CLASS[event.tone] })}
         onSelectEvent={onSelectEvent ? (event) => onSelectEvent(event.id) : undefined}
         onKeyPressEvent={onSelectEvent ? onKey : undefined}

@@ -121,7 +121,7 @@ Patient portal or app, telemedicine, a DICOM viewer or PACS, full accounting or 
 - **Dates and formatting:** `Intl` APIs for display, plus `date-fns` and `date-fns-tz` for arithmetic and tenant timezones. Icons from `lucide-react`
 - **Tables and lists:** TanStack Table for data grids (sorting, column visibility, selection, pinned columns) and TanStack Virtual for long lists and timelines
 - **Charts:** Recharts for dashboards and reports, with ECharts (lazy-loaded) allowed for dense or large analytics views
-- **Scheduling views:** react-big-calendar (MIT) for appointment, roster and theatre calendars, through the shared `Calendar` (#72). No paid plugin or licence: a view of several resources side by side is built on the free library or not at all
+- **Scheduling views:** react-big-calendar (MIT) for appointment, roster and theatre calendars, through the shared `Calendar` (#72). No paid plugin or licence during development (see Open Decisions); its free `resources` option draws several doctors or theatres side by side
 - **Rich text:** TipTap for clinical notes, templates and discharge summaries (sanitized output, no raw HTML injection)
 - **Motion:** `motion` (Framer Motion) for meaningful transitions, kept off critical paths
 - **Documents:** official PDFs and Excel exports (invoices, discharge summaries, reports) are generated on the server for consistent output and audit. Client-side libraries (react-pdf, SheetJS) are allowed for previews and import mapping
@@ -807,6 +807,7 @@ Issues are the source of truth for scope and progress. The roadmap is defined in
 Decided defaults live in Technology Decisions. Remaining questions:
 
 - Backend: Fastify + TypeBox + Drizzle decided. Revisit NestJS only if a team joins and wants enforced structure and dependency injection
+- Whether any premium library licence (for example a calendar resource timeline or an advanced data grid) is ever worth buying for the scheduling and OT views. Not during development: the owner decided on 2026-10-14 that nothing paid goes into the project while it is being built
 - Exact numeric budgets: the initial values in Performance Strategy are starting points to tighten or relax after the first real measurements
 - Cloud provider: AWS Mumbai is the default, confirmed only when the account is opened for staging (#56). No account or subscription exists yet. Until then keep the application provider-neutral (one container image, configuration from the environment, Postgres, S3-compatible storage, SMTP) and write no infrastructure code. Alternatives (GCP, Azure, a cheaper VPS provider for the pilot phase) if cost or credits favor them
 - Target markets and compliance scope: India DPDP only vs HIPAA/GDPR, and per-tenant data residency

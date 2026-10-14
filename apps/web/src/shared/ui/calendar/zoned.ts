@@ -35,24 +35,34 @@ export function addDays(day: DayString, by: number): DayString {
   return date.toISOString().slice(0, 10);
 }
 
-interface WeekInfo {
-  firstDay: number;
-}
-type LocaleWithWeek = Intl.Locale & { getWeekInfo?: () => WeekInfo; weekInfo?: WeekInfo };
+/**
+ * Regions whose week starts on Sunday or Saturday, from CLDR's `firstDay` (every other region
+ * starts on Monday). A table rather than `Intl.Locale` week info, which Firefox does not have:
+ * two people at one hospital must see the same week, and ask the server for the same days,
+ * whichever browser each uses.
+ */
+const SUNDAY_FIRST = new Set(
+  'AG AS BD BR BS BT BW BZ CA CN CO DM DO ET GT GU HK HN ID IL IN JM JP KE KH KR LA MH MM MO MT MX MZ NI NP PA PE PH PK PR PT PY SA SG SV TH TT TW UM US VE VI WS YE ZA ZW'.split(
+    ' ',
+  ),
+);
+const SATURDAY_FIRST = new Set('AE AF BH DJ DZ EG IQ IR JO KW LY OM QA SD SY'.split(' '));
 
 /**
- * The first day of the week where the hospital is, 0 for Sunday to 6 for Saturday. From the
- * locale's region where the browser knows it (not Firefox yet), Monday otherwise, as ISO 8601.
+ * The first day of the week where the hospital is, 0 for Sunday to 6 for Saturday, from its
+ * locale's region, or the region most likely for its language (`en-IN`: Sunday, `en-GB`:
+ * Monday, `en`: the US, Sunday). Monday, as ISO 8601, for a locale that cannot be read.
  */
 export function weekStartFor(locale: string): number {
+  let region: string | undefined;
   try {
-    const info = new Intl.Locale(locale) as LocaleWithWeek;
-    const firstDay = (info.getWeekInfo?.() ?? info.weekInfo)?.firstDay;
-    // Intl counts 1 for Monday to 7 for Sunday.
-    if (firstDay !== undefined) return firstDay % 7;
+    region = new Intl.Locale(locale).maximize().region;
   } catch {
-    // An unknown locale: fall through to the default.
+    return 1;
   }
+  if (region === undefined) return 1;
+  if (SUNDAY_FIRST.has(region)) return 0;
+  if (SATURDAY_FIRST.has(region)) return 6;
   return 1;
 }
 

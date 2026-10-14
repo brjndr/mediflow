@@ -55,7 +55,10 @@ export default function AppointmentCalendar() {
 
   const doctors = useDoctorOptions();
   const mine = doctors.data?.find((doctor) => doctor.userId === session?.user.id);
-  const doctorId = chosenDoctor ?? mine?.id ?? doctors.data?.[0]?.id ?? '';
+  // A choice no longer listed (the doctor left, or stopped practising) falls back as at first,
+  // so the calendar never shows one doctor under another's name in the choice.
+  const chosen = doctors.data?.some((doctor) => doctor.id === chosenDoctor) ? chosenDoctor : null;
+  const doctorId = chosen ?? mine?.id ?? doctors.data?.[0]?.id ?? '';
 
   const { from, to } = visibleDays(view, day, weekStartFor(locale));
   const appointments = useCalendarAppointments({ from, to, doctorId }, doctors.available);
@@ -233,9 +236,11 @@ export default function AppointmentCalendar() {
             timezone={timezone}
             locale={locale}
             events={events}
+            // On a phone the hours scroll inside a grid that leaves room for the controls.
+            height={isDesktop ? 640 : 'min(640px, 70dvh)'}
             onSelectEvent={canOpenPatient ? openPatient : undefined}
-            onOpenDay={(chosen) => {
-              setDay(chosen);
+            onOpenDay={(opened) => {
+              setDay(opened);
               setChosenView('day');
             }}
           />
