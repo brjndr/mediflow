@@ -2863,6 +2863,269 @@
           }
         }
       },
+      "ImportColumn": {
+        "type": "object",
+        "required": ["field", "required", "type"],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["text", "integer", "boolean", "enum", "date", "amount"],
+            "description": "How the text becomes the value: `boolean` is yes or no (true, false, y, n, 1, 0); `enum` one of `values`, whatever its capitals; `date` YYYY-MM-DD; `amount` the hospital currency with a point before the minor units, grouped by commas or not."
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ImportKind": {
+        "type": "object",
+        "required": ["kind", "columns"],
+        "properties": {
+          "kind": {
+            "pattern": "^[a-z][a-z_]{0,39}$",
+            "description": "A kind of record: `services`, `drugs`, `lab_tests` or `patients`.",
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportColumn"
+            }
+          }
+        }
+      },
+      "ImportKindList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportKind"
+            }
+          }
+        }
+      },
+      "ImportBatch": {
+        "description": "Records of one kind loaded from a file. It holds counts and codes, never a value of a row.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "kind",
+          "status",
+          "rowCount",
+          "doneCount",
+          "problemCount",
+          "createdBy",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "kind": {
+            "pattern": "^[a-z][a-z_]{0,39}$",
+            "description": "A kind of record: `services`, `drugs`, `lab_tests` or `patients`.",
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "staging",
+              "checking",
+              "checked",
+              "queued",
+              "running",
+              "committed",
+              "failed",
+              "cancelled"
+            ],
+            "description": "staging: rows are being sent. checking: the dry run is running. checked: it has run, and the batch can be written when problemCount is 0. queued, running: being written. committed: every row was written. failed: nothing was written. cancelled: given up, or left unfinished for a week."
+          },
+          "rowCount": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "doneCount": {
+            "minimum": 0,
+            "description": "Rows checked while checking, rows written while running.",
+            "type": "integer"
+          },
+          "problemCount": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "failure": {
+            "description": "Why nothing was written, as a code: rows_refused (see the problems), permission_withdrawn, write_failed, expired.",
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "checkedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "finishedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "ImportBatchPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportBatch"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "ImportBatchCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["kind"],
+        "properties": {
+          "kind": {
+            "pattern": "^[a-z][a-z_]{0,39}$",
+            "description": "A kind of record: `services`, `drugs`, `lab_tests` or `patients`.",
+            "type": "string"
+          }
+        }
+      },
+      "ImportRowsUpload": {
+        "additionalProperties": false,
+        "description": "Rows of the file, as many requests as it takes. A line sent twice is kept as it was first sent.",
+        "type": "object",
+        "required": ["fields", "rows"],
+        "properties": {
+          "fields": {
+            "minItems": 1,
+            "maxItems": 40,
+            "description": "The fields of the kind the columns of the file were mapped to, in the order of `values`. Each at most once.",
+            "type": "array",
+            "items": {
+              "pattern": "^[A-Za-z][A-Za-z0-9]{0,39}$",
+              "type": "string"
+            }
+          },
+          "rows": {
+            "minItems": 1,
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["line", "values"],
+              "properties": {
+                "line": {
+                  "minimum": 1,
+                  "maximum": 10000000,
+                  "type": "integer"
+                },
+                "values": {
+                  "maxItems": 40,
+                  "description": "The text of each field of `fields`. An empty text is no value.",
+                  "type": "array",
+                  "items": {
+                    "maxLength": 2000,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ImportProblem": {
+        "description": "Never the value that was refused.",
+        "type": "object",
+        "required": ["line", "code"],
+        "properties": {
+          "line": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "field": {
+            "type": "string"
+          },
+          "code": {
+            "description": "What is wrong. Of one field: required, not_a_whole_number, not_yes_or_no, not_allowed, not_a_date, not_an_amount, too_many_decimals, invalid, not_found, out_of_range, too_few_digits, not_an_email. Of a row: duplicate_in_file, or the code its create route answers with (drug_exists, service_code_taken, lab_test_code_taken, patient_possible_duplicate, validation_failed).",
+            "type": "string"
+          }
+        }
+      },
+      "ImportProblemPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportProblem"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
       "Notice": {
         "type": "object",
         "required": ["id", "tenantId", "title", "body", "createdAt", "archived"],
@@ -4749,7 +5012,7 @@
       "post": {
         "operationId": "createPatient",
         "tags": ["patients"],
-        "description": "Registers a patient in the active hospital and assigns the MRN. The Idempotency-Key header is required: a retried or double-submitted request returns the first result instead of a second patient. A replay answers with the id only; read the record to show it. The server records when and by whom contact consent was captured.",
+        "description": "Registers a patient in the active hospital and assigns the MRN. The Idempotency-Key header is required: a retried or double-submitted request returns the first result instead of a second patient. A replay answers with the id only; read the record to show it. The server records when and by whom contact consent was captured. While a batch of patients is being written from a file, a registration waits a few seconds and then answers 503 busy with Retry-After.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4835,6 +5098,16 @@
             }
           },
           "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
@@ -11457,6 +11730,784 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/kinds": {
+      "get": {
+        "operationId": "listImportKinds",
+        "tags": ["imports"],
+        "description": "The kinds of record the caller may load from a file, each with its fields: those whose module the hospital has on and whose own permission the caller holds (adding one on its screen).",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportKindList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports": {
+      "get": {
+        "operationId": "listImports",
+        "tags": ["imports"],
+        "description": "The hospital's batches, newest first.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createImport",
+        "tags": ["imports"],
+        "description": "Starts a batch of one kind, to which the rows of a file are then sent. Loading a kind needs what adding one such record on its screen needs, and its module on (403 permission_denied otherwise). Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportBatchCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Records of one kind loaded from a file. It holds counts and codes, never a value of a row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatch"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{batchId}": {
+      "get": {
+        "operationId": "getImport",
+        "tags": ["imports"],
+        "description": "One batch, with how far its job has got. A batch of another hospital answers 404 import_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "batchId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Records of one kind loaded from a file. It holds counts and codes, never a value of a row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatch"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{batchId}/rows": {
+      "post": {
+        "operationId": "addImportRows",
+        "tags": ["imports"],
+        "description": "Adds rows to a batch that is being staged, up to 20000 in all (409 import_too_many_rows). A line already sent is kept as it was first sent, so a chunk sent again adds nothing. The rows can be patient data: the API does not log the body, and they are deleted once the batch is written, refused or given up. Audited. A batch of another hospital answers 404 import_not_found, the same as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRowsUpload"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "batchId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Records of one kind loaded from a file. It holds counts and codes, never a value of a row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatch"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{batchId}/check": {
+      "post": {
+        "operationId": "checkImport",
+        "tags": ["imports"],
+        "description": "Starts the dry run of a staged batch: a job checks every row as its create route would, and writes nothing. Follow its progress on the batch; its problems are then in the report. 409 import_empty for a batch with no rows. A batch of another hospital answers 404 import_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "batchId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Records of one kind loaded from a file. It holds counts and codes, never a value of a row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatch"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{batchId}/commit": {
+      "post": {
+        "operationId": "commitImport",
+        "tags": ["imports"],
+        "description": "Writes a checked batch with no problems (409 import_not_ready otherwise): a job writes every row in one transaction, each audited and announced as its create route does, so the batch is all of its rows or none. A row refused at that moment (the catalog changed since the check) fails the whole batch, with its report. One batch is written at a time at a hospital (409 import_running). Audited. A batch of another hospital answers 404 import_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "batchId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Records of one kind loaded from a file. It holds counts and codes, never a value of a row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatch"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{batchId}/cancel": {
+      "post": {
+        "operationId": "cancelImport",
+        "tags": ["imports"],
+        "description": "Gives up a batch that is staged or checked: its rows are deleted and nothing is written. A batch whose job is running is not given up (409 import_busy). Cancelling twice changes nothing. Audited. A batch of another hospital answers 404 import_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "batchId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Records of one kind loaded from a file. It holds counts and codes, never a value of a row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatch"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{batchId}/problems": {
+      "get": {
+        "operationId": "listImportProblems",
+        "tags": ["imports"],
+        "description": "The report of a batch: what is wrong with which line and field, in the order of the lines. Codes only, never a value of the file. A batch of another hospital answers 404 import_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "batchId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportProblemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }

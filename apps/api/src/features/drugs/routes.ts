@@ -1,15 +1,20 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
-import type { FastifyRequest } from 'fastify';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidyOptional, tidyWithin } from '../../core/http/text.js';
+import { tidyOptional } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
+import {
+  cleanName,
+  controlledFor,
+  exists,
+  prepareDrug,
+  traceBesideControlled,
+  writeDrug,
+} from './create.js';
 import {
   drugExists,
   findDrug,
-  hasControlledSibling,
-  insertDrug,
   isDrugExists,
   lockDrug,
   searchDrugs,
@@ -69,36 +74,9 @@ const detailsOf = (row: DrugRow): DrugDetails => ({
 
 // One answer for an item that does not exist and one of another hospital.
 const notFound = () => new HttpError(404, 'drug_not_found', 'No such item');
-const exists = () => new HttpError(409, 'drug_exists', 'The hospital has exactly this item');
-
-/** A name as it is stored, and not empty once it is tidied. */
-function cleanName(name: string): string {
-  const tidied = tidyWithin(name, NAME_MAX);
-  if (tidied === '') throw new HttpError(400, 'validation_failed', 'A generic name is required');
-  return tidied;
-}
-
-/**
- * An item that is not controlled, added or renamed beside a controlled one of the same generic
- * name in the same form, archived or not, leaves a second audit entry. Archiving a controlled
- * item and adding it again under another spelling of its strength breaks no rule in any one
- * request, and without this it would take the item out of its schedule with no `reclassify`.
- */
-async function traceBesideControlled(request: FastifyRequest, row: DrugRow): Promise<void> {
-  if (row.controlled) return;
-  if (await hasControlledSibling(request.txClient, row.generic_name, row.form, row.id)) {
-    request.audit('beside_controlled', 'drug', row.id);
-  }
-}
 
 /** What makes an item the one it is: see `drugs_exists`. */
 const IDENTITY = ['genericName', 'brandName', 'form', 'strength'] as const;
-
-/** Schedule X and narcotic items are controlled, whatever was sent. */
-const controlledFor = (details: DrugDetails): DrugDetails =>
-  details.schedule === 'x' || details.schedule === 'narcotic'
-    ? { ...details, controlled: true }
-    : details;
 
 const FIELDS = [
   'type',
@@ -196,31 +174,8 @@ export const drugRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) => {
-      const body = request.body as DrugCreate;
-      const details = controlledFor({
-        type: body.type,
-        genericName: cleanName(body.genericName),
-        brandName: tidyOptional(body.brandName, NAME_MAX),
-        form: body.form,
-        strength: tidyOptional(body.strength, SHORT_MAX),
-        unit: tidyOptional(body.unit, SHORT_MAX),
-        schedule: body.schedule,
-        controlled: body.controlled ?? false,
-        taxClass: body.taxClass,
-        reorderLevel: body.reorderLevel ?? null,
-      });
-      if (await drugExists(request.txClient, details)) throw exists();
-      let row: DrugRow;
-      try {
-        row = await insertDrug(request.txClient, details);
-      } catch (error) {
-        // Two requests for the same new item at once: the database lets one through.
-        if (isDrugExists(error)) throw exists();
-        throw error;
-      }
-      request.audit('create', 'drug', row.id);
-      await traceBesideControlled(request, row);
-      await request.emit('master.changed', row.id, { kind: 'drug', change: 'created' });
+      const details = await prepareDrug(request, request.body as DrugCreate);
+      const row = await writeDrug(request, details);
       return reply.status(201).send(view(row));
     },
   );

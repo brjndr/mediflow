@@ -3,18 +3,22 @@ import type { FastifyRequest } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidyLinesOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { todayAtHospital } from '../../core/tenancy/today.js';
 import {
-  codeTaken,
+  cleanDescription,
+  cleanName,
+  invalid,
+  noSuchList,
+  prepareService,
+  writeService,
+} from './create.js';
+import {
   dayBefore,
   findPrice,
   findService,
   insertPrice,
-  insertService,
   isCalendarDate,
-  isCodeTaken,
   isPriceOverlap,
   latestPrice,
   listPriceLists,
@@ -31,8 +35,6 @@ import {
   type ServiceRow,
 } from './repository.js';
 import {
-  DESCRIPTION_MAX,
-  NAME_MAX,
   PriceListList,
   Service,
   SERVICE_SCHEMAS,
@@ -88,23 +90,8 @@ const view = (row: ServiceRow): Service => ({
 
 // One answer for a service that does not exist and one of another hospital.
 const notFound = () => new HttpError(404, 'service_not_found', 'No such service');
-const noSuchList = () => new HttpError(404, 'price_list_not_found', 'No such price list');
-const taken = () =>
-  new HttpError(409, 'service_code_taken', 'This hospital has a service of that code');
 const priceConflict = () =>
   new HttpError(409, 'price_date_conflict', 'A price is already scheduled for this service');
-const invalid = (message: string) => new HttpError(400, 'validation_failed', message);
-
-/** A name as it is stored, and not empty once it is tidied. */
-function cleanName(name: string): string {
-  const tidied = tidyWithin(name, NAME_MAX);
-  if (tidied === '') throw invalid('A name is required');
-  return tidied;
-}
-
-/** An empty description is no description. */
-const cleanDescription = (description: string | undefined): string | null =>
-  tidyLinesOptional(description, DESCRIPTION_MAX);
 
 const OTHER_HOSPITAL =
   ' A service of another hospital answers 404 service_not_found, the same as one that does not exist.';
@@ -189,44 +176,9 @@ export const serviceRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) => {
-      const body = request.body as ServiceCreate;
-      const name = cleanName(body.name);
-      if (await codeTaken(request.txClient, body.code)) throw taken();
-      const today = await todayAtHospital(request.txClient);
-      let id: string;
-      try {
-        const row = await insertService(request.txClient, {
-          code: body.code,
-          name,
-          category: body.category,
-          taxClass: body.taxClass,
-          description: cleanDescription(body.description),
-        });
-        id = row.id;
-      } catch (error) {
-        // Two requests for the same new code at once: the database lets one through.
-        if (isCodeTaken(error)) throw taken();
-        throw error;
-      }
-      if (body.priceMinor !== undefined) {
-        const listId = await priceListId(request.txClient);
-        if (!listId) throw noSuchList();
-        const price = await insertPrice(request.txClient, {
-          serviceId: id,
-          listId,
-          amountMinor: body.priceMinor,
-          effectiveFrom: today,
-        });
-        // A first price is a price like any other to whoever follows prices.
-        request.audit('create', 'service_price', price.id);
-        await request.emit('master.changed', id, {
-          kind: 'service_price',
-          change: 'created',
-          priceId: price.id,
-        });
-      }
-      request.audit('create', 'service', id);
-      await request.emit('master.changed', id, { kind: 'service', change: 'created' });
+      const service = await prepareService(request, request.body as ServiceCreate);
+      const id = await writeService(request, service);
+      const today = service.today;
       return reply.status(201).send(await saved(request, id, today));
     },
   );

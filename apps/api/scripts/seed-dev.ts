@@ -379,6 +379,7 @@ const HOSPITALS = [
       wards: true,
       codes: true,
       templates: true,
+      imports: true,
       appointments: true,
       clinical: true,
       laboratory: true,

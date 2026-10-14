@@ -4,10 +4,10 @@ import type { FastifyRequest } from 'fastify';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { clean, invalid, writePatient } from './create.js';
 import {
   findDuplicates,
   findPatient,
-  insertPatient,
   searchPatients,
   todayAtHospital,
   updatePatient,
@@ -94,61 +94,6 @@ const visibilityFor = (
   };
 };
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const EMAIL = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
-
-const invalid = (message: string) => new HttpError(400, 'validation_failed', message);
-
-/** A real calendar date, not before 1900 and not after today where the hospital is. */
-function checkDob(dob: string, today: string): void {
-  const parsed = new Date(`${dob}T00:00:00Z`);
-  if (
-    !ISO_DATE.test(dob) ||
-    Number.isNaN(parsed.getTime()) ||
-    parsed.toISOString().slice(0, 10) !== dob
-  ) {
-    throw invalid('dob must be a calendar date (YYYY-MM-DD)');
-  }
-  if (dob > today || dob < '1900-01-01') throw invalid('dob is out of range');
-}
-
-interface Demographics {
-  firstName?: string;
-  lastName?: string;
-  dob?: string;
-  phone?: string;
-  email?: string | null;
-  address?: string | null;
-}
-
-/**
- * Trims what was typed and checks what the schema cannot. Returns the cleaned values. An email
- * or address of only spaces is left out, the same as not sending one.
- */
-function clean<T extends Demographics>(input: T, today: string): T {
-  const out = { ...input };
-  for (const field of ['firstName', 'lastName'] as const) {
-    if (out[field] === undefined) continue;
-    out[field] = out[field].trim();
-    if (out[field] === '') throw invalid(`${field} is required`);
-  }
-  if (out.dob !== undefined) checkDob(out.dob, today);
-  if (out.phone !== undefined) {
-    out.phone = out.phone.trim();
-    if (out.phone.replace(/\D/g, '').length < 5) throw invalid('phone needs at least 5 digits');
-  }
-  if (typeof out.email === 'string') {
-    out.email = out.email.trim();
-    if (out.email === '') out.email = null;
-    else if (!EMAIL.test(out.email)) throw invalid('email is not a valid address');
-  }
-  if (typeof out.address === 'string') {
-    out.address = out.address.trim();
-    if (out.address === '') out.address = null;
-  }
-  return out;
-}
-
 const notFound = () => new HttpError(404, 'not_found', 'No such patient');
 
 export const patientRoutes: FastifyPluginAsyncTypebox = async (app) => {
@@ -233,17 +178,29 @@ export const patientRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['patients'],
         headers: IdempotencyHeaders,
         description:
-          'Registers a patient in the active hospital and assigns the MRN. The Idempotency-Key header is required: a retried or double-submitted request returns the first result instead of a second patient. A replay answers with the id only; read the record to show it. The server records when and by whom contact consent was captured.',
+          'Registers a patient in the active hospital and assigns the MRN. The Idempotency-Key header is required: a retried or double-submitted request returns the first result instead of a second patient. A replay answers with the id only; read the record to show it. The server records when and by whom contact consent was captured. While a batch of patients is being written from a file, a registration waits a few seconds and then answers 503 busy with Retry-After.',
         body: ref(PatientCreate),
-        response: { 201: ref(PatientRecord), ...errors(400, 401, 403, 409, 422, 429) },
+        response: { 201: ref(PatientRecord), ...errors(400, 401, 403, 409, 422, 429, 503) },
       },
     },
     async (request, reply) => {
       const userId = userIdOf(request);
       const input = clean(request.body as PatientCreate, await todayAtHospital(request.txClient));
-      const row = await insertPatient(request.txClient, input, userId);
-      request.audit('create', 'patient', row.id);
-      await request.emit('patient.registered', row.id, { patientId: row.id });
+      // The MRN counter is held by a batch of patients being written from a file until it ends.
+      // A registration waits for it briefly, and is then told to try again, rather than holding a
+      // connection every hospital shares for as long as the batch takes.
+      await request.txClient.query("set local lock_timeout = '3s'");
+      let row: PatientRow;
+      try {
+        row = await writePatient(request, input, userId);
+      } catch (error) {
+        if ((error as { code?: unknown }).code === '55P03') {
+          throw new HttpError(503, 'busy', 'Registration is busy; try again', {
+            'Retry-After': '5',
+          });
+        }
+        throw error;
+      }
       return reply.status(201).send(record(row, await seesContact(request)));
     },
   );

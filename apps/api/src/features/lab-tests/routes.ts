@@ -3,8 +3,16 @@ import type { FastifyRequest } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidyOptional, tidyWithin } from '../../core/http/text.js';
+import { tidyOptional } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
+import {
+  cleanName,
+  componentsFor,
+  invalid,
+  prepareLabTest,
+  serviceFor,
+  writeLabTest,
+} from './create.js';
 import {
   ageBefore,
   ageWithinMax,
@@ -14,18 +22,13 @@ import {
   type AgeUnit,
 } from './age.js';
 import {
-  codeTaken,
   componentsOf,
   findLabTest,
   hasArchivedComponent,
   hasRanges,
   inPanelInUse,
-  insertLabTest,
-  isCodeTaken,
-  isLabService,
   listRanges,
   lockLabTest,
-  lockUsableComponents,
   replaceComponents,
   replaceRanges,
   searchLabTests,
@@ -46,7 +49,6 @@ import {
   LabTestPage,
   LabTestSearchRequest,
   LabTestUpdate,
-  NAME_MAX,
   NOTE_MAX,
   UNIT_MAX,
   type LabRange,
@@ -89,16 +91,6 @@ const detailsOf = (row: LabTestRow): LabTestDetails => ({
 
 // One answer for a test that does not exist and one of another hospital.
 const notFound = () => new HttpError(404, 'lab_test_not_found', 'No such test');
-const taken = () =>
-  new HttpError(409, 'lab_test_code_taken', 'The hospital has a test with that code');
-const invalid = (message: string) => new HttpError(400, 'validation_failed', message);
-
-/** A name as it is stored, and not empty once it is tidied. */
-function cleanName(name: string): string {
-  const tidied = tidyWithin(name, NAME_MAX);
-  if (tidied === '') throw invalid('A name is required');
-  return tidied;
-}
 
 /** The same id, whatever its capitals: a UUID is written either way. */
 const sameId = (sent: string, held: string | null) => sent.toLowerCase() === held;
@@ -188,24 +180,6 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
     return view(row, components.get(id));
   }
 
-  /** The service a request names: none for empty text, or a laboratory service of the hospital. */
-  async function serviceFor(request: FastifyRequest, sent: string): Promise<string | null> {
-    if (sent === '') return null;
-    if (!(await isLabService(request.txClient, sent))) {
-      throw invalid('serviceId is not a laboratory service of this hospital that is in use');
-    }
-    return sent.toLowerCase();
-  }
-
-  /** The components a request names for a panel, checked and locked. */
-  async function componentsFor(request: FastifyRequest, ids: readonly string[]): Promise<void> {
-    if (ids.length === 0) throw invalid('A panel has at least one component');
-    if (new Set(ids).size !== ids.length) throw invalid('A component is named twice');
-    if (!(await lockUsableComponents(request.txClient, ids))) {
-      throw invalid('Every component is a single test of this hospital that is in use');
-    }
-  }
-
   app.post(
     '/lab-tests/search',
     {
@@ -260,38 +234,8 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) => {
-      const body = request.body as LabTestCreate;
-      const panel = body.kind === 'panel';
-      const componentIds = body.componentIds ?? [];
-      const details: LabTestDetails = {
-        name: cleanName(body.name),
-        department: body.department,
-        // A panel has no result of its own, whatever was sent.
-        resultType: panel ? 'text' : (body.resultType ?? 'text'),
-        unit: panel ? null : tidyOptional(body.unit, UNIT_MAX),
-        sampleType: body.sampleType,
-        container: tidyOptional(body.container, CONTAINER_MAX),
-        turnaroundHours: body.turnaroundHours,
-        serviceId: body.serviceId === undefined ? null : await serviceFor(request, body.serviceId),
-      };
-      if (panel) await componentsFor(request, componentIds);
-      else if (componentIds.length > 0) throw invalid('A single test has no components');
-      if (await codeTaken(request.txClient, body.code)) throw taken();
-      let id: string;
-      try {
-        id = await insertLabTest(request.txClient, {
-          ...details,
-          code: body.code,
-          kind: body.kind,
-        });
-      } catch (error) {
-        // Two requests for the same new code at once: the database lets one through.
-        if (isCodeTaken(error)) throw taken();
-        throw error;
-      }
-      if (panel) await replaceComponents(request.txClient, id, componentIds);
-      request.audit('create', 'lab_test', id);
-      await request.emit('master.changed', id, { kind: 'lab_test', change: 'created' });
+      const test = await prepareLabTest(request, request.body as LabTestCreate);
+      const id = await writeLabTest(request, test);
       return reply.status(201).send(await saved(request, id));
     },
   );
