@@ -6,6 +6,7 @@ import { authPlugin } from './core/auth/plugin.js';
 import { accessPlugin } from './core/access/plugin.js';
 import { accessRoutes } from './core/access/routes.js';
 import { accountRoutes } from './core/auth/account-routes.js';
+import { staffEmailsPlugin } from './core/auth/emails.js';
 import { authRoutes } from './core/auth/routes.js';
 import type { Config } from './core/config/config.js';
 import { dbPlugin } from './core/db/plugin.js';
@@ -106,6 +107,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(jobsPlugin, { queue: options.jobQueue });
   await app.register(notifierPlugin, { notifier: options.notifier });
   await app.register(authPlugin);
+  await app.register(staffEmailsPlugin);
   await app.register(sessionPlugin, { resolveSession: options.resolveSession });
   // Right after the session and before any database work, so a refused request costs nothing.
   await app.register(rateLimitPlugin, { limiter: options.rateLimiter });

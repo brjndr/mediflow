@@ -15,7 +15,8 @@ import {
   mfaStanding,
 } from './mfa.js';
 import { MAX_PASSWORD_LENGTH, verifyPassword, type PasswordProblem } from './password.js';
-import { requestPasswordReset, resetPassword, sendPasswordReset } from './password-reset.js';
+import { queuePasswordResetEmail } from './emails.js';
+import { requestPasswordReset, resetPassword } from './password-reset.js';
 
 export const InvitePreview = Type.Object(
   {
@@ -140,10 +141,11 @@ export const accountRoutes: FastifyPluginAsyncTypebox = async (app) => {
         requestPasswordReset(transaction, config, request.body.email),
       );
       if (issued) {
-        // Not awaited: how long the mail server takes must not show in the response time, which
-        // would tell an account apart from no account. A failure is logged without the address.
-        void sendPasswordReset(app.notifier, issued).catch(() => {
-          request.log.warn({ event: 'password_reset_email_failed' }, 'reset email not sent');
+        // Sent by a job. Not awaited either: queueing it must not show in the response time,
+        // which would tell an account apart from no account. A failure is logged without the
+        // address, and the person can ask again in a minute.
+        void queuePasswordResetEmail(app.jobs, { resetId: issued.id }).catch(() => {
+          request.log.warn({ event: 'password_reset_email_not_queued' }, 'reset email not queued');
         });
       }
       return reply.status(204).send(null);

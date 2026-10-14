@@ -1,6 +1,5 @@
 import type pg from 'pg';
 import type { Config } from '../config/config.js';
-import type { Notifier } from '../notifier/notifier.js';
 import type { AuthTransaction } from './db.js';
 import { normalizeEmail } from './login.js';
 import { hashPassword, passwordProblem, type PasswordProblem } from './password.js';
@@ -10,10 +9,9 @@ type InviteConfig = Pick<Config, 'INVITE_TTL_HOURS'>;
 
 export interface IssuedInvite {
   id: string;
+  /** The hospital the invite was saved at, read back from the row. */
+  tenantId: string;
   email: string;
-  hospitalName: string;
-  /** Goes in the emailed link. Never stored and never logged. */
-  token: string;
   expiresInHours: number;
 }
 
@@ -26,7 +24,9 @@ export interface IssuedInvite {
  * row-level security refuses any other. An earlier open invite to the same address is withdrawn,
  * so only the newest link works.
  *
- * Send the email with `sendInvite` after the transaction has committed.
+ * The invite is saved with a hash that matches no token, so no link works yet. Queue the email
+ * with `queueInviteEmail` (core/auth/emails.ts) after the transaction has committed: the job gives
+ * the invite its token when it sends the link.
  */
 export async function issueInvite(
   client: pg.ClientBase,
@@ -34,39 +34,27 @@ export async function issueInvite(
   input: { email: string; name: string; roleId: string; invitedBy: string | null },
 ): Promise<IssuedInvite> {
   const email = normalizeEmail(input.email);
-  const { token, hash } = newToken();
+  // The token of this hash is thrown away: the email job replaces the hash with that of its own.
+  const { hash } = newToken();
   await client.query(
     `update invites set revoked_at = now()
      where email = $1 and accepted_at is null and revoked_at is null`,
     [email],
   );
-  const { rows } = await client.query<{ id: string; hospital_name: string }>(
+  const { rows } = await client.query<{ id: string; tenant_id: string }>(
     `insert into invites (tenant_id, email, name, role_id, invited_by, token_hash, expires_at)
      values (app_tenant_id(), $1, $2, $3, $4, $5, now() + make_interval(hours => $6))
-     returning id, (select name from tenants where id = app_tenant_id()) as hospital_name`,
+     returning id, tenant_id`,
     [email, input.name.trim(), input.roleId, input.invitedBy, hash, config.INVITE_TTL_HOURS],
   );
   const row = rows[0];
   if (!row) throw new Error('invite was not created');
   return {
     id: row.id,
+    tenantId: row.tenant_id,
     email,
-    hospitalName: row.hospital_name,
-    token,
     expiresInHours: config.INVITE_TTL_HOURS,
   };
-}
-
-export function sendInvite(notifier: Notifier, invite: IssuedInvite): Promise<void> {
-  return notifier.send({
-    to: invite.email,
-    template: 'invite',
-    data: {
-      hospitalName: invite.hospitalName,
-      linkPath: `/invite?token=${invite.token}`,
-      expiresInHours: invite.expiresInHours,
-    },
-  });
 }
 
 const OPEN = 'accepted_at is null and revoked_at is null and expires_at > now()';

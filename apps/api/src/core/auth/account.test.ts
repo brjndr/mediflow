@@ -14,16 +14,19 @@ import {
   type TestTenant,
   type TestUser,
 } from '../../../test/helpers.js';
+import { MemoryQueue } from '../jobs/queue.js';
 import { createMemoryNotifier } from '../notifier/notifier.js';
 import { APP_ROLE } from '../tenancy/plugin.js';
 import { withAuthTransaction } from './db.js';
-import { issueInvite, sendInvite, type IssuedInvite } from './invites.js';
+import { deliverInvite, deliverPasswordReset, PASSWORD_RESET_EMAIL } from './emails.js';
+import { issueInvite, type IssuedInvite } from './invites.js';
 import { decryptSecret, encryptSecret } from './mfa.js';
 import { hashToken } from './sessions.js';
 
 /**
- * Invites, password reset and the second factor, through the real app and database. Email goes
- * to an in-memory notifier, so links are read from what would have been sent.
+ * Invites, password reset and the second factor, through the real app and database. Email is
+ * queued on an in-memory queue and goes to an in-memory notifier when the queue is drained, so
+ * links are read from what would have been sent.
  */
 
 const COOKIE = 'mediflow_session';
@@ -33,6 +36,7 @@ const NEW_PASSWORD = 'a brand new passphrase';
 const RLS_VIOLATION = /row-level security policy/;
 
 const notifier = createMemoryNotifier(ORIGIN);
+const queue = new MemoryQueue();
 let app: FastifyInstance;
 let pool: pg.Pool;
 let hospital: TestTenant;
@@ -41,7 +45,11 @@ let admin: TestUser;
 const users: TestUser[] = [];
 
 beforeAll(async () => {
-  app = await buildTestApp({ config: { AUTH_RATE_LIMIT_PER_MINUTE: 10_000 }, notifier });
+  app = await buildTestApp({
+    config: { AUTH_RATE_LIMIT_PER_MINUTE: 10_000 },
+    notifier,
+    jobQueue: queue,
+  });
   pool = app.database.pool;
   hospital = await createTenant(pool, 'Account Hospital');
   clinic = await createTenant(pool, 'Account Clinic');
@@ -119,18 +127,18 @@ async function inTenant<T>(tenant: TestTenant, run: (client: pg.PoolClient) => P
 let invitee = 0;
 const freshEmail = () => `invitee.${Date.now()}.${invitee++}@invited.test`;
 
-/** What a hospital admin does: invite, then send the email once the invite is committed. */
+/** What a hospital admin does: invite, then the email job sends the link once it is committed. */
 async function invite(
   tenant: TestTenant,
   email: string,
   roleId = 'nurse',
   name = 'Invited Ira',
-): Promise<IssuedInvite> {
+): Promise<IssuedInvite & { token: string }> {
   const issued = await inTenant(tenant, (client) =>
     issueInvite(client, config, { email, name, roleId, invitedBy: admin.id }),
   );
-  await sendInvite(notifier, issued);
-  return issued;
+  await deliverInvite(pool, notifier, { tenantId: issued.tenantId, inviteId: issued.id });
+  return { ...issued, token: emailedToken() };
 }
 
 describe('inviting someone', () => {
@@ -142,7 +150,7 @@ describe('inviting someone', () => {
     expect(notifier.sent).toHaveLength(1);
     expect(notifier.sent[0]).toMatchObject({ to: email, template: 'invite' });
     expect(notifier.sent[0]?.text).toContain('Account Hospital');
-    expect(emailedToken()).toBe(issued.token);
+    expect(notifier.sent[0]?.text).toContain('expires in 168 hours');
     const { rows } = await pool.query<{ token_hash: Buffer; hours: number }>(
       'select token_hash, round(extract(epoch from expires_at - created_at) / 3600) as hours from invites where id = $1',
       [issued.id],
@@ -375,7 +383,11 @@ describe('invites and tenant isolation', () => {
 });
 
 describe('forgetting a password', () => {
-  const forgot = (email: string) => post('/auth/password/forgot', { email });
+  const forgot = async (email: string) => {
+    const response = await post('/auth/password/forgot', { email });
+    await queue.drain();
+    return response;
+  };
 
   it('emails a link, and answers the same whether or not the account exists', async () => {
     const user = await newUser('Forgetful Fia');
@@ -414,7 +426,10 @@ describe('forgetting a password', () => {
     const send = notifier.send;
     notifier.send = () => Promise.reject(new Error('mail server down'));
     try {
-      expect((await forgot(user.email)).statusCode).toBe(204);
+      const response = await post('/auth/password/forgot', { email: user.email });
+      expect(response.statusCode).toBe(204);
+      // The job fails, so the queue retries it.
+      await expect(queue.drain()).rejects.toThrow('mail server down');
     } finally {
       notifier.send = send;
     }
@@ -429,6 +444,7 @@ describe('resetting a password', () => {
       [user.id],
     );
     await post('/auth/password/forgot', { email: user.email });
+    await queue.drain();
     return emailedToken();
   }
   const reset = (token: string, password: string) =>
@@ -520,6 +536,175 @@ describe('resetting a password', () => {
     await reset(await resetLink(user), NEW_PASSWORD);
 
     expect((await login(user.email, NEW_PASSWORD)).statusCode).toBe(200);
+  });
+});
+
+describe('sending staff email', () => {
+  it('queues a reset with its id only: no address and no token in the job', async () => {
+    const user = await newUser('Queued Quinn');
+
+    await post('/auth/password/forgot', { email: user.email });
+
+    const job = queue.sent.at(-1);
+    const { rows } = await pool.query<{ id: string }>(
+      'select id from password_resets where user_id = $1',
+      [user.id],
+    );
+    expect(job).toEqual({
+      name: PASSWORD_RESET_EMAIL,
+      data: { resetId: rows[0]?.id },
+      options: { id: rows[0]?.id, retryLimit: 5, retryDelay: 30, retryBackoff: true },
+    });
+    expect(notifier.sent).toHaveLength(0);
+    await queue.drain();
+    expect(notifier.sent).toHaveLength(1);
+  });
+
+  it('saves a link that works only once the job has sent it', async () => {
+    const user = await newUser('Waiting Wren');
+    await post('/auth/password/forgot', { email: user.email });
+    const before = await pool.query<{ token_hash: Buffer }>(
+      'select token_hash from password_resets where user_id = $1',
+      [user.id],
+    );
+
+    // No link works before the job has sent one.
+    const early = await post('/auth/password/reset', {
+      token: 'A'.repeat(43),
+      password: NEW_PASSWORD,
+    });
+    expect(early.statusCode).toBe(400);
+    await queue.drain();
+
+    const after = await pool.query<{ token_hash: Buffer }>(
+      'select token_hash from password_resets where user_id = $1',
+      [user.id],
+    );
+    expect(after.rows[0]?.token_hash.equals(hashToken(emailedToken()))).toBe(true);
+    expect(after.rows[0]?.token_hash.equals(before.rows[0]!.token_hash)).toBe(false);
+  });
+
+  it('gives each attempt a new token, so only the newest link works', async () => {
+    const email = freshEmail();
+    const { id, token: first } = await invite(hospital, email);
+
+    await deliverInvite(pool, notifier, { tenantId: hospital.id, inviteId: id });
+    const second = emailedToken();
+
+    expect(second).not.toBe(first);
+    expect((await post('/auth/invite/inspect', { token: first })).statusCode).toBe(400);
+    expect((await post('/auth/invite/inspect', { token: second })).statusCode).toBe(200);
+  });
+
+  it('sends nothing for an invite withdrawn, accepted or expired before the job ran', async () => {
+    const withdrawn = await inTenant(hospital, (client) =>
+      issueInvite(client, config, {
+        email: freshEmail(),
+        name: 'Withdrawn Wei',
+        roleId: 'nurse',
+        invitedBy: admin.id,
+      }),
+    );
+    const expired = await inTenant(hospital, (client) =>
+      issueInvite(client, config, {
+        email: freshEmail(),
+        name: 'Expired Eko',
+        roleId: 'nurse',
+        invitedBy: admin.id,
+      }),
+    );
+    await pool.query('update invites set revoked_at = now() where id = $1', [withdrawn.id]);
+    await pool.query("update invites set expires_at = now() - interval '1 second' where id = $1", [
+      expired.id,
+    ]);
+
+    for (const issued of [withdrawn, expired]) {
+      const job = { tenantId: issued.tenantId, inviteId: issued.id };
+      expect(await deliverInvite(pool, notifier, job)).toBe(false);
+    }
+    expect(notifier.sent).toHaveLength(0);
+  });
+
+  it('sends nothing for a reset whose account was disabled before the job ran', async () => {
+    const user = await newUser('Disabled Dev');
+    await post('/auth/password/forgot', { email: user.email });
+    await pool.query("update users set status = 'disabled' where id = $1", [user.id]);
+
+    await queue.drain();
+
+    expect(notifier.sent).toHaveLength(0);
+  });
+
+  it('sends no invitation to a hospital suspended before the job ran', async () => {
+    const suspended = await createTenant(pool, 'Suspended Before Send');
+    try {
+      const issued = await inTenant(suspended, (client) =>
+        issueInvite(client, config, {
+          email: freshEmail(),
+          name: 'Late Lin',
+          roleId: 'nurse',
+          invitedBy: admin.id,
+        }),
+      );
+      await pool.query("update tenants set status = 'suspended' where id = $1", [suspended.id]);
+
+      const job = { tenantId: suspended.id, inviteId: issued.id };
+      expect(await deliverInvite(pool, notifier, job)).toBe(false);
+      expect(notifier.sent).toHaveLength(0);
+    } finally {
+      await deleteTenants(pool, [suspended]);
+    }
+  });
+
+  it('does not send an invite through another hospital', async () => {
+    const issued = await inTenant(hospital, (client) =>
+      issueInvite(client, config, {
+        email: freshEmail(),
+        name: 'Isolated Ola',
+        roleId: 'nurse',
+        invitedBy: admin.id,
+      }),
+    );
+
+    const sent = await deliverInvite(pool, notifier, { tenantId: clinic.id, inviteId: issued.id });
+
+    expect(sent).toBe(false);
+    expect(notifier.sent).toHaveLength(0);
+  });
+
+  it('sends nothing for a reset link used, replaced or expired before the job ran', async () => {
+    const user = await newUser('Expiring Esa');
+    await post('/auth/password/forgot', { email: user.email });
+    const resetId = (queue.sent.at(-1)?.data as { resetId: string }).resetId;
+    await pool.query(
+      "update password_resets set expires_at = now() - interval '1 second' where id = $1",
+      [resetId],
+    );
+
+    await queue.drain();
+
+    expect(notifier.sent).toHaveLength(0);
+    expect(await deliverPasswordReset(pool, notifier, { resetId })).toBe(false);
+  });
+
+  it('fails the job when the mail server refuses, and a later attempt sends a working link', async () => {
+    const user = await newUser('Retried Ravi');
+    await post('/auth/password/forgot', { email: user.email });
+    const resetId = (queue.sent.at(-1)?.data as { resetId: string }).resetId;
+    const send = notifier.send;
+    notifier.send = () => Promise.reject(new Error('mail server down'));
+    try {
+      await expect(queue.drain()).rejects.toThrow('mail server down');
+    } finally {
+      notifier.send = send;
+    }
+
+    expect(await deliverPasswordReset(pool, notifier, { resetId })).toBe(true);
+    const reset = await post('/auth/password/reset', {
+      token: emailedToken(),
+      password: NEW_PASSWORD,
+    });
+    expect(reset.statusCode).toBe(204);
   });
 });
 
@@ -753,6 +938,7 @@ describe('the second factor', () => {
     const user = await newUser('Phished Pari');
     const authenticator = await enableMfa(user);
     await post('/auth/password/forgot', { email: user.email });
+    await queue.drain();
 
     await post('/auth/password/reset', { token: emailedToken(), password: NEW_PASSWORD });
 

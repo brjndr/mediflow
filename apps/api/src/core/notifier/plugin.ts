@@ -10,8 +10,8 @@ declare module 'fastify' {
 
 /**
  * Makes the notifier available as `app.notifier`. The default sends through SMTP; tests pass an
- * in-memory one. Sending is direct for now. When the job queue exists (BE-06), sends move onto
- * it so a slow mail server never slows a request and a failed send is retried.
+ * in-memory one. Invitations and password resets are sent by jobs (core/auth/emails.ts), so a
+ * slow mail server never slows a request and a failed send is retried.
  */
 export const notifierPlugin = fp<{ notifier?: Notifier }>(
   async (app, options) => {

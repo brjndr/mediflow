@@ -15,6 +15,8 @@ import {
   type TestUser,
 } from '../../../test/helpers.js';
 import { withAuthTransaction } from '../auth/db.js';
+import { INVITE_EMAIL } from '../auth/emails.js';
+import { MemoryQueue } from '../jobs/queue.js';
 import { createMemoryNotifier } from '../notifier/notifier.js';
 import { loadPolicy, type AccessPolicy } from './policy.js';
 import {
@@ -41,6 +43,7 @@ const PROBE_PERMISSIONS = [
 ] as const satisfies readonly PermissionDefinition[];
 
 const notifier = createMemoryNotifier(ORIGIN);
+const queue = new MemoryQueue();
 let app: FastifyInstance;
 let pool: pg.Pool;
 let hospital: TestTenant;
@@ -56,6 +59,7 @@ let afterCommitRuns = 0;
 beforeAll(async () => {
   app = await buildTestApp({
     notifier,
+    jobQueue: queue,
     config: { AUTH_RATE_LIMIT_PER_MINUTE: 10_000 },
     extend(instance) {
       instance.permissions.register('probe', PROBE_PERMISSIONS);
@@ -610,7 +614,12 @@ describe('roles and tenant isolation', () => {
 describe('inviting staff', () => {
   let invitee = 0;
   const freshEmail = () => `invitee.${Date.now()}.${invitee++}@access-invited.test`;
-  const invite = (token: string, payload: object) => post('/invites', token, payload);
+  /** Invites, then runs the queued email jobs, as the queue would once the invite is saved. */
+  const invite = async (token: string, payload: object) => {
+    const response = await post('/invites', token, payload);
+    await queue.drain();
+    return response;
+  };
 
   it('lets an admin invite someone, and emails the link once the invite is saved', async () => {
     const email = freshEmail();
@@ -627,6 +636,13 @@ describe('inviting staff', () => {
       email,
       roleId: 'nurse',
       expiresInHours: 168,
+    });
+    // The job that sent it held ids only: no address and no token.
+    const { id } = response.json<{ id: string }>();
+    expect(queue.sent.at(-1)).toEqual({
+      name: INVITE_EMAIL,
+      data: { tenantId: hospital.id, inviteId: id },
+      options: { id, retryLimit: 5, retryDelay: 30, retryBackoff: true },
     });
     expect(notifier.sent).toHaveLength(1);
     expect(notifier.sent[0]).toMatchObject({ to: email, template: 'invite' });

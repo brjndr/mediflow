@@ -1,5 +1,4 @@
 import type { Config } from '../config/config.js';
-import type { Notifier } from '../notifier/notifier.js';
 import type { AuthTransaction } from './db.js';
 import { normalizeEmail } from './login.js';
 import { hashPassword, passwordProblem, type PasswordProblem } from './password.js';
@@ -11,10 +10,7 @@ type ResetConfig = Pick<Config, 'PASSWORD_RESET_TTL_MINUTES'>;
 const MIN_SECONDS_BETWEEN_EMAILS = 60;
 
 export interface IssuedReset {
-  email: string;
-  /** Goes in the emailed link. Never stored and never logged. */
-  token: string;
-  expiresInMinutes: number;
+  id: string;
 }
 
 /**
@@ -22,6 +18,10 @@ export interface IssuedReset {
  * to send (no such account, a disabled one, one that signs in without a password, or a link sent
  * a moment ago). The caller must answer the same way in both cases, so the form does not reveal
  * which emails have accounts. A new link replaces any earlier one.
+ *
+ * The link is saved with a hash that matches no token. Queue the email with
+ * `queuePasswordResetEmail` (core/auth/emails.ts) after the commit: the job gives the link its
+ * token when it sends it.
  */
 export async function requestPasswordReset(
   { client }: AuthTransaction,
@@ -44,28 +44,21 @@ export async function requestPasswordReset(
   );
   if (recent.rowCount !== 0) return null;
 
-  const { token, hash } = newToken();
+  // The token of this hash is thrown away: the email job replaces the hash with that of its own.
+  const { hash } = newToken();
   await client.query(
     'update password_resets set used_at = now() where user_id = $1 and used_at is null',
     [user.id],
   );
-  await client.query(
+  const inserted = await client.query<{ id: string }>(
     `insert into password_resets (user_id, token_hash, expires_at)
-     values ($1, $2, now() + make_interval(mins => $3))`,
+     values ($1, $2, now() + make_interval(mins => $3))
+     returning id`,
     [user.id, hash, config.PASSWORD_RESET_TTL_MINUTES],
   );
-  return { email: user.email, token, expiresInMinutes: config.PASSWORD_RESET_TTL_MINUTES };
-}
-
-export function sendPasswordReset(notifier: Notifier, reset: IssuedReset): Promise<void> {
-  return notifier.send({
-    to: reset.email,
-    template: 'password_reset',
-    data: {
-      linkPath: `/reset-password?token=${reset.token}`,
-      expiresInMinutes: reset.expiresInMinutes,
-    },
-  });
+  const id = inserted.rows[0]?.id;
+  if (!id) throw new Error('reset was not created');
+  return { id };
 }
 
 export type ResetResult = 'reset' | 'invalid' | PasswordProblem;
