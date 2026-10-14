@@ -29,6 +29,44 @@ export async function ensureAuditPartitions(pool: pg.Pool): Promise<void> {
   }
 }
 
+export interface AuditEntry {
+  action: string;
+  entity: string;
+  entityId: string | null;
+}
+
+/**
+ * Writes audit entries in the transaction of `client`, at its hospital. The audit hook does it for
+ * a request; background work that touches records (the import centre) calls this, with a
+ * `requestId` that names the work.
+ */
+export async function insertAuditEntries(
+  client: Pick<pg.ClientBase, 'query'>,
+  actorId: string | null,
+  requestId: string,
+  entries: readonly AuditEntry[],
+): Promise<void> {
+  for (let start = 0; start < entries.length; start += 1000) {
+    // The hospital comes from the transaction's setting, never from a value the caller passes.
+    await client.query(
+      `insert into audit_log (tenant_id, actor_id, action, entity, entity_id, request_id)
+       select app_tenant_id(), $1, e.action, e.entity, e.entity_id, $2
+       from jsonb_to_recordset($3::jsonb) as e(action text, entity text, entity_id text)`,
+      [
+        actorId,
+        requestId,
+        JSON.stringify(
+          entries.slice(start, start + 1000).map((entry) => ({
+            action: entry.action,
+            entity: entry.entity,
+            entity_id: entry.entityId,
+          })),
+        ),
+      ],
+    );
+  }
+}
+
 /** What a route declares so the audit hook records it. */
 export interface AuditConfig {
   /** The kind of record touched, e.g. `patient`. */
@@ -51,13 +89,7 @@ declare module 'fastify' {
   }
 }
 
-interface Entry {
-  action: string;
-  entity: string;
-  entityId: string | null;
-}
-
-const pending = new WeakMap<FastifyRequest, Entry[]>();
+const pending = new WeakMap<FastifyRequest, AuditEntry[]>();
 
 const METHOD_ACTIONS: Record<string, string> = {
   GET: 'read',
@@ -101,14 +133,12 @@ export const auditPlugin = fp(
         });
       }
       pending.delete(request);
-      for (const entry of entries) {
-        // The hospital comes from the transaction's setting, never from a value the caller passes.
-        await request.txClient.query(
-          `insert into audit_log (tenant_id, actor_id, action, entity, entity_id, request_id)
-           values (app_tenant_id(), $1, $2, $3, $4, $5)`,
-          [request.session?.userId ?? null, entry.action, entry.entity, entry.entityId, request.id],
-        );
-      }
+      await insertAuditEntries(
+        request.txClient,
+        request.session?.userId ?? null,
+        request.id,
+        entries,
+      );
     });
 
     // A route that asks for auditing but has no tenant transaction could never write the row:

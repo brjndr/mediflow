@@ -455,7 +455,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Registers a patient in the active hospital and assigns the MRN. The Idempotency-Key header is required: a retried or double-submitted request returns the first result instead of a second patient. A replay answers with the id only; read the record to show it. The server records when and by whom contact consent was captured. */
+        /** @description Registers a patient in the active hospital and assigns the MRN. The Idempotency-Key header is required: a retried or double-submitted request returns the first result instead of a second patient. A replay answers with the id only; read the record to show it. The server records when and by whom contact consent was captured. While a batch of patients is being written from a file, a registration waits a few seconds and then answers 503 busy with Retry-After. */
         post: operations["createPatient"];
         delete?: never;
         options?: never;
@@ -1425,6 +1425,143 @@ export interface paths {
         put?: never;
         /** @description Brings an archived template back. Requires template:manage and template:read. Doing it twice changes nothing, and neither makes a new version. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
         post: operations["restoreTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/kinds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The kinds of record the caller may load from a file, each with its fields: those whose module the hospital has on and whose own permission the caller holds (adding one on its screen). */
+        get: operations["listImportKinds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital's batches, newest first. */
+        get: operations["listImports"];
+        put?: never;
+        /** @description Starts a batch of one kind, to which the rows of a file are then sent. Loading a kind needs what adding one such record on its screen needs, and its module on (403 permission_denied otherwise). Audited. */
+        post: operations["createImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{batchId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One batch, with how far its job has got. A batch of another hospital answers 404 import_not_found, the same as one that does not exist. */
+        get: operations["getImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{batchId}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds rows to a batch that is being staged, up to 20000 in all (409 import_too_many_rows). A line already sent is kept as it was first sent, so a chunk sent again adds nothing. The rows can be patient data: the API does not log the body, and they are deleted once the batch is written, refused or given up. Audited. A batch of another hospital answers 404 import_not_found, the same as one that does not exist. */
+        post: operations["addImportRows"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{batchId}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Starts the dry run of a staged batch: a job checks every row as its create route would, and writes nothing. Follow its progress on the batch; its problems are then in the report. 409 import_empty for a batch with no rows. A batch of another hospital answers 404 import_not_found, the same as one that does not exist. */
+        post: operations["checkImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{batchId}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Writes a checked batch with no problems (409 import_not_ready otherwise): a job writes every row in one transaction, each audited and announced as its create route does, so the batch is all of its rows or none. A row refused at that moment (the catalog changed since the check) fails the whole batch, with its report. One batch is written at a time at a hospital (409 import_running). Audited. A batch of another hospital answers 404 import_not_found, the same as one that does not exist. */
+        post: operations["commitImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{batchId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Gives up a batch that is staged or checked: its rows are deleted and nothing is written. A batch whose job is running is not given up (409 import_busy). Cancelling twice changes nothing. Audited. A batch of another hospital answers 404 import_not_found, the same as one that does not exist. */
+        post: operations["cancelImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{batchId}/problems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The report of a batch: what is wrong with which line and field, in the order of the lines. Codes only, never a value of the file. A batch of another hospital answers 404 import_not_found, the same as one that does not exist. */
+        get: operations["listImportProblems"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2491,6 +2628,85 @@ export interface components {
              * @enum {string}
              */
             reason: "patient_data" | "personal_data" | "confidential" | "other";
+        };
+        ImportColumn: {
+            field: string;
+            required: boolean;
+            /**
+             * @description How the text becomes the value: `boolean` is yes or no (true, false, y, n, 1, 0); `enum` one of `values`, whatever its capitals; `date` YYYY-MM-DD; `amount` the hospital currency with a point before the minor units, grouped by commas or not.
+             * @enum {string}
+             */
+            type: "text" | "integer" | "boolean" | "enum" | "date" | "amount";
+            values?: string[];
+        };
+        ImportKind: {
+            /** @description A kind of record: `services`, `drugs`, `lab_tests` or `patients`. */
+            kind: string;
+            columns: components["schemas"]["ImportColumn"][];
+        };
+        ImportKindList: {
+            items: components["schemas"]["ImportKind"][];
+        };
+        /** @description Records of one kind loaded from a file. It holds counts and codes, never a value of a row. */
+        ImportBatch: {
+            id: string;
+            tenantId: string;
+            /** @description A kind of record: `services`, `drugs`, `lab_tests` or `patients`. */
+            kind: string;
+            /**
+             * @description staging: rows are being sent. checking: the dry run is running. checked: it has run, and the batch can be written when problemCount is 0. queued, running: being written. committed: every row was written. failed: nothing was written. cancelled: given up, or left unfinished for a week.
+             * @enum {string}
+             */
+            status: "staging" | "checking" | "checked" | "queued" | "running" | "committed" | "failed" | "cancelled";
+            rowCount: number;
+            /** @description Rows checked while checking, rows written while running. */
+            doneCount: number;
+            problemCount: number;
+            /** @description Why nothing was written, as a code: rows_refused (see the problems), permission_withdrawn, write_failed, expired. */
+            failure?: string;
+            createdBy: {
+                id: string;
+                name: string;
+            };
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            checkedAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ImportBatchPage: {
+            items: components["schemas"]["ImportBatch"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ImportBatchCreate: {
+            /** @description A kind of record: `services`, `drugs`, `lab_tests` or `patients`. */
+            kind: string;
+        };
+        /** @description Rows of the file, as many requests as it takes. A line sent twice is kept as it was first sent. */
+        ImportRowsUpload: {
+            /** @description The fields of the kind the columns of the file were mapped to, in the order of `values`. Each at most once. */
+            fields: string[];
+            rows: {
+                line: number;
+                /** @description The text of each field of `fields`. An empty text is no value. */
+                values: string[];
+            }[];
+        };
+        /** @description Never the value that was refused. */
+        ImportProblem: {
+            line: number;
+            field?: string;
+            /** @description What is wrong. Of one field: required, not_a_whole_number, not_yes_or_no, not_allowed, not_a_date, not_an_amount, too_many_decimals, invalid, not_found, out_of_range, too_few_digits, not_an_email. Of a row: duplicate_in_file, or the code its create route answers with (drug_exists, service_code_taken, lab_test_code_taken, patient_possible_duplicate, validation_failed). */
+            code: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ImportProblemPage: {
+            items: components["schemas"]["ImportProblem"][];
+            nextCursor: string | null;
+            total?: number;
         };
         Notice: {
             id: string;
@@ -4074,6 +4290,15 @@ export interface operations {
             };
             /** @description Standard error body. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9321,6 +9546,638 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TemplateDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listImportKinds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportKindList"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listImports: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createImport: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportBatchCreate"];
+            };
+        };
+        responses: {
+            /** @description Records of one kind loaded from a file. It holds counts and codes, never a value of a row. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatch"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Records of one kind loaded from a file. It holds counts and codes, never a value of a row. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatch"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addImportRows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportRowsUpload"];
+            };
+        };
+        responses: {
+            /** @description Records of one kind loaded from a file. It holds counts and codes, never a value of a row. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatch"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Records of one kind loaded from a file. It holds counts and codes, never a value of a row. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatch"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    commitImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Records of one kind loaded from a file. It holds counts and codes, never a value of a row. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatch"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Records of one kind loaded from a file. It holds counts and codes, never a value of a row. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatch"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listImportProblems: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportProblemPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Standard error body. */

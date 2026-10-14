@@ -19,6 +19,22 @@ export interface JobQueue {
   stop(): Promise<void>;
 }
 
+/**
+ * What is kept of a job's failure: a fixed message and, for a database error, its SQLSTATE. A
+ * queue stores the error of a failed job, and a database error's own text can quote the values of
+ * the row it refused (a patient's name and birth date in "Failing row contains (...)").
+ */
+export function safeJobError(error: unknown): Error {
+  const safe = new Error('job_failed');
+  safe.name = 'JobFailed';
+  const code =
+    typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+  if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) {
+    Object.assign(safe, { code });
+  }
+  return safe;
+}
+
 /** pg-boss on the application's Postgres. It installs its own `pgboss` schema when it starts. */
 export class PgBossQueue implements JobQueue {
   private readonly boss: PgBoss;
@@ -54,7 +70,14 @@ export class PgBossQueue implements JobQueue {
     this.run(async () => {
       await this.ensureQueue(name);
       await this.boss.work<T>(name, async (jobs) => {
-        for (const job of jobs) await handler(job.data);
+        for (const job of jobs) {
+          try {
+            await handler(job.data);
+          } catch (error) {
+            // Never the error itself: pg-boss keeps it in its own table, outside every hospital.
+            throw safeJobError(error);
+          }
+        }
       });
     });
   }

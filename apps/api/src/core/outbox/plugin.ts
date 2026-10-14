@@ -1,11 +1,31 @@
 import type { FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
+import type pg from 'pg';
 import type { Database } from '../db/client.js';
 import { dispatchOutbox } from './dispatcher.js';
 import { eventQueue, type DomainEvent, type DomainEventMessage } from './events.js';
 import { runAsTenant } from './subscribe.js';
 
 type EventHandler = (message: DomainEventMessage, tx: Database) => Promise<void>;
+
+/**
+ * Writes an event to the outbox in the transaction of `client`, at its hospital. A request does
+ * it through `request.emit`; background work that writes records (the import centre) calls this.
+ */
+export async function insertEvent(
+  client: Pick<pg.ClientBase, 'query'>,
+  event: DomainEvent,
+  entityId: string,
+  actorId: string | null,
+  payload: Record<string, unknown> = {},
+): Promise<void> {
+  // The hospital comes from the transaction's setting, never from a value the caller passes.
+  await client.query(
+    `insert into outbox (tenant_id, event, entity_id, actor_id, payload)
+     values (app_tenant_id(), $1, $2, $3, $4)`,
+    [event, entityId, actorId, JSON.stringify(payload)],
+  );
+}
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -37,12 +57,7 @@ declare module 'fastify' {
 export const outboxPlugin = fp(
   async (app) => {
     app.decorateRequest('emit', async function (this: FastifyRequest, event, entityId, payload) {
-      // The hospital comes from the transaction's setting, never from a value the caller passes.
-      await this.txClient.query(
-        `insert into outbox (tenant_id, event, entity_id, actor_id, payload)
-         values (app_tenant_id(), $1, $2, $3, $4)`,
-        [event, entityId, this.session?.userId ?? null, JSON.stringify(payload ?? {})],
-      );
+      await insertEvent(this.txClient, event, entityId, this.session?.userId ?? null, payload);
     });
 
     app.decorate('events', {

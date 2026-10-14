@@ -20,6 +20,7 @@ import type { Notifier } from './core/notifier/notifier.js';
 import { notifierPlugin } from './core/notifier/plugin.js';
 import { outboxPlugin } from './core/outbox/plugin.js';
 import { idempotencyPlugin, idempotencyStorePlugin } from './core/idempotency/plugin.js';
+import { importKindsPlugin } from './core/imports/registry.js';
 import type { RateLimiter } from './core/ratelimit/limiter.js';
 import { rateLimitPlugin } from './core/ratelimit/plugin.js';
 import { sessionPlugin, type SessionResolver } from './core/session/plugin.js';
@@ -30,6 +31,7 @@ import { codesFeature } from './features/codes/index.js';
 import { departmentsFeature } from './features/departments/index.js';
 import { doctorsFeature } from './features/doctors/index.js';
 import { drugsFeature } from './features/drugs/index.js';
+import { importsFeature } from './features/imports/index.js';
 import { labTestsFeature } from './features/lab-tests/index.js';
 import { patientsFeature } from './features/patients/index.js';
 import { servicesFeature } from './features/services/index.js';
@@ -119,6 +121,8 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(authRoutes);
   await app.register(accountRoutes);
   await app.register(accessRoutes);
+  // Before the features: each one that can be loaded from a file registers its kind here.
+  await app.register(importKindsPlugin);
 
   // Features: one line each.
   await app.register(healthFeature);
@@ -132,6 +136,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(wardsFeature);
   await app.register(codesFeature);
   await app.register(templatesFeature);
+  await app.register(importsFeature);
 
   return app;
 }

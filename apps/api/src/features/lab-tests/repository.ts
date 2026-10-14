@@ -224,6 +224,21 @@ export async function isLabService(client: pg.ClientBase, id: string): Promise<b
 }
 
 /**
+ * The laboratory service of this hospital in use with this code, whatever its capitals: how a
+ * file of tests names what each is charged as.
+ */
+export async function labServiceByCode(
+  client: pg.ClientBase,
+  code: string,
+): Promise<string | null> {
+  const { rows } = await client.query<{ id: string }>(
+    "select id from services where lower(code) = lower($1) and category = 'lab' and not archived",
+    [code],
+  );
+  return rows[0]?.id ?? null;
+}
+
+/**
  * Locks the tests named as the components of a panel, in id order so that two requests naming
  * the same tests cannot wait on each other, and says whether each is a single test of this
  * hospital that is in use. A test being archived at the same moment waits for this, or this for
