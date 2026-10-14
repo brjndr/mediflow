@@ -12,6 +12,7 @@ Closes #
 - [ ] Tests cover happy path, validation, permission absent, flag off, and two tenants where relevant
 - [ ] `/tenant-safety-check` and `/phi-check` checklists applied to this diff, by the `security-reviewer` pass or by hand (if data or access is touched)
 - [ ] No PHI in logs, URLs, storage, fixtures, or screenshots
+- [ ] Accessibility (WCAG 2.2 AA): keyboard and axe checked for changed screens, or no screen changed
 - [ ] CLAUDE.md or docs updated if a contract or convention changed
 
 ## Bundle size

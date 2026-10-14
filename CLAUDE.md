@@ -271,6 +271,34 @@ Billing (invoice assembly, claims) must work on a tablet and a desktop. A phone 
 - **Safari on iOS** is a target, but every Playwright project is Chromium: the checks cover the layout, not WebKit. A WebKit project in CI closes this.
 - **Lighthouse** runs with the desktop preset only. A phone run belongs with the hardening milestone.
 
+## Accessibility
+
+The target is **WCAG 2.2 AA** (decided 2026-10-14, #337), for every screen at every width. Screens are built accessible, not fixed at the end: the hardening audit (H-02, #139) confirms, it does not catch up.
+
+### What 2.2 AA asks of a busy hospital screen
+
+- **Focus is never hidden.** A focused control is not covered by a sticky header, a toolbar or a drawer; give a scroll container `scroll-padding` when it has a sticky part.
+- **Targets are at least 24 by 24 px** with a pointer (44 by 44 px under `pointer-coarse:`, see Responsive Design).
+- **No action needs dragging.** Anything that can be dragged (an appointment on the calendar, a row reordered) can also be done with a click or the keyboard.
+- **Nothing already given is asked again** in the same flow: carry it forward or offer it to pick.
+- **Status and errors are announced**, not only shown: a live region for a saved, a refused or a busy state, and the form kit's messages linked to their fields.
+
+### Patterns to use
+
+- **Radix primitives** (through shadcn/ui) for every menu, popover, dialog, tabs, select and tooltip: they bring focus handling, roles and keyboard support. Do not build one of these by hand.
+- **The form kit** (`shared/ui/form`) for every form: labels, descriptions and errors are linked to the field, and the first invalid field gets focus on submit.
+- **`DataGrid`** for every list: headers, sorting and row actions are reachable and named, in the table and in the cards.
+- Semantic HTML first (`button` for actions, `a` for navigation, headings in order, one `h1` per screen), an accessible name for every icon-only control, and colour never the only signal (a status also has a word or an icon).
+- The shell already gives a skip link, moves focus to `<main>` on navigation and checks the contrast of a hospital's colours (`shared/lib/theme.ts`). Keep them working.
+
+### Checks every screen gets
+
+- **axe in the unit tests:** `expectNoAxeViolations` from `src/test/axe.ts` on the rendered screen (contrast is off in jsdom).
+- **axe in Playwright:** in a real browser with contrast on, with `@axe-core/playwright` as `e2e/smoke.spec.ts` does it (#338 shares the helper and runs it on every route).
+- **A keyboard test in Playwright:** the screen's main task done with the keyboard alone (reach it, fill it, submit it, close what opened), with focus visible at each step.
+- `eslint-plugin-jsx-a11y` runs in lint.
+- "Keyboard and axe checked for changed screens" is in the PR template and in the definition of done of every issue.
+
 ## Repository Layout
 
 ```
@@ -738,7 +766,7 @@ The bundle budgets, code splitting, pagination, virtualization, rendering and as
 - **Dates and money:** store and transmit ISO strings (UTC) and minor-unit/decimal-safe amounts. Format only at the display layer using tenant locale, timezone, and currency. A calendar date that is not an instant (a date of birth, the day a price starts) is shown with `format.calendarDate`, which no timezone can move to a neighbouring day; `format.date` is for instants. An amount typed by a person becomes minor units on its digits, never through a floating-point number, and a comma is accepted only where grouping puts one (`toMinor` in `features/services/schemas.ts`): "12,50" is refused, not read as 1250.
 - **i18n:** no user-facing string literals in components. Use translation keys. Core strings live in `app/locales/<language>/common.json`. A feature keeps its strings in its own folder and declares them in `manifest.i18n`, never in core locale files. The UI language follows the active hospital's locale (`hi-IN` uses the `hi` files) and falls back to English per language and per key. Tests fail on any rendered key that has no translation.
 - **Errors:** centralize API error handling in the API client wrapper. Surface user-friendly messages, never raw server errors.
-- **Accessibility:** semantic HTML, labelled inputs, keyboard-navigable tables and dialogs.
+- **Accessibility:** WCAG 2.2 AA. Semantic HTML, labelled inputs, keyboard-navigable tables and dialogs, and axe and a keyboard test for every screen. See Accessibility.
 - **Responsive:** every screen works at phone, tablet and desktop width unless it is on the desktop-only list. See Responsive Design.
 
 ## Security and Privacy (healthcare data)
@@ -768,6 +796,7 @@ The bundle budgets, code splitting, pagination, virtualization, rendering and as
 - Mock the network with MSW, not by mocking fetch.
 - Each feature ships with tests for: happy path, validation errors, permission-based visibility.
 - **Responsive tests:** the end-to-end suite runs at desktop, tablet and phone width, and a new screen is added to `e2e/responsive.spec.ts` (see Responsive Design).
+- **Accessibility tests:** every screen gets axe in its unit test and in Playwright, and a keyboard test of its main task (see Accessibility).
 - **Multi-tenant tests:** verify cache isolation when switching tenants, tenant-scoped query keys, tenant-specific theming/locale/feature flags, and that disabled modules are unreachable.
 - **Access tests:** for each feature, test with permission present, permission absent, feature flag off, and a custom role. Verify hidden nav/routes/actions and 403 handling. Verify policy refresh updates the UI without reload.
 - **Performance tests:** Lighthouse CI + bundle budgets in CI; tests with large result sets (10k+ total rows) confirm pagination keeps the page responsive and memory flat.
