@@ -12,7 +12,7 @@ import { syncRoleDefaults } from '../src/core/access/sync.js';
 import { hashPassword } from '../src/core/auth/password.js';
 import { loadConfig } from '../src/core/config/config.js';
 import { seedDecision } from '../src/core/db/seed-guard.js';
-import { loadCodes } from '../src/features/codes/load.js';
+import { fileSha256, loadCodes } from '../src/features/codes/load.js';
 
 /** The one password of every sample account. Printed below; it protects nothing. */
 const DEV_PASSWORD = 'sample-staff-local-only';
@@ -722,11 +722,15 @@ try {
     );
   }
 
-  // The sample code sets, shared by every hospital, and a few favourites for each. Loading a set
-  // again adds nothing, and a favourite that is marked already stays as it is.
+  // The sample code sets, shared by every hospital, and a few favourites for each. A sample is
+  // loaded only into an empty set (#316): loaded over a real set on a developer's machine, it
+  // would change the titles of the codes the two share to the sample's wording. A favourite that
+  // is marked already stays as it is.
   for (const [system, file] of SAMPLE_CODE_FILES) {
-    const path = fileURLToPath(new URL(`../sample-codes/${file}`, import.meta.url));
-    await loadCodes(client, system, readFileSync(path, 'utf8'));
+    const loaded = await client.query('select 1 from codes where system = $1 limit 1', [system]);
+    if (loaded.rowCount) continue;
+    const bytes = readFileSync(fileURLToPath(new URL(`../sample-codes/${file}`, import.meta.url)));
+    await loadCodes(client, system, bytes.toString('utf8'), fileSha256(bytes));
   }
   for (const hospital of HOSPITALS) {
     await client.query(

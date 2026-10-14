@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type pg from 'pg';
 import { PLAIN_TEXT, tidy } from '../../core/http/text.js';
 import { CodeFileError, parseCodeFile } from './csv.js';
@@ -48,6 +49,10 @@ export function decodeCodeFile(bytes: Uint8Array): string {
   }
 }
 
+/** The SHA-256 of a file, as `code_loads` records it: of its bytes, before they are read as text. */
+export const fileSha256 = (bytes: Uint8Array | string): string =>
+  createHash('sha256').update(bytes).digest('hex');
+
 /** A code as the search compares it: `E11.9`, `e11.9` and `E119` are one code. */
 const plainCode = (code: string) => code.toLowerCase().replaceAll('.', '');
 
@@ -78,13 +83,16 @@ export function checkedCodes(text: string): CheckedCode[] {
 }
 
 /**
- * Writes the codes of a file into a set. Runs as whoever owns the connection: the app role
- * cannot write codes, so this is never reachable from a request.
+ * Writes the codes of a file into a set, and records the load in `code_loads` (which set, the
+ * file's SHA-256, the counts, when and as which login), in the caller's transaction: a load that
+ * is rolled back, as a dry run is, leaves no record. Runs as whoever owns the connection: the app
+ * role cannot write codes, so this is never reachable from a request.
  */
 export async function loadCodes(
   client: pg.ClientBase,
   system: CodeSystem,
   text: string,
+  sha256: string,
 ): Promise<LoadResult> {
   const codes = checkedCodes(text);
   const batches: CheckedCode[][] = [];
@@ -124,5 +132,10 @@ export async function loadCodes(
     result.retitled += rows.length - added;
   }
   result.unchanged = result.read - result.added - result.retitled;
+  await client.query(
+    `insert into code_loads (system, file_sha256, read, added, retitled, unchanged)
+     values ($1, $2, $3, $4, $5, $6)`,
+    [system, sha256, result.read, result.added, result.retitled, result.unchanged],
+  );
   return result;
 }

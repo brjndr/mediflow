@@ -17,7 +17,7 @@ import {
   type TestUser,
 } from '../../../test/helpers.js';
 import { CodeFileError, parseCodeFile } from './csv.js';
-import { checkedCodes, decodeCodeFile, loadCodes } from './load.js';
+import { checkedCodes, decodeCodeFile, fileSha256, loadCodes } from './load.js';
 
 /**
  * The codes API through the real app and database: reading a code file, loading a set, the
@@ -118,6 +118,8 @@ async function all(body: object, options: Options = {}): Promise<Code[]> {
 const clearCodes = async () => {
   await pool.query('delete from code_favourites');
   await pool.query('delete from codes');
+  // The record of the loads this file made, with them.
+  await pool.query('delete from code_loads');
 };
 
 beforeAll(async () => {
@@ -148,8 +150,13 @@ beforeAll(async () => {
     [hospital.id],
   );
   await addMembership(pool, chooser, hospital, 'favourites_only');
-  await loadCodes(pool as unknown as pg.ClientBase, 'icd10', ICD10);
-  await loadCodes(pool as unknown as pg.ClientBase, 'procedure', PROCEDURES);
+  await loadCodes(pool as unknown as pg.ClientBase, 'icd10', ICD10, fileSha256(ICD10));
+  await loadCodes(
+    pool as unknown as pg.ClientBase,
+    'procedure',
+    PROCEDURES,
+    fileSha256(PROCEDURES),
+  );
 });
 
 afterAll(async () => {
@@ -232,7 +239,8 @@ describe('loading a set', () => {
         system,
       ])
     ).rows[0]?.n;
-  const load = (text: string) => loadCodes(pool as unknown as pg.ClientBase, 'procedure', text);
+  const load = (text: string) =>
+    loadCodes(pool as unknown as pg.ClientBase, 'procedure', text, fileSha256(text));
 
   it('adds what is new, changes the titles that changed, and removes nothing', async () => {
     const appendicectomy = await idOf('PR-0001', 'procedure');
@@ -394,7 +402,8 @@ describe('the search', () => {
   });
 
   it('finds a title in any script, from the start of a word', async () => {
-    const load = (text: string) => loadCodes(pool as unknown as pg.ClientBase, 'icd10', text);
+    const load = (text: string) =>
+      loadCodes(pool as unknown as pg.ClientBase, 'icd10', text, fileSha256(text));
     await load('code,title\nX90.1,मधुमेह का रोग\nX90.2,Ménière disease\nX90.3,நீரிழிவு நோய்\n');
     try {
       const found = async (q: string) => codes(await search({ q }));
@@ -623,7 +632,8 @@ describe('a set of full size', () => {
         `${code},Sample condition number ${n} of the ${n % 2 === 0 ? 'left' : 'right'} side`,
       );
     }
-    await loadCodes(pool as unknown as pg.ClientBase, 'icd10', `${lines.join('\n')}\n`);
+    const file = `${lines.join('\n')}\n`;
+    await loadCodes(pool as unknown as pg.ClientBase, 'icd10', file, fileSha256(file));
     try {
       await mark(await idOf('Z699.99'));
       await mark(await idOf('Z000.00'));

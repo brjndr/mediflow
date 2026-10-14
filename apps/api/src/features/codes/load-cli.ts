@@ -7,14 +7,15 @@
 // set again adds the codes it has gained and changes the titles that changed; nothing is removed,
 // so try a file first with `--dry-run`, which says what it would do and writes nothing. The whole
 // file is checked first and written in one transaction, so a file with a mistake in it changes
-// nothing. It connects as the migrating login, with the environment of the migrate step: the app
+// nothing. A load that is written leaves a row in `code_loads` (the set, the file's SHA-256, the
+// counts, when and as which login); a dry run leaves none. It connects as the migrating login, with the environment of the migrate step: the app
 // role cannot write codes.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import pg from 'pg';
 import { ConfigError, loadConfig } from '../../core/config/config.js';
 import { CodeFileError } from './csv.js';
-import { decodeCodeFile, loadCodes } from './load.js';
+import { decodeCodeFile, fileSha256, loadCodes } from './load.js';
 import { CODE_SYSTEMS, type CodeSystem } from './schemas.js';
 
 const args = process.argv.slice(2);
@@ -44,7 +45,7 @@ async function load(set: CodeSystem, path: string): Promise<void> {
   await client.connect();
   try {
     await client.query('begin');
-    const result = await loadCodes(client, set, text);
+    const result = await loadCodes(client, set, text, fileSha256(bytes));
     await client.query(dryRun ? 'rollback' : 'commit');
     process.stdout.write(
       `${set}: ${result.read} codes read, ${result.added} added, ${result.retitled} retitled, ${result.unchanged} unchanged.${dryRun ? ' A dry run: nothing was written.' : ''}\n`,
