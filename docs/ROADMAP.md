@@ -274,7 +274,7 @@ Performance, accessibility, security, resilience and a pilot launch.
 | ID | Title | Area | Pri | Size | Depends on |
 |---|---|---|---|---|---|
 | H-01 | Performance audit and bundle tuning | frontend | P0 | M | R-03 |
-| H-02 | Accessibility audit (WCAG 2.1 AA) | frontend | P0 | M | R-03 |
+| H-02 | Accessibility audit (WCAG 2.2 AA) | frontend | P0 | M | R-03 |
 | H-03 | Threat model and security review | security | P0 | M | BE-16 |
 | H-04 | End-to-end suite for critical flows | frontend | P0 | M | PL-07 |
 | H-05 | Load testing with k6 | backend | P0 | M | BE-14 |

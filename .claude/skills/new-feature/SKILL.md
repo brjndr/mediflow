@@ -16,7 +16,7 @@ Follow "Adding a new feature later" in CLAUDE.md. Do not edit core modules or ot
 5. **UI:** every view handles loading, empty, and error states. Forms use React Hook Form + Zod. All strings go through i18n keys. Gate every action with `usePermission` or `<Can>`. Never compare role names.
 6. **Register** the feature in the registry (one line). Default the flag to off.
 7. **MSW handlers** for every endpoint under `apps/web/src/mocks/`.
-8. **Tests:** happy path, validation errors, permission absent, flag off, two tenants (cache isolation), and idempotent behavior for event-driven parts. Add each new screen to `apps/web/e2e/responsive.spec.ts` (see Responsive Design in CLAUDE.md).
+8. **Tests:** happy path, validation errors, permission absent, flag off, two tenants (cache isolation), and idempotent behavior for event-driven parts. Add each new screen to `apps/web/e2e/responsive.spec.ts` (see Responsive Design in CLAUDE.md). Accessibility (WCAG 2.2 AA, see Accessibility in CLAUDE.md): each screen's unit test calls `expectNoAxeViolations` from `src/test/axe.ts` once it has rendered, and its Playwright spec runs axe (`@axe-core/playwright`, as in `e2e/smoke.spec.ts`) and a keyboard test that does the screen's main task without the mouse.
 9. **Verify:** `pnpm typecheck` and the feature's own tests (`pnpm --filter web test src/features/<name>`). The full suite runs in CI. Report bundle impact with `pnpm analyze`. Stay within the Performance Strategy budgets and follow the dependency policy.
 
 ## Do not

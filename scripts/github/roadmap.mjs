@@ -63,6 +63,10 @@ export const labels = [
   },
 ];
 
+// The accessibility line of every definition of done. add-dod-line.mjs adds it to open issues.
+export const A11Y_DOD =
+  'Accessibility (WCAG 2.2 AA, CLAUDE.md Accessibility): keyboard and axe checked for changed screens';
+
 export const dod = (area) =>
   area === 'backend'
     ? [
@@ -71,6 +75,7 @@ export const dod = (area) =>
         'Permissions registered, audit events and domain events emitted where CLAUDE.md requires',
         'Mutations that create or charge accept an Idempotency-Key',
         'Lint, typecheck, and tests pass in CI',
+        A11Y_DOD,
         'PR body contains Closes #<this issue>',
       ]
     : [
@@ -78,6 +83,7 @@ export const dod = (area) =>
         'Tests cover happy path, validation, permission absent, flag off, and two tenants where relevant',
         'Works at phone and tablet width (CLAUDE.md, Responsive Design), unless the screen is on the desktop-only list',
         'pnpm lint, pnpm typecheck, and pnpm test pass',
+        A11Y_DOD,
         '/tenant-safety-check and /phi-check run on the diff where data or access is touched',
         'Docs or CLAUDE.md updated if a contract or convention changed',
         'PR body contains Closes #<this issue>',
@@ -1064,7 +1070,7 @@ const core = [
       ),
       I(
         'H-02',
-        'Accessibility audit (WCAG 2.1 AA)',
+        'Accessibility audit (WCAG 2.2 AA)',
         'frontend',
         'P0',
         'M',

@@ -22,3 +22,5 @@ Never load all records. Never filter or sort large data on the client.
 ## Tests
 
 Pagination moves forward and back, filter change resets the cursor, error and empty states render, permission-absent hides actions, and switching tenant does not show the previous tenant's rows.
+
+Accessibility (WCAG 2.2 AA, see Accessibility in CLAUDE.md): the unit test calls `expectNoAxeViolations` from `src/test/axe.ts` on the loaded list, and the Playwright spec runs axe (`@axe-core/playwright`, as in `e2e/smoke.spec.ts`) and a keyboard test: reach the search, type a term, move to the next page, and open a row, without the mouse.
