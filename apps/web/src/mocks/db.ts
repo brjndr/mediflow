@@ -41,6 +41,7 @@ const initialTenants: Record<string, TenantDto> = {
       staff: true,
       templates: true,
       wards: true,
+      imports: true,
       ui_examples: true,
     },
     auth: { mode: 'password', idleTimeoutMinutes: 30 },
@@ -88,6 +89,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'patient:create' },
   { permission: 'patient:update' },
   { permission: 'patient:delete' },
+  // Patients loaded in bulk from a file, in the import centre.
+  { permission: 'patient:import' },
   { permission: 'appointment:read' },
   { permission: 'appointment:create' },
   { permission: 'appointment:update' },
@@ -122,6 +125,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'staff:read' },
   { permission: 'staff:invite' },
   { permission: 'staff:manage' },
+  { permission: 'import:read' },
+  { permission: 'import:run' },
 ];
 
 const DOCTOR: PermissionGrantDto[] = [

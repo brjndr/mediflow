@@ -10,6 +10,10 @@ The API (#300) is described in `apps/api/CLAUDE.md`, under Lab tests. It holds a
 
 Decided with the API, and the mock does the same: a test that has reference ranges keeps its unit until they are removed, as it stays numeric (409 `lab_test_has_ranges`), because the ranges are numbers in that unit; a panel takes no result type or unit on a change either; and a panel one of whose tests is archived is not restored (409 `lab_test_component_archived`, for which this screen has no message of its own yet and shows the general one).
 
+## Decided
+
+- **Single tests can be loaded from a file (#68),** through the import centre (`features/imports`), each charged as the laboratory service of the code given (`serviceCode`). Panels and reference ranges are not: they are made here. `POST /lab-tests` and the import both use `features/lab-tests/create.ts` in the API.
+
 ## Known gaps
 
 - The lab test screen picks the service a test is charged as from the price catalog (`POST /services/search`), so linking one needs `service:read` and the `services` switch as well. Without them the link is shown and cannot be changed there.

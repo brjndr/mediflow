@@ -1,0 +1,178 @@
+{
+  "heading": "Import centre",
+  "description": "Load many records at once from a CSV file: services and prices, drugs and consumables, lab tests or patients. Every row is checked before anything is written, and a batch is written whole or not at all.",
+  "add": "New import",
+  "gridLabel": "Imports",
+  "empty": "Nothing has been imported yet.",
+  "backToList": "Back to the import centre",
+  "columns": {
+    "kind": "Records",
+    "status": "Status",
+    "rows": "Rows",
+    "problems": "Problems",
+    "createdBy": "Started by",
+    "createdAt": "Started"
+  },
+  "kinds": {
+    "services": "Services and prices",
+    "drugs": "Drugs and consumables",
+    "lab_tests": "Lab tests",
+    "patients": "Patients"
+  },
+  "statuses": {
+    "staging": "Being sent",
+    "checking": "Being checked",
+    "checked": "Checked",
+    "queued": "Waiting to be written",
+    "running": "Being written",
+    "committed": "Written",
+    "failed": "Not written",
+    "cancelled": "Given up"
+  },
+  "new": {
+    "heading": "New import",
+    "kind": "What the file holds",
+    "chooseKind": "Choose a kind of record",
+    "noKinds": "There is nothing you may import at this hospital.",
+    "file": "CSV file",
+    "fileHint": "The first row names the columns. At most 20,000 rows and 5 MB. Save a spreadsheet as CSV (UTF-8).",
+    "reading": "Reading the file…",
+    "read_one": "{{count}} row read from the file.",
+    "read_other": "{{count}} rows read from the file.",
+    "mappingHeading": "Match the columns",
+    "mappingHint": "For each field, choose the column of the file it is read from. Columns are matched by their titles where they can be.",
+    "notInFile": "Not in the file",
+    "column": "Column {{index}}: {{title}}",
+    "untitled": "Column {{index}}",
+    "required": "required",
+    "upload": "Send and check",
+    "sending": "Sending rows: {{sent}} of {{total}}",
+    "patientsNotice": "A file of patients holds patient data. It is read on this device and sent only to this hospital, and the rows are deleted once the batch is written or given up. Every patient written is recorded in the audit log."
+  },
+  "values": {
+    "text": "Text",
+    "integer": "A whole number",
+    "boolean": "Yes or no",
+    "date": "A date as YYYY-MM-DD",
+    "amount": "An amount in the hospital's currency, as 1250.50 or 1,250.50",
+    "enum": "One of: {{values}}"
+  },
+  "file": {
+    "tooLarge": "The file is larger than 5 MB. Split it into smaller files.",
+    "empty": "The file is empty.",
+    "noRows": "The file has a row of titles and nothing else.",
+    "tooMany": "The file has more than 20,000 rows. Split it into smaller files.",
+    "longValue": "A value in the file is longer than 2,000 characters.",
+    "unreadable": "The file could not be read. Save it as CSV (UTF-8) and try again.",
+    "encoding": "The file is not saved as UTF-8, so some letters would be damaged. Save it as CSV (UTF-8) and try again."
+  },
+  "mapping": {
+    "required": "Choose the column this field is read from.",
+    "twice": "This column is already chosen for another field."
+  },
+  "batch": {
+    "heading": "Import of {{kind}}",
+    "started": "Started by {{name}} on {{date}}.",
+    "rows_one": "{{count}} row",
+    "rows_other": "{{count}} rows",
+    "progressChecking": "Checking: {{done}} of {{total}} rows",
+    "progressRunning": "Writing: {{done}} of {{total}} rows",
+    "queued": "Waiting for another import at this hospital to finish.",
+    "staging": "The rows were not all sent. Give this batch up and start again.",
+    "checkedClean": "Every row can be written. Nothing has been written yet.",
+    "checkedProblems_one": "{{count}} problem was found. Correct the file and import it again: nothing has been written.",
+    "checkedProblems_other": "{{count}} problems were found. Correct the file and import it again: nothing has been written.",
+    "committed_one": "{{count}} record was written.",
+    "committed_other": "{{count}} records were written.",
+    "cancelled": "This batch was given up. Nothing was written.",
+    "commit": "Write the records",
+    "committing": "Writing…",
+    "cancel": "Give up this batch",
+    "reportHeading": "Problems",
+    "reportLabel": "Problems found in the file",
+    "reportEmpty": "No problems.",
+    "line": "Line",
+    "field": "Field",
+    "problem": "Problem",
+    "wholeRow": "The whole row"
+  },
+  "failures": {
+    "stalled": "Nothing was written: the work on this batch stopped without finishing. Import the file again.",
+    "rows_refused": "Nothing was written: these rows could not be written when it was tried, because the hospital's records changed since the check.",
+    "permission_withdrawn": "Nothing was written: the person who asked for it may no longer import these records.",
+    "write_failed": "Nothing was written: something went wrong while writing. Try again later.",
+    "check_failed": "The check could not be finished. Try again later.",
+    "unknown_kind": "Nothing was written: these records can no longer be imported.",
+    "expired": "This batch was left unfinished for a week and was given up. Nothing was written.",
+    "other": "Nothing was written."
+  },
+  "problems": {
+    "required": "Required, and empty.",
+    "not_a_whole_number": "Not a whole number.",
+    "not_yes_or_no": "Not yes or no.",
+    "not_allowed": "Not one of the allowed values.",
+    "not_a_date": "Not a date as YYYY-MM-DD.",
+    "not_an_amount": "Not an amount.",
+    "too_many_decimals": "More digits after the point than the currency has.",
+    "invalid": "Not a valid value: too long, too short or with a character that cannot be seen.",
+    "not_found": "Nothing of this hospital has this code.",
+    "out_of_range": "Out of the allowed range.",
+    "too_few_digits": "Too few digits.",
+    "not_an_email": "Not an email address.",
+    "duplicate_in_file": "The same record as an earlier row of the file.",
+    "drug_exists": "The hospital already has exactly this item.",
+    "service_code_taken": "The hospital already has a service with this code.",
+    "lab_test_code_taken": "The hospital already has a test with this code.",
+    "patient_possible_duplicate": "Someone like this is already registered. Check before importing them.",
+    "validation_failed": "Not valid.",
+    "other": "Cannot be written."
+  },
+  "fields": {
+    "services": {
+      "code": "Code",
+      "name": "Name",
+      "category": "Category",
+      "taxClass": "Tax class",
+      "description": "Description",
+      "priceMinor": "Price"
+    },
+    "drugs": {
+      "type": "Type",
+      "genericName": "Generic name",
+      "brandName": "Brand",
+      "form": "Form",
+      "strength": "Strength",
+      "unit": "Unit",
+      "schedule": "Schedule",
+      "controlled": "Controlled",
+      "taxClass": "Tax class",
+      "reorderLevel": "Reorder level"
+    },
+    "lab_tests": {
+      "code": "Code",
+      "name": "Name",
+      "department": "Department",
+      "resultType": "Result type",
+      "unit": "Unit",
+      "sampleType": "Sample",
+      "container": "Container",
+      "turnaroundHours": "Turnaround hours",
+      "serviceCode": "Service code"
+    },
+    "patients": {
+      "firstName": "First name",
+      "lastName": "Last name",
+      "dob": "Date of birth",
+      "gender": "Gender",
+      "phone": "Phone",
+      "email": "Email",
+      "address": "Address"
+    }
+  },
+  "refusals": {
+    "import_running": "Another import is being written at this hospital. Write this one when it has finished.",
+    "import_not_ready": "This batch cannot be written: it has not been checked, or it has problems.",
+    "import_busy": "This batch is being checked or written, or is finished.",
+    "import_not_staging": "This batch has already been sent for checking."
+  }
+}

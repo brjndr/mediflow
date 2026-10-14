@@ -15,6 +15,7 @@ import { codesHandlers } from './handlers/codes';
 import { drugsHandlers } from './handlers/drugs';
 import { labTestsHandlers } from './handlers/lab-tests';
 import { examplesHandlers } from './handlers/examples';
+import { importsHandlers } from './handlers/imports';
 import { mfaHandlers, mfaLoginHandlers } from './handlers/mfa';
 import { noticesHandlers } from './handlers/notices';
 import { servicesHandlers } from './handlers/services';
@@ -118,6 +119,7 @@ export const handlers = [
   ...wardsHandlers,
   ...codesHandlers,
   ...templatesHandlers,
+  ...importsHandlers,
   ...accountHandlers,
   ...mfaHandlers,
   ...profileHandlers,
