@@ -3,7 +3,7 @@ import { Type } from '@sinclair/typebox';
 import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidyOptional, tidyWithin } from '../../core/http/text.js';
+import { searchTerm, tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   departmentState,
@@ -184,7 +184,7 @@ export const doctorRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       const list = await listDoctors(
         request.txClient,
-        { q: q.trim(), departmentId: departmentId ?? null, active },
+        { q: searchTerm(q) ?? '', departmentId: departmentId ?? null, active },
         { cursor, limit },
       );
       if (!list) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');

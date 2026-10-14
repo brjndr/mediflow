@@ -189,7 +189,7 @@ export const LabTestSearchRequest = Type.Object(
     limit: Type.Optional(
       Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, description: 'Absent: 25.' }),
     ),
-    q: Type.Optional(Type.String({ maxLength: 100, pattern: PLAIN_TEXT })),
+    q: Type.Optional(Type.String({ maxLength: 100 })),
     department: Type.Optional(StringEnum(LAB_DEPARTMENTS)),
     kind: Type.Optional(StringEnum(LAB_KINDS)),
     archived: Type.Optional(

@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidyOptional } from '../../core/http/text.js';
+import { searchTerm, tidyOptional } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   cleanName,
@@ -115,7 +115,7 @@ export const drugRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       const body = request.body as DrugSearchRequest;
       const result = await searchDrugs(request.txClient, {
-        q: body.q,
+        q: searchTerm(body.q),
         type: body.type,
         form: body.form,
         schedule: body.schedule,

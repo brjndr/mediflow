@@ -3,7 +3,7 @@ import type { FastifyRequest } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidyOptional, tidyWithin } from '../../core/http/text.js';
+import { searchTerm, tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   archiveBed,
@@ -424,7 +424,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request) => {
       const { cursor, limit = DEFAULT_PAGE_SIZE, archived = false, q } = request.query;
-      const list = await listWards(request.txClient, { q, archived, cursor, limit });
+      const list = await listWards(request.txClient, { q: searchTerm(q), archived, cursor, limit });
       if (!list) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
       return {
         items: list.rows.map(wardView),

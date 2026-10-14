@@ -7,6 +7,7 @@ import {
   tidy,
   tidyLines,
   tidyLinesOptional,
+  searchTerm,
   tidyOptional,
   tidyWithin,
 } from './text.js';
@@ -48,6 +49,81 @@ describe('plain text', () => {
     ]) {
       expect(plain.test(text), JSON.stringify(text)).toBe(false);
     }
+  });
+
+  // Each prints as nothing, so that a second name looks the same as the first (#322).
+  const INVISIBLE = [
+    0xad,
+    0x34f,
+    0x61c,
+    0x180e,
+    0x200e,
+    0x200f,
+    ...range(0x2060, 0x2064),
+    ...range(0x206a, 0x206f),
+    ...range(0xfff9, 0xfffb),
+    0xe0000,
+    0xe0001,
+    0xe0041,
+    0xe007f,
+    // Not a default ignorable, but a blank all the same.
+    0x2800,
+    // The selectors of emoji, anywhere but after an emoji.
+    0xfe0e,
+    0xfe0f,
+    // The other variation selectors.
+    0xfe00,
+    0xfe0d,
+  ];
+
+  it('refuses the other characters that print as nothing, in both patterns', () => {
+    const lines = new RegExp(PLAIN_LINES, 'u');
+    for (const point of INVISIBLE) {
+      const text = `Para${String.fromCodePoint(point)}cetamol`;
+      expect(plain.test(text), point.toString(16)).toBe(false);
+      expect(lines.test(text), point.toString(16)).toBe(false);
+    }
+    // Still allowed: the Indic joiners, and the neighbours of what is refused.
+    for (const point of [0x200c, 0x200d, 0x2010, 0x27ff, 0x1f48a]) {
+      expect(plain.test(`a${String.fromCodePoint(point)}b`), point.toString(16)).toBe(true);
+    }
+  });
+});
+
+describe('the selectors of emoji', () => {
+  it('are allowed right after an emoji, and only there', () => {
+    const [text, emoji] = [String.fromCodePoint(0xfe0e), String.fromCodePoint(0xfe0f)];
+    for (const name of [`Pills 💊${emoji}`, `Care ⚕${text}`, `1${emoji}⃣ dose`]) {
+      expect(plain.test(name), JSON.stringify(name)).toBe(true);
+    }
+    for (const name of [`Para${emoji}cetamol`, `${emoji}Paracetamol`, `💊 ${emoji}`]) {
+      expect(plain.test(name), JSON.stringify(name)).toBe(false);
+    }
+  });
+});
+
+function range(from: number, to: number): number[] {
+  return Array.from({ length: to - from + 1 }, (_, index) => from + index);
+}
+
+describe('a search term', () => {
+  it('is tidied, never refused: a control character is a space, the invisible are gone', () => {
+    expect(searchTerm('  para\tcetamol\n500 ')).toBe('para cetamol 500');
+    expect(searchTerm(`Para${String.fromCodePoint(0x200b)}cetamol`)).toBe('Paracetamol');
+    expect(
+      searchTerm(
+        `${String.fromCodePoint(0xfeff)}Para${String.fromCodePoint(0xad, 0x202e, 0xe0041)}cetamol`,
+      ),
+    ).toBe('Paracetamol');
+    expect(searchTerm('nul\u0000x')).toBe('nul x');
+    expect(searchTerm('Café')).toBe('Café');
+  });
+
+  it('keeps the Indic joiners, and is absent when nothing is left', () => {
+    const joined = `क्${String.fromCodePoint(0x200d)}ष`;
+    expect(searchTerm(joined)).toBe(joined);
+    expect(searchTerm(undefined)).toBeUndefined();
+    expect(searchTerm(` ${String.fromCodePoint(0x200b)}\t `)).toBeUndefined();
   });
 });
 
@@ -117,7 +193,7 @@ describe('the web app', () => {
     const patterns = (path: string) =>
       readFileSync(new URL(path, import.meta.url), 'utf8')
         .split('\n')
-        .filter((line) => line.includes("]*$'"))
+        .filter((line) => line.includes("*$'"))
         .map((line) => line.slice(line.indexOf("'"), line.lastIndexOf("'") + 1));
     const here = patterns('./text.ts');
     expect(here).toHaveLength(2);

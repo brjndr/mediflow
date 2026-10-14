@@ -166,7 +166,7 @@ export const DrugSearchRequest = Type.Object(
     limit: Type.Optional(
       Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, description: 'Absent: 25.' }),
     ),
-    q: Type.Optional(Type.String({ maxLength: 100, pattern: PLAIN_TEXT })),
+    q: Type.Optional(Type.String({ maxLength: 100 })),
     type: Type.Optional(StringEnum(DRUG_TYPES)),
     form: Type.Optional(Form),
     schedule: Type.Optional(StringEnum(DRUG_SCHEDULES)),

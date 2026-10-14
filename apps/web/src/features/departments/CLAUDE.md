@@ -8,4 +8,4 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 ## Decided
 
-- **Text is plain and tidied (#306).** The API stores a name in one normal form with single spaces, so two names that look the same are one department, and refuses a control character, a zero-width space and a direction override; a description keeps its lines. The form checks the same patterns (`PLAIN_TEXT`, `PLAIN_LINES` of `shared/utils/text.ts`) and gives a pasted invisible character a message of its own. Rows written before this are left as they are and tidied when next changed: see Rules in `apps/api/CLAUDE.md`.
+- **Text is plain and tidied (#306).** The API stores a name in one normal form with single spaces, so two names that look the same are one department, and refuses a control character and anything that prints as nothing (#322); a description keeps its lines. The form checks the same patterns (`PLAIN_TEXT`, `PLAIN_LINES` of `shared/utils/text.ts`) and gives a pasted invisible character a message of its own. Rows written before this are left as they are and tidied when next changed: see Rules in `apps/api/CLAUDE.md`.

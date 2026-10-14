@@ -130,7 +130,7 @@ const cursor = Type.Optional(
 const limit = Type.Optional(
   Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
 );
-const q = Type.Optional(Type.String({ maxLength: 100, pattern: PLAIN_TEXT }));
+const q = Type.Optional(Type.String({ maxLength: 100 }));
 
 /** Every parameter may be left out: a client asks for the first page of active doctors. */
 export const DoctorListQuery = Type.Object({

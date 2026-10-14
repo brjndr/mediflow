@@ -1136,7 +1136,8 @@ describe('the text of a name and a description', () => {
     for (const sent of bad) {
       expect((await add(sent)).statusCode, JSON.stringify(sent)).toBe(400);
     }
-    expect((await search({ q: `x${override}` })).statusCode).toBe(400);
+    // A search term is tidied, never refused (#322).
+    expect((await search({ q: `x${override}` })).statusCode).toBe(200);
   });
 
   it('keeps the lines of a description, each one tidied', async () => {

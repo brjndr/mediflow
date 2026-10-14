@@ -701,6 +701,10 @@ describe('found in review', () => {
       'Review​ZeroWidth',
       '​',
       'Review\tTab',
+      // What prints as nothing, so that a second name looks the same as the first (#322).
+      ...[0xad, 0x34f, 0x61c, 0x180e, 0x200e, 0x200f, 0x2060, 0x206a, 0xfe0f, 0xfff9, 0xe0041].map(
+        (point) => `Review${String.fromCodePoint(point)}Hidden`,
+      ),
     ];
     for (const genericName of bad) {
       expect((await add({ ...TABLET, genericName })).statusCode, JSON.stringify(genericName)).toBe(
@@ -713,6 +717,43 @@ describe('found in review', () => {
     // The joiners Indic scripts need are text like any other.
     const hindi = await added('क्‍ष Review');
     expect(hindi.genericName).toBe('क्‍ष Review');
+  });
+
+  it('compares an item with the others without the Indic joiners, which print as nothing', async () => {
+    const [nonJoiner, joiner] = [String.fromCodePoint(0x200c), String.fromCodePoint(0x200d)];
+    const first = await added(`Joinol क्${joiner}ष`, { brandName: `श्री${nonJoiner}` });
+    // Kept as typed.
+    expect(first.genericName).toBe(`Joinol क्${joiner}ष`);
+    for (const genericName of ['Joinol क्ष', `Joinol क्${nonJoiner}ष`]) {
+      expect(errorOf(await add({ ...TABLET, genericName, brandName: 'श्री' }))).toEqual([
+        409,
+        'drug_exists',
+      ]);
+    }
+    const similar = await post('/drugs/duplicate-check', {
+      genericName: 'joinol क्ष',
+      form: 'tablet',
+    });
+    expect(similar.json<{ items: Drug[] }>().items.map((item) => item.id)).toEqual([first.id]);
+  });
+
+  it('finds with a term holding a tab or what prints as nothing what it finds without', async () => {
+    const drug = await added('Review Tidysearch', { brandName: 'Cleanbrand' });
+    for (const q of [
+      'Tidysearch\tCleanbrand',
+      'Tidysearch\nCleanbrand',
+      `Tidy${String.fromCodePoint(0x200b)}search`,
+      `${String.fromCodePoint(0xfeff)}Tidysearch${String.fromCodePoint(0xad)}`,
+    ]) {
+      const response = await search({ q });
+      expect(response.statusCode, JSON.stringify(q)).toBe(200);
+      expect(
+        response.json<Page>().items.map((item) => item.id),
+        JSON.stringify(q),
+      ).toEqual([drug.id]);
+    }
+    // A term of nothing but what prints as nothing is no term at all.
+    expect((await search({ q: String.fromCodePoint(0x200b) })).statusCode).toBe(200);
   });
 
   it('lets an archived item be changed, as the catalog screen does', async () => {
@@ -775,6 +816,13 @@ describe('beside a controlled item', () => {
       'update',
       'update',
     ]);
+  });
+
+  it('leaves one beside a controlled item whose name differs only by an Indic joiner', async () => {
+    const joiner = String.fromCodePoint(0x200d);
+    await added(`Joinctrl क्${joiner}ष`, { schedule: 'x', strength: '5 mg' });
+    const plain = await added('Joinctrl क्ष', { strength: '5mg' });
+    expect(await trace(hospital, plain.id)).toEqual(['beside_controlled', 'create']);
   });
 
   it('goes by the items of the hospital itself', async () => {
