@@ -75,7 +75,23 @@ test('one doctor’s calendar, by day and by week where there is room', async ({
   await page.getByRole('button', { name: 'Next day' }).click();
   await expect(status(page, '8 appointments')).toBeVisible();
 
-  // An appointment opens its patient, by id.
+  // An appointment opens its own screen, by id.
   await blocks.first().click();
-  await expect(page).toHaveURL(/\/patients\/pth_\d{5}$/);
+  await expect(page).toHaveURL(/\/appointments\/apt_\w+$/);
+  await expect(page.getByRole('heading', { name: 'Appointment', exact: true })).toBeVisible();
+});
+
+test('cancel an appointment with a reason', async ({ page }) => {
+  // The mock seeds, for each day from three days ago, 48 appointments at the hospital in order:
+  // the 193rd is the first of tomorrow, scheduled.
+  await page.goto('/appointments/apt_tenant_1_00193');
+  await expect(page.getByRole('heading', { name: 'Appointment', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mark as completed' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Cancel the appointment' }).click();
+  await page.getByRole('combobox', { name: /^Reason/ }).selectOption('patient_request');
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'Cancel the appointment' }).click();
+  await expect(page.getByText('The appointment was cancelled.')).toBeVisible();
+  await expect(page.getByText('The patient asked')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Move' })).toHaveCount(0);
 });

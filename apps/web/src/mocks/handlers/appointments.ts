@@ -11,10 +11,12 @@ type AppointmentPage = components['schemas']['AppointmentPage'];
 type AppointmentStatus = components['schemas']['AppointmentStatus'];
 type Appointment = components['schemas']['Appointment'];
 type FreeSlots = components['schemas']['FreeSlots'];
+type CancelReason = components['schemas']['AppointmentCancelReason'];
 
 const FEATURE_FLAG = 'appointments';
 const READ = 'appointment:read';
 const CREATE = 'appointment:create';
+const UPDATE = 'appointment:update';
 const STATUSES: AppointmentStatus[] = ['scheduled', 'completed', 'cancelled', 'no_show'];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_RANGE_DAYS = 31;
@@ -33,6 +35,8 @@ interface StoredAppointment {
   endsAt: string;
   status: AppointmentStatus;
   version: number;
+  reason?: string;
+  cancellation?: { reason: CancelReason; note?: string };
 }
 
 const HOSPITAL = { tenantId: TENANT_IDS.hospital, patient: 'pth' };
@@ -135,6 +139,17 @@ function summaryOf(stored: StoredAppointment): AppointmentSummary | null {
   };
 }
 
+/** The whole record: the list fields, the reason for the visit and why it was cancelled. */
+function recordOf(stored: StoredAppointment): Appointment | null {
+  const summary = summaryOf(stored);
+  if (!summary) return null;
+  return {
+    ...summary,
+    ...(stored.reason ? { reason: stored.reason } : {}),
+    ...(stored.cancellation ? { cancellation: { ...stored.cancellation } } : {}),
+  };
+}
+
 export const appointmentsHandlers = [
   http.get('*/api/appointments', ({ request }) => {
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
@@ -230,11 +245,16 @@ const holds = (item: StoredAppointment, tenantId: string, slot: Slot) =>
   item.startsAt < slot.endsAt &&
   slot.startsAt < item.endsAt;
 
-const doctorBusy = (tenantId: string, doctorId: string, slot: Slot) =>
-  appointments.some((item) => item.doctorId === doctorId && holds(item, tenantId, slot));
+/** `except`: an appointment being moved, whose own old time never counts against it. */
+const doctorBusy = (tenantId: string, doctorId: string, slot: Slot, except?: string) =>
+  appointments.some(
+    (item) => item.id !== except && item.doctorId === doctorId && holds(item, tenantId, slot),
+  );
 
-const patientBusy = (tenantId: string, patientId: string, slot: Slot) =>
-  appointments.some((item) => item.patientId === patientId && holds(item, tenantId, slot));
+const patientBusy = (tenantId: string, patientId: string, slot: Slot, except?: string) =>
+  appointments.some(
+    (item) => item.id !== except && item.patientId === patientId && holds(item, tenantId, slot),
+  );
 
 /**
  * Bookings already made, by tenant, user and idempotency key, with the body they were made
@@ -287,8 +307,13 @@ function validBooking(body: unknown): body is {
 
 export const bookingHandlers = [
   http.get('*/api/appointments/free-slots', ({ request }) => {
-    const access = authorize(request, { permission: CREATE, featureFlag: FEATURE_FLAG });
-    if ('denied' in access) return access.denied;
+    // Asked for to book, or to move a booking.
+    let access = authorize(request, { permission: CREATE, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) {
+      const update = authorize(request, { permission: UPDATE, featureFlag: FEATURE_FLAG });
+      if ('denied' in update) return access.denied;
+      access = update;
+    }
     const params = new URL(request.url).searchParams;
     const day = params.get('day') ?? '';
     const doctorId = params.get('doctorId') ?? '';
@@ -353,14 +378,152 @@ export const bookingHandlers = [
       status: 'scheduled',
       version: 1,
     };
+    const reason = body.reason?.trim() ?? '';
+    if (reason) stored.reason = reason;
     appointments.push(stored);
     bookedExtensions.set(stored.id, extensions);
-    const reason = body.reason?.trim() ?? '';
-    const record: Appointment = {
-      ...(summaryOf(stored) as AppointmentSummary),
-      ...(reason ? { reason } : {}),
-    };
+    const record = recordOf(stored) as Appointment;
     bookings.set(keyOf, { body: JSON.stringify(body), record });
     return HttpResponse.json<Appointment>(record, { status: 201 });
   }),
+];
+
+const CANCEL_REASONS: CancelReason[] = [
+  'patient_request',
+  'doctor_unavailable',
+  'hospital',
+  'duplicate',
+  'other',
+];
+const RESCHEDULE_REASONS = ['patient_request', 'doctor_unavailable', 'hospital', 'other'];
+
+/** Changes already made, by tenant, user, appointment and idempotency key, as bookings are. */
+let changes = new Map<string, { body: string; record: Appointment }>();
+onMockReset(() => {
+  changes = new Map();
+});
+
+/** A note: plain text, required when the reason is `other`. */
+const validNote = (reason: unknown, note: unknown) =>
+  note === undefined
+    ? reason !== 'other'
+    : typeof note === 'string' &&
+      note.length <= 500 &&
+      !UNPRINTABLE.test(note) &&
+      (reason !== 'other' || note.trim() !== '');
+
+type Kind = 'reschedule' | 'cancel' | 'complete' | 'no-show';
+
+const FIELDS: Record<Kind, string[]> = {
+  reschedule: ['version', 'doctorId', 'startsAt', 'reason', 'note'],
+  cancel: ['version', 'reason', 'note'],
+  complete: ['version'],
+  'no-show': ['version'],
+};
+
+function validChange(
+  kind: Kind,
+  body: unknown,
+): body is Record<string, unknown> & { version: number } {
+  if (!isObject(body) || !Number.isInteger(body.version)) return false;
+  if (Object.keys(body).some((field) => !FIELDS[kind].includes(field))) return false;
+  if (kind === 'cancel') {
+    return (
+      CANCEL_REASONS.includes(body.reason as CancelReason) && validNote(body.reason, body.note)
+    );
+  }
+  if (kind === 'reschedule') {
+    return (
+      typeof body.doctorId === 'string' &&
+      typeof body.startsAt === 'string' &&
+      !Number.isNaN(Date.parse(body.startsAt)) &&
+      RESCHEDULE_REASONS.includes(body.reason as string) &&
+      validNote(body.reason, body.note)
+    );
+  }
+  return true;
+}
+
+/**
+ * A change of an appointment, decided by the rules the API enforces: only a scheduled one
+ * changes, from its current version; it is cancelled before it ends, completed or marked a
+ * no-show once it starts, and moved to a free slot of a doctor. Nothing is awaited between the
+ * checks and the write.
+ */
+const changeHandler = (kind: Kind) =>
+  http.post(`*/api/appointments/:appointmentId/${kind}`, async ({ request, params }) => {
+    const access = authorize(request, { permission: UPDATE, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const key = request.headers.get('Idempotency-Key');
+    if (!key) return error(400, 'validation_failed', 'Idempotency-Key is required');
+    const body: unknown = await request.json().catch(() => null);
+    const { tenantId } = access;
+    // Another hospital's appointment is answered as one that does not exist.
+    const stored = appointments.find(
+      (item) => item.id === params.appointmentId && item.tenantId === tenantId,
+    );
+    if (!stored) return error(404, 'appointment_not_found', 'No such appointment');
+    const keyOf = `${tenantId}:${currentSession()?.user.id ?? ''}:${stored.id}:${key}`;
+    const replay = changes.get(keyOf);
+    if (replay) {
+      if (replay.body !== JSON.stringify(body)) {
+        return error(422, 'idempotency_key_reuse', 'This key was used for a different request');
+      }
+      return HttpResponse.json<Appointment>(replay.record);
+    }
+    if (!validChange(kind, body)) {
+      return error(400, 'validation_failed', 'Some details are not valid');
+    }
+    if (stored.status !== 'scheduled') {
+      return error(409, 'invalid_transition', `A ${stored.status} appointment does not change`);
+    }
+    if (body.version !== stored.version) return error(409, 'conflict', 'It has changed');
+    const now = Date.now();
+    if (kind === 'cancel') {
+      if (now >= Date.parse(stored.endsAt)) return error(422, 'too_late', 'It has ended');
+      const note = typeof body.note === 'string' ? body.note.trim() : '';
+      stored.status = 'cancelled';
+      stored.cancellation = { reason: body.reason as CancelReason, ...(note ? { note } : {}) };
+    } else if (kind === 'complete' || kind === 'no-show') {
+      if (now < Date.parse(stored.startsAt)) return error(422, 'too_early', 'It has not started');
+      stored.status = kind === 'complete' ? 'completed' : 'no_show';
+    } else {
+      const doctor = mockDoctor(tenantId, body.doctorId as string);
+      if (!doctor?.active) return error(422, 'unknown_doctor', 'No such doctor');
+      const startsAt = new Date(body.startsAt as string).toISOString();
+      const day = todayIn(mockTenantTimezone(tenantId), new Date(startsAt));
+      const slot = workingSlots(tenantId, doctor.id, day).find((s) => s.startsAt === startsAt);
+      if (!slot) return error(422, 'outside_hours', 'Not a slot of the working hours');
+      if (doctorBusy(tenantId, doctor.id, slot, stored.id)) {
+        return error(409, 'slot_taken', 'The doctor is booked at that time');
+      }
+      if (patientBusy(tenantId, stored.patientId, slot, stored.id)) {
+        return error(409, 'patient_overlap', 'The patient is booked at that time');
+      }
+      stored.doctorId = doctor.id;
+      stored.startsAt = slot.startsAt;
+      stored.endsAt = slot.endsAt;
+    }
+    stored.version += 1;
+    const record = recordOf(stored) as Appointment;
+    changes.set(keyOf, { body: JSON.stringify(body), record });
+    return HttpResponse.json<Appointment>(record);
+  });
+
+/** After the booking handlers: `/appointments/free-slots` is not an appointment's id. */
+export const appointmentChangeHandlers = [
+  http.get('*/api/appointments/:appointmentId', ({ request, params }) => {
+    const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const stored = appointments.find(
+      (item) => item.id === params.appointmentId && item.tenantId === access.tenantId,
+    );
+    const record = stored ? recordOf(stored) : null;
+    if (!record) return error(404, 'appointment_not_found', 'No such appointment');
+    return HttpResponse.json<Appointment>(record);
+  }),
+  changeHandler('reschedule'),
+  changeHandler('cancel'),
+  changeHandler('complete'),
+  changeHandler('no-show'),
 ];

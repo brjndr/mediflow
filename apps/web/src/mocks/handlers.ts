@@ -10,7 +10,11 @@ import {
 } from './db';
 import { accountHandlers } from './handlers/auth';
 import { departmentsHandlers } from './handlers/departments';
-import { appointmentsHandlers, bookingHandlers } from './handlers/appointments';
+import {
+  appointmentChangeHandlers,
+  appointmentsHandlers,
+  bookingHandlers,
+} from './handlers/appointments';
 import { doctorsHandlers } from './handlers/doctors';
 import { codesHandlers } from './handlers/codes';
 import { drugsHandlers } from './handlers/drugs';
@@ -115,6 +119,7 @@ export const handlers = [
   ...doctorsHandlers,
   ...appointmentsHandlers,
   ...bookingHandlers,
+  ...appointmentChangeHandlers,
   ...staffHandlers,
   ...servicesHandlers,
   ...drugsHandlers,

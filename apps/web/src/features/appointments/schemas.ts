@@ -2,7 +2,9 @@ import { z } from 'zod';
 import { PLAIN_LINES } from '@/shared/utils/text';
 import type {
   Appointment,
+  AppointmentCancelReason,
   AppointmentPage,
+  AppointmentRescheduleReason,
   AppointmentStatus,
   AppointmentSummary,
   FreeSlots,
@@ -15,6 +17,23 @@ export const APPOINTMENT_STATUSES = [
   'cancelled',
   'no_show',
 ] as const satisfies readonly AppointmentStatus[];
+
+/** Why an appointment is cancelled, as the API lists them. */
+export const CANCEL_REASONS = [
+  'patient_request',
+  'doctor_unavailable',
+  'hospital',
+  'duplicate',
+  'other',
+] as const satisfies readonly AppointmentCancelReason[];
+
+/** Why an appointment is moved, as the API lists them. */
+export const RESCHEDULE_REASONS = [
+  'patient_request',
+  'doctor_unavailable',
+  'hospital',
+  'other',
+] as const satisfies readonly AppointmentRescheduleReason[];
 
 /** How many days one list may cover, as the API allows. */
 export const MAX_RANGE_DAYS = 31;
@@ -55,6 +74,12 @@ export const appointmentSchema: z.ZodType<Appointment> = z.object({
   status: z.enum(APPOINTMENT_STATUSES),
   version: z.number().int().min(1),
   reason: z.string().optional(),
+  cancellation: z
+    .object({
+      reason: z.enum(CANCEL_REASONS),
+      note: z.string().optional(),
+    })
+    .optional(),
 });
 
 const timeSlotSchema: z.ZodType<TimeSlot> = z.object({
@@ -114,3 +139,86 @@ export function bookingSchemaFor(today: string) {
     message: 'appointments:book.errors.dayRange',
   });
 }
+
+/** What can be done to an appointment, worked out from its status and the time. */
+export interface AllowedChanges {
+  reschedule: boolean;
+  cancel: boolean;
+  complete: boolean;
+  noShow: boolean;
+}
+
+/**
+ * Which changes to offer, by the rules the API enforces: only a scheduled appointment changes;
+ * it is cancelled before it ends, and completed or marked a no-show once it has started. The
+ * screen offers these and no others; the server decides.
+ */
+export function allowedChanges(
+  appointment: Pick<Appointment, 'status' | 'startsAt' | 'endsAt'>,
+  now = Date.now(),
+): AllowedChanges {
+  const scheduled = appointment.status === 'scheduled';
+  const started = now >= Date.parse(appointment.startsAt);
+  const ended = now >= Date.parse(appointment.endsAt);
+  return {
+    reschedule: scheduled,
+    cancel: scheduled && !ended,
+    complete: scheduled && started,
+    noShow: scheduled && started,
+  };
+}
+
+/** A note is plain text of a few lines, and required when the reason is "other". */
+const noteSchema = z.string().max(MAX_REASON).regex(PLAIN_LINES, 'validation.plain_text');
+const requireNoteForOther = (
+  values: { reason: string; note: string },
+  context: z.RefinementCtx,
+) => {
+  if (values.reason === 'other' && values.note.trim() === '') {
+    context.addIssue({
+      code: 'custom',
+      path: ['note'],
+      message: 'appointments:change.errors.note',
+    });
+  }
+};
+
+/** A reason chosen from a list: empty until one is chosen, and required. */
+const chosen = <const Reason extends string>(reasons: readonly [Reason, ...Reason[]]) =>
+  z
+    .union([z.enum(reasons), z.literal('')])
+    .refine((value) => value !== '', { message: 'appointments:change.errors.reason' })
+    .transform((value) => value as Reason);
+
+/** Cancelling: a reason from the list, and a note. */
+export const cancelSchema = z
+  .object({
+    reason: chosen(CANCEL_REASONS),
+    note: noteSchema,
+  })
+  .superRefine(requireNoteForOther);
+
+export type CancelValues = z.infer<typeof cancelSchema>;
+
+/**
+ * Moving an appointment: a doctor, a day, one of the free times and a reason. The fields are
+ * named as on the booking form, so the same `SlotPicker` reads them.
+ */
+export function rescheduleSchemaFor(today: string) {
+  const { first, last } = bookableDays(today);
+  return z
+    .object({
+      doctorId: z.string().min(1, 'appointments:book.errors.doctor'),
+      day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'appointments:book.errors.day'),
+      startsAt: z.string().min(1, 'appointments:book.errors.slot'),
+      reason: chosen(RESCHEDULE_REASONS),
+      note: noteSchema,
+    })
+    .refine((values) => values.day >= first && values.day <= last, {
+      path: ['day'],
+      message: 'appointments:book.errors.dayRange',
+    })
+    .superRefine(requireNoteForOther);
+}
+
+export type RescheduleValues = z.infer<ReturnType<typeof rescheduleSchemaFor>>;

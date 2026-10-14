@@ -11,6 +11,7 @@ import {
   SubmitButton,
   TextAreaField,
   TextField,
+  useSetFieldValue,
   useZodForm,
 } from '.';
 
@@ -200,5 +201,35 @@ describe('fieldErrorKey', () => {
     expect(fieldErrorKey({ type: 'invalid_type' }, exists)).toBe('validation.required');
     expect(fieldErrorKey({ type: 'invalid_format' }, exists)).toBe('validation.invalid_format');
     expect(fieldErrorKey({ type: 'something_new' }, exists)).toBe('validation.invalid');
+  });
+});
+
+describe('useSetFieldValue', () => {
+  it('gives the same function on every render, so an effect on it runs once', async () => {
+    const seen = new Set<unknown>();
+    function Picker() {
+      const setValue = useSetFieldValue();
+      seen.add(setValue);
+      return (
+        <button type="button" onClick={() => setValue('name', 'Picked')}>
+          Pick
+        </button>
+      );
+    }
+    function Host() {
+      const form = useZodForm(z.object({ name: z.string() }), { name: '' });
+      return (
+        <Form form={form} onSubmit={() => {}}>
+          <Picker />
+          <TextField name="name" label="Name" />
+        </Form>
+      );
+    }
+    renderWithProviders(<Host />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Pick' }));
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Picked'),
+    );
+    expect(seen.size).toBe(1);
   });
 });

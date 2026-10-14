@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { Can, useAllowed } from '@/access';
+import { Can } from '@/access';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
 import { errorMessageKey } from '@/shared/api';
@@ -63,7 +63,6 @@ export default function AppointmentCalendar() {
   const { from, to } = visibleDays(view, day, weekStartFor(locale));
   const appointments = useCalendarAppointments({ from, to, doctorId }, doctors.available);
 
-  const canOpenPatient = useAllowed({ requires: 'patient:read', featureFlag: 'patients' });
   const items = appointments.data?.items;
   const events = useMemo<CalendarEventItem[]>(
     () =>
@@ -85,11 +84,8 @@ export default function AppointmentCalendar() {
     [items, t],
   );
 
-  const openPatient = (id: string) => {
-    const item = items?.find((candidate) => candidate.id === id);
-    // The patient's id only: never a name in an address.
-    if (item) navigate(`/patients/${item.patientId}`);
-  };
+  // The appointment's own screen, by id: its patient is one link away from there.
+  const openAppointment = (id: string) => navigate(`/appointments/${id}`);
 
   const step = view === 'day' ? 1 : 7;
   const heading =
@@ -238,7 +234,7 @@ export default function AppointmentCalendar() {
             events={events}
             // On a phone the hours scroll inside a grid that leaves room for the controls.
             height={isDesktop ? 640 : 'min(640px, 70dvh)'}
-            onSelectEvent={canOpenPatient ? openPatient : undefined}
+            onSelectEvent={openAppointment}
             onOpenDay={(opened) => {
               setDay(opened);
               setChosenView('day');

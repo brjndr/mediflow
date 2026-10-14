@@ -12,6 +12,7 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import { maskMrn } from '@/shared/utils/mask';
 import { todayIn, type DayString } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
+import { STATUS_STYLE } from '../components/status';
 import { ViewSwitch } from '../components/ViewSwitch';
 import { useAppointments } from '../hooks/use-appointments';
 import { APPOINTMENT_STATUSES, MAX_RANGE_DAYS } from '../schemas';
@@ -19,13 +20,6 @@ import type { AppointmentStatus, AppointmentSummary } from '../types';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 const field = 'flex min-w-40 flex-col gap-1 text-sm font-medium';
-
-const STATUS_STYLE: Record<AppointmentStatus, string> = {
-  scheduled: 'bg-primary/10 text-primary',
-  completed: 'bg-muted text-foreground',
-  cancelled: 'bg-muted text-muted-foreground line-through',
-  no_show: 'bg-destructive/10 text-destructive',
-};
 
 /** Why a range of days cannot be asked for, as a key of this feature's strings. */
 function rangeProblem(from: DayString, to: DayString): string | null {
@@ -119,6 +113,11 @@ export default function AppointmentList() {
 
   const actions = useMemo<GridAction<AppointmentSummary>[]>(
     () => [
+      {
+        id: 'open',
+        label: t('actions.open'),
+        onSelect: (row) => navigate(`/appointments/${row.id}`),
+      },
       {
         id: 'open-patient',
         label: t('actions.openPatient'),

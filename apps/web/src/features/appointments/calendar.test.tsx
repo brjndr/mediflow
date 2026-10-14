@@ -16,6 +16,8 @@ const HEADING = { name: 'Appointments', level: 1 };
 const NO_ACCESS = { name: 'You do not have access to this page' };
 const HOSPITAL_TZ = 'Asia/Kolkata';
 const HOSPITAL_LOCALE = 'en-IN';
+/** An appointment's own screen, by id. */
+const APPOINTMENT_PATH = /^\/appointments\/apt_\w+$/;
 
 const statuses = () => screen.getAllByRole('status').map((status) => status.textContent);
 const calendar = () => screen.getByRole('region', { name: 'Appointments calendar' });
@@ -155,7 +157,7 @@ describe('the appointment calendar', () => {
     }
   });
 
-  it('says the status in words, and opens the patient by id', async () => {
+  it('says the status in words, and opens the appointment by id', async () => {
     const { router } = await openCalendar();
     // A tooltip stays in the page after a hover: it holds the time and the status, never a name.
     for (const block of blocks()) {
@@ -165,24 +167,21 @@ describe('the appointment calendar', () => {
       blocks().some((block) => /\((Cancelled|Completed|No-show)\)/.test(block.textContent ?? '')),
     ).toBe(true);
     await userEvent.click(blocks()[0] as HTMLElement);
-    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/patients\/pth_\d{5}$/));
+    await waitFor(() => expect(router.state.location.pathname).toMatch(APPOINTMENT_PATH));
   });
 
-  it('opens a patient from the keyboard', async () => {
+  it('opens an appointment from the keyboard', async () => {
     const { router } = await openCalendar();
     (blocks()[0] as HTMLElement).focus();
     await userEvent.keyboard('{Enter}');
-    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/patients\/pth_\d{5}$/));
+    await waitFor(() => expect(router.state.location.pathname).toMatch(APPOINTMENT_PATH));
   });
 
-  it('opens no patient for someone who may not read patients, and offers no buttons', async () => {
+  it('opens the appointment for someone who may not read patients', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'patient:read');
     const { router } = await openCalendar();
-    // Plain text: a block that looks like a button and does nothing is worse than none.
-    expect(blocks().every((block) => !block.hasAttribute('role'))).toBe(true);
-    expect(blocks().every((block) => !block.hasAttribute('tabindex'))).toBe(true);
     await userEvent.click(blocks()[0] as HTMLElement);
-    expect(router.state.location.pathname).toBe('/appointments/calendar');
+    await waitFor(() => expect(router.state.location.pathname).toMatch(APPOINTMENT_PATH));
   });
 
   it('starts the week on the hospital’s first day, and draws seven days', async () => {
