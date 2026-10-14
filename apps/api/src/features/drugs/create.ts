@@ -101,9 +101,9 @@ export const drugImport: ImportKind<DrugDetails> = {
   ],
   async prepare(writer, body) {
     const details = await prepareDrug(writer, body as DrugCreate);
-    // The identity `drugs_exists` compares, so two rows of one file for the same item are one.
+    // The identity `drugs_same` compares, so two rows of one file for the same item are one.
     const key = [details.genericName, details.brandName ?? '', details.form, details.strength ?? '']
-      .map((part) => part.toLowerCase())
+      .map((part) => part.replace(/[‌‍]/g, '').toLowerCase())
       .join('\u0000');
     return { value: details, key };
   },

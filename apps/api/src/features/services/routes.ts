@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyRequest } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
+import { searchTerm } from '../../core/http/text.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { todayAtHospital } from '../../core/tenancy/today.js';
@@ -143,7 +144,7 @@ export const serviceRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const result = await searchServices(
         request.txClient,
         {
-          q: body.q,
+          q: searchTerm(body.q),
           category: body.category,
           archived: body.archived ?? false,
           cursor: body.cursor,

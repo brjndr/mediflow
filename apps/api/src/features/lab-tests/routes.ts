@@ -3,7 +3,7 @@ import type { FastifyRequest } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidyOptional } from '../../core/http/text.js';
+import { searchTerm, tidyOptional } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   cleanName,
@@ -196,7 +196,7 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       const body = request.body as LabTestSearchRequest;
       const result = await searchLabTests(request.txClient, {
-        q: body.q,
+        q: searchTerm(body.q),
         department: body.department,
         kind: body.kind,
         archived: body.archived ?? false,

@@ -10,5 +10,5 @@ The API (#298) is described in `apps/api/CLAUDE.md`, under Services and prices. 
 
 ## Decided
 
-- **Text is plain and tidied (#306).** The API stores a name in one normal form with single spaces and refuses a control character, a zero-width space and a direction override, in the search term too; a description keeps its lines. The form checks the same patterns (`PLAIN_TEXT`, `PLAIN_LINES` of `shared/utils/text.ts`) and gives a pasted invisible character a message of its own. Rows written before this are left as they are and tidied when next changed: see Rules in `apps/api/CLAUDE.md`.
+- **Text is plain and tidied (#306).** The API stores a name in one normal form with single spaces and refuses a control character and anything that prints as nothing (#322); a search term is tidied instead of refused; a description keeps its lines. The form checks the same patterns (`PLAIN_TEXT`, `PLAIN_LINES` of `shared/utils/text.ts`) and gives a pasted invisible character a message of its own. Rows written before this are left as they are and tidied when next changed: see Rules in `apps/api/CLAUDE.md`.
 - **Services can be loaded from a file (#68),** through the import centre (`features/imports`), with a first price on the standard list from today. The API's create rules are in `features/services/create.ts`, which `POST /services` and the import both use: change them there.

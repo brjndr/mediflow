@@ -1161,7 +1161,8 @@ describe('found in review', () => {
     for (const body of bad) {
       expect((await add(body)).statusCode, JSON.stringify(body)).toBe(400);
     }
-    expect((await search({ q: 'zero​width' })).statusCode).toBe(400);
+    // A search term is tidied, never refused (#322).
+    expect((await search({ q: 'zero​width' })).statusCode).toBe(200);
     const ranged = await numeric('Review Note');
     for (const note of ['two\nlines', 'क़'.repeat(100)]) {
       expect((await setRanges(ranged.id, [{ ...adult, note }])).statusCode).toBe(400);

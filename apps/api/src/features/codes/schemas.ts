@@ -1,6 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { CursorPage, MAX_PAGE_SIZE, ref, StringEnum } from '../../core/http/schemas.js';
-import { PLAIN_TEXT } from '../../core/http/text.js';
 
 export const CODE_SYSTEMS = ['icd10', 'procedure'] as const;
 export type CodeSystem = (typeof CODE_SYSTEMS)[number];
@@ -33,7 +32,7 @@ export const CodePage = CursorPage(ref(Code), { $id: 'CodePage' });
 export const CodeSearchRequest = Type.Object(
   {
     system: StringEnum(CODE_SYSTEMS, { description: 'The code set to search.' }),
-    q: Type.Optional(Type.String({ maxLength: 100, pattern: PLAIN_TEXT })),
+    q: Type.Optional(Type.String({ maxLength: 100 })),
     favourites: Type.Optional(
       Type.Boolean({ description: 'True gives the favourites only. Absent: false.' }),
     ),

@@ -260,7 +260,7 @@ const archived = (what: string) =>
 export const WardListQuery = Type.Object({
   cursor,
   limit,
-  q: Type.Optional(Type.String({ maxLength: 100, pattern: PLAIN_TEXT })),
+  q: Type.Optional(Type.String({ maxLength: 100 })),
   archived: archived('wards'),
 });
 

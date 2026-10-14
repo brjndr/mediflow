@@ -25,6 +25,12 @@ export interface DrugRow {
   brand_lower: string;
 }
 
+/**
+ * A text as the key columns of migration 0031 hold it, for a parameter: lower case, and without
+ * the joiners Indic scripts need, which many places print as nothing.
+ */
+const key = (param: string) => `lower(translate(${param}, chr(8204) || chr(8205), ''))`;
+
 /** What a request can set on an item. */
 export interface DrugDetails {
   type: DrugType;
@@ -171,7 +177,7 @@ export async function lockDrug(client: pg.ClientBase, id: string): Promise<DrugR
 
 /**
  * Items of the hospital, archived or not, with this generic name in this form, whatever the brand
- * or the strength. The database decides what the same name is.
+ * or the strength, the capitals or the Indic joiners. The database decides what the same name is.
  */
 export async function similarDrugs(
   client: pg.ClientBase,
@@ -181,7 +187,7 @@ export async function similarDrugs(
 ): Promise<DrugRow[]> {
   const { rows } = await client.query<DrugRow>(
     `select ${COLUMNS} from drugs
-     where generic_lower = lower($1) and form = $2
+     where generic_key = ${key('$1')} and form = $2
      order by generic_lower, brand_lower, id
      limit $3`,
     [genericName, form, limit],
@@ -191,7 +197,7 @@ export async function similarDrugs(
 
 /**
  * Whether the hospital has a controlled item of this generic name in this form, archived or not,
- * other than the one named.
+ * other than the one named, whatever the capitals or the Indic joiners.
  */
 export async function hasControlledSibling(
   client: pg.ClientBase,
@@ -201,7 +207,7 @@ export async function hasControlledSibling(
 ): Promise<boolean> {
   const { rowCount } = await client.query(
     `select 1 from drugs
-     where generic_lower = lower($1) and form = $2 and controlled and id <> $3
+     where generic_key = ${key('$1')} and form = $2 and controlled and id <> $3
      limit 1`,
     [genericName, form, exceptId],
   );
@@ -210,7 +216,7 @@ export async function hasControlledSibling(
 
 /**
  * Whether the hospital already has exactly this item: generic name, brand, form and strength,
- * whatever the capitals, archived or not.
+ * whatever the capitals or the Indic joiners, archived or not.
  */
 export async function drugExists(
   client: pg.ClientBase,
@@ -219,8 +225,8 @@ export async function drugExists(
 ): Promise<boolean> {
   const { rowCount } = await client.query(
     `select 1 from drugs
-     where generic_lower = lower($1) and brand_lower = lower(coalesce($2, ''))
-       and form = $3 and strength_lower = lower(coalesce($4, ''))
+     where generic_key = ${key('$1')} and brand_key = ${key("coalesce($2, '')")}
+       and form = $3 and strength_key = ${key("coalesce($4, '')")}
        and ($5::uuid is null or id <> $5)`,
     [details.genericName, details.brandName, details.form, details.strength, exceptId ?? null],
   );
@@ -232,7 +238,7 @@ export const isDrugExists = (error: unknown): boolean =>
   typeof error === 'object' &&
   error !== null &&
   (error as { code?: unknown }).code === '23505' &&
-  (error as { constraint?: unknown }).constraint === 'drugs_exists';
+  ['drugs_exists', 'drugs_same'].includes(String((error as { constraint?: unknown }).constraint));
 
 const values = (details: DrugDetails): unknown[] => [
   details.type,

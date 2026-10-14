@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
+import { searchTerm } from '../../core/http/text.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { addFavourite, findCode, removeFavourite, searchCodes } from './repository.js';
 import { Code, CODE_SCHEMAS, CodePage, CodeSearchRequest } from './schemas.js';
@@ -31,7 +32,7 @@ export const codeRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const body = request.body as CodeSearchRequest;
       const result = await searchCodes(request.txClient, {
         system: body.system,
-        q: body.q,
+        q: searchTerm(body.q),
         favouritesOnly: body.favourites ?? false,
         cursor: body.cursor,
         limit: body.limit ?? DEFAULT_PAGE_SIZE,
