@@ -103,7 +103,7 @@ export const drugImport: ImportKind<DrugDetails> = {
     const details = await prepareDrug(writer, body as DrugCreate);
     // The identity `drugs_same` compares, so two rows of one file for the same item are one.
     const key = [details.genericName, details.brandName ?? '', details.form, details.strength ?? '']
-      .map((part) => part.replace(/[‌‍]/g, '').toLowerCase())
+      .map((part) => part.replace(/[\u200C\u200D]/g, '').toLowerCase())
       .join('\u0000');
     return { value: details, key };
   },

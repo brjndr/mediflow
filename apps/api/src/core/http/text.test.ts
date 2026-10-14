@@ -66,6 +66,14 @@ describe('plain text', () => {
     0xe0001,
     0xe0041,
     0xe007f,
+    // Not a default ignorable, but a blank all the same.
+    0x2800,
+    // The selectors of emoji, anywhere but after an emoji.
+    0xfe0e,
+    0xfe0f,
+    // The other variation selectors.
+    0xfe00,
+    0xfe0d,
   ];
 
   it('refuses the other characters that print as nothing, in both patterns', () => {
@@ -75,9 +83,21 @@ describe('plain text', () => {
       expect(plain.test(text), point.toString(16)).toBe(false);
       expect(lines.test(text), point.toString(16)).toBe(false);
     }
-    // Still allowed: the Indic joiners, a variation selector that emoji need, and their neighbours.
-    for (const point of [0x200c, 0x200d, 0xfe0f, 0x2010, 0x1f48a]) {
+    // Still allowed: the Indic joiners, and the neighbours of what is refused.
+    for (const point of [0x200c, 0x200d, 0x2010, 0x27ff, 0x1f48a]) {
       expect(plain.test(`a${String.fromCodePoint(point)}b`), point.toString(16)).toBe(true);
+    }
+  });
+});
+
+describe('the selectors of emoji', () => {
+  it('are allowed right after an emoji, and only there', () => {
+    const [text, emoji] = [String.fromCodePoint(0xfe0e), String.fromCodePoint(0xfe0f)];
+    for (const name of [`Pills 💊${emoji}`, `Care ⚕${text}`, `1${emoji}⃣ dose`]) {
+      expect(plain.test(name), JSON.stringify(name)).toBe(true);
+    }
+    for (const name of [`Para${emoji}cetamol`, `${emoji}Paracetamol`, `💊 ${emoji}`]) {
+      expect(plain.test(name), JSON.stringify(name)).toBe(false);
     }
   });
 });

@@ -702,7 +702,7 @@ describe('found in review', () => {
       '​',
       'Review\tTab',
       // What prints as nothing, so that a second name looks the same as the first (#322).
-      ...[0xad, 0x34f, 0x61c, 0x180e, 0x200e, 0x200f, 0x2060, 0x2064, 0x206a, 0xfff9, 0xe0041].map(
+      ...[0xad, 0x34f, 0x61c, 0x180e, 0x200e, 0x200f, 0x2060, 0x206a, 0xfe0f, 0xfff9, 0xe0041].map(
         (point) => `Review${String.fromCodePoint(point)}Hidden`,
       ),
     ];

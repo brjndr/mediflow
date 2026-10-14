@@ -10,29 +10,32 @@ import { HttpError } from './errors.js';
  * points (the soft hyphen, the combining grapheme joiner, the Arabic letter mark, the zero-width
  * space, the direction marks, the word joiner and the invisible operators, the byte order mark,
  * the Hangul fillers, the tag characters and the like) and the interlinear annotation characters
- * (U+FFF9 to U+FFFB). Of the default ignorables, the joiners that Indic scripts need (U+200C,
- * U+200D) and the variation selectors that emoji need (U+FE00 to U+FE0F) are allowed.
+ * (U+FFF9 to U+FFFB), and the braille blank (U+2800). Of the default ignorables, the joiners
+ * that Indic scripts need (U+200C, U+200D) are allowed, and the two variation selectors of emoji
+ * (U+FE0E, U+FE0F) right after an emoji only: anywhere else one would hide inside a name.
  *
  * Unicode's own list is named (`\p{...}`), not copied, so it is the runtime's edition of it. The
  * pattern means this only with the unicode flag, which the validator sets; without it, which is
  * how a schema's patterns are checked to be valid at all, it is still a valid one, as a range
- * written `\u{...}` would not be.
+ * written `\u{...}` would not be. Valid, but meaning nothing: compiled without the flag it lets
+ * every invisible character through, so never compile it so.
  */
 export const PLAIN_TEXT =
-  '^(?:[\\u200C\\u200D\\uFE00-\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\uFFF9-\\uFFFB])*$';
+  '^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$';
 
 /** What `PLAIN_TEXT` refuses besides the control characters: what prints as nothing. */
 const INVISIBLE = new RegExp(
   // The joiners and the variation selectors are in the class on purpose: they are what is kept.
   // eslint-disable-next-line no-misleading-character-class
-  `(?![\\u200C\\u200D\\uFE00-\\uFE0F])[\\p{Default_Ignorable_Code_Point}\\uFFF9-\\uFFFB]`,
+  `(?![\\u200C\\u200D\\uFE0E\\uFE0F])[\\p{Default_Ignorable_Code_Point}\\uFFF9-\\uFFFB]`,
   'gu',
 );
 
 /**
  * A search term as it is searched for: a control character (a pasted tab or line break) is a
  * space, and what prints as nothing is gone, so the term finds what the same term without them
- * finds instead of being refused. Absent when nothing is left.
+ * finds instead of being refused. The joiners and the emoji selectors stay, as a name keeps
+ * them. Absent when nothing is left.
  */
 export function searchTerm(text: string | undefined): string | undefined {
   if (text === undefined) return undefined;
@@ -69,7 +72,7 @@ export const tidyOptional = (text: string | undefined, max: number): string | nu
  * `PLAIN_TEXT` for text of several lines (a description): the same, with line breaks allowed.
  */
 export const PLAIN_LINES =
-  '^(?:[\\u200C\\u200D\\uFE00-\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\uFFF9-\\uFFFB])*$';
+  '^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$';
 
 /**
  * Text of several lines as it is stored: each line tidied, one kind of line break, at most one
