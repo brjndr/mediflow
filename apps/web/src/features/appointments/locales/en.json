@@ -1,0 +1,42 @@
+{
+  "heading": "Appointments",
+  "description": "Who is seen by which doctor, and when, at this hospital.",
+  "gridLabel": "Appointments",
+  "count_one": "{{count}} appointment",
+  "count_other": "{{count}} appointments",
+  "empty": "No appointments on these days.",
+  "emptyDay": "No appointments on this day.",
+  "emptyFiltered": "No appointment matches these filters.",
+  "timeRange": "{{start}} to {{end}}",
+  "filters": {
+    "from": "From",
+    "to": "To",
+    "today": "Today",
+    "doctor": "Doctor",
+    "allDoctors": "All doctors",
+    "me": "{{name}} (you)",
+    "status": "Status",
+    "allStatuses": "All statuses",
+    "rangeMissing": "Choose the first and the last day.",
+    "rangeBackwards": "The last day comes before the first.",
+    "rangeTooLong_one": "Choose at most {{count}} day.",
+    "rangeTooLong_other": "Choose at most {{count}} days."
+  },
+  "columns": {
+    "patient": "Patient",
+    "time": "Time",
+    "mrn": "MRN",
+    "doctor": "Doctor",
+    "department": "Department",
+    "status": "Status"
+  },
+  "status": {
+    "scheduled": "Scheduled",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "no_show": "No-show"
+  },
+  "actions": {
+    "openPatient": "Open the patient"
+  }
+}

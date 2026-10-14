@@ -148,7 +148,7 @@ describe('<Can>', () => {
 
 describe('usePermissionScope', () => {
   it.each([
-    [USER_IDS.doctor, 'appointment:read', 'held=true scope=own'],
+    [USER_IDS.doctor, 'report:read', 'held=true scope=own'],
     [USER_IDS.admin, 'appointment:read', 'held=true scope=all'],
     [USER_IDS.doctor, 'billing:refund', 'held=false scope=null'],
   ] as const)('reports the scope for %s on %s', async (userId, permission, expected) => {
