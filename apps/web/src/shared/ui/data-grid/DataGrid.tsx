@@ -456,7 +456,9 @@ export function DataGrid<Row extends RowData>({
       <div
         ref={scroller}
         className={cn(
-          'overflow-x-auto rounded-lg border',
+          // Positioned, so text hidden for screen readers (absolute) is clipped with the table
+          // and a table wider than the screen scrolls here, never the page.
+          'relative overflow-x-auto rounded-lg border',
           virtual && 'max-h-[32rem] overflow-y-auto',
         )}
       >

@@ -88,8 +88,8 @@ test('cancel an appointment with a reason', async ({ page }) => {
   );
   await page.goto('/');
   await goTo(page, 'Appointments');
-  await page.getByLabel('To').fill(tomorrow);
-  await page.getByLabel('From').fill(tomorrow);
+  await page.getByLabel('To', { exact: true }).fill(tomorrow);
+  await page.getByLabel('From', { exact: true }).fill(tomorrow);
   await page.getByRole('combobox', { name: 'Status' }).selectOption('scheduled');
   await expect(status(page, /\d+ appointments?/)).toBeVisible();
   await page
