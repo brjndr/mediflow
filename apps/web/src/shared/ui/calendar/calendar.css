@@ -1,0 +1,115 @@
+/*
+ * The calendar library's styles in the theme's tokens, so a hospital's branding and dark mode
+ * apply to it as to everything else. Loaded with the calendar chunk only.
+ */
+.cal {
+  background: var(--background);
+  color: var(--foreground);
+  overflow: hidden;
+}
+
+.cal .rbc-time-view,
+.cal .rbc-time-header-content,
+.cal .rbc-time-content,
+.cal .rbc-time-content > * + * > *,
+.cal .rbc-timeslot-group,
+.cal .rbc-day-slot .rbc-time-slot,
+.cal .rbc-header,
+.cal .rbc-header + .rbc-header,
+.cal .rbc-day-bg + .rbc-day-bg,
+.cal .rbc-time-header.rbc-overflowing {
+  border-color: var(--border);
+}
+
+.cal .rbc-time-view {
+  border: 0;
+}
+
+.cal .rbc-header {
+  padding: 0.5rem 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.cal .rbc-header button,
+.cal .rbc-header a {
+  color: inherit;
+}
+
+.cal .rbc-today {
+  background: color-mix(in oklch, var(--primary) 6%, transparent);
+}
+
+.cal .rbc-current-time-indicator {
+  background: var(--destructive);
+}
+
+.cal .rbc-label {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+/* An hour is four quarter-hour slots, tall enough to read a fifteen-minute appointment. */
+.cal .rbc-timeslot-group {
+  min-height: 6rem;
+}
+
+/* Where the pointer is a finger, a fifteen-minute appointment is a 44px target. */
+@media (pointer: coarse) {
+  .cal .rbc-timeslot-group {
+    min-height: 11rem;
+  }
+}
+
+.cal .rbc-allday-cell {
+  display: none;
+}
+
+.cal .rbc-event {
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.125rem 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+}
+
+.cal .rbc-event:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+/* The time is in the block's own one line (see eventContent in calendar.tsx). */
+.cal .rbc-event-label {
+  display: none;
+}
+
+.cal .cal-event-line {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal .cal-event-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.cal .cal-event-muted {
+  background: var(--muted);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+.cal .cal-event-struck {
+  background: var(--muted);
+  border-color: var(--border);
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+
+.cal .cal-event-danger {
+  background: color-mix(in oklch, var(--destructive) 12%, var(--background));
+  border-color: var(--destructive);
+  color: var(--destructive);
+}
