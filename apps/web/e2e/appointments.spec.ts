@@ -82,9 +82,20 @@ test('one doctor’s calendar, by day and by week where there is room', async ({
 });
 
 test('cancel an appointment with a reason', async ({ page }) => {
-  // The mock seeds, for each day from three days ago, 48 appointments at the hospital in order:
-  // the 193rd is the first of tomorrow, scheduled.
-  await page.goto('/appointments/apt_tenant_1_00193');
+  // Tomorrow at the hospital (Asia/Kolkata), whose appointments have not started.
+  const tomorrow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(
+    new Date(Date.now() + 86_400_000),
+  );
+  await page.goto('/');
+  await goTo(page, 'Appointments');
+  await page.getByLabel('To').fill(tomorrow);
+  await page.getByLabel('From').fill(tomorrow);
+  await page.getByRole('combobox', { name: 'Status' }).selectOption('scheduled');
+  await expect(status(page, /\d+ appointments?/)).toBeVisible();
+  await page
+    .getByRole('button', { name: /^Open the appointment/ })
+    .first()
+    .click();
   await expect(page.getByRole('heading', { name: 'Appointment', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark as completed' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Cancel the appointment' }).click();

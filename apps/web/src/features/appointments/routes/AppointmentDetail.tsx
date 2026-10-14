@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Can, useAllowed } from '@/access';
@@ -38,7 +38,7 @@ function useNow(everyMs: number): number {
   return now;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
       <dt className="text-sm text-muted-foreground">{label}</dt>
@@ -47,7 +47,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Record({ appointment }: { appointment: Appointment }) {
+function AppointmentRecord({ appointment }: { appointment: Appointment }) {
   const { t } = useTranslation('appointments');
   const format = useFormatters();
   const canOpenPatient = useAllowed({ requires: 'patient:read', featureFlag: 'patients' });
@@ -116,7 +116,20 @@ export default function AppointmentDetail() {
   // What happened last, as a key of this feature's strings: done, or refused and why.
   const [outcome, setOutcome] = useState<{ key: string; refused: boolean }>();
   const heading = useRef<HTMLHeadingElement>(null);
+  const panelHeading = useRef<HTMLHeadingElement>(null);
+  const hadPanel = useRef(false);
   const clearSlotRefusal = useCallback(() => setSlotRefusal(undefined), []);
+
+  // Focus follows the panel, so a keyboard or a screen reader never loses its place: to the
+  // panel's heading when one opens, back to the page's heading when it closes.
+  useEffect(() => {
+    if (panel) {
+      hadPanel.current = true;
+      panelHeading.current?.focus();
+    } else if (hadPanel.current) {
+      heading.current?.focus();
+    }
+  }, [panel]);
 
   const open = (next: Panel | undefined) => {
     change.reset();
@@ -132,7 +145,6 @@ export default function AppointmentDetail() {
       await change.change(next);
       setPanel(undefined);
       setOutcome({ key: `change.done.${next.kind}`, refused: false });
-      heading.current?.focus();
     } catch (error) {
       if (!isApiError(error)) return;
       const code = error.serverCode ?? '';
@@ -199,7 +211,7 @@ export default function AppointmentDetail() {
         </Button>
       </div>
 
-      <Record appointment={record} />
+      <AppointmentRecord appointment={record} />
 
       {outcome && (
         <p
@@ -246,7 +258,7 @@ export default function AppointmentDetail() {
             aria-labelledby="change-heading"
             className="flex flex-col gap-3 rounded-md border p-4"
           >
-            <h2 id="change-heading" className="font-semibold">
+            <h2 id="change-heading" ref={panelHeading} tabIndex={-1} className="font-semibold">
               {t(`change.${panel}.heading`)}
             </h2>
             <p className="text-sm">
@@ -260,7 +272,12 @@ export default function AppointmentDetail() {
               >
                 {change.isPending ? t('change.saving') : t(`change.${panel}.submit`)}
               </Button>
-              <Button type="button" variant="outline" onClick={() => open(undefined)}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={change.isPending}
+                onClick={() => open(undefined)}
+              >
                 {t('change.back')}
               </Button>
             </div>
@@ -272,7 +289,7 @@ export default function AppointmentDetail() {
             aria-labelledby="change-heading"
             className="flex flex-col gap-3 rounded-md border p-4"
           >
-            <h2 id="change-heading" className="font-semibold">
+            <h2 id="change-heading" ref={panelHeading} tabIndex={-1} className="font-semibold">
               {t('change.cancel.heading')}
             </h2>
             <CancelForm
@@ -294,7 +311,7 @@ export default function AppointmentDetail() {
             aria-labelledby="change-heading"
             className="flex flex-col gap-3 rounded-md border p-4"
           >
-            <h2 id="change-heading" className="font-semibold">
+            <h2 id="change-heading" ref={panelHeading} tabIndex={-1} className="font-semibold">
               {t('change.reschedule.heading')}
             </h2>
             <RescheduleForm

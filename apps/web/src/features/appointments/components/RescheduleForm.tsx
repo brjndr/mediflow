@@ -144,7 +144,7 @@ export function RescheduleForm({
         <SubmitButton pending={pending}>
           {pending ? t('change.saving') : t('change.reschedule.submit')}
         </SubmitButton>
-        <Button type="button" variant="outline" onClick={onBack}>
+        <Button type="button" variant="outline" disabled={pending} onClick={onBack}>
           {t('change.back')}
         </Button>
       </div>

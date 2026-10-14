@@ -38,7 +38,7 @@ export function CancelForm({
         <SubmitButton pending={pending}>
           {pending ? t('change.saving') : t('change.cancel.submit')}
         </SubmitButton>
-        <Button type="button" variant="outline" onClick={onBack}>
+        <Button type="button" variant="outline" disabled={pending} onClick={onBack}>
           {t('change.cancel.back')}
         </Button>
       </div>

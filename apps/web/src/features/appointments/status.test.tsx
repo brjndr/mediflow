@@ -20,7 +20,7 @@ import { todayIn, zonedToUtc } from '@/shared/utils/timezone';
 import { renderApp } from '@/test/render';
 import { changeAppointment, fetchAppointment } from './api';
 import { appointmentKeys } from './hooks/use-appointments';
-import { allowedChanges, cancelSchema } from './schemas';
+import { allowedChanges, cancelSchema, shiftDay } from './schemas';
 import type { AppointmentPage } from './types';
 
 const HOSPITAL_TZ = 'Asia/Kolkata';
@@ -238,24 +238,85 @@ describe('the appointment screen', () => {
     addStarted();
     let release = () => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
+    // The record read again after the refusal is held too: what shows meanwhile is the rollback
+    // alone, not a fresh read.
+    let holdReads = false;
+    let releaseReads = () => {};
+    const readGate = new Promise<void>((resolve) => (releaseReads = resolve));
     server.use(
       http.post('*/api/appointments/:id/no-show', async () => {
         await gate;
+        holdReads = true;
         return HttpResponse.json(
           { error: { code: 'invalid_transition', message: 'It is final', requestId: 'req_test' } },
           { status: 409 },
         );
       }),
+      http.get('*/api/appointments/:id', async () => {
+        if (holdReads) await readGate;
+        return undefined;
+      }),
+      http.get('*/api/appointments', async () => {
+        if (holdReads) await readGate;
+        return undefined;
+      }),
     );
-    await openAppointment('apt_started');
-    await userEvent.click(await screen.findByRole('button', { name: 'Mark as no-show' }));
+    const { queryClient } = renderApp({ entry: '/appointments' });
+    await chooseDoctor();
+    const [open] = await screen.findAllByRole('button', { name: /^Open the appointment/ });
+    await userEvent.click(open as HTMLElement);
+    await screen.findByText('Follow-up of the cough');
+    const listed = () =>
+      queryClient
+        .getQueriesData<InfiniteData<AppointmentPage>>({
+          queryKey: appointmentKeys.lists(TENANT_IDS.hospital),
+        })
+        .flatMap(([, data]) => data?.pages.flatMap((page) => page.items) ?? [])
+        .filter((item) => item.id === 'apt_started')
+        .map((item) => item.status);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mark as no-show' }));
     await userEvent.click(screen.getByRole('button', { name: 'Mark as no-show' }));
     await waitFor(() => expect(statusOf()).toBe('No-show'));
+    expect(listed()).toContain('no_show');
 
     release();
-    expect(await screen.findByText(/no longer scheduled, so it cannot be changed/)).toBeVisible();
-    // The record is read again: still scheduled at the mock, so the status goes back.
+    // Put back from what was there before, on the record and in the list.
     await waitFor(() => expect(statusOf()).toBe('Scheduled'));
+    expect(listed().length).toBeGreaterThan(0);
+    expect(listed().every((status) => status === 'scheduled')).toBe(true);
+
+    releaseReads();
+    expect(await screen.findByText(/no longer scheduled, so it cannot be changed/)).toBeVisible();
+    expect(statusOf()).toBe('Scheduled');
+  });
+
+  it('moves focus to a panel when it opens, and back to the heading when it closes', async () => {
+    addAhead();
+    await openAppointment('apt_ahead');
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel the appointment' }));
+    expect(screen.getByRole('heading', { name: 'Cancel the appointment', level: 2 })).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', { name: 'Keep it' }));
+    expect(screen.getByRole('heading', { name: 'Appointment', level: 1 })).toHaveFocus();
+  });
+
+  it('cannot be backed out of while a change is being saved', async () => {
+    addAhead();
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    server.use(
+      http.post('*/api/appointments/:id/cancel', async () => {
+        await gate;
+        return undefined;
+      }),
+    );
+    await openAppointment('apt_ahead');
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel the appointment' }));
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /^Reason/ }), 'hospital');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel the appointment' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Keep it' })).toBeDisabled());
+    release();
+    expect(await screen.findByText('The appointment was cancelled.')).toBeInTheDocument();
   });
 
   it('says when someone changed it first, and shows it as saved', async () => {
@@ -359,6 +420,55 @@ describe('the appointment screen', () => {
       reason: 'patient_request',
     });
     expect(statusOf()).toBe('Scheduled');
+  });
+
+  it('shows no refusal of a time once another day was chosen meanwhile', async () => {
+    const day = addAhead();
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    server.use(
+      http.post('*/api/appointments/:id/reschedule', async () => {
+        await gate;
+        return HttpResponse.json(
+          { error: { code: 'slot_taken', message: 'Taken', requestId: 'req_test' } },
+          { status: 409 },
+        );
+      }),
+    );
+    await openAppointment('apt_ahead');
+    await userEvent.click(await screen.findByRole('button', { name: 'Move' }));
+    const times = await screen.findByRole('group', { name: /^Time/ });
+    await waitFor(() => expect(within(times).getAllByRole('button').length).toBeGreaterThan(0));
+    await userEvent.click(within(times).getAllByRole('button')[0] as HTMLElement);
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /^Reason/ }), 'hospital');
+    await userEvent.click(screen.getByRole('button', { name: 'Move to this time' }));
+    // Another day is chosen while the request is on its way.
+    const dayField = screen.getByLabelText(/^Day/);
+    await userEvent.clear(dayField);
+    await userEvent.type(dayField, shiftDay(day, 1));
+    release();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Move to this time' })).toBeEnabled(),
+    );
+    expect(screen.queryByText(/Someone booked that time/)).not.toBeInTheDocument();
+  });
+
+  it('says when the patient has another appointment at the time chosen', async () => {
+    const day = addAhead();
+    // The same patient, with another doctor, at 09:30.
+    addAppointment('apt_same_patient', at(day, '09:30'), at(day, '09:45'), {
+      doctorId: 'doc_h_01',
+    });
+    await openAppointment('apt_ahead');
+    await userEvent.click(await screen.findByRole('button', { name: 'Move' }));
+    const times = await screen.findByRole('group', { name: /^Time/ });
+    const ninethirty = await within(times).findByRole('button', { name: /9:30/ });
+    await userEvent.click(ninethirty);
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /^Reason/ }), 'hospital');
+    await userEvent.click(screen.getByRole('button', { name: 'Move to this time' }));
+    expect(await screen.findByText(/This patient already has an appointment/)).toBeVisible();
+    // The form stays open to choose another time.
+    expect(screen.getByRole('button', { name: 'Move to this time' })).toBeInTheDocument();
   });
 
   it('moves an appointment for someone who may change but not book', async () => {
