@@ -64,7 +64,10 @@
       "loading": "Loading the free times…",
       "none": "The doctor has no free time on this day. Choose another day.",
       "retry": "Try again",
-      "outOfRange": "Choose a day from today to 90 days ahead."
+      "outOfRange": "Choose a day from today to 90 days ahead.",
+      "required": "(required)",
+      "count_one": "{{count}} free time.",
+      "count_other": "{{count}} free times."
     },
     "unavailable": {
       "doctors": "Booking needs the doctors module and access to doctors. Ask your administrator.",

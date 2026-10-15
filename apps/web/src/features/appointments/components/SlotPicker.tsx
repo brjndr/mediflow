@@ -2,7 +2,7 @@ import { useEffect, useId, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
-import { useFieldError, useFieldValue, useSetFieldValue } from '@/shared/ui/form';
+import { useFieldError, useFieldFocusRef, useFieldValue, useSetFieldValue } from '@/shared/ui/form';
 import { useFormatters } from '@/tenancy';
 import { useFreeSlots } from '../hooks/use-book-appointment';
 
@@ -48,6 +48,8 @@ export function SlotPicker({
   const chosen = String(useFieldValue('startsAt') ?? '');
   const setValue = useSetFieldValue();
   const error = useFieldError('startsAt');
+  // Not a kit field: a failed submit focuses its first time, or the group when there is none.
+  const focusRef = useFieldFocusRef('startsAt');
   const inRange = DAY.test(day) && day >= firstDay && day <= lastDay;
   const slots = useFreeSlots(doctorId, day, inRange);
   const free = slots.data?.slots;
@@ -79,19 +81,18 @@ export function SlotPicker({
           .slice(0, ALTERNATIVES);
   const offered = new Set(alternatives.map((slot) => slot.startsAt));
 
+  // What the list is doing, said by a screen reader as it changes (loading, how many, none), from
+  // a region that is always there: one added with its text already in it may not be read.
+  let status = '';
   let body;
   if (doctorId === '' || day === '') {
     body = <p className="text-sm text-muted-foreground">{t('book.slots.chooseFirst')}</p>;
   } else if (!inRange) {
     body = <p className="text-sm text-muted-foreground">{t('book.slots.outOfRange')}</p>;
   } else if (free === undefined) {
-    body = slots.isError ? null : (
-      <p role="status" className="text-sm text-muted-foreground">
-        {t('book.slots.loading')}
-      </p>
-    );
+    if (!slots.isError) status = t('book.slots.loading');
   } else if (free.length === 0) {
-    body = <p className="text-sm text-muted-foreground">{t('book.slots.none')}</p>;
+    status = t('book.slots.none');
   } else {
     body = (
       <div className="flex flex-wrap gap-2">
@@ -114,6 +115,11 @@ export function SlotPicker({
       </div>
     );
   }
+  // How many there are is said only once they arrive, not drawn: the buttons show it.
+  const count =
+    free !== undefined && free.length > 0 && inRange && doctorId !== '' && day !== ''
+      ? t('book.slots.count', { count: free.length })
+      : '';
 
   const describedBy = [refused && free ? messageId : null, error ? `${messageId}-error` : null]
     .filter(Boolean)
@@ -121,30 +127,35 @@ export function SlotPicker({
 
   return (
     <fieldset
+      ref={focusRef}
+      // Focused on a failed submit when it holds no time to focus.
+      tabIndex={-1}
       aria-labelledby={legendId}
       aria-describedby={describedBy || undefined}
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-2 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       <legend id={legendId} className="text-sm font-medium">
         {t('book.slots.label')}
         <span aria-hidden className="text-destructive">
           {' *'}
         </span>
+        {/* A group of buttons cannot be marked required: it is said instead. */}{' '}
+        <span className="sr-only">{t('book.slots.required')}</span>
       </legend>
-      {refused && free && (
-        // Announced, not a second set of buttons: the times named are marked in the list below.
-        <p
-          id={messageId}
-          role="status"
-          className="rounded-md border border-destructive/40 p-3 text-sm"
-        >
-          {alternatives.length > 0
-            ? t(`book.refused.${refused.reason}.alternatives`, {
-                times: alternatives.map((slot) => format.time(slot.startsAt)).join(', '),
-              })
-            : t(`book.refused.${refused.reason}.noneLater`)}
-        </p>
-      )}
+      <div role="status" className="flex flex-col gap-2">
+        {refused && free && (
+          // Said, not a second set of buttons: the times named are marked in the list below.
+          <p id={messageId} className="rounded-md border border-destructive/40 p-3 text-sm">
+            {alternatives.length > 0
+              ? t(`book.refused.${refused.reason}.alternatives`, {
+                  times: alternatives.map((slot) => format.time(slot.startsAt)).join(', '),
+                })
+              : t(`book.refused.${refused.reason}.noneLater`)}
+          </p>
+        )}
+        {status && <p className="text-sm text-muted-foreground">{status}</p>}
+        {count && <p className="sr-only">{count}</p>}
+      </div>
       {body}
       {slots.isError && (
         // A failed refresh keeps the times already shown; a first load that failed shows this alone.

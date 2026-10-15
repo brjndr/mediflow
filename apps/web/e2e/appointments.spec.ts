@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoSidewaysScroll, goTo } from './support';
+import { expectNoAxeViolations, expectNoSidewaysScroll, goTo } from './support';
 
 /**
  * The appointment list in a real browser against the mock backend, at every supported width:
@@ -191,4 +191,98 @@ test('book and move an appointment from the calendar with the keyboard alone', a
   await page.getByRole('button', { name: 'Move to this time' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByText('The appointment was moved.')).toBeVisible();
+});
+
+const focused = (page: Page) =>
+  page.evaluate(() => {
+    const element = document.activeElement;
+    return element
+      ? `${element.tagName.toLowerCase()}:${element.getAttribute('aria-label') ?? element.textContent?.trim() ?? ''}`
+      : '';
+  });
+
+test('book from the list with the keyboard alone, led to what was missed', async ({ page }) => {
+  await page.goto('/');
+  await goTo(page, 'Appointments');
+  await page.getByRole('link', { name: 'Book an appointment' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Book an appointment' })).toBeVisible();
+
+  // Sent empty: focus goes to the first field to fix, the patient, with its message.
+  await page.getByRole('button', { name: 'Book', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  const patient = page.getByRole('combobox', { name: 'Patient' });
+  await expect(patient).toBeFocused();
+  await expect(patient).toHaveAccessibleDescription('Choose the patient.');
+  await page.keyboard.type('MRN-PTH-00001');
+  await expect(page.getByRole('option', { name: /MRN-PTH-00001/ })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Change patient' })).toBeFocused();
+
+  await page.getByRole('combobox', { name: 'Doctor' }).selectOption('doc_h_10');
+  await page.getByLabel('Day').fill(nextWorkingDay());
+  const times = page.getByRole('group', { name: 'Time (required)' });
+  await expect(times.getByRole('status')).toHaveText('16 free times.');
+
+  // Sent without a time: focus goes to the first free one, chosen with Space.
+  await page.getByRole('button', { name: 'Book', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  const first = times.getByRole('button').first();
+  await expect(first).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+
+  await page.getByRole('button', { name: 'Book', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Appointment booked' })).toBeFocused();
+  expect(await focused(page)).toBe('h1:Appointment booked');
+  await expectNoAxeViolations(page);
+});
+
+test('cancel an appointment with the keyboard alone, and come back to where it started', async ({
+  page,
+}) => {
+  const tomorrow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(
+    new Date(Date.now() + 86_400_000),
+  );
+  await page.goto('/');
+  await goTo(page, 'Appointments');
+  await page.getByLabel('To', { exact: true }).fill(tomorrow);
+  await page.getByLabel('From', { exact: true }).fill(tomorrow);
+  await expect(status(page, /\d+ appointments?/)).toBeVisible();
+  await page
+    .getByRole('button', { name: /^Open the appointment/ })
+    .first()
+    .focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Appointment', exact: true })).toBeVisible();
+
+  // A panel takes focus when it opens, and gives it back to its button when left.
+  const opener = page.getByRole('button', { name: 'Cancel the appointment' });
+  await opener.focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('heading', { name: 'Cancel the appointment', level: 2 }),
+  ).toBeFocused();
+  await page.getByRole('button', { name: 'Keep it' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(opener).toBeFocused();
+
+  // Sent without a reason: focus goes to it.
+  await page.keyboard.press('Enter');
+  const submit = page.getByRole('button', { name: 'Cancel the appointment' });
+  await submit.focus();
+  await page.keyboard.press('Enter');
+  const reason = page.getByRole('combobox', { name: 'Reason' });
+  await expect(reason).toBeFocused();
+  await reason.selectOption('patient_request');
+  await submit.focus();
+  await page.keyboard.press('Enter');
+
+  // Said from the status region, and focus on the heading: nothing is left to do to it.
+  await expect(
+    page.getByRole('status').filter({ hasText: 'The appointment was cancelled.' }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Appointment', exact: true })).toBeFocused();
+  await expectNoAxeViolations(page);
 });

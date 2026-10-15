@@ -24,6 +24,7 @@ export function PatientSearch({
   onSelect,
   describedBy,
   focusOnMount = false,
+  required = false,
 }: {
   /** Already translated: what the patient is chosen for on this screen. */
   label: string;
@@ -32,6 +33,8 @@ export function PatientSearch({
   describedBy?: string;
   /** Takes focus when it appears in place of something that had it (a "Change" button). */
   focusOnMount?: boolean;
+  /** A patient must be chosen: marked, and said by a screen reader, as a kit field is. */
+  required?: boolean;
 }) {
   const { t } = useTranslation('patients');
   const format = useFormatters();
@@ -102,6 +105,11 @@ export function PatientSearch({
     <div className="relative flex flex-col gap-1.5">
       <label htmlFor={inputId} className="text-sm font-medium">
         {label}
+        {required && (
+          <span aria-hidden className="text-destructive">
+            {' *'}
+          </span>
+        )}
       </label>
       <input
         ref={input}
@@ -111,6 +119,7 @@ export function PatientSearch({
         aria-expanded={open && searching}
         aria-controls={open && searching ? listId : undefined}
         aria-autocomplete="list"
+        aria-required={required || undefined}
         aria-activedescendant={
           open && settled && options.length > 0 ? optionId(highlighted) : undefined
         }

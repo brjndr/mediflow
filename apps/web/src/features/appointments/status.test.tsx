@@ -17,6 +17,7 @@ import { createRegistry, type FeatureManifest, type SlotProps } from '@/registry
 import { features } from '@/registry/features';
 import { isApiError } from '@/shared/api';
 import { todayIn, zonedToUtc } from '@/shared/utils/timezone';
+import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 import { changeAppointment, fetchAppointment } from './api';
 import { appointmentKeys } from './hooks/use-appointments';
@@ -291,13 +292,40 @@ describe('the appointment screen', () => {
     expect(statusOf()).toBe('Scheduled');
   });
 
-  it('moves focus to a panel when it opens, and back to the heading when it closes', async () => {
+  it('moves focus to a panel when it opens, and back to its button when it closes', async () => {
     addAhead();
     await openAppointment('apt_ahead');
-    await userEvent.click(await screen.findByRole('button', { name: 'Cancel the appointment' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Move' }));
+    expect(screen.getByRole('heading', { name: 'Move the appointment', level: 2 })).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('button', { name: 'Move' })).toHaveFocus();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel the appointment' }));
     expect(screen.getByRole('heading', { name: 'Cancel the appointment', level: 2 })).toHaveFocus();
     await userEvent.click(screen.getByRole('button', { name: 'Keep it' }));
+    expect(screen.getByRole('button', { name: 'Cancel the appointment' })).toHaveFocus();
+  });
+
+  it('says what was done from a status always there, and focuses the heading when nothing is left to do', async () => {
+    addAhead();
+    await openAppointment('apt_ahead');
+    // Present and empty before anything is done, so a screen reader reads what is put in it.
+    const status = screen.getByRole('status');
+    expect(status).toBeEmptyDOMElement();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel the appointment' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel the appointment' }));
+    // A failed submit focuses the first field to fix, which says it is required.
+    const reason = screen.getByRole('combobox', { name: /^Reason/ });
+    expect(reason).toHaveFocus();
+    expect(reason).toHaveAttribute('aria-required', 'true');
+
+    await userEvent.selectOptions(reason, 'patient_request');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel the appointment' }));
+    await waitFor(() => expect(status).toHaveTextContent('The appointment was cancelled.'));
+    // Nothing more can be done to it, so there is no button to go back to.
     expect(screen.getByRole('heading', { name: 'Appointment', level: 1 })).toHaveFocus();
+    await expectNoAxeViolations();
   });
 
   it('cannot be backed out of while a change is being saved', async () => {

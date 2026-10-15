@@ -117,17 +117,23 @@ export default function AppointmentDetail() {
   const [outcome, setOutcome] = useState<{ key: string; refused: boolean }>();
   const heading = useRef<HTMLHeadingElement>(null);
   const panelHeading = useRef<HTMLHeadingElement>(null);
-  const hadPanel = useRef(false);
+  // The buttons that open the panels, and the panel open last: focus goes back to its button.
+  const actions = useRef<HTMLDivElement>(null);
+  const lastPanel = useRef<Panel>(undefined);
   const clearSlotRefusal = useCallback(() => setSlotRefusal(undefined), []);
 
   // Focus follows the panel, so a keyboard or a screen reader never loses its place: to the
-  // panel's heading when one opens, back to the page's heading when it closes.
+  // panel's heading when one opens, and back to the button it was opened from when it closes,
+  // or to the page's heading when that change is no longer offered (it was made, or refused).
   useEffect(() => {
     if (panel) {
-      hadPanel.current = true;
+      lastPanel.current = panel;
       panelHeading.current?.focus();
-    } else if (hadPanel.current) {
-      heading.current?.focus();
+    } else if (lastPanel.current) {
+      const opener = actions.current?.querySelector<HTMLElement>(
+        `[data-opens="${lastPanel.current}"]`,
+      );
+      (opener ?? heading.current)?.focus();
     }
   }, [panel]);
 
@@ -213,11 +219,12 @@ export default function AppointmentDetail() {
 
       <AppointmentRecord appointment={record} />
 
-      {outcome && (
-        <p
-          role={outcome.refused ? 'alert' : 'status'}
-          className={outcome.refused ? 'text-sm text-destructive' : 'text-sm'}
-        >
+      {/* Always there, so what was done is read when it is said; empty, it takes no room. */}
+      <p role="status" className="text-sm empty:-mt-4">
+        {outcome && !outcome.refused ? t(outcome.key) : ''}
+      </p>
+      {outcome?.refused && (
+        <p role="alert" className="text-sm text-destructive">
           {t(outcome.key)}
         </p>
       )}
@@ -229,24 +236,39 @@ export default function AppointmentDetail() {
 
       <Can permission="appointment:update">
         {anyAllowed && panel === undefined && (
-          <div className="flex flex-wrap gap-2">
+          <div ref={actions} className="flex flex-wrap gap-2">
             {allowed.complete && (
-              <Button type="button" onClick={() => open('complete')}>
+              <Button data-opens="complete" type="button" onClick={() => open('complete')}>
                 {t('change.complete.open')}
               </Button>
             )}
             {allowed.noShow && (
-              <Button type="button" variant="outline" onClick={() => open('no_show')}>
+              <Button
+                data-opens="no_show"
+                type="button"
+                variant="outline"
+                onClick={() => open('no_show')}
+              >
                 {t('change.no_show.open')}
               </Button>
             )}
             {allowed.reschedule && (
-              <Button type="button" variant="outline" onClick={() => open('reschedule')}>
+              <Button
+                data-opens="reschedule"
+                type="button"
+                variant="outline"
+                onClick={() => open('reschedule')}
+              >
                 {t('change.reschedule.open')}
               </Button>
             )}
             {allowed.cancel && (
-              <Button type="button" variant="outline" onClick={() => open('cancel')}>
+              <Button
+                data-opens="cancel"
+                type="button"
+                variant="outline"
+                onClick={() => open('cancel')}
+              >
                 {t('change.cancel.open')}
               </Button>
             )}
