@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useFeatureFlag, usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
@@ -19,7 +19,7 @@ import {
   useSetFieldValue,
   useZodForm,
 } from '@/shared/ui/form';
-import { todayIn } from '@/shared/utils/timezone';
+import { todayIn, zonedToUtc, type DayString } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
 import { SlotPicker, type SlotRefusal } from '../components/SlotPicker';
 import { useBookAppointment } from '../hooks/use-book-appointment';
@@ -43,6 +43,28 @@ function toRequest(values: BookingValues): AppointmentCreate {
     startsAt: values.startsAt,
     ...(reason ? { reason } : {}),
     ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
+  };
+}
+
+/** A day that exists, as `YYYY-MM-DD`: the 31st of February has the shape but is no day. */
+function isCalendarDay(day: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const date = new Date(`${day}T12:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === day;
+}
+
+/**
+ * What the calendar asked to book (`?doctorId&day&time`, from a free time chosen on it): ids, a
+ * day and a time, never anything about a patient. Anything malformed is ignored.
+ */
+function askedFrom(params: URLSearchParams): { doctorId?: string; day?: DayString; time?: string } {
+  const doctorId = params.get('doctorId') ?? '';
+  const day = params.get('day') ?? '';
+  const time = params.get('time') ?? '';
+  return {
+    ...(/^[\w-]{1,64}$/.test(doctorId) ? { doctorId } : {}),
+    ...(isCalendarDay(day) ? { day } : {}),
+    ...(/^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? { time } : {}),
   };
 }
 
@@ -136,8 +158,22 @@ export default function AppointmentBook() {
   const format = useFormatters();
   const tenant = useTenant();
   const session = useSession();
-  const today = todayIn(tenant?.timezone ?? 'UTC');
+  const timezone = tenant?.timezone ?? 'UTC';
+  const today = todayIn(timezone);
   const doctors = useDoctorOptions();
+  // Read once, when the screen opens: what the calendar asked for is a starting point only.
+  const [params] = useSearchParams();
+  const [asked] = useState(() => askedFrom(params));
+  // The time asked for, chosen once if the doctor's free times on that day list it.
+  const [preferred] = useState(() =>
+    asked.doctorId && asked.day && asked.time
+      ? {
+          doctorId: asked.doctorId,
+          day: asked.day,
+          startsAt: zonedToUtc(asked.day, asked.time, timezone),
+        }
+      : undefined,
+  );
   // Finding a patient is the patients feature's: switched on, and open to this person.
   const canReadPatients = usePermission('patient:read');
   const patientsOn = useFeatureFlag('patients');
@@ -149,8 +185,8 @@ export default function AppointmentBook() {
   const schema = useMemo(() => bookingSchemaFor(today), [today]);
   const form = useZodForm(schema, {
     patientId: '',
-    doctorId: '',
-    day: today,
+    doctorId: asked.doctorId ?? '',
+    day: asked.day ?? today,
     startsAt: '',
     reason: '',
     extensions: {},
@@ -166,11 +202,18 @@ export default function AppointmentBook() {
   const heading = useRef<HTMLHeadingElement>(null);
 
   // A doctor books into their own schedule first, once the doctors are known, unless a doctor
-  // was already chosen.
+  // was already chosen. A doctor asked for who is not listed is let go.
   const mineId = mine?.id;
+  const listed = doctors.data;
   useEffect(() => {
-    if (mineId && form.getValues('doctorId') === '') form.setValue('doctorId', mineId);
-  }, [mineId, form]);
+    if (!listed) return;
+    const current = form.getValues('doctorId');
+    if (current !== '' && !listed.some((doctor) => doctor.id === current)) {
+      form.setValue('doctorId', mineId ?? '');
+    } else if (current === '' && mineId) {
+      form.setValue('doctorId', mineId);
+    }
+  }, [listed, mineId, form]);
 
   // A chosen time belongs to a doctor and a day: when either changes it is let go, so a time of
   // another doctor's day can never be booked by mistake.
@@ -327,6 +370,7 @@ export default function AppointmentBook() {
           />
           <SlotPicker
             refused={refusal?.kind === 'slot' ? refusal : undefined}
+            preferred={preferred}
             firstDay={days.first}
             lastDay={days.last}
           />

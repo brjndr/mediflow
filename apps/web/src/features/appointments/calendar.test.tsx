@@ -1,10 +1,10 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { addMockAppointment } from '@/mocks/handlers/appointments';
-import { editMockDoctor } from '@/mocks/handlers/doctors';
+import { editMockAvailability, editMockDoctor } from '@/mocks/handlers/doctors';
 import { server } from '@/mocks/node';
 import { addDays, visibleDays, weekStartFor } from '@/shared/ui/calendar/zoned';
 import { todayIn, zonedToUtc } from '@/shared/utils/timezone';
@@ -394,5 +394,251 @@ describe('two hospitals', () => {
     // The clinic's own doctors only.
     const doctor = screen.getByRole('combobox', { name: 'Doctor' }) as HTMLSelectElement;
     expect([...doctor.options].every((option) => option.value.startsWith('doc_c_'))).toBe(true);
+  });
+});
+
+describe('the keyboard and a screen reader', () => {
+  const grid = () => within(calendar()).getByRole('grid', { name: 'Appointments calendar' });
+  const cells = () => within(grid()).getAllByRole('gridcell');
+  const tabStops = () => cells().filter((cell) => cell.getAttribute('tabindex') === '0');
+  const active = () => document.activeElement as HTMLElement;
+  const nameOf = (element: HTMLElement) => element.getAttribute('aria-label') ?? '';
+  /** Moves to the grid's one Tab stop, the way a keyboard does. */
+  const tabIntoGrid = async () => {
+    screen.getByRole('button', { name: 'Today' }).focus();
+    for (let i = 0; i < 10 && !grid().contains(document.activeElement); i++) {
+      await userEvent.tab();
+    }
+    expect(grid()).toContainElement(active());
+  };
+  const openDay = async () => {
+    const app = await openCalendar();
+    await userEvent.click(screen.getByRole('button', { name: 'Day' }));
+    await waitFor(() => expect(statuses()).toContain('8 appointments'));
+    return app;
+  };
+  /** Every day of the week, from nine to one: free times after the morning's appointments. */
+  const everyDayMornings = () =>
+    editMockAvailability(
+      'doc_h_01',
+      (['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const).map((weekday) => ({
+        day: weekday,
+        start: '09:00',
+        end: '13:00',
+      })),
+    );
+
+  it('is one Tab stop, on the day’s first appointment', async () => {
+    await openDay();
+    expect(tabStops()).toHaveLength(1);
+    await tabIntoGrid();
+    expect(nameOf(active())).toMatch(/^9:00\s?am to 9:15\s?am, \w+day, \d+ \w+, /i);
+    // The next Tab leaves the grid: no Tab stop for each appointment.
+    await userEvent.tab();
+    expect(grid()).not.toContainElement(active());
+  });
+
+  it('moves between appointments and free times with the arrow keys, Home and End', async () => {
+    await openDay();
+    await tabIntoGrid();
+    await userEvent.keyboard('{ArrowDown}');
+    expect(nameOf(active())).toMatch(/^9:15\s?am to 9:30\s?am/i);
+    await userEvent.keyboard('{ArrowUp}{ArrowUp}');
+    // Before the first appointment: a quarter hour with nothing booked.
+    // Offered for booking or not, by the hour the test runs: only the name is checked.
+    expect(nameOf(active())).toMatch(/^8:45\s?am, \w+day, \d+ \w+, nothing booked/i);
+    await userEvent.keyboard('{End}');
+    expect(nameOf(active())).toMatch(/^11:45\s?pm, .*nothing booked/i);
+    await userEvent.keyboard('{Home}');
+    expect(nameOf(active())).toMatch(/^12:00\s?am, .*nothing booked/i);
+    expect(tabStops()).toEqual([active()]);
+  });
+
+  it('moves a day with the arrows and a range with Page Up and Page Down', async () => {
+    const seen = watchRequests();
+    await openDay();
+    await tabIntoGrid();
+    await userEvent.keyboard('{ArrowRight}');
+    await waitFor(() => expect(seen.at(-1)?.get('from')).toBe(addDays(today(), 1)));
+    await waitFor(() => expect(active().dataset.day).toBe(addDays(today(), 1)));
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/^Day: /);
+    // The same time on the next day: its first appointment, once the day is drawn.
+    await waitFor(() => expect(nameOf(active())).toMatch(/^9:00\s?am to 9:15\s?am/i));
+
+    await userEvent.keyboard('{PageUp}');
+    await waitFor(() => expect(active().dataset.day).toBe(today()));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Week' }));
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/^Week: .+ to .+/);
+    await tabIntoGrid();
+    const nextWeek = visibleDays('week', addDays(today(), 7), weekStartFor(HOSPITAL_LOCALE));
+    await userEvent.keyboard('{PageDown}');
+    await waitFor(() => expect(seen.at(-1)?.get('from')).toBe(nextWeek.from));
+    await waitFor(() => expect(active().dataset.day).toBe(addDays(today(), 7)));
+    expect(grid()).toContainElement(active());
+  });
+
+  it('names each appointment by time, doctor and status, and marks the status with a sign', async () => {
+    await openCalendar();
+    const doctor = screen.getByRole('combobox', { name: 'Doctor' }) as HTMLSelectElement;
+    const doctorName = doctor.selectedOptions[0]?.textContent ?? '';
+    expect(doctorName).not.toBe('');
+    for (const block of blocks()) {
+      expect(nameOf(block)).toMatch(/^\d{1,2}:\d{2}\s?[ap]m to \d{1,2}:\d{2}\s?[ap]m, \w+day, /i);
+      expect(nameOf(block)).toContain(` with ${doctorName}, `);
+      const status = /(Scheduled|Completed|Cancelled|No-show)$/.exec(nameOf(block))?.[1];
+      expect(status).toBeDefined();
+      // Not by colour alone: every status but the usual one has its sign before the time.
+      expect(block.querySelector('svg') !== null).toBe(status !== 'Scheduled');
+    }
+  });
+
+  it('books at a free time from the keyboard, with the doctor, the day and the time chosen', async () => {
+    everyDayMornings();
+    const { router } = await openDay();
+    const tomorrow = addDays(today(), 1);
+    await userEvent.click(screen.getByRole('button', { name: 'Next day' }));
+    await waitFor(() =>
+      expect(within(grid()).getAllByRole('row')[0]).toHaveAttribute(
+        'aria-label',
+        expect.stringMatching(/\w+day, \d+ \w+/),
+      ),
+    );
+    await waitFor(() => expect(nameOf(tabStops()[0] as HTMLElement)).toMatch(/^9:00\s?am to/i));
+    await tabIntoGrid();
+    // Past the eight appointments of the morning, to the first free time at eleven.
+    for (let i = 0; i < 8; i++) await userEvent.keyboard('{ArrowDown}');
+    expect(nameOf(active())).toMatch(/^11:00\s?am, .*nothing booked\. Book at this time\.$/i);
+    expect(active().dataset.day).toBe(tomorrow);
+    await userEvent.keyboard('{Enter}');
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/appointments/new'));
+    const asked = new URLSearchParams(router.state.location.search);
+    expect(Object.fromEntries(asked)).toEqual({
+      doctorId: 'doc_h_01',
+      day: tomorrow,
+      time: '11:00',
+    });
+    const time = await screen.findByRole('button', { name: /^11:00\s?am$/i, pressed: true });
+    expect(time).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /^Doctor/ })).toHaveValue('doc_h_01');
+    expect(screen.getByLabelText(/^Day/)).toHaveValue(tomorrow);
+  });
+
+  it('books at a free time chosen with the pointer', async () => {
+    everyDayMornings();
+    const { router } = await openDay();
+    await userEvent.click(screen.getByRole('button', { name: 'Next day' }));
+    await waitFor(() => expect(nameOf(tabStops()[0] as HTMLElement)).toMatch(/^9:00\s?am to/i));
+    const free = cells().find((cell) => /^11:30\s?am, /i.test(nameOf(cell)));
+    await userEvent.click(free as HTMLElement);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/appointments/new'));
+    expect(new URLSearchParams(router.state.location.search).get('time')).toBe('11:30');
+  });
+
+  it('offers no booking at a free time without the permission to book', async () => {
+    revokePermission(TENANT_IDS.hospital, 'admin', 'appointment:create');
+    const { router } = await openDay();
+    await tabIntoGrid();
+    await userEvent.keyboard('{Home}');
+    expect(nameOf(active())).toMatch(/nothing booked$/);
+    await userEvent.keyboard('{Enter}');
+    expect(router.state.location.pathname).toBe('/appointments/calendar');
+  });
+
+  it('offers no booking at a time already past, nor while the day is loading', async () => {
+    const { router } = await openDay();
+    await tabIntoGrid();
+    // Midnight today has passed at the hospital: reached, named, and not offered.
+    await userEvent.keyboard('{Home}');
+    expect(nameOf(active())).toMatch(/^12:00\s?am, .*nothing booked$/i);
+    await userEvent.keyboard('{Enter}');
+    expect(router.state.location.pathname).toBe('/appointments/calendar');
+
+    // The next day, still loading: every time would look free, so none is offered.
+    server.use(
+      http.get('*/api/appointments', async () => {
+        await delay('infinite');
+        return HttpResponse.json({ items: [], nextCursor: null });
+      }),
+    );
+    await userEvent.keyboard('{PageDown}');
+    await waitFor(() => expect(active().dataset.day).toBe(addDays(today(), 1)));
+    expect(grid()).toHaveAttribute('aria-busy', 'true');
+    expect(nameOf(active())).toMatch(/nothing booked$/);
+    await userEvent.keyboard('{Enter}');
+    expect(router.state.location.pathname).toBe('/appointments/calendar');
+  });
+
+  it('draws an appointment past midnight on both its days', async () => {
+    // Two days of the week shown: the list gives an appointment on the day it starts, so the
+    // part after midnight is drawn when both days are asked for, as in the week.
+    const { from } = visibleDays('week', today(), weekStartFor(HOSPITAL_LOCALE));
+    const night = addDays(from, 2);
+    const next = addDays(from, 3);
+    const add = (id: string, startDay: string, start: string, endDay: string, end: string) =>
+      addMockAppointment({
+        id,
+        tenantId: TENANT_IDS.hospital,
+        patientId: 'pth_00001',
+        doctorId: 'doc_h_01',
+        startsAt: zonedToUtc(startDay, start, HOSPITAL_TZ),
+        endsAt: zonedToUtc(endDay, end, HOSPITAL_TZ),
+        status: 'scheduled',
+        version: 1,
+      });
+    add('apt_night', night, '23:30', next, '00:30');
+    // One that ends at midnight stays on its own day.
+    add('apt_evening', night, '23:00', next, '00:00');
+    await openCalendar();
+    await waitFor(() => expect(statuses()).toContain(`${seededInWeek(today()) + 2} appointments`));
+    fireEvent.change(screen.getByLabelText('Go to date'), { target: { value: night } });
+    await tabIntoGrid();
+    expect(active().dataset.day).toBe(night);
+    // The last stops of the day are the two blocks, not free times under them.
+    await userEvent.keyboard('{End}');
+    expect(nameOf(active())).toMatch(/^11:30\s?pm to 12:30\s?am, /i);
+    await userEvent.keyboard('{ArrowUp}');
+    expect(nameOf(active())).toMatch(/^11:00\s?pm to 12:00\s?am, /i);
+
+    // The next day starts with the same block, from midnight; its first free time is half past.
+    await userEvent.keyboard('{ArrowRight}{Home}');
+    expect(active().dataset.day).toBe(next);
+    expect(nameOf(active())).toMatch(/^11:30\s?pm to 12:30\s?am, /i);
+    await userEvent.keyboard('{ArrowDown}');
+    expect(nameOf(active())).toMatch(/^12:30\s?am, .*nothing booked/i);
+    expect(tabStops()).toEqual([active()]);
+  });
+
+  it('never takes focus back once it has left the grid', async () => {
+    const { queryClient } = await openDay();
+    await tabIntoGrid();
+    const todayButton = screen.getByRole('button', { name: 'Today' });
+    todayButton.focus();
+    await queryClient.invalidateQueries({ queryKey: appointmentKeys.all(TENANT_IDS.hospital) });
+    await waitFor(() => expect(statuses()).toContain('8 appointments'));
+    expect(document.activeElement).toBe(todayButton);
+  });
+
+  it('has no accessibility violations with the keyboard in the grid', async () => {
+    await openDay();
+    await tabIntoGrid();
+    await userEvent.keyboard('{ArrowUp}');
+    await expectNoAxeViolations();
+  });
+});
+
+describe('booking asked for from the calendar', () => {
+  it('ignores what is malformed, and a doctor who is not listed', async () => {
+    renderApp({ entry: '/appointments/new?doctorId=doc_nobody&day=tomorrow&time=25:00' });
+    const doctor = await screen.findByRole('combobox', { name: /^Doctor/ });
+    await waitFor(() => expect(within(doctor).queryAllByRole('option').length).toBeGreaterThan(1));
+    await waitFor(() => expect(doctor).toHaveValue(''));
+    expect(screen.getByLabelText(/^Day/)).toHaveValue(today());
+  });
+
+  it('ignores a day that does not exist, with a time that does', async () => {
+    renderApp({ entry: '/appointments/new?doctorId=doc_h_01&day=2026-02-31&time=10:00' });
+    expect(await screen.findByLabelText(/^Day/)).toHaveValue(today());
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
@@ -24,10 +24,16 @@ export interface SlotRefusal {
  */
 export function SlotPicker({
   refused,
+  preferred,
   firstDay,
   lastDay,
 }: {
   refused?: SlotRefusal;
+  /**
+   * A time asked for (from the calendar): chosen when the first free times of that doctor and
+   * day arrive and list it. Asked once: a later list, or another doctor or day, never chooses it.
+   */
+  preferred?: { doctorId: string; day: string; startsAt: string };
   /** The days the server offers times for, both included. */
   firstDay: string;
   lastDay: string;
@@ -52,6 +58,18 @@ export function SlotPicker({
   useEffect(() => {
     if (gone) setValue('startsAt', '');
   }, [gone, setValue]);
+
+  // The time asked for is chosen once, if free when its list arrives; taken, nothing is chosen.
+  const preferredAsked = useRef(false);
+  useEffect(() => {
+    if (preferredAsked.current || preferred === undefined || free === undefined) return;
+    preferredAsked.current = true;
+    if (preferred.doctorId !== doctorId || preferred.day !== day) return;
+    // As instants: the server may write the same time another way (with or without milliseconds).
+    const asked = Date.parse(preferred.startsAt);
+    const slot = free.find((candidate) => Date.parse(candidate.startsAt) === asked);
+    if (slot) setValue('startsAt', slot.startsAt);
+  }, [preferred, free, doctorId, day, setValue]);
 
   const alternatives =
     refused === undefined || free === undefined
