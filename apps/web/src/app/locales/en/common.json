@@ -169,6 +169,11 @@
     "invalid_value": "Choose one of the available options.",
     "invalid": "This value is not valid."
   },
+  "calendar": {
+    "event": "{{start}} to {{end}}, {{day}}, {{what}}",
+    "slot": "{{time}}, {{day}}, nothing booked",
+    "slotWithAction": "{{time}}, {{day}}, nothing booked. {{action}}"
+  },
   "editor": {
     "toolbar": "Formatting",
     "bold": "Bold",
