@@ -17,6 +17,9 @@ import type { FeatureManifest } from './types';
 /**
  * The registration point. Adding a feature is one import and one line here, and nothing else in
  * core changes: routes, navigation and slot content all come from the manifest.
+ *
+ * `e2e/a11y.spec.ts` reads this file as text to find every route: keep one
+ * `import { xFeature } from '@/features/<folder>';` per feature and a plain list below.
  */
 export const features: FeatureManifest[] = [
   noticesFeature,

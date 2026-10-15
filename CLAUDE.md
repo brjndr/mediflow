@@ -294,7 +294,7 @@ The target is **WCAG 2.2 AA** (decided 2026-10-14, #337), for every screen at ev
 ### Checks every screen gets
 
 - **axe in the unit tests:** `expectNoAxeViolations` from `src/test/axe.ts` on the rendered screen (contrast is off in jsdom).
-- **axe in Playwright:** in a real browser with contrast on, with `@axe-core/playwright` as `e2e/smoke.spec.ts` does it (#338 shares the helper and runs it on every route).
+- **axe in Playwright:** in a real browser with contrast on, through `expectNoAxeViolations` from `e2e/support.ts` (the WCAG 2.2 AA tags). `e2e/a11y.spec.ts` reads every route from the registry and checks it at desktop and phone width, and a form that adds a record sent empty, so a new route needs nothing added. A route with an id finds its record from a link on the list above it, or from `RECORDS` in that spec. A rule switched off on one screen goes in its `KNOWN` list, with the issue that will fix it (#338).
 - **A keyboard test in Playwright:** the screen's main task done with the keyboard alone (reach it, fill it, submit it, close what opened), with focus visible at each step.
 - `eslint-plugin-jsx-a11y` runs in lint.
 - "Keyboard and axe checked for changed screens" is in the PR template and in the definition of done of every issue.
