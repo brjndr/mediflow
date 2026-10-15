@@ -4,6 +4,6 @@ import type { AppointmentStatus } from '../types';
 export const STATUS_STYLE: Record<AppointmentStatus, string> = {
   scheduled: 'bg-primary/10 text-primary',
   completed: 'bg-muted text-foreground',
-  cancelled: 'bg-muted text-muted-foreground line-through',
+  cancelled: 'bg-muted text-foreground line-through',
   no_show: 'bg-destructive/10 text-destructive',
 };
