@@ -157,7 +157,10 @@
     "sortBy": "Sort by",
     "sortDefault": "Default order",
     "sortAscending": "{{column}}, ascending",
-    "sortDescending": "{{column}}, descending"
+    "sortDescending": "{{column}}, descending",
+    "sortedBy": "Sorted by {{sort}}.",
+    "loading": "Loading…",
+    "empty": "No rows to show."
   },
   "validation": {
     "required": "This field is required.",

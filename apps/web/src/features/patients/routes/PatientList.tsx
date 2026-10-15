@@ -144,6 +144,7 @@ export default function PatientList() {
         sort={sort}
         onSortChange={setSort}
         hasNextPage={patients.hasNextPage}
+        total={total}
         loadingMore={patients.isFetchingNextPage}
         onLoadMore={() => void patients.fetchNextPage()}
       />

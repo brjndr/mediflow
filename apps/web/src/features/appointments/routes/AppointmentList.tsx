@@ -242,6 +242,7 @@ export default function AppointmentList() {
             emptyMessage={filtered ? t('emptyFiltered') : t(oneDay ? 'emptyDay' : 'empty')}
             // Not the next page of the previous filter's rows, while those are still shown.
             hasNextPage={appointments.hasNextPage && !appointments.isPlaceholderData}
+            total={appointments.isPlaceholderData ? undefined : total}
             loadingMore={appointments.isFetchingNextPage}
             onLoadMore={() => void appointments.fetchNextPage()}
           />
