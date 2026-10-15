@@ -118,7 +118,9 @@ describe('the views and their actions', () => {
     expect(screen.queryByRole('button', { name: /^(Send again|Withdraw)/ })).toBeNull();
 
     release();
-    expect(await screen.findByRole('button', { name: 'Send again: Invited Ira' })).toBeEnabled();
+    expect(
+      await screen.findByRole('button', { name: 'Send again: Invited Ira' }),
+    ).not.toBeUnavailable();
   });
 
   it('moves the keyboard to the answer when the question closes', async () => {
@@ -165,7 +167,7 @@ describe('what an admin does to a member', () => {
     await userEvent.click(button('Load more'));
     await screen.findByText('Sample Admin (you)');
 
-    expect(button('Deactivate: Sample Admin')).toBeDisabled();
+    expect(button('Deactivate: Sample Admin')).toBeUnavailable();
     await expect(
       api.POST('/staff/{userId}/deactivate', { params: { path: { userId: USER_IDS.admin } } }),
     ).rejects.toMatchObject({ serverCode: 'cannot_deactivate_self' });

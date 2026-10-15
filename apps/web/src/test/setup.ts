@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import './unavailable';
 import { cleanup, configure } from '@testing-library/react';
 import { resetMockDb } from '@/mocks/db';
 import { server } from '@/mocks/node';

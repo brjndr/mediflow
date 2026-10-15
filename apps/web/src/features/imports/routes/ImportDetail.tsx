@@ -181,7 +181,7 @@ function Batch({ batchId }: { batchId: string }) {
           <div className="flex flex-wrap gap-3">
             {writable && (
               <Button
-                disabled={action.isPending}
+                aria-disabled={action.isPending || undefined}
                 aria-busy={action.isPending}
                 onClick={() => action.mutate('commit')}
               >
@@ -193,7 +193,7 @@ function Batch({ batchId }: { batchId: string }) {
             {cancellable && (
               <Button
                 variant="outline"
-                disabled={action.isPending}
+                aria-disabled={action.isPending || undefined}
                 onClick={() => action.mutate('cancel')}
               >
                 {t('batch.cancel')}

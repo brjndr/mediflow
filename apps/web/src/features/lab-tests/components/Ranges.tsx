@@ -160,7 +160,7 @@ function RangeRows() {
         type="button"
         variant="outline"
         className="self-start"
-        disabled={rows.keys.length >= 60}
+        aria-disabled={rows.keys.length >= 60 || undefined}
         onClick={() => rows.add(blankRangeRow)}
       >
         {t('ranges.editor.add')}
@@ -206,7 +206,12 @@ function Editor({
       <RangeRows />
       <div className="flex flex-wrap gap-3">
         <SubmitButton pending={pending}>{t('ranges.editor.save')}</SubmitButton>
-        <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>
+        <Button
+          type="button"
+          variant="outline"
+          aria-disabled={saving || undefined}
+          onClick={onCancel}
+        >
           {t('ranges.editor.cancel')}
         </Button>
       </div>

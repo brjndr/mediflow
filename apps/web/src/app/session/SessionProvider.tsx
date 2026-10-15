@@ -40,7 +40,7 @@ function SessionError({
     >
       <h1 className="text-2xl font-semibold tracking-tight">{t('session.errorTitle')}</h1>
       <p className="text-muted-foreground">{t(errorMessageKey(error))}</p>
-      <Button onClick={onRetry} disabled={retrying}>
+      <Button onClick={onRetry} aria-disabled={retrying || undefined}>
         {t('session.retry')}
       </Button>
     </div>

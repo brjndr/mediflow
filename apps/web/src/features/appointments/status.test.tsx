@@ -342,7 +342,7 @@ describe('the appointment screen', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Cancel the appointment' }));
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /^Reason/ }), 'hospital');
     await userEvent.click(screen.getByRole('button', { name: 'Cancel the appointment' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Keep it' })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Keep it' })).toBeUnavailable());
     release();
     expect(await screen.findByText('The appointment was cancelled.')).toBeInTheDocument();
   });
@@ -476,7 +476,7 @@ describe('the appointment screen', () => {
     await userEvent.type(dayField, shiftDay(day, 1));
     release();
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Move to this time' })).toBeEnabled(),
+      expect(screen.getByRole('button', { name: 'Move to this time' })).not.toBeUnavailable(),
     );
     expect(screen.queryByText(/Someone booked that time/)).not.toBeInTheDocument();
   });

@@ -23,7 +23,11 @@ export function SignedOutGate({ children }: { children: ReactNode }) {
           {t('session.signOutFailed', { reason: t(errorMessageKey(signOut.error)) })}
         </ErrorLine>
       )}
-      <Button type="button" disabled={signOut.isPending} onClick={() => signOut.mutate()}>
+      <Button
+        type="button"
+        aria-disabled={signOut.isPending || undefined}
+        onClick={() => signOut.mutate()}
+      >
         {t('account.signedInAction')}
       </Button>
     </AccountPage>

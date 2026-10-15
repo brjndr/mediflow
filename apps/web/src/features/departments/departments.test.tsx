@@ -257,13 +257,13 @@ describe('changing a department', () => {
     await userEvent.click(button('Save department'));
 
     // Another edit, an archive or the other list would overtake the save and lose its answer.
-    await waitFor(() => expect(button('Edit: Dentistry')).toBeDisabled());
-    expect(button('Archive: Dentistry')).toBeDisabled();
+    await waitFor(() => expect(button('Edit: Dentistry')).toBeUnavailable());
+    expect(button('Archive: Dentistry')).toBeUnavailable();
     expect(screen.getByRole('checkbox', { name: 'Show archived departments' })).toBeDisabled();
 
     release();
     await waitFor(() => expect(status()).toBe('Cardiac Sciences was saved.'));
-    expect(button('Edit: Dentistry')).toBeEnabled();
+    expect(button('Edit: Dentistry')).not.toBeUnavailable();
   });
 
   it('archives a department and restores it', async () => {

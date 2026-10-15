@@ -64,10 +64,10 @@ function ConfirmDeactivate({
       </h2>
       <p className="text-sm text-muted-foreground">{t('confirm.body')}</p>
       <div className="flex flex-wrap gap-3">
-        <Button variant="destructive" disabled={pending} onClick={onConfirm}>
+        <Button variant="destructive" aria-disabled={pending || undefined} onClick={onConfirm}>
           {t('confirm.yes')}
         </Button>
-        <Button variant="outline" disabled={pending} onClick={onCancel}>
+        <Button variant="outline" aria-disabled={pending || undefined} onClick={onCancel}>
           {t('confirm.no')}
         </Button>
       </div>

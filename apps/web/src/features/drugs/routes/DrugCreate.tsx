@@ -63,10 +63,10 @@ function DuplicateWarning({
         ))}
       </ul>
       <div className="flex flex-wrap gap-3">
-        <Button disabled={pending} aria-busy={pending} onClick={onAddAnyway}>
+        <Button aria-disabled={pending || undefined} aria-busy={pending} onClick={onAddAnyway}>
           {t('duplicates.addAnyway')}
         </Button>
-        <Button variant="outline" disabled={pending} onClick={onBack}>
+        <Button variant="outline" aria-disabled={pending || undefined} onClick={onBack}>
           {t('duplicates.back')}
         </Button>
       </div>

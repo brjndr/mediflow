@@ -176,8 +176,8 @@ describe('<DataGrid>', () => {
     it('disables an action for the rows it does not apply to', async () => {
       renderWithProviders(<Grid actions={actions} />);
       await grid();
-      expect(screen.getByRole('button', { name: 'Refund: Person 1' })).toBeDisabled();
-      expect(screen.getByRole('button', { name: 'Refund: Person 2' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Refund: Person 1' })).toBeUnavailable();
+      expect(screen.getByRole('button', { name: 'Refund: Person 2' })).not.toBeUnavailable();
     });
   });
 
@@ -293,7 +293,7 @@ describe('<DataGrid>', () => {
       expect(onLoadMore).toHaveBeenCalledTimes(1);
 
       view.rerender(<Grid hasNextPage onLoadMore={onLoadMore} loadingMore />);
-      expect(screen.getByRole('button', { name: 'Loading more…' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Loading more…' })).toBeUnavailable();
     });
 
     it('offers no more pages on the last one', async () => {

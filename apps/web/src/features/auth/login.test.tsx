@@ -137,7 +137,7 @@ describe('the login page', () => {
     await submit(ADMIN, MOCK_PASSWORD);
 
     const button = await screen.findByRole('button', { name: 'Signing in…' });
-    expect(button).toBeDisabled();
+    expect(button).toBeUnavailable();
     await userEvent.click(button);
     answer();
     expect(await screen.findByRole('heading', HOME)).toBeInTheDocument();

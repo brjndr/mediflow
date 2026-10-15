@@ -199,7 +199,7 @@ export function BulkInvite({ roles }: { roles: StaffRole[] }) {
         {rows && (
           <Button
             variant="outline"
-            disabled={sending}
+            aria-disabled={sending || undefined}
             onClick={() => {
               forget();
               if (input.current) input.current.value = '';
@@ -246,7 +246,7 @@ export function BulkInvite({ roles }: { roles: StaffRole[] }) {
           {waiting.length > 0 && (
             <Button
               className="self-start"
-              disabled={sending}
+              aria-disabled={sending || undefined}
               aria-busy={sending}
               onClick={() => void send()}
             >

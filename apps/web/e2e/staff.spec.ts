@@ -189,6 +189,8 @@ test('invite and deactivate with the keyboard alone, never losing the place', as
   await expect(
     status(page, 'An invitation was sent to omar.sheikh@sample-hospital.test.'),
   ).toBeVisible();
+  // Busy while it sent, but never disabled: the keyboard is still on it, ready for the next.
+  await expect(page.getByRole('button', { name: 'Send invitation' })).toBeFocused();
 
   // A question first, focused; answered, the keyboard goes to what happened.
   await press(page, page.getByRole('link', { name: 'Back to the staff list' }));
@@ -236,5 +238,9 @@ test('add a department and a doctor with the keyboard alone, led to what was mis
   await page.getByLabel('Monday, session 1: to').fill('13:00');
   await press(page, page.getByRole('button', { name: 'Save working hours' }));
   await expect(status(page, 'The working hours were saved.')).toBeFocused();
+
+  // A button busy with its own change keeps focus, and says what it does now.
+  await press(page, page.getByRole('button', { name: 'Mark as inactive' }));
+  await expect(page.getByRole('button', { name: 'Make active again' })).toBeFocused();
   await expectNoAxeViolations(page);
 });

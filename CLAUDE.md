@@ -289,7 +289,7 @@ The target is **WCAG 2.2 AA** (decided 2026-10-14, #337), for every screen at ev
 - **The form kit** (`shared/ui/form`) for every form: labels, descriptions and errors are linked to the field, and the first invalid field gets focus on submit.
 - **`DataGrid`** for every list: headers, sorting and row actions are reachable and named, in the table and in the cards.
 - Semantic HTML first (`button` for actions, `a` for navigation, headings in order, one `h1` per screen), an accessible name for every icon-only control, and colour never the only signal (a status also has a word or an icon).
-- **Never leave focus on the page body.** When what had focus goes away (a form that closes, a row that leaves the list, a button that hides itself), move focus on deliberately. Use the next control or a focusable status line (`tabIndex={-1}` with the focus ring), through `focusIfLost` from `shared/lib/focus`, which never takes focus from where the person moved it. A status message is put into a region that is always on the page, never added with its text already in it. A control that disables itself while busy still drops focus in Chromium (#358).
+- **Never leave focus on the page body.** When what had focus goes away (a form that closes, a row that leaves the list, a button that hides itself), move focus on deliberately. Use the next control or a focusable status line (`tabIndex={-1}` with the focus ring), through `focusIfLost` from `shared/lib/focus`, which never takes focus from where the person moved it. A status message is put into a region that is always on the page, never added with its text already in it. A control that is busy, or does not apply right now, takes `aria-disabled`, never `disabled`: a disabled control loses focus in Chromium. `Button` then refuses the press, a form's submit by Enter included, so `SubmitButton` and `DataGrid` actions do this by themselves (#358). Keep `disabled` for a field that must not change (a fieldset while it saves) and for a control that cannot be used at all here.
 - The shell already gives a skip link, moves focus to `<main>` on navigation and checks the contrast of a hospital's colours (`shared/lib/theme.ts`). Keep them working.
 
 ### Checks every screen gets
@@ -733,7 +733,7 @@ The bundle budgets, code splitting, pagination, virtualization, rendering and as
 - Error boundaries per route and per widget so one failure doesn't blank the app.
 - Graceful degradation: if a non-critical widget fails (e.g. dashboard chart), the rest of the page still works.
 - Idempotency keys on create/payment mutations to prevent duplicates on retry or double-click.
-- Disable submit buttons while mutations are pending.
+- Mark submit buttons unavailable while mutations are pending (`SubmitButton` does: `aria-disabled`, which refuses a second press and keeps focus).
 
 ### Platform and backend expectations (see Technology Decisions)
 

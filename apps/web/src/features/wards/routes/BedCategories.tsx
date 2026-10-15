@@ -130,7 +130,12 @@ function CategoryForm({
           <SubmitButton pending={pending}>
             {category ? t('categories.editSubmit') : t('categories.addSubmit')}
           </SubmitButton>
-          <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
+          <Button
+            type="button"
+            variant="outline"
+            aria-disabled={pending || undefined}
+            onClick={onCancel}
+          >
             {t('categories.cancel')}
           </Button>
         </div>
@@ -301,7 +306,7 @@ function Categories() {
           <Button
             variant="outline"
             className="self-start"
-            disabled={change.isPending}
+            aria-disabled={change.isPending || undefined}
             onClick={() => open('new')}
           >
             {t('categories.addHeading')}

@@ -141,7 +141,7 @@ function Profile({ doctor }: { doctor: Doctor }) {
             <Button
               type="button"
               variant="outline"
-              disabled={update.isPending}
+              aria-disabled={update.isPending || undefined}
               onClick={() => start(null)}
             >
               {t('form.cancel')}
@@ -173,7 +173,7 @@ function Profile({ doctor }: { doctor: Doctor }) {
               <Button
                 data-opens="edit"
                 variant="outline"
-                disabled={update.isPending}
+                aria-disabled={update.isPending || undefined}
                 onClick={() => start(doctor)}
               >
                 {t('detail.edit')}
@@ -181,7 +181,7 @@ function Profile({ doctor }: { doctor: Doctor }) {
               <Button
                 data-toggle
                 variant="outline"
-                disabled={update.isPending}
+                aria-disabled={update.isPending || undefined}
                 onClick={() => setActive(!doctor.active)}
               >
                 {t(doctor.active ? 'detail.deactivate' : 'detail.activate')}

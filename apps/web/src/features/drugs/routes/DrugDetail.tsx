@@ -110,7 +110,12 @@ function EditForm({
       )}
       <div className="flex flex-wrap gap-3">
         <SubmitButton pending={pending}>{t('form.save')}</SubmitButton>
-        <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>
+        <Button
+          type="button"
+          variant="outline"
+          aria-disabled={saving || undefined}
+          onClick={onCancel}
+        >
           {t('form.cancel')}
         </Button>
       </div>
@@ -236,12 +241,16 @@ function Details({ drug, refreshFailed }: { drug: Drug; refreshFailed: boolean }
           </dl>
           <Can permission="drug:manage">
             <div className="flex flex-wrap gap-3">
-              <Button variant="outline" disabled={update.isPending} onClick={() => start(drug)}>
+              <Button
+                variant="outline"
+                aria-disabled={update.isPending || undefined}
+                onClick={() => start(drug)}
+              >
                 {t('detail.edit')}
               </Button>
               <Button
                 variant="outline"
-                disabled={update.isPending}
+                aria-disabled={update.isPending || undefined}
                 onClick={() => setArchived(!drug.archived)}
               >
                 {t(drug.archived ? 'detail.restore' : 'detail.archive')}
