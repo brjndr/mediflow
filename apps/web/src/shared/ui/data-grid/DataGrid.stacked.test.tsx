@@ -84,9 +84,6 @@ describe('<DataGrid> on a narrow screen', () => {
     expect(within(first!).getByText('Name:')).toHaveClass('sr-only');
     expect(first).toHaveAttribute('aria-setsize', '1000');
     expect(second).toHaveAttribute('aria-posinset', '2');
-    expect(document.querySelector('[aria-live="polite"]')).toHaveTextContent(
-      '3 of 1,000 rows shown.',
-    );
     await expectNoAxeViolations();
   });
 

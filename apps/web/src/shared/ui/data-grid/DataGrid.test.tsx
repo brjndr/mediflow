@@ -361,26 +361,26 @@ describe('<DataGrid> for a screen reader', () => {
       '3',
       '4',
     ]);
-    expect(announced()).toBe('3 of 1,000 rows shown.');
     await expectNoAxeViolations();
   });
 
   it('ignores a total smaller than the rows loaded', async () => {
     renderWithProviders(<Grid total={2} />);
     expect(await grid()).not.toHaveAttribute('aria-rowcount');
-    expect(announced()).toBe('3 rows shown.');
   });
 
-  it('announces loading, the rows, nothing found and the sort, and leaves focus where it was', async () => {
+  it('announces loading, nothing found and the sort, and leaves focus where it was', async () => {
     const view = renderWithProviders(<Grid status="loading" rows={[]} />);
     await grid();
     expect(announced()).toBe('Loading…');
 
     view.rerender(<Grid onSortChange={vi.fn()} />);
+    // How many rows there are is the screen's to say, in its own words: not said twice.
+    expect(announced()).toBe('');
     const button = within(screen.getByRole('columnheader', { name: 'Name' })).getByRole('button');
     button.focus();
     view.rerender(<Grid onSortChange={vi.fn()} sort={{ id: 'name', desc: false }} />);
-    expect(announced()).toBe('3 rows shown. Sorted by Name, ascending.');
+    expect(announced()).toBe('Sorted by Name, ascending.');
     expect(button).toHaveFocus();
 
     view.rerender(<Grid onSortChange={vi.fn()} hasNextPage onLoadMore={vi.fn()} loadingMore />);

@@ -22,7 +22,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { isAllowed, useAccessPolicy } from '@/access';
 import { cn } from '@/shared/lib/utils';
-import { useFormatters } from '@/tenancy';
 import type { Permission } from '@/shared/types';
 import { Button } from '@/shared/ui/button';
 import { Skeleton } from '@/shared/ui/skeleton';
@@ -42,8 +41,8 @@ import { Skeleton } from '@/shared/ui/skeleton';
  *
  * For a screen reader, a row is known by its position in the whole list ("row 240 of 1,000",
  * even when only a screenful is in the DOM), a value by its column in both layouts, and a change
- * (rows loaded, a new sort, nothing found) is said once in a polite live region, without moving
- * focus. An error is an alert.
+ * (loading, a new sort, nothing found) is said once in a polite live region, without moving
+ * focus. An error is an alert. How many rows there are is the screen's to say, in its words.
  */
 
 /** Below this width of its container the grid shows cards instead of a table. */
@@ -165,7 +164,6 @@ export function DataGrid<Row extends RowData>({
 }: DataGridProps<Row>) {
   const { t } = useTranslation();
   const policy = useAccessPolicy();
-  const format = useFormatters();
   const menuId = useId();
   const sortId = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -301,7 +299,8 @@ export function DataGrid<Row extends RowData>({
   const sortHeader = sort ? (byId.get(sort.id)?.header ?? sort.id) : '';
   const sortIsListed = sort !== null && sortable.some((column) => column.id === sort.id);
 
-  // Said by a screen reader when it changes. An error is not: its alert says it.
+  // Said by a screen reader when it changes. Not the number of rows: every screen says that in
+  // its own words ("48 appointments"), and it would be heard twice. Not an error: its alert says it.
   const announcement =
     status === 'loading'
       ? t('grid.loading')
@@ -311,23 +310,13 @@ export function DataGrid<Row extends RowData>({
           ? t('grid.loadingMore')
           : rows.length === 0
             ? t('grid.empty')
-            : [
-                moreOnServer && knownTotal !== undefined
-                  ? t('grid.rowsShownOf', {
-                      count: knownTotal,
-                      shown: format.number(rows.length),
-                      total: format.number(knownTotal),
-                    })
-                  : t('grid.rowsShown', { count: rows.length, shown: format.number(rows.length) }),
-                sort &&
-                  t('grid.sortedBy', {
-                    sort: t(sort.desc ? 'grid.sortDescending' : 'grid.sortAscending', {
-                      column: sortHeader,
-                    }),
+            : sort
+              ? t('grid.sortedBy', {
+                  sort: t(sort.desc ? 'grid.sortDescending' : 'grid.sortAscending', {
+                    column: sortHeader,
                   }),
-              ]
-                .filter(Boolean)
-                .join(' ');
+                })
+              : '';
   // Not role="status": the screen's own status messages keep that role to themselves.
   const live = (
     <div aria-live="polite" aria-atomic="true" className="sr-only">
