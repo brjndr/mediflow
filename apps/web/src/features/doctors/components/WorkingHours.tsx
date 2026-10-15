@@ -144,7 +144,12 @@ function HoursEditor({ availability, editable, pending, onSave, onEdit }: Editor
       </fieldset>
 
       {editable && (
-        <Button type="submit" className="self-start" disabled={pending} aria-busy={pending}>
+        <Button
+          type="submit"
+          className="self-start"
+          aria-disabled={pending || undefined}
+          aria-busy={pending}
+        >
           {t('hours.save')}
         </Button>
       )}

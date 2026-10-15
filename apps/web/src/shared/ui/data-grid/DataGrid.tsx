@@ -80,6 +80,11 @@ export interface GridAction<Row> {
   /** The action is offered only to users who hold this permission. */
   requires?: Permission;
   featureFlag?: string;
+  /**
+   * The action does not apply to the row, or cannot be used now (another is on its way). It
+   * stays focusable and says so (`aria-disabled`), so pressing it never loses the keyboard's
+   * place, and pressing it does nothing.
+   */
   disabled?: (row: Row) => boolean;
 }
 
@@ -356,7 +361,12 @@ export function DataGrid<Row extends RowData>({
   );
 
   const loadMore = status === 'ready' && hasNextPage && onLoadMore && (
-    <Button className="self-center" variant="outline" disabled={loadingMore} onClick={onLoadMore}>
+    <Button
+      className="self-center"
+      variant="outline"
+      aria-disabled={loadingMore || undefined}
+      onClick={onLoadMore}
+    >
       {loadingMore ? t('grid.loadingMore') : t('grid.loadMore')}
     </Button>
   );
@@ -480,7 +490,7 @@ export function DataGrid<Row extends RowData>({
                           <Button
                             key={action.id}
                             variant="outline"
-                            disabled={action.disabled?.(row)}
+                            aria-disabled={action.disabled?.(row) || undefined}
                             aria-label={name ? `${action.label}: ${name}` : undefined}
                             onClick={() => action.onSelect(row)}
                           >
@@ -638,7 +648,7 @@ export function DataGrid<Row extends RowData>({
                             key={action.id}
                             size="sm"
                             variant="ghost"
-                            disabled={action.disabled?.(row)}
+                            aria-disabled={action.disabled?.(row) || undefined}
                             aria-label={name ? `${action.label}: ${name}` : undefined}
                             onClick={() => action.onSelect(row)}
                           >

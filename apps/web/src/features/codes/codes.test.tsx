@@ -114,8 +114,8 @@ describe('favourites', () => {
         sent.push(`${request.method} ${new URL(request.url).pathname}`);
     });
     await openCodes();
-    expect(button('Add to favourites: I10')).toBeDisabled();
-    expect(button('Remove from favourites: A09')).toBeDisabled();
+    expect(button('Add to favourites: I10')).toBeUnavailable();
+    expect(button('Remove from favourites: A09')).toBeUnavailable();
 
     await userEvent.click(button('Add to favourites: A09'));
     await waitFor(() => expect(statuses()).toContain('A09 is now a favourite.'));

@@ -420,7 +420,7 @@ describe('redacting a version', () => {
   it('removes the name and the text of an older version, after saying what that means and asking why', async () => {
     await openTemplate(DISCHARGE);
     // The newest version is the template as it is used, so it is not offered.
-    expect(button('Redact: Version 3')).toBeDisabled();
+    expect(button('Redact: Version 3')).toBeUnavailable();
     await userEvent.click(button('Redact: Version 1'));
     const form = within(await screen.findByRole('region', { name: 'Redact Version 1' }));
     expect(form.getByText(/It cannot be undone/)).toBeInTheDocument();
@@ -440,8 +440,8 @@ describe('redacting a version', () => {
     expect(screen.queryByRole('region', { name: 'Redact Version 1' })).not.toBeInTheDocument();
     const versions = within(screen.getByRole('region', { name: 'Versions' }));
     expect(await versions.findByText('Redacted')).toBeInTheDocument();
-    expect(button('Redact: Version 1')).toBeDisabled();
-    expect(button('Redact: Version 2')).toBeEnabled();
+    expect(button('Redact: Version 1')).toBeUnavailable();
+    expect(button('Redact: Version 2')).not.toBeUnavailable();
 
     // What is left of it: who removed it, when and why, and none of its text.
     await userEvent.click(button('View: Version 1'));

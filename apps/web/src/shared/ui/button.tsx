@@ -1,10 +1,10 @@
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, MouseEvent } from 'react';
 import { cn } from '@/shared/lib/utils';
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
   {
     variants: {
       variant: {
@@ -29,9 +29,31 @@ const buttonVariants = cva(
 type ButtonProps = ComponentProps<'button'> &
   VariantProps<typeof buttonVariants> & { asChild?: boolean };
 
-function Button({ className, variant, size, asChild = false, ...props }: ButtonProps) {
+/**
+ * A control that is busy, or that does not apply right now, takes `aria-disabled` rather than
+ * `disabled`: a disabled control loses focus (the browser moves it to the page), so a keyboard
+ * user pressing Save would be sent back to the top. With `aria-disabled` it keeps focus, says it
+ * is unavailable, and does nothing when pressed. That includes submitting its form, by a press or
+ * by Enter in a field, since both go through a click this cancels. The click is stopped before
+ * any handler of its own runs, so with `asChild` the child's own `onClick` does not run either.
+ */
+function Button({ className, variant, size, asChild = false, onClick, ...props }: ButtonProps) {
   const Comp = asChild ? Slot : 'button';
-  return <Comp className={cn(buttonVariants({ variant, size, className }))} {...props} />;
+  const unavailable = props['aria-disabled'] === true || props['aria-disabled'] === 'true';
+  return (
+    <Comp
+      className={cn(buttonVariants({ variant, size, className }))}
+      onClick={unavailable ? undefined : onClick}
+      {...props}
+      {...(unavailable && { onClickCapture: refuse })}
+    />
+  );
+}
+
+/** Cancels a press of an unavailable button: no action, no form submitted, nothing followed. */
+function refuse(event: MouseEvent) {
+  event.preventDefault();
+  event.stopPropagation();
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

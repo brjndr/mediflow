@@ -36,7 +36,7 @@ export default function NoticesPage() {
           <Button
             size="sm"
             variant="outline"
-            disabled={notices.isFetching}
+            aria-disabled={notices.isFetching || undefined}
             onClick={() => void notices.refetch()}
           >
             {t('retry')}
@@ -73,7 +73,7 @@ export default function NoticesPage() {
         <Button
           className="self-center"
           variant="outline"
-          disabled={notices.isFetchingNextPage}
+          aria-disabled={notices.isFetchingNextPage || undefined}
           onClick={() => void notices.fetchNextPage()}
         >
           {notices.isFetchingNextPage ? t('loadingMore') : t('loadMore')}

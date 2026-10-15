@@ -195,7 +195,7 @@ function ComponentsField({ known }: { known: LabTestComponent[] }) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={index === 0}
+                  aria-disabled={index === 0 || undefined}
                   aria-label={t('form.moveUp', { name })}
                   onClick={() => move(index, -1)}
                 >
@@ -205,7 +205,7 @@ function ComponentsField({ known }: { known: LabTestComponent[] }) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={index === ids.length - 1}
+                  aria-disabled={index === ids.length - 1 || undefined}
                   aria-label={t('form.moveDown', { name })}
                   onClick={() => move(index, 1)}
                 >
@@ -271,7 +271,7 @@ function ComponentsField({ known }: { known: LabTestComponent[] }) {
         <Button
           type="button"
           variant="outline"
-          disabled={!chosen || ids.length >= COMPONENTS_MAX}
+          aria-disabled={!chosen || ids.length >= COMPONENTS_MAX || undefined}
           onClick={add}
         >
           {t('form.addComponent')}

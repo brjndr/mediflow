@@ -60,7 +60,12 @@ export function DepartmentForm({
         />
         <div className="flex flex-wrap gap-3">
           <SubmitButton pending={pending}>{t('form.save')}</SubmitButton>
-          <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
+          <Button
+            type="button"
+            variant="outline"
+            aria-disabled={pending || undefined}
+            onClick={onCancel}
+          >
             {t('form.cancel')}
           </Button>
         </div>

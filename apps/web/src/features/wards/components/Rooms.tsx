@@ -59,7 +59,12 @@ function Buttons({
   return (
     <div className="flex flex-wrap gap-3">
       <SubmitButton pending={pending}>{submit}</SubmitButton>
-      <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
+      <Button
+        type="button"
+        variant="outline"
+        aria-disabled={pending || undefined}
+        onClick={onCancel}
+      >
         {t('rooms.cancel')}
       </Button>
     </div>
@@ -436,7 +441,7 @@ function RoomCard({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={busy}
+                aria-disabled={busy || undefined}
                 onClick={() =>
                   act(
                     { type: 'restoreRoom', roomId: room.id },
@@ -451,7 +456,7 @@ function RoomCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={busy}
+                  aria-disabled={busy || undefined}
                   onClick={() => open({ kind: 'addBed', roomId: room.id })}
                 >
                   {t('beds.add', { room: room.name })}
@@ -459,7 +464,7 @@ function RoomCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={busy}
+                  aria-disabled={busy || undefined}
                   onClick={() => open({ kind: 'renameRoom', room })}
                 >
                   {t('rooms.rename', { name: room.name })}
@@ -467,7 +472,7 @@ function RoomCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={busy}
+                  aria-disabled={busy || undefined}
                   onClick={() =>
                     act(
                       { type: 'archiveRoom', roomId: room.id },
@@ -637,7 +642,7 @@ export function Rooms({ detail }: { detail: WardDetail }) {
           <Button
             variant="outline"
             className="self-start"
-            disabled={change.isPending || shown !== null}
+            aria-disabled={change.isPending || shown !== null || undefined}
             onClick={() => open({ kind: 'addRoom' })}
           >
             {t('rooms.add')}

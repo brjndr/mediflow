@@ -19,7 +19,7 @@ export function SignOutButton() {
         variant="ghost"
         size="sm"
         onClick={() => signOut.mutate()}
-        disabled={signOut.isPending}
+        aria-disabled={signOut.isPending || undefined}
         aria-busy={signOut.isPending}
       >
         <LogOut aria-hidden="true" className="size-4" />

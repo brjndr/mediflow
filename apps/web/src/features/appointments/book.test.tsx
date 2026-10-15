@@ -526,7 +526,7 @@ describe('the booking form', () => {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /^Doctor/ }), 'doc_h_11');
     release();
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Book' })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Book' })).not.toBeUnavailable());
     expect(screen.queryByText(/Someone booked that time/)).not.toBeInTheDocument();
   });
 

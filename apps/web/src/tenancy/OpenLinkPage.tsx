@@ -73,7 +73,10 @@ export function OpenLinkPage() {
         title={t('link.errorTitle')}
         description={t(errorMessageKey(open.error))}
         actions={
-          <Button onClick={() => mutate({ kind, id, path })} disabled={open.isPending}>
+          <Button
+            onClick={() => mutate({ kind, id, path })}
+            aria-disabled={open.isPending || undefined}
+          >
             {t('link.retry')}
           </Button>
         }

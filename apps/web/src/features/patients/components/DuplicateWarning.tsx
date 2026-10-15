@@ -26,10 +26,10 @@ export function DuplicateWarning({
       </div>
       <DuplicateMatchList matches={matches} />
       <div className="flex flex-wrap gap-3">
-        <Button variant="outline" disabled={pending} onClick={onBack}>
+        <Button variant="outline" aria-disabled={pending || undefined} onClick={onBack}>
           {t('duplicate.back')}
         </Button>
-        <Button disabled={pending} onClick={onRegisterAnyway}>
+        <Button aria-disabled={pending || undefined} onClick={onRegisterAnyway}>
           {t('duplicate.registerAnyway')}
         </Button>
       </div>

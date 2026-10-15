@@ -101,7 +101,12 @@ function EditForm({
       />
       <div className="flex flex-wrap gap-3">
         <SubmitButton pending={pending}>{t('form.save')}</SubmitButton>
-        <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
+        <Button
+          type="button"
+          variant="outline"
+          aria-disabled={pending || undefined}
+          onClick={onCancel}
+        >
           {t('form.cancel')}
         </Button>
       </div>
@@ -171,7 +176,12 @@ function RedactForm({
         </div>
         <div className="flex flex-wrap gap-3">
           <SubmitButton pending={pending}>{t('versions.redactConfirm')}</SubmitButton>
-          <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>
+          <Button
+            type="button"
+            variant="outline"
+            aria-disabled={pending || undefined}
+            onClick={onCancel}
+          >
             {t('versions.redactCancel')}
           </Button>
         </div>
@@ -469,13 +479,17 @@ function Loaded({ detail }: { detail: Detail }) {
             <Can permission="template:manage">
               <div className="flex flex-wrap gap-3">
                 {!template.archived && (
-                  <Button variant="outline" disabled={save.isPending} onClick={() => start(detail)}>
+                  <Button
+                    variant="outline"
+                    aria-disabled={save.isPending || undefined}
+                    onClick={() => start(detail)}
+                  >
                     {t('detail.edit')}
                   </Button>
                 )}
                 <Button
                   variant="outline"
-                  disabled={save.isPending}
+                  aria-disabled={save.isPending || undefined}
                   onClick={() => setArchived(!template.archived)}
                 >
                   {t(template.archived ? 'detail.restore' : 'detail.archive')}

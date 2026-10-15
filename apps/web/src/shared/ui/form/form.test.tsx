@@ -153,7 +153,7 @@ describe('form kit', () => {
     it('is disabled while a mutation is pending', async () => {
       renderWithProviders(<Example onSubmit={vi.fn()} pending />, { session: null });
       const button = await screen.findByRole('button', { name: 'Save' });
-      expect(button).toBeDisabled();
+      expect(button).toBeUnavailable();
       expect(button).toHaveAttribute('aria-busy', 'true');
     });
 
@@ -170,11 +170,42 @@ describe('form kit', () => {
       const button = screen.getByRole('button', { name: 'Save' });
 
       await userEvent.dblClick(button);
-      await waitFor(() => expect(button).toBeDisabled());
+      await waitFor(() => expect(button).toBeUnavailable());
       expect(onSubmit).toHaveBeenCalledTimes(1);
 
       finish();
-      await waitFor(() => expect(button).toBeEnabled());
+      await waitFor(() => expect(button).not.toBeUnavailable());
+    });
+
+    it('keeps focus while sending, and Enter in a field sends nothing more', async () => {
+      let finish: () => void = () => {};
+      const onSubmit = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+          }),
+      );
+      renderWithProviders(<Example onSubmit={onSubmit} />, { session: null });
+      await fill();
+      const button = screen.getByRole('button', { name: 'Save' });
+
+      button.focus();
+      await userEvent.keyboard('{Enter}');
+      await waitFor(() => expect(button).toBeUnavailable());
+      // Still where the keyboard left it: a disabled button would have lost focus to the page.
+      expect(button).toHaveFocus();
+      expect(button).toHaveAttribute('aria-busy', 'true');
+
+      // Enter in a field submits through the button, which refuses while busy.
+      await userEvent.click(field('Full name'));
+      await userEvent.keyboard('{Enter}');
+      await userEvent.click(button);
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+
+      finish();
+      await waitFor(() => expect(button).not.toBeUnavailable());
+      await userEvent.keyboard('{Enter}');
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
     });
   });
 });

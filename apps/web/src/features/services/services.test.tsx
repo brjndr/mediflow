@@ -227,7 +227,7 @@ describe('a service', () => {
     expect(await screen.findByText(/Someone else changed this service/)).toBeInTheDocument();
     expect(textbox(/^Name/)).toHaveValue('OPD consultation');
 
-    await waitFor(() => expect(button('Save service')).toBeEnabled());
+    await waitFor(() => expect(button('Save service')).not.toBeUnavailable());
     await userEvent.click(button('Save service'));
 
     await waitFor(() => expect(statuses()).toContain('The service was saved.'));
@@ -295,7 +295,7 @@ describe('prices', () => {
     expect(screen.getByText('No end date')).toBeInTheDocument();
     // History is not something to withdraw.
     for (const withdraw of screen.getAllByRole('button', { name: /^Withdraw/ })) {
-      expect(withdraw).toBeDisabled();
+      expect(withdraw).toBeUnavailable();
     }
   });
 
@@ -375,7 +375,7 @@ describe('prices', () => {
     await openService(ECG);
     const scheduled = screen
       .getAllByRole('button', { name: /^Withdraw/ })
-      .filter((withdraw) => !(withdraw as HTMLButtonElement).disabled);
+      .filter((withdraw) => withdraw.getAttribute('aria-disabled') !== 'true');
     expect(scheduled).toHaveLength(1);
     await userEvent.click(scheduled[0] as HTMLElement);
 

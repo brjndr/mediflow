@@ -26,7 +26,7 @@ export function NoticeItem({ notice, onArchive, archiving }: NoticeItemProps) {
         <Button
           size="sm"
           variant="outline"
-          disabled={archiving}
+          aria-disabled={archiving || undefined}
           aria-label={t('archiveLabel', { title: notice.title })}
           onClick={() => onArchive(notice.id)}
         >

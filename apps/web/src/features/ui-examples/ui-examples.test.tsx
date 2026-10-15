@@ -114,9 +114,9 @@ describe('grid example', () => {
     expect(screen.getByRole('columnheader', { name: 'Balance' })).toBeInTheDocument();
     // Amounts are formatted for the hospital: rupees, with Indian digit grouping.
     expect(within(bodyRows()[1] as HTMLElement).getByText('₹246.90')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Refund: Bilal Silva 2' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Refund: Bilal Silva 2' })).not.toBeUnavailable();
     // Nothing to refund on a zero balance.
-    expect(screen.getByRole('button', { name: 'Refund: Asha Verma 1' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Refund: Asha Verma 1' })).toBeUnavailable();
     await userEvent.click(screen.getByRole('button', { name: 'Open: Bilal Silva 2' }));
     expect(screen.getByRole('status')).toHaveTextContent('Last action: Open on Bilal Silva 2');
     admin.unmount();

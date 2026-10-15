@@ -210,7 +210,7 @@ describe('a ward', () => {
     // Their name is in the field this person did not touch.
     await waitFor(() => expect(textbox(/^Name/)).toHaveValue('General ward Alpha'));
 
-    await waitFor(() => expect(button('Save ward')).toBeEnabled());
+    await waitFor(() => expect(button('Save ward')).not.toBeUnavailable());
     await userEvent.click(button('Save ward'));
     await waitFor(() => expect(statuses()).toContain('The ward was saved.'));
     expect(screen.getByRole('heading', { name: 'General ward Alpha' })).toBeInTheDocument();
@@ -403,19 +403,19 @@ describe('beds', () => {
     await openWard();
 
     // Occupied: admissions have it. Not blocked, not archived, not put back in use.
-    expect(button('Block: GW-A-01')).toBeDisabled();
-    expect(button('Archive: GW-A-01')).toBeDisabled();
-    expect(button('Put back in use: GW-A-01')).toBeDisabled();
+    expect(button('Block: GW-A-01')).toBeUnavailable();
+    expect(button('Archive: GW-A-01')).toBeUnavailable();
+    expect(button('Put back in use: GW-A-01')).toBeUnavailable();
     // Being cleaned: housekeeping has it.
-    expect(button('Block: GW-A-03')).toBeDisabled();
-    expect(button('Put back in use: GW-A-03')).toBeDisabled();
+    expect(button('Block: GW-A-03')).toBeUnavailable();
+    expect(button('Put back in use: GW-A-03')).toBeUnavailable();
     // Blocked: put back in use, not blocked twice.
-    expect(button('Block: GW-A-04')).toBeDisabled();
-    expect(button('Put back in use: GW-A-04')).toBeEnabled();
+    expect(button('Block: GW-A-04')).toBeUnavailable();
+    expect(button('Put back in use: GW-A-04')).not.toBeUnavailable();
     // Available.
-    expect(button('Block: GW-A-05')).toBeEnabled();
-    expect(button('Put back in use: GW-A-05')).toBeDisabled();
-    expect(button('Restore: GW-A-05')).toBeDisabled();
+    expect(button('Block: GW-A-05')).not.toBeUnavailable();
+    expect(button('Put back in use: GW-A-05')).toBeUnavailable();
+    expect(button('Restore: GW-A-05')).toBeUnavailable();
   });
 
   it('are not blocked when a patient was admitted to the bed meanwhile', async () => {
@@ -475,12 +475,12 @@ describe('beds', () => {
     await openWard(W07);
     await userEvent.click(button('Block: W-07-03'));
 
-    expect(button('Archive: W-07-01')).toBeDisabled();
-    expect(button('Change: W-07-01')).toBeDisabled();
-    expect(button('Archive Hall 1')).toBeDisabled();
-    expect(button('Add a room')).toBeDisabled();
+    expect(button('Archive: W-07-01')).toBeUnavailable();
+    expect(button('Change: W-07-01')).toBeUnavailable();
+    expect(button('Archive Hall 1')).toBeUnavailable();
+    expect(button('Add a room')).toBeUnavailable();
     await userEvent.click(button('Cancel'));
-    expect(button('Archive: W-07-01')).toBeEnabled();
+    expect(button('Archive: W-07-01')).not.toBeUnavailable();
   });
 
   it('say so when the bed categories cannot be loaded, with a way to ask again', async () => {

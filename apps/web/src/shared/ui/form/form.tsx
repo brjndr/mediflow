@@ -362,8 +362,10 @@ export function CheckboxField<Values extends FieldValues = FieldValues>({
 }
 
 /**
- * The form's submit button. It is disabled while the form is submitting or while `pending` is
- * true (a mutation in flight), so a double click cannot send the same thing twice.
+ * The form's submit button. While the form is submitting, or while `pending` is true (a mutation
+ * in flight), it is unavailable (`aria-disabled`, `aria-busy`): it keeps focus, and `Button`
+ * refuses a second press and a second submit by Enter in a field, so nothing is sent twice. A
+ * `disabled` given by the caller becomes `aria-disabled` too, and the button stays focusable.
  */
 export function SubmitButton({
   pending = false,
@@ -372,8 +374,11 @@ export function SubmitButton({
 }: Omit<ComponentProps<typeof Button>, 'type'> & { pending?: boolean }) {
   const { formState } = useFormContext();
   const busy = pending || formState.isSubmitting;
+  const { disabled, ...rest } = button;
+  // Not `disabled`: the button keeps focus while its form is sent, and refuses a second send
+  // (see Button).
   return (
-    <Button type="submit" disabled={busy || button.disabled} aria-busy={busy} {...button}>
+    <Button type="submit" {...rest} aria-disabled={busy || disabled || undefined} aria-busy={busy}>
       {children}
     </Button>
   );

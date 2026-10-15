@@ -107,7 +107,7 @@ function SessionRow({ session, tenantId }: { session: AccountSession; tenantId: 
         <Button
           type="button"
           variant="outline"
-          disabled={revoke.isPending}
+          aria-disabled={revoke.isPending || undefined}
           onClick={() => revoke.mutate(session.id)}
         >
           {t('profile.revoke')}

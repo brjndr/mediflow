@@ -26,7 +26,7 @@ export function HospitalPicker() {
               className="w-full justify-start"
               variant="outline"
               size="lg"
-              disabled={switchTenant.isPending}
+              aria-disabled={switchTenant.isPending || undefined}
               onClick={() => switchTenant.mutate(membership.tenantId)}
             >
               {membership.tenantName}

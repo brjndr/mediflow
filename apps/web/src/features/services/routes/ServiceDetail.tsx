@@ -97,7 +97,12 @@ function EditForm({
       )}
       <div className="flex flex-wrap gap-3">
         <SubmitButton pending={pending}>{t('form.save')}</SubmitButton>
-        <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>
+        <Button
+          type="button"
+          variant="outline"
+          aria-disabled={saving || undefined}
+          onClick={onCancel}
+        >
           {t('form.cancel')}
         </Button>
       </div>
@@ -224,12 +229,16 @@ function Details({ service, refreshFailed }: { service: Service; refreshFailed: 
           </dl>
           <Can permission="service:manage">
             <div className="flex flex-wrap gap-3">
-              <Button variant="outline" disabled={update.isPending} onClick={() => start(service)}>
+              <Button
+                variant="outline"
+                aria-disabled={update.isPending || undefined}
+                onClick={() => start(service)}
+              >
                 {t('detail.edit')}
               </Button>
               <Button
                 variant="outline"
-                disabled={update.isPending}
+                aria-disabled={update.isPending || undefined}
                 onClick={() => setArchived(!service.archived)}
               >
                 {t(service.archived ? 'detail.restore' : 'detail.archive')}

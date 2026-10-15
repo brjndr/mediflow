@@ -289,7 +289,7 @@ export default function AppointmentDetail() {
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
-                disabled={change.isPending}
+                aria-disabled={change.isPending || undefined}
                 onClick={() => void send({ kind: panel, body: { version } })}
               >
                 {change.isPending ? t('change.saving') : t(`change.${panel}.submit`)}
@@ -297,7 +297,7 @@ export default function AppointmentDetail() {
               <Button
                 type="button"
                 variant="outline"
-                disabled={change.isPending}
+                aria-disabled={change.isPending || undefined}
                 onClick={() => open(undefined)}
               >
                 {t('change.back')}
