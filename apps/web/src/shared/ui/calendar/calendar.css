@@ -102,15 +102,17 @@
   color: var(--foreground);
 }
 
+/* Struck through, in the full text colour: muted text on the muted fill is below 4.5:1. */
 .cal .cal-event-struck {
   background: var(--muted);
   border-color: var(--border);
-  color: var(--muted-foreground);
+  color: var(--foreground);
   text-decoration: line-through;
 }
 
 .cal .cal-event-danger {
   background: color-mix(in oklch, var(--destructive) 12%, var(--background));
   border-color: var(--destructive);
-  color: var(--destructive);
+  /* The red alone is below 4.5:1 on its own tint; darkened (lightened in dark mode) to pass. */
+  color: color-mix(in oklch, var(--destructive) 70%, var(--foreground));
 }

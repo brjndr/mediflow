@@ -1,12 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
-import { goTo } from './support';
-
-/** axe in a real browser, which (unlike the unit tests) can also check colour contrast. */
-async function expectNoAxeViolations(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations.map((v) => `${v.id}: ${v.help} (${v.nodes.length} nodes)`)).toEqual([]);
-}
+import { expect, test } from '@playwright/test';
+import { expectNoAxeViolations, goTo } from './support';
 
 test('app loads and reaches the (mock) API', async ({ page }) => {
   await page.goto('/');

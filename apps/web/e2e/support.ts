@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
@@ -47,4 +48,29 @@ export async function expectNoSidewaysScroll(page: Page): Promise<void> {
     `document.documentElement.scrollWidth - document.documentElement.clientWidth`,
   );
   expect(overflow, 'the page is wider than the screen').toBeLessThanOrEqual(0);
+}
+
+/**
+ * The WCAG levels the app is held to, 2.2 AA and all below it (see Accessibility in CLAUDE.md),
+ * and axe's best practices, which include one h1 per screen and headings in order.
+ */
+const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
+
+/**
+ * axe in a real browser, which (unlike the unit tests) also checks colour contrast. `disable`
+ * turns rules off for this one check; each use names the accessibility issue that will fix it.
+ */
+export async function expectNoAxeViolations(
+  page: Page,
+  { disable = [] }: { disable?: string[] } = {},
+): Promise<void> {
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(AXE_TAGS)
+    .disableRules(disable)
+    .analyze();
+  expect(
+    violations.map(
+      (v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`,
+    ),
+  ).toEqual([]);
 }

@@ -18,6 +18,8 @@ export function SystemPage({ title, description, actions, fullScreen, alert }: S
   return (
     <Wrapper
       role={alert ? 'alert' : undefined}
+      // Lets the end-to-end suite tell a system page from the screen it stands in for.
+      data-system-page=""
       className={cn(
         'mx-auto flex w-full max-w-md flex-1 flex-col items-start justify-center gap-3 px-4 py-10',
         fullScreen && 'min-h-dvh',

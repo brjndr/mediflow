@@ -1,17 +1,11 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoSidewaysScroll, gridIsStacked } from './support';
+import { expectNoAxeViolations, expectNoSidewaysScroll, gridIsStacked } from './support';
 
 /**
  * The shared building blocks in a real browser, on their example pages. These cover what the unit
  * tests cannot: real layout (charts draw, long grids virtualise and scroll), a real editing
  * surface, colour contrast, and which code is downloaded when.
  */
-
-async function expectNoAxeViolations(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations.map((v) => `${v.id}: ${v.help} (${v.nodes.length} nodes)`)).toEqual([]);
-}
 
 /** Script files requested so far, by the name of the chunk. */
 function trackScripts(page: Page) {
