@@ -73,6 +73,23 @@ describe('<DataGrid> on a narrow screen', () => {
     await expectNoAxeViolations();
   });
 
+  it('labels every value with its column, the title too, and gives each card its place in the whole list', async () => {
+    renderWithProviders(
+      <main>
+        <Grid total={1000} />
+      </main>,
+    );
+    const [first, second] = await cards();
+    // The title says its column to a screen reader only; the others have theirs on screen.
+    expect(within(first!).getByText('Name:')).toHaveClass('sr-only');
+    expect(first).toHaveAttribute('aria-setsize', '1000');
+    expect(second).toHaveAttribute('aria-posinset', '2');
+    expect(document.querySelector('[aria-live="polite"]')).toHaveTextContent(
+      '3 of 1,000 rows shown.',
+    );
+    await expectNoAxeViolations();
+  });
+
   it('keeps masked values masked and leaves out a column the user may not see', async () => {
     renderWithProviders(<Grid />, { session: undefined });
     const [first] = await cards();

@@ -342,6 +342,99 @@ describe('<DataGrid>', () => {
   });
 });
 
+describe('<DataGrid> for a screen reader', () => {
+  // The grid's own live region: said once when it changes, never moving focus.
+  const announced = () => document.querySelector('[aria-live="polite"]')?.textContent;
+
+  it('gives each row its place in the whole list when more rows are on the server', async () => {
+    renderWithProviders(
+      <main>
+        <Grid total={1000} hasNextPage onLoadMore={vi.fn()} />
+      </main>,
+    );
+    const table = await grid();
+    // The header row is row 1, so the first row of data is row 2 of 1,001.
+    expect(table).toHaveAttribute('aria-rowcount', '1001');
+    expect(screen.getAllByRole('row').map((row) => row.getAttribute('aria-rowindex'))).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+    ]);
+    expect(announced()).toBe('3 of 1,000 rows shown.');
+    await expectNoAxeViolations();
+  });
+
+  it('ignores a total smaller than the rows loaded', async () => {
+    renderWithProviders(<Grid total={2} />);
+    expect(await grid()).not.toHaveAttribute('aria-rowcount');
+    expect(announced()).toBe('3 rows shown.');
+  });
+
+  it('announces loading, the rows, nothing found and the sort, and leaves focus where it was', async () => {
+    const view = renderWithProviders(<Grid status="loading" rows={[]} />);
+    await grid();
+    expect(announced()).toBe('Loading…');
+
+    view.rerender(<Grid onSortChange={vi.fn()} />);
+    const button = within(screen.getByRole('columnheader', { name: 'Name' })).getByRole('button');
+    button.focus();
+    view.rerender(<Grid onSortChange={vi.fn()} sort={{ id: 'name', desc: false }} />);
+    expect(announced()).toBe('3 rows shown. Sorted by Name, ascending.');
+    expect(button).toHaveFocus();
+
+    view.rerender(<Grid onSortChange={vi.fn()} hasNextPage onLoadMore={vi.fn()} loadingMore />);
+    expect(announced()).toBe('Loading more…');
+
+    view.rerender(<Grid rows={[]} />);
+    expect(announced()).toBe('No rows to show.');
+  });
+
+  it('leaves an error to its alert, so it is said once', async () => {
+    renderWithProviders(<Grid status="error" rows={[]} errorMessage="The system is busy." />);
+    await grid();
+    expect(screen.getByRole('alert')).toHaveTextContent('The system is busy.');
+    expect(announced()).toBe('');
+  });
+
+  it('names the row in an action by its first column when the screen gives no row label', async () => {
+    renderWithProviders(
+      <Grid rowLabel={undefined} actions={[{ id: 'open', label: 'Open', onSelect: vi.fn() }]} />,
+    );
+    await grid();
+    expect(screen.getByRole('button', { name: 'Open: Person 2' })).toBeInTheDocument();
+  });
+
+  it('reaches a link in a row and the row actions after it from the keyboard', async () => {
+    const onArchive = vi.fn();
+    const linked: GridColumn<Person>[] = [
+      {
+        id: 'name',
+        header: 'Name',
+        value: (row) => row.name,
+        hideable: false,
+        render: (row, text) => <a href={`#${row.id}`}>{text}</a>,
+      },
+    ];
+    renderWithProviders(
+      <Grid
+        rows={people(2)}
+        columns={linked}
+        actions={[{ id: 'archive', label: 'Archive', onSelect: onArchive }]}
+      />,
+    );
+    await grid();
+    await userEvent.tab();
+    expect(screen.getByRole('link', { name: 'Person 1' })).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'Archive: Person 1' })).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    expect(onArchive).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }));
+    await userEvent.tab();
+    expect(screen.getByRole('link', { name: 'Person 2' })).toHaveFocus();
+  });
+});
+
 describe('masks', () => {
   it('keeps only the last characters readable', () => {
     expect(maskPhone('+91 98765 43210')).toBe('•••••••••3210');

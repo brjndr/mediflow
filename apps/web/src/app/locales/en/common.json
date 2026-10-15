@@ -157,7 +157,14 @@
     "sortBy": "Sort by",
     "sortDefault": "Default order",
     "sortAscending": "{{column}}, ascending",
-    "sortDescending": "{{column}}, descending"
+    "sortDescending": "{{column}}, descending",
+    "sortedBy": "Sorted by {{sort}}.",
+    "loading": "Loading…",
+    "empty": "No rows to show.",
+    "rowsShown_one": "{{shown}} row shown.",
+    "rowsShown_other": "{{shown}} rows shown.",
+    "rowsShownOf_one": "{{shown}} of {{total}} row shown.",
+    "rowsShownOf_other": "{{shown}} of {{total}} rows shown."
   },
   "validation": {
     "required": "This field is required.",

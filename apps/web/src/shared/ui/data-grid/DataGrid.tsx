@@ -22,6 +22,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { isAllowed, useAccessPolicy } from '@/access';
 import { cn } from '@/shared/lib/utils';
+import { useFormatters } from '@/tenancy';
 import type { Permission } from '@/shared/types';
 import { Button } from '@/shared/ui/button';
 import { Skeleton } from '@/shared/ui/skeleton';
@@ -38,6 +39,11 @@ import { Skeleton } from '@/shared/ui/skeleton';
  * the first column as the card's title, the others as labelled lines, the actions as buttons
  * underneath, and the sort as a list to choose from. Nothing scrolls sideways. The switch follows
  * the width of the grid's own container, so a screen does nothing to get it.
+ *
+ * For a screen reader, a row is known by its position in the whole list ("row 240 of 1,000",
+ * even when only a screenful is in the DOM), a value by its column in both layouts, and a change
+ * (rows loaded, a new sort, nothing found) is said once in a polite live region, without moving
+ * focus. An error is an alert.
  */
 
 /** Below this width of its container the grid shows cards instead of a table. */
@@ -94,6 +100,11 @@ interface DataGridProps<Row> {
   onSortChange?: (sort: GridSort | null) => void;
   actions?: GridAction<Row>[];
   hasNextPage?: boolean;
+  /**
+   * How many rows match on the server, when the screen knows. A screen reader then gives a row's
+   * place in the whole list, not only in the rows loaded so far.
+   */
+  total?: number;
   onLoadMore?: () => void;
   loadingMore?: boolean;
   /** Rows are virtualised (only those in view are in the DOM) above this many. */
@@ -146,6 +157,7 @@ export function DataGrid<Row extends RowData>({
   onSortChange,
   actions = [],
   hasNextPage = false,
+  total,
   onLoadMore,
   loadingMore = false,
   virtualizeAbove = 100,
@@ -153,6 +165,7 @@ export function DataGrid<Row extends RowData>({
 }: DataGridProps<Row>) {
   const { t } = useTranslation();
   const policy = useAccessPolicy();
+  const format = useFormatters();
   const menuId = useId();
   const sortId = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -255,6 +268,13 @@ export function DataGrid<Row extends RowData>({
   const shown = window
     ? window.map((item) => ({ row: rows[item.index], index: item.index }))
     : rows.map((row, index) => ({ row, index }));
+  // A total smaller than what is loaded is stale (rows were added meanwhile): not used.
+  const knownTotal = total !== undefined && total >= rows.length ? total : undefined;
+  const moreOnServer = knownTotal !== undefined && knownTotal > rows.length;
+  // The length of the whole list, given to a screen reader when not every row of it is in the
+  // DOM: only a screenful is (virtual), or more rows are still on the server.
+  const rowCount =
+    status === 'ready' && (virtual || moreOnServer) ? (knownTotal ?? rows.length) : undefined;
 
   const text = (column: GridColumn<Row>, row: Row) => {
     const raw = column.value(row);
@@ -280,6 +300,44 @@ export function DataGrid<Row extends RowData>({
   const currentSort = sort ? `${sort.desc ? 'desc' : 'asc'}:${sort.id}` : '';
   const sortHeader = sort ? (byId.get(sort.id)?.header ?? sort.id) : '';
   const sortIsListed = sort !== null && sortable.some((column) => column.id === sort.id);
+
+  // Said by a screen reader when it changes. An error is not: its alert says it.
+  const announcement =
+    status === 'loading'
+      ? t('grid.loading')
+      : status === 'error'
+        ? ''
+        : loadingMore
+          ? t('grid.loadingMore')
+          : rows.length === 0
+            ? t('grid.empty')
+            : [
+                moreOnServer && knownTotal !== undefined
+                  ? t('grid.rowsShownOf', {
+                      count: knownTotal,
+                      shown: format.number(rows.length),
+                      total: format.number(knownTotal),
+                    })
+                  : t('grid.rowsShown', { count: rows.length, shown: format.number(rows.length) }),
+                sort &&
+                  t('grid.sortedBy', {
+                    sort: t(sort.desc ? 'grid.sortDescending' : 'grid.sortAscending', {
+                      column: sortHeader,
+                    }),
+                  }),
+              ]
+                .filter(Boolean)
+                .join(' ');
+  // Not role="status": the screen's own status messages keep that role to themselves.
+  const live = (
+    <div aria-live="polite" aria-atomic="true" className="sr-only">
+      {announcement}
+    </div>
+  );
+  // What an action's name ends with, so "Archive" says which row. The first column names the
+  // row when the screen gives nothing better.
+  const nameOf = (row: Row) =>
+    rowLabel?.(row) ?? (titleColumn ? text(titleColumn, row) : undefined);
 
   const columnsMenu = menuColumns.length > 0 && (
     <details className="relative">
@@ -317,6 +375,7 @@ export function DataGrid<Row extends RowData>({
   if (stacked) {
     return (
       <div ref={root} className="flex flex-col gap-2">
+        {live}
         <div className="flex flex-wrap items-end justify-between gap-2">
           {sortable.length > 0 && (
             <label htmlFor={sortId} className="flex min-w-0 flex-col gap-1 text-sm">
@@ -392,18 +451,22 @@ export function DataGrid<Row extends RowData>({
               {padTop > 0 && <li aria-hidden style={{ height: padTop }} />}
               {shown.map(({ row, index }) => {
                 if (row === undefined) return null;
-                const name = rowLabel?.(row);
+                const name = nameOf(row);
                 return (
                   <li
                     key={rowId(row)}
                     ref={virtual ? virtualizer.measureElement : undefined}
                     data-index={index}
                     // Only a screenful is in the DOM: say how long the list really is.
-                    aria-setsize={virtual ? rows.length : undefined}
-                    aria-posinset={virtual ? index + 1 : undefined}
+                    aria-setsize={rowCount}
+                    aria-posinset={rowCount === undefined ? undefined : index + 1}
                     className="rounded-lg border p-3"
                   >
-                    <p className="font-medium break-words">{cell(titleColumn, row)}</p>
+                    <p className="font-medium break-words">
+                      {/* The column's name, as the other values have theirs. */}
+                      <span className="sr-only">{titleColumn.header}: </span>
+                      {cell(titleColumn, row)}
+                    </p>
                     {detailColumns.length > 0 && (
                       <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5">
                         {detailColumns.map((column) => (
@@ -451,6 +514,7 @@ export function DataGrid<Row extends RowData>({
 
   return (
     <div ref={root} className="flex flex-col gap-2">
+      {live}
       {columnsMenu && <div className="self-end">{columnsMenu}</div>}
 
       <div
@@ -465,11 +529,11 @@ export function DataGrid<Row extends RowData>({
         <table
           aria-label={label}
           aria-busy={status === 'loading' || loadingMore}
-          aria-rowcount={virtual ? rows.length + 1 : undefined}
+          aria-rowcount={rowCount === undefined ? undefined : rowCount + 1}
           className="w-full border-collapse text-sm"
         >
           <thead className={cn('bg-background', virtual && 'sticky top-0 z-[1]')}>
-            <tr className="border-b">
+            <tr className="border-b" aria-rowindex={rowCount === undefined ? undefined : 1}>
               {visibleColumns.map((column) => {
                 const tableColumn = table.getColumn(column.id);
                 const direction = tableColumn?.getIsSorted() ?? false;
@@ -558,11 +622,11 @@ export function DataGrid<Row extends RowData>({
             {status === 'ready' &&
               shown.map(({ row, index }) => {
                 if (row === undefined) return null;
-                const name = rowLabel?.(row);
+                const name = nameOf(row);
                 return (
                   <tr
                     key={rowId(row)}
-                    aria-rowindex={virtual ? index + 2 : undefined}
+                    aria-rowindex={rowCount === undefined ? undefined : index + 2}
                     style={virtual ? { height: ROW_HEIGHT } : undefined}
                     className="border-b last:border-0 hover:bg-accent/50"
                   >
