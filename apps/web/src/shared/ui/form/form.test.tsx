@@ -11,6 +11,7 @@ import {
   SubmitButton,
   TextAreaField,
   TextField,
+  useFieldFocusRef,
   useSetFieldValue,
   useZodForm,
 } from '.';
@@ -231,5 +232,55 @@ describe('useSetFieldValue', () => {
       expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Picked'),
     );
     expect(seen.size).toBe(1);
+  });
+});
+
+describe('useFieldFocusRef', () => {
+  const picked = z.object({
+    colour: z.string().min(1, 'validation.required'),
+    name: z.string().min(1, 'validation.required'),
+  });
+
+  /** A field drawn by hand, before a kit field: a group of buttons that sets the value. */
+  function Colours({ buttons }: { buttons: boolean }) {
+    const setValue = useSetFieldValue();
+    const focusRef = useFieldFocusRef('colour');
+    return (
+      <fieldset ref={focusRef} tabIndex={-1} aria-label="Colour">
+        {buttons && (
+          <button type="button" onClick={() => setValue('colour', 'red')}>
+            Red
+          </button>
+        )}
+      </fieldset>
+    );
+  }
+
+  function Picker({ buttons = true }: { buttons?: boolean }) {
+    const form = useZodForm(picked, { colour: '', name: '' });
+    return (
+      <Form form={form} onSubmit={() => {}}>
+        <Colours buttons={buttons} />
+        <TextField name="name" label="Name" required />
+        <SubmitButton>Save</SubmitButton>
+      </Form>
+    );
+  }
+
+  it('focuses a field drawn by hand on a failed submit, in the order of the form', async () => {
+    renderWithProviders(<Picker />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Red' })).toHaveFocus());
+
+    // Once it is set, the next field to fix is the kit's own.
+    await userEvent.click(screen.getByRole('button', { name: 'Red' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Name' })).toHaveFocus());
+  });
+
+  it('focuses the element itself when it holds no control', async () => {
+    renderWithProviders(<Picker buttons={false} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('group', { name: 'Colour' })).toHaveFocus());
   });
 });

@@ -22,6 +22,7 @@ import { features } from '@/registry/features';
 import { api, isApiError } from '@/shared/api';
 import { TextField } from '@/shared/ui/form';
 import { todayIn, zonedToUtc } from '@/shared/utils/timezone';
+import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 import { createAppointment, fetchFreeSlots } from './api';
 import { shiftDay } from './schemas';
@@ -408,6 +409,41 @@ describe('the booking form', () => {
     const doctor = screen.getByRole('combobox', { name: /^Doctor/ }) as HTMLSelectElement;
     await waitFor(() => expect(doctor.value).toBe(DOCTOR));
     expect(doctor.selectedOptions[0]?.textContent).toMatch(/\(you\)$/);
+  });
+
+  it('focuses the first field to fix after a failed submit, the patient first', async () => {
+    await openBooking();
+    const patient = screen.getByRole('combobox', { name: 'Patient' });
+    // Required, as a screen reader says it: the patient box, and the group of times.
+    expect(patient).toHaveAttribute('aria-required', 'true');
+    expect(timeGroup()).toHaveAccessibleName('Time (required)');
+
+    await submit();
+    await waitFor(() => expect(patient).toHaveFocus());
+    expect(patient).toHaveAccessibleDescription('Choose the patient.');
+  });
+
+  it('focuses the first free time when only the time is missing', async () => {
+    await openBooking();
+    await choosePatient();
+    await chooseDoctorAndDay(bookableDay());
+    await submit();
+    await waitFor(() => expect(timeButtons()[0]).toHaveFocus());
+  });
+
+  it('says the free times are loading and how many there are, without moving focus', async () => {
+    await openBooking();
+    const doctor = screen.getByRole('combobox', { name: /^Doctor/ });
+    await waitFor(() => expect(within(doctor).getAllByRole('option').length).toBeGreaterThan(1));
+    // Present before there is anything to say, so what is put in it is read.
+    const status = within(timeGroup()).getByRole('status');
+    await userEvent.selectOptions(doctor, DOCTOR);
+    fireEvent.change(screen.getByLabelText(/^Day/), { target: { value: bookableDay() } });
+    expect(status).toHaveTextContent('Loading the free times…');
+    await waitFor(() => expect(status).toHaveTextContent('16 free times.'));
+    expect(within(timeGroup()).getByRole('status')).toBe(status);
+    expect(document.activeElement).not.toBe(status);
+    await expectNoAxeViolations();
   });
 
   it('lets go of the chosen time when the day changes', async () => {

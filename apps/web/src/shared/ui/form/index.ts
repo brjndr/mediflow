@@ -7,6 +7,7 @@ export {
   TextAreaField,
   TextField,
   useFieldError,
+  useFieldFocusRef,
   useFieldRows,
   useFieldValue,
   useSetFieldValue,

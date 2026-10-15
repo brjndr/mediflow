@@ -4,6 +4,7 @@ import { useCallback, useId, type ComponentProps, type ReactNode } from 'react';
 import {
   FormProvider,
   get,
+  useController,
   useFieldArray,
   useForm,
   useFormContext,
@@ -113,6 +114,27 @@ export function useSetFieldValue(): (name: string, value: unknown) => void {
     (name: string, value: unknown) =>
       setValue(name, value, { shouldDirty: true, shouldTouch: true, shouldValidate: true }),
     [setValue],
+  );
+}
+
+const FOCUSABLE =
+  'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href]';
+
+/**
+ * For a field drawn outside the kit's own fields (a search that picks a record, a group of
+ * buttons): put the returned ref on the element around it, and a failed submit focuses it as it
+ * does a kit field, in the order of the form. Its first control takes focus; with none, the
+ * element itself, which then needs `tabIndex={-1}`.
+ */
+export function useFieldFocusRef(name: string): (element: HTMLElement | null) => void {
+  const { ref } = useController({ name }).field;
+  return useCallback(
+    (element: HTMLElement | null) => {
+      if (element) {
+        ref({ focus: () => (element.querySelector<HTMLElement>(FOCUSABLE) ?? element).focus() });
+      }
+    },
+    [ref],
   );
 }
 

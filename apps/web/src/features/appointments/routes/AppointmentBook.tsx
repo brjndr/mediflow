@@ -15,6 +15,7 @@ import {
   TextAreaField,
   TextField,
   useFieldError,
+  useFieldFocusRef,
   useFieldValue,
   useSetFieldValue,
   useZodForm,
@@ -89,6 +90,8 @@ function PatientChoice({
   const { t } = useTranslation('appointments');
   const setValue = useSetFieldValue();
   const error = useFieldError('patientId');
+  // Not a kit field: a failed submit still focuses it first, as the first field of the form.
+  const focusRef = useFieldFocusRef('patientId');
   const errorId = 'book-patient-error';
   // The card of the chosen patient: its button takes focus after a patient is chosen.
   const card = useRef<HTMLDivElement>(null);
@@ -105,7 +108,7 @@ function PatientChoice({
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div ref={focusRef} className="flex flex-col gap-1.5">
       {patient ? (
         <>
           <p className="text-sm font-medium">{t('book.patient')}</p>
@@ -132,6 +135,7 @@ function PatientChoice({
           onSelect={choose}
           describedBy={error ? errorId : undefined}
           focusOnMount={moved || focusSearch}
+          required
         />
       )}
       {error && (
