@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -17,7 +17,8 @@ const open = async () => {
   await screen.findByText('Cardiology');
   return app;
 };
-const status = () => screen.getByRole('status').textContent;
+// The screen's own, not the header's (the hospital switcher has one too).
+const status = () => within(screen.getByRole('main')).getByRole('status').textContent;
 const button = (name: string | RegExp) => screen.getByRole('button', { name });
 const showArchived = () =>
   userEvent.click(screen.getByRole('checkbox', { name: 'Show archived departments' }));

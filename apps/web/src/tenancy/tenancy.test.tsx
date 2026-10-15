@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
 import { sessionKey } from '@/app/session';
@@ -128,6 +128,12 @@ describe('header switcher', () => {
 
     await userEvent.selectOptions(switcher(), TENANT_IDS.clinic);
     await waitFor(() => expect(switcher()).toHaveValue(TENANT_IDS.clinic));
+    // Said from a region that was there before, so a screen reader reads it.
+    expect(
+      screen
+        .getAllByRole('status')
+        .some((region) => region.textContent === 'Now working at Riverside Clinic.'),
+    ).toBe(true);
     await inFlight;
 
     // Nothing keyed to the previous hospital is left anywhere in the query cache.
@@ -168,13 +174,38 @@ describe('header switcher', () => {
     );
 
     await userEvent.selectOptions(switcher(), TENANT_IDS.clinic);
-    expect(switcher()).toBeDisabled();
+    // Marked unavailable, not disabled, so the keyboard keeps its place on it.
+    expect(switcher()).toHaveAttribute('aria-disabled', 'true');
+    expect(switcher()).toHaveFocus();
+    expect(screen.getByText('Switching hospital…')).toBeInTheDocument();
     expect(await screen.findByRole('alert')).toHaveTextContent('You do not have access to this.');
 
-    expect(switcher()).toBeEnabled();
+    expect(switcher()).not.toHaveAttribute('aria-disabled');
     expect(switcher()).toHaveValue(TENANT_IDS.hospital);
     expect(queryClient.getQueryData(key)).toEqual({ id: 'pat_1' });
     expect(store.getState().ui.sidebarCollapsed).toBe(true);
+  });
+});
+
+describe('header switcher, changed twice quickly', () => {
+  it('sends one switch, however fast the second change comes', async () => {
+    await renderAsDoctorAtHospital();
+    const switches: string[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (new URL(request.url).pathname.endsWith('/session/switch-tenant')) switches.push('switch');
+    });
+    server.use(
+      http.post('*/api/session/switch-tenant', async () => {
+        await delay(30);
+        return new HttpResponse(null, { status: 403 });
+      }),
+    );
+    // Both before React draws again, as arrow keys on a closed select can do.
+    fireEvent.change(switcher(), { target: { value: TENANT_IDS.clinic } });
+    fireEvent.change(switcher(), { target: { value: TENANT_IDS.clinic } });
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(switches).toEqual(['switch']);
+    server.events.removeAllListeners();
   });
 });
 

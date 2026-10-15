@@ -109,13 +109,16 @@ describe('editing a patient', () => {
     expect(router.state.location.pathname).toBe(`/patients/${ID}`);
     expect(details().getByText('Not recorded')).toBeInTheDocument();
     // One save at a time: no second edit until this one is in.
-    expect(await screen.findByText('Saving your changes…')).toBeInTheDocument();
+    const saving = await screen.findByText('Saving your changes…');
+    // Said from a status region, which stays to say how it ended.
+    expect(saving).toHaveAttribute('role', 'status');
     expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument();
 
     release();
 
     // It stays once the server has answered, with nothing left over to review.
     const editAgain = await screen.findByRole('link', { name: 'Edit' });
+    expect(saving).toHaveTextContent('Your changes were saved.');
     expect(saves).toEqual([{ expectedVersion: 1, firstName: 'Aasha', email: null }]);
     expect(screen.getByRole('heading', { name: 'Aasha Verma1' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -209,6 +212,8 @@ describe('editing a patient', () => {
     const banner = await screen.findByRole('alert');
     expect(banner).toHaveTextContent('Your changes to this record were not saved.');
     expect(screen.getByRole('heading', RECORD)).toBeInTheDocument();
+    // The alert says it once; nothing claims it was saved.
+    expect(screen.queryByText('Your changes were saved.')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Aasha Verma1' })).not.toBeInTheDocument();
 
     // What was typed is still there to send again.
@@ -232,6 +237,8 @@ describe('editing a patient', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Discard them' }));
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    // Thrown away is not saved: nothing may say it was.
+    expect(screen.queryByText('Your changes were saved.')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('link', { name: 'Edit' }));
     expect(await screen.findByLabelText(/^First name/)).toHaveValue('Asha');
   });

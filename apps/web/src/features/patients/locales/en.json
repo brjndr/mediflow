@@ -92,6 +92,7 @@
     "review": "Review your changes",
     "discard": "Discard them",
     "saving": "Saving your changes…",
+    "saved": "Your changes were saved.",
     "conflictContested": "Someone else changed this record while you were editing it, so your changes were not saved. Where you both changed the same field, your version is shown and theirs is noted under it. Check those fields, then save again."
   },
   "suggestions": {

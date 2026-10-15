@@ -10,6 +10,8 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 - **Patients can be registered from a file (#68),** through the import centre (`features/imports`), with `patient:import` (the admin's alone by default) as well as `patient:create`. Each is given an MRN, audited and announced as a registration at the desk is (`features/patients/create.ts` in the API, which `POST /patients` uses too). A row with the name and date of birth of someone registered is refused, not registered twice; a shared phone number is not a refusal there, since families share phones. Contact consent is never taken from a file: it is asked at the next visit. While a batch is written, a registration at the desk waits three seconds for the MRN counter and is then answered 503 `busy`.
 
+- **The patient screens are worked with the keyboard and a screen reader (#345).** Every form is the form kit's, so a failed submit focuses the first field to fix and required fields say so. The Edit action says "Saving your changes…" and then "Your changes were saved." from a status region that is always there, since one added with its text already in it may not be read; a refused save says nothing there, as the screen's alert says it. The duplicate suggestions were already a region of that kind. How many patients the list holds is said by the screen's own status, not by the grid (#340).
+
 ## Known gaps
 
 - Patient search finds a name by its exact letters, in any word order. It does not find a misspelled name; that needs the search design in #259.

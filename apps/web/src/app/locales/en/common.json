@@ -119,6 +119,7 @@
     "pickerDescription": "You work at more than one hospital. Pick the one you want to open.",
     "switcherLabel": "Hospital",
     "switching": "Switching hospital…",
+    "switched": "Now working at {{name}}.",
     "suspendedTitle": "{{name}} is suspended",
     "suspendedDescription": "This hospital's access to Mediflow is paused. Its data is safe. Contact your hospital administrator for details."
   },
