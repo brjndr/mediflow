@@ -6,6 +6,7 @@ import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from
 import { editMockDepartment } from '@/mocks/handlers/departments';
 import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
+import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 import { departmentKeys } from './hooks/use-departments';
 
@@ -88,6 +89,21 @@ describe('adding a department', () => {
     expect(screen.getByText('Hearing tests, second floor')).toBeInTheDocument();
     // The form has closed.
     expect(screen.queryByRole('button', { name: 'Save department' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the keyboard’s place: into the form, then to what happened when it closes', async () => {
+    await open();
+    await userEvent.click(button('Add department'));
+    expect(screen.getByRole('textbox', { name: /^Name/ })).toHaveFocus();
+    await userEvent.click(button('Cancel'));
+    const line = within(screen.getByRole('main')).getByRole('status');
+    expect(line).toHaveFocus();
+
+    await userEvent.click(button('Add department'));
+    await userEvent.keyboard('Speech therapy{Enter}');
+    await waitFor(() => expect(status()).toBe('Speech therapy was added.'));
+    expect(line).toHaveFocus();
+    await expectNoAxeViolations();
   });
 
   it('needs a name, and sends nothing without one', async () => {

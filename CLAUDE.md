@@ -289,6 +289,7 @@ The target is **WCAG 2.2 AA** (decided 2026-10-14, #337), for every screen at ev
 - **The form kit** (`shared/ui/form`) for every form: labels, descriptions and errors are linked to the field, and the first invalid field gets focus on submit.
 - **`DataGrid`** for every list: headers, sorting and row actions are reachable and named, in the table and in the cards.
 - Semantic HTML first (`button` for actions, `a` for navigation, headings in order, one `h1` per screen), an accessible name for every icon-only control, and colour never the only signal (a status also has a word or an icon).
+- **Never leave focus on the page body.** When what had focus goes away (a form that closes, a row that leaves the list, a button that hides itself), move focus on deliberately. Use the next control or a focusable status line (`tabIndex={-1}` with the focus ring), through `focusIfLost` from `shared/lib/focus`, which never takes focus from where the person moved it. A status message is put into a region that is always on the page, never added with its text already in it. A control that disables itself while busy still drops focus in Chromium (#358).
 - The shell already gives a skip link, moves focus to `<main>` on navigation and checks the contrast of a hospital's colours (`shared/lib/theme.ts`). Keep them working.
 
 ### Checks every screen gets

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
@@ -81,9 +82,35 @@ function Profile({ doctor }: { doctor: Doctor }) {
 
   const conflicted = isApiError(update.error) && update.error.serverCode === 'conflict';
 
+  // The form and the buttons take each other's place, so the keyboard follows: to the profile's
+  // heading when the form opens (its department list is drawn again when its options arrive, so
+  // a field would lose focus), back to Edit when it closes, and back to the button after a change
+  // of status (it is disabled while saving, which drops focus to the page).
+  const box = useRef<HTMLElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const isEditing = editing !== null;
+  const wasEditing = useRef(false);
+  useEffect(() => {
+    if (isEditing) {
+      wasEditing.current = true;
+      heading.current?.focus();
+    } else if (wasEditing.current) {
+      wasEditing.current = false;
+      focusIfLost(box.current?.querySelector<HTMLElement>('[data-opens="edit"]'));
+    }
+  }, [isEditing]);
+  useEffect(() => {
+    if (!isEditing) focusIfLost(box.current?.querySelector<HTMLElement>('[data-toggle]'));
+  }, [done, update.isError, isEditing]);
+
   return (
-    <section aria-labelledby="doctor-profile" className="flex flex-col gap-3">
-      <h2 id="doctor-profile" className="text-lg font-semibold">
+    <section ref={box} aria-labelledby="doctor-profile" className="flex flex-col gap-3">
+      <h2
+        id="doctor-profile"
+        ref={heading}
+        tabIndex={-1}
+        className="rounded-sm text-lg font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {t('detail.profile')}
       </h2>
       {!doctor.active && (
@@ -143,10 +170,16 @@ function Profile({ doctor }: { doctor: Doctor }) {
           </dl>
           <Can permission="doctor:manage">
             <div className="flex flex-wrap gap-3">
-              <Button variant="outline" disabled={update.isPending} onClick={() => start(doctor)}>
+              <Button
+                data-opens="edit"
+                variant="outline"
+                disabled={update.isPending}
+                onClick={() => start(doctor)}
+              >
                 {t('detail.edit')}
               </Button>
               <Button
+                data-toggle
                 variant="outline"
                 disabled={update.isPending}
                 onClick={() => setActive(!doctor.active)}

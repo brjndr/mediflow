@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DepartmentForm } from '../components/DepartmentForm';
@@ -31,6 +32,7 @@ export default function DepartmentsPage() {
   const [panel, setPanel] = useState<Panel | null>(null);
   // What was just done, said once in a status line.
   const [done, setDone] = useState<string | null>(null);
+  const statusLine = useRef<HTMLParagraphElement>(null);
   const departments = useDepartments({ archived: archivedView });
   const save = useSaveDepartment();
   const archive = useArchiveDepartment();
@@ -135,6 +137,12 @@ export default function DepartmentsPage() {
         ? tCommon(errorMessageKey(archive.error))
         : undefined;
 
+  // The form closed, or a row was archived and left the list: what had focus went with it, so
+  // the keyboard goes to the line that says what happened.
+  useEffect(() => {
+    if (panel === null) focusIfLost(statusLine.current);
+  }, [panel, done, listError]);
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6">
       <div className="space-y-1">
@@ -182,7 +190,12 @@ export default function DepartmentsPage() {
           {listError}
         </p>
       )}
-      <p role="status" className="text-sm text-muted-foreground">
+      <p
+        ref={statusLine}
+        tabIndex={-1}
+        role="status"
+        className="rounded-sm text-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {done ??
           (total === undefined
             ? ''

@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useTenant } from '@/tenancy';
@@ -80,6 +81,12 @@ export function BulkInvite({ roles }: { roles: StaffRole[] }) {
   const failedCount = Object.values(outcomes).filter((outcome) => !outcome.sent).length;
   const problemCount = (rows ?? []).filter((row) => row.problem).length;
   const sending = progress !== null;
+  // Sending disables the controls and, once every row is sent, takes the Send button away: the
+  // keyboard goes to the line that says how it went.
+  const summaryLine = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (!sending) focusIfLost(summaryLine.current);
+  }, [sending]);
 
   const send = async () => {
     const startedFor = tenantId;
@@ -209,7 +216,12 @@ export function BulkInvite({ roles }: { roles: StaffRole[] }) {
         </p>
       )}
 
-      <p role="status" className="text-sm text-muted-foreground">
+      <p
+        ref={summaryLine}
+        tabIndex={-1}
+        role="status"
+        className="rounded-sm text-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {typeof summary === 'string' ? summary : summary.filter(Boolean).join(' ')}
       </p>
       {stop && (

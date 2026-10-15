@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { errorMessageKey, isApiError } from '@/shared/api';
@@ -28,6 +28,7 @@ export default function DoctorCreate() {
   const create = useCreateDoctor();
   const [staff, setStaff] = useState<DoctorCandidate | null>(null);
   const [staffMissing, setStaffMissing] = useState(false);
+  const picker = useRef<HTMLDivElement>(null);
 
   const submit = async (values: DoctorFormValues) => {
     if (!staff) {
@@ -68,7 +69,15 @@ export default function DoctorCreate() {
       {/* Any attempt to save says so when nobody is chosen, together with the field messages. */}
       <div
         onSubmitCapture={() => {
-          if (!staff) setStaffMissing(true);
+          if (!staff) {
+            setStaffMissing(true);
+            // The person is the first thing to fix. The form's own check focuses the first invalid
+            // field below this one, at once and again in a timeout of its own (React Hook Form),
+            // so this waits one turn longer than that.
+            setTimeout(() => {
+              setTimeout(() => picker.current?.querySelector<HTMLElement>('input')?.focus(), 0);
+            }, 0);
+          }
         }}
       >
         <DoctorForm
@@ -76,14 +85,16 @@ export default function DoctorCreate() {
           submitLabel={t('create.submit')}
           onSubmit={submit}
           before={
-            <StaffPicker
-              selected={staff}
-              onSelect={(candidate) => {
-                setStaff(candidate);
-                setStaffMissing(false);
-              }}
-              error={staffMissing ? t('create.staffRequired') : undefined}
-            />
+            <div ref={picker}>
+              <StaffPicker
+                selected={staff}
+                onSelect={(candidate) => {
+                  setStaff(candidate);
+                  setStaffMissing(false);
+                }}
+                error={staffMissing ? t('create.staffRequired') : undefined}
+              />
+            </div>
           }
           after={
             <Link to="/doctors" className={link}>

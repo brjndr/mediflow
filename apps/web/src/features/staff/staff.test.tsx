@@ -388,6 +388,8 @@ describe('inviting from a file', () => {
     await waitFor(() => expect(statuses()).toContain('2 invitations were sent.'));
     expect(sentTo()).toEqual(['asha.rao@sample-hospital.test', 'vikram.rao@sample-hospital.test']);
     expect(screen.getAllByText('Sent')).toHaveLength(2);
+    // The Send button went with them: the keyboard is on the line that says how it went.
+    expect(screen.getByText('2 invitations were sent.')).toHaveFocus();
     // Nothing is left to send.
     expect(screen.queryByRole('button', { name: /^Send \d+ invitation/ })).not.toBeInTheDocument();
   });

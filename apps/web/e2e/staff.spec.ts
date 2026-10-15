@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoSidewaysScroll, goTo } from './support';
+import { expectNoAxeViolations, expectNoSidewaysScroll, goTo } from './support';
 
 /**
  * Who works at the hospital, in a real browser against the mock backend, at every supported
@@ -164,4 +164,77 @@ test('add a department and a doctor in it, with working hours', async ({ page })
   await page.getByRole('searchbox', { name: 'Search doctors' }).fill('hearing');
   await expect(page.getByRole('link', { name: 'Sample Doctor' })).toBeVisible();
   await expect(status(page, '1 doctor')).toBeVisible();
+});
+
+/** Presses Enter on a control reached with the keyboard: focus, then the key, as a person would. */
+async function press(page: Page, control: ReturnType<Page['getByRole']>) {
+  await control.focus();
+  await page.keyboard.press('Enter');
+}
+
+test('invite and deactivate with the keyboard alone, never losing the place', async ({ page }) => {
+  await page.goto('/');
+  await goTo(page, 'Staff');
+  await press(page, page.getByRole('link', { name: 'Invite staff' }));
+  await expect(heading(page, 'Invite one person')).toBeVisible();
+
+  // Sent empty: focus goes to the first field to fix.
+  await press(page, page.getByRole('button', { name: 'Send invitation' }));
+  await expect(field(page, /^Name/)).toBeFocused();
+  await page.keyboard.type('Omar Sheikh');
+  await field(page, /^Email/).focus();
+  await page.keyboard.type('omar.sheikh@sample-hospital.test');
+  await page.getByRole('combobox', { name: /^Role/ }).selectOption({ label: 'Doctor' });
+  await press(page, page.getByRole('button', { name: 'Send invitation' }));
+  await expect(
+    status(page, 'An invitation was sent to omar.sheikh@sample-hospital.test.'),
+  ).toBeVisible();
+
+  // A question first, focused; answered, the keyboard goes to what happened.
+  await press(page, page.getByRole('link', { name: 'Back to the staff list' }));
+  await press(page, page.getByRole('button', { name: 'Deactivate: Aarav Iyer' }));
+  await expect(heading(page, 'Deactivate Aarav Iyer?')).toBeFocused();
+  await press(page, page.getByRole('button', { name: 'Deactivate', exact: true }));
+  await expect(status(page, 'Aarav Iyer was deactivated.')).toBeFocused();
+  await expectNoAxeViolations(page);
+});
+
+test('add a department and a doctor with the keyboard alone, led to what was missed', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await goTo(page, 'Departments');
+  await press(page, page.getByRole('button', { name: 'Add department' }));
+  await expect(field(page, /^Name/)).toBeFocused();
+  await page.keyboard.type('Audiology');
+  await page.keyboard.press('Enter');
+  // The form has gone: the keyboard is on the line that says what was done.
+  await expect(status(page, 'Audiology was added.')).toBeFocused();
+
+  await goTo(page, 'Doctors');
+  await press(page, page.getByRole('link', { name: 'Add a doctor' }));
+  await expect(heading(page, 'Add a doctor')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Staff member (required)' })).toBeVisible();
+  // Sent with nobody chosen: the person is the first thing to fix, above the other fields.
+  await press(page, page.getByRole('button', { name: 'Add doctor' }));
+  const search = page.getByRole('searchbox', { name: 'Find a staff member' });
+  await expect(search).toBeFocused();
+  await page.keyboard.type('sample doc');
+  const radio = page.getByRole('radio', { name: /Sample Doctor/ });
+  await radio.focus();
+  await page.keyboard.press('Space');
+  await expect(radio).toBeChecked();
+  await page.getByRole('combobox', { name: /^Department/ }).selectOption({ label: 'Audiology' });
+  await field(page, /^Specialization/).focus();
+  await page.keyboard.type('Hearing assessment');
+  await press(page, page.getByRole('button', { name: 'Add doctor' }));
+  await expect(heading(page, 'Sample Doctor')).toBeVisible();
+
+  // Working hours, saved from the keyboard: the editor starts again, and focus goes to the result.
+  await press(page, page.getByRole('button', { name: 'Add hours on Monday' }));
+  await page.getByLabel('Monday, session 1: from').fill('09:00');
+  await page.getByLabel('Monday, session 1: to').fill('13:00');
+  await press(page, page.getByRole('button', { name: 'Save working hours' }));
+  await expect(status(page, 'The working hours were saved.')).toBeFocused();
+  await expectNoAxeViolations(page);
 });
