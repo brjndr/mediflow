@@ -116,3 +116,36 @@
   /* The red alone is below 4.5:1 on its own tint; darkened (lightened in dark mode) to pass. */
   color: color-mix(in oklch, var(--destructive) 70%, var(--foreground));
 }
+
+/* A status sign before the time: at the start, where truncation cannot cut it off. */
+.cal .cal-event-icon {
+  display: inline-block;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-right: 0.25rem;
+  vertical-align: -0.125rem;
+}
+
+/* The keyboard's place on a free time (the blocks have their own ring, above). */
+.cal .rbc-time-slot:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+}
+
+/* Clicks between blocks reach the time beneath, which the screen may let be chosen. */
+.cal .rbc-events-container {
+  pointer-events: none;
+}
+
+.cal .rbc-events-container .rbc-event {
+  pointer-events: auto;
+}
+
+.cal.cal-bookable .rbc-day-slot .rbc-time-slot[role='gridcell'] {
+  cursor: pointer;
+}
+
+.cal.cal-bookable .rbc-day-slot .rbc-time-slot[role='gridcell']:hover {
+  background: color-mix(in oklch, var(--primary) 6%, transparent);
+}

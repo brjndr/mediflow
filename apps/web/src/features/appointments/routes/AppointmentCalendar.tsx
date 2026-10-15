@@ -1,8 +1,8 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Ban, Check, ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { Can } from '@/access';
+import { Can, usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
 import { errorMessageKey } from '@/shared/api';
@@ -10,19 +10,27 @@ import { Button } from '@/shared/ui/button';
 import { useIsDesktop } from '@/shared/hooks/use-is-desktop';
 import { Calendar, type CalendarEventItem, type CalendarView } from '@/shared/ui/calendar';
 import { addDays, visibleDays, weekStartFor } from '@/shared/ui/calendar/zoned';
-import { todayIn, type DayString } from '@/shared/utils/timezone';
+import { todayIn, utcToZoned, type DayString } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
 import { ViewSwitch } from '../components/ViewSwitch';
 import {
   CALENDAR_MAX_APPOINTMENTS,
   useCalendarAppointments,
 } from '../hooks/use-calendar-appointments';
+import { bookableDays } from '../schemas';
 import type { AppointmentStatus } from '../types';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 const field = 'flex min-w-40 flex-col gap-1 text-sm font-medium';
 const iconButton =
   'inline-flex size-9 items-center justify-center rounded-md border hover:bg-muted pointer-coarse:size-11';
+
+/** Not by colour alone: a sign for each status but the usual one, said by the block's name. */
+const STATUS_ICON: Partial<Record<AppointmentStatus, CalendarEventItem['icon']>> = {
+  completed: Check,
+  cancelled: Ban,
+  no_show: TriangleAlert,
+};
 
 const STATUS_TONE: Record<AppointmentStatus, CalendarEventItem['tone']> = {
   scheduled: 'primary',
@@ -59,6 +67,7 @@ export default function AppointmentCalendar() {
   // so the calendar never shows one doctor under another's name in the choice.
   const chosen = doctors.data?.some((doctor) => doctor.id === chosenDoctor) ? chosenDoctor : null;
   const doctorId = chosen ?? mine?.id ?? doctors.data?.[0]?.id ?? '';
+  const canBook = usePermission('appointment:create');
 
   const { from, to } = visibleDays(view, day, weekStartFor(locale));
   const appointments = useCalendarAppointments({ from, to, doctorId }, doctors.available);
@@ -80,17 +89,36 @@ export default function AppointmentCalendar() {
         end: item.endsAt,
         tone: STATUS_TONE[item.status],
         hint: t(`status.${item.status}`),
+        icon: STATUS_ICON[item.status],
+        // Whom, with whom and the status, which the block's own text may be too narrow to hold.
+        label: t('calendar.eventLabel', {
+          name: item.patientName,
+          doctor: item.doctorName,
+          status: t(`status.${item.status}`),
+        }),
       })),
     [items, t],
   );
 
   // The appointment's own screen, by id: its patient is one link away from there.
   const openAppointment = (id: string) => navigate(`/appointments/${id}`);
+  // A free time opens booking with the doctor, the day and the time chosen: ids and a time only.
+  // Only a time booking takes: today, not yet begun at the hospital, to the last day it books.
+  // The server's free times still decide whether the doctor works then and nobody has it.
+  const lastBookable = bookableDays(today).last;
+  const nowAtHospital = utcToZoned(new Date().toISOString(), timezone).time;
+  const canBookAt = (slotDay: DayString, time: string) =>
+    slotDay >= today && slotDay <= lastBookable && (slotDay > today || time > nowAtHospital);
+  const bookAt = (slotDay: DayString, time: string) =>
+    navigate(
+      `/appointments/new?${new URLSearchParams({ doctorId, day: slotDay, time }).toString()}`,
+    );
 
   const step = view === 'day' ? 1 : 7;
+  // The range shown, with the view, announced when either changes.
   const heading =
     view === 'day'
-      ? format.calendarDate(day)
+      ? t('calendar.dayHeading', { date: format.calendarDate(day) })
       : t('calendar.weekRange', {
           start: format.calendarDate(from),
           end: format.calendarDate(to),
@@ -235,6 +263,11 @@ export default function AppointmentCalendar() {
             // On a phone the hours scroll inside a grid that leaves room for the controls.
             height={isDesktop ? 640 : 'min(640px, 70dvh)'}
             onSelectEvent={openAppointment}
+            onSelectSlot={canBook ? bookAt : undefined}
+            canSelectSlot={canBookAt}
+            busy={appointments.isPending || appointments.isPlaceholderData}
+            slotAction={t('calendar.slotAction')}
+            onNavigate={setDay}
             onOpenDay={(opened) => {
               setDay(opened);
               setChosenView('day');

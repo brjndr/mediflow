@@ -162,11 +162,7 @@ async function settled(page: Page): Promise<void> {
 /**
  * Rules switched off on one screen, until the issue named beside each fixes them. Keyed by route.
  */
-const KNOWN: Record<string, string[]> = {
-  // The time grid scrolls in a box that takes no focus: #341 gives the grid its one Tab stop.
-  'appointments/calendar': ['scrollable-region-focusable'],
-  'examples/calendar': ['scrollable-region-focusable'],
-};
+const KNOWN: Record<string, string[]> = {};
 
 /** The tablet's width (768 to 1023 px), between the phone and the desktop that are checked. */
 const isTablet = ({ viewport }: { viewport: { width: number } | null }) =>
