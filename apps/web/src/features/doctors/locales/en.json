@@ -48,6 +48,7 @@
     "staffLoading": "Looking for staff members…",
     "staffNone": "No staff member without a doctor profile matches.",
     "staffRequired": "Choose a staff member.",
+    "staffRequiredMark": "(required)",
     "staffFailed": "The staff list could not be loaded.",
     "submit": "Add doctor",
     "exists": "This staff member already has a doctor profile.",

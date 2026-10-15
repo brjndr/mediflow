@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useAvailability, useSaveAvailability } from '../hooks/use-doctors';
@@ -151,6 +152,9 @@ function HoursEditor({ availability, editable, pending, onSave, onEdit }: Editor
   );
 }
 
+const problem =
+  'rounded-sm text-sm text-destructive outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';
+
 /** A doctor's regular weekly hours: read by anyone who may see the doctor, changed by a manager. */
 export function WorkingHours({ doctorId }: { doctorId: string }) {
   const { t } = useTranslation('doctors');
@@ -181,6 +185,16 @@ export function WorkingHours({ doctorId }: { doctorId: string }) {
   }
 
   const failed = save.isError && !(isApiError(save.error) && save.error.serverCode === 'conflict');
+
+  // Saving disables the editor and a save starts it again from the saved hours, so what had
+  // focus is gone: the keyboard goes to the line that says how it went.
+  const statusLine = useRef<HTMLParagraphElement>(null);
+  const problemLine = useRef<HTMLParagraphElement>(null);
+  const refused = conflict !== 'none' || failed;
+  useEffect(() => {
+    if (saved) focusIfLost(statusLine.current);
+    else if (refused) focusIfLost(problemLine.current);
+  }, [saved, refused]);
 
   return (
     <section aria-labelledby="doctor-hours" className="flex flex-col gap-3">
@@ -239,16 +253,26 @@ export function WorkingHours({ doctorId }: { doctorId: string }) {
         />
       )}
       {conflict !== 'none' && (
-        <p role="alert" className="text-sm text-destructive">
+        <p ref={problemLine} tabIndex={-1} role="alert" className={problem}>
           {t('hours.conflict')}
         </p>
       )}
       {failed && (
-        <p role="alert" className="text-sm text-destructive">
+        <p
+          ref={conflict === 'none' ? problemLine : undefined}
+          tabIndex={-1}
+          role="alert"
+          className={problem}
+        >
           {tCommon(errorMessageKey(save.error))}
         </p>
       )}
-      <p role="status" className="text-sm text-muted-foreground">
+      <p
+        ref={statusLine}
+        tabIndex={-1}
+        role="status"
+        className="rounded-sm text-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {saved ? t('hours.saved') : ''}
       </p>
     </section>

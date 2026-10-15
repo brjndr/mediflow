@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { Can } from '@/access';
 import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import {
@@ -190,6 +191,11 @@ export default function StaffList() {
 
   const failure = action.error ?? resend.error;
   const refused = refusal(failure);
+  // A row's action disables its button, or moves the row to another list: the keyboard goes to
+  // the line that says how it went.
+  useEffect(() => {
+    if (done !== null || failure !== null) focusIfLost(statusLine.current);
+  }, [done, failure]);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
@@ -264,7 +270,7 @@ export default function StaffList() {
         ref={statusLine}
         tabIndex={-1}
         role="status"
-        className="text-sm text-muted-foreground outline-none"
+        className="rounded-sm text-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         {/* Not while the previous view's rows are still shown: the total would be theirs. */}
         {done ??

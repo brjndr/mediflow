@@ -34,7 +34,14 @@ export function StaffPicker({ selected, onSelect, error }: StaffPickerProps) {
       aria-describedby={error ? errorId : undefined}
       aria-invalid={error ? true : undefined}
     >
-      <legend className="text-sm font-medium">{t('create.staffLegend')}</legend>
+      <legend className="text-sm font-medium">
+        {t('create.staffLegend')}
+        <span aria-hidden className="text-destructive">
+          {' *'}
+        </span>{' '}
+        {/* A group cannot be marked required: it is said instead. */}
+        <span className="sr-only">{t('create.staffRequiredMark')}</span>
+      </legend>
       <label htmlFor={searchId} className="sr-only">
         {t('create.staffSearch')}
       </label>
@@ -45,6 +52,8 @@ export function StaffPicker({ selected, onSelect, error }: StaffPickerProps) {
         maxLength={100}
         autoComplete="off"
         placeholder={t('create.staffSearchPlaceholder')}
+        aria-describedby={error ? errorId : undefined}
+        aria-invalid={error ? true : undefined}
         onChange={(event) => setSearch(event.target.value)}
         // Enter in a search box would otherwise save the form around it.
         onKeyDown={(event) => {
@@ -52,19 +61,17 @@ export function StaffPicker({ selected, onSelect, error }: StaffPickerProps) {
         }}
         className="h-9 w-full rounded-md border bg-background px-3 text-base md:text-sm pointer-coarse:h-11"
       />
-      {candidates.isPending && (
-        <p role="status" className="text-sm text-muted-foreground">
-          {t('create.staffLoading')}
-        </p>
-      )}
+      {/* Always there, so a screen reader reads what is put in it as the search moves on. */}
+      <p role="status" className="text-sm text-muted-foreground empty:sr-only">
+        {candidates.isPending
+          ? t('create.staffLoading')
+          : candidates.isSuccess && listed.length === 0
+            ? t('create.staffNone')
+            : ''}
+      </p>
       {candidates.isError && (
         <p role="alert" className="text-sm text-destructive">
           {t('create.staffFailed')}
-        </p>
-      )}
-      {candidates.isSuccess && listed.length === 0 && (
-        <p role="status" className="text-sm text-muted-foreground">
-          {t('create.staffNone')}
         </p>
       )}
       {listed.length > 0 && (

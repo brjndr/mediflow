@@ -144,10 +144,16 @@ describe('adding a doctor', () => {
       }),
     );
     await openCreate();
+    // Required, as a screen reader says it, though it is a group and not a field.
+    expect(screen.getByRole('group', { name: 'Staff member (required)' })).toBeInTheDocument();
     await userEvent.click(button('Add doctor'));
     // Everything that is missing is said at once.
     expect(await screen.findAllByText('This field is required.')).toHaveLength(2);
     expect(screen.getByText('Choose a staff member.')).toBeInTheDocument();
+    // The first thing to fix takes focus: the person, above the form's own fields.
+    const search = screen.getByRole('searchbox', { name: 'Find a staff member' });
+    await waitFor(() => expect(search).toHaveFocus());
+    expect(search).toHaveAccessibleDescription('Choose a staff member.');
 
     await chooseDepartment('Cardiology');
     await type(/^Specialization/, 'Electrophysiology');
@@ -221,6 +227,8 @@ describe('a doctor’s profile', () => {
   it('saves a change to the profile', async () => {
     await openDoctor();
     await userEvent.click(button('Edit profile'));
+    // The buttons give way to the form: the keyboard goes to the profile's heading, above it.
+    expect(screen.getByRole('heading', { name: 'Profile' })).toHaveFocus();
     expect(textbox(/^Specialization/)).toHaveValue('Surgery');
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: /^Department/ })).toHaveValue('dep_h_02'),
@@ -231,6 +239,8 @@ describe('a doctor’s profile', () => {
     await userEvent.click(button('Save profile'));
 
     await waitFor(() => expect(statuses()).toContain('The profile was saved.'));
+    // And back to the button that opened it.
+    expect(button('Edit profile')).toHaveFocus();
     expect(await screen.findByText('Cardiac surgery')).toBeInTheDocument();
     expect(screen.getAllByText('Neurology').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Save profile' })).not.toBeInTheDocument();
@@ -332,6 +342,8 @@ describe('working hours', () => {
     await userEvent.click(button('Save working hours'));
 
     await waitFor(() => expect(statuses()).toContain('The working hours were saved.'));
+    // The editor started again from the saved hours: the keyboard is on the line that says so.
+    expect(screen.getByText('The working hours were saved.')).toHaveFocus();
     const saved = await api.GET('/doctors/{doctorId}/availability', {
       params: { path: { doctorId: 'doc_h_02' } },
     });
