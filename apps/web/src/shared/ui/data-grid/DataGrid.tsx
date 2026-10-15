@@ -465,7 +465,8 @@ export function DataGrid<Row extends RowData>({
                     <p className="font-medium break-words">
                       {/* The column's name, as the other values have theirs. */}
                       <span className="sr-only">{titleColumn.header}: </span>
-                      {cell(titleColumn, row)}
+                      {/* Its own element, so the value alone is still found by its text. */}
+                      <span>{cell(titleColumn, row)}</span>
                     </p>
                     {detailColumns.length > 0 && (
                       <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5">
