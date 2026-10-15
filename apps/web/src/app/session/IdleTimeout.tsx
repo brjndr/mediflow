@@ -126,7 +126,11 @@ export function IdleTimeout({ minutes }: IdleTimeoutProps) {
   useEffect(() => {
     const element = dialog.current;
     if (!element) return;
-    if (open && !element.open) element.showModal();
+    if (open && !element.open) {
+      element.showModal();
+      // Staying is the answer that loses nothing: a key pressed out of habit must not sign out.
+      element.querySelector<HTMLElement>('[data-stay]')?.focus();
+    }
     if (!open && element.open) element.close();
   }, [open]);
 
@@ -155,7 +159,9 @@ export function IdleTimeout({ minutes }: IdleTimeoutProps) {
             <Button variant="outline" onClick={() => end('signed_out')}>
               {t('idle.signOut')}
             </Button>
-            <Button onClick={stay}>{t('idle.stay')}</Button>
+            <Button data-stay onClick={stay}>
+              {t('idle.stay')}
+            </Button>
           </div>
         </div>
       )}

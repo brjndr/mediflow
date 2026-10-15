@@ -156,7 +156,9 @@ describe('someone at the screen', () => {
     const sessionReads = countRequests('GET', '/api/session');
     await screen.findByRole('heading', STILL_THERE);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Stay signed in' }));
+    // Staying has focus, so Enter pressed out of habit keeps the session rather than ending it.
+    expect(screen.getByRole('button', { name: 'Stay signed in' })).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
 
     expect(screen.queryByRole('heading', STILL_THERE)).not.toBeInTheDocument();
     // The server hears about it, so its own idle clock starts again as well.

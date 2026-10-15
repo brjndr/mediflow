@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoSidewaysScroll, goTo } from './support';
+import { expectNoAxeViolations, expectNoSidewaysScroll, goTo } from './support';
 
 /**
  * The patient journey in a real browser, against the mock backend, at every supported width:
@@ -142,4 +142,60 @@ test('patients of one hospital are never shown in another', async ({ page }) => 
   await navigateInApp(page, '/patients/pth_00001/edit');
   await expect(heading(page, 'Patient not found')).toBeVisible();
   await expect(page.getByText(/MRN-PTH/)).toHaveCount(0);
+});
+
+/** Types into a field reached with the keyboard: focus, then keys, as a person would. */
+async function typeInto(page: Page, label: string, text: string) {
+  await page.getByLabel(label).focus();
+  await page.keyboard.type(text);
+}
+
+test('register, find, open and change a patient with the keyboard alone', async ({ page }) => {
+  await page.goto('/');
+  await goTo(page, 'Patients');
+  await page.getByRole('link', { name: 'Register a patient' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(heading(page, 'Register a patient')).toBeVisible();
+
+  // Sent empty: focus goes to the first field to fix, which says it is required.
+  const first = page.getByLabel('First name');
+  await expect(first).toHaveAttribute('aria-required', 'true');
+  await page.getByRole('button', { name: 'Register patient' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(first).toBeFocused();
+  await page.keyboard.type('Ishaan');
+  await typeInto(page, 'Last name', 'Quraishi');
+  await page.getByLabel('Date of birth').fill('1979-11-02');
+  await page.getByLabel('Gender').selectOption({ label: 'Male' });
+  await typeInto(page, 'Phone number', '+91 98222 33445');
+  await page.getByLabel('The patient agrees to be contacted').focus();
+  await page.keyboard.press('Space');
+  await page.getByRole('button', { name: 'Register patient' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(heading(page, 'Patient registered')).toBeVisible();
+
+  // Find and open.
+  await page.getByRole('link', { name: 'Back to the patient list' }).focus();
+  await page.keyboard.press('Enter');
+  await typeInto(page, 'Search patients', 'quraishi');
+  await expect(count(page)).toHaveText('1 patient');
+  const found = page.getByRole('link', { name: 'Ishaan Quraishi', exact: true });
+  await found.focus();
+  await page.keyboard.press('Enter');
+  await expect(heading(page, 'Ishaan Quraishi')).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true');
+
+  // Change, and hear it saved without losing the place.
+  await page.getByRole('link', { name: 'Edit', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(heading(page, 'Edit Ishaan Quraishi')).toBeVisible();
+  await page.getByLabel('Address (optional)').focus();
+  await page.keyboard.type('9 Hill Street');
+  await page.getByRole('button', { name: 'Save changes' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Your changes were saved.' }),
+  ).toBeVisible();
+  await expect(page.getByRole('tabpanel')).toContainText('9 Hill Street');
+  await expectNoAxeViolations(page);
 });
