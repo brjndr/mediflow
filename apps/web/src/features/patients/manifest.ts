@@ -6,7 +6,14 @@ export const patientsFeature: FeatureManifest = {
   id: 'patients',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Patients' } },
+    titles: {
+      en: {
+        title: 'Patients',
+        create: 'Register a patient',
+        record: 'Patient record',
+        edit: 'Edit a patient record',
+      },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   featureFlag: 'patients',
@@ -14,17 +21,20 @@ export const patientsFeature: FeatureManifest = {
     { path: 'patients', lazy: () => import('./routes/PatientList'), requires: ['patient:read'] },
     {
       path: 'patients/new',
+      titleKey: 'create',
       lazy: () => import('./routes/PatientCreate'),
       requires: ['patient:create'],
     },
     {
       path: 'patients/:id',
+      titleKey: 'record',
       lazy: () => import('./routes/PatientDetail'),
       requires: ['patient:read'],
     },
     {
       // Both: changing a record shows it.
       path: 'patients/:id/edit',
+      titleKey: 'edit',
       lazy: () => import('./routes/PatientEdit'),
       requires: ['patient:read', 'patient:update'],
     },

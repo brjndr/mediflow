@@ -121,6 +121,7 @@
     "switching": "Switching hospital…",
     "switched": "Now working at {{name}}.",
     "suspendedTitle": "{{name}} is suspended",
+    "suspendedPageTitle": "Hospital suspended",
     "suspendedDescription": "This hospital's access to Mediflow is paused. Its data is safe. Contact your hospital administrator for details."
   },
   "desktopOnly": {
@@ -190,6 +191,7 @@
     "blockquote": "Quote"
   },
   "link": {
+    "title": "Opening a link",
     "opening": "Opening the link…",
     "unavailableTitle": "This link is not available",
     "unavailableDescription": "It may be for a hospital you do not work at, or the item may no longer exist. Nothing has been opened.",

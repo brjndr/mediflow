@@ -10,7 +10,7 @@ export const staffFeature: FeatureManifest = {
   id: 'staff',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Staff' } },
+    titles: { en: { title: 'Staff', invite: 'Invite staff' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
@@ -19,6 +19,7 @@ export const staffFeature: FeatureManifest = {
     { path: 'staff', lazy: () => import('./routes/StaffList'), requires: ['staff:read'] },
     {
       path: 'staff/invite',
+      titleKey: 'invite',
       lazy: () => import('./routes/StaffInvite'),
       requires: ['staff:invite'],
     },

@@ -14,16 +14,22 @@ export const importsFeature: FeatureManifest = {
   id: 'imports',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Import centre' } },
+    titles: { en: { title: 'Import centre', create: 'New import', record: 'Import batch' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
   featureFlag: 'imports',
   routes: [
     { path: 'imports', lazy: () => import('./routes/ImportList'), requires: ['import:read'] },
-    { path: 'imports/new', lazy: () => import('./routes/ImportNew'), requires: ['import:run'] },
+    {
+      path: 'imports/new',
+      titleKey: 'create',
+      lazy: () => import('./routes/ImportNew'),
+      requires: ['import:run'],
+    },
     {
       path: 'imports/:batchId',
+      titleKey: 'record',
       lazy: () => import('./routes/ImportDetail'),
       requires: ['import:read'],
     },

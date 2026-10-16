@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { DocumentTitle } from './DocumentTitle';
 import { useRouteError } from 'react-router-dom';
 import { ErrorFallback } from './ErrorFallback';
 import { reportError } from './observability';
@@ -9,5 +10,10 @@ export function RouteErrorFallback() {
   useEffect(() => {
     reportError(error);
   }, [error]);
-  return <ErrorFallback />;
+  return (
+    <>
+      <DocumentTitle titleKey="error.title" />
+      <ErrorFallback />
+    </>
+  );
 }

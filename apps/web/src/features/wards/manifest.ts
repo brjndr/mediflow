@@ -13,20 +13,38 @@ export const wardsFeature: FeatureManifest = {
   id: 'wards',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Wards and beds' } },
+    titles: {
+      en: {
+        title: 'Wards and beds',
+        create: 'Add a ward',
+        categories: 'Bed categories',
+        record: 'Ward',
+      },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
   featureFlag: 'wards',
   routes: [
     { path: 'wards', lazy: () => import('./routes/WardList'), requires: ['ward:read'] },
-    { path: 'wards/new', lazy: () => import('./routes/WardCreate'), requires: ['ward:manage'] },
+    {
+      path: 'wards/new',
+      titleKey: 'create',
+      lazy: () => import('./routes/WardCreate'),
+      requires: ['ward:manage'],
+    },
     {
       path: 'wards/categories',
+      titleKey: 'categories',
       lazy: () => import('./routes/BedCategories'),
       requires: ['ward:read'],
     },
-    { path: 'wards/:wardId', lazy: () => import('./routes/WardDetail'), requires: ['ward:read'] },
+    {
+      path: 'wards/:wardId',
+      titleKey: 'record',
+      lazy: () => import('./routes/WardDetail'),
+      requires: ['ward:read'],
+    },
   ],
   nav: { icon: BedDouble, order: 80, requires: ['ward:read'] },
   permissions: ['ward:read', 'ward:manage'],

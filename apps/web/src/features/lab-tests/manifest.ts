@@ -13,7 +13,7 @@ export const labTestsFeature: FeatureManifest = {
   id: 'lab_tests',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Lab tests' } },
+    titles: { en: { title: 'Lab tests', create: 'Add a lab test', record: 'Lab test' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
@@ -22,11 +22,13 @@ export const labTestsFeature: FeatureManifest = {
     { path: 'lab-tests', lazy: () => import('./routes/LabTestList'), requires: ['labTest:read'] },
     {
       path: 'lab-tests/new',
+      titleKey: 'create',
       lazy: () => import('./routes/LabTestCreate'),
       requires: ['labTest:manage'],
     },
     {
       path: 'lab-tests/:labTestId',
+      titleKey: 'record',
       lazy: () => import('./routes/LabTestDetail'),
       requires: ['labTest:read'],
     },

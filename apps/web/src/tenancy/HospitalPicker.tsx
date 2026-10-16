@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { DocumentTitle } from '@/app/DocumentTitle';
 import { useSession } from '@/app/session';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
@@ -16,6 +17,7 @@ export function HospitalPicker() {
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 px-4">
       <div className="space-y-2">
         <p className="text-sm font-semibold text-primary">{t('app.name')}</p>
+        <DocumentTitle titleKey="tenancy.pickerTitle" />
         <h1 className="text-2xl font-semibold tracking-tight">{t('tenancy.pickerTitle')}</h1>
         <p className="text-muted-foreground">{t('tenancy.pickerDescription')}</p>
       </div>

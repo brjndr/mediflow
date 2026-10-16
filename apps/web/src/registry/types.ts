@@ -30,6 +30,12 @@ export interface FeatureRoute {
   path: string;
   lazy: LazyComponent;
   requires: Permission[];
+  /**
+   * The page's title in the browser tab, as a key of `i18n.titles` (or of core `common` without
+   * i18n). Defaults to the feature's own title; each route of a feature needs a title of its
+   * own. Static words only, never the record's name: a title stays in the browser's history.
+   */
+  titleKey?: string;
 }
 
 export interface FeatureNav {

@@ -1,9 +1,10 @@
 // Route configuration, not a component module, so fast refresh boundaries do not apply.
 /* eslint-disable react-refresh/only-export-components */
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import type { RouteObject } from 'react-router-dom';
 import { PermissionGuard } from '@/access';
 import { AppShell } from '@/app/AppShell';
+import { DocumentTitle } from '@/app/DocumentTitle';
 import { RouteErrorFallback } from '@/app/RouteErrorFallback';
 import { NotFoundPage } from '@/app/NotFoundPage';
 import { RequireMfa } from '@/features/auth/gate';
@@ -32,17 +33,26 @@ const SecurityPage = lazy(() =>
   import('@/features/auth').then((m) => ({ default: m.SecurityPage })),
 );
 
+/** The page with its title in the browser tab (see DocumentTitle). */
+const titled = (titleKey: string, page: ReactNode) => (
+  <>
+    <DocumentTitle titleKey={titleKey} />
+    {page}
+  </>
+);
+
 /** Pages reached from an email or before signing in: no session, no hospital. */
 const publicRoutes: RouteObject[] = [
-  { path: '/invite', Page: AcceptInvitePage },
-  { path: '/forgot-password', Page: ForgotPasswordPage },
-  { path: '/reset-password', Page: ResetPasswordPage },
-].map(({ path, Page }) => ({
+  { path: '/invite', Page: AcceptInvitePage, titleKey: 'account.inviteTitle' },
+  { path: '/forgot-password', Page: ForgotPasswordPage, titleKey: 'account.forgotTitle' },
+  { path: '/reset-password', Page: ResetPasswordPage, titleKey: 'account.resetTitle' },
+].map(({ path, Page, titleKey }) => ({
   path,
-  element: (
+  element: titled(
+    titleKey,
     <Suspense fallback={null}>
       <Page />
-    </Suspense>
+    </Suspense>,
   ),
   errorElement: <RouteErrorFallback />,
 }));
@@ -54,12 +64,13 @@ const publicRoutes: RouteObject[] = [
  * chunk.
  */
 function featureRoutes(registry: Registry): RouteObject[] {
-  return registry.routes.map(({ path, requires, featureFlag, Component }) => ({
+  return registry.routes.map(({ path, requires, featureFlag, titleKey, Component }) => ({
     path,
-    element: (
+    element: titled(
+      titleKey,
       <PermissionGuard requires={requires} featureFlag={featureFlag}>
         <Component />
-      </PermissionGuard>
+      </PermissionGuard>,
     ),
   }));
 }
@@ -68,12 +79,13 @@ export function createRoutes(registry: Registry): RouteObject[] {
   return [
     {
       path: LOGIN_PATH,
-      element: (
+      element: titled(
+        'login.title',
         <RedirectIfAuthenticated>
           <Suspense fallback={null}>
             <LoginPage />
           </Suspense>
-        </RedirectIfAuthenticated>
+        </RedirectIfAuthenticated>,
       ),
       errorElement: <RouteErrorFallback />,
     },
@@ -81,10 +93,11 @@ export function createRoutes(registry: Registry): RouteObject[] {
     {
       // Deep links. Signed in, but not yet in any particular hospital: the server picks it.
       path: '/open/:kind/:id',
-      element: (
+      element: titled(
+        'link.title',
         <RequireSession>
           <OpenLinkPage />
-        </RequireSession>
+        </RequireSession>,
       ),
       errorElement: <RouteErrorFallback />,
     },
@@ -101,27 +114,29 @@ export function createRoutes(registry: Registry): RouteObject[] {
       ),
       errorElement: <RouteErrorFallback />,
       children: [
-        { index: true, element: <HomePage /> },
+        { index: true, element: titled('nav.home', <HomePage />) },
         {
           path: 'profile',
-          element: (
+          element: titled(
+            'profile.title',
             <Suspense fallback={null}>
               <ProfilePage />
-            </Suspense>
+            </Suspense>,
           ),
         },
         {
           path: 'security',
-          element: (
+          element: titled(
+            'security.title',
             <Suspense fallback={null}>
               <SecurityPage />
-            </Suspense>
+            </Suspense>,
           ),
         },
         ...featureRoutes(registry),
         // Inside the shell, so a signed-in user keeps the navigation. Signed-out users are sent
         // to login by the guard above before any route is matched against their address.
-        { path: '*', element: <NotFoundPage /> },
+        { path: '*', element: titled('notFound.title', <NotFoundPage />) },
       ],
     },
   ];
