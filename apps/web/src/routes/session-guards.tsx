@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { DocumentTitle } from '@/app/DocumentTitle';
 import { Navigate, useLocation } from 'react-router-dom';
 import { usePolicyRefresh } from '@/access';
 import { useSession, useSessionEndReason } from '@/app/session';
@@ -55,6 +56,13 @@ export function RequireTenant({ children }: { children: ReactNode }) {
   const tenant = useTenant();
   if (!tenant) return <HospitalPicker />;
   // No screen of a suspended hospital is reachable, whatever the address.
-  if (tenant.status === 'suspended') return <SuspendedPage />;
+  if (tenant.status === 'suspended') {
+    return (
+      <>
+        <DocumentTitle titleKey="tenancy.suspendedPageTitle" />
+        <SuspendedPage />
+      </>
+    );
+  }
   return children;
 }

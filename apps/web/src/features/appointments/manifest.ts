@@ -15,7 +15,14 @@ export const appointmentsFeature: FeatureManifest = {
   id: 'appointments',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Appointments' } },
+    titles: {
+      en: {
+        title: 'Appointments',
+        calendar: 'Appointment calendar',
+        book: 'Book an appointment',
+        record: 'Appointment',
+      },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
@@ -28,17 +35,20 @@ export const appointmentsFeature: FeatureManifest = {
     },
     {
       path: 'appointments/calendar',
+      titleKey: 'calendar',
       lazy: () => import('./routes/AppointmentCalendar'),
       requires: ['appointment:read'],
     },
     {
       path: 'appointments/new',
+      titleKey: 'book',
       lazy: () => import('./routes/AppointmentBook'),
       requires: ['appointment:create'],
     },
     {
       // Changing it needs `appointment:update`, checked on the screen for each action.
       path: 'appointments/:appointmentId',
+      titleKey: 'record',
       lazy: () => import('./routes/AppointmentDetail'),
       requires: ['appointment:read'],
     },

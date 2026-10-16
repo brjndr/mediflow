@@ -323,6 +323,31 @@ describe('registry queries', () => {
   });
 });
 
+describe('page titles', () => {
+  it('names the tab after the page and the hospital, and changes it on navigation', async () => {
+    const { laboratory, billing } = makeFeatures();
+    renderApp({ registry: createRegistry([billing, laboratory]) });
+    await home();
+    await waitFor(() => expect(document.title).toBe('Home · Sample Hospital · Mediflow'));
+
+    await userEvent.click(screen.getByRole('link', { name: 'Laboratory' }));
+    await screen.findByRole('heading', { name: 'Lab worklist' });
+    await waitFor(() => expect(document.title).toBe('Laboratory · Sample Hospital · Mediflow'));
+  });
+
+  it('gives every route of the app a title of its own', async () => {
+    const { features } = await import('./features');
+    const titles = features.flatMap((feature) =>
+      feature.routes.map((route) => {
+        const key = route.titleKey ?? feature.titleKey;
+        return feature.i18n?.titles.en[key] ?? key;
+      }),
+    );
+    expect(titles.length).toBeGreaterThan(40);
+    expect(new Set(titles).size).toBe(titles.length);
+  });
+});
+
 describe('manifest validation', () => {
   const valid = (): FeatureManifest => makeFeatures().laboratory;
   const problemsOf = (...manifests: FeatureManifest[]) => {
@@ -337,6 +362,27 @@ describe('manifest validation', () => {
   it('accepts valid manifests', () => {
     const { laboratory, billing } = makeFeatures();
     expect(problemsOf(laboratory, billing)).toBe('');
+  });
+
+  it('rejects a route without a title of its own, or with an English title missing', () => {
+    const feature = valid();
+    feature.routes = [
+      ...feature.routes,
+      { path: 'lab/samples', lazy: feature.routes[0]!.lazy, requires: [] },
+      { path: 'lab/samples/:id', titleKey: 'sample', lazy: feature.routes[0]!.lazy, requires: [] },
+    ];
+    const problems = problemsOf(feature);
+    expect(problems).toContain('route "lab/samples" has the same title as route "lab/worklist"');
+    expect(problems).toContain('route "lab/samples/:id" has no English title for "sample"');
+  });
+
+  it('rejects a title with a placeholder, which could carry a record into the tab title', () => {
+    const feature = valid();
+    feature.i18n = {
+      titles: { en: { title: 'Laboratory', sample: 'Sample of {{patient}}' } },
+      load: () => Promise.resolve({ default: {} }),
+    };
+    expect(problemsOf(feature)).toContain('title "sample" (en) has a placeholder');
   });
 
   it('rejects a feature registered twice', () => {

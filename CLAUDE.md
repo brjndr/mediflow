@@ -500,6 +500,7 @@ export const patientsFeature: FeatureManifest = {
 
 - `registry/` collects all manifests, drops those whose `featureFlag` is off for the current tenant, and generates **routes, navigation, and dashboard widgets** from what remains. No hand-edited route or menu lists.
 - Adding a new feature = new folder + manifest + one line registering it in `registry/features.ts`. **No edits to core, routing, or other features.** The registry validates manifests at startup (duplicate ids or paths, undeclared permissions) and stops the app with the full list of problems.
+- Every route has a page title of its own in the browser tab ("Patients · Sample Hospital · Mediflow"): the feature's title for its first route, and `titleKey` (a key of `i18n.titles`) for each other route. The registry refuses two routes of one feature with the same title. A title is static words, never a record's name or MRN, since it stays in the browser's history (#339).
 - Route and slot modules loaded by a manifest **default-export** their component (the one exception to named exports), so `() => import('./routes/PatientList')` works with `React.lazy`.
 - Features talk to each other only via `index.ts` exports, shared types, or registry extension points (e.g. a widget slot on the patient detail page), never by importing internals.
 - Unreleased features ship dark behind a feature flag and are enabled per tenant.

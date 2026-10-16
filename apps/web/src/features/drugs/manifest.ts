@@ -13,15 +13,31 @@ export const drugsFeature: FeatureManifest = {
   id: 'drugs',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Drugs and consumables' } },
+    titles: {
+      en: {
+        title: 'Drugs and consumables',
+        create: 'Add a drug or consumable',
+        record: 'Drug or consumable',
+      },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
   featureFlag: 'drugs',
   routes: [
     { path: 'drugs', lazy: () => import('./routes/DrugList'), requires: ['drug:read'] },
-    { path: 'drugs/new', lazy: () => import('./routes/DrugCreate'), requires: ['drug:manage'] },
-    { path: 'drugs/:drugId', lazy: () => import('./routes/DrugDetail'), requires: ['drug:read'] },
+    {
+      path: 'drugs/new',
+      titleKey: 'create',
+      lazy: () => import('./routes/DrugCreate'),
+      requires: ['drug:manage'],
+    },
+    {
+      path: 'drugs/:drugId',
+      titleKey: 'record',
+      lazy: () => import('./routes/DrugDetail'),
+      requires: ['drug:read'],
+    },
   ],
   nav: { icon: Pill, order: 60, requires: ['drug:read'] },
   permissions: ['drug:read', 'drug:manage'],

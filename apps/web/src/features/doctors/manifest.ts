@@ -10,7 +10,7 @@ export const doctorsFeature: FeatureManifest = {
   id: 'doctors',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Doctors' } },
+    titles: { en: { title: 'Doctors', create: 'Add a doctor', record: 'Doctor' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
@@ -19,11 +19,13 @@ export const doctorsFeature: FeatureManifest = {
     { path: 'doctors', lazy: () => import('./routes/DoctorList'), requires: ['doctor:read'] },
     {
       path: 'doctors/new',
+      titleKey: 'create',
       lazy: () => import('./routes/DoctorCreate'),
       requires: ['doctor:manage'],
     },
     {
       path: 'doctors/:doctorId',
+      titleKey: 'record',
       lazy: () => import('./routes/DoctorDetail'),
       requires: ['doctor:read'],
     },

@@ -23,8 +23,8 @@ export interface FeatureTranslations {
 }
 
 /** Where core finds a feature's title: its own bundled titles, or core `common` without i18n. */
-function titleKeyOf(feature: FeatureManifest): string {
-  return feature.i18n ? `${FEATURE_TITLES_NS}:${feature.id}.${feature.titleKey}` : feature.titleKey;
+function titleKeyOf(feature: FeatureManifest, key = feature.titleKey): string {
+  return feature.i18n ? `${FEATURE_TITLES_NS}:${feature.id}.${key}` : key;
 }
 
 export interface RegisteredRoute {
@@ -32,6 +32,8 @@ export interface RegisteredRoute {
   featureFlag: string;
   path: string;
   requires: Permission[];
+  /** The page's title, ready to pass to `t()`. */
+  titleKey: string;
   Component: LazyExoticComponent<ComponentType>;
 }
 
@@ -100,6 +102,17 @@ function validate(manifests: readonly FeatureManifest[]): string[] {
       if (!feature.i18n.titles.en?.[feature.titleKey]) {
         problems.push(`${at} has no English title for "${feature.titleKey}" in i18n.titles.`);
       }
+      // A title is static words: one with a placeholder could be given a record's name, and a
+      // page title stays in the browser's history.
+      for (const [language, titles] of Object.entries(feature.i18n.titles)) {
+        for (const [key, text] of Object.entries(titles)) {
+          if (text.includes('{{')) {
+            problems.push(
+              `${at} title "${key}" (${language}) has a placeholder; titles are static.`,
+            );
+          }
+        }
+      }
     }
 
     const declared = new Set<string>(feature.permissions);
@@ -116,8 +129,21 @@ function validate(manifests: readonly FeatureManifest[]): string[] {
       }
     };
 
+    const titles = new Map<string, string>();
     for (const route of feature.routes) {
       const where = `route "${route.path}"`;
+      const title = route.titleKey ?? feature.titleKey;
+      if (feature.i18n && route.titleKey && !feature.i18n.titles.en?.[route.titleKey]) {
+        problems.push(
+          `${at} ${where} has no English title for "${route.titleKey}" in i18n.titles.`,
+        );
+      }
+      // Two pages with one title cannot be told apart in the tab or by a screen reader.
+      const sharing = titles.get(title);
+      if (sharing !== undefined) {
+        problems.push(`${at} ${where} has the same title as route "${sharing}".`);
+      }
+      titles.set(title, route.path);
       if (!route.path || route.path.startsWith('/')) {
         problems.push(`${at} ${where} must be a relative path without a leading slash.`);
       }
@@ -183,6 +209,7 @@ export function createRegistry(manifests: readonly FeatureManifest[]): Registry 
       featureFlag: feature.featureFlag,
       path: route.path,
       requires: route.requires,
+      titleKey: titleKeyOf(feature, route.titleKey),
       Component: lazy(route.lazy),
     })),
   );

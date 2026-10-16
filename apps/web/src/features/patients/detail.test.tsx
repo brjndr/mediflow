@@ -53,10 +53,14 @@ describe('the patient screen', () => {
 
   it('is opened from the name in the list', async () => {
     renderApp({ entry: '/patients' });
+    await waitFor(() => expect(document.title).toBe('Patients · Sample Hospital · Mediflow'));
 
     await userEvent.click(await screen.findByRole('link', NAME));
 
     expect(await screen.findByRole('heading', NAME)).toBeInTheDocument();
+    // The tab says which page, never whose record: a title stays in the browser's history.
+    await waitFor(() => expect(document.title).toBe('Patient record · Sample Hospital · Mediflow'));
+    expect(document.title).not.toMatch(/Asha|Verma|MRN/);
     expect(screen.getByRole('link', { name: 'Back to the patient list' })).toHaveAttribute(
       'href',
       '/patients',

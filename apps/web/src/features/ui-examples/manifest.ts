@@ -11,17 +11,51 @@ export const uiExamplesFeature: FeatureManifest = {
   id: 'ui_examples',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'UI examples' } },
+    titles: {
+      en: {
+        title: 'UI examples',
+        grid: 'Data grid example',
+        charts: 'Charts example',
+        form: 'Form example',
+        editor: 'Rich text example',
+        calendar: 'Calendar example',
+      },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   featureFlag: 'ui_examples',
   routes: [
     { path: 'examples', lazy: () => import('./routes/ExamplesIndex'), requires: [] },
-    { path: 'examples/grid', lazy: () => import('./routes/GridExample'), requires: [] },
-    { path: 'examples/charts', lazy: () => import('./routes/ChartsExample'), requires: [] },
-    { path: 'examples/form', lazy: () => import('./routes/FormExample'), requires: [] },
-    { path: 'examples/editor', lazy: () => import('./routes/EditorExample'), requires: [] },
-    { path: 'examples/calendar', lazy: () => import('./routes/CalendarExample'), requires: [] },
+    {
+      path: 'examples/grid',
+      titleKey: 'grid',
+      lazy: () => import('./routes/GridExample'),
+      requires: [],
+    },
+    {
+      path: 'examples/charts',
+      titleKey: 'charts',
+      lazy: () => import('./routes/ChartsExample'),
+      requires: [],
+    },
+    {
+      path: 'examples/form',
+      titleKey: 'form',
+      lazy: () => import('./routes/FormExample'),
+      requires: [],
+    },
+    {
+      path: 'examples/editor',
+      titleKey: 'editor',
+      lazy: () => import('./routes/EditorExample'),
+      requires: [],
+    },
+    {
+      path: 'examples/calendar',
+      titleKey: 'calendar',
+      lazy: () => import('./routes/CalendarExample'),
+      requires: [],
+    },
   ],
   permissions: [],
 };

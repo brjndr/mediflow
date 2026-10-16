@@ -12,7 +12,7 @@ export const servicesFeature: FeatureManifest = {
   id: 'services',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Services and prices' } },
+    titles: { en: { title: 'Services and prices', create: 'Add a service', record: 'Service' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
@@ -21,11 +21,13 @@ export const servicesFeature: FeatureManifest = {
     { path: 'services', lazy: () => import('./routes/ServiceList'), requires: ['service:read'] },
     {
       path: 'services/new',
+      titleKey: 'create',
       lazy: () => import('./routes/ServiceCreate'),
       requires: ['service:manage'],
     },
     {
       path: 'services/:serviceId',
+      titleKey: 'record',
       lazy: () => import('./routes/ServiceDetail'),
       requires: ['service:read'],
     },

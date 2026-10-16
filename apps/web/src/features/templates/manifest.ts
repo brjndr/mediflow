@@ -13,7 +13,7 @@ export const templatesFeature: FeatureManifest = {
   id: 'templates',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Document templates' } },
+    titles: { en: { title: 'Document templates', create: 'New template', record: 'Template' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
@@ -26,11 +26,13 @@ export const templatesFeature: FeatureManifest = {
     },
     {
       path: 'templates/new',
+      titleKey: 'create',
       lazy: () => import('./routes/TemplateCreate'),
       requires: ['template:manage'],
     },
     {
       path: 'templates/:templateId',
+      titleKey: 'record',
       lazy: () => import('./routes/TemplateDetail'),
       requires: ['template:read'],
     },
