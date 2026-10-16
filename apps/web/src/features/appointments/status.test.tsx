@@ -64,11 +64,18 @@ function addAppointment(
   });
 }
 
-/** One that started five minutes ago and has ten to go. */
-const addStarted = (id = 'apt_started') =>
-  addAppointment(id, iso(Date.now() - 5 * MINUTE), iso(Date.now() + 10 * MINUTE), {
+/**
+ * One that has started, with ten minutes to go: five minutes ago, or at midnight if that was
+ * yesterday at the hospital. The list opens on today there, and an appointment is listed on the
+ * day it starts, so one begun before midnight would not be in it (#361).
+ */
+const addStarted = (id = 'apt_started') => {
+  const now = Date.now();
+  const midnight = Date.parse(zonedToUtc(todayIn(HOSPITAL_TZ), '00:00', HOSPITAL_TZ));
+  addAppointment(id, iso(Math.max(now - 5 * MINUTE, midnight)), iso(now + 10 * MINUTE), {
     reason: 'Follow-up of the cough',
   });
+};
 
 /** One on a weekday a week or more ahead, at 09:00. */
 const addAhead = (id = 'apt_ahead') => {
