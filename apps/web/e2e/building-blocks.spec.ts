@@ -109,6 +109,22 @@ test('charts draw with the hospital colour and pass axe', async ({ page }) => {
   await expectNoAxeViolations(page);
 });
 
+test('a chart becomes a table on screen from the keyboard', async ({ page }) => {
+  await page.goto('/examples/charts');
+  const chart = page.getByRole('figure', { name: /^Visits by department\. / });
+  await expect(chart.locator('svg')).toBeVisible();
+  const toggle = chart.getByRole('button', { name: 'Show as table' });
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  // The same numbers, readable on screen in place of the picture, with no hovering.
+  await expect(chart.getByRole('table', { name: 'Visits by department' })).toBeVisible();
+  await expect(chart.locator('svg')).toHaveCount(0);
+  await expect(toggle).toBeFocused();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});
+
 test('form kit: validates, announces errors, and submits from the keyboard', async ({ page }) => {
   await page.goto('/examples/form');
   await page.getByLabel('Full name').focus();
