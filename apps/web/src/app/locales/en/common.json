@@ -174,6 +174,12 @@
     "invalid_value": "Choose one of the available options.",
     "invalid": "This value is not valid."
   },
+  "chart": {
+    "showTable": "Show as table",
+    "empty": "No values to show.",
+    "summary_one": "1 value: {{maxLabel}}, {{max}}.",
+    "summary_other": "{{count}} values. Highest: {{maxLabel}}, {{max}}. Lowest: {{minLabel}}, {{min}}."
+  },
   "calendar": {
     "event": "{{start}} to {{end}}, {{day}}, {{what}}",
     "slot": "{{time}}, {{day}}, nothing booked",
