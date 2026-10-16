@@ -282,6 +282,7 @@ The target is **WCAG 2.2 AA** (decided 2026-10-14, #337), for every screen at ev
 - **No action needs dragging.** Anything that can be dragged (an appointment on the calendar, a row reordered) can also be done with a click or the keyboard.
 - **Nothing already given is asked again** in the same flow: carry it forward or offer it to pick.
 - **Status and errors are announced**, not only shown: a live region for a saved, a refused or a busy state, and the form kit's messages linked to their fields.
+- **Zoom, reflow and motion.** Every route reflows at 320 px wide (400% zoom) and takes text at 200% with nothing scrolling sideways, checked for every registered route in `e2e/a11y.spec.ts`. Sizes are in rem so text zoom reaches them. A sticky part of a scroll box gives the box `scroll-padding` of its height, so focus never lands under it (WCAG 2.4.11). Reduced motion is honoured everywhere by one rule in `index.css`: animations and transitions become instant (#344).
 
 ### Patterns to use
 

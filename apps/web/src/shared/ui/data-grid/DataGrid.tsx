@@ -523,7 +523,9 @@ export function DataGrid<Row extends RowData>({
           // Positioned, so text hidden for screen readers (absolute) is clipped with the table
           // and a table wider than the screen scrolls here, never the page.
           'relative overflow-x-auto rounded-lg border',
-          virtual && 'max-h-[32rem] overflow-y-auto',
+          // The header stays at the top while rows scroll: scroll padding keeps a focused row
+          // from going under it (WCAG 2.4.11).
+          virtual && 'max-h-[32rem] scroll-pt-10 overflow-y-auto pointer-coarse:scroll-pt-14',
         )}
       >
         <table
