@@ -54,6 +54,8 @@ const preview = () => within(screen.getByRole('region', { name: 'Preview' }));
 const insert = async (label: string) => {
   await screen.findByRole('textbox', { name: 'Text' });
   await choose('Insert a placeholder', label);
+  // Choosing puts nothing in; the button does.
+  await userEvent.click(screen.getByRole('button', { name: 'Insert' }));
 };
 
 async function typeName(text: string) {
