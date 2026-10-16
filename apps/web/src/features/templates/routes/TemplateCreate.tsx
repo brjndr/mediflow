@@ -34,7 +34,10 @@ function Text({
   const chosen = useFieldValue('kind');
   const kind = TEMPLATE_KINDS.find((value) => value === chosen);
   if (!kind) return <p className="text-sm text-muted-foreground">{t('create.kindFirst')}</p>;
-  return <TemplateEditor kind={kind} body={body} onChange={onChange} error={error} />;
+  // Right under the page's heading here, so the preview's is the next level.
+  return (
+    <TemplateEditor kind={kind} body={body} onChange={onChange} error={error} headingLevel={2} />
+  );
 }
 
 function NewTemplate() {

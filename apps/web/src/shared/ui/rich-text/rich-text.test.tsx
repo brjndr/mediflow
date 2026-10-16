@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { expectNoAxeViolations } from '@/test/axe';
 import { renderWithProviders } from '@/test/render';
 import {
   isEmptyRichText,
@@ -300,6 +301,97 @@ describe('<RichTextEditor>', () => {
         'true',
       ),
     );
+  });
+
+  it('has a toolbar that is one Tab stop, moved with the arrows, Home and End', async () => {
+    renderWithProviders(
+      <main>
+        <RichTextEditor label="Clinical note" initialValue={note} onChange={vi.fn()} />
+      </main>,
+      { session: null },
+    );
+    await screen.findByRole('textbox', { name: 'Clinical note' });
+    const toolbar = screen.getByRole('toolbar', { name: 'Formatting' });
+    const tools = within(toolbar).getAllByRole('button');
+    expect(tools.filter((tool) => tool.tabIndex === 0)).toHaveLength(1);
+    expect(tools[0]).toHaveAttribute('tabindex', '0');
+
+    tools[0]!.focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByRole('button', { name: 'Italic' })).toHaveFocus();
+    await userEvent.keyboard('{End}');
+    expect(screen.getByRole('button', { name: 'Quote' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByRole('button', { name: 'Bold' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowLeft}{Home}{ArrowRight}');
+    // The one last used is the toolbar's Tab stop next time.
+    const italic = screen.getByRole('button', { name: 'Italic' });
+    expect(italic).toHaveFocus();
+    expect(tools.filter((tool) => tool.tabIndex === 0)).toHaveLength(1);
+    expect(italic).toHaveAttribute('tabindex', '0');
+    await expectNoAxeViolations();
+  });
+
+  it('leaves the text for the toolbar on Escape', async () => {
+    renderWithProviders(
+      <RichTextEditor label="Clinical note" initialValue={note} onChange={vi.fn()} />,
+      { session: null },
+    );
+    const editor = await screen.findByRole('textbox', { name: 'Clinical note' });
+    editor.focus();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('button', { name: 'Bold' })).toHaveFocus();
+  });
+
+  it('is described by its hint and its error, and says when it is invalid', async () => {
+    const view = renderWithProviders(
+      <RichTextEditor label="Clinical note" describedBy="hint" onChange={vi.fn()} />,
+      { session: null },
+    );
+    const editor = await screen.findByRole('textbox', { name: 'Clinical note' });
+    expect(editor).toHaveAttribute('aria-describedby', 'hint');
+    expect(editor).not.toHaveAttribute('aria-invalid');
+
+    view.rerender(
+      <RichTextEditor label="Clinical note" describedBy="hint error" invalid onChange={vi.fn()} />,
+    );
+    await waitFor(() => expect(editor).toHaveAttribute('aria-describedby', 'hint error'));
+    expect(editor).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('puts in a chosen piece of text with its button, never while going through the list', async () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <RichTextEditor
+        label="Clinical note"
+        initialValue={doc(paragraph(text('Dear ')))}
+        onChange={onChange}
+        insertable={{
+          label: 'Insert a placeholder',
+          options: [
+            { value: '{{patient.name}}', label: 'Name' },
+            { value: '{{today}}', label: 'Date' },
+          ],
+        }}
+      />,
+      { session: null },
+    );
+    const editor = await screen.findByRole('textbox', { name: 'Clinical note' });
+    const list = screen.getByRole('combobox', { name: 'Insert a placeholder' });
+    const insert = screen.getByRole('button', { name: 'Insert' });
+    expect(insert).toBeUnavailable();
+
+    // Going through the list, as the arrow keys do, puts nothing in.
+    await userEvent.selectOptions(list, '{{today}}');
+    await userEvent.selectOptions(list, '{{patient.name}}');
+    expect(editor).toHaveTextContent(/^Dear$/);
+
+    await userEvent.click(insert);
+    await waitFor(() => expect(editor).toHaveTextContent('{{patient.name}}'));
+    expect(editor).not.toHaveTextContent('{{today}}');
+    // Ready for the next one.
+    expect(list).toHaveValue('');
+    expect(insert).toBeUnavailable();
   });
 
   it('cannot be edited when disabled', async () => {

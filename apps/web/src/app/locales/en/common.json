@@ -194,7 +194,8 @@
     "heading": "Heading",
     "bulletList": "Bulleted list",
     "orderedList": "Numbered list",
-    "blockquote": "Quote"
+    "blockquote": "Quote",
+    "insert": "Insert"
   },
   "link": {
     "title": "Opening a link",
