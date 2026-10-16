@@ -109,6 +109,39 @@ test('charts draw with the hospital colour and pass axe', async ({ page }) => {
   await expectNoAxeViolations(page);
 });
 
+test('a focused row is never hidden under the grid’s sticky header', async ({ page }) => {
+  test.skip(gridIsStacked(page), 'At this width the grid shows cards, with no sticky header.');
+  await page.goto('/examples/grid');
+  const table = page.getByRole('table', { name: 'Example people' });
+  await page.getByRole('button', { name: 'Load more' }).click();
+  await page.getByRole('button', { name: 'Load more' }).click();
+  await expect(table).toHaveAttribute('aria-rowcount', '151');
+
+  // Scroll so that a row sits under the header, then give focus to that row's action, as Tab
+  // or Shift+Tab would (WCAG 2.4.11).
+  const scroller = table.locator('xpath=..');
+  await scroller.evaluate((element) => element.scrollTo(0, 41 * 10 + 20));
+  const covered = await page.evaluate(() => {
+    const head = document.querySelector('table[aria-label="Example people"] thead')!;
+    const bottom = head.getBoundingClientRect().bottom;
+    const rows = [...document.querySelectorAll('table[aria-label="Example people"] tbody tr')];
+    const under = rows.find((row) => {
+      const box = row.getBoundingClientRect();
+      return box.top < bottom && box.bottom > bottom && row.querySelector('button');
+    });
+    return under?.getAttribute('aria-rowindex') ?? null;
+  });
+  expect(covered, 'no row was under the header').not.toBeNull();
+  await table.locator(`tr[aria-rowindex="${covered}"] button`).first().focus();
+
+  const [headBottom, focusedTop] = await page.evaluate(() => [
+    document.querySelector('table[aria-label="Example people"] thead')!.getBoundingClientRect()
+      .bottom,
+    document.activeElement!.getBoundingClientRect().top,
+  ]);
+  expect(focusedTop).toBeGreaterThanOrEqual(headBottom - 1);
+});
+
 test('a chart becomes a table on screen from the keyboard', async ({ page }) => {
   await page.goto('/examples/charts');
   const chart = page.getByRole('figure', { name: /^Visits by department\. / });

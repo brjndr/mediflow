@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoAxeViolations, gridIsStacked } from './support';
+import { expectNoAxeViolations, expectNoSidewaysScroll, gridIsStacked } from './support';
 
 /**
  * axe on every route a feature registers, in a real browser with colour contrast checked
@@ -240,4 +240,70 @@ test.describe('screens in other states pass axe', () => {
     await expect(page.locator('main [aria-invalid="true"]').first()).toBeVisible();
     await expectNoAxeViolations(page);
   });
+});
+
+/** The desktop project only: these set their own window size, so one run is enough. */
+const isDesktopProject = ({ viewport }: { viewport: { width: number } | null }) =>
+  viewport !== null && viewport.width >= 1024;
+
+test.describe('every feature route reflows at 320 px (400% zoom)', () => {
+  test.skip(({ viewport }) => !isDesktopProject({ viewport }), 'Checked once, at its own size.');
+
+  for (const route of routes) {
+    test(route, async ({ page }) => {
+      // A 1280 px window at 400% zoom: 320 CSS px wide (WCAG 1.4.10).
+      await page.setViewportSize({ width: 320, height: 720 });
+      await open(page, route);
+      await settled(page);
+      // Content reflows into one column; only a grid or the calendar scrolls, inside its box.
+      // A desktop-only screen says so instead of breaking.
+      await expectNoSidewaysScroll(page);
+    });
+  }
+});
+
+test.describe('every feature route takes text at 200%', () => {
+  test.skip(({ viewport }) => !isDesktopProject({ viewport }), 'Checked once, at its own size.');
+
+  for (const route of routes) {
+    test(route, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      // Text-only zoom, as a browser's text size setting does: every size is in rem.
+      await page.addInitScript(() => {
+        document.addEventListener('DOMContentLoaded', () => {
+          document.documentElement.style.fontSize = '200%';
+        });
+      });
+      await open(page, route);
+      await settled(page);
+      expect(
+        await page.evaluate(() => getComputedStyle(document.documentElement).fontSize),
+        'the text was not enlarged',
+      ).toBe('32px');
+      await expectNoSidewaysScroll(page);
+    });
+  }
+});
+
+test('nothing moves when the system asks for reduced motion', async ({ page }) => {
+  /** How long an element that asks to move for a second actually takes. */
+  const durations = () =>
+    page.evaluate(() => {
+      const probe = document.createElement('div');
+      probe.style.animation = 'probe 1s infinite';
+      probe.style.transition = 'opacity 1s';
+      document.body.append(probe);
+      const style = getComputedStyle(probe);
+      const result = [parseFloat(style.animationDuration), parseFloat(style.transitionDuration)];
+      probe.remove();
+      return result;
+    });
+  await page.goto('/patients');
+  await settled(page);
+  expect(await durations()).toEqual([1, 1]);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const [animation, transition] = await durations();
+  expect(animation).toBeLessThan(0.001);
+  expect(transition).toBeLessThan(0.001);
 });
