@@ -835,6 +835,55 @@ try {
     );
   }
 
+  // Appointments from three days ago to a week ahead at each hospital, every other slot of each
+  // practising doctor's hours: the past ones completed or a no-show, a few cancelled, the rest
+  // scheduled. Only for a hospital that has none, so running the seed again changes nothing.
+  for (const hospital of HOSPITALS) {
+    const tenantId = tenantIds.get(hospital.slug);
+    const existing = await client.query('select 1 from appointments where tenant_id = $1 limit 1', [
+      tenantId,
+    ]);
+    if (existing.rowCount !== 0) continue;
+    await client.query(
+      `insert into appointments (tenant_id, patient_id, doctor_id, starts_at, ends_at, status,
+         cancel_reason, created_by)
+       select $1, p.id, d.id, s.starts_at, s.starts_at + make_interval(mins => d.consultation_minutes),
+              v.status, case when v.status = 'cancelled' then 'patient_request' end, 'seed'
+       from tenants t
+       cross join (
+         select d.id, d.consultation_minutes, row_number() over (order by d.id) as rn
+         from doctors d join memberships m on m.tenant_id = d.tenant_id and m.user_id = d.user_id
+         where d.tenant_id = $1 and d.active and m.status = 'active'
+       ) d
+       cross join generate_series(-3, 7) as g(shift)
+       cross join lateral (select (now() at time zone t.timezone)::date + g.shift as day) dd
+       join doctor_hours h on h.doctor_id = d.id and h.day = extract(isodow from dd.day)
+       cross join lateral generate_series(h.start_minute::int,
+         h.end_minute::int - d.consultation_minutes, d.consultation_minutes * 2)
+         with ordinality as n(minute, k)
+       cross join lateral (
+         select (dd.day + make_interval(mins => n.minute))::timestamp at time zone t.timezone
+           as starts_at
+       ) s
+       -- A different patient for each doctor at the same time: 37 shares no factor with the count.
+       cross join lateral (
+         select id from patients where tenant_id = $1 order by mrn
+         offset (d.rn * 37 + (g.shift + 3) * 11 + n.k) % $2 limit 1
+       ) p
+       cross join lateral (
+         select case
+           when s.starts_at + make_interval(mins => d.consultation_minutes) <= now()
+             then case when (n.k + d.rn) % 7 = 0 then 'no_show' else 'completed' end
+           when (n.k + d.rn) % 9 = 0 then 'cancelled'
+           else 'scheduled'
+         end as status
+       ) v
+       where t.id = $1
+       on conflict do nothing`,
+      [tenantId, SAMPLE_PATIENTS],
+    );
+  }
+
   await client.query('commit');
 
   // Built-in roles get the default permissions the features declare, as a deploy does.

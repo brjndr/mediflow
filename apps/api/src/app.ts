@@ -28,6 +28,7 @@ import { sessionPlugin, type SessionResolver } from './core/session/plugin.js';
 import { tenancyPlugin } from './core/tenancy/plugin.js';
 import { tenantRoutes } from './core/tenancy/routes.js';
 import { healthFeature } from './features/health/index.js';
+import { appointmentsFeature } from './features/appointments/index.js';
 import { codesFeature } from './features/codes/index.js';
 import { departmentsFeature } from './features/departments/index.js';
 import { doctorsFeature } from './features/doctors/index.js';
@@ -139,6 +140,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(codesFeature);
   await app.register(templatesFeature);
   await app.register(importsFeature);
+  await app.register(appointmentsFeature);
 
   return app;
 }
