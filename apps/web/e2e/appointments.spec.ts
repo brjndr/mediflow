@@ -5,7 +5,9 @@ import { expectNoAxeViolations, expectNoSidewaysScroll, goTo } from './support';
  * The appointment list in a real browser against the mock backend, at every supported width:
  * today's appointments at the hospital, a page at a time, narrowed by doctor and by status, over
  * several days, and from a row to the patient's own screen; and one doctor's calendar, by day
- * everywhere and by week where there is room.
+ * everywhere and by week where there is room. Booking, moving and cancelling, with the pointer and
+ * the keyboard alone, and the hospital boundary: one hospital's appointments are never shown in
+ * another.
  *
  * A full page load resets the mock, so everything after the first load happens inside the app.
  */
@@ -285,4 +287,49 @@ test('cancel an appointment with the keyboard alone, and come back to where it s
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Appointment', exact: true })).toBeFocused();
   await expectNoAxeViolations(page);
+});
+
+/** Goes to an address the way a link inside the app does, without reloading the page. */
+async function navigateInApp(page: Page, path: string) {
+  await page.evaluate(
+    `window.history.pushState({}, '', ${JSON.stringify(path)});
+     window.dispatchEvent(new PopStateEvent('popstate'));`,
+  );
+}
+
+test('appointments of one hospital are never shown in another', async ({ page }) => {
+  // A doctor who works at both hospitals.
+  await page.goto('/?mockUser=user_doctor');
+  await page.getByRole('button', { name: 'Sample Hospital' }).click();
+  await goTo(page, 'Appointments');
+  await page.getByRole('combobox', { name: 'Doctor' }).selectOption({ label: 'All doctors' });
+  await expect(status(page, '48 appointments')).toBeVisible();
+  await page
+    .getByRole('button', { name: /^Open the appointment/ })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/appointments\/apt_tenant_1_\d{5}$/);
+  const hospitalAppointment = new URL(page.url()).pathname;
+
+  // Switching hospital leaves the appointment and returns home: nothing of it stays on screen.
+  await page
+    .getByRole('combobox', { name: 'Hospital' })
+    .selectOption({ label: 'Riverside Clinic' });
+  await expect(page).not.toHaveURL(/\/appointments\//);
+  await expect(page.getByRole('heading', { name: 'Appointment', exact: true })).toHaveCount(0);
+
+  // The clinic has its own, much shorter day: two doctors with three each.
+  await goTo(page, 'Appointments');
+  await page.getByRole('combobox', { name: 'Doctor' }).selectOption({ label: 'All doctors' });
+  await expect(status(page, '6 appointments')).toBeVisible();
+  await page
+    .getByRole('button', { name: /^Open the appointment/ })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/appointments\/apt_tenant_2_\d{5}$/);
+
+  // The address of a hospital appointment shows nothing of it at the clinic.
+  await navigateInApp(page, hospitalAppointment);
+  await expect(page.getByText(/This appointment is not available/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Cancel the appointment' })).toHaveCount(0);
 });
