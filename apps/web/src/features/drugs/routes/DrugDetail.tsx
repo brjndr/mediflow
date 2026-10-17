@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { useInPlaceFormFocus } from '@/shared/hooks/use-in-place-form-focus';
 import { Button } from '@/shared/ui/button';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SubmitButton, useZodForm } from '@/shared/ui/form';
@@ -132,6 +133,10 @@ function Details({ drug, refreshFailed }: { drug: Drug; refreshFailed: boolean }
   // The item as it was when the form opened: a refresh in the background never changes what is
   // being typed over.
   const [editing, setEditing] = useState<Drug | null>(null);
+  // The form takes the place of the details: the keyboard follows it in and back out.
+  const box = useRef<HTMLElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  useInPlaceFormFocus(editing !== null, box, heading);
   // The version a save is made from. After a conflict it moves to the newest one while the form
   // keeps what was typed, and only the fields the person changed are sent again.
   const [expected, setExpected] = useState(drug.version);
@@ -200,8 +205,13 @@ function Details({ drug, refreshFailed }: { drug: Drug; refreshFailed: boolean }
   const conflicted = code === 'conflict';
 
   return (
-    <section aria-labelledby="drug-details" className="flex flex-col gap-3">
-      <h2 id="drug-details" className="text-lg font-semibold">
+    <section ref={box} aria-labelledby="drug-details" className="flex flex-col gap-3">
+      <h2
+        id="drug-details"
+        ref={heading}
+        tabIndex={-1}
+        className="rounded-sm text-lg font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {t('detail.details')}
       </h2>
       {drug.archived && <p className="text-sm text-muted-foreground">{t('detail.archivedNote')}</p>}
@@ -244,6 +254,7 @@ function Details({ drug, refreshFailed }: { drug: Drug; refreshFailed: boolean }
               <Button
                 variant="outline"
                 aria-disabled={update.isPending || undefined}
+                data-opens="edit"
                 onClick={() => start(drug)}
               >
                 {t('detail.edit')}

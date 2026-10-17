@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { useInPlaceFormFocus } from '@/shared/hooks/use-in-place-form-focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
@@ -44,7 +45,10 @@ function EditForm({
   pending,
   onSave,
   onCancel,
+  heading,
 }: {
+  /** The form's own heading, which takes focus when it opens. */
+  heading: RefObject<HTMLHeadingElement>;
   from: Detail;
   /** The newest version there is now. */
   latestVersion: number;
@@ -82,6 +86,13 @@ function EditForm({
 
   return (
     <Form form={form} onSubmit={submit} className="flex flex-col gap-4">
+      <h2
+        ref={heading}
+        tabIndex={-1}
+        className="rounded-sm text-lg font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
+        {t('detail.edit')}
+      </h2>
       <div className="max-w-xl">
         <TextField
           name="name"
@@ -359,6 +370,10 @@ function Loaded({ detail }: { detail: Detail }) {
   const save = useSaveTemplate(template.id);
   // The template as it was when the form opened.
   const [editing, setEditing] = useState<Detail | null>(null);
+  // The form takes the place of the text: the keyboard follows it in and back out.
+  const box = useRef<HTMLDivElement>(null);
+  const editHeading = useRef<HTMLHeadingElement>(null);
+  useInPlaceFormFocus(editing !== null, box, editHeading);
   // What was just done, said once in a status line.
   const [done, setDone] = useState<string | null>(null);
 
@@ -424,7 +439,7 @@ function Loaded({ detail }: { detail: Detail }) {
   const badge = 'ml-2 rounded-full border px-2 py-0.5 text-xs font-medium';
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6">
+    <div ref={box} className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6">
       <div className="space-y-1">
         <Link to="/templates" className={link}>
           {t('backToList')}
@@ -463,6 +478,7 @@ function Loaded({ detail }: { detail: Detail }) {
       {editing ? (
         <EditForm
           from={editing}
+          heading={editHeading}
           latestVersion={template.version}
           pending={save.isPending}
           onSave={onSave}
@@ -481,6 +497,7 @@ function Loaded({ detail }: { detail: Detail }) {
                 {!template.archived && (
                   <Button
                     variant="outline"
+                    data-opens="edit"
                     aria-disabled={save.isPending || undefined}
                     onClick={() => start(detail)}
                   >

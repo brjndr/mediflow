@@ -1,7 +1,8 @@
 import { Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
+import { focusIfLost } from '@/shared/lib/focus';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { CodeSearch } from '../components/CodeSearch';
@@ -55,6 +56,14 @@ function Codes() {
       },
     );
   };
+  // A favourite comes first in the list, so marking one moves its row (and leaving the favourites
+  // takes it out of that view): the button pressed goes with it, and the keyboard goes to the line
+  // that says what was done.
+  const statusLine = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (done !== null || favourite.isError) focusIfLost(statusLine.current);
+  }, [done, favourite.isError]);
+
   const actions: GridAction<Code>[] = [
     {
       id: 'add',
@@ -131,7 +140,12 @@ function Codes() {
           {tCommon(errorMessageKey(favourite.error))}
         </p>
       )}
-      <p role="status" className="text-sm text-muted-foreground">
+      <p
+        ref={statusLine}
+        tabIndex={-1}
+        role="status"
+        className="rounded-sm text-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {done ?? ''}
       </p>
       <p role="status" className="text-sm text-muted-foreground">

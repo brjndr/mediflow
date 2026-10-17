@@ -100,7 +100,8 @@
     "moveUp": "Move {{name}} up",
     "moveDown": "Move {{name}} down",
     "save": "Save test",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "required": "(required)"
   },
   "create": {
     "heading": "Add a test",

@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { type RefObject, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
@@ -26,7 +27,14 @@ const KNOWN_FAILURES = [
 ];
 
 /** What the batch is doing now, in a sentence, with a progress bar while a job works on it. */
-function State({ batch }: { batch: ImportBatch }) {
+function State({
+  batch,
+  statusLine,
+}: {
+  batch: ImportBatch;
+  /** The line that says how the batch ended, which focus goes to when a button goes away. */
+  statusLine: RefObject<HTMLParagraphElement>;
+}) {
   const { t } = useTranslation('imports');
   const working = batch.status === 'checking' || batch.status === 'running';
   const sentence = (() => {
@@ -66,13 +74,17 @@ function State({ batch }: { batch: ImportBatch }) {
           aria-label={sentence}
         />
       )}
-      {working ? (
-        <p className="text-sm">{sentence}</p>
-      ) : (
-        <p role="status" className="text-sm">
-          {sentence}
-        </p>
-      )}
+      {/* The progress is shown, not said at every step: it changes every second. */}
+      {working && <p className="text-sm">{sentence}</p>}
+      {/* Always there, so how the job ended is read when it is said. */}
+      <p
+        ref={statusLine}
+        tabIndex={-1}
+        role="status"
+        className="rounded-sm text-sm outline-none empty:sr-only focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
+        {working ? '' : sentence}
+      </p>
     </div>
   );
 }
@@ -141,6 +153,13 @@ function Batch({ batchId }: { batchId: string }) {
   const kindName = useKindName();
   const batch = useImportBatch(batchId);
   const action = useBatchAction(batchId);
+  // Writing or giving up takes the buttons away: the keyboard goes to the line that says how the
+  // batch stands, unless the person has moved it meanwhile.
+  const statusLine = useRef<HTMLParagraphElement>(null);
+  const status = batch.data?.status;
+  useEffect(() => {
+    focusIfLost(statusLine.current);
+  }, [status, action.isError]);
 
   if (batch.isPending) {
     return (
@@ -175,7 +194,7 @@ function Batch({ batchId }: { batchId: string }) {
           {t('batch.rows', { count: current.rowCount })}
         </p>
       </div>
-      <State batch={current} />
+      <State batch={current} statusLine={statusLine} />
       <Can permission="import:run">
         {(writable || cancellable) && (
           <div className="flex flex-wrap gap-3">
