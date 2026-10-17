@@ -5,7 +5,7 @@ description: Verify a clinical, pharmacy, billing or other hospital module integ
 
 # Module integration check
 
-Review the changes of this branch (`git diff origin/main...HEAD`, plus `git diff` for anything uncommitted) and the module's design against "Product Scope: End-to-End Patient Journey" in CLAUDE.md. Report findings by file and line.
+Review the changes of this branch (`git diff origin/main...HEAD`, plus `git diff` for anything uncommitted) and the module's design against "Product Scope: End-to-End Patient Journey" in CLAUDE.md and the full architecture rules and domain types in `docs/PRODUCT.md`. Report findings by file and line.
 
 ## Checklist
 

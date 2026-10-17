@@ -14,7 +14,7 @@ Follow "Workflow (GitHub issues)" in CLAUDE.md and `docs/WORKFLOW.md`. One issue
 3. **Check the working tree:** `git status` must be clean and no other issue branch should be half-finished. If not, report it and ask.
 4. **Branch from an up-to-date main:** `feat/<n>-<slug>`, `fix/<n>-<slug>` or `chore/<n>-<slug>`, chosen from the issue's `type:*` label. Slug is a short kebab-case form of the title without the `[ID]` prefix.
 5. **Mark in progress:** `gh issue edit <n> --add-label status:in-progress`.
-6. **Read the module's own notes:** for work on an existing module, read `apps/web/src/features/<folder>/CLAUDE.md` before planning, also when the work is under `apps/api`, where it does not load by itself. It holds what was decided for the module.
+6. **Read the module's own notes:** for work on an existing module, read `apps/web/src/features/<folder>/CLAUDE.md` before planning, also when the work is under `apps/api`, where it does not load by itself. It holds what was decided for the module; for its API, read `apps/api/src/features/<name>/CLAUDE.md` too. `docs/STATUS.md` says what each module exports for others.
 7. **Plan:**
    - Size M or L: present a short plan (files to add or change, permissions and feature flag, contract changes, tests, anything unclear) and **wait for approval** before writing code.
    - Size S: state the approach in two or three lines and proceed.

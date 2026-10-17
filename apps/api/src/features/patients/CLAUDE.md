@@ -1,0 +1,20 @@
+# Patients API
+
+What was decided for this feature's API. Moved out of `apps/api/CLAUDE.md` (#370); Claude Code loads it when a file of this folder is read. The web side's notes are in `apps/web/src/features/patients/CLAUDE.md`.
+
+- **`features/patients`** is the first feature with patient data and the pattern for the next: `permissions.ts`, `schemas.ts` (TypeBox), `repository.ts` (SQL on `request.txClient`) and `routes.ts`. It is behind the `patients` module flag.
+- **The MRN is assigned by the server** from `patient_mrn_counters`, one row per hospital, incremented in the registering request's own transaction: no gaps after a failure, no duplicates under concurrency. It is the hospital's initials and a seven-digit number (`SH-0000123`, so MRNs sort as text up to ten million per hospital) and never changes; a trigger refuses a change of hospital, MRN or registration details, and the app role has no DELETE on `patients`.
+- **Search is `POST /patients/search`** with the term in the body, because it can be a name, a phone number or an MRN and must never be in a URL. Every word must appear in the name or MRN, in any order. `total` comes with the first page only.
+- **The list is ordered and paged on plain stored columns** (`last_name_lower`, `first_name_lower`, `id`), and the cursor row's values are passed as parameters, so a deep page starts at the cursor through the index. The cursor holds the last row's id and the sort, no data; if that row is renamed between two pages, the next page starts from its new position.
+- **`patient.contact:read` is a field-level permission.** Without it the phone is masked to its last four digits, email and address are left out, and contact details cannot be changed. Check it through `request.access.policy()`, since it is not one of the route's required permissions.
+- **Searching by phone number needs `patient.contact:read` too.** Without it the term is matched against names and MRNs only: otherwise a masked number could be recovered digit by digit from which rows match.
+- **Changing a record needs `patient:read` as well as `patient:update`,** because the answer is the whole record, and the narrower of the two scopes applies.
+- **The duplicate check is a deliberate exception to scope and to the contact permission:** anyone who may register sees possible duplicates across the whole hospital, matched by name and birth date or by phone. That is what stops a second record for the same person. The matches are masked, carry no id, and the check is audited and rate limited.
+- **Scope:** `own` means the patients the user registered, until encounters say whose patient someone is; `department` matches nothing yet.
+- **A record outside the caller's hospital or scope is a 404,** the same answer as one that does not exist.
+- **`POST /patients` requires an Idempotency-Key** and keeps only the id for a replay, so a replay answers `{ id }` and the client reads the record (which needs `patient:read`).
+- **A birth date is checked against today at the hospital,** in its timezone, not the server's.
+- **A change that sends what the record already has writes nothing and emits nothing.**
+- **Every record has a `version`,** counted by a database trigger on each update. `PATCH /patients/{id}` requires `expectedVersion`, the version the caller read, and answers 409 `conflict` without changing anything when the record has moved on. The row is locked while the two are compared, so of two changes made from the same version exactly one goes through. Use the same pattern for any record two people can edit at once.
+- **Audit:** record reads and updates through `config.audit`; create, search and duplicate check through `request.audit`. Events carry the patient id, and `patient.updated` the names of the changed fields, never values.
+- **Unknown body fields are dropped by validation, not refused,** so a client cannot set `mrn`, `tenantId` or `id`.

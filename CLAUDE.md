@@ -2,9 +2,9 @@
 
 ## Overview
 
-Permission-based, **multi-tenant** web app serving **multiple hospitals** from one deployment. Covers patient records, appointments, clinical workflows, and billing. It is an **end-to-end HMS**: it covers the whole patient journey from arrival to exit (OPD, inpatient, emergency, diagnostics, pharmacy, billing, insurance and records), like a conventional hospital management system. See Product Scope. Must handle **very high traffic** (many hospitals, many concurrent users). This is a **pnpm monorepo** holding the React SPA (`apps/web`), the Fastify API (`apps/api`) and a shared contract package (`packages/contract`). See Repository Layout. The web app runs against an MSW mock API by default; the real API so far covers authentication, tenancy, access, staff, patients, departments, doctors, services and prices, drugs, lab tests, wards and beds, diagnosis and procedure codes, and document templates (see Current Status).
+Permission-based, **multi-tenant** web app serving **multiple hospitals** from one deployment: an **end-to-end HMS** covering the whole patient journey from arrival to exit (OPD, inpatient, emergency, diagnostics, pharmacy, billing, insurance and records). See Product Scope. Must handle **very high traffic** (many hospitals, many concurrent users). A **pnpm monorepo**: the React SPA (`apps/web`), the Fastify API (`apps/api`) and the shared contract (`packages/contract`). The web app runs against an MSW mock API by default; what the real API covers is in Current Status.
 
-**Staff-only application.** Only hospital staff (and platform admins) have accounts and can sign in. Patients are records managed by staff (registered, scheduled, treated, billed). There is no patient login, patient portal, or patient self-service anywhere in this product. Outbound patient reminders are a planned future feature: v1 must be built so it (or any other feature) can be added as a plug-in module without changing core code. See "Adding a new feature later".
+**Staff-only application.** Only hospital staff (and platform admins) have accounts. Patients are records managed by staff: no patient login, portal or self-service, and in v1 nothing contacts a patient (no SMS, email, WhatsApp or reminders). Reminders are planned as a plug-in module that needs no change to core code (`docs/EXTENDING.md`).
 
 Five non-negotiables shape every decision:
 
@@ -16,43 +16,22 @@ Five non-negotiables shape every decision:
 
 ## Current Status
 
-As of 2026-10-13. GitHub issues and milestones are the source of truth (`gh issue list --milestone "<name>"`); update this section when a milestone closes. A finished module gets one line under What exists; what was decided for it goes in the feature folder's own `CLAUDE.md`, not here.
+As of 2026-10-13. GitHub issues and milestones are the source of truth (`gh issue list --milestone "<name>"`); update this section when a milestone closes. A finished module gets an entry in `docs/STATUS.md` and its name under What exists; what was decided for it goes in the feature folder's own `CLAUDE.md`, not here.
 
-| Milestone                         | State                                                                                                                                                                                                                                                                                                                                                    |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M0 Setup                          | Done                                                                                                                                                                                                                                                                                                                                                     |
-| M1 Foundation                     | Done, except #264 (the idle sign-out test fails intermittently on a slow machine; it passes in CI)                                                                                                                                                                                                                                                       |
-| M2 Auth and access                | Every roadmap issue is done. Open follow-ups: #252 (disable the authenticator, regenerate recovery codes), #253 (outbox and audit), #254 (rate limits), #255 (a test fix), #257 (the account API: change password, own sessions)                                                                                                                         |
-| M3 Patients                       | The patients module is complete in the web app and the API (#49 to #55). Open: #56 (staging environment and deploy pipeline, deferred until the product works locally and a cloud account exists; the defaults agreed for it are on the issue) and #259 (patient search for very large hospitals, a spike)                                               |
-| M4 Doctors, departments, staff    | Done, in the web app and the API (#57 to #61, #276). Leave and one-off changes to working hours belong with appointments                                                                                                                                                                                                                                 |
-| M5 Master data and catalogs       | Every catalog is done in the web app and the API: services and prices, drugs and consumables, lab tests, wards, rooms and beds, diagnosis and procedure codes, and document templates (#62 to #67, #286, #289, and the API in #69: #298 to #303), and the bulk import centre (#68). Open: the follow-ups #304 (which code sets the pilot loads) and #310 |
-| M6 Appointments, queue and triage | Started: the appointment list, the calendar, booking and the changes of status in the web app, against the mock (#70 to #73). The tests and the API (#74, #75), and the queue and triage (#76 to #79), are open                                                                                                                                          |
-| M7 and beyond                     | Not started. No clinical or billing module exists yet                                                                                                                                                                                                                                                                                                    |
+- **M0 Setup:** done.
+- **M1 Foundation:** done, except #264 (the idle sign-out test fails intermittently on a slow machine; it passes in CI).
+- **M2 Auth and access:** done. Open follow-ups: #252, #253, #254, #255, #257 (the account API).
+- **M3 Patients:** done in both apps (#49 to #55). Open: #56 (staging and deploy, deferred until a cloud account exists) and #259 (search for very large hospitals, a spike).
+- **M4 Doctors, departments, staff:** done, in the web app and the API (#57 to #61, #276). Leave and one-off changes to working hours belong with appointments.
+- **M5 Master data and catalogs:** every catalog and the import centre done in both apps (#62 to #69, #286, #289, #298 to #303). Open: #304 (which code sets the pilot loads) and #310.
+- **M6 Appointments, queue and triage:** started: list, calendar, booking and status changes in the web app against the mock (#70 to #73). Open: tests and API (#74, #75), queue and triage (#76 to #79).
+- **M7 and beyond:** not started. No clinical or billing module exists yet.
 
 **What exists**
 
-Each module in this list, from Patients to the Import centre, keeps what was decided for it, and its own gaps, in `apps/web/src/features/<folder>/CLAUDE.md`, which Claude Code loads when a file of that folder is read. **Read it before changing the module in either app:** for work under `apps/api` it does not load by itself.
+Done in the web app and the API: patients, departments, doctors, staff, and every master data catalog (services and prices, drugs, lab tests, wards, codes, templates) with the import centre. Done in the web app against the mock: appointments (list, calendar, booking, status changes). Fourteen features are registered, with `notices` the template for new modules. Exports another module may use: `PatientSearch` and `DetailTab` (patients), `useDepartmentOptions`, `useServiceOptions`, `CodeSearch`, `fillPlaceholders` and `placeholdersIn` (templates), and `app.importKinds` on the API. Each module's entry (switch, permissions, exports), what `db:seed` loads for it, and the known gaps are in `docs/STATUS.md`. What was decided for a module, and its own gaps, is in `apps/web/src/features/<folder>/CLAUDE.md`, which Claude Code loads when a file of that folder is read. **Read it before changing the module in either app:** for work under `apps/api` it does not load by itself.
 
-- **Web foundation:** session bootstrap, tenancy (picker, switcher, theming, formatters), access (`usePermission`, `<Can>`, `PermissionGuard`, policy refresh), the feature registry with slots, the app shell, i18n, error reporting, bundle budgets, the shared building blocks (data grid, charts, form kit, rich text), and the responsive target: every screen works at phone, tablet and desktop width, and Playwright runs every spec at all three (see Responsive Design).
-- **Web auth:** login and sign-out, deep links (`/open/<kind>/<id>`), idle sign-out with a warning, cross-tab sync, the invite, forgot-password and reset-password pages, the authenticator code step at sign-in, enrolment at `/security`, and the account page at `/profile` (change password, end other sessions). Fourteen features are registered: `notices` (the sample feature and the template for new modules), `ui_examples` (the building-block examples), `patients`, `appointments`, `departments`, `doctors`, `staff`, `services`, `drugs`, `lab_tests`, `wards`, `codes`, `templates` and `imports`.
-- **Patients (web and API):** the list with server-side search, registration with a duplicate check, the patient screen (it hosts the `patient.detail.tabs` and `patient.detail.actions` slots and exports `DetailTab`), editing with conflict detection, deep links, audit of every read and write, and the `patient.registered` and `patient.updated` events (#49 to #55). Behind the `patients` switch, with the field-level permission `patient.contact:read` for contact details. Exports `PatientSearch`, the box another screen chooses a patient with. Notes: `apps/web/src/features/patients/CLAUDE.md`.
-- **Departments (web and API):** the list, adding, editing, archiving and restoring (#57, and the API in #61). Behind the `departments` switch and the `department:read` and `department:manage` permissions. Exports `useDepartmentOptions`. Notes: `apps/web/src/features/departments/CLAUDE.md`.
-- **Doctors (web and API):** a profile for a staff member and regular weekly working hours (#58, and the API in #61). Behind the `doctors` switch and the `doctor:read` and `doctor:manage` permissions. A hospital with doctors on needs departments on. Leave and one-off changes to hours belong with appointments. Notes: `apps/web/src/features/doctors/CLAUDE.md`.
-- **Staff (web and API):** the staff list, invitations (one person, or up to 200 from a CSV file), deactivating, reactivating and signing someone out everywhere, with the `staff:read`, `staff:invite` and `staff:manage` permissions (#59, and the API in #61). The web screen is behind the `staff` switch; the API is always on. Nobody acts on, or invites into, a role that holds more than their own. Changing a role belongs with role management. Notes: `apps/web/src/features/staff/CLAUDE.md`.
-- **Services and prices (web and API):** the catalog of what the hospital charges for, with prices that have effective dates on one price list per hospital (#62, and the API in #298). Behind the `services` switch and the `service:read` and `service:manage` permissions. Desktop-only. Exports `useServiceOptions`. Notes: `apps/web/src/features/services/CLAUDE.md`.
-- **Drugs and consumables (web and API):** the medicines and consumables the hospital keeps, with no price and no stock (#63, and the API in #299). Behind the `drugs` switch and the `drug:read` and `drug:manage` permissions. Desktop-only. Notes: `apps/web/src/features/drugs/CLAUDE.md`.
-- **Lab tests (web and API):** the tests and panels the laboratory offers, with reference ranges by sex and age (#64, #286, and the API in #300). Behind the `lab_tests` switch and the `labTest:read` and `labTest:manage` permissions. Desktop-only. Linking a test to the service it is charged as also needs `service:read` and the `services` switch. The age rule is `features/lab-tests/age.ts`, which the mock shares and the API holds a copy of (a test fails when the two differ). Notes: `apps/web/src/features/lab-tests/CLAUDE.md`.
-- **Wards, rooms and beds (web and API):** wards, their rooms and beds, and bed categories, each charged as a bed-day service of the price catalog (#65, and the API in #301). Behind the `wards` switch and the `ward:read` and `ward:manage` permissions. Desktop-only. Uses `useServiceOptions` and `useDepartmentOptions`. Occupied and being cleaned are set by admissions and housekeeping (R2), never from this screen. Notes: `apps/web/src/features/wards/CLAUDE.md`.
-- **Diagnosis and procedure codes (web and API):** the ICD-10 and procedure code sets, searched on the server, and each hospital's favourites (#66, and the API in #302). A set is loaded by an operator from a file (`pnpm --filter api codes:load`); none is in the repository, and which edition the pilot loads is #304. Behind the `codes` switch and the `code:read` and `code:manage` permissions. Exports `CodeSearch`, the search box a clinical screen records a diagnosis or a procedure with; a screen that uses it needs the `codes` switch and `code:read`. The management screen is desktop-only; the search box is not. Notes: `apps/web/src/features/codes/CLAUDE.md`.
-- **Document templates (web and API):** each hospital's own texts for a prescription, a clinical note, a consent form and a discharge summary, with placeholders and append-only versions (#67, and the API in #303). The one change ever made to a saved version is a redaction: the name and the text of an older version are removed, with a reason from a list (#292). Behind the `templates` switch and the `template:read`, `template:manage` and `template:redact` permissions. Desktop-only. Exports `fillPlaceholders` and `placeholdersIn`, which the clinical modules fill a template and check the result with. The shared rich text editor gained `insertable`, a list of fixed texts to put in at the cursor. Notes: `apps/web/src/features/templates/CLAUDE.md`.
-- **Import centre (web and API):** services and prices, drugs, single lab tests and patients loaded from a CSV file: the columns matched in the browser, every row checked by a job before anything is written (the dry run, with a report by line and field), and the batch written by another job in one transaction, whole or not at all (#68). Behind the `imports` switch and the `import:read` and `import:run` permissions; loading a kind also needs that kind's own permission, and patients need `patient:import`. Desktop-only. A feature makes its records importable by registering a kind (`app.importKinds`) whose `prepare` and `write` its create route uses too. Notes: `apps/web/src/features/imports/CLAUDE.md`.
-- **Appointments (web, against the mock):** the list of a range of days at the hospital, filtered by doctor and by status, a page at a time, opening on the signed-in doctor's own schedule (#70), one doctor's day or week as a calendar, the week at desktop width only (#72), and booking: a patient, a doctor and one of the doctor's free times worked out by the server, with an idempotency key, and the next free times offered when someone else took the time first (#71), and the appointment's own screen, where it is moved, cancelled with a reason, completed or marked a no-show, shown at once and put back if refused (#73). Behind the `appointments` switch, `appointment:read`, `appointment:create` and `appointment:update`. Works at every width. Hosts `appointment.row.badges` and `appointment.form.fields`. Its endpoints are in the planned contract until the API (#75). Notes: `apps/web/src/features/appointments/CLAUDE.md`.
-- **API (`apps/api`):** config, logging with redaction, the migration runner, tenancy with row-level security, cookie sessions with rotation, password sign-in with lockout and rate limit, invites, password reset, TOTP MFA, roles and permissions, the access guard, the notifier (SMTP), the audit log, the transactional outbox and job queue (pg-boss), per-tenant and per-user rate limits, idempotency keys, the registry of import kinds and the OpenAPI contract. Eleven features besides health: `staff` (invitations, the staff list, deactivating, ending sessions), `patients` (search, register, duplicate check, read, update), `departments` (list, add, change, archive, restore), `doctors` (profiles, the staff a profile can be made for, weekly working hours), `services` (search, add, change, archive, restore, prices with effective dates, price lists), `drugs` (search, duplicate check, add, change, archive, restore), `lab-tests` (search, tests and panels, reference ranges, which range applies), `wards` (bed categories, wards, rooms, beds, blocking a bed) `codes` (the search, favourites, and the loader of a code set), `templates` (list, add, save a version, read a version, redact one, archive, restore) and `imports` (batches, staging rows, the dry run and the commit as jobs, the report, the weekly expiry). Migrations `0001` to `0032`.
-
-**What the web app can and cannot do against the real API**
-
-- Works: sign-in (with the authenticator code step), the hospital picker and switcher, the access policy, sign-out, and the whole patients module: list and search, registration, the duplicate check, the patient screen and editing (`db:seed` adds 250 sample patients to each sample hospital), the departments screen (`db:seed` adds ten sample departments), the staff screen, the doctors screen (`db:seed` gives the sample doctors a profile with weekday morning hours), the services and prices screen (`db:seed` adds a sample price catalog), the drugs screen (`db:seed` adds sample medicines and consumables), the lab tests screen (`db:seed` adds sample tests, two panels and reference ranges), the wards screen (`db:seed` adds four bed categories and three wards with their rooms and beds) the codes screen (`db:seed` loads the two sample sets of `apps/api/sample-codes` and marks a few favourites) the templates screen (`db:seed` adds one template of each kind) and the import centre (on for the sample hospital).
-- Mock only: everything else. The appointments module, `notices`, change password, the account sessions and `POST /session/open-link` are in the planned contract (`packages/contract/planned.openapi.json`) with no backend yet, and the real policy lists only permissions the API knows (the staff, patient, department, doctor, service, drug, lab test, ward, code, template and import permissions so far), so other feature screens show "no access" there.
+**Against the real API** every module done in both apps works, with sample data from `db:seed`. Mock only: the appointments module, `notices`, change password, the account sessions and `POST /session/open-link`, which are in the planned contract (`packages/contract/planned.openapi.json`); the real policy lists only permissions the API knows, so other feature screens show "no access" there.
 
 **Not built yet, although described below as the target**
 
@@ -61,106 +40,34 @@ Each module in this list, from Patients to the Import centre, keeps what was dec
 - Platform admins: the `is_platform_admin` flag exists, but there is no way to create one, no platform routes, and MFA is not yet enforced for them.
 - Deployment: no infrastructure code and no hosted environment. CI builds the API image and runs the tests.
 
-**Known gaps to keep in mind**
-
-- **The authenticator (two-step sign-in) is off for every hospital unless it is switched on.** Two per-hospital switches in `tenant_features` control it: `mfa` offers it to the staff (the set-up screen at `/security` and the link on the account page), and `mfa_required` with it makes it compulsory, which the server enforces (403 `mfa_required` on every route of the hospital until one is set up). There is no screen for the switches yet: they are set in the database or the seed until the platform admin module exists. There is no per-role requirement; that belongs with the roles API (#137).
-- The account page (`/profile`) changes the password and ends other sessions against the mock only: its three endpoints are in the planned contract until #257.
-- Disabling the authenticator and regenerating recovery codes have no screen yet (#252), and `/security` is reached from the account page only when no authenticator is set up.
-- Not checked yet, although stated as targets in Responsive Design: Safari on iOS (every Playwright project is Chromium), full-screen dialogs on a phone, and a phone Lighthouse run.
-- The dev seed runs only against a database on this machine; another host has to be named with `--allow-host` (see `apps/api/CLAUDE.md`).
-- `pnpm audit` reports two moderate advisories in `react-router` 6, fixed only in 7.x. CI gates at high.
-- Production needs `MFA_ENCRYPTION_KEY`, and the migrate step needs the same environment as the API (it also applies default role permissions).
+**Known gaps** (detail in `docs/STATUS.md`): the authenticator is off for a hospital until its `mfa` switch (and `mfa_required` to make it compulsory) is set in `tenant_features`, with no screen for the switches yet; the account page's endpoints and disabling the authenticator are mock-only or missing (#257, #252); Safari on iOS, phone dialogs and a phone Lighthouse run are unchecked; the dev seed refuses a remote host without `--allow-host`; `react-router` 6 has two moderate advisories (CI gates at high); production needs `MFA_ENCRYPTION_KEY`, and the migrate step the API's environment.
 
 ## Product Scope: End-to-End Patient Journey
 
-The product must support a hospital's complete workflow, not just a few screens. Modules are delivered in four releases, each shippable and each built as feature modules that a hospital can enable or disable (a small clinic runs OPD only, a large hospital enables everything). Full issue list: `docs/ROADMAP.md`.
-
-### Journeys
-
-- **OPD:** register or find patient -> appointment or walk-in token -> triage (vitals, allergies) -> consultation -> orders (lab, imaging, medication, procedures) -> sample collection and results -> prescription -> pharmacy dispense -> billing and payment -> follow-up or referral.
-- **IPD:** admission advice -> bed allocation (ADT) -> nursing care (vitals, medication administration, notes) -> doctor rounds and orders -> diagnostics and pharmacy -> running bill and deposits -> discharge clearance -> discharge summary -> final bill or insurance settlement -> bed cleaning.
-- **Emergency:** quick or unidentified registration -> triage -> rapid care -> disposition (discharge, admit to IPD, refer, expired). Patients may be merged into a real identity later.
-- **Surgery:** OT booking -> pre-op checklist -> operation and anaesthesia notes -> consumables and charges -> post-op care.
-- **Insured patients:** policy capture -> pre-authorization -> split billing -> claim submission -> settlement.
-
-### Module map and releases
-
-| Release                               | Modules                                                                                                                                                                                                                                |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **R1 Pilot (OPD hospital or clinic)** | Auth and roles, patients, doctors and departments, master data and catalogs, appointments, queue and triage, OPD clinical and orders, laboratory, radiology, pharmacy and inventory, billing, reports, platform admin, role management |
-| **R2 Inpatient**                      | Bed management and admissions (ADT), nursing and ward care, discharge and IPD billing                                                                                                                                                  |
-| **R3 Specialty and payers**           | Emergency, operation theatre, insurance, TPA and claims                                                                                                                                                                                |
-| **R4 Records and operations**         | Medical records and documents, consents and certificates, rosters, blood bank, ambulance, housekeeping                                                                                                                                 |
+The whole hospital workflow, delivered in four releases (R1 pilot OPD, R2 inpatient, R3 specialty and payers, R4 records and operations), each module a feature a hospital can turn on or off. The journeys (OPD, IPD, emergency, surgery, insured patients) and the module map are in `docs/PRODUCT.md`: read them before planning a new module.
 
 ### Architecture rules that make the modules fit together
 
-- **Encounter is the spine.** Every clinical, ordering and billing record attaches to an `Encounter` (type `opd`, `ipd`, `er` or `daycare`), which belongs to one patient. Modules never invent their own visit concept.
-- **Unified orders (CPOE).** Lab, imaging, procedure, medication and diet requests are all `Order` records with a type, status and `order.placed` event. Lab, radiology, pharmacy and nursing modules consume orders by event. Ordering never calls those modules directly.
-- **Charge ledger.** Services performed, tests, imaging, dispenses, bed days and procedures post **charges** to the encounter's charge ledger (priced from the active price list at that time). Invoices are assembled from charges. No module writes invoices directly.
-- **Master data first.** Services and tariffs, drugs, lab tests, ICD codes, wards and beds are catalogs owned by the master data module and referenced by ID everywhere else. Prices are effective-dated so old bills never change.
-- **Append-only where it matters:** stock ledger, medication administration record, audit log, results and signed documents. Corrections are new entries or addenda with the reason and the author.
-- **State machines** for orders, samples, admissions, bed status, claims and discharge, enforced on the backend. The UI only offers valid transitions.
-- **Concurrency-safe resources:** double-booking, bed occupancy, theatre and surgeon slots, and stock decrements are protected by database constraints or row locks, never by client checks.
-- **Every module is a feature module** with its own flag, permissions, migrations, events and settings, and registers via the manifest and Fastify plugin. A module that needs another one's data uses events or its `index.ts` contract.
-- Large code sets (ICD-10, drug and test catalogs) are searched on the server and never bundled into the web app.
+- **Encounter is the spine:** every clinical, ordering and billing record attaches to an `Encounter` (`opd`, `ipd`, `er`, `daycare`) of one patient; no module invents its own visit.
+- **Unified orders:** lab, imaging, procedure, medication and diet requests are all `Order` records emitting `order.placed`; consuming modules react to events, never called directly.
+- **Charge ledger:** billable work posts charges to the encounter, priced from the price list in effect; invoices are assembled from charges, never written by a module.
+- **Master data first,** referenced by id; prices are effective-dated so old bills never change. Large code sets are searched on the server, never bundled.
+- **Append-only** stock ledger, medication administration, audit log, results and signed documents: corrections are new entries with reason and author.
+- **State machines** (orders, samples, admissions, beds, claims, discharge) enforced on the backend; the UI offers only valid transitions.
+- **Concurrency-safe** bookings, beds, theatre slots and stock through database constraints or row locks, never client checks.
+- **Every module is a feature module** (flag, permissions, migrations, events, settings) and reaches another one only by events or its `index.ts`.
 
-### Out of scope for now (see Open Decisions)
+The full statement of each is in `docs/PRODUCT.md`; `/module-integration-check` checks a module against them.
 
-Patient portal or app, telemedicine, a DICOM viewer or PACS, full accounting or payroll, and external integrations (HL7/FHIR, lab analyzers, ABDM/ABHA, e-claim portals). Design data models so these can be added later through adapters.
+Out of scope for now: patient portal or app, telemedicine, a DICOM viewer or PACS, full accounting or payroll, and external integrations. Design data models so these can be added later through adapters (`docs/PRODUCT.md`).
 
 ## Stack
 
-- React 18 + TypeScript (strict) + Vite. Ships as a **static SPA** (no SSR needed for an authenticated app), which keeps hosting nearly free at any traffic level
-- Tailwind CSS + shadcn/ui (Radix primitives, imported one at a time): free, small, accessible, themeable per tenant through CSS variables
-- TanStack React Query: all server state, **including the session, tenant config and `AccessPolicy`** (`GET /session`)
-- **Redux Toolkit** for client and workflow state (multi-step admission and discharge flows, order drafts held in memory, UI preferences, cross-screen selections). Server data never goes in Redux. Session, tenant config and `AccessPolicy` stay in React Query behind small contexts, and every Redux slice resets on tenant switch and logout. Never persist PHI to browser storage
-- React Router v6 (declarative routes generated from the registry, route-level lazy loading, no data-router features)
-- React Hook Form + **Zod** (`@hookform/resolvers`)
-- Native **`fetch`** behind a thin wrapper in `shared/api` (retry, abort, tenant consistency header, error mapping), plus a typed client generated from the backend's OpenAPI spec (`openapi-typescript` + `openapi-fetch`) so types never drift. Axios is acceptable if a feature needs its interceptor model, but the generated typed client is the default
-- **i18next** with `react-i18next`: localization, with namespaces per feature loaded on demand and language from tenant config
-- **Dates and formatting:** `Intl` APIs for display, plus `date-fns` and `date-fns-tz` for arithmetic and tenant timezones. Icons from `lucide-react`
-- **Tables and lists:** TanStack Table for data grids (sorting, column visibility, selection, pinned columns) and TanStack Virtual for long lists and timelines
-- **Charts:** Recharts for dashboards and reports, with ECharts (lazy-loaded) allowed for dense or large analytics views
-- **Scheduling views:** react-big-calendar (MIT) for appointment, roster and theatre calendars, through the shared `Calendar` (#72). No paid plugin or licence during development (see Open Decisions); its free `resources` option draws several doctors or theatres side by side
-- **Rich text:** TipTap for clinical notes, templates and discharge summaries (sanitized output, no raw HTML injection)
-- **Motion:** `motion` (Framer Motion) for meaningful transitions, kept off critical paths
-- **Documents:** official PDFs and Excel exports (invoices, discharge summaries, reports) are generated on the server for consistent output and audit. Client-side libraries (react-pdf, SheetJS) are allowed for previews and import mapping
-- Testing: Vitest + React Testing Library + MSW, Playwright for end-to-end
-- Observability: web-vitals and Sentry (errors only, no replay or tracing) loaded lazily after first paint, with PHI scrubbing
+React 18, TypeScript (strict) and Vite, shipped as a static SPA. Tailwind and shadcn/ui (Radix, one primitive at a time). TanStack React Query for all server state, including the session, tenant config and `AccessPolicy` (`GET /session`). Redux Toolkit for client and workflow state only (multi-step flows, order drafts in memory, UI preferences). React Router v6 (routes generated from the registry, lazy, no data-router features). React Hook Form and Zod. Native `fetch` behind `shared/api` with the typed client generated from the OpenAPI spec (`openapi-typescript`, `openapi-fetch`). i18next. `Intl` for display with `date-fns` and `date-fns-tz` for arithmetic. `lucide-react` icons. TanStack Table and Virtual, Recharts (ECharts lazy for dense analytics), react-big-calendar (MIT, no paid plugin), TipTap, `motion`. Official PDFs and Excel files are made on the server; react-pdf and SheetJS only for previews and import mapping. Vitest, React Testing Library, MSW and Playwright. web-vitals and Sentry (errors only) loaded after first paint. Why each was chosen: `docs/ARCHITECTURE.md`.
 
 ## Technology Decisions and Cost Strategy
 
-### Principles
-
-- Prefer boring, proven, open-source tech. One well-chosen tool per layer.
-- Start small and cheap, but design so scaling needs **configuration, not rewrites** (stateless services, `tenant_id` everywhere, cursor pagination, idempotency).
-- Avoid per-seat or per-event SaaS until revenue justifies it. Avoid lock-in on anything whose bill grows with traffic.
-- Do not build later-phase infrastructure until metrics demand it.
-
-### Target architecture
-
-| Layer                     | Choice                                                                                                                                                                                                                                        | Why                                                                                                                                                  |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend hosting          | Static SPA on a CDN (Cloudflare Pages to start; CloudFront if fully on AWS)                                                                                                                                                                   | Static delivery costs almost nothing at huge traffic; one shared domain and one certificate for all hospitals                                        |
-| API                       | **Modular monolith**: Fastify (TypeScript) with TypeBox schemas and `@fastify/swagger`, REST + OpenAPI, stateless containers                                                                                                                  | One deployable is cheapest to run and operate; shared TS types; extract a service later only when a module needs independent scaling                 |
-| Database                  | PostgreSQL, **shared schema + `tenant_id` + row-level security**, managed service in an India region                                                                                                                                          | Lowest cost per hospital; scales with read replicas and partitioning. "Pooled by default, dedicated DB on demand" for very large or strict hospitals |
-| Cache / queue             | Phase 1: Postgres-backed job queue (pg-boss) with in-process cache and rate limits, behind interfaces. Phase 2+: Redis for shared cache, rate limits and queues (BullMQ)                                                                      | Fewest moving parts at the start. Swapping is a config change                                                                                        |
-| Search                    | Postgres full-text + `pg_trgm` first; OpenSearch only if proven necessary                                                                                                                                                                     | Avoids an expensive cluster early                                                                                                                    |
-| Files (reports, lab PDFs) | S3-compatible object storage, encrypted, signed URLs, lifecycle rules to cheaper tiers                                                                                                                                                        | Cheap and durable                                                                                                                                    |
-| Realtime                  | Server-Sent Events first; WebSocket only if truly needed                                                                                                                                                                                      | Simpler and cheaper to scale                                                                                                                         |
-| Auth                      | Backend-issued sessions stored in Postgres (httpOnly cookies via `@fastify/cookie`, refresh rotation), `@node-rs/argon2` for passwords, `otplib` for MFA; OIDC/SAML hospital SSO via self-hosted Keycloak when the first hospital requires it | No per-user SaaS fees; never hand-roll crypto                                                                                                        |
-| Notifications             | v1: staff-only email (invites, password resets, report-ready alerts) via a provider-abstracted `Notifier` interface and queue. Patient channels (email/SMS/WhatsApp) can be added later as new providers                                      | Swap or add providers by price without touching callers                                                                                              |
-| CI/CD and IaC             | GitHub Actions, Docker, Terraform/OpenTofu                                                                                                                                                                                                    | Free/cheap and reproducible                                                                                                                          |
-| Observability             | Sentry + OpenTelemetry to a Grafana-based stack; structured logs with PHI scrubbing and capped retention                                                                                                                                      | Avoids Datadog-class bills early                                                                                                                     |
-| Region                    | India (Mumbai) by default for data residency; per-tenant region later for foreign hospitals                                                                                                                                                   | Compliance and latency                                                                                                                               |
-
-### Growth phases
-
-Three phases: dev and pilot (one small API container, a small managed Postgres, object storage and the CDN-hosted SPA, at a fixed monthly cost), growth (a managed orchestrator with autoscaling, a read replica, PgBouncer, Redis, separate workers, a WAF and per-tenant rate limits) and large scale (partitioned tables, more replicas, dedicated databases for the largest hospitals). The detail is in `docs/ARCHITECTURE.md`. Read it before any infrastructure or deployment work.
-
-### Cost guardrails
-
-Budget alerts and per-tenant usage metering from day one, autoscaling with limits, work pushed to the edge, and none of Kubernetes, microservices, Kafka, paid UI component suites or per-seat enterprise SaaS until justified. The full list is in `docs/ARCHITECTURE.md`.
+Proven open-source tools, one per layer, small fixed cost growing with usage, and scaling by configuration, not rewrites (stateless services, `tenant_id` everywhere, cursor pagination, idempotency). Modular monolith on Fastify, PostgreSQL with shared schema and RLS in an India region, pg-boss before Redis, Postgres search before OpenSearch, S3-compatible storage, SSE before WebSocket, self-hosted auth. The principles, the full table of choices, the growth phases and the cost guardrails (no Kubernetes, microservices, Kafka or per-seat SaaS until justified) are in `docs/ARCHITECTURE.md`. Read it before any infrastructure, deployment or new-service work.
 
 ### Production baseline (non-negotiable even when cheap)
 
@@ -171,57 +78,21 @@ Budget alerts and per-tenant usage metering from day one, autoscaling with limit
 
 ### Frontend implications
 
-- **One build for all hospitals.** No per-tenant builds or deploys. Differences are runtime config (tenant config, `AccessPolicy`, feature flags).
+- **One build for all hospitals.** No per-tenant builds, deploys or branches. Differences are runtime config (tenant config, `AccessPolicy`, feature flags).
 - All API calls go through the generated client. List endpoints return a cursor envelope: `{ items, nextCursor, total? }`.
 - Only the static SPA is CDN-cached. Tenant config, `AccessPolicy` and all PHI responses are loaded after login, are private per session, and are never CDN-cached.
-- Bandwidth is a cost: keep bundles small, lazy-load, and request only needed fields.
 - Environment config via `VITE_` variables (non-secret): API base URL, Sentry DSN.
-- Frontend and backend live in one monorepo. This file holds the architecture and the rules for both; `apps/api/CLAUDE.md` holds the backend-only rules (see Backend) and is kept current with the API.
 
 ## Performance Strategy
 
-Goal: a fast, smooth, reliable application under heavy daily use. Capability comes first: pick the best library for each job and accept bundle weight where it earns its place. Performance is protected by code splitting, budgets, virtualization, caching and measurement, not by avoiding libraries.
-
-### Targets
-
-- **Devices and browsers:** mid-range hospital PCs (i3-class CPU, 8 GB RAM) on evergreen Chrome, Edge and Firefox (last 2 versions) over broadband or hospital LAN, and current phones and tablets (Chrome on Android, Safari on iOS) at the widths in Responsive Design. No IE and no legacy builds. The login page and app shell must also remain usable on a throttled Slow 4G connection.
-- **Budgets (gzipped, enforced in CI):** initial JS <= 300 KB, any route chunk <= 150 KB, heavy lazy chunks (calendar, charts, editor, PDF preview) <= 250 KB each and never in the initial load, and total CSS <= 60 KB. A PR that adds more than 30 KB to any chunk must say why.
-- **Lighthouse** (desktop preset on mid-range CPU throttling, plus one Slow 4G run for login and the shell) on login, the patient list and the encounter screen: LCP <= 2.5 s, INP <= 200 ms, CLS <= 0.1, TBT <= 300 ms.
-- **Memory:** page sizes of 25 to 100 rows (virtualize beyond about 100 rendered rows), React Query `gcTime` of 5 minutes, and a flat JS heap across a 30-minute soak test.
-- **Requests:** at most 20 requests on first load. The session bootstraps in one request, and there are no request waterfalls before first render.
+Capability first, protected by code splitting, budgets, virtualization, caching and measurement. **Budgets (gzipped, enforced in CI by `scripts/bundle-budget.mjs`):** initial JS <= 300 KB, any route chunk <= 150 KB, heavy lazy chunks (calendar, charts, editor, PDF preview) <= 250 KB each and never in the initial load, total CSS <= 60 KB; a PR that adds more than 30 KB to any chunk says why. Every list is paginated on the server (cursor, 25 to 100 rows); never load a full dataset into the browser. The device targets, Lighthouse and memory targets, build rules, runtime and network rules, backend sizing and the resilience rules (retry, `Retry-After`, abort on navigation, error boundaries per route and widget, idempotency keys) are in `docs/PERFORMANCE.md`. Read it before work on the build, the API client, caching, large lists, live data or load tests.
 
 ### Dependency policy
 
-- There is no banned-library list. Use the best well-maintained library for the job, and prefer platform features (`fetch`, `Intl`, `URL`, `AbortController`, `structuredClone`, `BroadcastChannel`, `<dialog>`, CSS) when they are equally good.
-- Rules: one library per job (do not mix two table, chart, form, date or component libraries); state the reason and the size impact from `pnpm analyze` in the PR; lazy-load heavy libraries so the initial load is unaffected; check the licence (MIT, Apache or BSD, no paid or premium plugins and no AGPL code in the shipped client without approval); require active maintenance and a clean `pnpm audit`; and avoid deprecated packages such as Moment on maintenance grounds.
-- One design system: Tailwind and shadcn/ui (Radix) is the default. Adding another component suite (for example MUI) needs a clear reason, because mixing suites hurts consistency and bundle size.
-- **Official documents and exports are generated on the server** (workers) for consistency and audit. Printing uses print CSS. CSV and report downloads use signed URLs.
-- Prefer CSS for simple transitions and `motion` for complex ones. Clinical notes use the rich text editor.
-
-### Build
-
-- Vite `target: es2022` with no legacy plugin, and a `browserslist` that matches the device targets.
-- Every route is lazy. Split only stable vendor libraries (react, react-dom, router, query) into a vendor chunk for long-term caching. Mark packages `sideEffects: false` and avoid wildcard re-exports of large modules.
-- No source maps in production (upload them to the error tracker only). Strip `console` and `debugger` in production builds.
-- Brotli at the CDN, immutable hashed assets, and `modulepreload` only for the critical login-to-app chunks.
-- Non-critical code (Sentry, web-vitals) loads with a dynamic import after first paint (`requestIdleCallback`).
-- CI fails when a budget is exceeded and reports the size change for each PR in the job summary (`scripts/bundle-budget.mjs`, where the budgets and the list of chunks allowed the heavy budget live). Run `pnpm analyze` for any PR that adds a dependency.
-
-### Runtime and network
-
-- No state is persisted to browser storage, and none is needed by default (see Stack).
-- Lists use cursor pagination with page sizes of 25 to 100, TanStack Table for grids and TanStack Virtual for long lists and timelines. Never load a full dataset into the browser.
-- Use sparse fieldsets (`fields=`) and compact payloads. List rows never fetch full records.
-- HTTP caching: ETag and 304 for the session policy, revalidated by the app itself (it keeps the policy and the ETag in memory); every API answer is `private, no-store`, so no browser keeps a copy. Debounce, cancel and dedupe requests. Prefetch the next page and likely routes only on hover or when idle.
-- Avoid re-render storms: colocate state, split contexts (session, tenant, policy), and memoize only after profiling.
-- Images are SVG or WebP, lazy-loaded, and logos are capped at 50 KB.
-
-### Backend and infrastructure
-
-- Fastify. Containers use multi-stage builds, slim base images and ARM where available, with memory limits tuned from measurements (start at 512 MB per instance and raise it when metrics call for it).
-- Phase 1 starts with few moving parts: one API container, Postgres, object storage and the CDN. Jobs run on a Postgres-backed queue and rate limits and cache are in-process. Introduce Redis (shared cache, rate limits, SSE fan-out across instances, BullMQ) as soon as profiling or a second API instance shows a benefit, which can be well before phase 2. Keep queue, cache and rate limiting behind interfaces so the swap is configuration.
-- One database, one deployable and one region until metrics require more.
-- Local Docker Compose uses profiles: the default profile runs only Postgres and Mailpit. `--profile full` adds MinIO (and Redis once it is needed). This keeps laptop RAM free.
+- No banned list: the best well-maintained library for the job, or a platform feature (`fetch`, `Intl`, `URL`, `AbortController`, `structuredClone`, `BroadcastChannel`, `<dialog>`, CSS) when it is as good.
+- One library per job (never two table, chart, form, date or component libraries); one design system (Tailwind and shadcn/ui; another suite such as MUI needs a clear reason). Heavy libraries are lazy-loaded. The PR states the reason and the size from `pnpm analyze`.
+- Licence MIT, Apache or BSD; no paid or premium plugin and no AGPL in the shipped client without approval. Active maintenance and a clean `pnpm audit`; no deprecated packages such as Moment.
+- Official documents and exports are made on the server (workers); printing uses print CSS; downloads use signed URLs. CSS for simple transitions, `motion` for complex ones.
 
 ## Responsive Design
 
@@ -229,11 +100,9 @@ Most of the app must work on a phone and a tablet as well as on a desktop: ward 
 
 ### Supported widths
 
-| Class   | Width          | What it is                                      | Layout                                                      |
-| ------- | -------------- | ----------------------------------------------- | ----------------------------------------------------------- |
-| Phone   | 360 to 767 px  | A phone held upright. 360 px is the minimum     | One column. Navigation in the drawer. Lists as cards        |
-| Tablet  | 768 to 1023 px | A tablet held upright, or a small laptop window | Navigation in the drawer. Content as on a desktop, narrower |
-| Desktop | 1024 px and up | Hospital PCs, laptops, a tablet on its side     | Sidebar and the full layout                                 |
+- **Phone** 360 to 767 px (360 is the minimum): one column, navigation in the drawer, lists as cards.
+- **Tablet** 768 to 1023 px (upright tablet, small laptop window): navigation in the drawer, content as on a desktop, narrower.
+- **Desktop** 1024 px and up (hospital PCs, laptops, a tablet on its side): sidebar and the full layout.
 
 These are Tailwind's default breakpoints (`md` 768, `lg` 1024); a data grid changes from cards to a table when its own container reaches 640 px (`sm`), which for a full-width grid is a little above that in screen width. Write styles phone first and add `md:` and `lg:` for more room. Do not add custom breakpoints.
 
@@ -250,7 +119,7 @@ These are Tailwind's default breakpoints (`md` 768, `lg` 1024); a data grid chan
 
 ### Desktop-only screens
 
-These may be built for 1024 px and up. Below that they show a short notice ("This screen needs a wider display") inside the shell, never a broken layout. A route does this by wrapping its screen in `DesktopOnly` (`shared/ui/desktop-only`), which does not mount the screen below that width, so it asks the server for nothing. Accepted with it: a hospital PC zoomed until its window is under 1024 px gets the notice (it says to lower the zoom), and narrowing the window across that line while a form is half filled loses what was typed. Adding a screen to this list is a decision recorded here, not a shortcut taken in a PR.
+These may be built for 1024 px and up, wrapped in `DesktopOnly` (`shared/ui/desktop-only`), which below that width shows "This screen needs a wider display" inside the shell and does not mount the screen, so it asks the server for nothing. Accepted with it: a zoomed hospital PC gets the notice (it says to lower the zoom), and narrowing the window across the line loses a half-filled form. Adding a screen to this list is a decision recorded here, not a shortcut taken in a PR.
 
 - Master data catalogs and the bulk import centre.
 - Reports and analytics dashboards (their exports still work from any device).
@@ -261,15 +130,9 @@ Billing (invoice assembly, claims) must work on a tablet and a desktop. A phone 
 
 ### How it is checked
 
-- **Playwright runs every spec at three widths** (`apps/web/playwright.config.ts`): desktop, tablet (768 px, touch) and phone (360 px, touch). `e2e/responsive.spec.ts` checks that screens fit the width, that lists become cards, and that controls are touch-sized. Add a new screen to it.
-- **Specs reach the navigation through `goTo(page, name)`** from `e2e/support.ts`, which uses the sidebar or the drawer as the width requires. A spec that depends on a table uses `gridIsStacked(page)` to pick the table or the cards.
-- "Works at phone and tablet width" is in the definition of done of every frontend issue.
+Playwright runs every spec at desktop, tablet (768 px, touch) and phone (360 px, touch); a new screen is added to `e2e/responsive.spec.ts`, and specs reach the navigation through `goTo(page, name)`. "Works at phone and tablet width" is in the definition of done of every frontend issue. The detail is in `apps/web/e2e/CLAUDE.md`.
 
-### Not yet
-
-- **Dialogs** should fill the screen on a phone. There is no shared dialog yet; the idle warning is a small centred box that fits.
-- **Safari on iOS** is a target, but every Playwright project is Chromium: the checks cover the layout, not WebKit. A WebKit project in CI closes this.
-- **Lighthouse** runs with the desktop preset only. A phone run belongs with the hardening milestone.
+**Dialogs** should fill the screen on a phone; there is no shared dialog yet. Safari on iOS and a phone Lighthouse run are not checked yet (`docs/STATUS.md`).
 
 ## Accessibility
 
@@ -290,88 +153,49 @@ The target is **WCAG 2.2 AA** (decided 2026-10-14, #337), for every screen at ev
 - **The form kit** (`shared/ui/form`) for every form: labels, descriptions and errors are linked to the field, and the first invalid field gets focus on submit.
 - **`DataGrid`** for every list: headers, sorting and row actions are reachable and named, in the table and in the cards.
 - Semantic HTML first (`button` for actions, `a` for navigation, headings in order, one `h1` per screen), an accessible name for every icon-only control, and colour never the only signal (a status also has a word or an icon).
-- **Never leave focus on the page body.** When what had focus goes away (a form that closes, a row that leaves the list, a button that hides itself), move focus on deliberately. Use the next control or a focusable status line (`tabIndex={-1}` with the focus ring), through `focusIfLost` from `shared/lib/focus`, which never takes focus from where the person moved it. Two hooks in `shared/hooks` do it for the usual shapes: `useInPlaceFormFocus` for an Edit form that takes the place of a record's details (to the section's heading, back to the `data-opens="edit"` button), and `usePanelFocus` for a form that opens beside a list from one of several buttons (to its `data-panel-heading`, back to the button that opened it) (#348). A status message is put into a region that is always on the page, never added with its text already in it. A control that is busy, or does not apply right now, takes `aria-disabled`, never `disabled`: a disabled control loses focus in Chromium. `Button` then refuses the press, a form's submit by Enter included, so `SubmitButton` and `DataGrid` actions do this by themselves (#358). Keep `disabled` for a field that must not change (a fieldset while it saves) and for a control that cannot be used at all here.
+- **Never leave focus on the page body.** When what had focus goes away (a form that closes, a row that leaves the list, a button that hides itself), move focus on deliberately, to the next control or a focusable status line, through `focusIfLost` (`shared/lib/focus`) or the hooks `useInPlaceFormFocus` and `usePanelFocus` (`shared/hooks/CLAUDE.md` says which shape each fits). A status message goes into a region that is always on the page. A busy or not-applicable control takes `aria-disabled`, never `disabled` (Chromium drops focus from a disabled control); `Button`, `SubmitButton` and `DataGrid` actions do this by themselves. Keep `disabled` for a field that must not change (a fieldset while it saves) and a control that cannot be used at all here.
 - The shell already gives a skip link, moves focus to `<main>` on navigation and checks the contrast of a hospital's colours (`shared/lib/theme.ts`). Keep them working.
 
 ### Checks every screen gets
 
-- **axe in the unit tests:** `expectNoAxeViolations` from `src/test/axe.ts` on the rendered screen (contrast is off in jsdom).
-- **axe in Playwright:** in a real browser with contrast on, through `expectNoAxeViolations` from `e2e/support.ts` (the WCAG 2.2 AA tags). `e2e/a11y.spec.ts` reads every route from the registry and checks it at desktop and phone width, and a form that adds a record sent empty, so a new route needs nothing added. A route with an id finds its record from a link on the list above it, or from `RECORDS` in that spec. A rule switched off on one screen goes in its `KNOWN` list, with the issue that will fix it (#338).
-- **A keyboard test in Playwright:** the screen's main task done with the keyboard alone (reach it, fill it, submit it, close what opened), with focus visible at each step.
-- `eslint-plugin-jsx-a11y` runs in lint.
-- "Keyboard and axe checked for changed screens" is in the PR template and in the definition of done of every issue.
+axe in the unit test (`expectNoAxeViolations` from `src/test/axe.ts`), axe in Playwright with contrast on (`e2e/a11y.spec.ts` checks every registered route by itself), a keyboard test in Playwright of the screen's main task with focus visible at each step, and `eslint-plugin-jsx-a11y` in lint. "Keyboard and axe checked for changed screens" is in the PR template and the definition of done. The detail is in `apps/web/e2e/CLAUDE.md`.
 
 ## Repository Layout
 
-```
-hms/
-  apps/
-    web/             # React SPA (see Folder Structure)
-    api/             # Fastify backend (see Backend)
-  packages/
-    contract/        # OpenAPI spec + generated types shared by web and api
-  scripts/github/    # roadmap seeding and status
-  docs/  .claude/  .github/
-  CLAUDE.md  pnpm-workspace.yaml  package.json
-```
+`apps/web` (the SPA), `apps/api` (the API), `packages/contract` (the OpenAPI spec and generated types), `scripts/github/` (roadmap seeding and status), `docs/`, `.claude/`, `.github/`.
 
-- One repo and one issue tracker. This `CLAUDE.md` holds the rules for everything; `apps/api/CLAUDE.md` adds the backend-only rules and each feature folder's own `CLAUDE.md` what was decided for that module. API and UI changes for a feature land in the same PR.
-- Run per-app scripts with filters: `pnpm --filter web dev`, `pnpm --filter api dev`. Root scripts (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`) run across all packages.
-- `apps/web` imports types only from `packages/contract`. It never imports code from `apps/api`, and `apps/api` never imports from `apps/web`.
-- Contract flow (`pnpm gen:api`): the API writes `packages/contract/api.openapi.json` from its route schemas; that is merged with `planned.openapi.json` (hand-written endpoints the web app is built against that the API does not implement yet) into `openapi.json`; and the web client types are generated from the result. The API always wins: when it implements a planned endpoint, delete that endpoint from the planned file, and the merge fails until you do. CI fails if the committed files are stale, or if the contract has a breaking change without a raised `CONTRACT_VERSION`.
+- One repo and one issue tracker. API and UI changes for a feature land in the same PR.
+- Per-app scripts with `pnpm --filter web|api <script>`; root scripts (`lint`, `typecheck`, `test`, `build`) run across all packages.
+- `apps/web` imports only types from `packages/contract`, never code from `apps/api`, and `apps/api` never imports from `apps/web`.
+- **Contract flow** (`pnpm gen:api`): the API writes `packages/contract/api.openapi.json` from its route schemas, merged with the hand-written `planned.openapi.json` (endpoints the web app is built against before the API has them) into `openapi.json`, from which the web client types are generated. The API wins: when it implements a planned endpoint, delete it from the planned file (the merge fails until you do). CI fails on stale committed files, or a breaking change without a raised `CONTRACT_VERSION`.
 
 ## Backend (apps/api)
 
-- **Fastify + TypeScript**, run in dev with `tsx watch` (no build step). Production build with `tsup` or `tsc`.
-- **TypeBox** route schemas give validation, TypeScript types and OpenAPI from one definition. Every route declares request and response schemas and its required permissions.
-- **Drizzle ORM** with plain SQL migrations. Each migration is one new file, `apps/api/src/migrations/NNNN_what.sql`, applied in order by the API's own runner, which checksums every file and refuses to continue if an applied one was edited. (`drizzle-kit` is not used: its workflow rewrites a journal and fills in generated files, which conflicts with the rule that existing migrations are never modified.) RLS policies, the `tenant_id` convention and exclusion constraints are written as SQL in migrations. Migrations are additive. Backend-only rules are in `apps/api/CLAUDE.md`.
+- **Fastify + TypeScript** (`tsx watch` in dev, no build step; `tsc` for production). **TypeBox** route schemas give validation, types and OpenAPI from one definition; every route declares request and response schemas and its permissions.
+- **Drizzle ORM** with plain SQL migrations, one new file each (`apps/api/src/migrations/NNNN_what.sql`), applied in order by the API's own runner, which refuses to go on if an applied file was edited. No `drizzle-kit`. RLS policies, the `tenant_id` convention and exclusion constraints are SQL in migrations, and migrations are additive. Rules: `apps/api/CLAUDE.md`.
 - **Postgres is the only required service in phase 1:** sessions, job queue (**pg-boss**), the transactional outbox and in-process rate limits all live in or beside it. Keep cache, queue and rate limiting behind interfaces so Redis (BullMQ) can replace them in phase 2.
 - **Logging:** pino with a redaction config for PHI fields. Never log request or response bodies for patient routes.
-- **Security:** `@fastify/helmet`, `@fastify/rate-limit` (per tenant and per user), `@fastify/cookie`, strict CORS, `@node-rs/argon2`, `otplib` for TOTP MFA. In place today: cookies, Argon2id, TOTP, a per-address rate limit on the auth routes, and a cross-site request check on every non-GET request. Helmet, CORS and per-tenant limits are not yet (the web app reaches the API through the same origin).
+- **Security:** cookies, Argon2id (`@node-rs/argon2`), TOTP (`otplib`), a per-address rate limit on the auth routes and a cross-site check on every non-GET request are in place; `@fastify/helmet`, strict CORS and per-tenant and per-user limits are the target (the web app reaches the API through the same origin today).
 - **Tests:** Vitest against a local Postgres database. Cross-tenant RLS tests are mandatory for every tenant table.
 
-### Fastify plugin layout (one plugin per feature)
+### Core hooks
 
-```
-apps/api/src/
-  app.ts            # builds the Fastify instance, registers core plugins and features
-  core/
-    config/  db/  http/  logging/  openapi/  session/  auth/  tenancy/  access/  notifier/
-    audit/  outbox/  jobs/  ratelimit/  idempotency/
-  features/<name>/
-    index.ts        # exported Fastify plugin: registers routes, hooks, subscribers, jobs
-    routes.ts       # TypeBox-schema routes, each with `permissions` and feature flag
-    permissions.ts  # permission ids + default role grants
-    schema.ts       # Drizzle tables (tenant_id on every table)
-    events.ts       # published and subscribed domain events
-    settings.ts     # per-hospital settings schema
-  migrations/
-```
-
-Core hooks that every feature route passes through:
+Every feature is one encapsulated Fastify plugin (layout in `apps/api/CLAUDE.md`), so its decorators and hooks never leak; adding one is a folder and one line in `app.ts`. Every feature route passes through:
 
 - **`session` hook:** authenticates the cookie session and binds the active tenant.
 - **`tenant` hook:** opens a transaction per request and runs `SET LOCAL app.tenant_id = <session tenant>`. RLS then filters every query. The tenant is never taken from a client value.
 - **`access` hook:** checks the tenant feature flag and the caller's permissions declared on the route, and gives the handler the caller's scope. A tenant route that declares no `permissions` stops the app from starting.
 - **`audit` hook:** records PHI reads and writes in the same transaction.
 - **`outbox`:** domain events are written in the same transaction and dispatched by pg-boss.
-  A feature registers as a Fastify plugin (encapsulated), so its decorators and hooks never leak into other features. Adding a feature is one new folder plus one registration line in `app.ts`.
 
 ## Package Manager
 
-**pnpm only.** Never use `npm`, `yarn`, or `bun` for installing or running scripts, and never create or commit `package-lock.json` or `yarn.lock`.
+**pnpm only.** Never `npm`, `yarn`, `bun` or `npx` (use `pnpm dlx`), and never a `package-lock.json` or `yarn.lock`. CI installs with `pnpm install --frozen-lockfile`; commit `pnpm-lock.yaml`. pnpm's version is pinned in `package.json` (`packageManager`, enabled with `corepack enable`) and Node's in `.nvmrc`/`engines`. The repo is a pnpm workspace (`apps/*`, `packages/*`): per-app work is `pnpm --filter <app> <script>`.
 
-- Install: `pnpm install` (CI: `pnpm install --frozen-lockfile`). Add: `pnpm add <pkg>` / `pnpm add -D <pkg>`. Remove: `pnpm remove <pkg>`.
-- Run scripts: `pnpm <script>` or `pnpm run <script>`. Run a one-off binary: `pnpm dlx <tool>` (replaces `npx`).
-- Commit `pnpm-lock.yaml`. Pin the version in `package.json` (`"packageManager": "pnpm@<version>"`) and the Node version in `.nvmrc`/`engines`, and enable it with `corepack enable`.
-- Keep pnpm's strictness: do not hoist everything or set `shamefully-hoist` to silence a missing-dependency error. Declare the dependency instead.
-- Dependency install scripts stay blocked unless explicitly approved in the pnpm config. Approving one needs a stated reason.
-- **Development environment: native Windows** (PowerShell/Windows Terminal). WSL2 is not required. Docker Desktop uses it internally, which needs no action from developers.
-- Keep the repo and pnpm store on the same drive, in a short path outside OneDrive or any synced folder (e.g. `C:\dev\hms`).
-- **Scripts must be cross-platform.** No bash-only syntax in `package.json` scripts (no `rm -rf`, `export VAR=`, `&&`-chained shell tricks beyond simple cases). Use Node scripts, `cross-env`, `rimraf`, `cpy-cli`, or `tsx` instead. Ship `.gitattributes` with `* text=auto eol=lf` and use LF line endings everywhere.
-- **Dev machine (HP 15s, i3-1115G4, 16 GB RAM, 2 cores):** use one editor, run Vitest with at most 2 workers, install only Chromium for local Playwright (`pnpm --filter web exec playwright install chromium`; it runs all three widths), and keep Postgres native or Docker capped at 4 GB. Run heavy jobs (cross-browser e2e, load tests, production builds) in CI.
-- Docker Compose services (Postgres and Mailpit by default, with MinIO and Redis through the `full` profile) use **named volumes** for data, not Windows bind mounts, for speed.
-- The repo is a pnpm workspace (`pnpm-workspace.yaml` listing `apps/*` and `packages/*`). Use `pnpm --filter <app> <script>` for per-app work.
+- Keep pnpm's strictness: no hoisting everything or `shamefully-hoist` to silence a missing dependency; declare it. Dependency install scripts stay blocked unless approved in the pnpm config with a stated reason.
+- **Native Windows** (PowerShell/Windows Terminal; WSL2 not required). Keep the repo and pnpm store on one drive, in a short path outside OneDrive or any synced folder.
+- **Scripts are cross-platform:** no bash-only syntax in `package.json` scripts (`rm -rf`, `export VAR=`, chained shell tricks); use Node scripts, `cross-env`, `rimraf`, `cpy-cli` or `tsx`. LF line endings everywhere (`.gitattributes`: `* text=auto eol=lf`).
+- **Dev machine (i3-1115G4, 2 cores, 16 GB):** one editor, Vitest with at most 2 workers, only Chromium for local Playwright (`pnpm --filter web exec playwright install chromium`), Postgres native or Docker capped at 4 GB. Heavy jobs (cross-browser e2e, load tests, production builds) run in CI. Docker Compose (Postgres and Mailpit; MinIO and Redis in the `full` profile) uses named volumes, not Windows bind mounts.
 
 ## Commands
 
@@ -397,78 +221,35 @@ pnpm --filter api dev             # the API on http://localhost:3000
 pnpm --filter api test            # API tests against the mediflow_test database
 ```
 
-**Signing in locally.** The web app runs against the mock API by default and starts signed in as the sample hospital admin. Open `/?mockUser=none` to start signed out and use the login page: any sample email from `apps/web/src/mocks/db.ts` with the password defined there. To run against the real API instead, start it (`docker compose up -d`, `pnpm --filter api db:migrate`, `pnpm --filter api db:seed`, `pnpm --filter api dev`) and start the web app with `VITE_API_MOCKING=disabled`. The Vite dev server proxies `/api` to `http://localhost:3000` (override with `API_PROXY_TARGET`), so the browser stays on one origin, as it does in production where the CDN routes `/api` to the API.
+**Signing in locally.** Against the mock (the default) the app starts signed in as the sample hospital admin; `/?mockUser=none` starts signed out (sample emails and the password are in `apps/web/src/mocks/db.ts`). Against the real API: start it (the commands above) and the web app with `VITE_API_MOCKING=disabled`; Vite proxies `/api` to `http://localhost:3000` (`API_PROXY_TARGET` to change it), one origin as in production.
 
 ## Folder Structure (apps/web, feature-based)
 
-```
-apps/web/src/
-  app/              # providers, app shell, i18n, store, observability, global error boundary
-    session/        # session query, sign-in/out calls, idle timeout, cross-tab channel, session end
-  tenancy/          # active tenant from session, picker, switcher, deep links, theming, formatters
-  access/           # permissions, AccessPolicyProvider, usePermission, <Can>, PermissionGuard
-  registry/         # feature registry: collects feature manifests, builds routes + navigation
-  features/
-    auth/           # exists: login, invite, password reset, the authenticator pages, the account page; per-tenant SSO (later)
-    notices/        # exists: the sample feature and the template for new modules
-    ui-examples/    # exists: working examples of the shared building blocks
-    patients/       # exists: list, registration, the patient screen, editing
-    doctors/        # exists: doctor profiles and weekly working hours
-    departments/ staff/ services/ drugs/ lab-tests/ wards/ codes/ templates/ imports/   # exist: see Current Status
-    appointments/   # exists: the list, the calendar, booking, status changes
-    clinical/       # planned: visits, prescriptions, lab orders
-    billing/        # planned: invoices, payments
-    dashboard/      # planned: role-specific dashboards, reports
-    platform/       # planned: manage hospitals/tenants (platform_admin only)
-  shared/
-    api/            # fetch wrapper (retry, abort, tenant header, errors), typed client, query keys
-    config/         # env
-    lib/            # theme, logger, class-name helper
-    ui/             # reusable components: data-grid, charts, form, rich-text, system pages
-    hooks/
-    types/          # shared domain types
-    utils/          # formatters (tenant-aware date/currency/timezone), masking
-  routes/           # route generation from registry, session and tenant guards
-  mocks/            # MSW mock backend: db.ts, handlers
-  test/             # render helpers and setup
-```
+`apps/web/src/`: `app/` (providers, shell, i18n, store, observability, error boundary; `app/session/` the session query, sign-in and out, idle timeout, cross-tab channel), `tenancy/` (active tenant, picker, switcher, deep links, theming, formatters), `access/` (`AccessPolicyProvider`, `usePermission`, `<Can>`, `PermissionGuard`), `registry/` (manifests to routes and navigation), `features/<name>/` (one per feature; `clinical`, `billing`, `dashboard` and `platform` planned), `shared/` (`api/` fetch wrapper, typed client and query keys; `config/` env; `lib/` theme, logger, class names; `ui/` the building blocks and system pages; `hooks/`; `types/`; `utils/` tenant-aware formatters and masking), `routes/` (generation and the session and tenant guards), `mocks/` (MSW: `db.ts`, handlers) and `test/` (render helpers, setup).
 
 The generated API types live in `packages/contract/src/generated`, not under `shared/api`.
 
 Each feature folder contains: `manifest.ts` (see Extensibility), `components/`, `hooks/` (React Query hooks), `api.ts`, `schemas.ts` (Zod), `types.ts`, `index.ts` (public exports), and a `CLAUDE.md` with what was decided for the module (see Current Status). Features must not import from each other's internals, only via `index.ts` or `shared/`.
 
-Path alias: `@/` maps to `apps/web/src/`. Backend structure is under Backend.
+Path alias: `@/` maps to `apps/web/src/`.
 
 ## Multi-Tenancy (multiple hospitals)
 
-**Model:** each hospital is a tenant. Users belong to one or more tenants, with a role _per tenant_.
+Each hospital is a tenant; a user belongs to one or more, with a role per tenant. **One shared URL** for all hospitals: no per-hospital subdomains, paths or builds, and the tenant comes from the session, never from the URL.
 
-**Tenant resolution: single shared URL for all hospitals.** There are no per-hospital subdomains, paths, or builds. The tenant comes from the authenticated session, never from the URL.
+- One generic, unbranded login page. After login `GET /session` returns the user, memberships, the **active tenant**, tenant config and `AccessPolicy`; nothing renders until it resolves.
+- One hospital goes straight in; several get a picker, and a switcher in the header later (`POST /session/switch-tenant` rebinds the session and returns the new config and policy).
+- A patient record belongs to exactly one hospital.
+- **Deep links** use one address, `/open/<kind>/<id>`, with globally unique ids: the app sends them to `POST /session/open-link`, the server finds the owning tenant, checks membership and switches if needed, and the record's own route guard still applies. No membership and no record give one answer and one "This link is not available" page. A feature makes a kind linkable with `links: [{ kind, to }]` in its manifest. Never put a tenant, a hospital name or anything about the record in a link.
 
-- Users sign in at one login page (`app.hms.example.com`). The login page is generic and unbranded.
-- After login the app calls `GET /session`, which returns the user, their memberships (hospital + role), the **active tenant**, tenant config, and `AccessPolicy`. Block rendering until it resolves.
-- A user with one hospital goes straight in. A user with several (e.g. a doctor at two hospitals) sees a hospital picker, and can change hospital later from a tenant switcher in the header (`POST /session/switch-tenant`, which rebinds the session to the chosen tenant and returns the new config and policy).
-- Only staff sign in. There is no patient login. A patient record belongs to exactly one hospital.
-- Deep links (emails, notifications) use globally unique IDs and one address, `/open/<kind>/<id>`. The app sends the kind and id to `POST /session/open-link`; the server finds the owning tenant, checks the user's membership, and switches the active tenant if needed. The app then goes to the record's screen, which its own route guard still protects. If the user has no membership, or the record does not exist, the server gives one answer and the app shows one "This link is not available" page, never the data and never which of the two it was. A feature makes a kind of record linkable with `links: [{ kind, to }]` in its manifest. Never put a tenant, a hospital name or anything about the record in a link.
-- Optional later: remember the last-used hospital slug in `localStorage` (not PHI) only to pre-brand the login page.
-
-**Tenant config** (fetched with the session after login, never hardcoded):
-
-- Branding (name, logo, theme colors), locale/language, timezone, currency, date format
-- Enabled modules/feature flags (e.g. lab module off for a small clinic)
-- Auth settings (password login vs hospital SSO)
-- Custom fields/forms if the product supports them later
+**Tenant config** comes with the session, never hardcoded: branding, locale and language, timezone, currency, date format, the feature flags, auth settings (password or SSO), and later custom fields.
 
 **Rules:**
 
-- The **active tenant lives in the server-side session**. The client may send `X-Tenant-ID` as a consistency check, and the API rejects the request if it doesn't match the session's active tenant (this catches stale tabs after a hospital switch). The backend derives and enforces tenant from the session and never trusts the client.
-- Switching hospital in one tab affects the session in all tabs. Handle the mismatch response by reloading the session and showing a notice.
-- **All React Query keys include `tenantId`** (e.g. `['tenant', tenantId, 'patients', 'list', filters]`). Use key factories only; no ad-hoc keys.
+- The **active tenant lives in the server-side session**; the backend never trusts a client value. The client may send `X-Tenant-ID` as a consistency check, refused when it does not match (a stale tab after a switch): reload the session and show a notice, since a switch in one tab affects all tabs.
+- **Every React Query key includes `tenantId`**, through key factories only (see Conventions).
 - On tenant switch or logout: clear the React Query cache, reset any global stores, abort in-flight requests.
-- No hardcoded hospital names, currencies, date formats, timezones, or locales. Use tenant-aware formatters from `shared/utils`.
-- Gate modules by tenant feature flags in both routes and navigation.
-- MRN uniqueness is per tenant, not global.
-- Test every feature with at least two tenants (see Testing).
+- No hardcoded hospital names, currencies, date formats, timezones or locales: tenant-aware formatters from `shared/utils`. Gate modules by tenant feature flags in routes and navigation. MRNs are unique per tenant. Test every feature with at least two tenants.
 
 ## Extensibility and Access Control
 
@@ -476,35 +257,7 @@ Goal: add a feature later by adding a folder, and turn any feature or action on/
 
 ### Feature modules (plug-in architecture)
 
-Every feature is a self-contained module that declares itself in `manifest.ts`:
-
-```ts
-export const patientsFeature: FeatureManifest = {
-  id: 'patients',
-  titleKey: 'nav.patients',
-  featureFlag: 'patients', // tenant-level on/off
-  routes: [
-    { path: 'patients', lazy: () => import('./routes/PatientList'), requires: ['patient:read'] },
-    {
-      path: 'patients/new',
-      lazy: () => import('./routes/PatientCreate'),
-      requires: ['patient:create'],
-    },
-  ],
-  nav: { icon: Users, order: 20, requires: ['patient:read'] }, // the lucide-react component, not a name
-  permissions: ['patient:read', 'patient:create', 'patient:update', 'patient:delete'],
-  extensions: [], // slot contributions (see Extension points)
-  settings: undefined, // per-hospital settings schema (optional)
-  dashboardWidgets: [], // optional
-};
-```
-
-- `registry/` collects all manifests, drops those whose `featureFlag` is off for the current tenant, and generates **routes, navigation, and dashboard widgets** from what remains. No hand-edited route or menu lists.
-- Adding a new feature = new folder + manifest + one line registering it in `registry/features.ts`. **No edits to core, routing, or other features.** The registry validates manifests at startup (duplicate ids or paths, undeclared permissions) and stops the app with the full list of problems.
-- Every route has a page title of its own in the browser tab ("Patients · Sample Hospital · Mediflow"): the feature's title for its first route, and `titleKey` (a key of `i18n.titles`) for each other route. The registry refuses two routes of one feature with the same title. A title is static words, never a record's name or MRN, since it stays in the browser's history (#339).
-- Route and slot modules loaded by a manifest **default-export** their component (the one exception to named exports), so `() => import('./routes/PatientList')` works with `React.lazy`.
-- Features talk to each other only via `index.ts` exports, shared types, or registry extension points (e.g. a widget slot on the patient detail page), never by importing internals.
-- Unreleased features ship dark behind a feature flag and are enabled per tenant.
+Each feature declares itself in `manifest.ts` (routes with `requires`, nav, permissions, feature flag, slot contributions, settings, i18n, links). The registry drops manifests whose flag is off and generates the routes, navigation and widgets: no hand-edited route or menu lists. Adding a feature is a new folder, a manifest and one line in `registry/features.ts`, with no edit to core, routing or another feature. Route and slot modules default-export their component; every route has its own static page title; features talk only through `index.ts`, shared types or slots. The manifest shape, the slots, the domain events, per-hospital settings and the checklist are in `docs/EXTENDING.md`: read it before adding a module, a slot, a slot contribution or an event.
 
 ### Permissions (not role names)
 
@@ -520,35 +273,13 @@ export const patientsFeature: FeatureManifest = {
 
 Built-in roles (seed defaults): `platform_admin` (cross-tenant), `admin` (hospital admin), `doctor`, `nurse`, `receptionist`, `pharmacist`, `lab_technician`, `radiologist`, `store_keeper`. There is no patient role: patients are data, not users. Each hospital's admin can **adjust permissions of built-in roles and create custom roles** (e.g. `billing_clerk`, `insurance_officer`, `ot_coordinator`, `ward_clerk`, `blood_bank_technician`) through a role management screen. Roles are scoped to a tenant, except `platform_admin`.
 
-Default matrix (seed data only; the live policy comes from the backend):
+The default matrix of what each role gets is seed data, in `docs/PRODUCT.md`.
 
-| Area                                  | platform_admin | admin        | doctor          | nurse          | receptionist  | pharmacist    | lab_technician | radiologist | store_keeper |
-| ------------------------------------- | -------------- | ------------ | --------------- | -------------- | ------------- | ------------- | -------------- | ----------- | ------------ |
-| Manage hospitals/tenants              | yes            | no           | no              | no             | no            | no            | no             | no          | no           |
-| Users, roles, master data             | yes (tenants)  | own hospital | no              | no             | no            | no            | no             | no          | no           |
-| Patient registration and demographics | no*            | yes          | yes             | yes            | register/edit | view          | view           | view        | no           |
-| Appointments and queue                | no*            | yes          | view, own first | view           | create/edit   | no            | no             | no          | no           |
-| Triage and vitals                     | no*            | view         | view            | record         | no            | no            | no             | no          | no           |
-| Clinical notes, diagnosis, orders     | no*            | view         | yes             | limited        | no            | no            | no             | no          | no           |
-| Lab (collect, result, verify)         | no*            | view         | view results    | collect        | no            | no            | yes            | no          | no           |
-| Imaging (perform, report)             | no*            | view         | view results    | no             | no            | no            | no             | yes         | no           |
-| Pharmacy dispense and sales           | no*            | view         | no              | request/indent | no            | yes           | no             | no          | no           |
-| Inventory and purchasing              | no*            | view         | no              | indent         | no            | stock view    | no             | no          | yes          |
-| Admissions and beds (ADT)             | no*            | yes          | admit/discharge | transfer/view  | admit desk    | no            | no             | no          | no           |
-| Nursing care (MAR, notes)             | no*            | view         | view            | yes            | no            | no            | no             | no          | no           |
-| Billing and payments                  | no*            | yes          | view            | no             | yes           | counter sales | no             | no          | no           |
-| Insurance and claims                  | no*            | yes          | no              | no             | create/view   | no            | no             | no          | no           |
-| Reports                               | no*            | all          | own             | ward           | desk          | pharmacy      | lab            | imaging     | stock        |
-
-\*Platform admins manage tenants but do **not** get default access to patient data. Any support access must be explicit, audited, and time-limited.
+Platform admins manage tenants and get **no default access to patient data**; any support access is explicit, audited and time-limited.
 
 Scope rules such as "own patients only" or "own schedule" (for doctors) are data-scope constraints evaluated by the backend and surfaced to the UI as part of the policy (e.g. `scope: 'own'`). Do not reimplement them on the client.
 
-In v1 the system does not contact patients (no SMS, email, WhatsApp, or reminders). Patient messaging is deferred and must be addable as a feature module. See "Adding a new feature later".
-
 ### Adding a new feature later
-
-Any new feature (appointment reminders, insurance, inventory, reports, anything) must be addable **without editing core modules**. The mechanisms below are part of the foundation (step 0), not afterthoughts.
 
 **Rules**
 
@@ -557,253 +288,60 @@ Any new feature (appointment reminders, insurance, inventory, reports, anything)
 - Core changes allowed for a new feature are strictly additive: nullable columns, new events, new slots. Never change the meaning of existing fields.
 - Every feature ships dark behind a feature flag, off by default, enabled per hospital by `platform_admin`, with its permissions registered and default role grants seeded.
 
-**Extension points (slots)**
-Core screens render slots, and features contribute components to them through `manifest.extensions`. The registry resolves contributions by slot, feature flag, and permission. Initial slots: `patient.detail.tabs`, `patient.detail.actions`, `patient.form.fields`, `appointment.form.fields`, `appointment.row.badges`, `appointment.row.actions`, `dashboard.widgets`, `settings.sections`, `nav.items`. Add a new slot to core only when a real feature needs one, as an additive change.
-
-The patient screen (`features/patients`) hosts `patient.detail.tabs` and `patient.detail.actions`. A contribution is given `context.patientId` and nothing else of the record. To add a tab, the contributed component renders `<DetailTab id="..." title={...}>` (exported from `@/features/patients`) around its content: the id goes in the address (`?tab=<id>`), so it is a stable, unique word (`details` is taken), never patient data. Tabs are listed in registry order. Only what is inside the `<DetailTab>` mounts when the tab is opened: the contributed component itself runs every time a patient is opened, so it reads no data. Put the queries in a component rendered inside the tab, or every tab would fetch, and be audited, on every open. An action contribution renders its own button.
-
-**Domain events (backend contract)**
-Core modules publish events through a transactional outbox (written in the same database transaction, then delivered to the queue) so subscribers never miss or duplicate-trigger on rollbacks. Initial events, each carrying `tenantId`, entity ID, actor, and timestamp:
-
-- `patient.registered`, `patient.updated`
-- `appointment.created`, `appointment.rescheduled`, `appointment.cancelled`, `appointment.completed`, `appointment.no_show`
-- `encounter.opened`, `encounter.closed`, `queue.token_issued`, `queue.called`, `vitals.recorded`
-- `order.placed`, `order.cancelled`, `order.completed`
-- `lab.sample_collected`, `lab.result_verified`, `lab.critical_value`, `imaging.reported`
-- `pharmacy.dispensed`, `stock.low`, `stock.expiring`
-- `charge.posted`, `invoice.issued`, `invoice.paid`, `payment.refunded`
-- `admission.created`, `bed.assigned`, `bed.released`, `medication.administered`, `discharge.completed`
-- `er.triaged`, `surgery.completed`, `claim.submitted`, `claim.settled`
-- `master.changed` (a record of a catalog was added or changed: the kind of record, what happened and its id)
-
-New features subscribe to events in their own module. They do not modify the module that emits them. Handlers must be idempotent.
-
-**Per-hospital feature settings**
-A feature declares `settings` (a Zod schema + permission) in its manifest. The hospital admin settings screen renders a section for each enabled feature. Values are stored per tenant (`tenant_feature_settings`, JSON validated against the schema) and delivered to the frontend with the tenant config.
-
-**Backend module shape** (Fastify plugin, one per feature, see Backend)
-
-```
-apps/api/src/features/<name>/
-  index.ts        # Fastify plugin: routes, hooks, event subscribers, jobs
-  routes.ts       # TypeBox schemas, permissions and feature flag per route
-  permissions.ts  # permission ids + default role grants
-  schema.ts       # Drizzle tables (tenant_id + RLS via migration)
-  events.ts       # subscribed + published events
-  settings.ts     # per-hospital settings schema
-```
-
-The core `access` hook checks the tenant's feature flag and the caller's permissions on every route of the plugin.
-
-**Checklist for any new feature**
-
-1. Define permissions and default role grants. Add the feature flag (off by default).
-2. Backend module: tables (with `tenant_id` + RLS), API with OpenAPI, event subscribers, workers, metering/quota if it costs money.
-3. Frontend: `apps/web/src/features/<name>/` with `manifest.ts`, routes, slot contributions, settings section, MSW handlers.
-4. Tests: happy path, flag off, permission absent, two tenants, idempotent event handling.
-5. Enable for one pilot hospital, then roll out.
-
-**Worked example: appointment reminders (planned, not in v1)**
-In `docs/ARCHITECTURE.md`: a `reminders` module added with no change to core. What v1 must already provide for it: the appointment events, the `Notifier` abstraction, patient phone/email/`contactConsent` captured at registration, the slot and settings mechanisms, and feature flags with per-tenant settings.
+Core screens render slots (`patient.detail.tabs`, `patient.detail.actions`, `patient.form.fields`, `appointment.form.fields`, `appointment.row.badges`, `appointment.row.actions`, `dashboard.widgets`, `settings.sections`, `nav.items`); add one only when a real feature needs it. Events go through the transactional outbox, carry `tenantId`, entity id, actor and timestamp, and handlers are idempotent; subscribers live in their own module and never modify the emitter. The slot rules, the event list and the worked example of appointment reminders are in `docs/EXTENDING.md`.
 
 ### Hospital onboarding (platform_admin)
 
-`platform_admin` is the built-in role for the product owner/operators and is the only role that can onboard hospitals. It is not scoped to any hospital, uses the `features/platform/` module, and has **no access to patient data** by default.
-
-The onboarding flow (create the hospital, choose its plan and features, seed its roles, invite its first admin, activate) is in `docs/ARCHITECTURE.md`. Read it before working on the platform module.
-
-Rules:
-
-- The first `platform_admin` is created by a seed script or CLI at deploy time, never through the UI or public sign-up. Require MFA for all platform admins.
-- Platform admins can create or edit a hospital's config and invite its first admin, but cannot view patient records, appointments, clinical data, or billing.
-- Any exceptional support access to a hospital's data must be explicit, time-limited, approved by that hospital's admin, and written to the audit log.
-- Every platform action (create, suspend, feature toggle, impersonation if ever allowed) is audit-logged.
-- A hospital admin can only manage users and roles within their own hospital.
+The platform admin role, onboarding hospitals and its rules (seeded first admin, MFA, no patient data, time-limited audited support access, every platform action audited) are in `docs/ARCHITECTURE.md`. Read it before working on the platform module.
 
 ## Domain Types
 
-Types that exist in code are not repeated here. The code is the source of truth:
-
-- `apps/web/src/shared/types/index.ts`: `RoleId`, `BuiltInRoles`, `Permission`, `PermissionScope`, `RoleDefinition`, `AccessPolicy`, `Tenant`, `User`.
-- `apps/web/src/registry/types.ts`: `FeatureManifest` and its parts, `SlotId`, `SlotProps`, `LazyComponent`.
-- Each feature's `types.ts`, taken from the contract (`packages/contract`): the patient, department and doctor types, and those of every catalog.
+Types that exist are in code, not here: `apps/web/src/shared/types/index.ts` (roles, permissions, `AccessPolicy`, `Tenant`, `User`), `apps/web/src/registry/types.ts` (`FeatureManifest`, slots) and each feature's `types.ts`, taken from the contract.
 
 What they hold to: roles are data, not a closed union, because hospitals create custom roles; a permission is `resource:action` with an optional scope (`all`, `own` or `department`); every tenant-owned entity carries `tenantId`; an MRN is unique per tenant; a slot contribution is given ids and values, never a whole record; and `contactConsent` is captured at registration for future messaging features.
 
-Not built yet, and the shape to build:
-
-```ts
-export interface Appointment {
-  id: string;
-  tenantId: string;
-  patientId: string;
-  doctorId: string;
-  startsAt: string; // ISO datetime (UTC); display in tenant timezone
-  status: 'scheduled' | 'completed' | 'cancelled' | 'no_show';
-  reason?: string;
-}
-
-// The spine of care. Everything clinical, ordered or billed attaches to an encounter.
-export interface Encounter {
-  id: string;
-  tenantId: string;
-  patientId: string;
-  type: 'opd' | 'ipd' | 'er' | 'daycare';
-  status: 'open' | 'closed' | 'cancelled';
-  appointmentId?: string;
-  attendingDoctorId?: string;
-  departmentId?: string;
-  openedAt: string;
-  closedAt?: string;
-}
-
-export interface Order {
-  id: string;
-  tenantId: string;
-  encounterId: string;
-  type: 'lab' | 'imaging' | 'procedure' | 'medication' | 'diet';
-  catalogItemId: string; // service, drug or test from master data
-  status: 'placed' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
-  priority: 'routine' | 'urgent' | 'stat';
-  orderedBy: string;
-  placedAt: string;
-  details?: Record<string, unknown>; // dosage and frequency for medication, notes, etc.
-}
-
-export interface Charge {
-  id: string;
-  tenantId: string;
-  encounterId: string;
-  serviceId: string;
-  source: 'service' | 'order' | 'dispense' | 'bed' | 'procedure' | 'manual';
-  sourceRef?: string;
-  quantity: number;
-  unitPriceMinor: number; // minor currency units, from the price list effective at posting time
-  status: 'pending' | 'invoiced' | 'void';
-  postedAt: string;
-}
-
-export interface Invoice {
-  id: string;
-  tenantId: string;
-  patientId: string;
-  encounterId?: string;
-  chargeIds: string[];
-  totalMinor: number;
-  currency: string;
-  status: 'draft' | 'issued' | 'paid' | 'void';
-  issuedAt?: string;
-}
-```
-
-**Other entities (defined with their module, each carrying `tenantId` and `id`, and referencing `encounterId` or `patientId` where relevant):**
-
-- Master data: `Service`, `PriceList` (effective-dated), `Drug`, `LabTest` (with reference ranges), `Ward`, `Room`, `Bed`, `DiagnosisCode`, `Template`.
-- Front desk and OPD: `QueueToken`, `Vitals`, `ClinicalNote`, `Prescription`, `Referral`.
-- Diagnostics: `LabSample`, `LabResult` (versioned, verified), `ImagingReport`.
-- Pharmacy and stores: `StockItem`, `Batch`, `StockLedgerEntry` (append-only), `Supplier`, `PurchaseOrder`, `GoodsReceipt`, `Dispense`, `Indent`.
-- Inpatient: `Admission`, `BedAssignment` (history), `MedicationAdministration` (append-only), `ProgressNote`, `DischargeSummary`, `Deposit`.
-- Specialty: `ErEncounter`, `Surgery`, `OtBooking`, `Insurer`, `Policy`, `PreAuth`, `Claim`.
-- Records and operations: `Document`, `Consent`, `Certificate`, `Roster`, `BloodUnit`, `AmbulanceTrip`.
+The shapes still to build (`Appointment`, `Encounter`, `Order`, `Charge`, `Invoice`) and the list of the other entities by module are in `docs/PRODUCT.md`.
 
 ## Build Order
 
-The detailed plan is `docs/ROADMAP.md` (generated from `scripts/github/roadmap.mjs`), organized in milestones and the four releases in Product Scope. In short:
-
-- **R1:** Setup -> Foundation (tenant, access, registry, shell) -> Auth -> Patients -> Doctors and staff -> **Master data** -> Appointments, queue and triage -> OPD clinical and orders -> Laboratory -> Radiology -> Pharmacy and inventory -> Billing -> Reports -> Platform admin -> Roles -> Hardening and pilot launch.
-- **R2:** Bed management and admissions -> Nursing and ward care -> Discharge and IPD billing.
-- **R3:** Emergency -> Operation theatre -> Insurance and claims.
-- **R4:** Medical records and documents -> Operations (rosters, blood bank, ambulance, housekeeping).
+The detailed plan is `docs/ROADMAP.md` (generated from `scripts/github/roadmap.mjs`), in milestones and the four releases (`docs/PRODUCT.md`). R1 runs Setup, Foundation, Auth, Patients, Doctors and staff, Master data, Appointments, queue and triage, OPD clinical and orders, Laboratory, Radiology, Pharmacy and inventory, Billing, Reports, Platform admin, Roles, Hardening and pilot launch.
 
 Complete and test one module before starting the next. Ship each release to a pilot hospital before starting the next, and run the hardening checklist at the end of every release. Build master data and the encounter, order and charge foundations before any module that depends on them.
 
-## Scalability
-
-The bundle budgets, code splitting, pagination, virtualization, rendering and asset rules are in Performance Strategy, and the shape of the platform is in Technology Decisions. This section adds what they do not say.
-
-### Frontend performance
-
-- **Search inputs:** debounce them (300 ms) and cancel stale requests. No fetch-all-then-filter-client-side.
-- **React Query tuning:** set sensible `staleTime` per data type (reference data like departments: minutes; live data like appointment slots: seconds). Use `placeholderData`/`keepPreviousData` for pagination, prefetch likely next views, and rely on request dedupe. Use optimistic updates where safe.
-- **Live data:** no polling loops without backoff. Prefer SSE/WebSocket only for truly live views (queues, bed status), and keep them scoped to a tenant channel.
-- **Do not cache PHI** in service workers, CDN, or persistent browser storage.
-
-### Resilience under load
-
-- API client: timeouts, retry with exponential backoff + jitter for idempotent requests only, and respect `Retry-After` on **429**. Show a friendly "busy, retrying" state.
-- Cancel in-flight requests on navigation/unmount (`AbortController`).
-- Error boundaries per route and per widget so one failure doesn't blank the app.
-- Graceful degradation: if a non-critical widget fails (e.g. dashboard chart), the rest of the page still works.
-- Idempotency keys on create/payment mutations to prevent duplicates on retry or double-click.
-- Mark submit buttons unavailable while mutations are pending (`SubmitButton` does: `aria-disabled`, which refuses a second press and keeps focus).
-
-### Platform and backend expectations (see Technology Decisions)
-
-- `tenant_id` on every table, enforced with PostgreSQL row-level security; composite indexes starting with `tenant_id`.
-- **Per-tenant rate limits and quotas** so one busy hospital cannot degrade others (noisy-neighbor protection).
-
-### Monitoring
-
-- Report Core Web Vitals (LCP, INP, CLS) tagged by tenant and route (no PHI).
-- Track API error rate and p95 latency per tenant.
-- Lighthouse CI and bundle-size checks on every PR.
-
 ## Conventions
 
-- **Access checks:** only via `usePermission`, `<Can>`, or manifest `requires`. Never compare role names. Never hardcode which role sees what.
-- **State:** server data (including session, tenant config and policy) goes through React Query and is never copied into Redux. Redux Toolkit holds client and workflow state only, and every slice resets on tenant switch and logout. Local component state for everything else. Never persist PHI to browser storage.
-- **Query keys:** centralized per feature via key factories, always prefixed with tenant (e.g. `patientKeys.list(tenantId, filters)`). Invalidate precisely after mutations.
-- **Shared building blocks** (`apps/web/src/shared/ui`, with working examples at `/examples` in dev): build lists, charts, forms and notes from these, and do not import the underlying libraries in feature code.
-  - `data-grid`: `DataGrid` for every tabular list. A table where there is room and cards on a narrow screen, with no work from the screen. Server-side sorting and cursor paging, masked columns (`maskPhone`, `maskMrn` from `shared/utils/mask`), columns and row actions gated by `requires`, rows virtualised past 100. Pass `total` when the server gives one, so a screen reader hears a row's place in the whole list; the grid says loading, the sort and nothing found in its own polite live region, and leaves how many rows there are to the screen's own status message (#340).
-  - `charts`: `TimeSeriesChart` and `CategoryBarChart`. They load on demand, take colours from theme tokens, and carry a data table for screen readers. Each is a figure named by its title and a one-line `summary` (the count, highest and lowest when the screen gives none), and "Show as table" shows the same table on screen in place of the picture (#342).
-  - `form`: `useZodForm`, `Form`, the field components and `SubmitButton`. Validation messages are translation keys. `useFieldValue` gives what another field holds, for a field that depends on it; `useSetFieldValue` sets a field from code (a list built by picking); `useFieldError` gives a field's message to a field drawn by hand, and `useFieldFocusRef` lets a failed submit focus it in the order of the form; `useFieldRows` holds a list of rows whose fields are named by position (`rows.0.low`).
-  - `rich-text`: `RichTextEditor` (loads on demand) and `RichTextView`. Rich text is a sanitized JSON document (`sanitizeRichText`), never HTML.
-  - `calendar`: `Calendar`, a day or week time grid (react-big-calendar, MIT, loads on demand in the `calendar` chunk). It takes UTC instants and the hospital's timezone and locale, and draws the hospital's clock whatever the browser's timezone; the visible range and week helpers are in `calendar/zoned`. The screen draws its own toolbar and asks the server for the visible range only. The week view is for desktop width (`useIsDesktop` from `shared/hooks`). The time grid is one Tab stop worked with the arrows, Home, End, Page Up and Page Down (#341); a block is named by its `label` and marked by its `icon`, and a screen may let a free time be chosen (`onSelectSlot`) and the keys move the range (`onNavigate`).
-- **Forms:** every form uses React Hook Form + a Zod schema, through the form kit above. Derive form types with `z.infer`. Labels and validation messages go through i18n. A field of free text that is stored and printed (a name, a unit, a note) adds `.regex(PLAIN_TEXT, 'validation.plain_text')` from `shared/utils/text` (`PLAIN_LINES` for text of several lines): the API refuses a control character and anything that prints as nothing (the zero-width space, the direction marks and overrides, the soft hyphen and the like), and stores the text in one normal form with single spaces. A search term is never refused: the API tidies it.
-- **Searches:** a search whose term can say something about a patient goes in the body of a `POST …/search`, never in a query string: patients, diagnosis and procedure codes, drugs, lab tests and services. The same search is made from clinical, ordering and billing screens with a patient's record open, and a term beside a patient id in a CDN, load balancer or firewall log is patient data that the API's own redaction never sees. Such a search reads data only, the API does not log its body, and the answer is a cursor page like any list. A list with nothing typed into it by a clinician about a patient (departments, staff, wards) stays a `GET`. A new catalog that will be searched while recording care follows the first rule (#289).
+- **State:** server data (session, tenant config and policy included) lives in React Query, never copied into Redux. Redux Toolkit holds client and workflow state only, and every slice resets on tenant switch and logout. Local component state for everything else.
+- **Query keys:** from each feature's key factory, always prefixed with the tenant (`patientKeys.list(tenantId, filters)`); invalidate precisely after mutations.
+- **Shared building blocks** (`apps/web/src/shared/ui`, with working examples at `/examples` in dev): build lists with `DataGrid` (every tabular list; server-side sorting and cursor paging, masked columns, `requires` on columns and actions, pass `total` when the server gives one), charts with `TimeSeriesChart` and `CategoryBarChart`, forms with the form kit (`useZodForm`, `Form`, the fields, `SubmitButton`), notes with `RichTextEditor` and `RichTextView` (a sanitized JSON document, never HTML) and calendars with `Calendar` (UTC instants drawn on the hospital's clock). Never import the underlying libraries in feature code. What each one does and takes is in `apps/web/src/shared/ui/CLAUDE.md`: read it before using one in a new way.
+- **Forms:** React Hook Form and a Zod schema through the form kit, types from `z.infer`, labels and messages through i18n. A free-text field that is stored and printed (a name, a unit, a note) adds `.regex(PLAIN_TEXT, 'validation.plain_text')` from `shared/utils/text` (`PLAIN_LINES` for several lines), the patterns the API refuses on; a search term is never refused.
+- **Searches:** a search whose term can say something about a patient (patients, codes, drugs, lab tests, services, and any new catalog searched while recording care) goes in the body of a `POST …/search`, never in a query string, because a term beside a patient id in a CDN, load balancer or firewall log is patient data the API's redaction never sees. It reads only, its body is not logged, and it answers a cursor page. A list nobody types patient facts into (departments, staff, wards) stays a `GET` (#289).
 - **Typing:** no `any`. Prefer `unknown` + narrowing. API responses are validated or typed at the `api.ts` boundary.
-- **Components:** function components, named exports, small and single-purpose. Co-locate styles and tests.
-- **Naming:** `PascalCase` components, `camelCase` functions/vars. Be consistent with existing files.
+- **Components:** small, single-purpose function components with named exports, `PascalCase`; functions and variables `camelCase`; styles and tests co-located.
 - **Async UI:** every data view handles loading, empty, and error states.
-- **Editing a record two people can change:** send only the fields that changed, with the `version` the edit was made from. On a conflict keep what the person typed in the fields they changed, take what was saved meanwhile in the fields they did not, and show the saved value under any field both changed. Work from a snapshot of the record taken when the form opens, so a background refresh never changes what is being typed over. For a plain record (a service, a drug, a doctor profile) `features/drugs/routes/DrugDetail.tsx` is the short form of it: dirty fields only, `reset(latest, { keepDirtyValues: true })` when a newer version arrives, and Save never left waiting. `features/patients` (`use-update-patient.ts`, `PatientEdit.tsx`) is the pattern: the save is optimistic, the unsaved edit is held in the query cache under the hospital's key (in memory only), the screen returns to the record at once, and nothing is written to the cache if the answer arrives after the session ended.
-- **Dates and money:** store and transmit ISO strings (UTC) and minor-unit/decimal-safe amounts. Format only at the display layer using tenant locale, timezone, and currency. A calendar date that is not an instant (a date of birth, the day a price starts) is shown with `format.calendarDate`, which no timezone can move to a neighbouring day; `format.date` is for instants. An amount typed by a person becomes minor units on its digits, never through a floating-point number, and a comma is accepted only where grouping puts one (`toMinor` in `features/services/schemas.ts`): "12,50" is refused, not read as 1250.
-- **i18n:** no user-facing string literals in components. Use translation keys. Core strings live in `app/locales/<language>/common.json`. A feature keeps its strings in its own folder and declares them in `manifest.i18n`, never in core locale files. The UI language follows the active hospital's locale (`hi-IN` uses the `hi` files) and falls back to English per language and per key. Tests fail on any rendered key that has no translation.
+- **Editing a record two people can change:** send only the changed fields with the `version` the edit started from, working from a snapshot taken when the form opened. On a conflict keep what the person typed in their changed fields, take what was saved in the others, and show the saved value under a field both changed. Short form for a plain record: `features/drugs/routes/DrugDetail.tsx` (dirty fields, `reset(latest, { keepDirtyValues: true })`, Save never left waiting). Full pattern: `features/patients` (`use-update-patient.ts`, `PatientEdit.tsx`): optimistic save, the unsaved edit held in the query cache under the hospital's key (memory only), nothing written once the session ended.
+- **Dates and money:** ISO strings (UTC) and minor units in storage and transit; format only for display with the tenant's locale, timezone and currency. A calendar date that is not an instant (a date of birth, the day a price starts) uses `format.calendarDate`; `format.date` is for instants. A typed amount becomes minor units on its digits, never through a float, and a comma only where grouping puts one (`toMinor` in `features/services/schemas.ts`): "12,50" is refused.
+- **i18n:** no user-facing string literals; translation keys only. Core strings in `app/locales/<language>/common.json`; a feature keeps its own in its folder, declared in `manifest.i18n`. The language follows the hospital's locale (`hi-IN` uses `hi`) and falls back to English per key. Tests fail on a rendered key with no translation.
 - **Errors:** centralize API error handling in the API client wrapper. Surface user-friendly messages, never raw server errors.
-- **Accessibility:** WCAG 2.2 AA. Semantic HTML, labelled inputs, keyboard-navigable tables and dialogs, and axe and a keyboard test for every screen. See Accessibility.
-- **Responsive:** every screen works at phone, tablet and desktop width unless it is on the desktop-only list. See Responsive Design.
 
 ## Security and Privacy (healthcare data)
 
 - Treat all patient data as sensitive PHI.
-- **Tenant isolation is a security boundary.** Never derive authorization from client-supplied tenant values. Clear all cached data on tenant switch/logout.
-- Never log PHI to the console, error trackers, or analytics. Configure the error tracker to scrub PHI.
-- **Error reporting and logging policy** (web: `app/observability/`, `shared/lib/logger.ts`):
-  - Errors only. No session replay, no performance tracing, no breadcrumbs. The SDK loads after first paint, and only when `VITE_SENTRY_DSN` is set for the deployment.
-  - Every outgoing event is **rebuilt from an allowlist** (`scrubEvent`): error type, stack frames (file, function, line), environment, release, and two tags, the route pattern and the tenant id. Request and response bodies, URLs, query strings, headers, cookies, the user, and any extra data are never sent.
-  - **Error messages are not sent**, because code builds them from data. The one exception is `ApiError`, whose message is always a fixed code. Do not put information you need for debugging in an error message; use the error type and a stable code.
-  - Report a caught error with `reportError(error)`. Never attach context objects to it.
-  - App code does not call `console.*` (lint error). Use `logger.warn(event, fields)` or `logger.error(event, fields)`: a static event name plus fields from the `LogFields` allowlist (tenant id, route pattern, feature, code, status, request id, key, count, duration). Adding a field is a reviewed change to `LogFields`, where "can this ever hold patient data?" is asked once.
-  - Web vitals carry the metric, its rating, the route pattern and the tenant id only.
-- Do not store PHI in `localStorage`/`sessionStorage`. Prefer in-memory state. Prefer httpOnly cookies for tokens if the backend supports it. Otherwise keep the access token in memory only.
-- Auto-logout on inactivity (configurable per tenant). Clear React Query cache on logout.
-- **How a session ends in the web app** (`app/session/`): the idle time comes from the tenant config (`auth.idleTimeoutMinutes`, 30 minutes when absent). A dialog asks during the last minute, with focus on staying signed in so that a key pressed out of habit never ends the session (Escape stays too), and from then on only its buttons count as activity. Activity and sign-in or sign-out are shared between tabs over a `BroadcastChannel` that carries fixed words and no data. Every ending (sign-out, idle, another tab, a 401 from the server) goes through `endSessionLocally`, which drops all cached data and client state before the login page shows, and after a sign-out or an idle timeout the address of the open screen is not kept for whoever signs in next (after a 401 it is, since the user was at work).
-- Mask sensitive fields where full values are not needed (e.g. phone, MRN in lists).
-- Audit-relevant actions (view/edit patient record, billing changes) must be sent through the API so the backend can log them per tenant.
+- **Tenant isolation is a security boundary:** never derive authorization from a client-supplied tenant value.
+- Never log PHI to the console, error trackers or analytics.
+- **Error reporting and logging** (web: `app/observability/`, `shared/lib/logger.ts`): errors only, no replay, tracing or breadcrumbs; every event is rebuilt from an allowlist (`scrubEvent`) and error messages are never sent, so put a stable code, not data, in an error. Report a caught error with `reportError(error)` and no context object. App code never calls `console.*`: use `logger.warn` or `logger.error` with a static event name and fields from the `LogFields` allowlist, where a new field is a reviewed change. The whole policy is in `apps/web/src/app/observability/CLAUDE.md`.
+- No PHI in `localStorage`, `sessionStorage` or any persistent browser storage, a service worker or a CDN: keep it in memory. Tokens live in httpOnly cookies.
+- **Every way a session ends** (sign-out, idle, another tab, a 401) goes through `endSessionLocally` in `app/session/`, which drops all cached data and client state before the login page shows. Idle time comes from the tenant config, a dialog warns in the last minute, and tabs share activity over a `BroadcastChannel` carrying fixed words only. The detail is in `apps/web/src/app/session/CLAUDE.md`.
+- Mask sensitive fields where the full value is not needed (phone, MRN in lists). Audit-relevant actions (reading or editing a patient record, billing changes) go through the API, which logs them per tenant.
 - Never hardcode secrets. Use `.env` (git-ignored) with `VITE_` prefix only for non-secret config.
-- Sanitize anything rendered from user input. No `dangerouslySetInnerHTML`.
-- Apply a strict Content-Security-Policy and standard security headers at the CDN/host.
+- Sanitize anything rendered from user input; no `dangerouslySetInnerHTML`. A strict Content-Security-Policy and standard security headers at the CDN/host.
 
 ## Testing
 
-- Unit/component tests for forms, guards, and hooks with Vitest + RTL.
-- Mock the network with MSW, not by mocking fetch.
-- Each feature ships with tests for: happy path, validation errors, permission-based visibility.
-- **Responsive tests:** the end-to-end suite runs at desktop, tablet and phone width, and a new screen is added to `e2e/responsive.spec.ts` (see Responsive Design).
-- **Accessibility tests:** every screen gets axe in its unit test and in Playwright, and a keyboard test of its main task (see Accessibility).
+- Vitest and React Testing Library for forms, guards and hooks; the network is mocked with MSW, never by mocking fetch. Each feature tests the happy path, validation errors and permission-based visibility.
+- **Responsive and accessibility tests:** see How it is checked (Responsive Design) and Checks every screen gets (Accessibility).
 - **Multi-tenant tests:** verify cache isolation when switching tenants, tenant-scoped query keys, tenant-specific theming/locale/feature flags, and that disabled modules are unreachable.
 - **Access tests:** for each feature, test with permission present, permission absent, feature flag off, and a custom role. Verify hidden nav/routes/actions and 403 handling. Verify policy refresh updates the UI without reload.
-- **Performance tests:** Lighthouse CI + bundle budgets in CI; tests with large result sets (10k+ total rows) confirm pagination keeps the page responsive and memory flat.
-- Run k6 or similar load tests against staging from a cloud runner, not the laptop per tenant and with mixed tenants.
+- **Performance tests:** Lighthouse CI and bundle budgets in CI; large result sets (10k+ rows) keep the page responsive and memory flat; k6 load tests run against staging from a cloud runner, per tenant and with mixed tenants.
 - **Foundation coverage is enforced.** CI runs `pnpm test:coverage`, which fails if line, branch, function or statement coverage of `access/`, `tenancy/`, `registry/`, `shared/api/` and `app/session/` drops below the thresholds in `apps/web/vitest.config.ts`. A change to those folders ships with its tests. Lower a threshold only with a stated reason.
 - A task is done when CI is green: it runs the full `pnpm lint`, `pnpm typecheck`, tests, build and end-to-end suites. Locally, run `pnpm typecheck` and the tests for the code you changed before opening the PR, and leave the full suite to CI (the dev machine is slow). A PR that changes only Markdown runs the format check alone, and a merge whose content the PR run already tested is not tested again on `main` (`scripts/ci-mode.mjs`).
 
@@ -811,9 +349,8 @@ The bundle budgets, code splitting, pagination, virtualization, rendering and as
 
 Issues are the source of truth for scope and progress. The roadmap is defined in `scripts/github/roadmap.mjs` (see `docs/ROADMAP.md` and `docs/WORKFLOW.md`).
 
-- Work on **one issue at a time**. Issue titles start with an ID such as `[F-03] Session bootstrap`. Read the issue with `gh issue view <n>`, including its tasks, acceptance criteria and dependencies. Confirm its dependencies are closed before starting.
-- **Plan first** for any issue sized M or L: present a short plan and wait for approval.
-- **Branches:** `feat/<n>-<slug>`, `fix/<n>-<slug>`, `chore/<n>-<slug>`. **Commits:** Conventional Commits with the issue number, e.g. `feat(patients): add search (#42)`. **PRs:** a PR does the work of one issue, and its body ends with `Closes #<n>`. If the change also fully resolves another open issue, the body gets a `Closes #<m>` line for that one too, with a sentence saying why. Merging closes the issues. Close an issue directly only when no PR can (a duplicate, one that will not be done, or one found resolved after the merge), with a comment naming the PR or the reason.
+- **One issue at a time.** Titles start with an ID (`[F-03] Session bootstrap`). Read it with `gh issue view <n>` (tasks, acceptance criteria, dependencies) and confirm its dependencies are closed. **Plan first** for size M or L and wait for approval.
+- **Branches** `feat|fix|chore/<n>-<slug>`; **commits** Conventional Commits with the issue number (`feat(patients): add search (#42)`); **a PR** does one issue and its body ends with `Closes #<n>`, plus a `Closes #<m>` line and a sentence for any other issue it fully resolves. Close an issue by hand only when no PR can (a duplicate, won't do, found resolved after a merge), with a comment naming the PR or the reason.
 - **Do not widen scope.** Anything discovered but out of scope becomes a proposed new issue (title, labels, milestone, tasks), not part of the current change.
 - Labels: `type:*`, `area:*`, `P0`-`P2`, `size:S|M|L`, `status:in-progress|in-review|blocked|needs-decision`. Never mark an issue `status:blocked` without stating the blocker in a comment.
 - Done means the issue's Definition of Done is satisfied, including `/tenant-safety-check` and `/phi-check` where data or access is touched. In `/finish-issue` the `security-reviewer` subagent applies both checklists in one pass over the diff against `main`. Once CI is green, Claude merges the PR and removes `status:in-progress`; `status:in-review` is only for a PR the user asked to review first.
@@ -821,37 +358,13 @@ Issues are the source of truth for scope and progress. The roadmap is defined in
 
 ## Working Agreement for Claude
 
-- Follow the build order and the Workflow (GitHub issues) section for every task. Ask before changing the stack or folder structure.
-- Make small, reviewable changes. Explain non-obvious decisions briefly.
-- Reuse existing shared components and types before creating new ones.
-- When adding a feature, create: types (with `tenantId`), Zod schema, API functions, tenant-scoped React Query hooks, components, a `manifest.ts` (routes, nav, permissions, feature flag), MSW handlers, and tests (including multi-tenant and permission cases). Register it in the registry; do not edit core routing or other features.
+- Follow the build order and the Workflow above. Ask before changing the stack or folder structure. Small, reviewable changes; explain non-obvious decisions briefly; reuse shared components and types first.
+- A new feature is scaffolded with `/new-feature` (types with `tenantId`, Zod schema, API functions, tenant-scoped hooks, components, manifest, MSW handlers, tests with two tenants and the permission cases), registered in the registry with no edit to core routing or another feature.
 - For any clinical or financial module, run `/module-integration-check`: it must use `Encounter`, the unified `Order`, the charge ledger and domain events as described in Product Scope, never its own parallel concepts.
-- Define new permissions in the feature manifest and gate every action with `usePermission`/`<Can>`.
-- Before changing a module, read its own `CLAUDE.md` (`apps/web/src/features/<folder>/CLAUDE.md`), also for work under `apps/api`. When a decision is made for a module, write it there.
+- Before changing a module, read its own notes (see Current Status). When a decision is made for a module, write it in its web feature folder's `CLAUDE.md`, or for its API in `apps/api/src/features/<name>/CLAUDE.md`.
 - Before changing a core module for a new requirement, check whether it can be done as a feature module, extension slot, or event subscriber. Core changes must be additive.
-- Any list view must use server-side pagination; never load all records.
-- New dependencies are allowed when the work needs one and it meets the Dependency policy: Claude may add it without asking first, and states the reason, the licence and the bundle impact (for the web app) in the PR. Use pnpm for every install and script run.
-- Prefer the decided stack and free/open-source tools. Any paid service or dependency needs an explicit justification and a cheaper alternative noted.
-- Never create per-tenant builds or branches. Tenant differences are runtime configuration.
+- New dependencies are allowed when the work needs one and it meets the Dependency policy: Claude may add it without asking first, and states the reason, the licence and the bundle impact (for the web app) in the PR. Nothing paid: a paid service or dependency needs an explicit justification and a cheaper alternative noted.
 
 ## Open Decisions
 
-Decided defaults live in Technology Decisions. Remaining questions:
-
-- Backend: Fastify + TypeBox + Drizzle decided. Revisit NestJS only if a team joins and wants enforced structure and dependency injection
-- Whether any premium library licence (for example a calendar resource timeline or an advanced data grid) is ever worth buying for the scheduling and OT views. Not during development: the owner decided on 2026-10-14 that nothing paid goes into the project while it is being built
-- Exact numeric budgets: the initial values in Performance Strategy are starting points to tighten or relax after the first real measurements
-- Cloud provider: AWS Mumbai is the default, confirmed only when the account is opened for staging (#56). No account or subscription exists yet. Until then keep the application provider-neutral (one container image, configuration from the environment, Postgres, S3-compatible storage, SMTP) and write no infrastructure code. Alternatives (GCP, Azure, a cheaper VPS provider for the pilot phase) if cost or credits favor them
-- Target markets and compliance scope: India DPDP only vs HIPAA/GDPR, and per-tenant data residency
-- When per-hospital SSO (Keycloak, SAML/OIDC) is first needed
-- Permission granularity: resource:action only (assumed) vs field-level and attribute-based (ABAC) rules
-- Who can create custom roles (hospital admin only vs platform-approved) and whether permissions can be time-boxed
-- Policy delivery: fetched at login + refresh (assumed) vs embedded in token; refresh interval
-- Dynamic module loading: build-time registry (assumed) vs runtime micro-frontends (Module Federation) if independent team deployments are needed
-- Whether any hospital will ever need its own branded URL or custom domain (not planned; single shared URL by default)
-- Login-page branding before sign-in (generic by default; optional last-used-hospital memory)
-- Real-time needs (queues, bed availability) and whether SSE is enough
-- Integrations to plan adapters for: ABDM/ABHA, HL7 v2 or FHIR, lab analyzers, DICOM/PACS, insurer and TPA e-claim portals, accounting export (for example Tally)
-- Statutory and regional requirements: the drug schedules are India's (H, H1, X, G, narcotic) and fixed in the contract for now, so a hospital under another country's rules needs them to become a per-hospital list; drug schedule and controlled-drug registers, GST invoice formats, death and birth certificate formats, medico-legal records
-- Whether telemedicine, a patient portal or a mobile app for doctors are ever in scope (currently out of scope)
-- Which modules the pilot hospital actually needs in R1, so low-priority modules (radiology, purchasing) can be deferred
+The questions still open (cloud provider, compliance scope, SSO, ABAC, custom roles, integrations, statutory formats, pilot modules and more) are in `docs/OPEN_DECISIONS.md`. Check it before a choice that one of them could change.
