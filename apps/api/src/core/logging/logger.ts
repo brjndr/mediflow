@@ -24,10 +24,18 @@ export const REDACTED_KEYS = [
   'email',
   'address',
   'mrn',
+  'patientName',
+  'patientMrn',
+  'patient_name',
+  'patient_mrn',
   // Clinical and financial content
   'diagnosis',
   'notes',
   'note',
+  // Why a patient is coming, and why an appointment was cancelled (free text).
+  'reason',
+  'cancelNote',
+  'cancel_note',
   'body',
   'result',
   'prescription',
