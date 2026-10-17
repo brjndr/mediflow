@@ -119,10 +119,14 @@ export const auditPlugin = fp(
     });
 
     app.addHook('onSend', async (request: FastifyRequest, reply: FastifyReply) => {
-      // A replayed result did not do the work again, so it is not a second access.
-      if (reply.statusCode >= 400 || !request.tenant || replayed.has(request)) return;
+      if (reply.statusCode >= 400 || !request.tenant) return;
       const entries = pending.get(request) ?? [];
-      const declared = request.routeOptions.config.audit;
+      // A replayed result did not do the work again, so the route's own entry is not written a
+      // second time. A handler that answers a repeat by reading the record again (a route that
+      // keeps no body) says so with `request.audit('read', ...)`, and that read is written.
+      const repeat = replayed.has(request);
+      if (repeat && entries.length === 0) return;
+      const declared = repeat ? undefined : request.routeOptions.config.audit;
       if (declared) {
         const params = request.params as Record<string, unknown> | undefined;
         const id = typeof params?.id === 'string' ? params.id : null;

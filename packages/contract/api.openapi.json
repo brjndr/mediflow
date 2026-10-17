@@ -3121,6 +3121,334 @@
             "type": "integer"
           }
         }
+      },
+      "AppointmentStatus": {
+        "type": "string",
+        "enum": ["scheduled", "completed", "cancelled", "no_show"]
+      },
+      "AppointmentCancelReason": {
+        "description": "Why an appointment was cancelled.",
+        "type": "string",
+        "enum": ["patient_request", "doctor_unavailable", "hospital", "duplicate", "other"]
+      },
+      "AppointmentRescheduleReason": {
+        "description": "Why an appointment was moved.",
+        "type": "string",
+        "enum": ["patient_request", "doctor_unavailable", "hospital", "other"]
+      },
+      "AppointmentSummary": {
+        "additionalProperties": false,
+        "description": "An appointment as a list shows it: when, with whom, for whom and its status. Not the whole record: the reason is not in a list.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "doctorId",
+          "doctorName",
+          "startsAt",
+          "endsAt",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "departmentName": {
+            "description": "The doctor’s department. Absent when it has none.",
+            "type": "string"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "description": "UTC.",
+            "type": "string"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "description": "UTC.",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AppointmentStatus"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "AppointmentPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppointmentSummary"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "AppointmentCancellation": {
+        "additionalProperties": false,
+        "description": "Why the appointment was cancelled. Present on a cancelled appointment only.",
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "$ref": "#/components/schemas/AppointmentCancelReason"
+          },
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        }
+      },
+      "Appointment": {
+        "additionalProperties": false,
+        "description": "An appointment record: the list fields, the reason for the visit and, when cancelled, why.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "doctorId",
+          "doctorName",
+          "startsAt",
+          "endsAt",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "departmentName": {
+            "description": "The doctor’s department. Absent when it has none.",
+            "type": "string"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "description": "UTC.",
+            "type": "string"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "description": "UTC.",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AppointmentStatus"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "cancellation": {
+            "$ref": "#/components/schemas/AppointmentCancellation"
+          }
+        }
+      },
+      "TimeSlot": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["startsAt", "endsAt"],
+        "properties": {
+          "startsAt": {
+            "format": "date-time",
+            "description": "UTC.",
+            "type": "string"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "description": "UTC.",
+            "type": "string"
+          }
+        }
+      },
+      "FreeSlots": {
+        "additionalProperties": false,
+        "description": "A doctor’s free slots on one day at the hospital.",
+        "type": "object",
+        "required": ["doctorId", "day", "slotMinutes", "slots"],
+        "properties": {
+          "doctorId": {
+            "type": "string"
+          },
+          "day": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "type": "string"
+          },
+          "slotMinutes": {
+            "minimum": 5,
+            "maximum": 240,
+            "type": "integer"
+          },
+          "slots": {
+            "maxItems": 288,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeSlot"
+            }
+          }
+        }
+      },
+      "AppointmentCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "doctorId", "startsAt"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "doctorId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "description": "UTC. The start of one of the free slots.",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Why the patient is coming. Plain text of one or more lines.",
+            "type": "string"
+          },
+          "extensions": {
+            "additionalProperties": true,
+            "description": "Values of the fields other features add to the booking form, keyed by feature id, each part an object. Each part is checked against the schema its feature registers; a part no feature registered is refused with 422 `unknown_extension`.",
+            "type": "object",
+            "properties": {}
+          }
+        }
+      },
+      "AppointmentReschedule": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version", "doctorId", "startsAt", "reason"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "doctorId": {
+            "maxLength": 64,
+            "description": "The same doctor, or another one.",
+            "type": "string"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "description": "UTC. The start of one of the doctor’s free slots.",
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/AppointmentRescheduleReason"
+          },
+          "note": {
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text of one or more lines (no control or invisible characters). Required when the reason is `other`.",
+            "type": "string"
+          }
+        }
+      },
+      "AppointmentCancel": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version", "reason"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/AppointmentCancelReason"
+          },
+          "note": {
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text of one or more lines (no control or invisible characters). Required when the reason is `other`.",
+            "type": "string"
+          }
+        }
+      },
+      "AppointmentStatusChange": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          }
+        }
       }
     }
   },
@@ -12437,6 +12765,903 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/appointments": {
+      "get": {
+        "operationId": "listAppointments",
+        "tags": ["appointments"],
+        "description": "The appointments of the active hospital that start on the days from `from` to `to` (calendar days at the hospital, both included, at most 31 days), by start time then id. Filtered by doctor and by status. A list, not a search: nothing in its address is typed about a patient, so it is a GET. Each row names its patient (name and MRN) for anyone who may read appointments. The scope of the caller’s `appointment:read` is applied on the server, whatever the filters say: with scope `own`, only the appointments of the caller’s own doctor profile are returned, a `doctorId` of another doctor gives an empty page, and `total` counts only what the caller may see; with `department`, those of the departments of the caller’s profile. Every page read is audited, with the ids of the appointments returned. `total` comes with the first page only.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "description": "The first day, at the hospital."
+          },
+          {
+            "schema": {
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "description": "The last day, at the hospital, included. At most 30 days after `from`."
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "doctorId",
+            "required": false,
+            "description": "Only this doctor’s appointments."
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/AppointmentStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAppointment",
+        "tags": ["appointments"],
+        "description": "Books an appointment for a patient with a doctor, starting at one of the doctor’s free slots (see `/appointments/free-slots`); the server sets its end from the slot length. Needs `appointment:create`. The Idempotency-Key header is required: a repeat with the same key books nothing and answers with the appointment as it is now. Two bookings can never hold the same doctor at the same time: a database exclusion constraint on the doctor’s scheduled appointments decides between simultaneous requests, and the loser is refused with 409 `slot_taken`. A patient cannot be booked at a time that overlaps one of their own scheduled appointments, with any doctor: 409 `patient_overlap`. A start that is not a slot of the doctor’s working hours, is already past or is more than 90 days ahead is refused with 422 `outside_hours`. An unknown patient or an unknown or inactive doctor gives 422 `unknown_patient` or `unknown_doctor`, the same whether the id belongs to another hospital or to none. `extensions` holds the values of the fields other features add to the booking form (the `appointment.form.fields` slot), keyed by feature id; a part for a feature that registered no schema is refused (422 `unknown_extension`), and no feature registers one yet. The reason is stored as plain text. The answer names the patient (name and MRN) to anyone who may book. Writes `appointment.created` to the outbox and the audit log in the same transaction.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "An appointment record: the list fields, the reason for the visit and, when cancelled, why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/appointments/free-slots": {
+      "get": {
+        "operationId": "listFreeSlots",
+        "tags": ["appointments"],
+        "description": "A doctor’s free slots on one calendar day at the hospital, in order: the slots of the doctor’s weekly working hours (cut into the doctor’s consultation length, `consultationMinutes` of the profile) that overlap no scheduled appointment of the doctor and have not started yet. Cancelled and no-show appointments free their slot. Needs `appointment:create` or `appointment:update` (to book, or to move a booking). A list of times for a doctor and a day: nothing in its address is about a patient, so it is a GET. A day more than 90 days ahead, or before today, gives an empty list. An unknown or inactive doctor gives 404 `not_found`.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "doctorId",
+            "required": true
+          },
+          {
+            "schema": {
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "day",
+            "required": true,
+            "description": "A day at the hospital."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A doctor’s free slots on one day at the hospital.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreeSlots"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/appointments/{appointmentId}": {
+      "get": {
+        "operationId": "getAppointment",
+        "tags": ["appointments"],
+        "description": "One appointment: the list fields, the reason for the visit and, when cancelled, why. Needs `appointment:read`, under the same rule as the list for naming the patient and for scope. Every read is audited. An appointment of another hospital answers 404 `appointment_not_found`.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "appointmentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An appointment record: the list fields, the reason for the visit and, when cancelled, why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/appointments/{appointmentId}/reschedule": {
+      "post": {
+        "operationId": "rescheduleAppointment",
+        "tags": ["appointments"],
+        "description": "Moves a scheduled appointment to one of a doctor’s free slots, with the same doctor or another, and a reason. Its id stays. The free times and refusals are those of booking: 409 `slot_taken` when another appointment holds the doctor (the exclusion constraint decides), 409 `patient_overlap` when the patient has another appointment then, 422 `outside_hours` for a time that is not a slot or has started, and 422 `unknown_doctor`. The appointment’s own old time never counts against it. Writes `appointment.rescheduled` to the outbox with the old and the new start and the reason; the note is not kept. Needs `appointment:update`. Only a scheduled appointment changes: completed, cancelled and no-show are final, and a change of one gives 409 `invalid_transition`. The `version` must be the current one, or 409 `conflict`. The rules are enforced in the same transaction as the change, on the locked row. An appointment of another hospital, or outside the scope the caller holds `appointment:update` with, answers 404 `appointment_not_found`, the same as one that does not exist. The same `idempotency-key` changes nothing again and answers with the appointment as it is now. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentReschedule"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "appointmentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An appointment record: the list fields, the reason for the visit and, when cancelled, why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/appointments/{appointmentId}/cancel": {
+      "post": {
+        "operationId": "cancelAppointment",
+        "tags": ["appointments"],
+        "description": "Cancels a scheduled appointment that has not ended, with a reason from the list and a note (required for `other`). Its time is freed at once. One that has ended is refused with 422 `too_late`: it is completed or a no-show. Writes `appointment.cancelled` to the outbox with the reason. Needs `appointment:update`. Only a scheduled appointment changes: completed, cancelled and no-show are final, and a change of one gives 409 `invalid_transition`. The `version` must be the current one, or 409 `conflict`. The rules are enforced in the same transaction as the change, on the locked row. An appointment of another hospital, or outside the scope the caller holds `appointment:update` with, answers 404 `appointment_not_found`, the same as one that does not exist. The same `idempotency-key` changes nothing again and answers with the appointment as it is now. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentCancel"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "appointmentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An appointment record: the list fields, the reason for the visit and, when cancelled, why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/appointments/{appointmentId}/complete": {
+      "post": {
+        "operationId": "completeAppointment",
+        "tags": ["appointments"],
+        "description": "Marks a scheduled appointment as completed: the patient was seen. Not before it starts (422 `too_early`). Writes `appointment.completed` to the outbox. Closing an OPD encounter will complete its appointment the same way (M7). Needs `appointment:update`. Only a scheduled appointment changes: completed, cancelled and no-show are final, and a change of one gives 409 `invalid_transition`. The `version` must be the current one, or 409 `conflict`. The rules are enforced in the same transaction as the change, on the locked row. An appointment of another hospital, or outside the scope the caller holds `appointment:update` with, answers 404 `appointment_not_found`, the same as one that does not exist. The same `idempotency-key` changes nothing again and answers with the appointment as it is now. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentStatusChange"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "appointmentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An appointment record: the list fields, the reason for the visit and, when cancelled, why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/appointments/{appointmentId}/no-show": {
+      "post": {
+        "operationId": "markAppointmentNoShow",
+        "tags": ["appointments"],
+        "description": "Marks a scheduled appointment as a no-show: the patient did not come. Not before it starts (422 `too_early`). Its time is freed. Writes `appointment.no_show` to the outbox. Needs `appointment:update`. Only a scheduled appointment changes: completed, cancelled and no-show are final, and a change of one gives 409 `invalid_transition`. The `version` must be the current one, or 409 `conflict`. The rules are enforced in the same transaction as the change, on the locked row. An appointment of another hospital, or outside the scope the caller holds `appointment:update` with, answers 404 `appointment_not_found`, the same as one that does not exist. The same `idempotency-key` changes nothing again and answers with the appointment as it is now. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentStatusChange"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "appointmentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An appointment record: the list fields, the reason for the visit and, when cancelled, why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
