@@ -6,7 +6,7 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 **Import centre (web and API):** services and prices, drugs and consumables, single lab tests and patients loaded from a CSV file (#68). The file is read in the browser, in a Web Worker, and its columns are matched to the fields of the kind (by their titles where they can be). A file that is not UTF-8 is refused (its letters would be damaged). The rows are sent to a batch in chunks of at most 1,000 rows and about 800 KB, and sending stops, mid-request too, when the screen is left or the hospital changes, and a job checks every row the way that kind's create route checks a request, writing nothing: the dry run. Its report gives the line, the field and a code for each problem. A checked batch with no problems is written by a second job in one transaction, so it is written whole or not at all. Behind the `imports` switch and the `import:read` and `import:run` permissions, the admin's by default. Desktop-only (the bulk import centre is on the list in the root `CLAUDE.md`).
 
-The API is described in `apps/api/CLAUDE.md`, under Import centre. Where it differs from the mock: the mock checks only what the conversion of a row finds (a required field left empty, a value not of its type, a duplicate within the file), never what the catalog already holds, and a written batch adds nothing to the other features' mock lists.
+The API is described in `apps/api/src/features/imports/CLAUDE.md`. Where it differs from the mock: the mock checks only what the conversion of a row finds (a required field left empty, a value not of its type, a duplicate within the file), never what the catalog already holds, and a written batch adds nothing to the other features' mock lists.
 
 ## Decided
 

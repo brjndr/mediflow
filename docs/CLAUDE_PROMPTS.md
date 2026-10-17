@@ -37,7 +37,7 @@ Run `node scripts/github/status.mjs` and summarize: progress per milestone, anyt
 Use this at the start of every module milestone (lab, pharmacy, admissions, billing and so on).
 
 ```
-Read CLAUDE.md in full, especially "Product Scope: End-to-End Patient Journey", then read every issue in milestone "<milestone title>" (`gh issue list --milestone "<title>"`, `gh issue view <n>` for each).
+Read CLAUDE.md in full, especially "Product Scope: End-to-End Patient Journey", and `docs/PRODUCT.md`, then read every issue in milestone "<milestone title>" (`gh issue list --milestone "<title>"`, `gh issue view <n>` for each).
 
 Do not write code yet. Produce a design for the whole milestone:
 1. How it uses Encounter, the unified Order model, the charge ledger and domain events (which events it consumes and emits).

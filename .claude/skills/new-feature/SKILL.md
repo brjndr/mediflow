@@ -5,7 +5,7 @@ description: Scaffold a new feature module (manifest, permissions, feature flag,
 
 # New feature module
 
-Follow "Adding a new feature later" in CLAUDE.md. Do not edit core modules or other features. Core changes must be additive.
+Follow "Adding a new feature later" in CLAUDE.md and the manifest, slots, events, settings and checklist in `docs/EXTENDING.md`. Do not edit core modules or other features. Core changes must be additive.
 
 ## Steps
 

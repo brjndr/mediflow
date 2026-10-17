@@ -4,8 +4,10 @@ Multi-tenant hospital management system for hospital staff: OPD, inpatient, emer
 
 - **Project rules and architecture:** [`CLAUDE.md`](CLAUDE.md)
 - **Backend rules:** [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md)
-- **What was decided for each module:** `apps/web/src/features/<folder>/CLAUDE.md`
-- **Reference for work not started (infrastructure, platform admin, patient messaging):** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- **What was decided for each module:** `apps/web/src/features/<folder>/CLAUDE.md`, and for its API `apps/api/src/features/<name>/CLAUDE.md`
+- **What exists, module by module, and the known gaps:** [`docs/STATUS.md`](docs/STATUS.md)
+- **Product reference (journeys, releases, role matrix, entities to build):** [`docs/PRODUCT.md`](docs/PRODUCT.md); **adding a feature module:** [`docs/EXTENDING.md`](docs/EXTENDING.md); **performance:** [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md); **open decisions:** [`docs/OPEN_DECISIONS.md`](docs/OPEN_DECISIONS.md)
+- **Architecture reference (technology choices, infrastructure, platform admin, patient messaging):** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - **Roadmap (milestones and issues):** [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - **How we work with GitHub issues:** [`docs/WORKFLOW.md`](docs/WORKFLOW.md)
 - **Prompts for Claude Code:** [`docs/CLAUDE_PROMPTS.md`](docs/CLAUDE_PROMPTS.md)
@@ -56,7 +58,7 @@ pnpm --filter api dev             # the API on http://localhost:3000
 $env:VITE_API_MOCKING = "disabled"; pnpm dev
 ```
 
-How to sign in, and what works against the real API so far, is in [`CLAUDE.md`](CLAUDE.md) under Commands and Current Status.
+How to sign in, and what works against the real API so far, is in [`CLAUDE.md`](CLAUDE.md) under Commands and Current Status, and in [`docs/STATUS.md`](docs/STATUS.md).
 
 ## Commands
 

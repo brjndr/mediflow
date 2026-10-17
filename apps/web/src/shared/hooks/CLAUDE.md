@@ -1,0 +1,7 @@
+# Focus hooks
+
+Moved out of the root `CLAUDE.md` (#370), which keeps the rule; Claude Code loads this file when a file of this folder is read. Read it before changing or using what is here.
+
+## Never leave focus on the page body
+
+When what had focus goes away (a form that closes, a row that leaves the list, a button that hides itself), move focus on deliberately. Use the next control or a focusable status line (`tabIndex={-1}` with the focus ring), through `focusIfLost` from `shared/lib/focus`, which never takes focus from where the person moved it. Two hooks in `shared/hooks` do it for the usual shapes: `useInPlaceFormFocus` for an Edit form that takes the place of a record's details (to the section's heading, back to the `data-opens="edit"` button), and `usePanelFocus` for a form that opens beside a list from one of several buttons (to its `data-panel-heading`, back to the button that opened it) (#348). A status message is put into a region that is always on the page, never added with its text already in it. A control that is busy, or does not apply right now, takes `aria-disabled`, never `disabled`: a disabled control loses focus in Chromium. `Button` then refuses the press, a form's submit by Enter included, so `SubmitButton` and `DataGrid` actions do this by themselves (#358). Keep `disabled` for a field that must not change (a fieldset while it saves) and for a control that cannot be used at all here.
