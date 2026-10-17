@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { useInPlaceFormFocus } from '@/shared/hooks/use-in-place-form-focus';
 import { Button } from '@/shared/ui/button';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SubmitButton, useZodForm } from '@/shared/ui/form';
@@ -161,6 +162,10 @@ function Details({ test, refreshFailed }: { test: LabTest; refreshFailed: boolea
   // The test as it was when the form opened: a refresh in the background never changes what is
   // being typed over.
   const [editing, setEditing] = useState<LabTest | null>(null);
+  // The form takes the place of the details: the keyboard follows it in and back out.
+  const box = useRef<HTMLElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  useInPlaceFormFocus(editing !== null, box, heading);
   // The version a save is made from. After a conflict it moves to the newest one while the form
   // keeps what was typed, and only the fields the person changed are sent again.
   const [expected, setExpected] = useState(test.version);
@@ -227,8 +232,13 @@ function Details({ test, refreshFailed }: { test: LabTest; refreshFailed: boolea
         : null;
 
   return (
-    <section aria-labelledby="lab-test-details" className="flex flex-col gap-3">
-      <h2 id="lab-test-details" className="text-lg font-semibold">
+    <section ref={box} aria-labelledby="lab-test-details" className="flex flex-col gap-3">
+      <h2
+        id="lab-test-details"
+        ref={heading}
+        tabIndex={-1}
+        className="rounded-sm text-lg font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {t('detail.details')}
       </h2>
       {test.archived && <p className="text-sm text-muted-foreground">{t('detail.archivedNote')}</p>}
@@ -296,6 +306,7 @@ function Details({ test, refreshFailed }: { test: LabTest; refreshFailed: boolea
               <Button
                 variant="outline"
                 aria-disabled={update.isPending || undefined}
+                data-opens="edit"
                 onClick={() => start(test)}
               >
                 {t('detail.edit')}

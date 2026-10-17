@@ -293,11 +293,14 @@ describe('adding a test', () => {
     await choose(/^Sample/, 'Serum');
     await type(/^Turnaround/, '6');
 
-    // Without a test it is not a panel.
+    // Without a test it is not a panel, and the picker says it is required.
+    const picker = screen.getByRole('group', { name: 'Tests in this panel (required)' });
     await userEvent.click(button('Add test'));
-    expect(
-      await within(screen.getByRole('group', { name: /Tests in this panel/ })).findByRole('alert'),
-    ).toHaveTextContent('This field is required.');
+    expect(await within(picker).findByRole('alert')).toHaveTextContent('This field is required.');
+    // A failed save focuses the first thing to fix: with no test listed, the search.
+    await waitFor(() =>
+      expect(screen.getByRole('searchbox', { name: 'Find a test to add' })).toHaveFocus(),
+    );
 
     await addToPanel('sod', 'Sodium (NA)');
     await addToPanel('pot', 'Potassium (K)');
@@ -308,6 +311,8 @@ describe('adding a test', () => {
     expect(await screen.findByRole('option', { name: 'No test matches' })).toBeInTheDocument();
     await userEvent.click(button('Move Potassium up'));
     await userEvent.click(button('Remove Chloride'));
+    // Its button went with it: the keyboard is on the next remove button there is.
+    expect(button('Remove Sodium')).toHaveFocus();
     await userEvent.click(button('Add test'));
 
     expect(await screen.findByRole('heading', { name: 'Electrolytes' })).toBeInTheDocument();

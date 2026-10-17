@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { usePermission } from '@/access';
 import { useServiceOptions } from '@/features/services';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
@@ -94,7 +95,11 @@ function CategoryForm({
   };
   return (
     <div className="flex max-w-xl flex-col gap-3 rounded-lg border p-4">
-      <h2 className="text-base font-semibold">
+      <h2
+        data-panel-heading
+        tabIndex={-1}
+        className="rounded-sm text-base font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {category
           ? t('categories.editHeading', { name: category.name })
           : t('categories.addHeading')}
@@ -163,6 +168,11 @@ function Categories() {
   const latest =
     form === null || form === 'new' ? undefined : rows.find((row) => row.id === form.id);
   const shown = form === 'new' || latest ? form : null;
+  // The form opens above the list, from Add or a row's Change: the keyboard goes to its heading,
+  // and back to the button when it closes, or to the line that says what was done.
+  const box = useRef<HTMLDivElement>(null);
+  const statusLine = useRef<HTMLParagraphElement>(null);
+  usePanelFocus(shown, box, statusLine);
 
   const open = (next: 'new' | BedCategory | null) => {
     change.reset();
@@ -254,7 +264,7 @@ function Categories() {
   const refused = refusalKey(change.error);
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6">
+    <div ref={box} className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6">
       <div className="space-y-1">
         <Link to="/wards" className={link}>
           {t('categories.backToWards')}
@@ -283,7 +293,12 @@ function Categories() {
           {refused ? t(refused) : tCommon(errorMessageKey(change.error))}
         </p>
       )}
-      <p role="status" className="text-sm text-muted-foreground">
+      <p
+        ref={statusLine}
+        tabIndex={-1}
+        role="status"
+        className="rounded-sm text-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {done ?? ''}
       </p>
 

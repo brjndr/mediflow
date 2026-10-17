@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isApiError } from '@/shared/api';
 import { useFeatureFlag, usePermission } from '@/access';
@@ -7,6 +7,7 @@ import {
   SelectField,
   TextField,
   useFieldError,
+  useFieldFocusRef,
   useFieldValue,
   useSetFieldValue,
 } from '@/shared/ui/form';
@@ -143,6 +144,21 @@ function ComponentsField({ known }: { known: LabTestComponent[] }) {
   const ids = splitIds(String(useFieldValue('componentIds') ?? ''));
   const setValue = useSetFieldValue();
   const message = useFieldError('componentIds');
+  // Not a kit field: a failed save still focuses it in the order of the form.
+  const focusRef = useFieldFocusRef('componentIds');
+  // After a test is taken out, the keyboard goes to the next one's remove button, or to the
+  // search when none is left: the button it was on has gone.
+  const box = useRef<HTMLFieldSetElement | null>(null);
+  const removedAt = useRef<number | null>(null);
+  const listed = ids.join(',');
+  useEffect(() => {
+    const at = removedAt.current;
+    if (at === null) return;
+    removedAt.current = null;
+    const removers = box.current?.querySelectorAll<HTMLElement>('[data-remove]') ?? [];
+    const next = removers[Math.min(at, removers.length - 1)];
+    (next ?? box.current?.querySelector<HTMLElement>('input[type="search"]'))?.focus();
+  }, [listed]);
   const [search, setSearch] = useState('');
   const choices = useComponentChoices(useDebouncedValue(search, SEARCH_DEBOUNCE_MS), true);
   const [picked, setPicked] = useState<LabTestComponent[]>([]);
@@ -169,14 +185,22 @@ function ComponentsField({ known }: { known: LabTestComponent[] }) {
 
   return (
     <fieldset
-      className="flex flex-col gap-3 rounded-lg border p-4"
+      ref={(element) => {
+        box.current = element;
+        focusRef(element);
+      }}
+      // Focused on a failed save when it holds nothing to focus.
+      tabIndex={-1}
+      className="flex flex-col gap-3 rounded-lg border p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       aria-describedby={message ? errorId : undefined}
     >
       <legend className="px-1 text-sm font-medium">
         {t('form.componentIds')}
         <span aria-hidden className="text-destructive">
           {' *'}
-        </span>
+        </span>{' '}
+        {/* A group cannot be marked required: it is said instead. */}
+        <span className="sr-only">{t('form.required')}</span>
       </legend>
       <p className="text-xs text-muted-foreground">{t('form.componentsHint')}</p>
       {ids.length === 0 ? (
@@ -215,8 +239,12 @@ function ComponentsField({ known }: { known: LabTestComponent[] }) {
                   type="button"
                   variant="outline"
                   size="sm"
+                  data-remove
                   aria-label={t('form.removeComponent', { name })}
-                  onClick={() => set(ids.filter((other) => other !== id))}
+                  onClick={() => {
+                    removedAt.current = index;
+                    set(ids.filter((other) => other !== id));
+                  }}
                 >
                   ×
                 </Button>

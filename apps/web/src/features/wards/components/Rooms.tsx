@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { Form, SelectField, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
@@ -92,7 +93,11 @@ function RoomForm({
   const version = useExpectedVersion(from?.version ?? 0, latest?.version);
   return (
     <div className={panelBox}>
-      <h3 className="text-base font-semibold">
+      <h3
+        data-panel-heading
+        tabIndex={-1}
+        className="rounded-sm text-base font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {from ? t('rooms.rename', { name: from.name }) : t('rooms.addHeading')}
       </h3>
       <Form
@@ -193,7 +198,11 @@ function BedForm({
   };
 
   const heading = (
-    <h3 className="text-base font-semibold">
+    <h3
+      data-panel-heading
+      tabIndex={-1}
+      className="rounded-sm text-base font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
       {from
         ? t('beds.editHeading', { number: from.number })
         : t('beds.addHeading', { room: room.name })}
@@ -288,7 +297,13 @@ function BlockForm({
   const form = useZodForm(blockFormSchema, { reason: '', note: '' });
   return (
     <div className={panelBox}>
-      <h3 className="text-base font-semibold">{t('beds.blockHeading', { number: bed.number })}</h3>
+      <h3
+        data-panel-heading
+        tabIndex={-1}
+        className="rounded-sm text-base font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
+        {t('beds.blockHeading', { number: bed.number })}
+      </h3>
       <Form
         form={form}
         onSubmit={async ({ reason, note }) => {
@@ -592,8 +607,14 @@ export function Rooms({ detail }: { detail: WardDetail }) {
   };
   const shown = stillOpen();
 
+  // A form opens beside the rooms, from one of many buttons: the keyboard goes to its heading,
+  // and back to the button when it closes, or to the line that says what was done.
+  const box = useRef<HTMLElement>(null);
+  const statusLine = useRef<HTMLParagraphElement>(null);
+  usePanelFocus(shown, box, statusLine);
+
   return (
-    <section aria-labelledby="ward-rooms" className="flex flex-col gap-3">
+    <section ref={box} aria-labelledby="ward-rooms" className="flex flex-col gap-3">
       <div className="space-y-1">
         <h2 id="ward-rooms" className="text-lg font-semibold">
           {t('rooms.heading')}
@@ -615,7 +636,12 @@ export function Rooms({ detail }: { detail: WardDetail }) {
           {refused ? t(refused) : tCommon(errorMessageKey(change.error))}
         </p>
       )}
-      <p role="status" className="text-sm text-muted-foreground">
+      <p
+        ref={statusLine}
+        tabIndex={-1}
+        role="status"
+        className="rounded-sm text-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {done ?? ''}
       </p>
 
