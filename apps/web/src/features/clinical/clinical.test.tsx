@@ -15,6 +15,7 @@ import {
 } from '@/mocks/db';
 import { addMockAppointment } from '@/mocks/handlers/appointments';
 import { editMockNote, mockEncounter, mockNotesOf } from '@/mocks/handlers/clinical';
+import { dropMockQueueStreams } from '@/mocks/handlers/queue';
 import { server } from '@/mocks/node';
 import { richTextToPlainText, sanitizeRichText } from '@/shared/ui/rich-text';
 import { todayIn, zonedToUtc } from '@/shared/utils/timezone';
@@ -92,12 +93,14 @@ async function writeDraft(text: string) {
 }
 
 describe('starting a consultation', () => {
-  it('opens the encounter from the token being served, and finds it again the next time', async () => {
+  it('opens the encounter from the token being served', async () => {
     const opens = watchOpens();
     const app = renderApp({ entry: '/queue' });
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Start consultation, token 1' }),
-    );
+    const start = await screen.findByRole('button', { name: 'Start consultation, token 1' });
+    // The board's live stream is closed before the board is left: a stream the browser aborts
+    // and the mock closes afterwards trips an assertion in Node's fetch (undici).
+    dropMockQueueStreams(HOSPITAL);
+    await userEvent.click(start);
 
     await screen.findByRole('heading', CONSULTATION);
     const encounterPath = app.router.state.location.pathname;
@@ -112,16 +115,11 @@ describe('starting a consultation', () => {
     expect(screen.getByText('Open')).toBeInTheDocument();
     expect(screen.getByText('No notes yet.')).toBeInTheDocument();
 
-    await app.router.navigate('/queue');
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Start consultation, token 1' }),
-    );
-    await screen.findByRole('heading', CONSULTATION);
-    expect(app.router.state.location.pathname).toBe(encounterPath);
+    expect(mockEncounter(encounterPath.split('/').at(-1) ?? '')?.queueTokenId).toBe(CALLED_TOKEN);
     await expectNoAxeViolations();
   });
 
-  it('opens the encounter from today’s appointment', async () => {
+  it('opens the encounter from today’s appointment, and finds it again the next time', async () => {
     const opens = watchOpens();
     addAppointment('apt_consult_1');
     const app = renderApp({ entry: '/appointments/apt_consult_1' });
@@ -132,6 +130,15 @@ describe('starting a consultation', () => {
     expect(app.router.state.location.pathname).toMatch(/^\/encounters\/enc_mock_\d+$/);
     await waitFor(() => expect(opens).toHaveLength(1));
     expect(opens[0]?.body).toEqual({ patientId: 'pth_00002', appointmentId: 'apt_consult_1' });
+    const encounterPath = app.router.state.location.pathname;
+
+    await app.router.navigate('/appointments/apt_consult_1');
+    await userEvent.click(
+      await screen.findByRole('button', { name: /^Start consultation, appointment at / }),
+    );
+    await screen.findByRole('heading', CONSULTATION);
+    expect(app.router.state.location.pathname).toBe(encounterPath);
+    await waitFor(() => expect(opens).toHaveLength(2));
   });
 
   it('is not offered for a cancelled appointment, without patient:read, or with the module off', async () => {
