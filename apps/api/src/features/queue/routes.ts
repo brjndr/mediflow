@@ -5,6 +5,7 @@ import type { Permission } from '../../core/access/registry.js';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { appointmentForCheckIn } from '../appointments/index.js';
 import { patientInScope } from '../patients/index.js';
 import {
   callAgain,
@@ -12,6 +13,7 @@ import {
   departmentOpen,
   departmentsInScope,
   findToken,
+  findTokenOfAppointment,
   issueToken,
   listTokens,
   practisingDoctor,
@@ -23,6 +25,7 @@ import {
 import {
   QUEUE_SCHEMAS,
   QueueCallNext,
+  QueueCheckIn,
   QueueListQuery,
   QueueToken,
   QueueTokenChange,
@@ -38,6 +41,7 @@ const READ = 'queue:read';
 const CREATE = 'queue:create';
 const CALL = 'queue:call';
 const PATIENT_READ = 'patient:read';
+const APPOINTMENT_READ = 'appointment:read';
 
 /** The bus topic and SSE event a change of a department's queue is announced on. */
 export const QUEUE_TOPIC = 'queue';
@@ -67,6 +71,7 @@ const token = (row: TokenRow) => ({
   patientId: row.patient_id,
   patientName: row.patient_name,
   patientMrn: row.patient_mrn,
+  ...(row.appointment_id === null ? {} : { appointmentId: row.appointment_id }),
   status: row.status,
   ...(row.priority === null ? {} : { priority: row.priority }),
   issuedAt: row.issued_at.toISOString(),
@@ -80,6 +85,10 @@ function issueRefusal(error: unknown): unknown {
   const { code, constraint } = (error ?? {}) as { code?: unknown; constraint?: unknown };
   if (code === '23505' && constraint === 'queue_tokens_one_open') {
     return new HttpError(409, 'already_queued', 'The patient is already in this queue');
+  }
+  // Another desk checked the same appointment in at the same moment, or one out of reach did.
+  if (code === '23505' && constraint === 'queue_tokens_one_per_appointment') {
+    return new HttpError(409, 'already_checked_in', 'The appointment has a token already');
   }
   return error;
 }
@@ -161,26 +170,8 @@ export const queueRoutes: FastifyPluginAsyncTypebox = async (app) => {
         return reply.status(201).send(token(issued));
       }
       const body = request.body as QueueTokenCreate;
-      // The answer names the patient: only one the caller may read, within that scope.
-      const policy = await request.access.policy();
-      const reads = policy?.permissions.find((grant) => grant.permission === PATIENT_READ);
-      const readable =
-        reads !== undefined &&
-        (await patientInScope(request.txClient, body.patientId, {
-          scope: reads.scope ?? 'all',
-          userId: userIdOf(request),
-        }));
-      if (!readable) {
-        throw new HttpError(422, 'unknown_patient', 'No such patient');
-      }
-      if (!(await departmentOpen(request.txClient, body.departmentId))) {
-        throw new HttpError(422, 'unknown_department', 'No such department');
-      }
-      // Issued only where the caller's scope of `queue:create` reaches.
-      const reach = await departmentsInScope(request.txClient, visibility);
-      if (reach && !reach.has(body.departmentId)) {
-        throw new HttpError(422, 'unknown_department', 'No such department');
-      }
+      await requireReadablePatient(request, body.patientId);
+      await requireDepartmentInReach(request, body.departmentId, visibility);
       let doctorId: string | null = null;
       if (body.doctorId !== undefined) {
         const doctor = await practisingDoctor(request.txClient, body.doctorId);
@@ -189,37 +180,141 @@ export const queueRoutes: FastifyPluginAsyncTypebox = async (app) => {
         }
         doctorId = doctor.id;
       }
-      let id: string;
-      try {
-        id = await issueToken(
-          request.txClient,
-          {
-            patientId: body.patientId,
-            departmentId: body.departmentId,
-            doctorId,
-            priority: body.priority ?? null,
-          },
-          userIdOf(request),
-        );
-      } catch (error) {
-        throw issueRefusal(error);
-      }
-      request.idempotentId = id;
-      request.audit('create', 'queue_token', id);
-      const issued = await findToken(request.txClient, id, { scope: 'all', userId: '' });
-      if (!issued) throw notFound();
-      await request.emit('queue.token_issued', id, {
-        tokenId: id,
-        patientId: issued.patient_id,
-        departmentId: issued.department_id,
-        doctorId: issued.doctor_id,
-        number: issued.number,
-        day: issued.day,
+      const issued = await issue(request, {
+        patientId: body.patientId,
+        departmentId: body.departmentId,
+        doctorId,
+        priority: body.priority ?? null,
       });
-      await announce(request, issued.department_id);
       return reply.status(201).send(token(issued));
     },
   );
+
+  app.post(
+    '/queue/check-ins',
+    {
+      config: {
+        permissions: [CREATE, APPOINTMENT_READ],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'checkInAppointment',
+        tags: ['queue'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Checks in a patient who has arrived for today’s appointment: issues today’s next token of the department of the appointment’s doctor, for that doctor, linked to the appointment. Its place in the call order is the booked time when the patient came before it, and the time of check-in when they came after it (a priority still goes first). An appointment gives one token, ever: checking it in again, from any desk, answers 200 with the token it was given, as it is now (a token outside the caller’s scope of queue:create is refused instead: 409 `already_queued` while it is open, `already_checked_in` once served). Only a `scheduled` appointment (409 `invalid_transition`) that starts today at the hospital (422 `not_today`). An appointment that does not exist, of another hospital or outside the scope the caller holds appointment:read with is 422 `unknown_appointment`; a patient the caller may not read is 422 `unknown_patient`, as for issuing; a doctor who no longer practises here is 422 `unknown_doctor`; a department archived, or outside the caller’s scope of queue:create, is 422 `unknown_department`. A patient with a token still open in that department today is 409 `already_queued`. Requires queue:create, appointment:read and patient:read, and both the queue and the appointments feature flags (403 `feature_disabled`). The Idempotency-Key header is required: a repeat issues nothing and answers with the token as it is now. Audited, emits `queue.token_issued` with the appointment through the outbox, and is announced on `/queue/events`.',
+        body: ref(QueueCheckIn),
+        response: {
+          200: ref(QueueToken),
+          201: ref(QueueToken),
+          ...errors(400, 401, 403, 409, 422, 429),
+        },
+      },
+    },
+    async (request, reply) => {
+      const visibility = visibilityFor(request, CREATE);
+      if (request.replayOf !== null) {
+        const issued = request.idempotentId
+          ? await findToken(request.txClient, request.idempotentId, visibility)
+          : null;
+        if (!issued) throw notFound();
+        request.audit('read', 'queue_token', issued.id);
+        // The first answer's status: 201 when it issued the token, 200 when it found one.
+        return reply.status(request.replayOf === 200 ? 200 : 201).send(token(issued));
+      }
+      const body = request.body as QueueCheckIn;
+      // The guard checks the queue's switch only: checking in reads the appointments module too.
+      if ((await request.access.policy())?.features.appointments !== true) {
+        throw new HttpError(403, 'feature_disabled', 'Appointments are switched off');
+      }
+      const appointment = await appointmentForCheckIn(
+        request.txClient,
+        body.appointmentId,
+        visibilityFor(request, APPOINTMENT_READ),
+      );
+      if (!appointment) {
+        throw new HttpError(422, 'unknown_appointment', 'No such appointment');
+      }
+      await requireReadablePatient(request, appointment.patientId);
+      const first = await findTokenOfAppointment(request.txClient, appointment.id, visibility);
+      if (first) {
+        request.idempotentId = first.id;
+        request.audit('read', 'queue_token', first.id);
+        return reply.status(200).send(token(first));
+      }
+      if (appointment.status !== 'scheduled') {
+        throw new HttpError(409, 'invalid_transition', `Not from ${appointment.status}`);
+      }
+      if (!appointment.startsToday) {
+        throw new HttpError(422, 'not_today', 'The appointment is not today');
+      }
+      const doctor = await practisingDoctor(request.txClient, appointment.doctorId);
+      if (!doctor) throw new HttpError(422, 'unknown_doctor', 'No such doctor');
+      await requireDepartmentInReach(request, doctor.department_id, visibility);
+      const issued = await issue(request, {
+        patientId: appointment.patientId,
+        departmentId: doctor.department_id,
+        doctorId: doctor.id,
+        priority: null,
+        appointment: { id: appointment.id, startsAt: appointment.startsAt },
+      });
+      return reply.status(201).send(token(issued));
+    },
+  );
+
+  /** The answer names the patient: only one the caller may read, within that scope. */
+  async function requireReadablePatient(request: FastifyRequest, patientId: string) {
+    const policy = await request.access.policy();
+    const reads = policy?.permissions.find((grant) => grant.permission === PATIENT_READ);
+    const readable =
+      reads !== undefined &&
+      (await patientInScope(request.txClient, patientId, {
+        scope: reads.scope ?? 'all',
+        userId: userIdOf(request),
+      }));
+    if (!readable) throw new HttpError(422, 'unknown_patient', 'No such patient');
+  }
+
+  /** A department not archived, where the caller's scope of `queue:create` reaches. */
+  async function requireDepartmentInReach(
+    request: FastifyRequest,
+    departmentId: string,
+    visibility: Visibility,
+  ) {
+    const reach = await departmentsInScope(request.txClient, visibility);
+    if (
+      !(await departmentOpen(request.txClient, departmentId)) ||
+      (reach && !reach.has(departmentId))
+    ) {
+      throw new HttpError(422, 'unknown_department', 'No such department');
+    }
+  }
+
+  /** Issues the token, audits it, emits `queue.token_issued` and tells the boards. */
+  async function issue(request: FastifyRequest, input: Parameters<typeof issueToken>[1]) {
+    let id: string;
+    try {
+      id = await issueToken(request.txClient, input, userIdOf(request));
+    } catch (error) {
+      throw issueRefusal(error);
+    }
+    request.idempotentId = id;
+    request.audit('create', 'queue_token', id);
+    const issued = await findToken(request.txClient, id, { scope: 'all', userId: '' });
+    if (!issued) throw notFound();
+    await request.emit('queue.token_issued', id, {
+      tokenId: id,
+      patientId: issued.patient_id,
+      departmentId: issued.department_id,
+      doctorId: issued.doctor_id,
+      number: issued.number,
+      day: issued.day,
+      ...(issued.appointment_id === null ? {} : { appointmentId: issued.appointment_id }),
+    });
+    await announce(request, issued.department_id);
+    return issued;
+  }
 
   app.post(
     '/queue/call-next',

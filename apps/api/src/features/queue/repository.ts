@@ -22,6 +22,7 @@ export interface TokenRow {
   patient_id: string;
   patient_name: string;
   patient_mrn: string;
+  appointment_id: string | null;
   status: QueueTokenStatusValue;
   priority: QueuePriorityValue | null;
   issued_at: Date;
@@ -32,15 +33,20 @@ export interface TokenRow {
   order_at: string;
 }
 
+// A token's place in the line: for a walk-in the time issued; for a booked patient the booked
+// time when they came before it, the time issued when they came after it (#376). Tokens issued
+// before #376 have no `line_at`.
+const LINE_AT = 'coalesce(t.line_at, t.issued_at)';
+
 const TODAY = `(select (now() at time zone timezone)::date from tenants where id = app_tenant_id())`;
 
 const TOKENS = `select t.id, t.tenant_id, t.number, t.day::text as day,
                        t.department_id, dp.name as department_name,
                        t.doctor_id, u.name as doctor_name,
                        t.patient_id, p.first_name || ' ' || p.last_name as patient_name,
-                       p.mrn as patient_mrn,
+                       p.mrn as patient_mrn, t.appointment_id,
                        t.status, t.priority, t.issued_at, t.called_at, t.call_count, t.version,
-                       to_char((case when t.status in ('called', 'served') then t.called_at else t.issued_at end) at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') || '+00' as order_at
+                       to_char((case when t.status in ('called', 'served') then t.called_at else ${LINE_AT} end) at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') || '+00' as order_at
                 from queue_tokens t
                 join departments dp on dp.id = t.department_id
                 join patients p on p.id = t.patient_id
@@ -78,9 +84,9 @@ export async function departmentsInScope(
 }
 
 // Call order. The tokens being served (and served) are in the order they were called; the others
-// a priority first, then the time issued, the number breaking a tie.
+// a priority first, then their place in the line, the number breaking a tie.
 const ORDER_KEY = `case when t.status in ('called', 'served') then 0 else (t.priority is null)::int end,
-                   case when t.status in ('called', 'served') then t.called_at else t.issued_at end,
+                   case when t.status in ('called', 'served') then t.called_at else ${LINE_AT} end,
                    t.number, t.id`;
 
 interface Cursor {
@@ -209,6 +215,19 @@ export async function findToken(
   return rows[0] ?? null;
 }
 
+/** The token an appointment was checked in with, on any day and in any status, or null. */
+export async function findTokenOfAppointment(
+  client: pg.ClientBase,
+  appointmentId: string,
+  visibility: Visibility,
+): Promise<TokenRow | null> {
+  const { rows } = await client.query<TokenRow>(
+    `${TOKENS} where t.appointment_id = $1 and ${visible('$2', '$3')}`,
+    [appointmentId, visibility.scope, visibility.userId],
+  );
+  return rows[0] ?? null;
+}
+
 /**
  * Whether a token is the patient's and today's at the hospital, in any status. For triage, which
  * takes a reading for a token: exported from `index.ts`, so what "today" means is decided here.
@@ -276,6 +295,8 @@ export async function issueToken(
     departmentId: string;
     doctorId: string | null;
     priority: QueuePriorityValue | null;
+    /** A booked patient's check-in: the appointment, whose time is their place in the line. */
+    appointment?: { id: string; startsAt: Date };
   },
   userId: string,
 ): Promise<string> {
@@ -288,10 +309,21 @@ export async function issueToken(
          do update set last_number = queue_counters.last_number + 1
        returning day, last_number
      )
-     insert into queue_tokens (tenant_id, day, department_id, number, doctor_id, patient_id, priority, issued_by)
-     select app_tenant_id(), day, $2, last_number, $3, $1, $4, $5 from counter
+     insert into queue_tokens (tenant_id, day, department_id, number, doctor_id, patient_id, priority, issued_by, appointment_id, line_at)
+     select app_tenant_id(), day, $2, last_number, $3, $1, $4, $5, $6,
+            -- The booked time for one who came before it; greatest() leaves out a null.
+            greatest(now(), $7::timestamptz)
+     from counter
      returning id`,
-    [input.patientId, input.departmentId, input.doctorId, input.priority, userId],
+    [
+      input.patientId,
+      input.departmentId,
+      input.doctorId,
+      input.priority,
+      userId,
+      input.appointment?.id ?? null,
+      input.appointment?.startsAt ?? null,
+    ],
   );
   const id = rows[0]?.id;
   if (!id) throw new Error('token was not issued');
@@ -316,7 +348,7 @@ export async function callNext(
     `select t.id from queue_tokens t
      where t.day = ${TODAY} and t.status = 'waiting'
        and (t.doctor_id = $1 or (t.doctor_id is null and t.department_id = $2))
-     order by (t.priority is null), t.issued_at, t.number
+     order by (t.priority is null), ${LINE_AT}, t.number
      limit 1
      for update skip locked`,
     [doctor.id, doctor.department_id],

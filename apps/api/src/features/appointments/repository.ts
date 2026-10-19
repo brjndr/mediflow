@@ -324,3 +324,53 @@ export async function hasPassed(client: pg.ClientBase, instant: Date): Promise<b
   );
   return rows[0]?.passed ?? false;
 }
+
+/** What the queue needs to check a booked patient in: ids, the status and the booked time. */
+export interface CheckInAppointment {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  status: AppointmentStatusValue;
+  startsAt: Date;
+  /** Whether it starts on today's calendar day at the hospital. */
+  startsToday: boolean;
+}
+
+/**
+ * One appointment the caller may see, within the scope they read appointments with, for checking
+ * its patient in; or null. Exported from `index.ts`, so the queue never reads this table itself.
+ */
+export async function appointmentForCheckIn(
+  client: pg.ClientBase,
+  id: string,
+  visibility: Visibility,
+): Promise<CheckInAppointment | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<{
+    id: string;
+    patient_id: string;
+    doctor_id: string;
+    status: AppointmentStatusValue;
+    starts_at: Date;
+    starts_today: boolean;
+  }>(
+    `select a.id, a.patient_id, a.doctor_id, a.status, a.starts_at,
+            (a.starts_at at time zone tn.timezone)::date = (now() at time zone tn.timezone)::date
+              as starts_today
+     from appointments a
+     join doctors d on d.id = a.doctor_id
+     join tenants tn on tn.id = app_tenant_id()
+     where a.id = $1 and ${visible('$2', '$3')}`,
+    [id, visibility.scope, visibility.userId],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    patientId: row.patient_id,
+    doctorId: row.doctor_id,
+    status: row.status,
+    startsAt: row.starts_at,
+    startsToday: row.starts_today,
+  };
+}

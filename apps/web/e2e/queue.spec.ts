@@ -120,3 +120,20 @@ test('change a token’s priority in its panel, and come back to where it starte
   await expect(heading).toBeHidden();
   await expect(open).toBeFocused();
 });
+
+test('check in a booked patient from today’s appointments with the keyboard alone', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await goTo(page, 'Appointments');
+  await expect(page.getByRole('heading', { name: 'Appointments', exact: true })).toBeVisible();
+  const checkIn = page.getByRole('button', { name: /^Check in, appointment at / }).first();
+  await checkIn.focus();
+  await page.keyboard.press('Enter');
+
+  // The button gives way to what was done, and focus follows it there.
+  const done = page.getByRole('status').filter({ hasText: /^Checked in: token \d+, .+\.$/ });
+  await expect(done).toBeFocused();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});

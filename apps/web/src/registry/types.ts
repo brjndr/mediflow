@@ -9,6 +9,7 @@ export type SlotId =
   | 'appointment.form.fields'
   | 'appointment.row.badges'
   | 'appointment.row.actions'
+  | 'appointment.detail.actions'
   | 'queue.row.actions'
   | 'dashboard.widgets'
   | 'settings.sections'

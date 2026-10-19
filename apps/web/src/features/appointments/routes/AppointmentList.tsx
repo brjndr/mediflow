@@ -74,6 +74,17 @@ export default function AppointmentList() {
         header: t('columns.patient'),
         value: (row) => row.patientName,
         hideable: false,
+        render: (row, text) => (
+          <span className="flex flex-col items-start gap-1">
+            {text}
+            {/* Other features' actions for the appointment (the queue's "Check in"), given ids
+                and values only. Rendered for every row: a contribution reads no data of its own. */}
+            <Slot
+              id="appointment.row.actions"
+              context={{ appointmentId: row.id, status: row.status, startsAt: row.startsAt }}
+            />
+          </span>
+        ),
       },
       {
         id: 'time',

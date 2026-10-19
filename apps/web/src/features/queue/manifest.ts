@@ -4,8 +4,9 @@ import type { FeatureManifest } from '@/registry';
 /**
  * The OPD token queue: today's tokens per department and doctor, issued at the desk to walk-ins
  * (#76), called, skipped and recalled on a board that follows the server's events. It names a
- * patient by id only, chooses departments and doctors from those features, and adds "Issue a
- * token" to the patient's screen through the `patient.detail.actions` slot.
+ * patient by id only, chooses departments and doctors from those features, adds "Issue a token"
+ * to the patient's screen through the `patient.detail.actions` slot, and "Check in" to today's
+ * appointments through `appointment.row.actions` and `appointment.detail.actions` (#376).
  */
 export const queueFeature: FeatureManifest = {
   id: 'queue',
@@ -36,6 +37,20 @@ export const queueFeature: FeatureManifest = {
     {
       slot: 'patient.detail.actions',
       component: () => import('./components/IssueTokenAction'),
+      requires: ['queue:create'],
+      order: 10,
+    },
+    // Checking in also needs `patient:read`, checked by the component: a slot contribution
+    // requires the feature's own permissions only.
+    {
+      slot: 'appointment.row.actions',
+      component: () => import('./components/CheckInAction'),
+      requires: ['queue:create'],
+      order: 10,
+    },
+    {
+      slot: 'appointment.detail.actions',
+      component: () => import('./components/CheckInAction'),
       requires: ['queue:create'],
       order: 10,
     },

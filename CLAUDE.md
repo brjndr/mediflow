@@ -288,7 +288,7 @@ Scope rules such as "own patients only" or "own schedule" (for doctors) are data
 - Core changes allowed for a new feature are strictly additive: nullable columns, new events, new slots. Never change the meaning of existing fields.
 - Every feature ships dark behind a feature flag, off by default, enabled per hospital by `platform_admin`, with its permissions registered and default role grants seeded.
 
-Core screens render slots (`patient.detail.tabs`, `patient.detail.actions`, `patient.form.fields`, `appointment.form.fields`, `appointment.row.badges`, `appointment.row.actions`, `queue.row.actions`, `dashboard.widgets`, `settings.sections`, `nav.items`); add one only when a real feature needs it. Events go through the transactional outbox, carry `tenantId`, entity id, actor and timestamp, and handlers are idempotent; subscribers live in their own module and never modify the emitter. The slot rules, the event list and the worked example of appointment reminders are in `docs/EXTENDING.md`.
+Core screens render slots (`patient.detail.tabs`, `patient.detail.actions`, `patient.form.fields`, `appointment.form.fields`, `appointment.row.badges`, `appointment.row.actions`, `appointment.detail.actions`, `queue.row.actions`, `dashboard.widgets`, `settings.sections`, `nav.items`); add one only when a real feature needs it. Events go through the transactional outbox, carry `tenantId`, entity id, actor and timestamp, and handlers are idempotent; subscribers live in their own module and never modify the emitter. The slot rules, the event list and the worked example of appointment reminders are in `docs/EXTENDING.md`.
 
 ### Hospital onboarding (platform_admin)
 

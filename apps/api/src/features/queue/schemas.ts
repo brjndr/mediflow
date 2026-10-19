@@ -52,6 +52,12 @@ export const QueueTokenCreate = Type.Object(
 );
 export type QueueTokenCreate = Static<typeof QueueTokenCreate>;
 
+export const QueueCheckIn = Type.Object(
+  { appointmentId: Id },
+  { $id: 'QueueCheckIn', additionalProperties: false },
+);
+export type QueueCheckIn = Static<typeof QueueCheckIn>;
+
 export const QueueToken = Type.Object(
   {
     id: Type.String(),
@@ -67,6 +73,9 @@ export const QueueToken = Type.Object(
     patientId: Type.String(),
     patientName: Type.String(),
     patientMrn: Type.String(),
+    appointmentId: Type.Optional(
+      Type.String({ description: 'The appointment the patient was checked in from, if any.' }),
+    ),
     status: ref(QueueTokenStatus),
     priority: Type.Optional(ref(QueuePriority)),
     issuedAt: Type.String({ format: 'date-time' }),
@@ -120,6 +129,7 @@ export const QUEUE_SCHEMAS = [
   QueueTokenStatus,
   QueuePriority,
   QueueTokenCreate,
+  QueueCheckIn,
   QueueToken,
   QueueTokenPage,
 ] as const;
