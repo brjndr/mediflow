@@ -181,7 +181,8 @@
     "summary_other": "{{count}} values. Highest: {{maxLabel}}, {{max}}. Lowest: {{minLabel}}, {{min}}."
   },
   "calendar": {
-    "event": "{{start}} to {{end}}, {{day}}, {{what}}",
+    "event": "{{start}} {{title}}, until {{end}}, {{day}}",
+    "eventWithDetail": "{{start}} {{title}}, until {{end}}, {{day}}, {{detail}}",
     "slot": "{{time}}, {{day}}, nothing booked",
     "slotWithAction": "{{time}}, {{day}}, nothing booked. {{action}}"
   },
@@ -214,7 +215,7 @@
   },
   "profile": {
     "title": "Your account",
-    "open": "Your account: {{name}}",
+    "open": "Your account:",
     "name": "Name",
     "authenticatorOff": "No authenticator is set up for your account.",
     "passwordTitle": "Change password",

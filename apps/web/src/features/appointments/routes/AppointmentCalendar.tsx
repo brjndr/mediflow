@@ -90,9 +90,9 @@ export default function AppointmentCalendar() {
         tone: STATUS_TONE[item.status],
         hint: t(`status.${item.status}`),
         icon: STATUS_ICON[item.status],
-        // Whom, with whom and the status, which the block's own text may be too narrow to hold.
+        // With whom and the status, said after the block's own text, which may be too narrow
+        // to hold them.
         label: t('calendar.eventLabel', {
-          name: item.patientName,
           doctor: item.doctorName,
           status: t(`status.${item.status}`),
         }),

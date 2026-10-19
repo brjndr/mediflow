@@ -23,8 +23,9 @@ export interface CalendarEventItem {
   /** Added to the block's tooltip, never in place of the title. */
   hint?: string;
   /**
-   * What assistive technology hears after the time and the day, in place of the title: the
-   * block's full meaning (who, with whom, the status), where the title is cut short to fit.
+   * What assistive technology hears at the end of the block's name, which starts with what the
+   * block shows (its start and title, WCAG 2.5.3), then its end and day: the rest of its meaning
+   * (with whom, the status), where the title is cut short to fit. Never the title again.
    */
   label?: string;
   /**

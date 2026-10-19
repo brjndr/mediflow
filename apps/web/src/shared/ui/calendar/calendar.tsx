@@ -247,11 +247,14 @@ export default function CalendarImpl({
         start: minutesOf(event.start),
         endDay: endsAtMidnight ? addDays(wallToDay(event.end), -1) : wallToDay(event.end),
         end: endsAtMidnight ? 24 * 60 : minutesOf(event.end),
-        name: t('calendar.event', {
+        // It starts with what the block shows (its start and title), so a voice command that
+        // says the visible text reaches it (WCAG 2.5.3, Label in Name); the rest follows.
+        name: t(event.label ? 'calendar.eventWithDetail' : 'calendar.event', {
           start: time.format(event.start),
+          title: event.title,
           end: time.format(event.end),
           day: dayName.format(event.start),
-          what: event.label ?? event.title,
+          detail: event.label,
         }),
       });
     }

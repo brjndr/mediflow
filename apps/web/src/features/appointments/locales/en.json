@@ -117,7 +117,7 @@
     "dayHeading": "Day: {{date}}",
     "weekRange": "Week: {{start}} to {{end}}",
     "eventWithStatus": "{{name}} ({{status}})",
-    "eventLabel": "{{name}} with {{doctor}}, {{status}}",
+    "eventLabel": "with {{doctor}}, {{status}}",
     "slotAction": "Book at this time.",
     "loading": "Loading appointments…",
     "retry": "Try again",
