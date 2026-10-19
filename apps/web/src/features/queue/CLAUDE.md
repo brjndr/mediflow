@@ -4,7 +4,7 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 ## What exists
 
-**The queue (web, against the mock; the API is #79):** today's OPD tokens at the hospital, per department and doctor. Behind the `queue` switch and the `queue:read`, `queue:create` and `queue:call` permissions. Works at every width.
+**The queue (web and API; the API is #79, notes in `apps/api/src/features/queue/CLAUDE.md`):** today's OPD tokens at the hospital, per department and doctor. Behind the `queue` switch and the `queue:read`, `queue:create` and `queue:call` permissions. Works at every width.
 
 **Issuing a token (#76):** `queue/new`, behind `queue:create`. The patient is found with `PatientSearch` from `@/features/patients`, then a department (`useDepartmentOptions`), optionally a doctor of that department (`useDoctorOptions`, narrowed by its `departmentId`) and optionally a priority. The screen confirms the token's number in place, with "Issue another" keeping the department and the doctor. "Issue a queue token" on the patient's screen (the `patient.detail.actions` slot, for `queue:create`) opens it at `queue/new?patientId=<id>`, with the patient already chosen through `usePatientName`, so a walk-in registered a moment ago is not searched for again.
 

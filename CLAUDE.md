@@ -16,7 +16,7 @@ Five non-negotiables shape every decision:
 
 ## Current Status
 
-As of 2026-10-13. GitHub issues and milestones are the source of truth (`gh issue list --milestone "<name>"`); update this section when a milestone closes. A finished module gets an entry in `docs/STATUS.md` and its name under What exists; what was decided for it goes in the feature folder's own `CLAUDE.md`, not here.
+As of 2026-10-19. GitHub issues and milestones are the source of truth (`gh issue list --milestone "<name>"`); update this section when a milestone closes. A finished module gets an entry in `docs/STATUS.md` and its name under What exists; what was decided for it goes in the feature folder's own `CLAUDE.md`, not here.
 
 - **M0 Setup:** done.
 - **M1 Foundation:** done, except #264 (the idle sign-out test fails intermittently on a slow machine; it passes in CI).
@@ -24,18 +24,18 @@ As of 2026-10-13. GitHub issues and milestones are the source of truth (`gh issu
 - **M3 Patients:** done in both apps (#49 to #55). Open: #56 (staging and deploy, deferred until a cloud account exists) and #259 (search for very large hospitals, a spike).
 - **M4 Doctors, departments, staff:** done, in the web app and the API (#57 to #61, #276). Leave and one-off changes to working hours belong with appointments.
 - **M5 Master data and catalogs:** every catalog and the import centre done in both apps (#62 to #69, #286, #289, #298 to #303). Open: #304 (which code sets the pilot loads) and #310.
-- **M6 Appointments, queue and triage:** appointments done in both apps: list, calendar, booking and status changes (#70 to #73), the API (#75) and the end-to-end tests (#74). The OPD token queue (#76) and triage (#77) in the web app against the mock. Open: the waiting-room display (#78), the queue and triage API (#79), and the vital sign range follow-ups (#378, #379).
+- **M6 Appointments, queue and triage:** appointments done in both apps: list, calendar, booking and status changes (#70 to #73), the API (#75) and the end-to-end tests (#74). The OPD token queue (#76) and triage (#77) in both apps, with their API (#79). Open: the waiting-room display (#78) and the vital sign range follow-ups (#378, #379).
 - **M7 and beyond:** not started. No clinical or billing module exists yet.
 
 **What exists**
 
-Done in the web app and the API: patients, departments, doctors, staff, and every master data catalog (services and prices, drugs, lab tests, wards, codes, templates) with the import centre, and appointments (list, calendar, booking, status changes). In the web app only: the OPD token queue (issuing, and a live board) and triage (vitals, chief complaint, allergies). Sixteen features are registered, with `notices` the template for new modules. Exports another module may use: `PatientSearch`, `usePatientName` and `DetailTab` (patients), `useDepartmentOptions`, `useServiceOptions`, `CodeSearch`, `fillPlaceholders` and `placeholdersIn` (templates), `TriageSummary` (triage), and `app.importKinds` on the API. Each module's entry (switch, permissions, exports), what `db:seed` loads for it, and the known gaps are in `docs/STATUS.md`. What was decided for a module, and its own gaps, is in `apps/web/src/features/<folder>/CLAUDE.md`, which Claude Code loads when a file of that folder is read. **Read it before changing the module in either app:** for work under `apps/api` it does not load by itself.
+Done in the web app and the API: patients, departments, doctors, staff, and every master data catalog (services and prices, drugs, lab tests, wards, codes, templates) with the import centre, appointments (list, calendar, booking, status changes), the OPD token queue (issuing, and a live board over server-sent events) and triage (vitals, chief complaint, allergies). Sixteen features are registered, with `notices` the template for new modules. Exports another module may use: `PatientSearch`, `usePatientName` and `DetailTab` (patients), `useDepartmentOptions`, `useServiceOptions`, `CodeSearch`, `fillPlaceholders` and `placeholdersIn` (templates), `TriageSummary` (triage), and `app.importKinds` on the API. Each module's entry (switch, permissions, exports), what `db:seed` loads for it, and the known gaps are in `docs/STATUS.md`. What was decided for a module, and its own gaps, is in `apps/web/src/features/<folder>/CLAUDE.md`, which Claude Code loads when a file of that folder is read. **Read it before changing the module in either app:** for work under `apps/api` it does not load by itself.
 
-**Against the real API** every module done in both apps works, with sample data from `db:seed`. Mock only: `notices`, the OPD queue, triage, change password, the account sessions and `POST /session/open-link`, which are in the planned contract (`packages/contract/planned.openapi.json`); the real policy lists only permissions the API knows, so other feature screens show "no access" there.
+**Against the real API** every module done in both apps works, with sample data from `db:seed`. Mock only: `notices`, change password, the account sessions and `POST /session/open-link`, which are in the planned contract (`packages/contract/planned.openapi.json`); the real policy lists only permissions the API knows, so other feature screens show "no access" there.
 
 **Not built yet, although described below as the target**
 
-- API: `@fastify/helmet` and CORS; the role management API (BE-16, roles are read-only for the app until then); object storage; SSE.
+- API: `@fastify/helmet` and CORS; the role management API (BE-16, roles are read-only for the app until then); object storage. Server-sent events exist for the queue board only (`core/live`).
 - Web: every clinical and billing feature, the platform admin module.
 - Platform admins: the `is_platform_admin` flag exists, but there is no way to create one, no platform routes, and MFA is not yet enforced for them.
 - Deployment: no infrastructure code and no hosted environment. CI builds the API image and runs the tests.
