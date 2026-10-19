@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
+import { Slot } from '@/registry';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
@@ -45,6 +46,22 @@ export function TokenGrid({
         header: t('columns.patient'),
         value: (row) => row.patientName,
         hideable: false,
+        render: (row, text) => (
+          <span className="flex flex-col items-start gap-0.5">
+            {text}
+            {/* Other features' links for the token (triage's "Record vitals"), given ids and
+                values only. Rendered for every row: a contribution reads no data of its own. */}
+            <Slot
+              id="queue.row.actions"
+              context={{
+                tokenId: row.id,
+                patientId: row.patientId,
+                number: row.number,
+                status: row.status,
+              }}
+            />
+          </span>
+        ),
       },
       { id: 'mrn', header: t('columns.mrn'), value: (row) => row.patientMrn, mask: maskMrn },
       {

@@ -1,0 +1,141 @@
+{
+  "measures": {
+    "systolic": "Systolic",
+    "diastolic": "Diastolic",
+    "pressure": "Blood pressure",
+    "pulse": "Pulse",
+    "temperature": "Temperature",
+    "spo2": "Oxygen saturation",
+    "weight": "Weight",
+    "height": "Height",
+    "bmi": "BMI"
+  },
+  "units": {
+    "pressure": "{{systolic}}/{{diastolic}} mmHg",
+    "pulse": "{{value}} /min",
+    "temperature": "{{value}} °C",
+    "spo2": "{{value}}%",
+    "weight": "{{value}} kg",
+    "height": "{{value}} cm",
+    "bmi": "{{value}}"
+  },
+  "flag": {
+    "low": "Low",
+    "high": "High"
+  },
+  "adultsOnly": "Normal ranges are for adults: nothing is marked high or low for a patient under 18.",
+  "rangesError": "Normal ranges could not be loaded: nothing is marked high or low.",
+  "summary": {
+    "heading": "Triage",
+    "latest": "Latest vitals",
+    "recordedBy": "{{time}}, by {{name}}",
+    "noVitals": "No vitals recorded.",
+    "complaint": "Chief complaint",
+    "correction": "Corrects an earlier reading: {{reason}}"
+  },
+  "allergies": {
+    "heading": "Allergies",
+    "unknown": "Not asked yet.",
+    "none": "No known allergies.",
+    "updatedBy": "Updated {{time}} by {{name}}",
+    "edit": "Edit allergies",
+    "record": "Record allergies",
+    "status": "Allergies",
+    "statusNone": "No known allergies",
+    "statusListed": "Has allergies",
+    "substance": "Substance",
+    "reaction": "Reaction",
+    "severity": "Severity",
+    "add": "Add an allergy",
+    "remove": "Remove allergy {{number}}",
+    "rowLegend": "Allergy {{number}}",
+    "save": "Save allergies",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "saved": "Allergies saved.",
+    "conflict": "Someone else changed these allergies first. They are shown as saved now: make your change again.",
+    "max": "At most 50 allergies.",
+    "errors": {
+      "noRows": "Add at least one allergy, or choose No known allergies."
+    },
+    "severities": {
+      "severe": "Severe",
+      "moderate": "Moderate",
+      "mild": "Mild",
+      "unknown": "Severity not known"
+    }
+  },
+  "history": {
+    "heading": "Vitals",
+    "label": "Vitals readings",
+    "empty": "No vitals recorded.",
+    "count_one": "{{count}} reading",
+    "count_other": "{{count}} readings",
+    "columns": {
+      "recordedAt": "Recorded",
+      "pressure": "Blood pressure",
+      "pulse": "Pulse",
+      "temperature": "Temperature",
+      "spo2": "SpO₂",
+      "weight": "Weight",
+      "height": "Height",
+      "complaint": "Chief complaint",
+      "by": "By"
+    },
+    "corrected": "Corrected",
+    "correction": "Correction",
+    "rowLabel": "Reading of {{time}}",
+    "correct": "Correct",
+    "record": "Record vitals"
+  },
+  "tab": "Vitals and allergies",
+  "rowAction": "Record vitals",
+  "rowActionLabel": "Record vitals for token {{number}}",
+  "form": {
+    "heading": "Record vitals",
+    "correctHeading": "Correct a vitals reading",
+    "patient": "Patient: {{name}}, MRN {{mrn}}",
+    "patientUnknown": "The patient's name cannot be shown to you.",
+    "alreadyTaken": "Vitals were already recorded for this token at {{time}}. A new reading is added, the earlier one is kept.",
+    "correcting": "The reading of {{time}} is kept, marked as corrected by this one.",
+    "pressure": "Blood pressure",
+    "systolic": "Systolic (mmHg)",
+    "diastolic": "Diastolic (mmHg)",
+    "pulse": "Pulse (beats a minute)",
+    "temperature": "Temperature (°C)",
+    "spo2": "Oxygen saturation (%)",
+    "weight": "Weight (kg)",
+    "height": "Height (cm)",
+    "bmi": "BMI: {{value}}",
+    "complaint": "Chief complaint",
+    "complaintHint": "What brings the patient today, in their words.",
+    "reason": "Reason for the correction",
+    "submit": "Save vitals",
+    "submitting": "Saving…",
+    "cancel": "Cancel",
+    "back": "Back to the queue",
+    "backToPatient": "Back to the patient",
+    "saved": "Vitals saved.",
+    "savedHeading": "Vitals saved",
+    "abnormal_one": "{{count}} value is outside the normal range.",
+    "abnormal_other": "{{count}} values are outside the normal range.",
+    "unavailable": "Vitals can be recorded only for a patient you may see.",
+    "readingNotFound": "The reading to correct was not found.",
+    "refused": {
+      "tokenNotForPatient": "That queue token is not this patient's today. Open the patient from the queue again.",
+      "unknownCorrection": "The reading to correct is not this patient's."
+    },
+    "errors": {
+      "empty": "Enter at least one measurement or the chief complaint.",
+      "systolic": "Enter a whole number from 40 to 300.",
+      "diastolic": "Enter a whole number from 20 to 200.",
+      "pulse": "Enter a whole number from 20 to 300.",
+      "temperature": "Enter a temperature from 25 to 45, with at most one decimal.",
+      "spo2": "Enter a whole number from 50 to 100.",
+      "weight": "Enter a weight from 0.3 to 400, with at most one decimal.",
+      "height": "Enter a height from 20 to 250, with at most one decimal.",
+      "pressurePair": "Enter both the systolic and the diastolic pressure.",
+      "pressureOrder": "The diastolic pressure must be below the systolic."
+    }
+  }
+}

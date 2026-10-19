@@ -30,6 +30,7 @@ import { staffHandlers } from './handlers/staff';
 import { patientsHandlers } from './handlers/patients';
 import { profileHandlers } from './handlers/profile';
 import { queueHandlers } from './handlers/queue';
+import { triageHandlers } from './handlers/triage';
 import { error, tenantMismatch, unauthenticated } from './respond';
 
 export const handlers = [
@@ -122,6 +123,7 @@ export const handlers = [
   ...bookingHandlers,
   ...appointmentChangeHandlers,
   ...queueHandlers,
+  ...triageHandlers,
   ...staffHandlers,
   ...servicesHandlers,
   ...drugsHandlers,
