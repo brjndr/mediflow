@@ -22,27 +22,31 @@ export function FlagMark({ flag }: { flag: Flag }) {
 export function ReadingList({ reading, ranges }: { reading: Vitals; ranges: Ranges | undefined }) {
   const { t } = useTranslation('triage');
   const lines = useReadingLines()(reading, ranges);
+  // Two columns by the room it is given, not the window's: the consultation shows it in a
+  // narrow column beside the notes (#80).
   return (
-    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-      {lines.map((line) => (
-        <div
-          key={line.id}
-          className="flex flex-wrap items-baseline justify-between gap-2 border-b pb-1"
-        >
-          <dt className="text-sm text-muted-foreground">{t(`measures.${line.id}`)}</dt>
-          <dd className="flex items-center gap-1.5 font-medium">
-            {line.text}
-            {line.flag && <FlagMark flag={line.flag} />}
-          </dd>
-        </div>
-      ))}
-      {reading.chiefComplaint && (
-        <div className="sm:col-span-2">
-          <dt className="text-sm text-muted-foreground">{t('summary.complaint')}</dt>
-          <dd className="whitespace-pre-line break-words">{reading.chiefComplaint}</dd>
-        </div>
-      )}
-    </dl>
+    <div className="@container">
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 @md:grid-cols-2">
+        {lines.map((line) => (
+          <div
+            key={line.id}
+            className="flex flex-wrap items-baseline justify-between gap-2 border-b pb-1"
+          >
+            <dt className="text-sm text-muted-foreground">{t(`measures.${line.id}`)}</dt>
+            <dd className="flex flex-wrap items-center gap-1.5 font-medium">
+              {line.text}
+              {line.flag && <FlagMark flag={line.flag} />}
+            </dd>
+          </div>
+        ))}
+        {reading.chiefComplaint && (
+          <div className="@md:col-span-2">
+            <dt className="text-sm text-muted-foreground">{t('summary.complaint')}</dt>
+            <dd className="whitespace-pre-line break-words">{reading.chiefComplaint}</dd>
+          </div>
+        )}
+      </dl>
+    </div>
   );
 }
 

@@ -150,6 +150,9 @@ onMockReset(() => {
   favourites = seed();
 });
 
+/** A code as another feature's mock records it (a diagnosis), or undefined for an unknown id. */
+export const mockCode = (id: string) => CODES.find((code) => code.id === id);
+
 const marked = (tenantId: string) => favourites.get(tenantId) ?? new Set<string>();
 const view = (tenantId: string, code: Omit<Code, 'favourite'>): Code => ({
   ...code,

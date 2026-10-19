@@ -1,0 +1,159 @@
+{
+  "cancel": "Cancel",
+  "status": {
+    "open": "Open",
+    "closed": "Closed",
+    "cancelled": "Cancelled"
+  },
+  "start": {
+    "action": "Start consultation",
+    "saving": "Starting…",
+    "labelToken": "Start consultation, token {{number}}",
+    "labelAppointment": "Start consultation, appointment at {{time}}",
+    "refused": {
+      "unavailable": "This visit is no longer available. Refresh the list and try again.",
+      "notScheduled": "This appointment was cancelled or marked as a no-show.",
+      "noDoctor": "No doctor you may consult for is set for this visit.",
+      "alreadyOpen": "A consultation for this visit was started by someone else."
+    }
+  },
+  "list": {
+    "heading": "Consultations",
+    "doctor": "Doctor",
+    "allDoctors": "Every doctor",
+    "me": "{{name}} (me)",
+    "status": "Status",
+    "allStatuses": "Any status",
+    "count_one": "{{count}} consultation",
+    "count_other": "{{count}} consultations",
+    "empty": "No consultations to show.",
+    "columns": {
+      "patient": "Patient",
+      "mrn": "MRN",
+      "doctor": "Doctor",
+      "department": "Department",
+      "opened": "Started",
+      "status": "Status"
+    }
+  },
+  "detail": {
+    "heading": "Consultation",
+    "unavailable": "This consultation is not available.",
+    "back": "Back to consultations",
+    "patient": "{{name}} · MRN {{mrn}}",
+    "status": "Status",
+    "doctor": "Doctor",
+    "noDoctor": "No doctor",
+    "department": "Department",
+    "opened": "Started",
+    "openedBy": "{{time}} by {{name}}",
+    "closedBy": "Closed {{time}} by {{name}}",
+    "cancelledBy": "Cancelled {{time}} by {{name}}",
+    "cancelReason": "Reason for cancelling",
+    "triage": "Triage"
+  },
+  "encounter": {
+    "close": "Close consultation",
+    "closing": "Closing…",
+    "closedNow": "Consultation closed.",
+    "cancel": "Cancel consultation",
+    "cancelHeading": "Cancel this consultation",
+    "cancelHint": "Only for a consultation started by mistake, with nothing recorded in it yet.",
+    "cancelReason": "Reason",
+    "cancelSubmit": "Cancel consultation",
+    "keepOpen": "Keep it open",
+    "cancelledNow": "Consultation cancelled.",
+    "refused": {
+      "unsignedNotes": "A note is still a draft. Sign or discard every draft first.",
+      "hasRecords": "Something is already recorded in this consultation: close it instead.",
+      "conflict": "This consultation was changed by someone else. It has been read again: try again.",
+      "notOpen": "This consultation is no longer open."
+    }
+  },
+  "notes": {
+    "heading": "Notes",
+    "empty": "No notes yet.",
+    "write": "Write a note",
+    "signedLabel": "Note by {{name}}, signed {{time}}",
+    "signedBy": "Signed by {{name}}, {{time}}",
+    "amends": "Amends the note signed {{time}}. Reason: {{reason}}",
+    "amendsEarlier": "Amends an earlier note. Reason: {{reason}}",
+    "superseded": "Amended: the amendment follows.",
+    "amend": "Amend",
+    "amendHeading": "Amend this note",
+    "amendText": "Corrected note",
+    "emptyRefused": "A note cannot be empty.",
+    "amendReason": "What the amendment corrects",
+    "amending": "Signing…",
+    "amendSubmit": "Sign amendment",
+    "amended": "Amendment signed.",
+    "signed": "Note signed.",
+    "discarded": "Draft discarded.",
+    "refused": {
+      "conflict": "This draft was saved from another window. Choose which text to keep, then sign.",
+      "notOpen": "This consultation is no longer open.",
+      "signed": "This note is already signed.",
+      "alreadyAmended": "This note was amended by someone else meanwhile: amend the newest amendment.",
+      "gone": "This note is no longer available."
+    },
+    "draft": {
+      "heading": "Your draft",
+      "label": "Note",
+      "saving": "Saving draft…",
+      "saved": "Draft saved at {{time}}. Only you can see it until it is signed.",
+      "unsaved": "Changes not saved yet.",
+      "empty": "Write something: an empty note is not saved.",
+      "conflict": "This draft was saved from another window since you opened it. Saving is paused.",
+      "keepMine": "Keep the text here",
+      "takeSaved": "Use the saved text",
+      "failed": "The draft could not be saved: {{reason}}",
+      "sign": "Sign note",
+      "signing": "Signing…",
+      "discard": "Discard draft",
+      "confirmDiscard": "Discard this draft? It cannot be recovered.",
+      "discardConfirmed": "Discard draft",
+      "keep": "Keep it"
+    }
+  },
+  "diagnoses": {
+    "heading": "Diagnoses",
+    "empty": "No diagnoses recorded.",
+    "columns": {
+      "diagnosis": "Diagnosis",
+      "kind": "Kind",
+      "recorded": "Recorded",
+      "status": "Status"
+    },
+    "kind": {
+      "provisional": "Provisional",
+      "final": "Final"
+    },
+    "recordedBy": "{{time}} by {{name}}",
+    "stands": "Stands",
+    "retracted": "Retracted {{time}} by {{name}}: {{reason}}",
+    "retract": "Retract",
+    "retractHeading": "Retract {{name}}",
+    "retractReason": "Why it no longer stands",
+    "retractSubmit": "Retract diagnosis",
+    "retractedNow": "Diagnosis retracted.",
+    "recorded": "Diagnosis recorded.",
+    "refused": {
+      "notOpen": "This consultation is no longer open.",
+      "unknownCode": "That code is not available. Choose it again from the search.",
+      "alreadyRetracted": "This diagnosis was already retracted.",
+      "gone": "This diagnosis is no longer available."
+    },
+    "form": {
+      "heading": "Record a diagnosis",
+      "code": "ICD-10 code",
+      "chosen": "{{code}} {{title}}",
+      "removeCode": "Remove code",
+      "text": "Diagnosis in words",
+      "textHint": "Alone, or beside the code.",
+      "kind": "Kind",
+      "submit": "Record diagnosis",
+      "saving": "Recording…",
+      "codeOrText": "Choose a code or write the diagnosis in words."
+    }
+  }
+}

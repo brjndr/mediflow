@@ -239,7 +239,12 @@ export default function AppointmentDetail() {
           values only. */}
       <Slot
         id="appointment.detail.actions"
-        context={{ appointmentId: record.id, status: record.status, startsAt: record.startsAt }}
+        context={{
+          appointmentId: record.id,
+          patientId: record.patientId,
+          status: record.status,
+          startsAt: record.startsAt,
+        }}
       />
 
       <Can permission="appointment:update">

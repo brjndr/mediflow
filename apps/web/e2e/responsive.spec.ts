@@ -124,6 +124,17 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('combobox', { name: /^Doctor/ })).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // Consultations: the open ones as cards on a phone, and the consultation itself, with what
+  // triage found before the notes on a narrow screen.
+  await goTo(page, 'Consultations');
+  await expect(page.getByRole('heading', { name: 'Consultations', exact: true })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('main').getByRole('link').first().click();
+  await expect(page.getByRole('heading', { name: 'Consultation', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Notes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Diagnoses' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   await goTo(page, 'Patients');
   await expect(page.getByRole('heading', { name: 'Patients', exact: true })).toBeVisible();
   await expectNoSidewaysScroll(page);

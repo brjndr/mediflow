@@ -84,6 +84,12 @@ onMockReset(() => {
 export const mockDoctor = (tenantId: string, id: string): Doctor | undefined =>
   state.doctors.find((doctor) => doctor.id === id && doctor.tenantId === tenantId);
 
+/** The practising doctor profile of a staff member at this hospital, or undefined. */
+export const mockDoctorOfUser = (tenantId: string, userId: string): Doctor | undefined =>
+  state.doctors.find(
+    (doctor) => doctor.tenantId === tenantId && doctor.userId === userId && doctor.active,
+  );
+
 /** A doctor's weekly working hours, as another feature's mock reads them (free slots). */
 export const mockDoctorHours = (tenantId: string, id: string): DoctorSession[] =>
   mockDoctor(tenantId, id) ? (state.hours.get(id)?.sessions ?? []) : [];
