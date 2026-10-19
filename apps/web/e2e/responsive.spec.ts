@@ -108,6 +108,16 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
     page.getByRole('region', { name: 'Waiting' }).getByText('Token 4', { exact: true }),
   ).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // Triage from a token: the form is one column on a phone.
+  await page
+    .getByRole('link', { name: /^Record vitals for token/ })
+    .first()
+    .click();
+  await expect(page.getByRole('heading', { name: 'Record vitals', exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: /^Systolic/ })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'Cancel' }).click();
+  await expect(page.getByRole('heading', { name: 'OPD queue', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Issue a token' }).click();
   await expect(page.getByRole('heading', { name: 'Issue a token' })).toBeVisible();
   await page.getByRole('combobox', { name: /^Department/ }).selectOption('dep_h_01');
@@ -123,6 +133,12 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Asha Verma1' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Details' })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // Its vitals: the readings become cards on a phone.
+  await page.getByRole('tab', { name: 'Vitals and allergies' }).click();
+  await expect(page.getByText('Penicillin')).toBeVisible();
+  await expect(page.getByText('2 readings')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('tab', { name: 'Details' }).click();
   // Editing it: one column of fields on a phone.
   await page.getByRole('link', { name: 'Edit', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Edit Asha Verma1' })).toBeVisible();

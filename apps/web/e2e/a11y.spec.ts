@@ -77,6 +77,8 @@ function scheduledAppointment(page: Page): Promise<string> {
 const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
   // A row opens the appointment from its row action, not a link.
   appointments: (page) => scheduledAppointment(page),
+  // Triage has no list of its own: a patient of the mock with readings and allergies.
+  triage: () => Promise.resolve('pth_00001'),
   // The mock keeps no import until one is started.
   imports: (page) =>
     page.evaluate(async () => {
