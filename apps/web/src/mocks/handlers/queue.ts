@@ -1,8 +1,9 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { todayIn } from '@/shared/utils/timezone';
+import { todayIn, utcToZoned } from '@/shared/utils/timezone';
 import { currentSession, mockTenantTimezone, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
+import { mockAppointment } from './appointments';
 import { mockDepartment } from './departments';
 import { mockDoctor } from './doctors';
 import { mockPatient } from './patients';
@@ -37,6 +38,10 @@ export interface StoredToken {
   status: QueueTokenStatus;
   priority?: QueuePriority;
   issuedAt: string;
+  /** The appointment it was checked in from (#376). */
+  appointmentId?: string;
+  /** Its place in the line when not the time issued: a booked patient who came early. */
+  lineAt?: string;
   calledAt?: string;
   callCount: number;
   version: number;
@@ -199,6 +204,7 @@ function viewOf(stored: StoredToken): QueueToken | null {
     patientId: patient.id,
     patientName: patient.name,
     patientMrn: patient.mrn,
+    ...(stored.appointmentId ? { appointmentId: stored.appointmentId } : {}),
     status: stored.status,
     ...(stored.priority ? { priority: stored.priority } : {}),
     issuedAt: stored.issuedAt,
@@ -208,14 +214,17 @@ function viewOf(stored: StoredToken): QueueToken | null {
   };
 }
 
-/** Call order: a priority first, then the time issued. The called ones by when they were called. */
+/**
+ * Call order: a priority first, then the place in the line (the time issued, or the booked time
+ * of a patient checked in before it). The called ones by when they were called.
+ */
 function inCallOrder(a: StoredToken, b: StoredToken): number {
   if (a.status === 'called' && b.status === 'called') {
     return (a.calledAt ?? '').localeCompare(b.calledAt ?? '');
   }
   return (
     Number(b.priority !== undefined) - Number(a.priority !== undefined) ||
-    a.issuedAt.localeCompare(b.issuedAt) ||
+    (a.lineAt ?? a.issuedAt).localeCompare(b.lineAt ?? b.issuedAt) ||
     a.number - b.number
   );
 }
@@ -419,6 +428,68 @@ export const queueHandlers = [
       return { status: 201, token };
     }),
   ),
+
+  http.post('*/api/queue/check-ins', ({ request }) => {
+    // Checking in reads the appointment: the guard asks for appointment:read as well.
+    const reads = authorize(request, {
+      permission: 'appointment:read',
+      featureFlag: 'appointments',
+    });
+    if ('denied' in reads) return reads.denied;
+    return once(request, CREATE, (tenantId, body) => {
+      if (!isObject(body) || typeof body.appointmentId !== 'string') {
+        return error(400, 'validation_failed', 'Some details are not valid');
+      }
+      const appointment = mockAppointment(tenantId, body.appointmentId);
+      if (!appointment) return error(422, 'unknown_appointment', 'No such appointment');
+      if ('denied' in authorize(request, { permission: 'patient:read' })) {
+        return error(422, 'unknown_patient', 'No such patient');
+      }
+      const first = tokens.find(
+        (t) => t.tenantId === tenantId && t.appointmentId === appointment.id,
+      );
+      if (first) return { status: 200, token: first };
+      if (appointment.status !== 'scheduled') {
+        return error(409, 'invalid_transition', `Not from ${appointment.status}`);
+      }
+      const day = today(tenantId);
+      if (utcToZoned(appointment.startsAt, mockTenantTimezone(tenantId)).day !== day) {
+        return error(422, 'not_today', 'The appointment is not today');
+      }
+      const doctor = mockDoctor(tenantId, appointment.doctorId);
+      if (!doctor?.active) return error(422, 'unknown_doctor', 'No such doctor');
+      const department = mockDepartment(tenantId, doctor.departmentId);
+      if (!department || department.archived) {
+        return error(422, 'unknown_department', 'No such department');
+      }
+      const sameDay = tokens.filter(
+        (t) => t.tenantId === tenantId && t.departmentId === department.id && t.day === day,
+      );
+      if (sameDay.some((t) => t.patientId === appointment.patientId && t.status !== 'served')) {
+        return error(409, 'already_queued', 'The patient is already in this queue');
+      }
+      const number = Math.max(0, ...sameDay.map((t) => t.number)) + 1;
+      const issuedAt = new Date().toISOString();
+      const token: StoredToken = {
+        id: `qt_${tenantId}_${department.id}_new_${number}`,
+        tenantId,
+        number,
+        day,
+        departmentId: department.id,
+        doctorId: doctor.id,
+        patientId: appointment.patientId,
+        status: 'waiting',
+        issuedAt,
+        appointmentId: appointment.id,
+        // The booked time for one who came before it, as the API orders them.
+        ...(appointment.startsAt > issuedAt ? { lineAt: appointment.startsAt } : {}),
+        callCount: 0,
+        version: 1,
+      };
+      tokens.push(token);
+      return { status: 201, token };
+    });
+  }),
 
   http.post('*/api/queue/call-next', ({ request }) =>
     once(request, CALL, (tenantId, body) => {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Can, useAllowed } from '@/access';
+import { Slot } from '@/registry';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { useFormatters } from '@/tenancy';
@@ -233,6 +234,13 @@ export default function AppointmentDetail() {
           {tCommon(errorMessageKey(change.error))}
         </p>
       )}
+
+      {/* Other features' actions for the appointment (the queue's "Check in"), given ids and
+          values only. */}
+      <Slot
+        id="appointment.detail.actions"
+        context={{ appointmentId: record.id, status: record.status, startsAt: record.startsAt }}
+      />
 
       <Can permission="appointment:update">
         {anyAllowed && panel === undefined && (

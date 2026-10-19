@@ -57,6 +57,25 @@ export async function issueToken(
   return queueTokenSchema.parse(requireData(result));
 }
 
+/**
+ * Checks in a patient who has arrived for today's appointment: a token for the appointment's
+ * doctor, in their department. An appointment has one token, ever: checking it in again answers
+ * with that token (`existing`), not a second one.
+ */
+export async function checkIn(
+  appointmentId: string,
+  idempotencyKey: string,
+): Promise<{ token: QueueToken; existing: boolean }> {
+  const result = await api.POST('/queue/check-ins', {
+    body: { appointmentId },
+    params: { header: { 'idempotency-key': idempotencyKey } },
+  });
+  return {
+    token: queueTokenSchema.parse(requireData(result)),
+    existing: result.response.status === 200,
+  };
+}
+
 /** A change of the queue, each with the token's version except calling the next one. */
 export type QueueAction =
   | { kind: 'call_next'; doctorId: string }

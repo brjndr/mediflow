@@ -76,6 +76,20 @@
     "save": "Save priority",
     "cancel": "Cancel"
   },
+  "checkIn": {
+    "action": "Check in",
+    "label": "Check in, appointment at {{time}}",
+    "saving": "Checking in…",
+    "done": "Checked in: token {{number}}, {{department}}.",
+    "existing": "Already checked in: token {{number}}, {{department}}.",
+    "refused": {
+      "alreadyQueued": "This patient already has a token in this department today.",
+      "alreadyCheckedIn": "This appointment was checked in at another desk. See the queue.",
+      "notToday": "Only today's appointments can be checked in.",
+      "notScheduled": "This appointment is no longer scheduled.",
+      "unavailable": "This appointment cannot be checked in here. Ask an administrator."
+    }
+  },
   "issue": {
     "open": "Issue a token",
     "fromPatient": "Issue a queue token",

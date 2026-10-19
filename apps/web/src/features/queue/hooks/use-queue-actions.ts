@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { useTenant } from '@/tenancy';
-import { changeQueue, issueToken, type QueueAction } from '../api';
+import { changeQueue, checkIn, issueToken, type QueueAction } from '../api';
 import type { QueueTokenCreate } from '../types';
 import { queueKeys } from './use-queue';
 
@@ -35,6 +35,21 @@ export function useIssueToken() {
     // Nothing about the patient stays in the mutation cache once the form is gone.
     gcTime: 0,
     mutationFn: (body: QueueTokenCreate) => issueToken(body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: () => {
+      if (tenantId) return queryClient.invalidateQueries({ queryKey: queueKeys.all(tenantId) });
+    },
+  });
+}
+
+/** Checks in today's appointment. Whatever the answer, the queue has changed and is read again. */
+export function useCheckIn() {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (appointmentId: string) => checkIn(appointmentId, keys.keyFor(appointmentId)),
     onSuccess: () => keys.clear(),
     onSettled: () => {
       if (tenantId) return queryClient.invalidateQueries({ queryKey: queueKeys.all(tenantId) });

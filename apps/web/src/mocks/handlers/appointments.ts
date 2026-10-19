@@ -116,6 +116,10 @@ export function addMockAppointment(appointment: StoredAppointment): void {
   appointments.push(appointment);
 }
 
+/** One appointment of a hospital, for the queue's check-in (#376). */
+export const mockAppointment = (tenantId: string, id: string) =>
+  appointments.find((appointment) => appointment.id === id && appointment.tenantId === tenantId);
+
 const days = (from: string, to: string) =>
   Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000);
 
