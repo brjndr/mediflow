@@ -434,7 +434,7 @@ describe('the keyboard and a screen reader', () => {
     await openDay();
     expect(tabStops()).toHaveLength(1);
     await tabIntoGrid();
-    expect(nameOf(active())).toMatch(/^9:00\s?am to 9:15\s?am, \w+day, \d+ \w+, /i);
+    expect(nameOf(active())).toMatch(/^9:00\s?am .+, until 9:15\s?am, \w+day, \d+ \w+, with /i);
     // The next Tab leaves the grid: no Tab stop for each appointment.
     await userEvent.tab();
     expect(grid()).not.toContainElement(active());
@@ -444,7 +444,7 @@ describe('the keyboard and a screen reader', () => {
     await openDay();
     await tabIntoGrid();
     await userEvent.keyboard('{ArrowDown}');
-    expect(nameOf(active())).toMatch(/^9:15\s?am to 9:30\s?am/i);
+    expect(nameOf(active())).toMatch(/^9:15\s?am .+, until 9:30\s?am/i);
     await userEvent.keyboard('{ArrowUp}{ArrowUp}');
     // Before the first appointment: a quarter hour with nothing booked.
     // Offered for booking or not, by the hour the test runs: only the name is checked.
@@ -465,7 +465,7 @@ describe('the keyboard and a screen reader', () => {
     await waitFor(() => expect(active().dataset.day).toBe(addDays(today(), 1)));
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/^Day: /);
     // The same time on the next day: its first appointment, once the day is drawn.
-    await waitFor(() => expect(nameOf(active())).toMatch(/^9:00\s?am to 9:15\s?am/i));
+    await waitFor(() => expect(nameOf(active())).toMatch(/^9:00\s?am .+, until 9:15\s?am/i));
 
     await userEvent.keyboard('{PageUp}');
     await waitFor(() => expect(active().dataset.day).toBe(today()));
@@ -486,7 +486,13 @@ describe('the keyboard and a screen reader', () => {
     const doctorName = doctor.selectedOptions[0]?.textContent ?? '';
     expect(doctorName).not.toBe('');
     for (const block of blocks()) {
-      expect(nameOf(block)).toMatch(/^\d{1,2}:\d{2}\s?[ap]m to \d{1,2}:\d{2}\s?[ap]m, \w+day, /i);
+      // What the block shows first (its time and patient), as WCAG 2.5.3 asks, then the rest.
+      // (the library's own time label is hidden by the calendar's CSS, so not part of it).
+      const shown = block.querySelector('.cal-event-line')?.textContent;
+      expect(nameOf(block)).toContain(shown?.replace(/\s+/g, ' ').trim());
+      expect(nameOf(block)).toMatch(
+        /^\d{1,2}:\d{2}\s?[ap]m .+, until \d{1,2}:\d{2}\s?[ap]m, \w+day, /i,
+      );
       expect(nameOf(block)).toContain(` with ${doctorName}, `);
       const status = /(Scheduled|Completed|Cancelled|No-show)$/.exec(nameOf(block))?.[1];
       expect(status).toBeDefined();
@@ -506,7 +512,9 @@ describe('the keyboard and a screen reader', () => {
         expect.stringMatching(/\w+day, \d+ \w+/),
       ),
     );
-    await waitFor(() => expect(nameOf(tabStops()[0] as HTMLElement)).toMatch(/^9:00\s?am to/i));
+    await waitFor(() =>
+      expect(nameOf(tabStops()[0] as HTMLElement)).toMatch(/^9:00\s?am .+, until/i),
+    );
     await tabIntoGrid();
     // Past the eight appointments of the morning, to the first free time at eleven.
     for (let i = 0; i < 8; i++) await userEvent.keyboard('{ArrowDown}');
@@ -531,7 +539,9 @@ describe('the keyboard and a screen reader', () => {
     everyDayMornings();
     const { router } = await openDay();
     await userEvent.click(screen.getByRole('button', { name: 'Next day' }));
-    await waitFor(() => expect(nameOf(tabStops()[0] as HTMLElement)).toMatch(/^9:00\s?am to/i));
+    await waitFor(() =>
+      expect(nameOf(tabStops()[0] as HTMLElement)).toMatch(/^9:00\s?am .+, until/i),
+    );
     const free = cells().find((cell) => /^11:30\s?am, /i.test(nameOf(cell)));
     await userEvent.click(free as HTMLElement);
     await waitFor(() => expect(router.state.location.pathname).toBe('/appointments/new'));
@@ -599,14 +609,14 @@ describe('the keyboard and a screen reader', () => {
     expect(active().dataset.day).toBe(night);
     // The last stops of the day are the two blocks, not free times under them.
     await userEvent.keyboard('{End}');
-    expect(nameOf(active())).toMatch(/^11:30\s?pm to 12:30\s?am, /i);
+    expect(nameOf(active())).toMatch(/^11:30\s?pm .+, until 12:30\s?am, /i);
     await userEvent.keyboard('{ArrowUp}');
-    expect(nameOf(active())).toMatch(/^11:00\s?pm to 12:00\s?am, /i);
+    expect(nameOf(active())).toMatch(/^11:00\s?pm .+, until 12:00\s?am, /i);
 
     // The next day starts with the same block, from midnight; its first free time is half past.
     await userEvent.keyboard('{ArrowRight}{Home}');
     expect(active().dataset.day).toBe(next);
-    expect(nameOf(active())).toMatch(/^11:30\s?pm to 12:30\s?am, /i);
+    expect(nameOf(active())).toMatch(/^11:30\s?pm .+, until 12:30\s?am, /i);
     await userEvent.keyboard('{ArrowDown}');
     expect(nameOf(active())).toMatch(/^12:30\s?am, .*nothing booked/i);
     expect(tabStops()).toEqual([active()]);

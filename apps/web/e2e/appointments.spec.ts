@@ -156,7 +156,7 @@ test('book and move an appointment from the calendar with the keyboard alone', a
 
   // One Tab stop for the grid; the arrows go past the morning's eight appointments to eleven.
   await tabIntoGrid(page);
-  expect(await focusedName(page)).toMatch(/^9:00\s?am to 9:15\s?am, /i);
+  expect(await focusedName(page)).toMatch(/^9:00\s?am .+, until 9:15\s?am, /i);
   for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowDown');
   expect(await focusedName(page)).toMatch(/^11:00\s?am, .*nothing booked\. Book at this time\.$/i);
   await page.keyboard.press('Enter');
@@ -179,7 +179,9 @@ test('book and move an appointment from the calendar with the keyboard alone', a
   await expect(status(page, '9 appointments')).toBeVisible();
   await tabIntoGrid(page);
   for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowDown');
-  expect(await focusedName(page)).toMatch(/^11:00\s?am to 11:15\s?am, .+ with .+, Scheduled$/i);
+  expect(await focusedName(page)).toMatch(
+    /^11:00\s?am .+, until 11:15\s?am, .+, with .+, Scheduled$/i,
+  );
   await page.keyboard.press('Enter');
 
   // Moved to noon, with the keyboard.
