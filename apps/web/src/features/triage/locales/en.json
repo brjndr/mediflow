@@ -53,7 +53,10 @@
     "saving": "Saving…",
     "cancel": "Cancel",
     "saved": "Allergies saved.",
-    "conflict": "Someone else changed these allergies first. They are shown as saved now: make your change again.",
+    "conflict": "Someone else changed these allergies first. They are shown below as saved now. What you typed is kept: check it, then save again to replace them.",
+    "conflictUnread": "Someone else changed these allergies first, and they could not be read again. Try saving again.",
+    "detail": " · {{severity}}",
+    "detailWithReaction": " · {{severity}} · {{reaction}}",
     "max": "At most 50 allergies.",
     "errors": {
       "noRows": "Add at least one allergy, or choose No known allergies."
@@ -107,6 +110,7 @@
     "weight": "Weight (kg)",
     "height": "Height (cm)",
     "bmi": "BMI: {{value}}",
+    "flagged": "{{measure}}: {{flag}}.",
     "complaint": "Chief complaint",
     "complaintHint": "What brings the patient today, in their words.",
     "reason": "Reason for the correction",
@@ -123,7 +127,8 @@
     "readingNotFound": "The reading to correct was not found.",
     "refused": {
       "tokenNotForPatient": "That queue token is not this patient's today. Open the patient from the queue again.",
-      "unknownCorrection": "The reading to correct is not this patient's."
+      "unknownCorrection": "The reading to correct is not this patient's.",
+      "alreadyCorrected": "That reading was already corrected. Correct its correction instead."
     },
     "errors": {
       "empty": "Enter at least one measurement or the chief complaint.",

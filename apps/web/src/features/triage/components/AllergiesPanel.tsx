@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
@@ -19,8 +19,10 @@ import { useAllergies, useSaveAllergies } from '../hooks/use-triage';
 import {
   ALLERGIES_MAX,
   allergiesFormSchema,
+  REACTION_MAX,
   blankAllergy,
   SEVERITIES,
+  SUBSTANCE_MAX,
   toAllergiesValues,
   toAllergyListUpdate,
   type AllergiesValues,
@@ -38,9 +40,10 @@ function AllergyView({ list }: { list: AllergyList }) {
           {list.items.map((item, index) => (
             <li key={index} className="break-words">
               <span className="font-medium">{item.substance}</span>
-              {' · '}
-              {t(`allergies.severities.${item.severity}`)}
-              {item.reaction ? ` · ${item.reaction}` : ''}
+              {t(item.reaction ? 'allergies.detailWithReaction' : 'allergies.detail', {
+                severity: t(`allergies.severities.${item.severity}`),
+                reaction: item.reaction,
+              })}
             </li>
           ))}
         </ul>
@@ -85,13 +88,13 @@ function AllergyRows() {
                 name={name('substance')}
                 label={t('allergies.substance')}
                 required
-                maxLength={100}
+                maxLength={SUBSTANCE_MAX}
                 autoComplete="off"
               />
               <TextField
                 name={name('reaction')}
                 label={t('allergies.reaction')}
-                maxLength={200}
+                maxLength={REACTION_MAX}
                 autoComplete="off"
               />
               <SelectField
@@ -147,7 +150,7 @@ function AllergiesForm({
   onCancel,
 }: {
   list: AllergyList;
-  conflict: boolean;
+  conflict: 'shown' | 'unread' | null;
   pending: boolean;
   error: string | null;
   onSubmit: (values: AllergiesValues) => void;
@@ -174,7 +177,7 @@ function AllergiesForm({
         ]}
       />
       <AllergyRows />
-      {conflict && (
+      {conflict === 'shown' && (
         <div
           role="alert"
           className="flex flex-col gap-2 rounded-md border border-destructive p-3 text-sm"
@@ -182,6 +185,11 @@ function AllergiesForm({
           <p>{t('allergies.conflict')}</p>
           <AllergyView list={list} />
         </div>
+      )}
+      {conflict === 'unread' && (
+        <p role="alert" className="text-sm text-destructive">
+          {t('allergies.conflictUnread')}
+        </p>
       )}
       {error && (
         <p role="alert" className="text-sm text-destructive">
@@ -216,22 +224,19 @@ export function AllergiesPanel({ patientId }: { patientId: string }) {
   useInPlaceFormFocus(editing, box, heading);
   // The version a save is made from: the one the form opened on, then the newest after a conflict.
   const [expected, setExpected] = useState(0);
-  const [conflict, setConflict] = useState<'none' | 'awaiting' | 'shown'>('none');
+  // After a conflict: the list as saved now is shown, or it could not be read again.
+  const [conflict, setConflict] = useState<'shown' | 'unread' | null>(null);
+  // Reading the list again after a conflict; Save waits for it, and only for it.
+  const [checking, setChecking] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const headingId = useId();
   const list = allergies.data;
-
-  if (conflict === 'awaiting' && list && list.version !== expected) {
-    setExpected(list.version);
-    setConflict('shown');
-  } else if (conflict === 'awaiting' && allergies.isError) {
-    setConflict('shown');
-  }
 
   const open = () => {
     if (!list) return;
     save.reset();
     setDone(null);
-    setConflict('none');
+    setConflict(null);
     setExpected(list.version);
     setEditing(true);
   };
@@ -241,10 +246,21 @@ export function AllergiesPanel({ patientId }: { patientId: string }) {
     try {
       await save.mutateAsync(toAllergyListUpdate(values, expected));
       setEditing(false);
-      setConflict('none');
+      setConflict(null);
       setDone(t('allergies.saved'));
     } catch (error) {
-      if (isApiError(error) && error.serverCode === 'conflict') setConflict('awaiting');
+      if (!(isApiError(error) && error.serverCode === 'conflict')) return;
+      // The form keeps what was typed; the next save is made from the newest version. When it
+      // cannot be read, the version stays and the next save asks again.
+      setChecking(true);
+      const fresh = await allergies.refetch();
+      setChecking(false);
+      if (fresh.data && !fresh.isError) {
+        setExpected(fresh.data.version);
+        setConflict('shown');
+      } else {
+        setConflict('unread');
+      }
     }
   };
 
@@ -254,14 +270,9 @@ export function AllergiesPanel({ patientId }: { patientId: string }) {
       : null;
 
   return (
-    <section ref={box} aria-labelledby={`allergies-${patientId}`} className="flex flex-col gap-3">
+    <section ref={box} aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2
-          id={`allergies-${patientId}`}
-          ref={heading}
-          tabIndex={-1}
-          className="text-lg font-semibold"
-        >
+        <h2 id={headingId} ref={heading} tabIndex={-1} className="text-lg font-semibold">
           {t('allergies.heading')}
         </h2>
         {canUpdate && list && !editing && (
@@ -293,8 +304,8 @@ export function AllergiesPanel({ patientId }: { patientId: string }) {
       ) : list && editing ? (
         <AllergiesForm
           list={list}
-          conflict={conflict === 'shown'}
-          pending={save.isPending || conflict === 'awaiting'}
+          conflict={conflict}
+          pending={save.isPending || checking}
           error={failure}
           onSubmit={(values) => void submit(values)}
           onCancel={() => {

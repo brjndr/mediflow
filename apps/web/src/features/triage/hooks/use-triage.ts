@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
-import { sessionKey, type Session } from '@/app/session';
+import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
@@ -16,12 +16,17 @@ import type { AllergyListUpdate, VitalsCreate } from '../types';
 /** Every key is prefixed with the tenant, so one hospital's readings never show in another. */
 export const triageKeys = createTenantKeys('triage');
 
-const reading = (tenantId: string, patientId: string, vitalsId: string) =>
-  [...triageKeys.all(tenantId), 'reading', patientId, vitalsId] as const;
-const ranges = (tenantId: string, patientId: string) =>
-  [...triageKeys.all(tenantId), 'ranges', patientId] as const;
-const allergies = (tenantId: string, patientId: string) =>
-  [...triageKeys.all(tenantId), 'allergies', patientId] as const;
+/** Everything held about one patient, so a change to them refreshes only theirs. */
+const patientKey = (tenantId: string, patientId: string) =>
+  [...triageKeys.all(tenantId), 'patient', patientId] as const;
+const listKey = (tenantId: string, patientId: string) =>
+  [...patientKey(tenantId, patientId), 'list'] as const;
+const readingKey = (tenantId: string, patientId: string) =>
+  [...patientKey(tenantId, patientId), 'reading'] as const;
+const rangesKey = (tenantId: string, patientId: string) =>
+  [...patientKey(tenantId, patientId), 'ranges'] as const;
+const allergiesKey = (tenantId: string, patientId: string) =>
+  [...patientKey(tenantId, patientId), 'allergies'] as const;
 
 export const VITALS_PAGE_SIZE = 25;
 
@@ -32,7 +37,7 @@ export function useVitals(
 ) {
   const tenantId = useTenant()?.id;
   return useInfiniteQuery({
-    queryKey: triageKeys.list(tenantId ?? '', { patientId, queueTokenId, limit }),
+    queryKey: [...listKey(tenantId ?? '', patientId), { queueTokenId, limit }],
     queryFn: ({ pageParam, signal }) =>
       fetchVitals({ patientId, queueTokenId, cursor: pageParam, limit }, signal),
     initialPageParam: undefined as string | undefined,
@@ -45,7 +50,7 @@ export function useVitals(
 export function useReading(patientId: string, vitalsId: string) {
   const tenantId = useTenant()?.id;
   return useQuery({
-    queryKey: reading(tenantId ?? '', patientId, vitalsId),
+    queryKey: [...readingKey(tenantId ?? '', patientId), vitalsId],
     queryFn: ({ signal }) => fetchReading(patientId, vitalsId, signal),
     enabled: tenantId !== undefined && patientId !== '' && vitalsId !== '',
   });
@@ -55,7 +60,7 @@ export function useReading(patientId: string, vitalsId: string) {
 export function useVitalRanges(patientId: string) {
   const tenantId = useTenant()?.id;
   return useQuery({
-    queryKey: ranges(tenantId ?? '', patientId),
+    queryKey: rangesKey(tenantId ?? '', patientId),
     queryFn: ({ signal }) => fetchVitalRanges(patientId, signal),
     enabled: tenantId !== undefined && patientId !== '',
     staleTime: 5 * 60_000,
@@ -65,19 +70,29 @@ export function useVitalRanges(patientId: string) {
 export function useAllergies(patientId: string, { enabled = true }: { enabled?: boolean } = {}) {
   const tenantId = useTenant()?.id;
   return useQuery({
-    queryKey: allergies(tenantId ?? '', patientId),
+    queryKey: allergiesKey(tenantId ?? '', patientId),
     queryFn: ({ signal }) => fetchAllergies(patientId, signal),
     enabled: enabled && tenantId !== undefined && patientId !== '',
   });
 }
 
-/** Whether the session is still this person's at this hospital, so an answer may go in the cache. */
+/**
+ * The hospital, while the session is still the one the request was made in: the same person at
+ * the same hospital. An answer that arrives after a sign-out, a time-out or a switch is never
+ * written, so a patient's data does not come back for whoever signs in next on a shared PC.
+ */
 function useStillHere() {
   const queryClient = useQueryClient();
   const tenantId = useTenant()?.id;
+  const userId = useSession()?.user.id;
   return () => {
     const session = queryClient.getQueryData<Session | null>(sessionKey);
-    return tenantId !== undefined && session?.activeTenant?.id === tenantId ? tenantId : undefined;
+    return tenantId !== undefined &&
+      userId !== undefined &&
+      session?.user.id === userId &&
+      session.activeTenant?.id === tenantId
+      ? tenantId
+      : undefined;
   };
 }
 
@@ -104,16 +119,21 @@ export function useRecordVitals(patientId: string) {
     onSuccess: () => {
       attempt.current = undefined;
     },
+    // The patient's readings only: their allergies and ranges have not changed.
     onSettled: () => {
       const tenantId = stillHere();
-      if (tenantId) return queryClient.invalidateQueries({ queryKey: triageKeys.all(tenantId) });
+      if (!tenantId) return;
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: listKey(tenantId, patientId) }),
+        queryClient.invalidateQueries({ queryKey: readingKey(tenantId, patientId) }),
+      ]);
     },
   });
 }
 
 /**
  * Saves the allergies from the version the edit started from. The answer replaces what is held,
- * unless the session ended or moved to another hospital meanwhile; a conflict reads them again.
+ * unless the session ended or moved meanwhile. After a conflict the panel reads them again itself.
  */
 export function useSaveAllergies(patientId: string) {
   const queryClient = useQueryClient();
@@ -123,12 +143,7 @@ export function useSaveAllergies(patientId: string) {
     mutationFn: (body: AllergyListUpdate) => saveAllergies(patientId, body),
     onSuccess: (saved) => {
       const tenantId = stillHere();
-      if (tenantId) queryClient.setQueryData(allergies(tenantId, patientId), saved);
-    },
-    onError: () => {
-      const tenantId = stillHere();
-      if (tenantId)
-        return queryClient.invalidateQueries({ queryKey: allergies(tenantId, patientId) });
+      if (tenantId) queryClient.setQueryData(allergiesKey(tenantId, patientId), saved);
     },
   });
 }

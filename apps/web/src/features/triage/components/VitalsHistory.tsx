@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePermission } from '@/access';
@@ -21,6 +21,7 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
   const vitals = useVitals(patientId);
   const ranges = useVitalRanges(patientId);
   const linesOf = useReadingLines();
+  const headingId = useId();
   const rows = useMemo(() => vitals.data?.pages.flatMap((page) => page.items) ?? [], [vitals.data]);
   const total = vitals.data?.pages[0]?.total;
   // Readings a later one corrects, among those loaded: the original is kept and marked.
@@ -31,8 +32,10 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
 
   const columns = useMemo<GridColumn<Vitals>[]>(() => {
     const range = ranges.data?.ranges;
+    // Each row's lines once, not once a cell.
+    const lines = new Map(rows.map((row) => [row.id, linesOf(row, range)]));
     const line = (row: Vitals, id: ReadingLine['id']) =>
-      linesOf(row, range).find((each) => each.id === id);
+      lines.get(row.id)?.find((each) => each.id === id);
     const measured = (id: ReadingLine['id'], header: string): GridColumn<Vitals> => ({
       id,
       header,
@@ -78,7 +81,7 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
       },
       { id: 'by', header: t('history.columns.by'), value: (row) => row.recordedByName },
     ];
-  }, [t, format, linesOf, ranges.data, corrected]);
+  }, [t, format, linesOf, ranges.data, corrected, rows]);
 
   const actions = useMemo<GridAction<Vitals>[]>(
     () => [
@@ -95,9 +98,9 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
   );
 
   return (
-    <section aria-labelledby={`history-${patientId}`} className="flex flex-col gap-3">
+    <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id={`history-${patientId}`} className="text-lg font-semibold">
+        <h2 id={headingId} className="text-lg font-semibold">
           {t('history.heading')}
         </h2>
         {canRecord && (

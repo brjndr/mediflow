@@ -26,10 +26,10 @@ export const SEVERITIES = [
   'unknown',
 ] as const satisfies readonly AllergySeverity[];
 
-const COMPLAINT_MAX = 500;
-const REASON_MAX = 200;
-const SUBSTANCE_MAX = 100;
-const REACTION_MAX = 200;
+export const COMPLAINT_MAX = 500;
+export const REASON_MAX = 200;
+export const SUBSTANCE_MAX = 100;
+export const REACTION_MAX = 200;
 export const ALLERGIES_MAX = 50;
 
 // Responses are validated where they enter the app, so screens can trust their shape.
@@ -122,6 +122,13 @@ const WHOLE = /^\d{1,3}$/;
 const ONE_DECIMAL = /^\d{1,3}(\.\d)?$/;
 const number = (text: string) => (text === '' ? undefined : Number(text));
 
+/** What is typed in a measurement as a number, or undefined until it has the form the API takes. */
+export function typedNumber(text: unknown, decimal: boolean): number | undefined {
+  if (typeof text !== 'string') return undefined;
+  const trimmed = text.trim();
+  return (decimal ? ONE_DECIMAL : WHOLE).test(trimmed) ? Number(trimmed) : undefined;
+}
+
 /**
  * A measurement as typed: empty, or a number of the right form between the limits the API
  * takes. These are what a body can be, not what is normal: the ranges say that.
@@ -202,7 +209,8 @@ export function toVitalsCreate(
     if (value !== undefined) body[name] = value;
   }
   if (values.chiefComplaint) body.chiefComplaint = values.chiefComplaint;
-  if (queueTokenId) body.queueTokenId = queueTokenId;
+  // A correction takes the token of the reading it corrects, on the server.
+  if (queueTokenId && !correctsId) body.queueTokenId = queueTokenId;
   if (correctsId) {
     body.correctsId = correctsId;
     body.correctionReason = values.correctionReason;
@@ -306,8 +314,9 @@ export function toAllergyListUpdate(values: AllergiesValues, version: number): A
       status === 'none'
         ? []
         : values.rows.map((row) => ({
-            substance: row.substance,
-            ...(row.reaction ? { reaction: row.reaction } : {}),
+            // Checked trimmed, sent trimmed: a reaction of spaces is no reaction.
+            substance: row.substance.trim(),
+            ...(row.reaction.trim() ? { reaction: row.reaction.trim() } : {}),
             severity: row.severity,
           })),
   };

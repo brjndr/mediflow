@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useFeatureFlag, usePermission } from '@/access';
@@ -16,15 +16,20 @@ import {
 import { useFormatters } from '@/tenancy';
 import { AllergiesPanel } from '../components/AllergiesPanel';
 import { FlagMark, RangesNote, ReadingList } from '../components/reading';
+import { useReadingLines } from '../hooks/use-reading-lines';
 import { useReading, useRecordVitals, useVitalRanges, useVitals } from '../hooks/use-triage';
 import {
   bmiOf,
   blankVitals,
+  COMPLAINT_MAX,
   flagOf,
   RANGED,
+  REASON_MAX,
   toVitalsCreate,
   toVitalsValues,
+  typedNumber,
   vitalsFormSchema,
+  type Measure,
   type RangedMeasure,
   type VitalsValues,
 } from '../schemas';
@@ -40,24 +45,54 @@ const idFrom = (value: string | null | undefined) =>
 const REFUSALS: Record<string, string> = {
   token_not_for_patient: 'form.refused.tokenNotForPatient',
   unknown_correction: 'form.refused.unknownCorrection',
+  already_corrected: 'form.refused.alreadyCorrected',
 };
 
-const numberOf = (text: unknown) => {
-  const value = typeof text === 'string' && text.trim() !== '' ? Number(text) : NaN;
-  return Number.isFinite(value) ? value : undefined;
-};
+/** Measurements typed with one decimal; the others are whole numbers. */
+const DECIMAL = new Set<Measure>(['temperature', 'weight', 'height']);
+
+const isRanged = (name: Measure): name is RangedMeasure =>
+  (RANGED as readonly Measure[]).includes(name);
 
 /** High or low beside a field as it is typed, from the ranges that apply to the patient. */
 function LiveFlag({ name, ranges }: { name: RangedMeasure; ranges: Ranges | undefined }) {
-  const flag = flagOf(numberOf(useFieldValue(name)), ranges?.[name]);
+  const flag = flagOf(typedNumber(useFieldValue(name), DECIMAL.has(name)), ranges?.[name]);
   return flag ? <FlagMark flag={flag} /> : null;
+}
+
+/**
+ * What is out of range so far, said for a screen reader as it changes ("Systolic: High."): the
+ * marks beside the fields are seen, not heard. Always on the page, so a change is read.
+ */
+function FlagsAnnouncer({ ranges }: { ranges: Ranges | undefined }) {
+  const { t } = useTranslation('triage');
+  const systolic = useFieldValue('systolic');
+  const diastolic = useFieldValue('diastolic');
+  const pulse = useFieldValue('pulse');
+  const temperature = useFieldValue('temperature');
+  const spo2 = useFieldValue('spo2');
+  const typed: Record<RangedMeasure, unknown> = { systolic, diastolic, pulse, temperature, spo2 };
+  const said = RANGED.flatMap((name) => {
+    const flag = flagOf(typedNumber(typed[name], DECIMAL.has(name)), ranges?.[name]);
+    return flag
+      ? [t('form.flagged', { measure: t(`measures.${name}`), flag: t(`flag.${flag}`) })]
+      : [];
+  }).join(' ');
+  return (
+    <p aria-live="polite" className="sr-only">
+      {said}
+    </p>
+  );
 }
 
 /** BMI from what is typed, for show only. */
 function LiveBmi() {
   const { t } = useTranslation('triage');
   const format = useFormatters();
-  const bmi = bmiOf(numberOf(useFieldValue('weight')), numberOf(useFieldValue('height')));
+  const bmi = bmiOf(
+    typedNumber(useFieldValue('weight'), true),
+    typedNumber(useFieldValue('height'), true),
+  );
   if (bmi === undefined || !Number.isFinite(bmi)) return null;
   return (
     <p className="text-sm text-muted-foreground">
@@ -66,28 +101,18 @@ function LiveBmi() {
   );
 }
 
-function Measurement({
-  name,
-  decimal = false,
-  ranges,
-}: {
-  name: keyof VitalsValues;
-  decimal?: boolean;
-  ranges?: Ranges;
-}) {
+function Measurement({ name, ranges }: { name: Measure; ranges?: Ranges }) {
   const { t } = useTranslation('triage');
   return (
     <div className="flex flex-col gap-1">
       <TextField<VitalsValues>
         name={name}
         label={t(`form.${name}`)}
-        inputMode={decimal ? 'decimal' : 'numeric'}
+        inputMode={DECIMAL.has(name) ? 'decimal' : 'numeric'}
         maxLength={5}
         autoComplete="off"
       />
-      {(RANGED as readonly string[]).includes(name) && (
-        <LiveFlag name={name as RangedMeasure} ranges={ranges} />
-      )}
+      {isRanged(name) && <LiveFlag name={name} ranges={ranges} />}
     </div>
   );
 }
@@ -122,19 +147,20 @@ function VitalsForm({
       </fieldset>
       <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-3">
         <Measurement name="pulse" ranges={ranges} />
-        <Measurement name="temperature" decimal ranges={ranges} />
+        <Measurement name="temperature" ranges={ranges} />
         <Measurement name="spo2" ranges={ranges} />
       </div>
       <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
-        <Measurement name="weight" decimal />
-        <Measurement name="height" decimal />
+        <Measurement name="weight" />
+        <Measurement name="height" />
       </div>
       <LiveBmi />
+      <FlagsAnnouncer ranges={ranges} />
       <TextAreaField<VitalsValues>
         name="chiefComplaint"
         label={t('form.complaint')}
         hint={t('form.complaintHint')}
-        maxLength={500}
+        maxLength={COMPLAINT_MAX}
         rows={3}
       />
       {correcting && (
@@ -142,7 +168,7 @@ function VitalsForm({
           name="correctionReason"
           label={t('form.reason')}
           required
-          maxLength={200}
+          maxLength={REASON_MAX}
           autoComplete="off"
         />
       )}
@@ -197,25 +223,58 @@ function TakenForToken({ patientId, tokenId }: { patientId: string; tokenId: str
   );
 }
 
+/** What was recorded, in place of the form: the reading, marked, and the way back. */
+function Saved({
+  reading,
+  ranges,
+  backTo,
+  backLabel,
+}: {
+  reading: Vitals;
+  ranges: Ranges | undefined;
+  backTo: string;
+  backLabel: string;
+}) {
+  return (
+    <>
+      <ReadingList reading={reading} ranges={ranges} />
+      <div className="flex flex-wrap gap-2">
+        <Button asChild>
+          <Link to={backTo}>{backLabel}</Link>
+        </Button>
+      </div>
+    </>
+  );
+}
+
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function RecordVitals() {
   const { t } = useTranslation('triage');
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
+  const linesOf = useReadingLines();
   const canReadAllergies = usePermission('allergy:read');
   // Ids only, from the address: never anything about the patient.
   const params = useParams();
   const [search] = useSearchParams();
   const patientId = idFrom(params.patientId);
-  const [tokenId] = useState(() => idFrom(search.get('token')));
-  const [correctsId] = useState(() => idFrom(search.get('corrects')));
+  const tokenId = idFrom(search.get('token'));
+  const correctsId = idFrom(search.get('corrects'));
   const ranges = useVitalRanges(patientId);
   const original = useReading(patientId, correctsId);
   const record = useRecordVitals(patientId);
   const [saved, setSaved] = useState<Vitals>();
   const heading = useRef<HTMLHeadingElement>(null);
+  const statusId = useId();
+  // Another reading opened while on this screen starts afresh.
+  const address = `${patientId}?${search.toString()}`;
+  const [shownFor, setShownFor] = useState(address);
+  if (shownFor !== address) {
+    setShownFor(address);
+    setSaved(undefined);
+  }
 
-  // After saving, focus moves to the confirmation so a screen reader announces it.
+  // After saving, focus moves to the heading, which is described by what was saved.
   useEffect(() => {
     if (saved) heading.current?.focus();
   }, [saved]);
@@ -223,6 +282,11 @@ export default function RecordVitals() {
   const backTo = tokenId ? '/queue' : `/patients/${patientId}?tab=vitals`;
   const backLabel = tokenId ? t('form.back') : t('form.backToPatient');
   const rangeData = ranges.data?.ranges;
+  // Counted as marked: blood pressure is one value, however many of its numbers are out.
+  const abnormal = useMemo(
+    () => (saved ? linesOf(saved, rangeData).filter((line) => line.flag).length : 0),
+    [saved, rangeData, linesOf],
+  );
 
   const submit = async (values: VitalsValues) => {
     record.reset();
@@ -237,26 +301,6 @@ export default function RecordVitals() {
     }
   };
 
-  if (saved) {
-    const abnormal = RANGED.filter((name) => flagOf(saved[name], rangeData?.[name])).length;
-    return (
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-6">
-        <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold tracking-tight">
-          {t('form.savedHeading')}
-        </h1>
-        <p role="status">
-          {t('form.saved')} {abnormal > 0 ? t('form.abnormal', { count: abnormal }) : ''}
-        </p>
-        <ReadingList reading={saved} ranges={rangeData} />
-        <div className="flex flex-wrap gap-2">
-          <Button asChild>
-            <Link to={backTo}>{backLabel}</Link>
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   const serverCode = isApiError(record.error) ? record.error.serverCode : undefined;
   const refused = serverCode ? REFUSALS[serverCode] : undefined;
   const failure = record.isError
@@ -268,15 +312,33 @@ export default function RecordVitals() {
   const missing =
     !patientId ||
     (isApiError(ranges.error) && (ranges.error.status === 404 || ranges.error.status === 403));
+  const status = saved
+    ? [t('form.saved'), abnormal > 0 ? t('form.abnormal', { count: abnormal }) : '']
+        .filter(Boolean)
+        .join(' ')
+    : '';
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {correctsId ? t('form.correctHeading') : t('form.heading')}
+        <h1
+          ref={heading}
+          tabIndex={-1}
+          aria-describedby={saved ? statusId : undefined}
+          className="text-2xl font-semibold tracking-tight"
+        >
+          {saved
+            ? t('form.savedHeading')
+            : correctsId
+              ? t('form.correctHeading')
+              : t('form.heading')}
         </h1>
         {patientId && <PatientLine patientId={patientId} />}
       </div>
+      {/* Always on the page, so what was saved is read out; the heading also points at it. */}
+      <p id={statusId} role="status" className="empty:hidden">
+        {status}
+      </p>
 
       {missing ? (
         <div className="flex flex-col items-start gap-3">
@@ -289,33 +351,40 @@ export default function RecordVitals() {
         </div>
       ) : (
         <>
+          {/* Stays on the page across saving: an allergies edit in progress is not lost. */}
           {canReadAllergies && <AllergiesPanel patientId={patientId} />}
-          {tokenId && <TakenForToken patientId={patientId} tokenId={tokenId} />}
-          <RangesNote ranges={rangeData} failed={ranges.isError} />
-          {correctsId && original.isPending ? (
-            <p className="text-sm text-muted-foreground">{tCommon('app.loading')}</p>
-          ) : correctsId && original.isError ? (
-            <p role="alert" className="text-sm">
-              {t('form.readingNotFound')}
-            </p>
+          {saved ? (
+            <Saved reading={saved} ranges={rangeData} backTo={backTo} backLabel={backLabel} />
           ) : (
             <>
-              {original.data && (
-                <p className="rounded-md border p-3 text-sm">
-                  {t('form.correcting', { time: format.dateTime(original.data.recordedAt) })}
+              {tokenId && !correctsId && <TakenForToken patientId={patientId} tokenId={tokenId} />}
+              <RangesNote ranges={rangeData} failed={ranges.isError} />
+              {correctsId && original.isPending ? (
+                <p className="text-sm text-muted-foreground">{tCommon('app.loading')}</p>
+              ) : correctsId && original.isError ? (
+                <p role="alert" className="text-sm">
+                  {t('form.readingNotFound')}
                 </p>
+              ) : (
+                <>
+                  {original.data && (
+                    <p className="rounded-md border p-3 text-sm">
+                      {t('form.correcting', { time: format.dateTime(original.data.recordedAt) })}
+                    </p>
+                  )}
+                  <VitalsForm
+                    // A correction starts from the reading it corrects, once it is known.
+                    key={`${address}:${original.data?.id ?? 'new'}`}
+                    initial={original.data ? toVitalsValues(original.data) : blankVitals}
+                    correcting={correctsId !== ''}
+                    ranges={rangeData}
+                    pending={record.isPending}
+                    error={failure}
+                    onSubmit={(values) => void submit(values)}
+                    cancelTo={backTo}
+                  />
+                </>
               )}
-              <VitalsForm
-                // A correction starts from the reading it corrects, once it is known.
-                key={original.data?.id ?? 'new'}
-                initial={original.data ? toVitalsValues(original.data) : blankVitals}
-                correcting={correctsId !== ''}
-                ranges={rangeData}
-                pending={record.isPending}
-                error={failure}
-                onSubmit={(values) => void submit(values)}
-                cancelTo={backTo}
-              />
             </>
           )}
         </>

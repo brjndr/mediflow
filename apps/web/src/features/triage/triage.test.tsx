@@ -1,9 +1,12 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+import { sessionKey } from '@/app/session';
 import {
   grantPermission,
   revokePermission,
+  sessionFor,
   setTenantFeature,
   signIn,
   TENANT_IDS,
@@ -15,7 +18,8 @@ import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
 import { todayIn } from '@/shared/utils/timezone';
 import { expectNoAxeViolations } from '@/test/axe';
-import { renderApp } from '@/test/render';
+import { renderApp, renderWithProviders } from '@/test/render';
+import { TriageSummary } from '.';
 
 const HOSPITAL = TENANT_IDS.hospital;
 const RECORD = { name: 'Record vitals', level: 1 };
@@ -71,9 +75,10 @@ describe('recording vitals', () => {
 
     const done = await screen.findByRole('heading', { name: 'Vitals saved' });
     expect(document.activeElement).toBe(done);
-    expect(
-      screen.getByText('Vitals saved. 2 values are outside the normal range.'),
-    ).toHaveAttribute('role', 'status');
+    expect(screen.getByText('Vitals saved. 1 value is outside the normal range.')).toHaveAttribute(
+      'role',
+      'status',
+    );
     await waitFor(() => expect(records).toHaveLength(1));
     expect(records[0]?.body).toEqual({
       systolic: 150,
@@ -278,10 +283,19 @@ describe('the queue board', () => {
 });
 
 describe('access', () => {
-  it('turns the screen, the tab and the board link off with the switch', async () => {
+  it('turns the screen off with the switch', async () => {
     setTenantFeature(HOSPITAL, 'triage', false);
     renderApp({ entry: '/triage/pth_00102' });
     expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
+  });
+
+  it('takes the board link away with the switch', async () => {
+    setTenantFeature(HOSPITAL, 'triage', false);
+    renderApp({ entry: '/queue' });
+    await screen.findAllByRole('table');
+    expect(
+      screen.queryByRole('link', { name: /^Record vitals for token/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('hides the tab with the switch off', async () => {
@@ -343,5 +357,251 @@ describe('two hospitals', () => {
       await screen.findByText('Vitals can be recorded only for a patient you may see.'),
     ).toHaveAttribute('role', 'alert');
     expect(screen.queryByRole('button', { name: 'Save vitals' })).not.toBeInTheDocument();
+  });
+});
+
+describe('saving, when things go wrong', () => {
+  it('records a retry after a failure once, with the same key, and a new reading with a new one', async () => {
+    const records = watchRecords();
+    let failNext = true;
+    server.use(
+      http.post('*/api/patients/:patientId/vitals', () => {
+        if (!failNext) return undefined;
+        failNext = false;
+        return HttpResponse.error();
+      }),
+    );
+    await openForm('/triage/pth_00102');
+    await userEvent.type(field(/^Pulse/), '72');
+    const save = screen.getByRole('button', { name: 'Save vitals' });
+    await userEvent.click(save);
+    expect(await screen.findByText(/connection|network|reach/i)).toBeInTheDocument();
+    await userEvent.click(save);
+    await screen.findByRole('heading', { name: 'Vitals saved' });
+    await waitFor(() => expect(records).toHaveLength(2));
+    expect(records[1]?.key).toBe(records[0]?.key);
+    expect(mockVitalsOf(HOSPITAL, 'pth_00102')).toHaveLength(1);
+  });
+
+  it('says a server failure, and keeps what was typed', async () => {
+    server.use(
+      http.post('*/api/patients/:patientId/vitals', () =>
+        HttpResponse.json(
+          { error: { code: 'internal', message: 'x', requestId: 'r' } },
+          { status: 500 },
+        ),
+      ),
+    );
+    await openForm('/triage/pth_00102');
+    await userEvent.type(field(/^Pulse/), '72');
+    await userEvent.click(screen.getByRole('button', { name: 'Save vitals' }));
+    expect(
+      await screen.findByText('Something went wrong on our side. Try again.'),
+    ).toBeInTheDocument();
+    expect(field(/^Pulse/)).toHaveValue('72');
+  });
+
+  it('refuses a second correction of the same reading', async () => {
+    await api.POST('/patients/{patientId}/vitals', {
+      params: { path: { patientId: 'pth_00001' }, header: { 'idempotency-key': 'first-fix-1' } },
+      body: { pulse: 90, correctsId: 'vit_h_2', correctionReason: 'Recounted.' },
+    });
+    renderApp({ entry: '/triage/pth_00001?corrects=vit_h_2' });
+    await screen.findByRole('heading', { name: 'Correct a vitals reading', level: 1 });
+    await waitFor(() => expect(field(/^Systolic/)).toHaveValue('152'));
+    await userEvent.type(field(/^Reason for the correction/), 'Again.');
+    await userEvent.click(screen.getByRole('button', { name: 'Save vitals' }));
+    expect(
+      await screen.findByText(
+        'That reading was already corrected. Correct its correction instead.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps an allergies edit open on the screen while vitals are saved', async () => {
+    await openForm('/triage/pth_00102');
+    await userEvent.click(await screen.findByRole('button', { name: 'Record allergies' }));
+    const first = screen.getByRole('group', { name: 'Allergy 1' });
+    await userEvent.type(within(first).getByRole('textbox', { name: /^Substance/ }), 'Latex');
+    await userEvent.type(field(/^Pulse/), '72');
+    await userEvent.click(screen.getByRole('button', { name: 'Save vitals' }));
+    await screen.findByRole('heading', { name: 'Vitals saved' });
+    expect(
+      within(screen.getByRole('group', { name: 'Allergy 1' })).getByRole('textbox', {
+        name: /^Substance/,
+      }),
+    ).toHaveValue('Latex');
+  });
+});
+
+describe('the allergies form', () => {
+  const openEditor = async (patientId = 'pth_00001') => {
+    renderApp({ entry: `/patients/${patientId}?tab=vitals` });
+    await userEvent.click(await screen.findByRole('button', { name: /^(Edit|Record) allergies$/ }));
+  };
+
+  it('asks for a substance, and for a row when the patient has allergies', async () => {
+    await openEditor();
+    await userEvent.clear(
+      within(screen.getByRole('group', { name: 'Allergy 1' })).getByRole('textbox', {
+        name: /^Substance/,
+      }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Save allergies' }));
+    expect(await screen.findByText('This field is required.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove allergy 1' }));
+    // The row's button went with it: focus moves on, not to the page.
+    expect(screen.getByRole('button', { name: 'Add an allergy' })).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', { name: 'Save allergies' }));
+    expect(
+      await screen.findByText('Add at least one allergy, or choose No known allergies.'),
+    ).toBeInTheDocument();
+  });
+
+  it('sends what was typed, trimmed, and no reaction of spaces', async () => {
+    const sent: unknown[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'PUT')
+        void request
+          .clone()
+          .json()
+          .then((body: unknown) => sent.push(body));
+    });
+    await openEditor('pth_00002');
+    const row = screen.getByRole('group', { name: 'Allergy 1' });
+    await userEvent.type(within(row).getByRole('textbox', { name: /^Substance/ }), '  Aspirin  ');
+    await userEvent.type(within(row).getByRole('textbox', { name: /^Reaction/ }), '   ');
+    await userEvent.click(screen.getByRole('button', { name: 'Save allergies' }));
+    expect(await screen.findByText('Allergies saved.')).toBeInTheDocument();
+    expect(sent[0]).toEqual({
+      version: 0,
+      status: 'listed',
+      items: [{ substance: 'Aspirin', severity: 'unknown' }],
+    });
+  });
+
+  it('says a failure that is not a conflict, and lets Save be pressed again', async () => {
+    server.use(
+      http.put('*/api/patients/:patientId/allergies', () =>
+        HttpResponse.json(
+          { error: { code: 'internal', message: 'x', requestId: 'r' } },
+          { status: 500 },
+        ),
+      ),
+    );
+    await openEditor();
+    await userEvent.click(screen.getByRole('button', { name: 'Save allergies' }));
+    expect(
+      await screen.findByText('Something went wrong on our side. Try again.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save allergies' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  });
+
+  it('writes nothing when the answer arrives after another person signed in', async () => {
+    let release: () => void = () => {};
+    server.use(
+      http.put('*/api/patients/:patientId/allergies', async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return undefined;
+      }),
+    );
+    const { queryClient } = renderApp({ entry: '/patients/pth_00001?tab=vitals' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit allergies' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add an allergy' }));
+    await userEvent.type(
+      within(screen.getByRole('group', { name: 'Allergy 2' })).getByRole('textbox', {
+        name: /^Substance/,
+      }),
+      'Peanuts',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Save allergies' }));
+    // The session now belongs to someone else at the same hospital.
+    queryClient.setQueryData(sessionKey, sessionFor(USER_IDS.doctor, HOSPITAL));
+    release();
+    await delay(50);
+    const held = queryClient
+      .getQueryCache()
+      .findAll({ queryKey: ['tenant', HOSPITAL, 'triage'] })
+      .map((query) => JSON.stringify(query.state.data));
+    expect(held.join()).not.toContain('Peanuts');
+  });
+});
+
+describe('the history after a correction', () => {
+  it('labels the correction and the reading it corrects, which cannot be corrected again', async () => {
+    await api.POST('/patients/{patientId}/vitals', {
+      params: { path: { patientId: 'pth_00001' }, header: { 'idempotency-key': 'history-fix-1' } },
+      body: { pulse: 90, correctsId: 'vit_h_2', correctionReason: 'Recounted.' },
+    });
+    renderApp({ entry: '/patients/pth_00001?tab=vitals' });
+    expect(await screen.findByText('3 readings')).toBeInTheDocument();
+    const table = screen.getByRole('table', { name: 'Vitals readings' });
+    expect(within(table).getByText('Correction')).toBeInTheDocument();
+    expect(within(table).getByText('Corrected')).toBeInTheDocument();
+    const corrects = within(table).getAllByRole('button', { name: /^Correct: / });
+    expect(
+      corrects.filter((button) => button.getAttribute('aria-disabled') === 'true'),
+    ).toHaveLength(1);
+  });
+});
+
+describe('switching hospital', () => {
+  it('leaves none of the first hospital’s triage data behind', async () => {
+    signIn(USER_IDS.doctor, HOSPITAL);
+    const { queryClient } = renderApp({ entry: '/patients/pth_00001?tab=vitals' });
+    expect(await screen.findByText('Penicillin')).toBeInTheDocument();
+    expect(await screen.findByText('2 readings')).toBeInTheDocument();
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Hospital' }),
+      TENANT_IDS.clinic,
+    );
+    await waitFor(() =>
+      expect(queryClient.getQueryCache().findAll({ queryKey: ['tenant', HOSPITAL] })).toHaveLength(
+        0,
+      ),
+    );
+    expect(screen.queryByText('Penicillin')).not.toBeInTheDocument();
+  });
+});
+
+describe('TriageSummary', () => {
+  it('shows the allergies and the newest reading, marked', async () => {
+    renderWithProviders(<TriageSummary patientId="pth_00001" />);
+    expect(await screen.findByText('Penicillin')).toBeInTheDocument();
+    expect(await screen.findByText('152/94 mmHg')).toBeInTheDocument();
+    expect(screen.getAllByText('High')).toHaveLength(2);
+    await expectNoAxeViolations();
+  });
+
+  it('says when no vitals were recorded', async () => {
+    renderWithProviders(<TriageSummary patientId="pth_00002" />);
+    expect(await screen.findByText('No vitals recorded.')).toBeInTheDocument();
+    expect(screen.getByText('Not asked yet.')).toBeInTheDocument();
+  });
+
+  it('shows each part only to whoever may read it', async () => {
+    revokePermission(HOSPITAL, 'admin', 'allergy:read');
+    renderWithProviders(<TriageSummary patientId="pth_00001" />);
+    expect(await screen.findByText('152/94 mmHg')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Allergies' })).not.toBeInTheDocument();
+  });
+
+  it('renders nothing with the switch off', async () => {
+    setTenantFeature(HOSPITAL, 'triage', false);
+    renderWithProviders(
+      <>
+        <h1>Consultation</h1>
+        <TriageSummary patientId="pth_00001" />
+      </>,
+    );
+    await screen.findByRole('heading', { name: 'Consultation' });
+    expect(screen.queryByRole('heading', { name: 'Latest vitals' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Allergies' })).not.toBeInTheDocument();
   });
 });

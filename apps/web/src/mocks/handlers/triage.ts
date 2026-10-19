@@ -332,18 +332,27 @@ export const triageHandlers = [
         return error(422, 'token_not_for_patient', "Not this patient's token today");
       }
     }
-    if (
-      typeof body.correctsId === 'string' &&
-      !vitals.some(
+    // A correction takes the token and the encounter of the reading it corrects, and a reading
+    // is corrected once: a later correction corrects the correction.
+    let corrected: Vitals | undefined;
+    if (typeof body.correctsId === 'string') {
+      if (body.queueTokenId !== undefined) {
+        return error(400, 'validation_failed', 'A correction takes the token of its reading');
+      }
+      corrected = vitals.find(
         (each) =>
           each.tenantId === tenantId && each.patientId === patientId && each.id === body.correctsId,
-      )
-    ) {
-      return error(422, 'unknown_correction', "Not this patient's reading");
+      );
+      if (!corrected) return error(422, 'unknown_correction', "Not this patient's reading");
+      if (vitals.some((each) => each.correctsId === body.correctsId)) {
+        return error(422, 'already_corrected', 'That reading was already corrected');
+      }
     }
     counter += 1;
     const reading: Vitals = {
       ...(body as Partial<Vitals>),
+      ...(corrected?.queueTokenId ? { queueTokenId: corrected.queueTokenId } : {}),
+      ...(corrected?.encounterId ? { encounterId: corrected.encounterId } : {}),
       id: `vit_new_${counter}`,
       tenantId,
       patientId,

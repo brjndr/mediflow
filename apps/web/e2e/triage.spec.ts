@@ -15,6 +15,10 @@ const focusedText = (page: Page) =>
     return element ? `${element.tagName.toLowerCase()}:${element.textContent?.trim() ?? ''}` : '';
   });
 
+/** Whether the focused element shows its focus ring, as the keyboard sees it. */
+const focusVisible = (page: Page) =>
+  page.evaluate(() => document.activeElement?.matches(':focus-visible') ?? false);
+
 test('record vitals for a token with the keyboard alone', async ({ page }) => {
   await page.goto('/');
   await goTo(page, 'OPD queue');
@@ -46,11 +50,15 @@ test('record vitals for a token with the keyboard alone', async ({ page }) => {
   await page.keyboard.press('Enter');
   const saved = page.getByRole('heading', { name: 'Vitals saved' });
   await expect(saved).toBeFocused();
-  await expect(
-    page.getByText('Vitals saved. 2 values are outside the normal range.'),
-  ).toBeVisible();
+  // The heading is described by what was saved, so it is read out with it.
+  await expect(saved).toHaveAccessibleDescription(/outside the normal range/);
+  await expect(page.getByText('Vitals saved. 1 value is outside the normal range.')).toBeVisible();
+  // The allergies stay above the reading, then the way back.
+  await page.keyboard.press('Tab');
+  expect(await focusedText(page)).toBe('button:Record allergies');
   await page.keyboard.press('Tab');
   expect(await focusedText(page)).toBe('a:Back to the queue');
+  expect(await focusVisible(page)).toBe(true);
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'OPD queue', exact: true })).toBeVisible();
 });
@@ -65,15 +73,32 @@ test('edit a patient’s allergies in place with the keyboard alone', async ({ p
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Allergies' })).toBeFocused();
 
-  await page.getByRole('button', { name: 'Add an allergy' }).focus();
+  // Through the form in its own order, with focus visible at each step.
+  const first = page.getByRole('group', { name: 'Allergy 1' });
+  for (const next of [
+    page.getByRole('combobox', { name: /^Allergies/ }),
+    first.getByRole('textbox', { name: /^Substance/ }),
+    first.getByRole('textbox', { name: /^Reaction/ }),
+    first.getByRole('combobox', { name: /^Severity/ }),
+    page.getByRole('button', { name: 'Remove allergy 1' }),
+    page.getByRole('button', { name: 'Add an allergy' }),
+  ]) {
+    await page.keyboard.press('Tab');
+    await expect(next).toBeFocused();
+    expect(await focusVisible(page)).toBe(true);
+  }
   await page.keyboard.press('Enter');
+  // The new row comes before "Add an allergy": back through it to its substance.
   const second = page.getByRole('group', { name: 'Allergy 2' });
-  await second.getByRole('textbox', { name: /^Substance/ }).focus();
+  for (let step = 0; step < 4; step++) await page.keyboard.press('Shift+Tab');
+  await expect(second.getByRole('textbox', { name: /^Substance/ })).toBeFocused();
   await page.keyboard.type('Peanuts');
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 
-  await page.getByRole('button', { name: 'Save allergies' }).focus();
+  for (let step = 0; step < 5; step++) await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Save allergies' })).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
   await page.keyboard.press('Enter');
   await expect(page.getByText('Allergies saved.')).toBeVisible();
   await expect(page.getByText('Peanuts')).toBeVisible();

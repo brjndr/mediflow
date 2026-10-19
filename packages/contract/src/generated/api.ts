@@ -1917,10 +1917,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The patient's readings, newest first, corrections and the readings they correct included. Optionally only those taken for one queue token. Requires vitals:read and the triage feature flag. Audited. */
+        /** @description The patient's readings, newest first, corrections and the readings they correct included. Optionally only those taken for one queue token. Requires vitals:read and the triage feature flag. Audited in the request's transaction. */
         get: operations["listVitals"];
         put?: never;
-        /** @description Records a reading, and emits vitals.recorded. A token that is not this patient's, or not today's, is 422 `token_not_for_patient`; a correction of a reading that is not this patient's is 422 `unknown_correction`; a patient the hospital does not have is 404. Requires vitals:record and the triage feature flag. */
+        /** @description Records a reading, audited in the request's transaction, and emits vitals.recorded through the outbox (tenantId, the reading's id, patientId, queueTokenId when given, the actor and the time). The token must be this patient's and today's, in any status (a re-check after the consultation is allowed); otherwise 422 `token_not_for_patient`. A correction names a reading of this patient that no other reading corrects yet (422 `unknown_correction`, 422 `already_corrected`), and takes that reading's queueTokenId and encounterId: a queueTokenId sent with a correction is refused (400). A patient the hospital does not have is 404. The idempotency key is kept per hospital and user. Requires vitals:record and the triage feature flag. */
         post: operations["recordVitals"];
         delete?: never;
         options?: never;
@@ -1952,7 +1952,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The hospital's normal ranges that apply to this patient, decided by the server from the patient's age at the hospital's date. Requires vitals:read and the triage feature flag. */
+        /** @description The hospital's normal ranges that apply to this patient, decided by the server from the patient's age at the hospital's date. Audited, as it tells whether the patient is under 18. Requires vitals:read and the triage feature flag. */
         get: operations["getVitalRanges"];
         put?: never;
         post?: never;
@@ -1971,7 +1971,7 @@ export interface paths {
         };
         /** @description The patient's allergies; status `unknown` and version 0 while never recorded. Requires allergy:read and the triage feature flag. Audited. */
         get: operations["getAllergies"];
-        /** @description Replaces the patient's allergies from the version the edit started from; another change first is 409 `conflict`. Requires allergy:update and the triage feature flag. Audited. */
+        /** @description Replaces the patient's allergies from the version the edit started from; another change first is 409 `conflict`. Requires allergy:update and the triage feature flag. Audited in the request's transaction, and emits allergy.updated through the outbox (tenantId, patientId, the new version, the actor and the time; never the allergies themselves). */
         put: operations["setAllergies"];
         post?: never;
         delete?: never;
@@ -3241,7 +3241,9 @@ export interface components {
             id: string;
             tenantId: string;
             patientId: string;
+            /** @description The token the reading was taken for. A correction carries the one of the reading it corrects. */
             queueTokenId?: string;
+            /** @description Set once, from empty to the encounter, by the triage module itself when it hears encounter.opened for the reading's queue token (idempotently); nothing else of a reading ever changes. A reading taken outside the queue gets none until the API attaches readings to the patient's open encounter (M7). */
             encounterId?: string;
             /** Format: date-time */
             recordedAt: string;
@@ -3270,7 +3272,7 @@ export interface components {
         };
         /** @description At least one measurement or a chief complaint. Systolic and diastolic go together, the diastolic below the systolic. */
         VitalsCreate: {
-            /** @description Today's token of this patient the reading was taken for. */
+            /** @description Today's token of this patient the reading was taken for. Not sent with a correction, which takes the corrected reading's. */
             queueTokenId?: string;
             /** @description mmHg. */
             systolic?: number;
