@@ -1706,6 +1706,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/queue/check-ins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Checks in a patient who has arrived for today’s appointment: issues today’s next token of the department of the appointment’s doctor, for that doctor, linked to the appointment. Its place in the call order is the booked time when the patient came before it, and the time of check-in when they came after it (a priority still goes first). An appointment gives one token, ever: checking it in again, from any desk, answers 200 with the token it was given, as it is now (a token outside the caller’s scope of queue:create is refused instead: 409 `already_queued` while it is open, `already_checked_in` once served). Only a `scheduled` appointment (409 `invalid_transition`) that starts today at the hospital (422 `not_today`). An appointment that does not exist, of another hospital or outside the scope the caller holds appointment:read with is 422 `unknown_appointment`; a patient the caller may not read is 422 `unknown_patient`, as for issuing; a doctor who no longer practises here is 422 `unknown_doctor`; a department archived, or outside the caller’s scope of queue:create, is 422 `unknown_department`. A patient with a token still open in that department today is 409 `already_queued`. Requires queue:create, appointment:read and patient:read, and both the queue and the appointments feature flags (403 `feature_disabled`). The Idempotency-Key header is required: a repeat issues nothing and answers with the token as it is now. Audited, emits `queue.token_issued` with the appointment through the outbox, and is announced on `/queue/events`. */
+        post: operations["checkInAppointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/queue/call-next": {
         parameters: {
             query?: never;
@@ -3168,6 +3185,9 @@ export interface components {
             doctorId?: string;
             priority?: components["schemas"]["QueuePriority"];
         };
+        QueueCheckIn: {
+            appointmentId: string;
+        };
         QueueToken: {
             id: string;
             tenantId: string;
@@ -3186,6 +3206,8 @@ export interface components {
             patientId: string;
             patientName: string;
             patientMrn: string;
+            /** @description The appointment the patient was checked in from, if any. */
+            appointmentId?: string;
             status: components["schemas"]["QueueTokenStatus"];
             priority?: components["schemas"]["QueuePriority"];
             /** Format: date-time */
@@ -11593,6 +11615,96 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkInAppointment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueueCheckIn"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
             /** @description Default Response */
             201: {
                 headers: {

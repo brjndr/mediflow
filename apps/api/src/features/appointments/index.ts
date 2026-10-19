@@ -11,3 +11,6 @@ export const appointmentsFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('appointments', APPOINTMENT_PERMISSIONS);
   await app.register(appointmentRoutes);
 };
+
+/** For the queue: an appointment of today whose patient has arrived, to check them in. */
+export { appointmentForCheckIn, type CheckInAppointment } from './repository.js';
