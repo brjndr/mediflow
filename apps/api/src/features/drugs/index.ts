@@ -13,3 +13,6 @@ export const drugsFeature: FastifyPluginAsync = async (app) => {
   app.importKinds.register(drugImport);
   await app.register(drugRoutes);
 };
+
+/** For the clinical module: a medicine that may be prescribed. */
+export { prescribableDrug } from './repository.js';

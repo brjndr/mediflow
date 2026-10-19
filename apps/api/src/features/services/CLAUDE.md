@@ -13,3 +13,4 @@ What was decided for this feature's API. Moved out of `apps/api/CLAUDE.md` (#370
 - **Amounts are minor units in a `bigint`,** at most 10^12, read as a number. Dates are calendar dates (`date`), never instants.
 - **Changes are audited** (`service`, `service_price`) and emit `master.changed` with the kind of record, what happened and, for an update, the names of the changed fields. Never a value. A price that comes with a new service (`priceMinor`) is audited and announced as a price of its own.
 - **`POST /services` and `POST /services/{id}/prices` accept an Idempotency-Key** and store the whole answer for a replay, since it holds no patient data.
+- **Exports** from `index.ts`: `orderableService`, a service of a category that is not archived with its code and name, which the clinical module places an imaging or procedure order for (#86).

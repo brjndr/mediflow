@@ -13,6 +13,8 @@ export const DOMAIN_EVENTS = [
   'appointment.no_show',
   'encounter.opened',
   'encounter.closed',
+  // An encounter opened by mistake was cancelled, with nothing on its record.
+  'encounter.cancelled',
   'queue.token_issued',
   'queue.called',
   'vitals.recorded',

@@ -295,3 +295,22 @@ export async function setArchived(
   );
   return rows[0] ?? null;
 }
+
+/**
+ * For a prescription: a medicine of the hospital that is not archived, named as it reads now
+ * (generic name, then the strength and the brand when there are), or null. Exported from
+ * `index.ts`, so the clinical module never reads this table itself.
+ */
+export async function prescribableDrug(
+  client: pg.ClientBase,
+  id: string,
+): Promise<{ id: string; name: string } | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<{ id: string; name: string }>(
+    `select id, generic_name || coalesce(' ' || strength, '') || coalesce(' (' || brand_name || ')', '')
+              as name
+     from drugs where id = $1 and type = 'medicine' and not archived`,
+    [id],
+  );
+  return rows[0] ?? null;
+}

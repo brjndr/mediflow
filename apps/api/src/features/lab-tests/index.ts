@@ -14,3 +14,6 @@ export const labTestsFeature: FastifyPluginAsync = async (app) => {
   app.importKinds.register(labTestImport);
   await app.register(labTestRoutes);
 };
+
+/** For the clinical module: a test that may be ordered, to place a lab order for. */
+export { orderableLabTest } from './repository.js';

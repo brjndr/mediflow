@@ -453,3 +453,20 @@ export async function replaceRanges(
   if (version === undefined) throw new Error('the ranges were not saved');
   return version;
 }
+
+/**
+ * For placing a lab order: a test or panel of the hospital that is not archived, with its code
+ * and name as they read now, or null. Exported from `index.ts`, so the clinical module never reads
+ * this table itself.
+ */
+export async function orderableLabTest(
+  client: pg.ClientBase,
+  id: string,
+): Promise<{ id: string; code: string; name: string } | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<{ id: string; code: string; name: string }>(
+    'select id, code, name from lab_tests where id = $1 and not archived',
+    [id],
+  );
+  return rows[0] ?? null;
+}

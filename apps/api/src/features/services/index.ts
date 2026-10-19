@@ -13,3 +13,6 @@ export const servicesFeature: FastifyPluginAsync = async (app) => {
   app.importKinds.register(serviceImport);
   await app.register(serviceRoutes);
 };
+
+/** For the clinical module: a service of a category that may be ordered (imaging, procedure). */
+export { orderableService } from './repository.js';
