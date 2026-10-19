@@ -381,6 +381,8 @@ const HOSPITALS = [
       templates: true,
       imports: true,
       appointments: true,
+      queue: true,
+      triage: true,
       clinical: true,
       laboratory: true,
       radiology: true,
@@ -409,6 +411,8 @@ const HOSPITALS = [
       codes: true,
       templates: true,
       appointments: true,
+      queue: true,
+      triage: true,
       clinical: true,
       laboratory: false,
       radiology: false,
@@ -433,6 +437,12 @@ const STAFF = [
       { slug: 'sample-hospital', roleId: 'doctor' },
       { slug: 'riverside-clinic', roleId: 'doctor' },
     ],
+  },
+  {
+    // Records vitals and allergies at triage, which a doctor only reads.
+    email: 'nurse@sample-hospital.test',
+    name: 'Sample Nurse',
+    memberships: [{ slug: 'sample-hospital', roleId: 'nurse' }],
   },
   {
     email: 'reception@riverside-clinic.test',
@@ -883,6 +893,54 @@ try {
       [tenantId, SAMPLE_PATIENTS],
     );
   }
+
+  // Today's OPD queue at each hospital: five tokens in General Medicine, two of them for its
+  // first doctor and one with a priority. Only while the hospital has none today, so running the
+  // seed again the same day changes nothing.
+  for (const hospital of HOSPITALS) {
+    const tenantId = tenantIds.get(hospital.slug);
+    const existing = await client.query(
+      `select 1 from queue_tokens q join tenants t on t.id = q.tenant_id
+       where q.tenant_id = $1 and q.day = (now() at time zone t.timezone)::date limit 1`,
+      [tenantId],
+    );
+    if (existing.rowCount !== 0) continue;
+    await client.query(
+      `with place as (
+         select t.id as tenant_id, (now() at time zone t.timezone)::date as day, d.id as department_id,
+                (select o.id from doctors o where o.tenant_id = t.id and o.department_id = d.id
+                 and o.active order by o.id limit 1) as doctor_id
+         from tenants t join departments d on d.tenant_id = t.id and d.name_lower = 'general medicine'
+         where t.id = $1
+       ),
+       counter as (
+         insert into queue_counters (tenant_id, department_id, day, last_number)
+         select tenant_id, department_id, day, 5 from place
+         on conflict (tenant_id, department_id, day) do nothing
+         returning tenant_id
+       )
+       insert into queue_tokens (tenant_id, day, department_id, number, doctor_id, patient_id,
+         priority, issued_at, issued_by)
+       select pl.tenant_id, pl.day, pl.department_id, n,
+              case when n in (1, 3) then pl.doctor_id end,
+              (select id from patients where tenant_id = pl.tenant_id order by mrn offset 40 + n limit 1),
+              case when n = 4 then 'senior_citizen' end,
+              now() - make_interval(mins => (6 - n) * 7),
+              (select user_id from memberships where tenant_id = pl.tenant_id order by user_id limit 1)
+       from place pl cross join counter cross join generate_series(1, 5) as n`,
+      [tenantId],
+    );
+  }
+
+  // The clinic's own normal ranges: it marks a temperature high a little sooner. The hospital has
+  // none, so it uses the API's built-in ones.
+  await client.query(
+    `insert into vital_ranges (tenant_id, measure, low, high)
+     values ($1, 'systolic', 90, 139), ($1, 'diastolic', 60, 89), ($1, 'pulse', 60, 100),
+            ($1, 'temperature', 36.1, 37.5), ($1, 'spo2', 94, null)
+     on conflict (tenant_id, measure) do nothing`,
+    [tenantIds.get('riverside-clinic')],
+  );
 
   await client.query('commit');
 
