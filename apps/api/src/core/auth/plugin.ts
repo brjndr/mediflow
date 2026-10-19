@@ -5,7 +5,7 @@ import fp from 'fastify-plugin';
 import { HttpError } from '../http/errors.js';
 import type { Session, SessionResolver } from '../session/plugin.js';
 import { withAuthTransaction } from './db.js';
-import { resolveSession } from './sessions.js';
+import { resolveSession, sessionStillHolds } from './sessions.js';
 import { AUTH_SCHEMAS } from './session-view.js';
 import { ACCOUNT_SCHEMAS } from './account-routes.js';
 
@@ -18,6 +18,12 @@ declare module 'fastify' {
       tokenOf(request: FastifyRequest): string | undefined;
       setSessionCookie(reply: FastifyReply, token: string): void;
       clearSessionCookie(reply: FastifyReply): void;
+      /**
+       * Whether a request's session still holds at its hospital, checked again later without
+       * touching it (`sessionStillHolds`): for a stream that outlives its request. A session from
+       * a test resolver has no row and is taken to hold; the access policy is still checked.
+       */
+      sessionStillHolds(session: Session): Promise<boolean>;
     };
   }
 }
@@ -98,6 +104,14 @@ export const authPlugin = fp(
         }
         if (resolved.rotatedToken) setSessionCookie(reply, resolved.rotatedToken);
         return resolved.session;
+      },
+      async sessionStillHolds(session) {
+        const { id, userId, tenantId } = session;
+        if (!tenantId) return false;
+        if (id === undefined) return true;
+        return withAuthTransaction(app.database.pool, (transaction) =>
+          sessionStillHolds(transaction, config, { id, userId, tenantId }),
+        );
       },
     });
   },

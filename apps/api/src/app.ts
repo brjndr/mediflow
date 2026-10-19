@@ -22,6 +22,8 @@ import { notifierPlugin } from './core/notifier/plugin.js';
 import { outboxPlugin } from './core/outbox/plugin.js';
 import { idempotencyPlugin, idempotencyStorePlugin } from './core/idempotency/plugin.js';
 import { importKindsPlugin } from './core/imports/registry.js';
+import type { LiveBus } from './core/live/bus.js';
+import { livePlugin } from './core/live/plugin.js';
 import type { RateLimiter } from './core/ratelimit/limiter.js';
 import { rateLimitPlugin } from './core/ratelimit/plugin.js';
 import { sessionPlugin, type SessionResolver } from './core/session/plugin.js';
@@ -29,6 +31,8 @@ import { tenancyPlugin } from './core/tenancy/plugin.js';
 import { tenantRoutes } from './core/tenancy/routes.js';
 import { healthFeature } from './features/health/index.js';
 import { appointmentsFeature } from './features/appointments/index.js';
+import { queueFeature } from './features/queue/index.js';
+import { triageFeature } from './features/triage/index.js';
 import { codesFeature } from './features/codes/index.js';
 import { departmentsFeature } from './features/departments/index.js';
 import { doctorsFeature } from './features/doctors/index.js';
@@ -59,6 +63,8 @@ export interface AppOptions {
   jobQueue?: JobQueue;
   /** Request counters for the per-hospital and per-user limits. Defaults to in-process. */
   rateLimiter?: RateLimiter;
+  /** What tells open screens that something changed. Defaults to Postgres LISTEN/NOTIFY. */
+  liveBus?: LiveBus;
 }
 
 /**
@@ -120,6 +126,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(outboxPlugin);
   await app.register(accessPlugin);
   await app.register(idempotencyPlugin);
+  await app.register(livePlugin, { bus: options.liveBus });
   await app.register(tenantRoutes);
   await app.register(authRoutes);
   await app.register(accountRoutes);
@@ -141,6 +148,8 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(templatesFeature);
   await app.register(importsFeature);
   await app.register(appointmentsFeature);
+  await app.register(queueFeature);
+  await app.register(triageFeature);
 
   return app;
 }
