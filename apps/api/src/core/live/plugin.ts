@@ -11,6 +11,10 @@ import { PgLiveBus, type LiveBus, type LiveData } from './bus.js';
 export const KEEP_ALIVE_MS = 20_000;
 /** How long the browser waits before opening a stream again after it breaks. */
 export const RETRY_MS = 5_000;
+/** Open streams one person may have at one hospital, on one API instance. */
+export const MAX_STREAMS_PER_USER = 5;
+/** How long a client may leave written events unread before its stream is ended. */
+const STALLED_MS = 30_000;
 
 export interface EventStreamOptions {
   /** The bus topic to follow, at the request's hospital. */
@@ -58,7 +62,11 @@ declare module 'fastify' {
 export const livePlugin = fp<{ bus?: LiveBus }>(
   async (app, pluginOptions) => {
     const bus = pluginOptions.bus ?? new PgLiveBus(app.config.DATABASE_URL);
+    /** How each open or starting stream is ended. */
     const open = new Set<() => void>();
+    /** Open streams per hospital and person. */
+    const streamsOf = new Map<string, number>();
+    let closing = false;
 
     async function stream(
       request: FastifyRequest,
@@ -91,10 +99,27 @@ export const livePlugin = fp<{ bus?: LiveBus }>(
         });
       };
 
+      const unavailable = () =>
+        new HttpError(503, 'live_unavailable', 'Live updates are not available now');
+      if (closing) throw unavailable();
+      // A cap per person at the hospital, on this instance, so one session cannot hold the pool
+      // with the checks of hundreds of streams.
+      const who = `${tenantId}:${userId}`;
+      const held = streamsOf.get(who) ?? 0;
+      if (held >= MAX_STREAMS_PER_USER) {
+        throw new HttpError(429, 'rate_limited', 'Too many open streams', {
+          'retry-after': String(RETRY_MS / 1000),
+        });
+      }
+      streamsOf.set(who, held + 1);
+
       let ended = false;
+      // Nothing is written before the headers: a message may arrive while the request commits.
+      let started = false;
       let checkedAt = Date.now();
       let stop: () => void = () => undefined;
       let keepAlive: NodeJS.Timeout | undefined = undefined;
+      let stalled: NodeJS.Timeout | undefined = undefined;
       const pending: LiveData[] = [];
       let flushQueued = false;
       let work = Promise.resolve();
@@ -103,16 +128,36 @@ export const livePlugin = fp<{ bus?: LiveBus }>(
         if (ended) return;
         ended = true;
         open.delete(end);
-        clearInterval(keepAlive);
+        clearTimeout(keepAlive);
+        clearTimeout(stalled);
         stop();
-        if (reply.raw.headersSent && !reply.raw.writableEnded) reply.raw.end();
+        const left = (streamsOf.get(who) ?? 1) - 1;
+        if (left > 0) streamsOf.set(who, left);
+        else streamsOf.delete(who);
+        if (started && !reply.raw.writableEnded) reply.raw.end();
       };
+      // Ended by the app closing and by the client going, from the start, not only once open.
+      open.add(end);
+      reply.raw.on('close', end);
+      if (request.raw.socket.destroyed) end();
+
       const write = (text: string) => {
-        if (!ended) reply.raw.write(text);
+        if (!started || ended) return;
+        // A client that stops reading is let go rather than buffered for without end.
+        if (!reply.raw.write(text) && stalled === undefined) {
+          stalled = setTimeout(end, STALLED_MS);
+          reply.raw.once('drain', () => {
+            clearTimeout(stalled);
+            stalled = undefined;
+          });
+        }
       };
       // One step at a time, so checks never overlap and events keep their order.
       const serially = (step: () => Promise<void>) => {
-        work = work.then(step).catch(() => end());
+        work = work.then(step).catch(() => {
+          request.log.warn({ event: 'live_stream_check_failed' }, 'live stream check failed');
+          end();
+        });
       };
       const recheck = async () => {
         allow = await check();
@@ -128,29 +173,45 @@ export const livePlugin = fp<{ bus?: LiveBus }>(
           if (allow?.(data)) write(`event: ${options.event}\ndata: ${text}\n\n`);
         }
       };
+      const queueFlush = () => {
+        if (flushQueued || !started) return;
+        flushQueued = true;
+        serially(flush);
+      };
+      // The first keep-alive at a random point, so a hospital's streams do not all check at once.
+      const keepAliveIn = (delay: number) => {
+        keepAlive = setTimeout(() => {
+          serially(async () => {
+            await recheck();
+            write(': keep-alive\n\n');
+          });
+          keepAliveIn(KEEP_ALIVE_MS);
+        }, delay);
+        keepAlive.unref();
+      };
 
       try {
         stop = await bus.subscribe(tenantId, options.topic, {
           message(data) {
             if (ended) return;
             pending.push(data);
-            if (!flushQueued) {
-              flushQueued = true;
-              serially(flush);
-            }
+            queueFlush();
           },
           lost: end,
         });
       } catch {
-        throw new HttpError(503, 'live_unavailable', 'Live updates are not available now');
+        end();
+        throw unavailable();
       }
+      if (ended) throw unavailable();
 
       try {
         await request.commitNow();
       } catch (error) {
-        stop();
+        end();
         throw error;
       }
+      if (ended) throw unavailable();
 
       reply.hijack();
       reply.raw.writeHead(200, {
@@ -161,21 +222,17 @@ export const livePlugin = fp<{ bus?: LiveBus }>(
         'x-accel-buffering': 'no',
         'x-request-id': request.id,
       });
+      started = true;
       write(`retry: ${RETRY_MS}\n\n`);
-      open.add(end);
-      reply.raw.on('close', end);
-      keepAlive = setInterval(() => {
-        serially(async () => {
-          await recheck();
-          write(': keep-alive\n\n');
-        });
-      }, KEEP_ALIVE_MS);
-      keepAlive.unref();
+      keepAliveIn(KEEP_ALIVE_MS / 2 + Math.random() * (KEEP_ALIVE_MS / 2));
+      // What arrived while the request committed.
+      if (pending.length > 0) queueFlush();
     }
 
     app.decorate('live', { bus, stream });
-    // Open streams would keep the server from closing.
+    // Open and starting streams would keep the server from closing.
     app.addHook('preClose', async () => {
+      closing = true;
       for (const end of [...open]) end();
     });
     app.addHook('onClose', async () => bus.close());

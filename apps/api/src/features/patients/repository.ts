@@ -192,6 +192,26 @@ export async function findPatient(
   return rows[0] ?? null;
 }
 
+/**
+ * Whether a patient of the hospital is within the scope a caller holds a patient permission with.
+ * For another module that answers about a patient (queue, triage), exported from `index.ts`, so
+ * what `own` and `department` mean is decided here only.
+ */
+export async function patientInScope(
+  client: pg.ClientBase,
+  id: string,
+  visibility: Visibility,
+): Promise<boolean> {
+  if (!UUID.test(id)) return false;
+  const params: unknown[] = [id];
+  const visible = visibilityClause(visibility, params);
+  const { rowCount } = await client.query(
+    `select 1 from patients where id = $1 ${visible ? `and ${visible}` : ''}`,
+    params,
+  );
+  return rowCount === 1;
+}
+
 /** Today's date where the hospital is, as YYYY-MM-DD. A birth date cannot be after it. */
 export async function todayAtHospital(client: pg.PoolClient): Promise<string> {
   const { rows } = await client.query<{ today: string }>(

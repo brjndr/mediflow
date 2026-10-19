@@ -276,7 +276,8 @@ function tokenChange(
         return error(400, 'validation_failed', 'Some details are not valid');
       }
       const token = tokens.find((t) => t.id === params.tokenId && t.tenantId === tenantId);
-      if (!token || token.day !== today(tenantId)) return error(404, 'not_found', 'No such token');
+      if (!token || token.day !== today(tenantId))
+        return error(404, 'token_not_found', 'No such token');
       if (body.version !== token.version) return error(409, 'conflict', 'It has changed');
       if (!allowed.includes(token.status)) {
         return error(409, 'invalid_transition', `Not from ${token.status}`);

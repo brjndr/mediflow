@@ -13,3 +13,6 @@ export const patientsFeature: FastifyPluginAsync = async (app) => {
   app.importKinds.register(patientImport);
   await app.register(patientRoutes);
 };
+
+/** For another module that answers about a patient: is it within the caller's scope here. */
+export { patientInScope } from './repository.js';

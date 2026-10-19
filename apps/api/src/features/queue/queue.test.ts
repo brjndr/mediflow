@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { PgLiveBus, type LiveBus } from '../../core/live/bus.js';
 import {
   addMembership,
   as,
@@ -878,5 +879,221 @@ describe('the live stream of a signed-in session', () => {
     ]);
     controller.abort();
     expect(next).toMatchObject({ done: true });
+  });
+});
+
+describe('more of the queue rules', () => {
+  it('answers 404 for a change of a token of another day', async () => {
+    // The day never changes once issued: an old token is written as one.
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into queue_tokens (tenant_id, day, department_id, number, patient_id, issued_by)
+       values ($1, current_date - 2, $2, 1, $3, $4) returning id`,
+      [hospital.id, departments.general, patients.two, desk.id],
+    );
+    const answer = await post(
+      `/queue/tokens/${rows[0]?.id ?? ''}/priority`,
+      { version: 1, priority: 'child' },
+      { user: nurse },
+    );
+    expect(errorOf(answer)).toEqual([404, 'token_not_found']);
+  });
+
+  it('puts a recalled token back in the queue of the doctor who called it', async () => {
+    await issued({ patientId: patients.one, departmentId: departments.general });
+    const called = (await callNext(doctors.a)).json<Token>();
+    const skipped = (
+      await post(`/queue/tokens/${called.id}/skip`, { version: called.version }, { user: nurse })
+    ).json<Token>();
+    await post(`/queue/tokens/${skipped.id}/recall`, { version: skipped.version }, { user: nurse });
+    expect(errorOf(await callNext(doctors.b, { user: docB }))).toEqual([409, 'queue_empty']);
+    expect((await callNext(doctors.a)).json<Token>().id).toBe(called.id);
+  });
+
+  it('issues only to a patient within the scope the caller reads patients with', async () => {
+    await pool.query(
+      "update role_permissions set scope = 'own' where tenant_id = $1 and role_id = 'receptionist' and permission = 'patient:read'",
+      [hospital.id],
+    );
+    try {
+      // The sample patients were registered by 'test', not by the desk.
+      expect(
+        errorOf(
+          await post('/queue/tokens', {
+            patientId: patients.one,
+            departmentId: departments.general,
+          }),
+        ),
+      ).toEqual([422, 'unknown_patient']);
+    } finally {
+      await pool.query(
+        "update role_permissions set scope = 'all' where tenant_id = $1 and role_id = 'receptionist' and permission = 'patient:read'",
+        [hospital.id],
+      );
+    }
+  });
+});
+
+describe('the life of a live stream', () => {
+  interface Opened {
+    status: number;
+    text: () => string;
+    ended: () => boolean;
+    close: () => void;
+  }
+
+  async function openAt(at: string, options: Options = {}): Promise<Opened> {
+    const controller = new AbortController();
+    const response = await fetch(`${at}/queue/events`, {
+      headers: as((options.tenant ?? hospital).id, (options.user ?? desk).id),
+      signal: controller.signal,
+    });
+    let text = '';
+    let ended = !response.ok;
+    if (response.ok && response.body) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      void (async () => {
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            text += decoder.decode(value, { stream: true });
+          }
+        } catch {
+          // Aborted by the test.
+        }
+        ended = true;
+      })();
+    }
+    return {
+      status: response.status,
+      text: () => text,
+      ended: () => ended,
+      close: () => controller.abort(),
+    };
+  }
+
+  async function until(condition: () => boolean) {
+    for (let waited = 0; !condition(); waited += 20) {
+      if (waited > 3000) throw new Error('timed out');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+
+  /** Another app on a port of its own, for a bus or a config of its own. */
+  async function listening(options: Parameters<typeof buildTestApp>[0] = {}) {
+    const other = await buildTestApp({ resolveSession: resolveTestSession, ...options });
+    await other.listen({ port: 0, host: '127.0.0.1' });
+    return { other, at: `http://127.0.0.1:${(other.server.address() as AddressInfo).port}` };
+  }
+
+  /** The main app's address: it listens from the stream tests above. */
+  const main = () => `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
+
+  it('writes nothing before its headers, though a change arrives while it opens', async () => {
+    const real = new PgLiveBus(app.config.DATABASE_URL);
+    // A change that lands the moment the stream listens, before its request has committed.
+    const racing: LiveBus = {
+      publish: (client, topic, data) => real.publish(client, topic, data),
+      close: () => real.close(),
+      async subscribe(tenantId, topic, listener) {
+        const stop = await real.subscribe(tenantId, topic, listener);
+        queueMicrotask(() => listener.message({ departmentId: departments.general }));
+        return stop;
+      },
+    };
+    const { other, at } = await listening({
+      liveBus: racing,
+      config: { LIVE_RECHECK_MS: 60_000 },
+    });
+    try {
+      const stream = await openAt(at);
+      expect(stream.status).toBe(200);
+      await until(() => stream.text().includes('event: queue'));
+      expect(stream.text().startsWith('retry: 5000\n\n')).toBe(true);
+      stream.close();
+    } finally {
+      await other.close();
+    }
+  });
+
+  it('ends every stream when the listening connection is lost, and listens again after', async () => {
+    const stream = await openAt(main());
+    await until(() => stream.text().length > 0);
+    await pool.query(
+      "select pg_terminate_backend(pid) from pg_stat_activity where query ilike 'listen mediflow_live%'",
+    );
+    await until(() => stream.ended());
+    const again = await openAt(main());
+    try {
+      await until(() => again.text().length > 0);
+      await issued({ patientId: patients.one, departmentId: departments.general });
+      await until(() => again.text().includes('event: queue'));
+    } finally {
+      again.close();
+    }
+  });
+
+  it('ends its streams when the app closes', async () => {
+    const { other, at } = await listening();
+    const stream = await openAt(at);
+    await until(() => stream.text().length > 0);
+    const started = Date.now();
+    await other.close();
+    await until(() => stream.ended());
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+
+  it('answers 503 when live updates cannot be followed', async () => {
+    const broken: LiveBus = {
+      publish: async () => undefined,
+      close: async () => undefined,
+      subscribe: async () => {
+        throw new Error('no connection');
+      },
+    };
+    const { other, at } = await listening({ liveBus: broken });
+    try {
+      expect((await openAt(at)).status).toBe(503);
+    } finally {
+      await other.close();
+    }
+  });
+
+  it('lets one person hold five streams at a hospital', async () => {
+    const streams = await Promise.all([1, 2, 3, 4, 5].map(() => openAt(main())));
+    try {
+      expect(streams.map((stream) => stream.status)).toEqual([200, 200, 200, 200, 200]);
+      expect((await openAt(main())).status).toBe(429);
+      streams[0]?.close();
+      // Once the server hears the first one go, there is room again.
+      let next = await openAt(main());
+      for (let tries = 0; next.status === 429 && tries < 50; tries++) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        next = await openAt(main());
+      }
+      expect(next.status).toBe(200);
+      next.close();
+    } finally {
+      for (const stream of streams) stream.close();
+    }
+  });
+
+  it('ends when the hospital is suspended', async () => {
+    const stream = await openAt(main());
+    await until(() => stream.text().length > 0);
+    await pool.query("update tenants set status = 'suspended' where id = $1", [hospital.id]);
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query("select set_config('app.tenant_id', $1, true)", [hospital.id]);
+      await app.live.bus.publish(client, 'queue', { departmentId: departments.general });
+      await client.query('commit');
+      await until(() => stream.ended());
+      expect(stream.text()).not.toContain('event: queue');
+    } finally {
+      client.release();
+      await pool.query("update tenants set status = 'active' where id = $1", [hospital.id]);
+    }
   });
 });

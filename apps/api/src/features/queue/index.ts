@@ -11,3 +11,6 @@ export const queueFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('queue', QUEUE_PERMISSIONS);
   await app.register(queueRoutes);
 };
+
+/** For triage: is a token the patient's and today's at the hospital. */
+export { tokenOfPatientToday } from './repository.js';

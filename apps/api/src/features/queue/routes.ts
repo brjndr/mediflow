@@ -5,6 +5,7 @@ import type { Permission } from '../../core/access/registry.js';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { patientInScope } from '../patients/index.js';
 import {
   callAgain,
   callNext,
@@ -13,7 +14,6 @@ import {
   findToken,
   issueToken,
   listTokens,
-  patientExists,
   practisingDoctor,
   setPriority,
   setStatus,
@@ -152,17 +152,25 @@ export const queueRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request, reply) => {
       const visibility = visibilityFor(request, CREATE);
       if (request.replayOf !== null) {
+        // Within the scope the caller holds now, which may have narrowed since.
         const issued = request.idempotentId
-          ? await findToken(request.txClient, request.idempotentId, { scope: 'all', userId: '' })
+          ? await findToken(request.txClient, request.idempotentId, visibility)
           : null;
         if (!issued) throw notFound();
         request.audit('read', 'queue_token', issued.id);
         return reply.status(201).send(token(issued));
       }
       const body = request.body as QueueTokenCreate;
+      // The answer names the patient: only one the caller may read, within that scope.
       const policy = await request.access.policy();
-      const readsPatients = policy?.permissions.some((grant) => grant.permission === PATIENT_READ);
-      if (!readsPatients || !(await patientExists(request.txClient, body.patientId))) {
+      const reads = policy?.permissions.find((grant) => grant.permission === PATIENT_READ);
+      const readable =
+        reads !== undefined &&
+        (await patientInScope(request.txClient, body.patientId, {
+          scope: reads.scope ?? 'all',
+          userId: userIdOf(request),
+        }));
+      if (!readable) {
         throw new HttpError(422, 'unknown_patient', 'No such patient');
       }
       if (!(await departmentOpen(request.txClient, body.departmentId))) {
@@ -234,7 +242,7 @@ export const queueRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request, reply) => {
       if (request.replayOf !== null) {
         const called = request.idempotentId
-          ? await findToken(request.txClient, request.idempotentId, { scope: 'all', userId: '' })
+          ? await findToken(request.txClient, request.idempotentId, visibilityFor(request, CALL))
           : null;
         if (!called) throw notFound();
         request.audit('read', 'queue_token', called.id);

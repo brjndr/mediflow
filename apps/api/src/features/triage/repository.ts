@@ -38,11 +38,12 @@ const VITALS = `select v.id, v.tenant_id, v.patient_id, v.queue_token_id, v.enco
                 from vitals v
                 left join users u on u.id = v.recorded_by`;
 
-export async function patientExists(client: pg.ClientBase, id: string): Promise<boolean> {
-  if (!UUID.test(id)) return false;
-  const { rowCount } = await client.query('select 1 from patients where id = $1', [id]);
-  return rowCount === 1;
-}
+// The cursor's time in UTC to the microsecond, whatever the session's DateStyle.
+const VITALS_WITH_CURSOR = VITALS.replace(
+  'from vitals v',
+  `, to_char(v.recorded_at at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') || '+00' as cursor_at
+   from vitals v`,
+);
 
 interface Cursor {
   r: string;
@@ -87,7 +88,7 @@ export async function listVitals(
   const where = `where v.patient_id = $1 and ($2::uuid is null or v.queue_token_id = $2)`;
   const values = [patientId, filters.queueTokenId ?? null];
   const { rows } = await client.query<VitalsRow & { cursor_at: string }>(
-    `${VITALS.replace('from vitals v', ', v.recorded_at::text as cursor_at from vitals v')}
+    `${VITALS_WITH_CURSOR}
      ${where}
        and ($3::timestamptz is null or (v.recorded_at, v.id) < ($3::timestamptz, $4::uuid))
      order by v.recorded_at desc, v.id desc
@@ -127,21 +128,6 @@ export async function findVitals(
     [id, patientId],
   );
   return rows[0] ?? null;
-}
-
-/** Whether a token is this patient's and today's at the hospital, in any status. */
-export async function tokenOfPatientToday(
-  client: pg.ClientBase,
-  tokenId: string,
-  patientId: string,
-): Promise<boolean> {
-  if (!UUID.test(tokenId)) return false;
-  const { rowCount } = await client.query(
-    `select 1 from queue_tokens t join tenants h on h.id = t.tenant_id
-     where t.id = $1 and t.patient_id = $2 and t.day = (now() at time zone h.timezone)::date`,
-    [tokenId, patientId],
-  );
-  return rowCount === 1;
 }
 
 export interface NewReading {
@@ -255,7 +241,8 @@ export async function findAllergies(
 /**
  * Replaces the patient's allergies from the version the edit started from: 0 creates the list,
  * any other replaces it at that version. False, changing nothing, when someone else's change came
- * first (the row lock or the primary key decides between two at once).
+ * first (the row lock or the primary key decides between two at once). Each version is also kept
+ * in `allergy_list_versions`, which nothing changes or removes.
  */
 export async function replaceAllergies(
   client: pg.ClientBase,
@@ -272,12 +259,21 @@ export async function replaceAllergies(
        on conflict (tenant_id, patient_id) do nothing`,
       [patientId, list.status, items, userId],
     );
-    return rowCount === 1;
+    if (rowCount !== 1) return false;
+  } else {
+    const { rowCount } = await client.query(
+      `update allergy_lists set status = $3, items = $4::jsonb, updated_by = $5
+       where patient_id = $1 and version = $2`,
+      [patientId, version, list.status, items, userId],
+    );
+    if (rowCount !== 1) return false;
   }
-  const { rowCount } = await client.query(
-    `update allergy_lists set status = $3, items = $4::jsonb, updated_by = $5
-     where patient_id = $1 and version = $2`,
-    [patientId, version, list.status, items, userId],
+  // The list as it now is, kept for good: what was removed, when and by whom stays known.
+  await client.query(
+    `insert into allergy_list_versions (tenant_id, patient_id, version, status, items, updated_at, updated_by)
+     select tenant_id, patient_id, version, status, items, updated_at, updated_by
+     from allergy_lists where patient_id = $1`,
+    [patientId],
   );
-  return rowCount === 1;
+  return true;
 }

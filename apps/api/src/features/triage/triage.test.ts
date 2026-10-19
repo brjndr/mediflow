@@ -152,6 +152,7 @@ const events = async (entityId: string) =>
 const clearTriage = async () => {
   const tenants = [hospital.id, clinic.id, closed.id];
   await pool.query('delete from vitals where tenant_id = any($1)', [tenants]);
+  await pool.query('delete from allergy_list_versions where tenant_id = any($1)', [tenants]);
   await pool.query('delete from allergy_lists where tenant_id = any($1)', [tenants]);
   await pool.query('delete from vital_ranges where tenant_id = any($1)', [tenants]);
   await pool.query('delete from queue_tokens where tenant_id = any($1)', [tenants]);
@@ -556,5 +557,128 @@ describe('the hospital boundary', () => {
     await expect(
       pool.query('update vitals set pulse = 71 where id = $1', [ours.id]),
     ).rejects.toThrow(/never changed/);
+  });
+});
+
+describe('more of the triage rules', () => {
+  /** Narrows a permission of the nurse's role at the hospital for the length of `run`. */
+  async function nurseOwn<T>(permission: string, run: () => Promise<T>) {
+    await pool.query(
+      "update role_permissions set scope = 'own' where tenant_id = $1 and role_id = 'nurse' and permission = $2",
+      [hospital.id, permission],
+    );
+    try {
+      return await run();
+    } finally {
+      await pool.query(
+        "update role_permissions set scope = 'all' where tenant_id = $1 and role_id = 'nurse' and permission = $2",
+        [hospital.id, permission],
+      );
+    }
+  }
+
+  it('applies the scope of each permission as the patients module does', async () => {
+    // The sample patients were registered by 'test', so `own` reaches none of them.
+    const reading = await recorded(patients.adult, { pulse: 70 });
+    await nurseOwn('vitals:read', async () => {
+      expect(errorOf(await get(`/patients/${patients.adult}/vitals`))).toEqual([404, 'not_found']);
+      expect(errorOf(await get(`/patients/${patients.adult}/vitals/${reading.id}`))).toEqual([
+        404,
+        'not_found',
+      ]);
+      expect(errorOf(await get(`/patients/${patients.adult}/vital-ranges`))).toEqual([
+        404,
+        'not_found',
+      ]);
+    });
+    await nurseOwn('vitals:record', async () => {
+      expect(errorOf(await record(patients.adult, { pulse: 70 }))).toEqual([404, 'not_found']);
+    });
+    await nurseOwn('allergy:read', async () => {
+      expect(errorOf(await get(`/patients/${patients.adult}/allergies`))).toEqual([
+        404,
+        'not_found',
+      ]);
+    });
+    await nurseOwn('allergy:update', async () => {
+      expect(
+        errorOf(await putAllergies(patients.adult, { version: 0, status: 'none', items: [] })),
+      ).toEqual([404, 'not_found']);
+    });
+  });
+
+  it('keeps every version of an allergy list, which the app can neither change nor remove', async () => {
+    await putAllergies(patients.adult, {
+      version: 0,
+      status: 'listed',
+      items: [{ substance: 'Penicillin', severity: 'severe' }],
+    });
+    await putAllergies(patients.adult, { version: 1, status: 'none', items: [] });
+    const { rows } = await pool.query<{ version: number; status: string; items: unknown }>(
+      'select version, status, items from allergy_list_versions where patient_id = $1 order by version',
+      [patients.adult],
+    );
+    expect(rows).toEqual([
+      { version: 1, status: 'listed', items: [{ substance: 'Penicillin', severity: 'severe' }] },
+      { version: 2, status: 'none', items: [] },
+    ]);
+    await asTenantSql(pool, hospital.id, async (client) => {
+      await expect(
+        client.query("update allergy_list_versions set status = 'none'"),
+      ).rejects.toThrow();
+    });
+    await asTenantSql(pool, hospital.id, async (client) => {
+      await expect(client.query('delete from allergy_list_versions')).rejects.toThrow();
+    });
+    await asTenantSql(pool, clinic.id, async (client) => {
+      expect((await client.query('select 1 from allergy_list_versions')).rows).toEqual([]);
+    });
+  });
+
+  it('carries the encounter of the reading it corrects, and sets an encounter once only', async () => {
+    const token = await addToken(patients.adult);
+    const original = await recorded(patients.adult, { pulse: 180, queueTokenId: token });
+    const encounterId = randomUUID();
+    await pool.query('update vitals set encounter_id = $2 where id = $1', [
+      original.id,
+      encounterId,
+    ]);
+    const correction = await recorded(patients.adult, {
+      pulse: 80,
+      correctsId: original.id,
+      correctionReason: 'Typo',
+    });
+    expect(correction).toMatchObject({ queueTokenId: token, encounterId });
+    await asTenantSql(pool, hospital.id, async (client) => {
+      await expect(
+        client.query('update vitals set encounter_id = $2 where id = $1', [
+          original.id,
+          randomUUID(),
+        ]),
+      ).rejects.toThrow();
+    });
+  });
+
+  it('refuses another hospital’s token and another patient’s reading', async () => {
+    const { rows } = await pool.query<{ id: string }>(
+      "insert into departments (tenant_id, name) values ($1, 'Clinic General') returning id",
+      [clinic.id],
+    );
+    const { rows: tokens } = await pool.query<{ id: string }>(
+      `insert into queue_tokens (tenant_id, day, department_id, number, patient_id, issued_by)
+       select $1, (now() at time zone timezone)::date, $2, 1, $3, $4 from tenants where id = $1
+       returning id`,
+      [clinic.id, rows[0]?.id, patients.clinic, clinicNurse.id],
+    );
+    expect(
+      errorOf(await record(patients.adult, { pulse: 70, queueTokenId: tokens[0]?.id })),
+    ).toEqual([422, 'token_not_for_patient']);
+    const theirs = await recorded(patients.other, { pulse: 70 });
+    expect(
+      errorOf(
+        await record(patients.adult, { pulse: 72, correctsId: theirs.id, correctionReason: 'x' }),
+      ),
+    ).toEqual([422, 'unknown_correction']);
+    await pool.query('delete from queue_tokens where tenant_id = $1', [clinic.id]);
   });
 });

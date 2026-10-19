@@ -21,7 +21,8 @@ declare module 'fastify' {
       /**
        * Whether a request's session still holds at its hospital, checked again later without
        * touching it (`sessionStillHolds`): for a stream that outlives its request. A session from
-       * a test resolver has no row and is taken to hold; the access policy is still checked.
+       * a test resolver has no row and is taken to hold in tests only; the access policy is still
+       * checked.
        */
       sessionStillHolds(session: Session): Promise<boolean>;
     };
@@ -108,7 +109,8 @@ export const authPlugin = fp(
       async sessionStillHolds(session) {
         const { id, userId, tenantId } = session;
         if (!tenantId) return false;
-        if (id === undefined) return true;
+        // Only a test resolver gives a session no row; anywhere else it cannot be checked.
+        if (id === undefined) return config.NODE_ENV === 'test';
         return withAuthTransaction(app.database.pool, (transaction) =>
           sessionStillHolds(transaction, config, { id, userId, tenantId }),
         );

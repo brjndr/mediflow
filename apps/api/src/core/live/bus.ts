@@ -28,6 +28,10 @@ export interface LiveBus {
 }
 
 const CHANNEL = 'mediflow_live';
+/** How long connecting, or a heartbeat query, may take before the connection counts as lost. */
+const CONNECT_TIMEOUT_MS = 5_000;
+/** How often the listening connection is asked whether it is still there. */
+const HEARTBEAT_MS = 20_000;
 
 interface Notice {
   t: string;
@@ -59,6 +63,7 @@ export class PgLiveBus implements LiveBus {
   private readonly listeners = new Map<string, Set<LiveListener>>();
   private connection: Promise<pg.Client> | null = null;
   private closed = false;
+  private heartbeat: NodeJS.Timeout | undefined = undefined;
 
   constructor(private readonly connectionString: string) {}
 
@@ -72,7 +77,11 @@ export class PgLiveBus implements LiveBus {
 
   async subscribe(tenantId: string, topic: string, listener: LiveListener): Promise<() => void> {
     if (this.closed) throw new Error('The live bus is closed');
-    await this.listen();
+    const connection = this.listen();
+    await connection;
+    // Closed, or the connection lost, while it was opening: whatever came then was missed.
+    if (this.closed) throw new Error('The live bus is closed');
+    if (this.connection !== connection) throw new Error('The live bus lost its connection');
     const key = `${tenantId}:${topic}`;
     const set = this.listeners.get(key) ?? new Set();
     set.add(listener);
@@ -87,7 +96,8 @@ export class PgLiveBus implements LiveBus {
     this.closed = true;
     const connection = this.connection;
     this.connection = null;
-    this.listeners.clear();
+    clearInterval(this.heartbeat);
+    this.loseAll();
     if (connection) await (await connection.catch(() => null))?.end().catch(() => undefined);
   }
 
@@ -98,7 +108,12 @@ export class PgLiveBus implements LiveBus {
 
   // Not async: the promise kept in `connection` must be `attempt` itself, which `lose` compares.
   private connect(): Promise<pg.Client> {
-    const client = new pg.Client({ connectionString: this.connectionString });
+    const client = new pg.Client({
+      connectionString: this.connectionString,
+      // A connection the network dropped without a word is noticed by the operating system too.
+      keepAlive: true,
+      connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
+    });
     const attempt = (async () => {
       client.on('notification', (notification) => {
         const notice = parseNotice(notification.payload);
@@ -112,6 +127,15 @@ export class PgLiveBus implements LiveBus {
       client.on('end', fail);
       await client.connect();
       await client.query(`listen ${CHANNEL}`);
+      // A half-open connection never says it is gone: a query that does not answer does.
+      clearInterval(this.heartbeat);
+      this.heartbeat = setInterval(() => {
+        const timeout = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('no answer')), CONNECT_TIMEOUT_MS).unref();
+        });
+        void Promise.race([client.query('select 1'), timeout]).catch(fail);
+      }, HEARTBEAT_MS);
+      this.heartbeat.unref();
       return client;
     })();
     attempt.catch(() => {
@@ -125,7 +149,12 @@ export class PgLiveBus implements LiveBus {
   private lose(connection: Promise<pg.Client>): void {
     if (this.connection !== connection) return;
     this.connection = null;
+    clearInterval(this.heartbeat);
     void connection.then((client) => client.end()).catch(() => undefined);
+    this.loseAll();
+  }
+
+  private loseAll(): void {
     const all = [...this.listeners.values()].flatMap((set) => [...set]);
     this.listeners.clear();
     for (const listener of all) listener.lost();

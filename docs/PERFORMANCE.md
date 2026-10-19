@@ -47,7 +47,7 @@ The bundle budgets, code splitting, pagination, virtualization, rendering and as
 
 - **Search inputs:** debounce them (300 ms) and cancel stale requests. No fetch-all-then-filter-client-side.
 - **React Query tuning:** set sensible `staleTime` per data type (reference data like departments: minutes; live data like appointment slots: seconds). Use `placeholderData`/`keepPreviousData` for pagination, prefetch likely next views, and rely on request dedupe. Use optimistic updates where safe.
-- **Live data:** no polling loops without backoff. Prefer SSE/WebSocket only for truly live views (queues, bed status), and keep them scoped to a tenant channel.
+- **Live data:** no polling loops without backoff. Prefer SSE/WebSocket only for truly live views (queues, bed status), and keep them scoped to a tenant channel. Phase 1 passes changes between instances with Postgres `LISTEN`/`NOTIFY` (`core/live`); Postgres serialises the commits of transactions that notify and refuses a notification when its queue is full, so commit latency of queue writes under load is the signal to move the bus to Redis pub/sub.
 - **Do not cache PHI** in service workers, CDN, or persistent browser storage.
 
 ### Resilience under load

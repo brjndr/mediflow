@@ -3,7 +3,10 @@ import type { FastifyRequest } from 'fastify';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { tidyLinesOptional, tidyOptional, tidyWithin } from '../../core/http/text.js';
+import type { Permission } from '../../core/access/registry.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { patientInScope } from '../patients/index.js';
+import { tokenOfPatientToday } from '../queue/index.js';
 import {
   findAllergies,
   findVitals,
@@ -11,9 +14,7 @@ import {
   insertVitals,
   isAdult,
   listVitals,
-  patientExists,
   replaceAllergies,
-  tokenOfPatientToday,
   type VitalsRow,
 } from './repository.js';
 import {
@@ -52,6 +53,16 @@ const userIdOf = (request: FastifyRequest): string => {
   if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
   return userId;
 };
+
+/**
+ * Whether the patient is the hospital's and within the scope the caller holds the route's
+ * permission with, as the patients module decides it. Anything else is the same 404.
+ */
+const inScope = (request: FastifyRequest, patientId: string, permission: Permission) =>
+  patientInScope(request.txClient, patientId, {
+    scope: request.access.scope(permission),
+    userId: userIdOf(request),
+  });
 
 const reading = (row: VitalsRow) => ({
   id: row.id,
@@ -149,7 +160,7 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request) => {
       const { patientId } = request.params;
-      if (!(await patientExists(request.txClient, patientId))) throw patientNotFound();
+      if (!(await inScope(request, patientId, READ))) throw patientNotFound();
       const { queueTokenId, cursor, limit = DEFAULT_PAGE_SIZE } = request.query;
       const page = await listVitals(request.txClient, patientId, {
         ...(queueTokenId === undefined ? {} : { queueTokenId }),
@@ -188,6 +199,7 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request, reply) => {
       const { patientId } = request.params;
+      if (!(await inScope(request, patientId, RECORD))) throw patientNotFound();
       if (request.replayOf !== null) {
         const recorded = request.idempotentId
           ? await findVitals(request.txClient, patientId, request.idempotentId)
@@ -209,7 +221,6 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (body.correctsId !== undefined && body.queueTokenId !== undefined) {
         throw invalid('A correction takes the token of the reading it corrects');
       }
-      if (!(await patientExists(request.txClient, patientId))) throw patientNotFound();
 
       let queueTokenId: string | null = null;
       let encounterId: string | null = null;
@@ -271,6 +282,9 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request) => {
+      if (!(await inScope(request, request.params.patientId, READ))) {
+        throw new HttpError(404, 'not_found', 'Reading not found');
+      }
       const row = await findVitals(
         request.txClient,
         request.params.patientId,
@@ -297,6 +311,7 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request) => {
       const { patientId } = request.params;
+      if (!(await inScope(request, patientId, READ))) throw patientNotFound();
       const adult = await isAdult(request.txClient, patientId);
       if (adult === null) throw patientNotFound();
       request.audit('read', 'vital_ranges', patientId);
@@ -319,7 +334,7 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request) => {
       const { patientId } = request.params;
-      if (!(await patientExists(request.txClient, patientId))) throw patientNotFound();
+      if (!(await inScope(request, patientId, ALLERGY_READ))) throw patientNotFound();
       request.audit('read', 'allergy_list', patientId);
       return allergyView(
         patientId,
@@ -354,7 +369,7 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if ((body.status === 'none') !== (items.length === 0)) {
         throw invalid('`none` has no items and `listed` has at least one');
       }
-      if (!(await patientExists(request.txClient, patientId))) throw patientNotFound();
+      if (!(await inScope(request, patientId, ALLERGY_UPDATE))) throw patientNotFound();
       const replaced = await replaceAllergies(
         request.txClient,
         patientId,

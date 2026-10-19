@@ -28,7 +28,7 @@ export interface TokenRow {
   called_at: Date | null;
   call_count: number;
   version: number;
-  /** The time the row is ordered by, as Postgres writes it, to the microsecond. */
+  /** The time the row is ordered by, in UTC to the microsecond, whatever the session's DateStyle. */
   order_at: string;
 }
 
@@ -40,8 +40,7 @@ const TOKENS = `select t.id, t.tenant_id, t.number, t.day::text as day,
                        t.patient_id, p.first_name || ' ' || p.last_name as patient_name,
                        p.mrn as patient_mrn,
                        t.status, t.priority, t.issued_at, t.called_at, t.call_count, t.version,
-                       (case when t.status in ('called', 'served') then t.called_at
-                             else t.issued_at end)::text as order_at
+                       to_char((case when t.status in ('called', 'served') then t.called_at else t.issued_at end) at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') || '+00' as order_at
                 from queue_tokens t
                 join departments dp on dp.id = t.department_id
                 join patients p on p.id = t.patient_id
@@ -210,9 +209,20 @@ export async function findToken(
   return rows[0] ?? null;
 }
 
-export async function patientExists(client: pg.ClientBase, id: string): Promise<boolean> {
-  if (!UUID.test(id)) return false;
-  const { rowCount } = await client.query('select 1 from patients where id = $1', [id]);
+/**
+ * Whether a token is the patient's and today's at the hospital, in any status. For triage, which
+ * takes a reading for a token: exported from `index.ts`, so what "today" means is decided here.
+ */
+export async function tokenOfPatientToday(
+  client: pg.ClientBase,
+  tokenId: string,
+  patientId: string,
+): Promise<boolean> {
+  if (!UUID.test(tokenId) || !UUID.test(patientId)) return false;
+  const { rowCount } = await client.query(
+    `select 1 from queue_tokens t where t.id = $1 and t.patient_id = $2 and t.day = ${TODAY}`,
+    [tokenId, patientId],
+  );
   return rowCount === 1;
 }
 
