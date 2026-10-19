@@ -3668,6 +3668,321 @@
             "type": "integer"
           }
         }
+      },
+      "Vitals": {
+        "type": "object",
+        "description": "One reading of vital signs, append-only: a correction is a new reading that names the one it corrects. Attached to the patient and, when taken at the queue, to the token; encounterId is set once the OPD encounter exists (M7).",
+        "required": ["id", "tenantId", "patientId", "recordedAt", "recordedById", "recordedByName"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "queueTokenId": {
+            "type": "string",
+            "description": "The token the reading was taken for. A correction carries the one of the reading it corrects."
+          },
+          "encounterId": {
+            "type": "string",
+            "description": "Set once, from empty to the encounter, by the triage module itself when it hears encounter.opened for the reading's queue token (idempotently); nothing else of a reading ever changes. A reading taken outside the queue gets none until the API attaches readings to the patient's open encounter (M7)."
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordedById": {
+            "type": "string"
+          },
+          "recordedByName": {
+            "type": "string"
+          },
+          "systolic": {
+            "type": "integer",
+            "minimum": 40,
+            "maximum": 300,
+            "description": "mmHg."
+          },
+          "diastolic": {
+            "type": "integer",
+            "minimum": 20,
+            "maximum": 200,
+            "description": "mmHg."
+          },
+          "pulse": {
+            "type": "integer",
+            "minimum": 20,
+            "maximum": 300,
+            "description": "Beats a minute."
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 25,
+            "maximum": 45,
+            "description": "Degrees Celsius, at most one decimal."
+          },
+          "spo2": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 100,
+            "description": "Oxygen saturation, %."
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 0.3,
+            "maximum": 400,
+            "description": "kg, at most one decimal."
+          },
+          "height": {
+            "type": "number",
+            "minimum": 20,
+            "maximum": 250,
+            "description": "cm, at most one decimal."
+          },
+          "chiefComplaint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Plain text: what brings the patient today, in their words."
+          },
+          "correctsId": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "The reading of the same patient this one corrects. The original is kept."
+          },
+          "correctionReason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Plain text. Required with correctsId, refused without it."
+          }
+        }
+      },
+      "VitalsCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "At least one measurement or a chief complaint. Systolic and diastolic go together, the diastolic below the systolic.",
+        "properties": {
+          "queueTokenId": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Today's token of this patient the reading was taken for. Not sent with a correction, which takes the corrected reading's."
+          },
+          "systolic": {
+            "type": "integer",
+            "minimum": 40,
+            "maximum": 300,
+            "description": "mmHg."
+          },
+          "diastolic": {
+            "type": "integer",
+            "minimum": 20,
+            "maximum": 200,
+            "description": "mmHg."
+          },
+          "pulse": {
+            "type": "integer",
+            "minimum": 20,
+            "maximum": 300,
+            "description": "Beats a minute."
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 25,
+            "maximum": 45,
+            "description": "Degrees Celsius, at most one decimal."
+          },
+          "spo2": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 100,
+            "description": "Oxygen saturation, %."
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 0.3,
+            "maximum": 400,
+            "description": "kg, at most one decimal."
+          },
+          "height": {
+            "type": "number",
+            "minimum": 20,
+            "maximum": 250,
+            "description": "cm, at most one decimal."
+          },
+          "chiefComplaint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Plain text: what brings the patient today, in their words."
+          },
+          "correctsId": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "The reading of the same patient this one corrects. The original is kept."
+          },
+          "correctionReason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Plain text. Required with correctsId, refused without it."
+          }
+        }
+      },
+      "VitalsPage": {
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Vitals"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "VitalRange": {
+        "type": "object",
+        "description": "Values below low or above high are abnormal. A limit that is absent is not checked.",
+        "properties": {
+          "low": {
+            "type": "number"
+          },
+          "high": {
+            "type": "number"
+          }
+        }
+      },
+      "VitalRanges": {
+        "type": "object",
+        "required": ["ranges"],
+        "properties": {
+          "ranges": {
+            "description": "The hospital's ranges that apply to this patient, or null when none do (a patient under 18: ranges are for adults until #379).",
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "systolic": {
+                    "$ref": "#/components/schemas/VitalRange"
+                  },
+                  "diastolic": {
+                    "$ref": "#/components/schemas/VitalRange"
+                  },
+                  "pulse": {
+                    "$ref": "#/components/schemas/VitalRange"
+                  },
+                  "temperature": {
+                    "$ref": "#/components/schemas/VitalRange"
+                  },
+                  "spo2": {
+                    "$ref": "#/components/schemas/VitalRange"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "AllergySeverity": {
+        "type": "string",
+        "enum": ["mild", "moderate", "severe", "unknown"]
+      },
+      "Allergy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["substance", "severity"],
+        "properties": {
+          "substance": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Plain text."
+          },
+          "reaction": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Plain text."
+          },
+          "severity": {
+            "$ref": "#/components/schemas/AllergySeverity"
+          }
+        }
+      },
+      "AllergyStatus": {
+        "type": "string",
+        "enum": ["unknown", "none", "listed"],
+        "description": "`unknown`: never asked. `none`: asked, no known allergies. `listed`: the items. Never asked and none are not the same."
+      },
+      "AllergyList": {
+        "type": "object",
+        "required": ["patientId", "tenantId", "status", "items", "version"],
+        "properties": {
+          "patientId": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AllergyStatus"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Allergy"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "0 while never recorded."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedByName": {
+            "type": "string"
+          }
+        }
+      },
+      "AllergyListUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "status", "items"],
+        "description": "`none` with no items, `listed` with 1 to 50.",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": ["none", "listed"]
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/Allergy"
+            }
+          }
+        }
       }
     },
     "responses": {
@@ -14749,6 +15064,373 @@
             "$ref": "#/components/responses/Error"
           },
           "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/patients/{patientId}/vitals": {
+      "get": {
+        "operationId": "listVitals",
+        "description": "The patient's readings, newest first, corrections and the readings they correct included. Optionally only those taken for one queue token. Requires vitals:read and the triage feature flag. Audited in the request's transaction.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "queueTokenId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of readings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VitalsPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "post": {
+        "operationId": "recordVitals",
+        "description": "Records a reading, audited in the request's transaction, and emits vitals.recorded through the outbox (tenantId, the reading's id, patientId, queueTokenId when given, the actor and the time). The token must be this patient's and today's, in any status (a re-check after the consultation is allowed); otherwise 422 `token_not_for_patient`. A correction names a reading of this patient that no other reading corrects yet (422 `unknown_correction`, 422 `already_corrected`), and takes that reading's queueTokenId and encounterId: a queueTokenId sent with a correction is refused (400). A patient the hospital does not have is 404. The idempotency key is kept per hospital and user. Requires vitals:record and the triage feature flag.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VitalsCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The reading recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Vitals"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/patients/{patientId}/vitals/{vitalsId}": {
+      "get": {
+        "operationId": "getVitals",
+        "description": "One reading of the patient. Requires vitals:read and the triage feature flag. Audited.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "vitalsId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reading",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Vitals"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/patients/{patientId}/vital-ranges": {
+      "get": {
+        "operationId": "getVitalRanges",
+        "description": "The hospital's normal ranges that apply to this patient, decided by the server from the patient's age at the hospital's date. Audited, as it tells whether the patient is under 18. Requires vitals:read and the triage feature flag.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The ranges, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VitalRanges"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/patients/{patientId}/allergies": {
+      "get": {
+        "operationId": "getAllergies",
+        "description": "The patient's allergies; status `unknown` and version 0 while never recorded. Requires allergy:read and the triage feature flag. Audited.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The allergies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllergyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "put": {
+        "operationId": "setAllergies",
+        "description": "Replaces the patient's allergies from the version the edit started from; another change first is 409 `conflict`. Requires allergy:update and the triage feature flag. Audited in the request's transaction, and emits allergy.updated through the outbox (tenantId, patientId, the new version, the actor and the time; never the allergies themselves).",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllergyListUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The allergies as they are now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllergyList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
             "$ref": "#/components/responses/Error"
           },
           "429": {

@@ -140,6 +140,12 @@ export function editMockPatient(id: string, changes: PatientChanges): void {
   if (record) applyChange(record, changes, 'user_someone_else');
 }
 
+/** A patient's date of birth, as another feature's mock needs it (triage's ranges are by age). */
+export function mockPatientDob(tenantId: string, id: string): string | undefined {
+  const record = recordOf(id);
+  return record?.tenantId === tenantId ? record.dob : undefined;
+}
+
 /** A record as the caller may see it: without the contact permission, masked and trimmed. */
 function visible(record: PatientRecord): PatientRecord {
   const seesContact = currentPolicy()?.permissions.some(

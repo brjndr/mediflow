@@ -11,6 +11,7 @@ import { queueFeature } from '@/features/queue';
 import { servicesFeature } from '@/features/services';
 import { staffFeature } from '@/features/staff';
 import { templatesFeature } from '@/features/templates';
+import { triageFeature } from '@/features/triage';
 import { uiExamplesFeature } from '@/features/ui-examples';
 import { wardsFeature } from '@/features/wards';
 import type { FeatureManifest } from './types';
@@ -37,5 +38,6 @@ export const features: FeatureManifest[] = [
   importsFeature,
   appointmentsFeature,
   queueFeature,
+  triageFeature,
   staffFeature,
 ];

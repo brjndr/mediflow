@@ -26,6 +26,7 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 - **Focus is never left on the page.** A row that moves to another group takes focus with it, so focus goes to the status line. The priority panel's heading takes focus when it opens, and focus goes back to its "Change priority" button when it closes (`usePanelFocus`). The panel is part of the page, not a dialog: it closes with its own button.
 - **The priority reason is health information** (pregnancy, disability, clinical urgency) shown beside the name on this staff board only. The waiting-room display (#78) shows the token number and where to go, never the name, the MRN or the reason, and does not reuse this response shape.
 - **The board names the patient to anyone who may read the queue,** by name and masked MRN, without `patient:read`, as the appointment list does: a token means nothing without whom it is for.
+- **The board hosts the `queue.row.actions` slot (#77),** under each token's patient, given `tokenId`, `patientId`, `number` and `status` only. A contribution is rendered for every row, so it reads no data of its own: triage adds "Record vitals" there.
 - **The token form is opened from a patient with an id only** (`?patientId`); a malformed one is ignored. The name comes from the patients feature under its own permission (`usePatientName`, which hands over the name and MRN only), never from the address or the history state; when it cannot be read the screen says so and offers the search.
 
 ## Mock

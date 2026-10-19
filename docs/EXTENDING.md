@@ -39,7 +39,7 @@ export const patientsFeature: FeatureManifest = {
 Any new feature (appointment reminders, insurance, inventory, reports, anything) must be addable **without editing core modules**. The mechanisms below are part of the foundation (step 0), not afterthoughts.
 
 **Extension points (slots)**
-Core screens render slots, and features contribute components to them through `manifest.extensions`. The registry resolves contributions by slot, feature flag, and permission. Initial slots: `patient.detail.tabs`, `patient.detail.actions`, `patient.form.fields`, `appointment.form.fields`, `appointment.row.badges`, `appointment.row.actions`, `dashboard.widgets`, `settings.sections`, `nav.items`. Add a new slot to core only when a real feature needs one, as an additive change.
+Core screens render slots, and features contribute components to them through `manifest.extensions`. The registry resolves contributions by slot, feature flag, and permission. Initial slots: `patient.detail.tabs`, `patient.detail.actions`, `patient.form.fields`, `appointment.form.fields`, `appointment.row.badges`, `appointment.row.actions`, `queue.row.actions` (a token of the board, given `tokenId`, `patientId`, `number` and `status`; #77), `dashboard.widgets`, `settings.sections`, `nav.items`. Add a new slot to core only when a real feature needs one, as an additive change.
 
 The patient screen (`features/patients`) hosts `patient.detail.tabs` and `patient.detail.actions`. A contribution is given `context.patientId` and nothing else of the record. To add a tab, the contributed component renders `<DetailTab id="..." title={...}>` (exported from `@/features/patients`) around its content: the id goes in the address (`?tab=<id>`), so it is a stable, unique word (`details` is taken), never patient data. Tabs are listed in registry order. Only what is inside the `<DetailTab>` mounts when the tab is opened: the contributed component itself runs every time a patient is opened, so it reads no data. Put the queries in a component rendered inside the tab, or every tab would fetch, and be audited, on every open. An action contribution renders its own button.
 
@@ -48,7 +48,7 @@ Core modules publish events through a transactional outbox (written in the same 
 
 - `patient.registered`, `patient.updated`
 - `appointment.created`, `appointment.rescheduled`, `appointment.cancelled`, `appointment.completed`, `appointment.no_show`
-- `encounter.opened`, `encounter.closed`, `queue.token_issued`, `queue.called`, `vitals.recorded`
+- `encounter.opened`, `encounter.closed`, `queue.token_issued`, `queue.called`, `vitals.recorded`, `allergy.updated`
 - `order.placed`, `order.cancelled`, `order.completed`
 - `lab.sample_collected`, `lab.result_verified`, `lab.critical_value`, `imaging.reported`
 - `pharmacy.dispensed`, `stock.low`, `stock.expiring`
