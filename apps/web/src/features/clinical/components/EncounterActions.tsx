@@ -75,7 +75,14 @@ export function EncounterActions({ encounter }: { encounter: Encounter }) {
           >
             {change.isPending ? t('encounter.closing') : t('encounter.close')}
           </Button>
-          <Button type="button" variant="outline" onClick={() => setCancelling(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            aria-disabled={change.isPending || undefined}
+            onClick={() => {
+              if (!change.isPending) setCancelling(true);
+            }}
+          >
             {t('encounter.cancel')}
           </Button>
         </div>

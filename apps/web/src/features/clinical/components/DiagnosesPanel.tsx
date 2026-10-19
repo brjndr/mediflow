@@ -236,10 +236,15 @@ function AddDiagnosis({
   const form = useZodForm(diagnosisFormSchema, blankDiagnosis);
   const [code, setCode] = useState<Code | null>(null);
   const failure = useRefusal(record.error);
+  const codeBox = useRef<HTMLDivElement>(null);
 
   const choose = (chosen: Code | null) => {
     setCode(chosen);
     form.setValue('codeId', chosen?.id ?? '', { shouldValidate: form.formState.isSubmitted });
+    // The search and the chosen code take each other's place: focus goes to what replaced it.
+    requestAnimationFrame(() =>
+      focusIfLost(codeBox.current?.querySelector<HTMLElement>('button, input')),
+    );
   };
 
   return (
@@ -259,16 +264,18 @@ function AddDiagnosis({
           })
         }
       >
-        {code ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span>{t('diagnoses.form.chosen', { code: code.code, title: code.title })}</span>
-            <Button type="button" size="sm" variant="outline" onClick={() => choose(null)}>
-              {t('diagnoses.form.removeCode')}
-            </Button>
-          </div>
-        ) : (
-          <CodeSearch system="icd10" label={t('diagnoses.form.code')} onSelect={choose} />
-        )}
+        <div ref={codeBox}>
+          {code ? (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span>{t('diagnoses.form.chosen', { code: code.code, title: code.title })}</span>
+              <Button type="button" size="sm" variant="outline" onClick={() => choose(null)}>
+                {t('diagnoses.form.removeCode')}
+              </Button>
+            </div>
+          ) : (
+            <CodeSearch system="icd10" label={t('diagnoses.form.code')} onSelect={choose} />
+          )}
+        </div>
         <TextField<DiagnosisValues>
           name="text"
           label={t('diagnoses.form.text')}

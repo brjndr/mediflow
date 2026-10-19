@@ -112,6 +112,8 @@
       "discard": "Discard draft",
       "confirmDiscard": "Discard this draft? It cannot be recovered.",
       "discardConfirmed": "Discard draft",
+      "discarding": "Discarding…",
+      "readOnly": "Your draft, as last saved. You can no longer change it.",
       "keep": "Keep it"
     }
   },

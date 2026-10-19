@@ -153,15 +153,21 @@ export function NotesPanel({ encounter }: { encounter: Encounter }) {
             </Button>
           )}
 
-          {drafts.map((note) => (
-            <DraftNote
-              key={note.id}
-              encounterId={encounter.id}
-              note={note}
-              onFinished={(id, text) => finish({ id }, text)}
-            />
-          ))}
-          {fresh.map((entry) => (
+          {/* A draft is written only with clinicalNote:write and while the encounter is open;
+              otherwise its author reads it as it was saved. */}
+          {drafts.map((note) =>
+            canWrite && open ? (
+              <DraftNote
+                key={note.id}
+                encounterId={encounter.id}
+                note={note}
+                onFinished={(id, text) => finish({ id }, text)}
+              />
+            ) : (
+              <ReadOnlyDraft key={note.id} note={note} />
+            ),
+          )}
+          {(canWrite && open ? fresh : []).map((entry) => (
             <DraftNote
               key={entry.key}
               encounterId={encounter.id}
@@ -341,11 +347,26 @@ function saveLine(state: DraftState, t: TFunction<'clinical'>, time: (at: string
   }
 }
 
+/** A draft of the caller's they may no longer write: shown as it was saved, to read. */
+function ReadOnlyDraft({ note }: { note: ClinicalNote }) {
+  const { t } = useTranslation('clinical');
+  return (
+    <article
+      aria-label={t('notes.draft.heading')}
+      className="flex flex-col gap-2 rounded-md border border-dashed p-3"
+    >
+      <p className="text-sm font-medium">{t('notes.draft.readOnly')}</p>
+      <RichTextView document={note.body} />
+    </article>
+  );
+}
+
 /**
  * One draft of the caller's: written in the editor and kept on the server as it is written
  * (`useDraftNote`), then signed or discarded. The line under the editor says whether what is
  * shown is saved; it is plain text, not a live region, as it changes at every pause in typing.
- * A failed save and a conflict are alerts.
+ * A failed save and a conflict are alerts. While it is signed or discarded the editor takes no
+ * typing (`inert`), so nothing typed then is lost or sent to a signed note.
  */
 function DraftNote({
   encounterId,
@@ -363,7 +384,7 @@ function DraftNote({
   const format = useFormatters();
   const headingId = useId();
   const lineId = useId();
-  const draft = useDraftNote(encounterId, note);
+  const draft = useDraftNote(encounterId, note, { onCreated });
   const sign = useSignNote(encounterId);
   const discard = useDiscardNote(encounterId);
   const [editor, setEditor] = useState<{ key: number; initial: unknown }>({
@@ -371,49 +392,71 @@ function DraftNote({
     initial: note?.body,
   });
   const [confirming, setConfirming] = useState(false);
-  const [signing, setSigning] = useState(false);
+  const [finishing, setFinishing] = useState<'sign' | 'discard' | null>(null);
   const actions = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const editorBox = useRef<HTMLDivElement>(null);
   const state = draft.state;
-  const createdId = state.kind === 'saved' ? draft.saved()?.id : undefined;
-
-  useEffect(() => {
-    if (createdId && createdId !== note?.id) onCreated?.(createdId);
-  }, [createdId, note?.id, onCreated]);
+  const busy = finishing !== null || sign.isPending || discard.isPending;
 
   // A new draft is written at once: the heading takes focus, Tab goes on to the editor.
   useEffect(() => {
     if (!note) heading.current?.focus();
   }, [note]);
 
+  useEffect(() => {
+    if (editorBox.current) editorBox.current.inert = busy;
+  }, [busy]);
+
+  // A block that held focus went away (a conflict answered, a retry): back to the draft.
+  const backToDraft = () => requestAnimationFrame(() => focusIfLost(heading.current));
+
   const signNow = async () => {
-    if (signing || sign.isPending) return;
-    setSigning(true);
-    try {
-      const done = await draft.flush();
-      const saved = draft.saved();
-      if (!done || !saved) return;
-      sign.mutate(
-        { noteId: saved.id, version: saved.version },
-        { onSuccess: () => onFinished(saved.id, t('notes.signed')) },
-      );
-    } finally {
-      setSigning(false);
+    if (busy) return;
+    setFinishing('sign');
+    sign.reset();
+    discard.reset();
+    const done = await draft.flush();
+    const saved = done ? await draft.stop() : undefined;
+    if (!saved) {
+      draft.resume();
+      setFinishing(null);
+      return;
     }
+    sign.mutate(
+      { noteId: saved.id, version: saved.version },
+      {
+        onSuccess: () => onFinished(saved.id, t('notes.signed')),
+        onError: (error) => {
+          draft.resume();
+          // Saved from another window meanwhile: the same choice as a save that met it.
+          if (isApiError(error) && error.serverCode === 'conflict') draft.conflicted();
+        },
+        onSettled: () => setFinishing(null),
+      },
+    );
   };
 
-  const discardNow = () => {
-    const saved = draft.saved();
+  const discardNow = async () => {
+    if (busy) return;
+    setFinishing('discard');
+    sign.reset();
+    discard.reset();
+    // Whatever is being saved settles first, so a draft it creates is the one removed.
+    const saved = await draft.stop();
     if (!saved) {
-      // Never sent: nothing to remove on the server.
+      // Never reached the server: nothing to remove there.
       onFinished(undefined, t('notes.discarded'));
       return;
     }
-    discard.mutate(saved.id, { onSuccess: () => onFinished(saved.id, t('notes.discarded')) });
+    discard.mutate(saved.id, {
+      onSuccess: () => onFinished(saved.id, t('notes.discarded')),
+      onError: () => draft.resume(),
+      onSettled: () => setFinishing(null),
+    });
   };
 
   const failure = useRefusal(sign.error ?? discard.error);
-  const busy = signing || sign.isPending || discard.isPending;
 
   return (
     <section
@@ -429,9 +472,12 @@ function DraftNote({
         {t('notes.draft.heading')}
       </h3>
       <div
+        ref={editorBox}
         onBlur={(event) => {
           // Leaving the editor (not moving within its toolbar) saves at once.
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) void draft.flush();
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            void draft.flush();
+          }
         }}
       >
         <RichTextEditor
@@ -449,18 +495,27 @@ function DraftNote({
         <div role="alert" className="flex flex-col items-start gap-2 text-sm">
           <p>{t('notes.draft.conflict')}</p>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" onClick={() => void draft.resolve('mine')}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                sign.reset();
+                void draft.resolve('mine').then(backToDraft);
+              }}
+            >
               {t('notes.draft.keepMine')}
             </Button>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              onClick={() =>
+              onClick={() => {
+                sign.reset();
                 void draft.resolve('saved').then((document) => {
                   if (document) setEditor((now) => ({ key: now.key + 1, initial: document }));
-                })
-              }
+                  backToDraft();
+                });
+              }}
             >
               {t('notes.draft.takeSaved')}
             </Button>
@@ -472,12 +527,17 @@ function DraftNote({
           <p role="alert" className="text-sm text-destructive">
             {t('notes.draft.failed', { reason: tCommon(errorMessageKey(state.error)) })}
           </p>
-          <Button type="button" size="sm" variant="outline" onClick={() => void draft.flush()}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => void draft.flush().then(backToDraft)}
+          >
             {tCommon('grid.retry')}
           </Button>
         </div>
       )}
-      {failure && (
+      {failure && state.kind !== 'conflict' && (
         <p role="alert" className="text-sm text-destructive">
           {failure}
         </p>
@@ -491,17 +551,19 @@ function DraftNote({
                 type="button"
                 variant="destructive"
                 aria-disabled={busy || undefined}
-                onClick={() => {
-                  if (!busy) discardNow();
-                }}
+                onClick={() => void discardNow()}
               >
-                {t('notes.draft.discardConfirmed')}
+                {finishing === 'discard'
+                  ? t('notes.draft.discarding')
+                  : t('notes.draft.discardConfirmed')}
               </Button>
               <Button
                 data-action="keep"
                 type="button"
                 variant="outline"
+                aria-disabled={busy || undefined}
                 onClick={() => {
+                  if (busy) return;
                   setConfirming(false);
                   // Back to the button that asked.
                   requestAnimationFrame(() =>
@@ -518,10 +580,10 @@ function DraftNote({
             <Button
               type="button"
               aria-disabled={busy || undefined}
-              aria-busy={busy || undefined}
+              aria-busy={finishing === 'sign' || undefined}
               onClick={() => void signNow()}
             >
-              {busy ? t('notes.draft.signing') : t('notes.draft.sign')}
+              {finishing === 'sign' ? t('notes.draft.signing') : t('notes.draft.sign')}
             </Button>
             <Button
               data-action="discard"
@@ -529,7 +591,8 @@ function DraftNote({
               variant="outline"
               aria-disabled={busy || undefined}
               onClick={() => {
-                if (!busy) setConfirming(true);
+                if (busy) return;
+                setConfirming(true);
                 // The question takes the button's place: focus goes to its safe answer.
                 requestAnimationFrame(() =>
                   actions.current?.querySelector<HTMLElement>('[data-action="keep"]')?.focus(),

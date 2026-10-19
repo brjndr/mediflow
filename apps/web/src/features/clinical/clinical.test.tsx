@@ -1,13 +1,15 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { SESSION_CHANNEL_NAME } from '@/app/session/session-channel';
 import {
   mockTenantTimezone,
   revokePermission,
   setRolePermissions,
   setTenantFeature,
   signIn,
+  signOut as signOutOnServer,
   TENANT_IDS,
   USER_IDS,
 } from '@/mocks/db';
@@ -400,5 +402,138 @@ describe('the consultations list', () => {
     await screen.findByRole('heading', CONSULTATION);
     expect(app.router.state.location.pathname).toBe('/encounters/enc_h_2');
     await expectNoAxeViolations();
+  });
+});
+
+/** Every request that creates a draft, with its idempotency key and body text. */
+function watchDraftCreates(encounterId: string): { key: string | null; text: string }[] {
+  const seen: { key: string | null; text: string }[] = [];
+  server.events.on('request:start', ({ request }) => {
+    if (
+      request.method === 'POST' &&
+      new URL(request.url).pathname.endsWith(`/api/encounters/${encounterId}/notes`)
+    ) {
+      void request
+        .clone()
+        .json()
+        .then((body: { body?: unknown }) =>
+          seen.push({
+            key: request.headers.get('Idempotency-Key'),
+            text: richTextToPlainText(sanitizeRichText(body.body)),
+          }),
+        );
+    }
+  });
+  return seen;
+}
+
+const otherTabs: BroadcastChannel[] = [];
+afterEach(() => {
+  for (const tab of otherTabs.splice(0)) tab.close();
+});
+
+describe('drafts in harder cases', () => {
+  it('signs after a conflict once the text to keep is chosen', async () => {
+    await openConsultation();
+    await writeDraft('Mine.');
+    await userEvent.tab();
+    await waitFor(() => expect(noteText('enc_h_1', 'draft')).toEqual(['Mine.']));
+    const id = mockNotesOf('enc_h_1').find((note) => note.status === 'draft')?.id ?? '';
+    editMockNote(id, 'From another window.');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sign note' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/saved from another window/);
+    await userEvent.click(screen.getByRole('button', { name: 'Use the saved text' }));
+    // The alert went with the button that had focus: focus is back on the draft.
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Your draft' })).toHaveFocus());
+    await userEvent.click(screen.getByRole('button', { name: 'Sign note' }));
+    expect(await screen.findByText('Note signed.')).toBeInTheDocument();
+    expect(noteText('enc_h_1', 'signed')).toContain('From another window.');
+  });
+
+  it('removes what reached the server when a draft is discarded straight after typing', async () => {
+    await openConsultation();
+    await writeDraft('Thrown away.');
+    // Pressing Discard leaves the editor, which starts the first save.
+    await userEvent.click(screen.getByRole('button', { name: 'Discard draft' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Discard draft' }));
+    expect(await screen.findByText('Draft discarded.')).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(noteText('enc_h_1', 'draft')).toEqual([]);
+  });
+
+  it('sends a first save whose answer was lost again as it was, so no second draft is made', async () => {
+    const creates = watchDraftCreates('enc_h_1');
+    server.use(
+      http.post('*/api/encounters/:encounterId/notes', () => HttpResponse.error(), { once: true }),
+    );
+    await openConsultation();
+    const editor = await writeDraft('First try.');
+    await userEvent.tab();
+    expect(await screen.findByText(/The draft could not be saved/)).toBeInTheDocument();
+
+    await userEvent.click(editor);
+    await userEvent.keyboard(' More.');
+    const typed = editor.textContent ?? '';
+    await userEvent.tab();
+    await waitFor(() => expect(noteText('enc_h_1', 'draft')).toEqual([typed]));
+    // The same body and key as the lost one first, then what is shown now as a save.
+    const keys = creates.map((each) => each.key);
+    expect(new Set(keys).size).toBe(1);
+    expect(creates.every((each) => each.text === 'First try.')).toBe(true);
+    expect(mockNotesOf('enc_h_1').filter((note) => note.status === 'draft')).toHaveLength(1);
+  });
+
+  it('saves what was typed when the screen is left', async () => {
+    const app = await openConsultation();
+    const editor = await writeDraft('Left in a hurry.');
+    const typed = editor.textContent ?? '';
+    await app.router.navigate('/encounters');
+    await waitFor(() => expect(noteText('enc_h_1', 'draft')).toEqual([typed]));
+  });
+
+  it('sends nothing once the session has ended, and keeps no clinical data', async () => {
+    const app = await openConsultation();
+    await writeDraft('Not to be sent.');
+    signOutOnServer();
+    const tab = new BroadcastChannel(SESSION_CHANNEL_NAME);
+    otherTabs.push(tab);
+    tab.postMessage('signed-out');
+    await screen.findByRole('heading', { name: 'Sign in' });
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    expect(noteText('enc_h_1', 'draft')).toEqual([]);
+    const cached = app.queryClient
+      .getQueryCache()
+      .findAll()
+      .filter((query) => query.queryKey.includes('clinical'));
+    expect(cached).toEqual([]);
+  });
+
+  it('shows a draft read-only to its author once clinicalNote:write is taken away', async () => {
+    const first = await openConsultation();
+    await writeDraft('Kept as saved.');
+    await userEvent.tab();
+    await waitFor(() => expect(noteText('enc_h_1', 'draft')).toHaveLength(1));
+    first.unmount();
+
+    revokePermission(HOSPITAL, 'admin', 'clinicalNote:write');
+    await openConsultation();
+    expect(
+      await screen.findByText('Your draft, as last saved. You can no longer change it.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Kept as saved.')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Note' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sign note' })).not.toBeInTheDocument();
+  });
+
+  it('moves focus between the code search and the chosen code', async () => {
+    await openConsultation();
+    await userEvent.type(await screen.findByRole('combobox', { name: 'ICD-10 code' }), 'A90');
+    await userEvent.click(await screen.findByRole('option', { name: /A90/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove code' })).toHaveFocus());
+    await userEvent.click(screen.getByRole('button', { name: 'Remove code' }));
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'ICD-10 code' })).toHaveFocus(),
+    );
   });
 });
