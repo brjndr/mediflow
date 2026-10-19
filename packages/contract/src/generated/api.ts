@@ -1910,6 +1910,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients/{patientId}/vitals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The patient's readings, newest first, corrections and the readings they correct included. Optionally only those taken for one queue token. Requires vitals:read and the triage feature flag. Audited. */
+        get: operations["listVitals"];
+        put?: never;
+        /** @description Records a reading, and emits vitals.recorded. A token that is not this patient's, or not today's, is 422 `token_not_for_patient`; a correction of a reading that is not this patient's is 422 `unknown_correction`; a patient the hospital does not have is 404. Requires vitals:record and the triage feature flag. */
+        post: operations["recordVitals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/vitals/{vitalsId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One reading of the patient. Requires vitals:read and the triage feature flag. Audited. */
+        get: operations["getVitals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/vital-ranges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital's normal ranges that apply to this patient, decided by the server from the patient's age at the hospital's date. Requires vitals:read and the triage feature flag. */
+        get: operations["getVitalRanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/allergies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The patient's allergies; status `unknown` and version 0 while never recorded. Requires allergy:read and the triage feature flag. Audited. */
+        get: operations["getAllergies"];
+        /** @description Replaces the patient's allergies from the version the edit started from; another change first is 409 `conflict`. Requires allergy:update and the triage feature flag. Audited. */
+        put: operations["setAllergies"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3165,6 +3235,115 @@ export interface components {
             items: components["schemas"]["QueueToken"][];
             nextCursor: string | null;
             total?: number;
+        };
+        /** @description One reading of vital signs, append-only: a correction is a new reading that names the one it corrects. Attached to the patient and, when taken at the queue, to the token; encounterId is set once the OPD encounter exists (M7). */
+        Vitals: {
+            id: string;
+            tenantId: string;
+            patientId: string;
+            queueTokenId?: string;
+            encounterId?: string;
+            /** Format: date-time */
+            recordedAt: string;
+            recordedById: string;
+            recordedByName: string;
+            /** @description mmHg. */
+            systolic?: number;
+            /** @description mmHg. */
+            diastolic?: number;
+            /** @description Beats a minute. */
+            pulse?: number;
+            /** @description Degrees Celsius, at most one decimal. */
+            temperature?: number;
+            /** @description Oxygen saturation, %. */
+            spo2?: number;
+            /** @description kg, at most one decimal. */
+            weight?: number;
+            /** @description cm, at most one decimal. */
+            height?: number;
+            /** @description Plain text: what brings the patient today, in their words. */
+            chiefComplaint?: string;
+            /** @description The reading of the same patient this one corrects. The original is kept. */
+            correctsId?: string;
+            /** @description Plain text. Required with correctsId, refused without it. */
+            correctionReason?: string;
+        };
+        /** @description At least one measurement or a chief complaint. Systolic and diastolic go together, the diastolic below the systolic. */
+        VitalsCreate: {
+            /** @description Today's token of this patient the reading was taken for. */
+            queueTokenId?: string;
+            /** @description mmHg. */
+            systolic?: number;
+            /** @description mmHg. */
+            diastolic?: number;
+            /** @description Beats a minute. */
+            pulse?: number;
+            /** @description Degrees Celsius, at most one decimal. */
+            temperature?: number;
+            /** @description Oxygen saturation, %. */
+            spo2?: number;
+            /** @description kg, at most one decimal. */
+            weight?: number;
+            /** @description cm, at most one decimal. */
+            height?: number;
+            /** @description Plain text: what brings the patient today, in their words. */
+            chiefComplaint?: string;
+            /** @description The reading of the same patient this one corrects. The original is kept. */
+            correctsId?: string;
+            /** @description Plain text. Required with correctsId, refused without it. */
+            correctionReason?: string;
+        };
+        VitalsPage: {
+            items: components["schemas"]["Vitals"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description Values below low or above high are abnormal. A limit that is absent is not checked. */
+        VitalRange: {
+            low?: number;
+            high?: number;
+        };
+        VitalRanges: {
+            /** @description The hospital's ranges that apply to this patient, or null when none do (a patient under 18: ranges are for adults until #379). */
+            ranges: {
+                systolic?: components["schemas"]["VitalRange"];
+                diastolic?: components["schemas"]["VitalRange"];
+                pulse?: components["schemas"]["VitalRange"];
+                temperature?: components["schemas"]["VitalRange"];
+                spo2?: components["schemas"]["VitalRange"];
+            } | null;
+        };
+        /** @enum {string} */
+        AllergySeverity: "mild" | "moderate" | "severe" | "unknown";
+        Allergy: {
+            /** @description Plain text. */
+            substance: string;
+            /** @description Plain text. */
+            reaction?: string;
+            severity: components["schemas"]["AllergySeverity"];
+        };
+        /**
+         * @description `unknown`: never asked. `none`: asked, no known allergies. `listed`: the items. Never asked and none are not the same.
+         * @enum {string}
+         */
+        AllergyStatus: "unknown" | "none" | "listed";
+        AllergyList: {
+            patientId: string;
+            tenantId: string;
+            status: components["schemas"]["AllergyStatus"];
+            items: components["schemas"]["Allergy"][];
+            /** @description 0 while never recorded. */
+            version: number;
+            /** Format: date-time */
+            updatedAt?: string;
+            updatedByName?: string;
+        };
+        /** @description `none` with no items, `listed` with 1 to 50. */
+        AllergyListUpdate: {
+            version: number;
+            /** @enum {string} */
+            status: "none" | "listed";
+            items: components["schemas"]["Allergy"][];
         };
     };
     responses: {
@@ -11763,6 +11942,195 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listVitals: {
+        parameters: {
+            query?: {
+                queueTokenId?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of readings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VitalsPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    recordVitals: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VitalsCreate"];
+            };
+        };
+        responses: {
+            /** @description The reading recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vitals"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getVitals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+                vitalsId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The reading */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vitals"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getVitalRanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ranges, or null */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VitalRanges"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getAllergies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The allergies */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllergyList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setAllergies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllergyListUpdate"];
+            };
+        };
+        responses: {
+            /** @description The allergies as they are now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllergyList"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
             429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
