@@ -132,6 +132,16 @@ async function addToken(patientId: string, daysAgo = 0) {
   return rows[0]?.id ?? '';
 }
 
+/** An encounter of the patient, as the clinical module opens one. */
+async function addEncounter(patientId: string) {
+  const { rows } = await pool.query<{ id: string }>(
+    `insert into encounters (tenant_id, patient_id, type, opened_by)
+     values ($1, $2, 'opd', $3) returning id`,
+    [hospital.id, patientId, doctor.id],
+  );
+  return rows[0]?.id ?? '';
+}
+
 const audited = async (entity: string, entityId: string) =>
   (
     await pool.query<{ action: string }>(
@@ -152,6 +162,7 @@ const events = async (entityId: string) =>
 const clearTriage = async () => {
   const tenants = [hospital.id, clinic.id, closed.id];
   await pool.query('delete from vitals where tenant_id = any($1)', [tenants]);
+  await pool.query('delete from encounters where tenant_id = any($1)', [tenants]);
   await pool.query('delete from allergy_list_versions where tenant_id = any($1)', [tenants]);
   await pool.query('delete from allergy_lists where tenant_id = any($1)', [tenants]);
   await pool.query('delete from vital_ranges where tenant_id = any($1)', [tenants]);
@@ -343,7 +354,7 @@ describe('recording a reading', () => {
     const token = await addToken(patients.adult);
     const reading = await recorded(patients.adult, { pulse: 72, queueTokenId: token });
     const elsewhere = await recorded(patients.adult, { pulse: 75 });
-    const encounterId = randomUUID();
+    const encounterId = await addEncounter(patients.adult);
     const publish = async (id: string) => {
       await pool.query(
         `insert into outbox (tenant_id, event, entity_id, actor_id, payload)
@@ -354,7 +365,7 @@ describe('recording a reading', () => {
       await jobs.drain();
     };
     await publish(encounterId);
-    await publish(randomUUID());
+    await publish(await addEncounter(patients.adult));
     const now = (await get(`/patients/${patients.adult}/vitals/${reading.id}`)).json<Reading>();
     expect(now.encounterId).toBe(encounterId);
     const other = (await get(`/patients/${patients.adult}/vitals/${elsewhere.id}`)).json<Reading>();
@@ -638,7 +649,7 @@ describe('more of the triage rules', () => {
   it('carries the encounter of the reading it corrects, and sets an encounter once only', async () => {
     const token = await addToken(patients.adult);
     const original = await recorded(patients.adult, { pulse: 180, queueTokenId: token });
-    const encounterId = randomUUID();
+    const encounterId = await addEncounter(patients.adult);
     await pool.query('update vitals set encounter_id = $2 where id = $1', [
       original.id,
       encounterId,

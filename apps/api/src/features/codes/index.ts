@@ -11,3 +11,6 @@ export const codesFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('codes', CODE_PERMISSIONS);
   await app.register(codeRoutes);
 };
+
+/** For the clinical module: an ICD-10 code by id, to record a diagnosis with. */
+export { diagnosisCode } from './repository.js';

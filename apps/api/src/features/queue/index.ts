@@ -14,3 +14,6 @@ export const queueFeature: FastifyPluginAsync = async (app) => {
 
 /** For triage: is a token the patient's and today's at the hospital. */
 export { tokenOfPatientToday } from './repository.js';
+
+/** For the clinical module: the patient's token of today, and its doctor, to open an encounter. */
+export { tokenForEncounter } from './repository.js';

@@ -193,3 +193,19 @@ export async function removeFavourite(client: pg.ClientBase, codeId: string): Pr
   ]);
   return rowCount === 1;
 }
+
+/**
+ * For recording a diagnosis: an ICD-10 code by id, as it reads now, or null for any other id.
+ * Exported from `index.ts`, so the clinical module never reads this table itself.
+ */
+export async function diagnosisCode(
+  client: pg.ClientBase,
+  id: string,
+): Promise<{ id: string; code: string; title: string } | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<{ id: string; code: string; title: string }>(
+    "select id, code, title from codes where id = $1 and system = 'icd10'",
+    [id],
+  );
+  return rows[0] ?? null;
+}

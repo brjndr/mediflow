@@ -12,3 +12,4 @@ What was decided for this feature's API. Moved out of `apps/api/CLAUDE.md` (#370
 - **The search is `POST /drugs/search`,** by generic name then brand, every word in either, with filters for type, form, schedule and controlled. Like the services search it matches the stored `search_text` of the hospital's rows and is not audited.
 - **A dispense, a stock entry and a prescription line will store what the item was** (name, brand, form, strength, schedule, controlled) when the line was written, so renaming or reclassifying here never changes history. That is theirs to do (M7, M10); nothing here keeps versions of an item.
 - **`POST /drugs` accepts an Idempotency-Key** and stores the whole answer for a replay.
+- **Exports** from `index.ts`: `prescribableDrug`, a medicine that is not archived with its name as a prescription line reads it (generic name, strength, brand), which the clinical module prescribes (#86).

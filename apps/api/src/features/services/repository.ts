@@ -420,3 +420,21 @@ export async function listPrices(
   }
   return result;
 }
+
+/**
+ * For placing an imaging or procedure order: a service of the hospital in that category that is
+ * not archived, with its code and name as they read now, or null. Exported from `index.ts`, so
+ * the clinical module never reads this table itself.
+ */
+export async function orderableService(
+  client: pg.ClientBase,
+  id: string,
+  category: ServiceCategory,
+): Promise<{ id: string; code: string; name: string } | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<{ id: string; code: string; name: string }>(
+    'select id, code, name from services where id = $1 and category = $2 and not archived',
+    [id, category],
+  );
+  return rows[0] ?? null;
+}

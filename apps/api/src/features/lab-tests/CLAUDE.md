@@ -14,3 +14,4 @@ What was decided for this feature's API. Moved out of `apps/api/CLAUDE.md` (#370
 - **Text is tidied and plain** (`core/http/text.ts`): names, units, containers and notes, as in drugs. `tidyWithin` and `tidyOptional` take the longest the text may be once tidied, because a few letters become two characters in the normal form and the database would otherwise refuse them as a 500.
 - **`POST /lab-tests` accepts an Idempotency-Key** and stores the whole answer for a replay.
 - **Changes are audited** (`lab_test`, `lab_test_ranges`) and emit `master.changed`.
+- **Exports** from `index.ts`: `orderableLabTest`, a test or panel that is not archived with its code and name, which the clinical module places a lab order for (#86).

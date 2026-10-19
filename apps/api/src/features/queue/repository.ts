@@ -245,6 +245,26 @@ export async function tokenOfPatientToday(
   return rowCount === 1;
 }
 
+/**
+ * For the clinical module: the patient's token of today at the hospital, with the doctor it was
+ * given to (null while any doctor of its department may call it) and the appointment it was
+ * checked in from (null for a walk-in), or null.
+ */
+export async function tokenForEncounter(
+  client: pg.ClientBase,
+  tokenId: string,
+  patientId: string,
+): Promise<{ doctorId: string | null; appointmentId: string | null } | null> {
+  if (!UUID.test(tokenId) || !UUID.test(patientId)) return null;
+  const { rows } = await client.query<{ doctor_id: string | null; appointment_id: string | null }>(
+    `select t.doctor_id, t.appointment_id from queue_tokens t
+     where t.id = $1 and t.patient_id = $2 and t.day = ${TODAY}`,
+    [tokenId, patientId],
+  );
+  const row = rows[0];
+  return row ? { doctorId: row.doctor_id, appointmentId: row.appointment_id } : null;
+}
+
 export async function departmentOpen(client: pg.ClientBase, id: string): Promise<boolean> {
   if (!UUID.test(id)) return false;
   const { rowCount } = await client.query(

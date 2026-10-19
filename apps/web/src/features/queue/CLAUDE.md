@@ -40,6 +40,6 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 - A checked-in appointment's row does not say so until the action is used: a row reads no data of its own, and the list has no token in its answer.
 - A token issued by mistake cannot be cancelled.
-- A token does not open the OPD encounter: the clinical module (M7) will open one from `queue.called`.
+- A token does not open the OPD encounter: the doctor opens one from it when the consultation starts (`POST /encounters` with `queueTokenId`, #86), not on `queue.called`, as a called patient may be skipped.
 - The doctor filter offers up to 100 practising doctors, as `useDoctorOptions` does.
 - A board left open past midnight at the hospital shows the new day's queue on its next read: the server decides the day.
