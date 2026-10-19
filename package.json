@@ -48,6 +48,6 @@
     "prettier": "^3.9.10",
     "simple-git-hooks": "^2.14.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.1"
+    "typescript-eslint": "^8.71.2"
   }
 }
