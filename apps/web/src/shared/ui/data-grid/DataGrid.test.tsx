@@ -306,8 +306,11 @@ describe('<DataGrid>', () => {
   describe('virtualisation', () => {
     it('keeps only the rows in view in the DOM for a long list', async () => {
       // jsdom has no layout. Give the scroll area a height so the virtualiser has a viewport.
+      // Both sizes: the virtualiser reads the scroll area's client box (since virtual-core 3.19).
       vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(440);
       vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(800);
+      vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(440);
+      vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(800);
       vi.stubGlobal(
         'ResizeObserver',
         class {
