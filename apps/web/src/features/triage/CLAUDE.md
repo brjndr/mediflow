@@ -10,7 +10,7 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 **The patient's tab (#77):** "Vitals and allergies" in `patient.detail.tabs`: the allergies (edited in place, for `allergy:update`) and the readings, newest first, a `DataGrid` page at a time with the out-of-range values marked, corrections and the readings they correct labelled, and "Correct" on a reading for `vitals:record`. A role with only one of `vitals:read` and `allergy:read` sees that part.
 
-**`TriageSummary`** (from `index.ts`): the allergies and the newest reading of a patient, for the consultation view (#80). Renders nothing with the switch off, and each part only for its permission.
+**`TriageSummary`** (from `index.ts`): the allergies and the newest reading of a patient, shown on the consultation (#80, beside the notes). Renders nothing with the switch off, and each part only for its permission. A reading takes two columns by the width of its container, not the window's (`@container`), so it fits that side column.
 
 ## Decided
 
@@ -40,4 +40,3 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 - No respiratory rate, pain score, blood glucose or head circumference: a field each, additive.
 - Units are fixed (°C, kg, cm).
 - Allergens are free text, so they cannot yet drive drug-allergy checks in prescribing or the pharmacy (#380).
-- The consultation view that shows `TriageSummary` is #80.

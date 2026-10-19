@@ -81,7 +81,12 @@ export default function AppointmentList() {
                 and values only. Rendered for every row: a contribution reads no data of its own. */}
             <Slot
               id="appointment.row.actions"
-              context={{ appointmentId: row.id, status: row.status, startsAt: row.startsAt }}
+              context={{
+                appointmentId: row.id,
+                patientId: row.patientId,
+                status: row.status,
+                startsAt: row.startsAt,
+              }}
             />
           </span>
         ),
