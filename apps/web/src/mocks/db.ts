@@ -25,6 +25,7 @@ const initialTenants: Record<string, TenantDto> = {
     features: {
       patients: true,
       appointments: true,
+      queue: true,
       clinical: true,
       laboratory: true,
       radiology: true,
@@ -59,6 +60,7 @@ const initialTenants: Record<string, TenantDto> = {
     features: {
       patients: true,
       appointments: true,
+      queue: true,
       clinical: true,
       laboratory: false,
       radiology: false,
@@ -94,6 +96,9 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'appointment:read' },
   { permission: 'appointment:create' },
   { permission: 'appointment:update' },
+  { permission: 'queue:read' },
+  { permission: 'queue:create' },
+  { permission: 'queue:call' },
   { permission: 'clinical:read' },
   { permission: 'clinical:write' },
   { permission: 'order:create' },
@@ -135,6 +140,9 @@ const DOCTOR: PermissionGrantDto[] = [
   { permission: 'patient:update' },
   // The whole hospital's: the list opens on the doctor's own schedule, which they can widen.
   { permission: 'appointment:read' },
+  // Calls the next patient of their own queue, which the board opens on.
+  { permission: 'queue:read' },
+  { permission: 'queue:call' },
   { permission: 'clinical:read' },
   { permission: 'clinical:write' },
   { permission: 'order:create' },
@@ -166,6 +174,9 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
       { permission: 'appointment:read' },
       { permission: 'appointment:create' },
       { permission: 'appointment:update' },
+      // Issues tokens at the desk; the doctors call them.
+      { permission: 'queue:read' },
+      { permission: 'queue:create' },
       { permission: 'billing:read' },
       { permission: 'billing:create' },
     ],

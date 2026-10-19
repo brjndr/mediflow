@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import { fetchPatient } from '../api';
+import type { PatientSummary } from '../types';
 import { patientKeys } from './use-patients';
 
 /**
@@ -23,4 +24,24 @@ export function usePatient(id: string) {
       failures < 1,
     retryDelay: 400,
   });
+}
+
+/** Who a patient is, as another feature's screen names one it was given the id of. */
+export type PatientName = Pick<PatientSummary, 'id' | 'firstName' | 'lastName' | 'mrn'>;
+
+/**
+ * The name and MRN of a patient whose id another feature's screen was given (issuing a queue
+ * token from the patient's screen), and nothing more of the record. The same query as the
+ * patient's screen, so coming from there asks the server for nothing again.
+ */
+export function usePatientName(id: string) {
+  const { data: record, isPending, isError, error } = usePatient(id);
+  const data: PatientName | undefined = record && {
+    id: record.id,
+    firstName: record.firstName,
+    lastName: record.lastName,
+    mrn: record.mrn,
+  };
+  // Not the query itself: its `refetch` would hand out the whole record.
+  return { data, isPending, isError, error };
 }

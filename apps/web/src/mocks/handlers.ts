@@ -29,6 +29,7 @@ import { wardsHandlers } from './handlers/wards';
 import { staffHandlers } from './handlers/staff';
 import { patientsHandlers } from './handlers/patients';
 import { profileHandlers } from './handlers/profile';
+import { queueHandlers } from './handlers/queue';
 import { error, tenantMismatch, unauthenticated } from './respond';
 
 export const handlers = [
@@ -120,6 +121,7 @@ export const handlers = [
   ...appointmentsHandlers,
   ...bookingHandlers,
   ...appointmentChangeHandlers,
+  ...queueHandlers,
   ...staffHandlers,
   ...servicesHandlers,
   ...drugsHandlers,

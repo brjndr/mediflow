@@ -12,6 +12,8 @@ export interface DoctorOption {
   name: string;
   /** The staff member the profile is for: how a screen finds the signed-in doctor's own. */
   userId: string;
+  /** To offer only the doctors of a chosen department (a queue token's). */
+  departmentId: string;
 }
 
 /**
@@ -38,7 +40,7 @@ export function useDoctorOptions() {
     enabled: available && tenantId !== undefined,
     staleTime: 5 * 60_000,
     select: (page): DoctorOption[] =>
-      page.items.map(({ id, name, userId }) => ({ id, name, userId })),
+      page.items.map(({ id, name, userId, departmentId }) => ({ id, name, userId, departmentId })),
   });
   return { ...query, available };
 }
