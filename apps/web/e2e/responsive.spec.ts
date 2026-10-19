@@ -101,6 +101,19 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   ).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // The OPD queue: three groups of tokens, cards on a phone, and the form to issue one.
+  await goTo(page, 'OPD queue');
+  await expect(page.getByRole('heading', { name: 'OPD queue', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('region', { name: 'Waiting' }).getByText('Token 4', { exact: true }),
+  ).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'Issue a token' }).click();
+  await expect(page.getByRole('heading', { name: 'Issue a token' })).toBeVisible();
+  await page.getByRole('combobox', { name: /^Department/ }).selectOption('dep_h_01');
+  await expect(page.getByRole('combobox', { name: /^Doctor/ })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   await goTo(page, 'Patients');
   await expect(page.getByRole('heading', { name: 'Patients', exact: true })).toBeVisible();
   await expectNoSidewaysScroll(page);

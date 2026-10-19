@@ -1,0 +1,117 @@
+{
+  "heading": "OPD queue",
+  "description": "Today's tokens at this hospital, by department and doctor, in the order they are called.",
+  "token": "Token {{number}}",
+  "rowLabel": "Token {{number}}, {{patient}}",
+  "anyDoctor": "Any doctor",
+  "calledAt_one": "{{time}}",
+  "calledAt_other": "{{time}} (called {{count}} times)",
+  "count_one": "{{count}} token",
+  "count_other": "{{count}} tokens",
+  "live": {
+    "connecting": "Connecting for live changes…",
+    "on": "Live: changes show within seconds.",
+    "retrying": "Reconnecting. Meanwhile the queue refreshes every {{seconds}} seconds.",
+    "off": "Live updates are not available. The queue refreshes every {{seconds}} seconds."
+  },
+  "groups": {
+    "called": "Now serving",
+    "waiting": "Waiting",
+    "skipped": "Skipped",
+    "served": "Served"
+  },
+  "empty": {
+    "called": "Nobody is being served.",
+    "waiting": "Nobody is waiting.",
+    "skipped": "No skipped tokens.",
+    "served": "Nobody has been served yet."
+  },
+  "filters": {
+    "department": "Department",
+    "allDepartments": "All departments",
+    "doctor": "Doctor",
+    "allDoctors": "All doctors",
+    "me": "{{name}} (you)"
+  },
+  "columns": {
+    "token": "Token",
+    "patient": "Patient",
+    "mrn": "MRN",
+    "priority": "Priority",
+    "doctor": "Doctor",
+    "department": "Department",
+    "issued": "Issued",
+    "called": "Called"
+  },
+  "priority": {
+    "none": "No priority",
+    "senior_citizen": "Senior citizen",
+    "pregnancy": "Pregnancy",
+    "disability": "Disability",
+    "child": "Child",
+    "clinical_urgency": "Clinical urgency"
+  },
+  "actions": {
+    "callNext": "Call next",
+    "callNextFor": "Call next for {{name}}",
+    "callAgain": "Call again",
+    "skip": "Skip",
+    "recall": "Back in the queue",
+    "priority": "Change priority"
+  },
+  "done": {
+    "called": "Token {{number}}, {{patient}}, called.",
+    "calledAgain": "Token {{number}}, {{patient}}, called again.",
+    "skipped": "Token {{number}}, {{patient}}, skipped.",
+    "recalled": "Token {{number}}, {{patient}}, is back in the queue.",
+    "priority": "Priority of token {{number}}, {{patient}}, changed."
+  },
+  "refused": {
+    "changed": "Someone else changed this token first. The queue shows it as it is now.",
+    "empty": "Nobody is waiting for this doctor."
+  },
+  "priorityPanel": {
+    "heading": "Priority of token {{number}}, {{patient}}",
+    "label": "Priority",
+    "save": "Save priority",
+    "cancel": "Cancel"
+  },
+  "issue": {
+    "open": "Issue a token",
+    "fromPatient": "Issue a queue token",
+    "heading": "Issue a token",
+    "description": "Put a patient who has walked in into today's queue of a department.",
+    "patient": "Patient",
+    "patientMrn": "MRN {{mrn}}",
+    "changePatient": "Choose another patient",
+    "department": "Department",
+    "chooseDepartment": "Choose a department",
+    "departmentsLoading": "Loading departments…",
+    "doctorsLoading": "Loading doctors…",
+    "askedNotFound": "The patient you came from could not be loaded. Find them below.",
+    "doctor": "Doctor",
+    "doctorHint": "Leave as any doctor to let the first doctor free in the department call the patient.",
+    "priority": "Priority",
+    "priorityHint": "A token with a priority is called ahead of the others.",
+    "submit": "Issue token",
+    "submitting": "Issuing…",
+    "cancel": "Cancel",
+    "back": "Back to the queue",
+    "patientRequired": "Choose the patient.",
+    "departmentRequired": "Choose a department.",
+    "issued": {
+      "heading": "Token {{number}} issued",
+      "summary": "Token {{number}} for {{patient}}, {{department}}, {{doctor}}.",
+      "another": "Issue another"
+    },
+    "refused": {
+      "alreadyQueued": "This patient already has a token in this department today.",
+      "doctorNotInDepartment": "That doctor is not in this department any more. Choose again.",
+      "unknownPatient": "That patient cannot be found at this hospital."
+    },
+    "unavailable": {
+      "departments": "Issuing a token needs departments, which you cannot see here. Ask an administrator.",
+      "patients": "Issuing a token needs finding a patient, which you cannot do here. Ask an administrator."
+    }
+  }
+}

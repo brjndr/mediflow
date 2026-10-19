@@ -5,3 +5,5 @@ export { DetailTab } from './components/DetailTabs';
 export type { PatientSummary } from './types';
 // A search box to choose a patient in another feature's screen. Needs `patient:read`.
 export { PatientSearch } from './components/PatientSearch';
+// The name and MRN of a patient another feature was given the id of. Needs `patient:read`.
+export { usePatientName, type PatientName } from './hooks/use-patient';
