@@ -1790,6 +1790,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/queue/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Today's tokens at the hospital (its own calendar day, worked out by the server), in call order: the priority ones first, then by the time they were issued. With `doctorId`, the doctor's queue: the tokens issued for that doctor and the tokens of the doctor's department issued for no doctor, which is what call-next takes from. Requires queue:read and the queue feature flag. Names patients, so every page read is audited. */
+        get: operations["listQueueTokens"];
+        put?: never;
+        /** @description Issues today's next token of a department to a patient, optionally for one doctor of that department. The number is given by the server, one sequence per department per day, safe when two desks issue at once. A patient with a token still waiting, called or skipped in that department today is refused (409 `already_queued`). Requires queue:create and patient:read (a role that may not read patients learns nothing about one here: an unknown patient and a patient it may not read are both 422 `unknown_patient`). Emits `queue.token_issued`. */
+        post: operations["issueQueueToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/call-next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Calls the next token of a doctor's queue (see listQueueTokens) and gives it to the doctor; the token the doctor was serving becomes `served`. Nobody waiting is 409 `queue_empty`. Requires queue:call. Emits `queue.called`. */
+        post: operations["callNextQueueToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/tokens/{tokenId}/call-again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Calls the token being served again, when the patient has not come in. Only a `called` token (409 `invalid_transition` otherwise). Requires queue:call. Emits `queue.called`. */
+        post: operations["callQueueTokenAgain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/tokens/{tokenId}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The patient called did not come: the token is put aside as `skipped`. Only a `called` token. Requires queue:call. */
+        post: operations["skipQueueToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/tokens/{tokenId}/recall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A skipped patient has come back: the token waits again, at the place its priority and the time it was issued give it. Only a `skipped` token. Requires queue:call. */
+        post: operations["recallQueueToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/tokens/{tokenId}/priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Sets or clears the reason a token goes ahead of the others (null clears it). Only a `waiting` or `skipped` token. Requires queue:call. */
+        post: operations["setQueueTokenPriority"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Server-sent events for the queues of the session's hospital, and of no other. Each `queue` event says only which department's queue changed (`data: {"departmentId":"..."}`), never who: the screen then reads the queue again through listQueueTokens, which is audited. A comment line is sent every 20 seconds to keep the connection open; a client takes 45 seconds without anything as a lost connection. The server ends the stream when the session ends, is revoked or switches hospital, and when the session loses queue:read or the hospital the queue switch, and checks the session again before each event. Requires queue:read and the queue feature flag. */
+        get: operations["queueEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2993,6 +3113,58 @@ export interface components {
         AccountSessionList: {
             items: components["schemas"]["AccountSession"][];
             nextCursor: string | null;
+        };
+        /**
+         * @description waiting -> called -> served, called -> skipped (did not come), skipped -> waiting (came back). A doctor calling the next token makes the one they were serving `served`.
+         * @enum {string}
+         */
+        QueueTokenStatus: "waiting" | "called" | "served" | "skipped";
+        /**
+         * @description Why a token goes ahead of the others.
+         * @enum {string}
+         */
+        QueuePriority: "senior_citizen" | "pregnancy" | "disability" | "child" | "clinical_urgency";
+        QueueTokenCreate: {
+            patientId: string;
+            departmentId: string;
+            /** @description A practising doctor of the department (422 `doctor_not_in_department` otherwise). */
+            doctorId?: string;
+            priority?: components["schemas"]["QueuePriority"];
+        };
+        QueueToken: {
+            id: string;
+            tenantId: string;
+            /** @description The department's number for the day. */
+            number: number;
+            /**
+             * Format: date
+             * @description The calendar day at the hospital.
+             */
+            day: string;
+            departmentId: string;
+            departmentName: string;
+            /** @description Absent while any doctor of the department may call it. */
+            doctorId?: string;
+            doctorName?: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            status: components["schemas"]["QueueTokenStatus"];
+            priority?: components["schemas"]["QueuePriority"];
+            /** Format: date-time */
+            issuedAt: string;
+            /**
+             * Format: date-time
+             * @description The last time it was called.
+             */
+            calledAt?: string;
+            callCount: number;
+            version: number;
+        };
+        QueueTokenPage: {
+            items: components["schemas"]["QueueToken"][];
+            nextCursor: string | null;
+            total?: number;
         };
     };
     responses: {
@@ -11309,6 +11481,289 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listQueueTokens: {
+        parameters: {
+            query: {
+                departmentId?: string;
+                doctorId?: string;
+                status: components["schemas"]["QueueTokenStatus"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of tokens */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueTokenPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    issueQueueToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueueTokenCreate"];
+            };
+        };
+        responses: {
+            /** @description The token issued */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    callNextQueueToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    doctorId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The token called */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    callQueueTokenAgain: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The token as it is now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    skipQueueToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The token as it is now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    recallQueueToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The token as it is now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setQueueTokenPriority: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                    priority: components["schemas"]["QueuePriority"] | null;
+                };
+            };
+        };
+        responses: {
+            /** @description The token as it is now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    queueEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description An event stream that stays open */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
