@@ -12,6 +12,8 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     ...loadConfig({ ...process.env, NODE_ENV: 'test' }),
     // Tests drive the queue and the outbox by hand.
     JOBS_ENABLED: false,
+    // Event streams check the session again before every event.
+    LIVE_RECHECK_MS: 0,
     ...overrides,
   };
 }

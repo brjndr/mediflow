@@ -29,6 +29,12 @@ declare module 'fastify' {
      * callback is logged and does not change the response.
      */
     afterCommit(callback: () => Promise<void>): void;
+    /**
+     * Commits the request's transaction now, for a route whose answer outlives its database work
+     * (an event stream), so the connection goes back to the pool before the answer ends. `tx` and
+     * `txClient` must not be used afterwards, and nothing recorded after it is audited.
+     */
+    commitNow(): Promise<void>;
   }
 }
 
@@ -106,6 +112,11 @@ export const tenancyPlugin = fp(
       const transaction = transactions.get(this);
       if (!transaction) throw noTransaction(this, 'afterCommit');
       transaction.afterCommit.push(callback);
+    });
+
+    app.decorateRequest('commitNow', async function (this: FastifyRequest) {
+      if (!transactions.has(this)) throw noTransaction(this, 'commitNow');
+      await finish(this, 'commit');
     });
 
     app.addHook('preHandler', async (request) => {

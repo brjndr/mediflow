@@ -212,7 +212,9 @@ afterAll(async () => {
   } finally {
     await app.close();
   }
-});
+  // Removing 60,000 patients checks every table that refers to one (appointments, queue tokens,
+  // readings, allergies): about three seconds each on a slow machine.
+}, 60_000);
 
 describe('registering a patient', () => {
   it('assigns the next MRN of the hospital and records who captured consent', async () => {

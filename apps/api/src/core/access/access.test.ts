@@ -178,7 +178,7 @@ const errorOf = (response: LightMyRequestResponse) =>
  * permissions. What the real features grant by default is covered in their own tests.
  */
 const OTHER_FEATURES =
-  /^(patient[.:]|department:|doctor:|service:|drug:|labTest:|ward:|code:|template:|import:|appointment:|staff:(read|manage)$)/;
+  /^(patient[.:]|department:|doctor:|service:|drug:|labTest:|ward:|code:|template:|import:|appointment:|queue:|vitals:|allergy:|staff:(read|manage)$)/;
 const ownPermissions = (policy: AccessPolicy): AccessPolicy => ({
   ...policy,
   permissions: policy.permissions.filter((grant) => !OTHER_FEATURES.test(grant.permission)),

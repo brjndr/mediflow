@@ -33,6 +33,7 @@ src/
     idempotency/  # idempotency keys for create routes
     imports/      # the registry of import kinds (app.importKinds)
     jobs/         # the job queue interface, pg-boss and in-memory implementations
+    live/         # live updates: the bus (Postgres LISTEN/NOTIFY) and server-sent event streams
     logging/      # pino options and redaction
     notifier/     # staff email: the Notifier interface, SMTP adapter, templates
     openapi/      # contract generation and its version
@@ -130,6 +131,16 @@ Sign-in, sessions, links, passwords and the second factor live in `core/auth`; i
 - **Background work runs as `mediflow_worker`** (`SET LOCAL ROLE`): the dispatcher reads every hospital's outbox rows, and the daily job calls `ensure_audit_partition`, a SECURITY DEFINER function only that role may execute. The API login therefore stays a non-owner (migration 0002) and still creates partitions. Migration 0007 grants the role to the migrating login only: in production, `GRANT mediflow_worker TO <api login>` as well (in development and CI the API connects as the migrating login). Tenant requests never use it.
 - **Registration order matters:** `auditPlugin` is registered before `tenancyPlugin` because it writes in an `onSend` hook that must run before the tenancy hook commits.
 
+## Live updates
+
+- **A screen that must follow changes as they happen** (the queue board) gets a server-sent event stream: a tenant route whose handler is `app.live.stream(request, reply, { topic, event, filter })`. The route declares its `permissions` and `feature` as any other; the guard runs, then the request's transaction commits (`request.commitNow()`) and the reply is taken over, so an open stream holds no database connection.
+- **Publish with `app.live.bus.publish(request.txClient, topic, { ...ids })`** in the transaction of the change: Postgres `NOTIFY` sends it when the transaction commits and never when it rolls back, to every API instance. The hospital is set in SQL from the transaction, never passed. A message says which record changed, never what it holds: the screen reads it again through its own audited route. Redis pub/sub can replace the bus behind `LiveBus` (`buildApp({ liveBus })`).
+- **A stream checks its caller again** before sending events and at each 20-second keep-alive: the session row (not revoked, expired or idle, still at that hospital; read with `sessionStillHolds`, which never rotates the token, since a stream cannot send a new cookie), the user and membership, the hospital not suspended, the route's module and permissions, and the route's own `filter` (scope). Anything that no longer holds ends the stream. A check made within `LIVE_RECHECK_MS` (2 seconds; tests 0) is reused, so a burst of events costs one check per stream. A test resolver's session has no row and is taken to hold in tests only; its policy is still checked.
+- **When the listening connection breaks,** every stream ends, since messages may have been missed: the browser opens it again and reads the screen afresh. The connection has TCP keep-alive, a 5-second connect timeout and a `select 1` every 20 seconds, so one the network dropped silently is noticed too. Streams end when the app closes, starting ones included. 503 `live_unavailable` when the bus cannot listen.
+- **A stream writes nothing before its headers** (a message that arrives while the request commits waits for them), ends a client that leaves events unread for 30 seconds, and each one's keep-alive starts at a random point so a hospital's streams do not check at the same moment. One person may hold five streams at a hospital on one instance (429 `rate_limited` beyond that).
+- **`DATABASE_URL` must reach Postgres directly or through a session-mode pooler:** `LISTEN` does not work through a transaction-mode PgBouncer. Postgres also queues the commits of transactions that `NOTIFY`; when that shows under load, Redis pub/sub replaces the bus (`docs/PERFORMANCE.md`).
+- **In tests,** listen on a real port (`app.listen({ port: 0 })`) and read the stream with `fetch`; `app.inject` waits for the end of an answer. See `features/queue/queue.test.ts`.
+
 ## Rate limits and idempotency
 
 - **Every tenant route is rate limited,** per hospital (`RATE_LIMIT_TENANT_PER_MINUTE`) and per user within it (`RATE_LIMIT_USER_PER_MINUTE`), by `core/ratelimit`. It runs right after the session and before the tenant transaction opens, and answers 429 `rate_limited` with `Retry-After`. The counters sit behind the `RateLimiter` interface: in-process now, so the limit is per API instance until a Redis implementation is passed as `buildApp({ rateLimiter })`. The sign-in routes keep their own per-address limit (core/auth). To send a header with an error, give `HttpError` a fourth argument.
@@ -140,7 +151,7 @@ Sign-in, sessions, links, passwords and the second factor live in `core/auth`; i
 
 ## Features
 
-What was decided for each feature's API is in `src/features/<name>/CLAUDE.md`, which Claude Code loads when a file of that folder is read: `patients` (patients), `staff` (staff), `doctors` (doctors), `departments` (departments), `services` (services and prices), `drugs` (drugs and consumables), `lab-tests` (lab tests), `wards` (wards, rooms and beds), `codes` (diagnosis and procedure codes), `templates` (document templates), `imports` (import centre), `appointments` (appointments). **Read it before changing that feature, or before using it from another one** (its routes, its exports such as `app.importKinds`, or its tables).
+What was decided for each feature's API is in `src/features/<name>/CLAUDE.md`, which Claude Code loads when a file of that folder is read: `patients` (patients), `staff` (staff), `doctors` (doctors), `departments` (departments), `services` (services and prices), `drugs` (drugs and consumables), `lab-tests` (lab tests), `wards` (wards, rooms and beds), `codes` (diagnosis and procedure codes), `templates` (document templates), `imports` (import centre), `appointments` (appointments), `queue` (the OPD token queue and its event stream), `triage` (vitals, ranges and allergies). **Read it before changing that feature, or before using it from another one** (its routes, its exports such as `app.importKinds`, or its tables).
 
 ## Contract
 

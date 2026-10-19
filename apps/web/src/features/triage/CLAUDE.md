@@ -4,7 +4,7 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 ## What exists
 
-**Triage (web, against the mock; the API is #79):** a nurse records a patient's vitals (blood pressure, pulse, temperature, oxygen saturation, weight, height), the chief complaint and the allergies before the consultation (#77). Behind the `triage` switch and `vitals:read`, `vitals:record`, `allergy:read` and `allergy:update`. Works at every width.
+**Triage (web and API; the API is #79, notes in `apps/api/src/features/triage/CLAUDE.md`):** a nurse records a patient's vitals (blood pressure, pulse, temperature, oxygen saturation, weight, height), the chief complaint and the allergies before the consultation (#77). Behind the `triage` switch and `vitals:read`, `vitals:record`, `allergy:read` and `allergy:update`. Works at every width.
 
 **Recording (#77):** `triage/:patientId`, behind `vitals:record` and `vitals:read`, opened from a token of the queue board (`?token=<id>`, through the `queue.row.actions` slot, on tokens waiting or being served) and from the patient's tab. It shows who the patient is (name and MRN, for `patient:read`), the allergies, whether vitals were already taken for that token, and the form. A value outside the hospital's range is marked "High" or "Low" beside its field as it is typed, BMI is shown from the weight and height, and the screen confirms in place with the reading and how many values are out of range. `?corrects=<id>` starts a correction from that reading.
 

@@ -3449,6 +3449,484 @@
             "type": "integer"
           }
         }
+      },
+      "QueueTokenStatus": {
+        "type": "string",
+        "enum": ["waiting", "called", "served", "skipped"],
+        "description": "waiting -> called -> served, called -> skipped (did not come), skipped -> waiting (came back). A doctor calling the next token makes the one they were serving `served`."
+      },
+      "QueuePriority": {
+        "type": "string",
+        "enum": ["senior_citizen", "pregnancy", "disability", "child", "clinical_urgency"],
+        "description": "Why a token goes ahead of the others."
+      },
+      "QueueTokenCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "departmentId"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "departmentId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "doctorId": {
+            "maxLength": 64,
+            "description": "A practising doctor of the department (422 `doctor_not_in_department` otherwise).",
+            "type": "string"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/QueuePriority"
+          }
+        }
+      },
+      "QueueToken": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "number",
+          "day",
+          "departmentId",
+          "departmentName",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "status",
+          "issuedAt",
+          "callCount",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "number": {
+            "minimum": 1,
+            "description": "The department’s number for the day.",
+            "type": "integer"
+          },
+          "day": {
+            "format": "date",
+            "description": "The calendar day at the hospital.",
+            "type": "string"
+          },
+          "departmentId": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "doctorId": {
+            "description": "Absent while any doctor of the department may call it.",
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QueueTokenStatus"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/QueuePriority"
+          },
+          "issuedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "calledAt": {
+            "format": "date-time",
+            "description": "The last time it was called.",
+            "type": "string"
+          },
+          "callCount": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "QueueTokenPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueToken"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "Vitals": {
+        "additionalProperties": false,
+        "description": "One reading of vital signs, append-only: a correction is a new reading that names the one it corrects. Attached to the patient and, when taken at the queue, to the token; encounterId is set once the OPD encounter exists (M7).",
+        "type": "object",
+        "required": ["id", "tenantId", "patientId", "recordedAt", "recordedById", "recordedByName"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "queueTokenId": {
+            "description": "The token the reading was taken for. A correction carries the one of the reading it corrects.",
+            "type": "string"
+          },
+          "encounterId": {
+            "description": "Set once, from empty to the encounter, by the triage module itself when it hears encounter.opened for the reading’s queue token (idempotently); nothing else of a reading ever changes. A reading taken outside the queue gets none until the API attaches readings to the patient’s open encounter (M7).",
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "recordedById": {
+            "type": "string"
+          },
+          "recordedByName": {
+            "type": "string"
+          },
+          "systolic": {
+            "minimum": 40,
+            "maximum": 300,
+            "description": "mmHg.",
+            "type": "integer"
+          },
+          "diastolic": {
+            "minimum": 20,
+            "maximum": 200,
+            "description": "mmHg.",
+            "type": "integer"
+          },
+          "pulse": {
+            "minimum": 20,
+            "maximum": 300,
+            "description": "Beats a minute.",
+            "type": "integer"
+          },
+          "temperature": {
+            "minimum": 25,
+            "maximum": 45,
+            "description": "Degrees Celsius, at most one decimal.",
+            "type": "number"
+          },
+          "spo2": {
+            "minimum": 50,
+            "maximum": 100,
+            "description": "Oxygen saturation, %.",
+            "type": "integer"
+          },
+          "weight": {
+            "minimum": 0.3,
+            "maximum": 400,
+            "description": "kg, at most one decimal.",
+            "type": "number"
+          },
+          "height": {
+            "minimum": 20,
+            "maximum": 250,
+            "description": "cm, at most one decimal.",
+            "type": "number"
+          },
+          "chiefComplaint": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text of one or more lines: what brings the patient today, in their words.",
+            "type": "string"
+          },
+          "correctsId": {
+            "maxLength": 64,
+            "description": "The reading of the same patient this one corrects. The original is kept.",
+            "type": "string"
+          },
+          "correctionReason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text. Required with correctsId, refused without it.",
+            "type": "string"
+          }
+        }
+      },
+      "VitalsCreate": {
+        "additionalProperties": false,
+        "description": "At least one measurement or a chief complaint. Systolic and diastolic go together, the diastolic below the systolic.",
+        "type": "object",
+        "properties": {
+          "queueTokenId": {
+            "maxLength": 64,
+            "description": "Today’s token of this patient the reading was taken for. Not sent with a correction, which takes the corrected reading’s.",
+            "type": "string"
+          },
+          "systolic": {
+            "minimum": 40,
+            "maximum": 300,
+            "description": "mmHg.",
+            "type": "integer"
+          },
+          "diastolic": {
+            "minimum": 20,
+            "maximum": 200,
+            "description": "mmHg.",
+            "type": "integer"
+          },
+          "pulse": {
+            "minimum": 20,
+            "maximum": 300,
+            "description": "Beats a minute.",
+            "type": "integer"
+          },
+          "temperature": {
+            "minimum": 25,
+            "maximum": 45,
+            "description": "Degrees Celsius, at most one decimal.",
+            "type": "number"
+          },
+          "spo2": {
+            "minimum": 50,
+            "maximum": 100,
+            "description": "Oxygen saturation, %.",
+            "type": "integer"
+          },
+          "weight": {
+            "minimum": 0.3,
+            "maximum": 400,
+            "description": "kg, at most one decimal.",
+            "type": "number"
+          },
+          "height": {
+            "minimum": 20,
+            "maximum": 250,
+            "description": "cm, at most one decimal.",
+            "type": "number"
+          },
+          "chiefComplaint": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text of one or more lines: what brings the patient today, in their words.",
+            "type": "string"
+          },
+          "correctsId": {
+            "maxLength": 64,
+            "description": "The reading of the same patient this one corrects. The original is kept.",
+            "type": "string"
+          },
+          "correctionReason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text. Required with correctsId, refused without it.",
+            "type": "string"
+          }
+        }
+      },
+      "VitalsPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Vitals"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "VitalRange": {
+        "additionalProperties": false,
+        "description": "Values below low or above high are abnormal. A limit that is absent is not checked.",
+        "type": "object",
+        "properties": {
+          "low": {
+            "type": "number"
+          },
+          "high": {
+            "type": "number"
+          }
+        }
+      },
+      "VitalRanges": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["ranges"],
+        "properties": {
+          "ranges": {
+            "description": "The hospital’s ranges that apply to this patient, or null when none do (a patient under 18: ranges are for adults until #379).",
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "systolic": {
+                    "$ref": "#/components/schemas/VitalRange"
+                  },
+                  "diastolic": {
+                    "$ref": "#/components/schemas/VitalRange"
+                  },
+                  "pulse": {
+                    "$ref": "#/components/schemas/VitalRange"
+                  },
+                  "temperature": {
+                    "$ref": "#/components/schemas/VitalRange"
+                  },
+                  "spo2": {
+                    "$ref": "#/components/schemas/VitalRange"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "AllergySeverity": {
+        "type": "string",
+        "enum": ["mild", "moderate", "severe", "unknown"]
+      },
+      "Allergy": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["substance", "severity"],
+        "properties": {
+          "substance": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text.",
+            "type": "string"
+          },
+          "reaction": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text.",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/AllergySeverity"
+          }
+        }
+      },
+      "AllergyStatus": {
+        "type": "string",
+        "enum": ["unknown", "none", "listed"],
+        "description": "`unknown`: never asked. `none`: asked, no known allergies. `listed`: the items. Never asked and none are not the same."
+      },
+      "AllergyList": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "tenantId", "status", "items", "version"],
+        "properties": {
+          "patientId": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AllergyStatus"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Allergy"
+            }
+          },
+          "version": {
+            "minimum": 0,
+            "description": "0 while never recorded.",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedByName": {
+            "type": "string"
+          }
+        }
+      },
+      "AllergyListUpdate": {
+        "additionalProperties": false,
+        "description": "`none` with no items, `listed` with 1 to 50.",
+        "type": "object",
+        "required": ["version", "status", "items"],
+        "properties": {
+          "version": {
+            "minimum": 0,
+            "description": "The version the edit started from (0 while never recorded). Another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["none", "listed"]
+          },
+          "items": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Allergy"
+            }
+          }
+        }
       }
     }
   },
@@ -13607,6 +14085,1540 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Appointment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/tokens": {
+      "get": {
+        "operationId": "listQueueTokens",
+        "tags": ["queue"],
+        "description": "Today’s tokens at the hospital (its own calendar day, worked out by the server) of one status, in call order: for `waiting` and `skipped` the priority ones first, then by the time they were issued, the number breaking a tie; for `called` and `served` in the order they were called. With `doctorId`, the doctor’s queue: the tokens issued for that doctor and the tokens of the doctor’s department issued for no doctor, which is what call-next takes from. A list, not a search: nothing in its address is typed about a patient, so it is a GET. Each row names its patient (name and MRN) for anyone who may read the queue. The scope of the caller’s `queue:read` is applied whatever the filters say: `department`, the tokens of the department of the caller’s doctor profile; `own`, the caller’s own queue. Requires queue:read and the queue feature flag. Names patients, so every row of a page read is audited. `total` comes with the first page only.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "departmentId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "doctorId",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/QueueTokenStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueTokenPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "issueQueueToken",
+        "tags": ["queue"],
+        "description": "Issues today’s next token of a department to a patient, optionally for one practising doctor of that department (422 `doctor_not_in_department` otherwise) and with a priority. The number is given by the server, one sequence per department per calendar day at the hospital: a counter row per department and day is locked while the token is issued, so two desks issuing at once get consecutive numbers, and a refused token gives its number back. A patient with a token still waiting, called or skipped in that department today is refused (409 `already_queued`, decided by a unique index). An unknown or archived department is 422 `unknown_department`. Requires queue:create and patient:read: a role that may not read patients learns nothing about one here, as an unknown patient and a patient it may not read are both 422 `unknown_patient`. The Idempotency-Key header is required: a repeat issues nothing and answers with the token as it is now. Audited, emits `queue.token_issued` through the outbox, and is announced on `/queue/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueTokenCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/call-next": {
+      "post": {
+        "operationId": "callNextQueueToken",
+        "tags": ["queue"],
+        "description": "Calls the next token of a doctor’s queue (see listQueueTokens), the first in call order, and gives it to the doctor; the token the doctor was serving becomes `served`. Calls for one doctor wait for each other, and two doctors of a department calling at the same moment never get the same token (the candidate is locked and one already locked is passed over). Nobody waiting is 409 `queue_empty`, and then nothing changes: the doctor goes on serving the same patient. A doctor who does not practise here, or outside the scope the caller holds queue:call with (`own`: the caller’s own profile; `department`: a doctor of the caller’s department), is 422 `unknown_doctor`. Requires queue:call. The Idempotency-Key header is required: a repeat calls nobody else and answers with the token it called, as it is now. Audited, emits `queue.called` through the outbox, and is announced on `/queue/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["doctorId"],
+                "properties": {
+                  "doctorId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/tokens/{tokenId}/call-again": {
+      "post": {
+        "operationId": "callQueueTokenAgain",
+        "tags": ["queue"],
+        "description": "Calls the token being served again, when the patient has not come in: its call count goes up. Only a `called` token. Requires queue:call. Emits `queue.called` through the outbox. The `version` must be the current one, or 409 `conflict`; a change the status does not allow is 409 `invalid_transition`. Enforced on the locked row, in the same transaction as the change. A token of another hospital, of another day, or outside the scope the caller holds `queue:call` with, answers 404 `token_not_found`, the same as one that does not exist. The Idempotency-Key header is required: the same key changes nothing again and answers with the token as it is now. Audited, and announced on `/queue/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tokenId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/tokens/{tokenId}/skip": {
+      "post": {
+        "operationId": "skipQueueToken",
+        "tags": ["queue"],
+        "description": "The patient called did not come: the token is put aside as `skipped`, and keeps its doctor. Only a `called` token. Requires queue:call. The `version` must be the current one, or 409 `conflict`; a change the status does not allow is 409 `invalid_transition`. Enforced on the locked row, in the same transaction as the change. A token of another hospital, of another day, or outside the scope the caller holds `queue:call` with, answers 404 `token_not_found`, the same as one that does not exist. The Idempotency-Key header is required: the same key changes nothing again and answers with the token as it is now. Audited, and announced on `/queue/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tokenId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/tokens/{tokenId}/recall": {
+      "post": {
+        "operationId": "recallQueueToken",
+        "tags": ["queue"],
+        "description": "A skipped patient has come back: the token waits again, at the place its priority and the time it was issued give it, in the queue of the doctor who called it. Only a `skipped` token. Requires queue:call. The `version` must be the current one, or 409 `conflict`; a change the status does not allow is 409 `invalid_transition`. Enforced on the locked row, in the same transaction as the change. A token of another hospital, of another day, or outside the scope the caller holds `queue:call` with, answers 404 `token_not_found`, the same as one that does not exist. The Idempotency-Key header is required: the same key changes nothing again and answers with the token as it is now. Audited, and announced on `/queue/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tokenId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/tokens/{tokenId}/priority": {
+      "post": {
+        "operationId": "setQueueTokenPriority",
+        "tags": ["queue"],
+        "description": "Sets or clears the reason a token goes ahead of the others (null clears it). Only a `waiting` or `skipped` token. Requires queue:call. The `version` must be the current one, or 409 `conflict`; a change the status does not allow is 409 `invalid_transition`. Enforced on the locked row, in the same transaction as the change. A token of another hospital, of another day, or outside the scope the caller holds `queue:call` with, answers 404 `token_not_found`, the same as one that does not exist. The Idempotency-Key header is required: the same key changes nothing again and answers with the token as it is now. Audited, and announced on `/queue/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version", "priority"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  },
+                  "priority": {
+                    "type": ["string", "null"],
+                    "enum": [
+                      "senior_citizen",
+                      "pregnancy",
+                      "disability",
+                      "child",
+                      "clinical_urgency",
+                      null
+                    ],
+                    "description": "Why the token goes ahead of the others, or null to clear it."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tokenId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/events": {
+      "get": {
+        "operationId": "queueEvents",
+        "tags": ["queue"],
+        "description": "Server-sent events for the queues of the session’s hospital, and of no other. Each `queue` event says only which department’s queue changed (`data: {\"departmentId\":\"...\"}`), never who: the screen then reads the queue again through listQueueTokens, which is audited. Under a `queue:read` scope of `department` or `own`, only the caller’s department’s events are sent. The stream opens with a `retry:` line and holds no database connection while open; a comment line is sent every 20 seconds to keep the connection open, and a client takes 45 seconds without anything as a lost connection. The server ends the stream when the session ends, is revoked, goes idle or switches hospital, and when the session loses queue:read or the hospital the queue switch or is suspended, checking all of these again at each keep-alive and before sending events (a check made in the last two seconds is reused for a burst). It also ends the stream when it may have missed changes, so the screen opens it again and reads the queue. 503 `live_unavailable` when live updates cannot be followed now: the screen reads the queue on a timer instead. Requires queue:read and the queue feature flag.",
+        "responses": {
+          "200": {
+            "description": "An event stream that stays open",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "description": "An event stream that stays open",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard error body.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/vitals": {
+      "get": {
+        "operationId": "listVitals",
+        "tags": ["triage"],
+        "description": "The patient’s readings, newest first, corrections and the readings they correct included. Optionally only those taken for one queue token. A list, not a search: nothing typed in its address says anything about the patient, so it is a GET. A patient the hospital does not have is 404 `not_found`. Requires vitals:read and the triage feature flag. Every reading of a page is audited in the request’s transaction. `total` comes with the first page only.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "queueTokenId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VitalsPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "recordVitals",
+        "tags": ["triage"],
+        "description": "Records a reading: at least one measurement or a chief complaint, the measurements whole numbers or to one decimal within what a body can be, systolic and diastolic together with the diastolic below the systolic (400 `validation_failed` otherwise). The token must be this patient’s and today’s at the hospital, in any status (a re-check after the consultation is allowed); otherwise 422 `token_not_for_patient`. A correction names a reading of this patient (422 `unknown_correction`) that no other reading corrects yet (422 `already_corrected`, decided by a unique index), with a reason, and takes that reading’s queueTokenId and encounterId: a queueTokenId sent with a correction, or a reason without one, is refused (400). A patient the hospital does not have is 404 `not_found`. The Idempotency-Key header is required and kept per hospital and user: a repeat records nothing and answers with the reading. Audited in the request’s transaction, and emits `vitals.recorded` through the outbox (the reading’s id, patientId, queueTokenId and correctsId when there are, the actor and the time). Requires vitals:record and the triage feature flag.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VitalsCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "One reading of vital signs, append-only: a correction is a new reading that names the one it corrects. Attached to the patient and, when taken at the queue, to the token; encounterId is set once the OPD encounter exists (M7).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Vitals"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/vitals/{vitalsId}": {
+      "get": {
+        "operationId": "getVitals",
+        "tags": ["triage"],
+        "description": "One reading of the patient. A reading of another patient, of another hospital or of none is 404 `not_found`. Requires vitals:read and the triage feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "vitalsId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One reading of vital signs, append-only: a correction is a new reading that names the one it corrects. Attached to the patient and, when taken at the queue, to the token; encounterId is set once the OPD encounter exists (M7).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Vitals"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/vital-ranges": {
+      "get": {
+        "operationId": "getVitalRanges",
+        "tags": ["triage"],
+        "description": "The hospital’s normal ranges that apply to this patient, decided by the server from the patient’s age on today’s date at the hospital: the hospital’s adult ranges, or the built-in ones while it has set none, for a patient of 18 or over; null for a patient under 18 (#379). A patient the hospital does not have is 404 `not_found`. Audited, as it tells whether the patient is under 18. Requires vitals:read and the triage feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VitalRanges"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/allergies": {
+      "get": {
+        "operationId": "getAllergies",
+        "tags": ["triage"],
+        "description": "The patient’s allergies; status `unknown` and version 0 while never recorded, which is not the same as `none` (asked, no known allergies). A patient the hospital does not have is 404 `not_found`. Requires allergy:read and the triage feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllergyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setAllergies",
+        "tags": ["triage"],
+        "description": "Replaces the patient’s allergies whole, from the version the edit started from (0 while never recorded); another change first is 409 `conflict`, and nothing changes. `none` with no items, `listed` with 1 to 50 (400 otherwise); substances and reactions are plain text, tidied. A patient the hospital does not have is 404 `not_found`. Requires allergy:update and the triage feature flag. Audited in the request’s transaction, and emits `allergy.updated` through the outbox (patientId and the new version; never the allergies themselves).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllergyListUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllergyList"
                 }
               }
             }

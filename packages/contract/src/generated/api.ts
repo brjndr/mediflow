@@ -1688,6 +1688,196 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/queue/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Today’s tokens at the hospital (its own calendar day, worked out by the server) of one status, in call order: for `waiting` and `skipped` the priority ones first, then by the time they were issued, the number breaking a tie; for `called` and `served` in the order they were called. With `doctorId`, the doctor’s queue: the tokens issued for that doctor and the tokens of the doctor’s department issued for no doctor, which is what call-next takes from. A list, not a search: nothing in its address is typed about a patient, so it is a GET. Each row names its patient (name and MRN) for anyone who may read the queue. The scope of the caller’s `queue:read` is applied whatever the filters say: `department`, the tokens of the department of the caller’s doctor profile; `own`, the caller’s own queue. Requires queue:read and the queue feature flag. Names patients, so every row of a page read is audited. `total` comes with the first page only. */
+        get: operations["listQueueTokens"];
+        put?: never;
+        /** @description Issues today’s next token of a department to a patient, optionally for one practising doctor of that department (422 `doctor_not_in_department` otherwise) and with a priority. The number is given by the server, one sequence per department per calendar day at the hospital: a counter row per department and day is locked while the token is issued, so two desks issuing at once get consecutive numbers, and a refused token gives its number back. A patient with a token still waiting, called or skipped in that department today is refused (409 `already_queued`, decided by a unique index). An unknown or archived department is 422 `unknown_department`. Requires queue:create and patient:read: a role that may not read patients learns nothing about one here, as an unknown patient and a patient it may not read are both 422 `unknown_patient`. The Idempotency-Key header is required: a repeat issues nothing and answers with the token as it is now. Audited, emits `queue.token_issued` through the outbox, and is announced on `/queue/events`. */
+        post: operations["issueQueueToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/call-next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Calls the next token of a doctor’s queue (see listQueueTokens), the first in call order, and gives it to the doctor; the token the doctor was serving becomes `served`. Calls for one doctor wait for each other, and two doctors of a department calling at the same moment never get the same token (the candidate is locked and one already locked is passed over). Nobody waiting is 409 `queue_empty`, and then nothing changes: the doctor goes on serving the same patient. A doctor who does not practise here, or outside the scope the caller holds queue:call with (`own`: the caller’s own profile; `department`: a doctor of the caller’s department), is 422 `unknown_doctor`. Requires queue:call. The Idempotency-Key header is required: a repeat calls nobody else and answers with the token it called, as it is now. Audited, emits `queue.called` through the outbox, and is announced on `/queue/events`. */
+        post: operations["callNextQueueToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/tokens/{tokenId}/call-again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Calls the token being served again, when the patient has not come in: its call count goes up. Only a `called` token. Requires queue:call. Emits `queue.called` through the outbox. The `version` must be the current one, or 409 `conflict`; a change the status does not allow is 409 `invalid_transition`. Enforced on the locked row, in the same transaction as the change. A token of another hospital, of another day, or outside the scope the caller holds `queue:call` with, answers 404 `token_not_found`, the same as one that does not exist. The Idempotency-Key header is required: the same key changes nothing again and answers with the token as it is now. Audited, and announced on `/queue/events`. */
+        post: operations["callQueueTokenAgain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/tokens/{tokenId}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The patient called did not come: the token is put aside as `skipped`, and keeps its doctor. Only a `called` token. Requires queue:call. The `version` must be the current one, or 409 `conflict`; a change the status does not allow is 409 `invalid_transition`. Enforced on the locked row, in the same transaction as the change. A token of another hospital, of another day, or outside the scope the caller holds `queue:call` with, answers 404 `token_not_found`, the same as one that does not exist. The Idempotency-Key header is required: the same key changes nothing again and answers with the token as it is now. Audited, and announced on `/queue/events`. */
+        post: operations["skipQueueToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/tokens/{tokenId}/recall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A skipped patient has come back: the token waits again, at the place its priority and the time it was issued give it, in the queue of the doctor who called it. Only a `skipped` token. Requires queue:call. The `version` must be the current one, or 409 `conflict`; a change the status does not allow is 409 `invalid_transition`. Enforced on the locked row, in the same transaction as the change. A token of another hospital, of another day, or outside the scope the caller holds `queue:call` with, answers 404 `token_not_found`, the same as one that does not exist. The Idempotency-Key header is required: the same key changes nothing again and answers with the token as it is now. Audited, and announced on `/queue/events`. */
+        post: operations["recallQueueToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/tokens/{tokenId}/priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Sets or clears the reason a token goes ahead of the others (null clears it). Only a `waiting` or `skipped` token. Requires queue:call. The `version` must be the current one, or 409 `conflict`; a change the status does not allow is 409 `invalid_transition`. Enforced on the locked row, in the same transaction as the change. A token of another hospital, of another day, or outside the scope the caller holds `queue:call` with, answers 404 `token_not_found`, the same as one that does not exist. The Idempotency-Key header is required: the same key changes nothing again and answers with the token as it is now. Audited, and announced on `/queue/events`. */
+        post: operations["setQueueTokenPriority"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/queue/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Server-sent events for the queues of the session’s hospital, and of no other. Each `queue` event says only which department’s queue changed (`data: {"departmentId":"..."}`), never who: the screen then reads the queue again through listQueueTokens, which is audited. Under a `queue:read` scope of `department` or `own`, only the caller’s department’s events are sent. The stream opens with a `retry:` line and holds no database connection while open; a comment line is sent every 20 seconds to keep the connection open, and a client takes 45 seconds without anything as a lost connection. The server ends the stream when the session ends, is revoked, goes idle or switches hospital, and when the session loses queue:read or the hospital the queue switch or is suspended, checking all of these again at each keep-alive and before sending events (a check made in the last two seconds is reused for a burst). It also ends the stream when it may have missed changes, so the screen opens it again and reads the queue. 503 `live_unavailable` when live updates cannot be followed now: the screen reads the queue on a timer instead. Requires queue:read and the queue feature flag. */
+        get: operations["queueEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/vitals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The patient’s readings, newest first, corrections and the readings they correct included. Optionally only those taken for one queue token. A list, not a search: nothing typed in its address says anything about the patient, so it is a GET. A patient the hospital does not have is 404 `not_found`. Requires vitals:read and the triage feature flag. Every reading of a page is audited in the request’s transaction. `total` comes with the first page only. */
+        get: operations["listVitals"];
+        put?: never;
+        /** @description Records a reading: at least one measurement or a chief complaint, the measurements whole numbers or to one decimal within what a body can be, systolic and diastolic together with the diastolic below the systolic (400 `validation_failed` otherwise). The token must be this patient’s and today’s at the hospital, in any status (a re-check after the consultation is allowed); otherwise 422 `token_not_for_patient`. A correction names a reading of this patient (422 `unknown_correction`) that no other reading corrects yet (422 `already_corrected`, decided by a unique index), with a reason, and takes that reading’s queueTokenId and encounterId: a queueTokenId sent with a correction, or a reason without one, is refused (400). A patient the hospital does not have is 404 `not_found`. The Idempotency-Key header is required and kept per hospital and user: a repeat records nothing and answers with the reading. Audited in the request’s transaction, and emits `vitals.recorded` through the outbox (the reading’s id, patientId, queueTokenId and correctsId when there are, the actor and the time). Requires vitals:record and the triage feature flag. */
+        post: operations["recordVitals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/vitals/{vitalsId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One reading of the patient. A reading of another patient, of another hospital or of none is 404 `not_found`. Requires vitals:read and the triage feature flag. Audited. */
+        get: operations["getVitals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/vital-ranges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital’s normal ranges that apply to this patient, decided by the server from the patient’s age on today’s date at the hospital: the hospital’s adult ranges, or the built-in ones while it has set none, for a patient of 18 or over; null for a patient under 18 (#379). A patient the hospital does not have is 404 `not_found`. Audited, as it tells whether the patient is under 18. Requires vitals:read and the triage feature flag. */
+        get: operations["getVitalRanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/allergies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The patient’s allergies; status `unknown` and version 0 while never recorded, which is not the same as `none` (asked, no known allergies). A patient the hospital does not have is 404 `not_found`. Requires allergy:read and the triage feature flag. Audited. */
+        get: operations["getAllergies"];
+        /** @description Replaces the patient’s allergies whole, from the version the edit started from (0 while never recorded); another change first is 409 `conflict`, and nothing changes. `none` with no items, `listed` with 1 to 50 (400 otherwise); substances and reactions are plain text, tidied. A patient the hospital does not have is 404 `not_found`. Requires allergy:update and the triage feature flag. Audited in the request’s transaction, and emits `allergy.updated` through the outbox (patientId and the new version; never the allergies themselves). */
+        put: operations["setAllergies"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -1784,196 +1974,6 @@ export interface paths {
         put?: never;
         /** @description Archives a notice so it no longer appears in the list. Requires notice:manage. */
         post: operations["archiveNotice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/queue/tokens": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Today's tokens at the hospital (its own calendar day, worked out by the server), in call order: the priority ones first, then by the time they were issued. With `doctorId`, the doctor's queue: the tokens issued for that doctor and the tokens of the doctor's department issued for no doctor, which is what call-next takes from. Requires queue:read and the queue feature flag. Names patients, so every page read is audited. */
-        get: operations["listQueueTokens"];
-        put?: never;
-        /** @description Issues today's next token of a department to a patient, optionally for one doctor of that department. The number is given by the server, one sequence per department per day, safe when two desks issue at once. A patient with a token still waiting, called or skipped in that department today is refused (409 `already_queued`). Requires queue:create and patient:read (a role that may not read patients learns nothing about one here: an unknown patient and a patient it may not read are both 422 `unknown_patient`). Emits `queue.token_issued`. */
-        post: operations["issueQueueToken"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/queue/call-next": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Calls the next token of a doctor's queue (see listQueueTokens) and gives it to the doctor; the token the doctor was serving becomes `served`. Nobody waiting is 409 `queue_empty`. Requires queue:call. Emits `queue.called`. */
-        post: operations["callNextQueueToken"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/queue/tokens/{tokenId}/call-again": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Calls the token being served again, when the patient has not come in. Only a `called` token (409 `invalid_transition` otherwise). Requires queue:call. Emits `queue.called`. */
-        post: operations["callQueueTokenAgain"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/queue/tokens/{tokenId}/skip": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description The patient called did not come: the token is put aside as `skipped`. Only a `called` token. Requires queue:call. */
-        post: operations["skipQueueToken"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/queue/tokens/{tokenId}/recall": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description A skipped patient has come back: the token waits again, at the place its priority and the time it was issued give it. Only a `skipped` token. Requires queue:call. */
-        post: operations["recallQueueToken"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/queue/tokens/{tokenId}/priority": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Sets or clears the reason a token goes ahead of the others (null clears it). Only a `waiting` or `skipped` token. Requires queue:call. */
-        post: operations["setQueueTokenPriority"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/queue/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Server-sent events for the queues of the session's hospital, and of no other. Each `queue` event says only which department's queue changed (`data: {"departmentId":"..."}`), never who: the screen then reads the queue again through listQueueTokens, which is audited. A comment line is sent every 20 seconds to keep the connection open; a client takes 45 seconds without anything as a lost connection. The server ends the stream when the session ends, is revoked or switches hospital, and when the session loses queue:read or the hospital the queue switch, and checks the session again before each event. Requires queue:read and the queue feature flag. */
-        get: operations["queueEvents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patients/{patientId}/vitals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The patient's readings, newest first, corrections and the readings they correct included. Optionally only those taken for one queue token. Requires vitals:read and the triage feature flag. Audited in the request's transaction. */
-        get: operations["listVitals"];
-        put?: never;
-        /** @description Records a reading, audited in the request's transaction, and emits vitals.recorded through the outbox (tenantId, the reading's id, patientId, queueTokenId when given, the actor and the time). The token must be this patient's and today's, in any status (a re-check after the consultation is allowed); otherwise 422 `token_not_for_patient`. A correction names a reading of this patient that no other reading corrects yet (422 `unknown_correction`, 422 `already_corrected`), and takes that reading's queueTokenId and encounterId: a queueTokenId sent with a correction is refused (400). A patient the hospital does not have is 404. The idempotency key is kept per hospital and user. Requires vitals:record and the triage feature flag. */
-        post: operations["recordVitals"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patients/{patientId}/vitals/{vitalsId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description One reading of the patient. Requires vitals:read and the triage feature flag. Audited. */
-        get: operations["getVitals"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patients/{patientId}/vital-ranges": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The hospital's normal ranges that apply to this patient, decided by the server from the patient's age at the hospital's date. Audited, as it tells whether the patient is under 18. Requires vitals:read and the triage feature flag. */
-        get: operations["getVitalRanges"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patients/{patientId}/allergies": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The patient's allergies; status `unknown` and version 0 while never recorded. Requires allergy:read and the triage feature flag. Audited. */
-        get: operations["getAllergies"];
-        /** @description Replaces the patient's allergies from the version the edit started from; another change first is 409 `conflict`. Requires allergy:update and the triage feature flag. Audited in the request's transaction, and emits allergy.updated through the outbox (tenantId, patientId, the new version, the actor and the time; never the allergies themselves). */
-        put: operations["setAllergies"];
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3151,39 +3151,6 @@ export interface components {
             /** @description The version the change was made from. Another one gives 409 `conflict`. */
             version: number;
         };
-        Notice: {
-            id: string;
-            tenantId: string;
-            title: string;
-            body: string;
-            /**
-             * Format: date-time
-             * @description ISO datetime (UTC)
-             */
-            createdAt: string;
-            archived: boolean;
-        };
-        /** @description Cursor envelope used by every list endpoint. */
-        NoticePage: {
-            items: components["schemas"]["Notice"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        AccountSession: {
-            id: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            lastSeenAt: string;
-            /** @description The browser as it described itself at sign-in, for the person to recognise the device. */
-            userAgent: string | null;
-            /** @description True for the session making this call. */
-            current: boolean;
-        };
-        AccountSessionList: {
-            items: components["schemas"]["AccountSession"][];
-            nextCursor: string | null;
-        };
         /**
          * @description waiting -> called -> served, called -> skipped (did not come), skipped -> waiting (came back). A doctor calling the next token makes the one they were serving `served`.
          * @enum {string}
@@ -3204,7 +3171,7 @@ export interface components {
         QueueToken: {
             id: string;
             tenantId: string;
-            /** @description The department's number for the day. */
+            /** @description The department’s number for the day. */
             number: number;
             /**
              * Format: date
@@ -3231,6 +3198,7 @@ export interface components {
             callCount: number;
             version: number;
         };
+        /** @description Cursor envelope used by every list endpoint. */
         QueueTokenPage: {
             items: components["schemas"]["QueueToken"][];
             nextCursor: string | null;
@@ -3243,7 +3211,7 @@ export interface components {
             patientId: string;
             /** @description The token the reading was taken for. A correction carries the one of the reading it corrects. */
             queueTokenId?: string;
-            /** @description Set once, from empty to the encounter, by the triage module itself when it hears encounter.opened for the reading's queue token (idempotently); nothing else of a reading ever changes. A reading taken outside the queue gets none until the API attaches readings to the patient's open encounter (M7). */
+            /** @description Set once, from empty to the encounter, by the triage module itself when it hears encounter.opened for the reading’s queue token (idempotently); nothing else of a reading ever changes. A reading taken outside the queue gets none until the API attaches readings to the patient’s open encounter (M7). */
             encounterId?: string;
             /** Format: date-time */
             recordedAt: string;
@@ -3263,7 +3231,7 @@ export interface components {
             weight?: number;
             /** @description cm, at most one decimal. */
             height?: number;
-            /** @description Plain text: what brings the patient today, in their words. */
+            /** @description Plain text of one or more lines: what brings the patient today, in their words. */
             chiefComplaint?: string;
             /** @description The reading of the same patient this one corrects. The original is kept. */
             correctsId?: string;
@@ -3272,7 +3240,7 @@ export interface components {
         };
         /** @description At least one measurement or a chief complaint. Systolic and diastolic go together, the diastolic below the systolic. */
         VitalsCreate: {
-            /** @description Today's token of this patient the reading was taken for. Not sent with a correction, which takes the corrected reading's. */
+            /** @description Today’s token of this patient the reading was taken for. Not sent with a correction, which takes the corrected reading’s. */
             queueTokenId?: string;
             /** @description mmHg. */
             systolic?: number;
@@ -3288,13 +3256,14 @@ export interface components {
             weight?: number;
             /** @description cm, at most one decimal. */
             height?: number;
-            /** @description Plain text: what brings the patient today, in their words. */
+            /** @description Plain text of one or more lines: what brings the patient today, in their words. */
             chiefComplaint?: string;
             /** @description The reading of the same patient this one corrects. The original is kept. */
             correctsId?: string;
             /** @description Plain text. Required with correctsId, refused without it. */
             correctionReason?: string;
         };
+        /** @description Cursor envelope used by every list endpoint. */
         VitalsPage: {
             items: components["schemas"]["Vitals"][];
             nextCursor: string | null;
@@ -3306,7 +3275,7 @@ export interface components {
             high?: number;
         };
         VitalRanges: {
-            /** @description The hospital's ranges that apply to this patient, or null when none do (a patient under 18: ranges are for adults until #379). */
+            /** @description The hospital’s ranges that apply to this patient, or null when none do (a patient under 18: ranges are for adults until #379). */
             ranges: {
                 systolic?: components["schemas"]["VitalRange"];
                 diastolic?: components["schemas"]["VitalRange"];
@@ -3342,10 +3311,44 @@ export interface components {
         };
         /** @description `none` with no items, `listed` with 1 to 50. */
         AllergyListUpdate: {
+            /** @description The version the edit started from (0 while never recorded). Another one gives 409 `conflict`. */
             version: number;
             /** @enum {string} */
             status: "none" | "listed";
             items: components["schemas"]["Allergy"][];
+        };
+        Notice: {
+            id: string;
+            tenantId: string;
+            title: string;
+            body: string;
+            /**
+             * Format: date-time
+             * @description ISO datetime (UTC)
+             */
+            createdAt: string;
+            archived: boolean;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        NoticePage: {
+            items: components["schemas"]["Notice"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        AccountSession: {
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastSeenAt: string;
+            /** @description The browser as it described itself at sign-in, for the person to recognise the device. */
+            userAgent: string | null;
+            /** @description True for the session making this call. */
+            current: boolean;
+        };
+        AccountSessionList: {
+            items: components["schemas"]["AccountSession"][];
+            nextCursor: string | null;
         };
     };
     responses: {
@@ -11503,6 +11506,1163 @@ export interface operations {
             };
         };
     };
+    listQueueTokens: {
+        parameters: {
+            query: {
+                departmentId?: string;
+                doctorId?: string;
+                status: components["schemas"]["QueueTokenStatus"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueTokenPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    issueQueueToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueueTokenCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    callNextQueueToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    doctorId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    callQueueTokenAgain: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    skipQueueToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recallQueueToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setQueueTokenPriority: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                    /**
+                     * @description Why the token goes ahead of the others, or null to clear it.
+                     * @enum {string|null}
+                     */
+                    priority: "senior_citizen" | "pregnancy" | "disability" | "child" | "clinical_urgency" | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    queueEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description An event stream that stays open */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listVitals: {
+        parameters: {
+            query?: {
+                queueTokenId?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VitalsPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recordVitals: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VitalsCreate"];
+            };
+        };
+        responses: {
+            /** @description One reading of vital signs, append-only: a correction is a new reading that names the one it corrects. Attached to the patient and, when taken at the queue, to the token; encounterId is set once the OPD encounter exists (M7). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vitals"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getVitals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+                vitalsId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One reading of vital signs, append-only: a correction is a new reading that names the one it corrects. Attached to the patient and, when taken at the queue, to the token; encounterId is set once the OPD encounter exists (M7). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vitals"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getVitalRanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VitalRanges"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAllergies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllergyList"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setAllergies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllergyListUpdate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllergyList"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     changePassword: {
         parameters: {
             query?: never;
@@ -11662,478 +12822,6 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listQueueTokens: {
-        parameters: {
-            query: {
-                departmentId?: string;
-                doctorId?: string;
-                status: components["schemas"]["QueueTokenStatus"];
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of tokens */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QueueTokenPage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    issueQueueToken: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
-                "idempotency-key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QueueTokenCreate"];
-            };
-        };
-        responses: {
-            /** @description The token issued */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QueueToken"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    callNextQueueToken: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
-                "idempotency-key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    doctorId: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The token called */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QueueToken"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    callQueueTokenAgain: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
-                "idempotency-key": string;
-            };
-            path: {
-                tokenId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    version: number;
-                };
-            };
-        };
-        responses: {
-            /** @description The token as it is now */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QueueToken"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    skipQueueToken: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
-                "idempotency-key": string;
-            };
-            path: {
-                tokenId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    version: number;
-                };
-            };
-        };
-        responses: {
-            /** @description The token as it is now */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QueueToken"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    recallQueueToken: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
-                "idempotency-key": string;
-            };
-            path: {
-                tokenId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    version: number;
-                };
-            };
-        };
-        responses: {
-            /** @description The token as it is now */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QueueToken"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    setQueueTokenPriority: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
-                "idempotency-key": string;
-            };
-            path: {
-                tokenId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    version: number;
-                    priority: components["schemas"]["QueuePriority"] | null;
-                };
-            };
-        };
-        responses: {
-            /** @description The token as it is now */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QueueToken"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    queueEvents: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description An event stream that stays open */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": string;
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listVitals: {
-        parameters: {
-            query?: {
-                queueTokenId?: string;
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of readings */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VitalsPage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    recordVitals: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
-                "idempotency-key": string;
-            };
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VitalsCreate"];
-            };
-        };
-        responses: {
-            /** @description The reading recorded */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Vitals"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getVitals: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                patientId: string;
-                vitalsId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The reading */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Vitals"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getVitalRanges: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The ranges, or null */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VitalRanges"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getAllergies: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The allergies */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AllergyList"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    setAllergies: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AllergyListUpdate"];
-            };
-        };
-        responses: {
-            /** @description The allergies as they are now */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AllergyList"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

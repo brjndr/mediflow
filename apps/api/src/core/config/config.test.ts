@@ -37,6 +37,7 @@ describe('loadConfig', () => {
       RATE_LIMIT_TENANT_PER_MINUTE: 1200,
       RATE_LIMIT_USER_PER_MINUTE: 240,
       IDEMPOTENCY_TTL_HOURS: 24,
+      LIVE_RECHECK_MS: 2000,
     });
   });
 

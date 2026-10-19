@@ -235,6 +235,34 @@ export async function resolveSession(
 }
 
 /**
+ * Whether a session still holds at its hospital, looked up by its id without touching it: not
+ * revoked, expired or idle, still bound to that hospital, the user active and still a member whose
+ * sessions there were not ended, and not held back by the authenticator rule. For an answer that
+ * outlives its request (an event stream), which cannot send a new cookie: it never rotates the
+ * token, and an open stream does not count as activity, so it never keeps a session alive.
+ */
+export async function sessionStillHolds(
+  { client, identify }: AuthTransaction,
+  config: SessionConfig,
+  session: { id: string; userId: string; tenantId: string },
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    `select 1 from sessions
+     where id = $1 and user_id = $2 and active_tenant_id = $3 and revoked_at is null
+       and now() < expires_at and now() - last_seen_at <= make_interval(mins => $4)`,
+    [session.id, session.userId, session.tenantId, config.SESSION_IDLE_MINUTES],
+  );
+  if (rowCount !== 1) return false;
+  await identify(session.userId);
+  const user = await client.query<{ status: string }>('select status from users where id = $1', [
+    session.userId,
+  ]);
+  if (user.rows[0]?.status !== 'active') return false;
+  const standing = await mfaStanding(client, session.tenantId, session.userId, session.id);
+  return standing !== null && !(standing.required && !standing.enrolled);
+}
+
+/**
  * Binds the session to another of the user's hospitals. Returns false, changing nothing, when the
  * user is not an active member of it (which is also the answer for a hospital that does not
  * exist, so the two cannot be told apart). The token is replaced, as on any change of what a

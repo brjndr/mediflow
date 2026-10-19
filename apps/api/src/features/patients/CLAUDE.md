@@ -10,7 +10,7 @@ What was decided for this feature's API. Moved out of `apps/api/CLAUDE.md` (#370
 - **Searching by phone number needs `patient.contact:read` too.** Without it the term is matched against names and MRNs only: otherwise a masked number could be recovered digit by digit from which rows match.
 - **Changing a record needs `patient:read` as well as `patient:update`,** because the answer is the whole record, and the narrower of the two scopes applies.
 - **The duplicate check is a deliberate exception to scope and to the contact permission:** anyone who may register sees possible duplicates across the whole hospital, matched by name and birth date or by phone. That is what stops a second record for the same person. The matches are masked, carry no id, and the check is audited and rate limited.
-- **Scope:** `own` means the patients the user registered, until encounters say whose patient someone is; `department` matches nothing yet.
+- **Scope:** `own` means the patients the user registered, until encounters say whose patient someone is; `department` matches nothing yet. Another module that answers about a patient checks it with `patientInScope` from `index.ts` (queue, triage), so the meaning stays here.
 - **A record outside the caller's hospital or scope is a 404,** the same answer as one that does not exist.
 - **`POST /patients` requires an Idempotency-Key** and keeps only the id for a replay, so a replay answers `{ id }` and the client reads the record (which needs `patient:read`).
 - **A birth date is checked against today at the hospital,** in its timezone, not the server's.

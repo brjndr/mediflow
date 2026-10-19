@@ -72,6 +72,11 @@ const ConfigSchema = Type.Object({
   RATE_LIMIT_USER_PER_MINUTE: Type.Integer({ minimum: 1, maximum: 1_000_000, default: 240 }),
   /** How long an Idempotency-Key is remembered. */
   IDEMPOTENCY_TTL_HOURS: Type.Integer({ minimum: 1, maximum: 168, default: 24 }),
+  /**
+   * How long an event stream may go on sending on its last check of the session and permissions.
+   * A burst of events costs one check per stream, not one per event. Tests set 0.
+   */
+  LIVE_RECHECK_MS: Type.Integer({ minimum: 0, maximum: 30_000, default: 2000 }),
 });
 
 export type Config = Static<typeof ConfigSchema>;

@@ -16,6 +16,8 @@ export const DOMAIN_EVENTS = [
   'queue.token_issued',
   'queue.called',
   'vitals.recorded',
+  // A patient's allergy list was replaced: the version, never the allergies.
+  'allergy.updated',
   'order.placed',
   'order.cancelled',
   'order.completed',
