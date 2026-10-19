@@ -244,8 +244,11 @@ describe('<DataGrid> choosing its layout', () => {
   });
 
   it('keeps only the cards in view in the DOM for a long list', async () => {
+    // Both sizes: the virtualiser reads the scroll area's client box (since virtual-core 3.19).
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(360);
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(600);
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(360);
     stubWidth();
     try {
       renderWithProviders(<Grid rows={people(2000)} />);
