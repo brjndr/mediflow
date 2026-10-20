@@ -13,6 +13,7 @@ Decided with the API, and the mock does the same: a test that has reference rang
 ## Decided
 
 - **Single tests can be loaded from a file (#68),** through the import centre (`features/imports`), each charged as the laboratory service of the code given (`serviceCode`). Panels and reference ranges are not: they are made here. `POST /lab-tests` and the import both use `features/lab-tests/create.ts` in the API.
+- **`LabTestSearch` is the export another module orders with (#82):** a combobox searching tests and panels not archived, by code or name, 10 at a time with the term in the body, in the hospital's catalog only. It needs `labTest:read` and the `lab_tests` switch, and says so when either is missing. It keeps nothing: the screen is told which test was chosen.
 
 ## Known gaps
 
