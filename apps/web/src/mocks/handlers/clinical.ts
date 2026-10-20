@@ -1,13 +1,14 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { isEmptyRichText, sanitizeRichText } from '@/shared/ui/rich-text';
-import { PLAIN_TEXT } from '@/shared/utils/text';
+import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 import { todayIn } from '@/shared/utils/timezone';
 import { currentPolicy, currentSession, mockTenantTimezone, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockAppointment } from './appointments';
 import { mockCode } from './codes';
 import { mockDoctor, mockDoctorOfUser } from './doctors';
+import { mockDrug } from './drugs';
 import { mockPatient } from './patients';
 import { mockQueueToken } from './queue';
 
@@ -17,10 +18,36 @@ type ClinicalNote = components['schemas']['ClinicalNote'];
 type ClinicalNotePage = components['schemas']['ClinicalNotePage'];
 type Diagnosis = components['schemas']['Diagnosis'];
 type DiagnosisPage = components['schemas']['DiagnosisPage'];
+type Order = components['schemas']['Order'];
+type Prescription = components['schemas']['Prescription'];
+type PrescriptionPage = components['schemas']['PrescriptionPage'];
+type MedicationRoute = components['schemas']['MedicationRoute'];
 
 const FEATURE_FLAG = 'clinical';
 const REASON_MAX = 200;
 const TEXT_MAX = 300;
+const LINES_MAX = 30;
+const DOSE_MAX = 50;
+const INSTRUCTIONS_MAX = 500;
+const ADVICE_MAX = 1000;
+const ROUTES: readonly MedicationRoute[] = [
+  'oral',
+  'sublingual',
+  'topical',
+  'inhaled',
+  'nasal',
+  'eye',
+  'ear',
+  'rectal',
+  'vaginal',
+  'intramuscular',
+  'intravenous',
+  'subcutaneous',
+  'other',
+];
+
+/** What the mock keeps of a prescription: its lines are the medication orders naming it. */
+type StoredPrescription = Omit<Prescription, 'lines' | 'replacedById'>;
 
 /**
  * What the mock keeps of an encounter: ids, never names. The patient, doctor and department are
@@ -52,7 +79,8 @@ const doc = (text: string) => ({
 /**
  * At the hospital, an open consultation of `pth_00001` (the patient triage has readings and a
  * penicillin allergy for) with `doc_h_01`, with a signed note and a provisional diagnosis, and a
- * closed one of `pth_00002` from yesterday; at the clinic, an open one of `ptc_00001`.
+ * closed one of `pth_00002` from yesterday; at the clinic, an open one of `ptc_00001`. The open
+ * one at the hospital has a prescription of paracetamol and cetirizine.
  */
 function seed() {
   const hospital = TENANT_IDS.hospital;
@@ -122,7 +150,60 @@ function seed() {
       recordedByName: author?.name ?? 'Doctor',
     },
   ];
-  return { encounters, notes, diagnoses };
+  const prescribedAt = minutesAgo(15);
+  const prescriber = {
+    id: author?.userId ?? 'user_doc_h_01',
+    name: author?.name ?? 'Doctor',
+  };
+  const prescriptions: StoredPrescription[] = [
+    {
+      id: 'rx_h_1',
+      tenantId: hospital,
+      encounterId: 'enc_h_1',
+      patientId: 'pth_00001',
+      prescribedAt,
+      prescribedById: prescriber.id,
+      prescribedByName: prescriber.name,
+      advice: 'Drink plenty of fluids.\nCome back if the fever rises.',
+    },
+  ];
+  const line = (id: string, lineNumber: number, rest: Partial<Order>): Order => ({
+    id,
+    tenantId: hospital,
+    encounterId: 'enc_h_1',
+    patientId: 'pth_00001',
+    type: 'medication',
+    prescriptionId: 'rx_h_1',
+    lineNumber,
+    status: 'placed',
+    priority: 'routine',
+    route: 'oral',
+    placedAt: prescribedAt,
+    orderedById: prescriber.id,
+    orderedByName: prescriber.name,
+    version: 1,
+    ...rest,
+  });
+  const orders: Order[] = [
+    line('ord_h_1', 1, {
+      drugId: 'drg_h_2573',
+      itemName: 'Paracetamol 500 mg (ParaCare)',
+      dose: '1 tablet',
+      frequency: '1-0-1',
+      durationDays: 3,
+      quantity: 6,
+      instructions: 'After food',
+    }),
+    line('ord_h_2', 2, {
+      drugId: 'drg_h_0805',
+      itemName: 'Cetirizine 10 mg (CetiCare)',
+      dose: '1 tablet',
+      frequency: '0-0-1',
+      durationDays: 5,
+      quantity: 5,
+    }),
+  ];
+  return { encounters, notes, diagnoses, prescriptions, orders };
 }
 
 let state = seed();
@@ -255,6 +336,58 @@ function noteFor(tenantId: string, id: string, permission: string) {
     return null;
   return note;
 }
+/** A prescription as the API answers: its lines in place, and the one that replaced it. */
+function prescriptionView(stored: StoredPrescription): Prescription {
+  const replacement = state.prescriptions.find((each) => each.replacesId === stored.id);
+  return {
+    ...stored,
+    ...(replacement ? { replacedById: replacement.id } : {}),
+    lines: state.orders
+      .filter((order) => order.prescriptionId === stored.id)
+      .sort((a, b) => (a.lineNumber ?? 0) - (b.lineNumber ?? 0)),
+  };
+}
+
+const prescriptionNotFound = () => error(404, 'prescription_not_found', 'Prescription not found');
+
+/** Plain text within a limit, trimmed; undefined when absent and null when refused. */
+function plainOf(value: unknown, max: number, pattern = PLAIN_TEXT) {
+  if (value === undefined) return undefined;
+  return typeof value === 'string' &&
+    value.trim() !== '' &&
+    value.trim().length <= max &&
+    pattern.test(value)
+    ? value.trim()
+    : null;
+}
+
+/** A whole number within the limits; undefined when absent and null when refused. */
+function countOf(value: unknown, max: number) {
+  if (value === undefined) return undefined;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= max
+    ? value
+    : null;
+}
+
+/** One line of a prescription as the API checks it, or null. */
+function lineOf(value: unknown) {
+  if (!isObject(value) || typeof value.drugId !== 'string') return null;
+  const dose = plainOf(value.dose, DOSE_MAX);
+  const frequency = plainOf(value.frequency, DOSE_MAX);
+  const route = ROUTES.find((each) => each === value.route);
+  const durationDays = countOf(value.durationDays, 365);
+  const quantity = countOf(value.quantity, 10_000);
+  const instructions = plainOf(value.instructions, INSTRUCTIONS_MAX, PLAIN_LINES);
+  if (!dose || !frequency || !route) return null;
+  if (durationDays === null || quantity === null || instructions === null) return null;
+  return { drugId: value.drugId, dose, frequency, route, durationDays, quantity, instructions };
+}
+
+/** How the API names a medicine on an order: generic name, strength and brand. */
+const itemNameOf = (drug: { genericName: string; strength?: string; brandName?: string }) =>
+  [drug.genericName, drug.strength].filter(Boolean).join(' ') +
+  (drug.brandName ? ` (${drug.brandName})` : '');
+
 const noteNotFound = () => error(404, 'note_not_found', 'Note not found');
 const notOpen = () => error(409, 'encounter_not_open', 'The encounter is not open');
 
@@ -432,7 +565,9 @@ export const clinicalHandlers = [
       }
       if (
         action === 'cancel' &&
-        (ofIt(state.notes).length > 0 || ofIt(state.diagnoses).some((each) => !each.retractedAt))
+        (ofIt(state.notes).length > 0 ||
+          ofIt(state.diagnoses).some((each) => !each.retractedAt) ||
+          ofIt(state.orders).length > 0)
       ) {
         return error(409, 'has_records', 'Something is on the record');
       }
@@ -700,6 +835,147 @@ export const clinicalHandlers = [
     remember(sent.keyOf, sent.body, 200, diagnosis.id);
     return HttpResponse.json<Diagnosis>(diagnosis);
   }),
+
+  http.get('*/api/encounters/:encounterId/prescriptions', ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'prescription:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const found = encounterFor(access.tenantId, String(params.encounterId), 'prescription:read');
+    if (!found) return notFound();
+    const shown = state.prescriptions
+      .filter((each) => each.encounterId === found.id)
+      .sort((a, b) => a.prescribedAt.localeCompare(b.prescribedAt) || a.id.localeCompare(b.id))
+      .map(prescriptionView);
+    const result = page(shown, request);
+    return 'refused' in result ? result.refused : HttpResponse.json<PrescriptionPage>(result.page);
+  }),
+
+  http.get('*/api/prescriptions/:prescriptionId', ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'prescription:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const stored = state.prescriptions.find(
+      (each) => each.id === String(params.prescriptionId) && each.tenantId === access.tenantId,
+    );
+    if (!stored || !encounterFor(access.tenantId, stored.encounterId, 'prescription:read')) {
+      return prescriptionNotFound();
+    }
+    return HttpResponse.json<Prescription>(prescriptionView(stored));
+  }),
+
+  http.post('*/api/encounters/:encounterId/prescriptions', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'prescription:create',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const found = encounterFor(tenantId, String(params.encounterId), 'prescription:create');
+    if (!found) return notFound();
+    if (sent.replay) {
+      const again = state.prescriptions.find((each) => each.id === sent.replay?.id);
+      return again
+        ? HttpResponse.json<Prescription>(prescriptionView(again), { status: 201 })
+        : prescriptionNotFound();
+    }
+    const body = sent.body;
+    if (!isObject(body) || !Array.isArray(body.lines)) {
+      return error(400, 'validation_failed', 'lines are required');
+    }
+    const lines = body.lines.map(lineOf);
+    if (lines.length < 1 || lines.length > LINES_MAX || lines.includes(null)) {
+      return error(400, 'validation_failed', '1 to 30 valid lines');
+    }
+    // Advice of spaces only is tidied to none, as the API does.
+    const advice =
+      typeof body.advice === 'string' && body.advice.trim() === ''
+        ? undefined
+        : plainOf(body.advice, ADVICE_MAX, PLAIN_LINES);
+    if (advice === null) return error(400, 'validation_failed', 'Bad advice');
+    const replacesId = typeof body.replacesId === 'string' ? body.replacesId : undefined;
+    const reason = body.replaceReason === undefined ? undefined : reasonOf(body.replaceReason);
+    if (reason === null || (replacesId !== undefined) !== (reason !== undefined)) {
+      return error(400, 'validation_failed', 'A reason goes with replacesId, and only with it');
+    }
+    if (found.status !== 'open') return notOpen();
+    const replaced = replacesId
+      ? state.prescriptions.find((each) => each.id === replacesId && each.encounterId === found.id)
+      : undefined;
+    if (replacesId && !replaced) {
+      return error(422, 'unknown_prescription', 'No such prescription in this encounter');
+    }
+    if (replaced && state.prescriptions.some((each) => each.replacesId === replaced.id)) {
+      return error(409, 'already_replaced', 'This prescription was replaced');
+    }
+    const drugs = lines.map((each) => {
+      const drug = each ? mockDrug(tenantId, each.drugId) : undefined;
+      return drug && drug.type === 'medicine' && !drug.archived ? drug : undefined;
+    });
+    if (drugs.includes(undefined)) return error(422, 'unknown_drug', 'No such medicine');
+    const who = caller();
+    const at = now();
+    const prescription: StoredPrescription = {
+      id: nextId('rx'),
+      tenantId,
+      encounterId: found.id,
+      patientId: found.patientId,
+      prescribedAt: at,
+      prescribedById: who.id,
+      prescribedByName: who.name,
+      ...(advice ? { advice } : {}),
+      ...(replaced && reason ? { replacesId: replaced.id, replaceReason: reason } : {}),
+    };
+    state.prescriptions.push(prescription);
+    lines.forEach((each, index) => {
+      const drug = drugs[index];
+      if (!each || !drug) return;
+      state.orders.push({
+        id: nextId('ord'),
+        tenantId,
+        encounterId: found.id,
+        patientId: found.patientId,
+        type: 'medication',
+        drugId: drug.id,
+        prescriptionId: prescription.id,
+        lineNumber: index + 1,
+        itemName: itemNameOf(drug),
+        status: 'placed',
+        priority: 'routine',
+        dose: each.dose,
+        route: each.route,
+        frequency: each.frequency,
+        ...(each.durationDays === undefined ? {} : { durationDays: each.durationDays }),
+        ...(each.quantity === undefined ? {} : { quantity: each.quantity }),
+        ...(each.instructions === undefined ? {} : { instructions: each.instructions }),
+        placedAt: at,
+        orderedById: who.id,
+        orderedByName: who.name,
+        version: 1,
+      });
+    });
+    // The replaced one's lines not yet started are cancelled with the revision's reason.
+    if (replaced && reason) {
+      for (const order of state.orders) {
+        if (
+          order.prescriptionId === replaced.id &&
+          (order.status === 'placed' || order.status === 'accepted')
+        ) {
+          order.status = 'cancelled';
+          order.cancelReason = reason;
+          order.statusChangedAt = at;
+          order.version += 1;
+        }
+      }
+    }
+    remember(sent.keyOf, body, 201, prescription.id);
+    return HttpResponse.json<Prescription>(prescriptionView(prescription), { status: 201 });
+  }),
 ];
 
 /** An encounter as the mock holds it now, for tests. */
@@ -716,4 +992,17 @@ export function editMockNote(id: string, text: string): void {
   note.body = doc(text);
   note.version += 1;
   note.updatedAt = now();
+}
+
+/** The prescriptions of an encounter as the API answers them, for tests. */
+export const mockPrescriptionsOf = (encounterId: string): Prescription[] =>
+  state.prescriptions.filter((each) => each.encounterId === encounterId).map(prescriptionView);
+
+/** Moves a medication order on behind the screen, as the pharmacy would. */
+export function moveMockOrder(id: string, status: Order['status']): void {
+  const order = state.orders.find((each) => each.id === id);
+  if (!order) return;
+  order.status = status;
+  order.statusChangedAt = now();
+  order.version += 1;
 }

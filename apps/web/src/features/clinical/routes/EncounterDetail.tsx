@@ -8,6 +8,7 @@ import { useFormatters } from '@/tenancy';
 import { DiagnosesPanel } from '../components/DiagnosesPanel';
 import { EncounterActions } from '../components/EncounterActions';
 import { NotesPanel } from '../components/NotesPanel';
+import { PrescriptionsPanel } from '../components/PrescriptionsPanel';
 import { useEncounter } from '../hooks/use-clinical';
 import type { Encounter } from '../types';
 
@@ -17,7 +18,8 @@ const ID = /^[A-Za-z0-9_-]{1,64}$/;
 /**
  * The consultation (`encounters/:encounterId`), for `encounter:read`: who the visit is for and
  * with whom, what triage found (allergies and the newest vitals), the notes for
- * `clinicalNote:read` and the diagnoses for `diagnosis:read`, each part shown only to whoever
+ * `clinicalNote:read`, the diagnoses for `diagnosis:read` and the prescriptions for
+ * `prescription:read`, each part shown only to whoever
  * holds its permission, and closing or cancelling for `encounter:update`.
  */
 export default function EncounterDetail() {
@@ -73,6 +75,7 @@ function Consultation({ encounter }: { encounter: Encounter }) {
   const format = useFormatters();
   const canReadNotes = usePermission('clinicalNote:read');
   const canReadDiagnoses = usePermission('diagnosis:read');
+  const canReadPrescriptions = usePermission('prescription:read');
   const canUpdate = usePermission('encounter:update');
   const ended = encounter.endedAt
     ? t(encounter.status === 'cancelled' ? 'detail.cancelledBy' : 'detail.closedBy', {
@@ -126,6 +129,7 @@ function Consultation({ encounter }: { encounter: Encounter }) {
         <div className="flex min-w-0 flex-col gap-8">
           {canReadNotes && <NotesPanel encounter={encounter} />}
           {canReadDiagnoses && <DiagnosesPanel encounter={encounter} />}
+          {canReadPrescriptions && <PrescriptionsPanel encounter={encounter} />}
         </div>
       </div>
 

@@ -157,5 +157,104 @@
       "saving": "Recording…",
       "codeOrText": "Choose a code or write the diagnosis in words."
     }
+  },
+  "prescriptions": {
+    "heading": "Prescriptions",
+    "empty": "No prescription written yet.",
+    "more": "Show more prescriptions",
+    "write": "Write a prescription",
+    "written": "Prescription written.",
+    "revised": "Prescription revised. The lines of the old one not yet started are cancelled.",
+    "writtenBy": "Written {{time}} by {{name}}",
+    "revises": "Revises the prescription of {{time}}: {{reason}}",
+    "replaced": "Replaced by the prescription of {{time}}.",
+    "advice": "Advice",
+    "revise": "Revise",
+    "reviseLabel": "Revise the prescription written {{time}}",
+    "days_one": "for {{count}} day",
+    "days_other": "for {{count}} days",
+    "quantity_one": "{{count}} unit to dispense",
+    "quantity_other": "{{count}} units to dispense",
+    "lineCancelled": "Cancelled: {{reason}}",
+    "lineStatus": {
+      "accepted": "Accepted",
+      "in_progress": "In progress",
+      "completed": "Completed"
+    },
+    "routes": {
+      "oral": "Oral",
+      "sublingual": "Under the tongue",
+      "topical": "On the skin",
+      "inhaled": "Inhaled",
+      "nasal": "Nasal",
+      "eye": "Eye",
+      "ear": "Ear",
+      "rectal": "Rectal",
+      "vaginal": "Vaginal",
+      "intramuscular": "Intramuscular",
+      "intravenous": "Intravenous",
+      "subcutaneous": "Subcutaneous",
+      "other": "Other"
+    },
+    "allergies": {
+      "hidden": "The patient’s allergies are not shown to you here, so medicines are not checked against them.",
+      "loading": "Reading the patient’s allergies…",
+      "failed": "The patient’s allergies could not be read, so medicines are not checked against them.",
+      "unknown": "Allergies have not been asked yet. Ask the patient before prescribing."
+    },
+    "warnings": {
+      "label": "Check:",
+      "allergy": "The patient is recorded as allergic to {{substance}}.",
+      "repeated": "Another line of this prescription is the same medicine.",
+      "prescribed": "Already prescribed in this consultation: {{names}}."
+    },
+    "confirm": {
+      "heading": "Prescribe with these warnings?",
+      "anyway": "Prescribe anyway",
+      "back": "Review the lines",
+      "allergiesUnchecked": "The medicines were not checked against the patient’s allergies.",
+      "duplicatesUnchecked": "Prescriptions of this consultation not shown yet were not checked for repeats."
+    },
+    "form": {
+      "heading": "New prescription",
+      "reviseHeading": "Revise the prescription",
+      "startedStay_one": "{{count}} line already in progress or completed stays as it is.",
+      "startedStay_other": "{{count}} lines already in progress or completed stay as they are.",
+      "lineLegend": "Medicine {{number}}",
+      "medicine": "Medicine",
+      "change": "Change",
+      "changeMedicine": "Change the medicine, now {{name}}",
+      "drugRequired": "Choose a medicine from the search.",
+      "dose": "Dose",
+      "doseHint": "As written: 500 mg, 1 tablet.",
+      "route": "Route",
+      "frequency": "Frequency",
+      "frequencyHint": "As written: 1-0-1, every 8 hours.",
+      "days": "Days",
+      "daysRange": "A whole number of days from 1 to 365.",
+      "quantity": "Quantity",
+      "quantityHint": "Units to dispense.",
+      "quantityRange": "A whole number from 1 to 10000.",
+      "instructions": "Instructions",
+      "instructionsHint": "For example: after food.",
+      "removeLine": "Remove medicine {{number}}",
+      "addLine": "Add a medicine",
+      "linesMax": "A prescription holds at most {{count}} medicines.",
+      "linesRequired": "Add at least one medicine.",
+      "advice": "Advice for the patient",
+      "adviceHint": "Plain text, one or more lines.",
+      "reason": "Why it is revised",
+      "submit": "Write the prescription",
+      "submitRevision": "Write the revision",
+      "saving": "Writing…"
+    },
+    "refused": {
+      "notOpen": "The consultation is no longer open, so nothing can be prescribed in it.",
+      "unknownDrug": "A medicine is no longer in the catalog. Choose it again.",
+      "gone": "The prescription being revised is no longer available.",
+      "alreadyReplaced": "Someone else revised this prescription first. Close this form to see their revision."
+    },
+    "revisesEarlier": "Revises an earlier prescription: {{reason}}",
+    "replacedLater": "Replaced by a later prescription."
   }
 }

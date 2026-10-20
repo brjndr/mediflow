@@ -5,8 +5,8 @@ import type { FeatureManifest } from '@/registry';
  * The OPD consultation (#80): an encounter opened from a token being served (the
  * `queue.row.actions` slot) or from today's appointment (`appointment.row.actions` and
  * `appointment.detail.actions`), with what triage found (`TriageSummary` from triage), notes kept
- * as drafts on the server and then signed, and diagnoses, each behind its own permission. The
- * consultations list brings a doctor back to a visit left open.
+ * as drafts on the server and then signed, diagnoses and prescriptions (#81), each behind its own
+ * permission. The consultations list brings a doctor back to a visit left open.
  */
 export const clinicalFeature: FeatureManifest = {
   id: 'clinical',
@@ -40,6 +40,8 @@ export const clinicalFeature: FeatureManifest = {
     'clinicalNote:write',
     'diagnosis:read',
     'diagnosis:write',
+    'prescription:read',
+    'prescription:create',
   ],
   // Opening also needs `patient:read`, checked by the component: a slot contribution requires the
   // feature's own permissions only. It opens the consultation, so it needs reading it too.

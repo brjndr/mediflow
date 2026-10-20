@@ -134,6 +134,10 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Notes' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Diagnoses' })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // A prescription's lines stack in one column on a phone.
+  await page.getByRole('button', { name: 'Write a prescription' }).click();
+  await expect(page.getByRole('group', { name: 'Medicine 1' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
 
   await goTo(page, 'Patients');
   await expect(page.getByRole('heading', { name: 'Patients', exact: true })).toBeVisible();

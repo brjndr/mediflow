@@ -18,14 +18,16 @@ import {
   fetchEncounter,
   fetchEncounters,
   fetchNotes,
+  fetchPrescriptions,
   openEncounter,
   recordDiagnosis,
   retractDiagnosis,
   signNote,
+  writePrescription,
   type EncounterFilters,
 } from '../api';
 import type { RichTextDocument } from '@/shared/ui/rich-text';
-import type { DiagnosisCreate, Encounter, EncounterCreate } from '../types';
+import type { DiagnosisCreate, Encounter, EncounterCreate, PrescriptionCreate } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's visits never show in another. */
 export const clinicalKeys = createTenantKeys('clinical');
@@ -34,6 +36,8 @@ const notesKey = (tenantId: string, encounterId: string) =>
   [...clinicalKeys.detail(tenantId, encounterId), 'notes'] as const;
 const diagnosesKey = (tenantId: string, encounterId: string) =>
   [...clinicalKeys.detail(tenantId, encounterId), 'diagnoses'] as const;
+const prescriptionsKey = (tenantId: string, encounterId: string) =>
+  [...clinicalKeys.detail(tenantId, encounterId), 'prescriptions'] as const;
 
 export const ENCOUNTERS_PAGE_SIZE = 25;
 export const RECORDS_PAGE_SIZE = 50;
@@ -273,5 +277,37 @@ export function useRetractDiagnosis(encounterId: string) {
       retractDiagnosis(diagnosisId, reason, keys.keyFor({ diagnosisId, reason })),
     onSuccess: () => keys.clear(),
     onSettled: refresh,
+  });
+}
+
+/** The encounter's prescriptions with their lines, oldest first, replaced ones included. */
+export function usePrescriptions(encounterId: string) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: prescriptionsKey(tenantId ?? '', encounterId),
+    queryFn: ({ pageParam, signal }) =>
+      fetchPrescriptions({ encounterId, cursor: pageParam, limit: RECORDS_PAGE_SIZE }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: tenantId !== undefined && encounterId !== '',
+  });
+}
+
+/** Writes a prescription or a revision. Whatever the answer, the prescriptions are read again. */
+export function useWritePrescription(encounterId: string) {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: PrescriptionCreate) =>
+      writePrescription(encounterId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: () => {
+      const tenantId = stillHere();
+      if (tenantId) {
+        return queryClient.invalidateQueries({ queryKey: prescriptionsKey(tenantId, encounterId) });
+      }
+    },
   });
 }
