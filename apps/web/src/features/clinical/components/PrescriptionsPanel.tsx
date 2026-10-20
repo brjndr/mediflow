@@ -10,7 +10,7 @@ import { useFormatters } from '@/tenancy';
 import { usePrescriptions } from '../hooks/use-clinical';
 import { linesInOrder } from '../schemas';
 import type { Encounter, Order, Prescription } from '../types';
-import { howToTake } from './how-to-take';
+import { useHowToTake } from './how-to-take';
 import { PrescriptionForm } from './PrescriptionForm';
 import { PrintPrescriptionButton } from './PrintDocuments';
 
@@ -235,11 +235,12 @@ function PrescriptionView({
 /** A line: the medicine as ordered, how to take it, and where it stands when not just placed. */
 function LineView({ line }: { line: Order }) {
   const { t } = useTranslation('clinical');
+  const howToTake = useHowToTake();
   const cancelled = line.status === 'cancelled';
   return (
     <div className="flex flex-col gap-0.5 text-sm">
       <p className={cn('break-words font-medium', cancelled && 'line-through')}>{line.itemName}</p>
-      <p className="break-words">{howToTake(line, t)}</p>
+      <p className="break-words">{howToTake(line)}</p>
       {line.instructions && <p className="break-words">{line.instructions}</p>}
       {line.status !== 'placed' && (
         <p className="font-medium">

@@ -17,7 +17,7 @@ import {
 import { usePrinting } from '../hooks/use-print';
 import { linesInOrder } from '../schemas';
 import type { Encounter, Prescription } from '../types';
-import { howToTake } from './how-to-take';
+import { useHowToTake } from './how-to-take';
 
 /**
  * Printing a prescription or the visit summary (#89), for `encounter:print`. A press records the
@@ -158,6 +158,7 @@ function PrintedBy() {
 /** The lines still to be taken (a cancelled one is not), in the order written, and the advice. */
 function PrescriptionBody({ prescription }: { prescription: Prescription }) {
   const { t } = useTranslation('clinical');
+  const howToTake = useHowToTake();
   const lines = linesInOrder(prescription).filter((line) => line.status !== 'cancelled');
   return (
     <>
@@ -165,7 +166,7 @@ function PrescriptionBody({ prescription }: { prescription: Prescription }) {
         {lines.map((line) => (
           <li key={line.id} className="break-inside-avoid">
             <p className="font-semibold">{line.itemName}</p>
-            <p>{howToTake(line, t)}</p>
+            <p>{howToTake(line)}</p>
             {line.instructions && <p>{line.instructions}</p>}
           </li>
         ))}
