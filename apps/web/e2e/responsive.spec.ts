@@ -160,6 +160,11 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByText('Penicillin')).toBeVisible();
   await expect(page.getByText('2 readings')).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // Its clinical timeline: the visits become cards on a phone, the filters one column.
+  await page.getByRole('tab', { name: 'Clinical timeline' }).click();
+  await expect(page.getByText('1 visit', { exact: true })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Type of visit' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
   await page.getByRole('tab', { name: 'Details' }).click();
   // Editing it: one column of fields on a phone.
   await page.getByRole('link', { name: 'Edit', exact: true }).click();

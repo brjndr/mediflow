@@ -23,6 +23,7 @@ const named = <const Values extends readonly string[]>(
   });
 
 export const ENCOUNTER_TYPES = ['opd', 'ipd', 'er', 'daycare'] as const;
+export type EncounterTypeValue = (typeof ENCOUNTER_TYPES)[number];
 export const EncounterType = named(
   'EncounterType',
   ENCOUNTER_TYPES,
@@ -438,6 +439,7 @@ export const EncounterListQuery = Type.Object({
   patientId: Type.Optional(Id),
   attendingDoctorId: Type.Optional(Id),
   status: Type.Optional(ref(EncounterStatus)),
+  type: Type.Optional(ref(EncounterType)),
   cursor: CursorParam,
   limit: Limit,
 });

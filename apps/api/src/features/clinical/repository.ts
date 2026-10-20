@@ -1,7 +1,12 @@
 import type pg from 'pg';
 import type { PermissionScope } from '../../core/access/registry.js';
 import type { RichTextDocument } from '../../core/http/rich-text.js';
-import type { EncounterStatusValue, OrderStatusValue, OrderTypeValue } from './schemas.js';
+import type {
+  EncounterStatusValue,
+  EncounterTypeValue,
+  OrderStatusValue,
+  OrderTypeValue,
+} from './schemas.js';
 
 /**
  * The clinical SQL. Every statement runs on the request's own transaction under the app role, so
@@ -163,6 +168,7 @@ export interface EncounterFilters {
   patientId?: string;
   attendingDoctorId?: string;
   status?: EncounterStatusValue;
+  type?: EncounterTypeValue;
   cursor?: string;
   limit: number;
 }
@@ -188,11 +194,13 @@ export async function listEncounters(
             where ($1::uuid is null or e.patient_id = $1)
               and ($2::uuid is null or e.attending_doctor_id = $2)
               and ($3::text is null or e.status = $3)
-              and ${visible('$4', '$5')}`,
+              and ($4::text is null or e.type = $4)
+              and ${visible('$5', '$6')}`,
       values: [
         filters.patientId ?? null,
         filters.attendingDoctorId ?? null,
         filters.status ?? null,
+        filters.type ?? null,
         visibility.scope,
         visibility.userId,
       ],

@@ -38,6 +38,7 @@ import {
   EncounterParams,
   REASON_MAX,
   type EncounterStatusValue,
+  type EncounterTypeValue,
 } from './schemas.js';
 
 const READ = 'encounter:read';
@@ -65,7 +66,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listEncounters',
         tags: ['clinical'],
         description:
-          'The encounters the caller may see, newest first: of one patient (the clinical timeline), of one doctor, in one status, or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds encounter:read with: `own`, the encounters they attend; `department`, those of their department; an encounter outside it is left out, never refused. A list nobody types patient facts into, so a GET. Requires encounter:read and the clinical feature flag. Every encounter of a page is audited. `total` comes with the first page only.',
+          'The encounters the caller may see, newest first: of one patient (the clinical timeline), of one doctor, in one status, of one type, or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds encounter:read with: `own`, the encounters they attend; `department`, those of their department; an encounter outside it is left out, never refused. A list nobody types patient facts into, so a GET. Requires encounter:read and the clinical feature flag. Every encounter of a page is audited. `total` comes with the first page only.',
         querystring: EncounterListQuery,
         response: { 200: ref(EncounterPage), ...errors(400, 401, 403, 409, 429) },
       },
@@ -75,6 +76,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
         patientId,
         attendingDoctorId,
         status,
+        type,
         cursor,
         limit = DEFAULT_PAGE_SIZE,
       } = request.query;
@@ -84,6 +86,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
           ...(patientId === undefined ? {} : { patientId }),
           ...(attendingDoctorId === undefined ? {} : { attendingDoctorId }),
           ...(status === undefined ? {} : { status: status as EncounterStatusValue }),
+          ...(type === undefined ? {} : { type: type as EncounterTypeValue }),
           ...(cursor === undefined ? {} : { cursor }),
           limit,
         },

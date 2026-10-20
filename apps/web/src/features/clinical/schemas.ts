@@ -11,6 +11,7 @@ import type {
   Encounter,
   EncounterPage,
   EncounterStatus,
+  EncounterType,
   MedicationRoute,
   Order,
   OrderCreate,
@@ -27,6 +28,12 @@ export const ENCOUNTER_STATUSES = [
   'closed',
   'cancelled',
 ] as const satisfies readonly EncounterStatus[];
+export const ENCOUNTER_TYPES = [
+  'opd',
+  'ipd',
+  'er',
+  'daycare',
+] as const satisfies readonly EncounterType[];
 export const DIAGNOSIS_KINDS = ['provisional', 'final'] as const satisfies readonly DiagnosisKind[];
 
 /** The API's limits (`apps/api/src/features/clinical/schemas.ts`). */
@@ -47,7 +54,7 @@ export const encounterSchema: z.ZodType<Encounter> = z.object({
   patientId: z.string(),
   patientName: z.string(),
   patientMrn: z.string(),
-  type: z.enum(['opd', 'ipd', 'er', 'daycare']),
+  type: z.enum(ENCOUNTER_TYPES),
   status: z.enum(ENCOUNTER_STATUSES),
   appointmentId: z.string().optional(),
   queueTokenId: z.string().optional(),

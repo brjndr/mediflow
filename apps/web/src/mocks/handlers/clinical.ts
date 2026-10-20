@@ -485,11 +485,17 @@ export const clinicalHandlers = [
     const patientId = query.get('patientId');
     const doctorId = query.get('attendingDoctorId');
     const status = query.get('status');
+    const type = query.get('type');
+    if (type && !['opd', 'ipd', 'er', 'daycare'].includes(type)) {
+      return error(400, 'validation_failed', 'Unknown type');
+    }
     const shown = state.encounters
       .filter((each) => each.tenantId === access.tenantId && inScope(each, 'encounter:read'))
       .filter((each) => !patientId || each.patientId === patientId)
       .filter((each) => !doctorId || each.doctorId === doctorId)
       .filter((each) => !status || each.status === status)
+      // Only `opd` is opened, as by the API.
+      .filter(() => !type || type === 'opd')
       .sort((a, b) => b.openedAt.localeCompare(a.openedAt) || b.id.localeCompare(a.id))
       .map(viewOf);
     // Counted only for one patient or one doctor, as the API counts.
@@ -1229,6 +1235,32 @@ export const clinicalHandlers = [
 
 /** An encounter as the mock holds it now, for tests. */
 export const mockEncounter = (id: string) => state.encounters.find((each) => each.id === id);
+
+/**
+ * Adds `count` closed encounters of a patient, a day apart before the seed's, for tests of a
+ * long history. Their ids are `enc_past_<n>`, the newest first.
+ */
+export function addPastMockEncounters(
+  tenantId: string,
+  patientId: string,
+  doctorId: string,
+  count: number,
+): void {
+  for (let n = 1; n <= count; n += 1) {
+    state.encounters.push({
+      id: `enc_past_${n}`,
+      tenantId,
+      patientId,
+      status: 'closed',
+      doctorId,
+      openedAt: minutesAgo((n + 2) * 24 * 60),
+      openedByName: 'Sample Admin',
+      endedAt: minutesAgo((n + 2) * 24 * 60 - 20),
+      endedByName: 'Sample Admin',
+      version: 2,
+    });
+  }
+}
 
 /** The notes of an encounter as the mock holds them (every author's drafts included), for tests. */
 export const mockNotesOf = (encounterId: string): readonly ClinicalNote[] =>

@@ -566,7 +566,8 @@ describe('switching hospital', () => {
         0,
       ),
     );
-    expect(screen.queryByText('Penicillin')).not.toBeInTheDocument();
+    // The screen draws again after the cache is emptied, on its own timing.
+    await waitFor(() => expect(screen.queryByText('Penicillin')).not.toBeInTheDocument());
   });
 });
 
