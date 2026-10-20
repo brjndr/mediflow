@@ -424,6 +424,148 @@ export const PrescriptionCreate = object('PrescriptionCreate', {
 });
 export type PrescriptionCreate = Static<typeof PrescriptionCreate>;
 
+// ----- Referrals and follow-ups (#88) --------------------------------------------------------
+
+export const REFERRAL_REASON_MAX = 1000;
+export const FOLLOW_UP_NOTE_MAX = 500;
+/** How far ahead a follow-up may be due: about a year. */
+export const FOLLOW_UP_DAYS_AHEAD = 366;
+
+const Day = (description: string) =>
+  Type.String({ format: 'date', pattern: '^\\d{4}-\\d{2}-\\d{2}$', description });
+
+export const REFERRAL_URGENCIES = ['routine', 'urgent'] as const;
+export const ReferralUrgency = named('ReferralUrgency', REFERRAL_URGENCIES);
+
+export const Referral = object(
+  'Referral',
+  {
+    id: Type.String(),
+    tenantId: Type.String(),
+    encounterId: Type.String(),
+    patientId: Type.String(),
+    departmentId: Type.String(),
+    departmentName: Type.String(),
+    doctorId: Type.Optional(Type.String()),
+    doctorName: Type.Optional(Type.String()),
+    urgency: ref(ReferralUrgency),
+    reason: Type.String(),
+    referredAt: Instant,
+    referredByName: Type.String(),
+    cancelledAt: Type.Optional(Instant),
+    cancelledByName: Type.Optional(Type.String()),
+    cancelReason: Type.Optional(Type.String()),
+  },
+  'A referral of the patient to a department of the hospital, or one of its doctors. Never changed; cancelled with a reason, and kept.',
+);
+export const ReferralPage = CursorPage(ref(Referral), { $id: 'ReferralPage' });
+
+export const ReferralCreate = object('ReferralCreate', {
+  departmentId: Type.Optional(
+    Type.String({
+      maxLength: 64,
+      description: 'The department referred to. Taken from the doctor when only a doctor is named.',
+    }),
+  ),
+  doctorId: Type.Optional(
+    Type.String({
+      maxLength: 64,
+      description: 'A doctor of that department, or none: any of them.',
+    }),
+  ),
+  urgency: ref(ReferralUrgency),
+  reason: Type.String({
+    minLength: 1,
+    maxLength: REFERRAL_REASON_MAX,
+    pattern: PLAIN_LINES,
+    description: 'Plain text of one or more lines: why the patient is referred.',
+  }),
+});
+export type ReferralCreate = Static<typeof ReferralCreate>;
+
+export const ReferralCancel = object('ReferralCancel', {
+  reason: Reason('Why the referral is withdrawn: made in error, no longer needed.'),
+});
+export type ReferralCancel = Static<typeof ReferralCancel>;
+
+export const FOLLOW_UP_STATES = ['due', 'booked', 'attended', 'cancelled'] as const;
+export type FollowUpStateValue = (typeof FOLLOW_UP_STATES)[number];
+export const FollowUpState = named(
+  'FollowUpState',
+  FOLLOW_UP_STATES,
+  'Read from its appointment: `due` with none, or one cancelled or a no-show; `booked` with one scheduled; `attended` with one completed; `cancelled` when the follow-up itself was.',
+);
+
+export const FollowUp = object(
+  'FollowUp',
+  {
+    id: Type.String(),
+    tenantId: Type.String(),
+    encounterId: Type.String(),
+    patientId: Type.String(),
+    patientName: Type.String(),
+    patientMrn: Type.String(),
+    doctorId: Type.String(),
+    doctorName: Type.String(),
+    dueOn: Type.String({ format: 'date', description: 'A calendar day at the hospital.' }),
+    note: Type.Optional(Type.String()),
+    state: ref(FollowUpState),
+    appointmentId: Type.Optional(Type.String()),
+    appointmentStartsAt: Type.Optional(Instant),
+    createdAt: Instant,
+    createdByName: Type.String(),
+    bookedAt: Type.Optional(Instant),
+    cancelledAt: Type.Optional(Instant),
+    cancelReason: Type.Optional(Type.String()),
+    version: Type.Integer({ minimum: 1 }),
+  },
+  'When the patient should come back after an encounter, and with whom, and the appointment it was booked as.',
+);
+export const FollowUpPage = CursorPage(ref(FollowUp), { $id: 'FollowUpPage' });
+
+export const FollowUpCreate = object('FollowUpCreate', {
+  dueOn: Day('The day the patient should come back, at the hospital: from today to a year ahead.'),
+  doctorId: Type.Optional(
+    Type.String({
+      maxLength: 64,
+      description: 'Whom the patient comes back to. The encounter’s doctor when absent.',
+    }),
+  ),
+  note: Type.Optional(
+    Type.String({
+      minLength: 1,
+      maxLength: FOLLOW_UP_NOTE_MAX,
+      pattern: PLAIN_LINES,
+      description: 'Plain text of one or more lines, for whoever books it: "with the lab reports".',
+    }),
+  ),
+});
+export type FollowUpCreate = Static<typeof FollowUpCreate>;
+
+export const FollowUpBook = object('FollowUpBook', {
+  startsAt: Type.String({
+    format: 'date-time',
+    description: 'UTC. One of the doctor’s free slots (`/appointments/free-slots`).',
+  }),
+  doctorId: Type.Optional(
+    Type.String({
+      maxLength: 64,
+      description: 'Another doctor to book with. The follow-up’s doctor when absent.',
+    }),
+  ),
+  version: Version,
+});
+export type FollowUpBook = Static<typeof FollowUpBook>;
+
+export const FollowUpCancel = object('FollowUpCancel', {
+  reason: Reason('Why the patient need not come back.'),
+  version: Version,
+});
+export type FollowUpCancel = Static<typeof FollowUpCancel>;
+
+export const ReferralParams = Type.Object({ referralId: Id });
+export const FollowUpParams = Type.Object({ followUpId: Id });
+
 export const EncounterParams = Type.Object({ encounterId: Id });
 export const NoteParams = Type.Object({ noteId: Id });
 export const DiagnosisParams = Type.Object({ diagnosisId: Id });
@@ -446,6 +588,15 @@ export const EncounterListQuery = Type.Object({
 export const PageQuery = Type.Object({ cursor: CursorParam, limit: Limit });
 export const OrderListQuery = Type.Object({
   type: Type.Optional(ref(OrderType)),
+  cursor: CursorParam,
+  limit: Limit,
+});
+
+export const FollowUpListQuery = Type.Object({
+  state: Type.Optional(ref(FollowUpState)),
+  dueFrom: Type.Optional(Day('The first day due, at the hospital.')),
+  dueTo: Type.Optional(Day('The last day due, at the hospital, included.')),
+  doctorId: Type.Optional(Id),
   cursor: CursorParam,
   limit: Limit,
 });
@@ -486,4 +637,15 @@ export const CLINICAL_SCHEMAS = [
   PrescriptionPage,
   PrescriptionLine,
   PrescriptionCreate,
+  ReferralUrgency,
+  Referral,
+  ReferralPage,
+  ReferralCreate,
+  ReferralCancel,
+  FollowUpState,
+  FollowUp,
+  FollowUpPage,
+  FollowUpCreate,
+  FollowUpBook,
+  FollowUpCancel,
 ] as const;

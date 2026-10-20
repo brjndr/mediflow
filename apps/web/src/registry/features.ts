@@ -4,6 +4,7 @@ import { codesFeature } from '@/features/codes';
 import { departmentsFeature } from '@/features/departments';
 import { doctorsFeature } from '@/features/doctors';
 import { drugsFeature } from '@/features/drugs';
+import { followUpsFeature } from '@/features/follow-ups';
 import { importsFeature } from '@/features/imports';
 import { labTestsFeature } from '@/features/lab-tests';
 import { noticesFeature } from '@/features/notices';
@@ -41,5 +42,6 @@ export const features: FeatureManifest[] = [
   queueFeature,
   triageFeature,
   clinicalFeature,
+  followUpsFeature,
   staffFeature,
 ];

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { usePermission } from '@/access';
+import { FollowUpPanel } from '@/features/follow-ups';
 import { TriageSummary } from '@/features/triage';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
@@ -11,6 +12,7 @@ import { NotesPanel } from '../components/NotesPanel';
 import { OrdersPanel } from '../components/OrdersPanel';
 import { PrescriptionsPanel } from '../components/PrescriptionsPanel';
 import { PrintSummaryButton } from '../components/PrintDocuments';
+import { ReferralsPanel } from '../components/ReferralsPanel';
 import { useEncounter } from '../hooks/use-clinical';
 import { ORDER_KINDS } from '../schemas';
 import type { Encounter } from '../types';
@@ -23,8 +25,9 @@ const ID = /^[A-Za-z0-9_-]{1,64}$/;
  * with whom, what triage found (allergies and the newest vitals), the notes for
  * `clinicalNote:read`, the diagnoses for `diagnosis:read`, the prescriptions for
  * `prescription:read` and the lab orders for `order:read` (#82), each part shown only to whoever
- * holds its permission, printing the visit summary for `encounter:print` (#89), and closing or
- * cancelling for `encounter:update`.
+ * holds its permission, printing the visit summary for `encounter:print` (#89), referrals for
+ * `referral:read` and the follow-up for `followUp:read` (#88), and closing or cancelling for
+ * `encounter:update`.
  */
 export default function EncounterDetail() {
   const { t } = useTranslation('clinical');
@@ -81,6 +84,7 @@ function Consultation({ encounter }: { encounter: Encounter }) {
   const canReadDiagnoses = usePermission('diagnosis:read');
   const canReadPrescriptions = usePermission('prescription:read');
   const canReadOrders = usePermission('order:read');
+  const canReadReferrals = usePermission('referral:read');
   const canUpdate = usePermission('encounter:update');
   const canPrint = usePermission('encounter:print');
   const ended = encounter.endedAt
@@ -143,6 +147,13 @@ function Consultation({ encounter }: { encounter: Encounter }) {
           {canReadPrescriptions && <PrescriptionsPanel encounter={encounter} />}
           {canReadOrders &&
             ORDER_KINDS.map((kind) => <OrdersPanel key={kind} encounter={encounter} kind={kind} />)}
+          {canReadReferrals && <ReferralsPanel encounter={encounter} />}
+          {/* What happens next: its own permission, checked by the panel. */}
+          <FollowUpPanel
+            encounterId={encounter.id}
+            open={encounter.status === 'open'}
+            cancelled={encounter.status === 'cancelled'}
+          />
         </div>
       </div>
 

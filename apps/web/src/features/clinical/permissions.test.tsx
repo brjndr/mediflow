@@ -47,6 +47,11 @@ const EVERY_CLINICAL = [
   'prescription:read',
   'prescription:create',
   'encounter:print',
+  // What happens next (#88).
+  'referral:read',
+  'referral:create',
+  'followUp:read',
+  'followUp:create',
 ];
 
 interface View {
@@ -61,6 +66,10 @@ interface View {
   cancelOrder: boolean;
   print: boolean;
   closeOrCancel: boolean;
+  referrals: boolean;
+  refer: boolean;
+  followUp: boolean;
+  setFollowUp: boolean;
 }
 
 const EVERYTHING: View = {
@@ -75,19 +84,24 @@ const EVERYTHING: View = {
   cancelOrder: true,
   print: true,
   closeOrCancel: true,
+  referrals: true,
+  refer: true,
+  followUp: true,
+  setFollowUp: true,
 };
 
 const NOTHING: View = Object.fromEntries(
   Object.keys(EVERYTHING).map((key) => [key, false]),
 ) as unknown as View;
 
-/** The nurse's defaults: the visit, its orders and prescriptions, and printing. */
+/** The nurse's defaults: the visit, its orders and prescriptions, printing and the follow-up. */
 const NURSE = [
   'encounter:read',
   'order:read',
   'order:update',
   'prescription:read',
   'encounter:print',
+  'followUp:read',
 ];
 
 /** Roles that read consultations: what each sees on an open one. */
@@ -98,7 +112,7 @@ const READERS: { role: string; permissions: string[]; view: View }[] = [
     // The limited view: the visit, its orders and prescriptions, and printing, not what it was for.
     role: 'nurse',
     permissions: NURSE,
-    view: { ...NOTHING, prescriptions: true, orders: true, print: true },
+    view: { ...NOTHING, prescriptions: true, orders: true, print: true, followUp: true },
   },
   {
     // A custom role a hospital might make: writes the notes, never sees the diagnoses.
@@ -108,8 +122,17 @@ const READERS: { role: string; permissions: string[]; view: View }[] = [
   },
 ];
 
-/** Roles with no clinical permission by default (`docs/PRODUCT.md`: "no"). */
-const NON_READERS = ['receptionist', 'pharmacist', 'lab_technician', 'radiologist', 'store_keeper'];
+/**
+ * Roles with no way into a consultation by default (`docs/PRODUCT.md`: "no"). The receptionist
+ * reads the follow-up due list (#88), which is not a consultation.
+ */
+const NON_READERS: { role: string; permissions: string[] }[] = [
+  { role: 'receptionist', permissions: ['followUp:read', 'appointment:create'] },
+  ...['pharmacist', 'lab_technician', 'radiologist', 'store_keeper'].map((role) => ({
+    role,
+    permissions: [],
+  })),
+];
 
 /** The paths of every GET the screen sends. */
 function watchReads(): string[] {
@@ -160,6 +183,10 @@ describe('the clinical permission matrix', () => {
         cancelOrder: screen.queryAllByRole('button', { name: /^Cancel order/ }).length > 0,
         print: button('Print summary'),
         closeOrCancel: button('Close consultation') || button('Cancel consultation'),
+        referrals: shown('Referrals'),
+        refer: shown('Refer the patient', 3),
+        followUp: shown('Follow-up'),
+        setFollowUp: shown('Set a follow-up', 3),
       }).toEqual(view);
 
       // What is hidden is never asked for, so nothing of it reaches the browser.
@@ -169,11 +196,15 @@ describe('the clinical permission matrix', () => {
         diagnoses: asked('diagnoses'),
         prescriptions: asked('prescriptions'),
         orders: asked('orders'),
+        referrals: asked('referrals'),
+        followUps: asked('follow-ups'),
       }).toEqual({
         notes: view.notes,
         diagnoses: view.diagnoses,
         prescriptions: view.prescriptions,
         orders: view.orders,
+        referrals: view.referrals,
+        followUps: view.followUp,
       });
       if (!view.diagnoses) expect(screen.queryByText(/J06\.9|Acute upper respiratory/)).toBeNull();
       if (!view.notes) expect(screen.queryByText(/Cough for a week/)).toBeNull();
@@ -190,10 +221,10 @@ describe('the clinical permission matrix', () => {
     expect(screen.getByRole('link', { name: 'Consultations' })).toBeInTheDocument();
   });
 
-  it.each(NON_READERS)('gives the %s no way into a consultation', async () => {
+  it.each(NON_READERS)('gives the $role no way into a consultation', async ({ permissions }) => {
     const reads = watchReads();
-    // Their defaults hold no clinical permission; what they do hold elsewhere is around it.
-    setRolePermissions(HOSPITAL, 'admin', grants(...AROUND));
+    // Their defaults hold no consultation permission; what they do hold elsewhere is around it.
+    setRolePermissions(HOSPITAL, 'admin', grants(...AROUND, ...permissions));
     const consultation = renderApp({ entry: '/encounters/enc_h_1' });
     expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Consultations' })).not.toBeInTheDocument();
@@ -209,6 +240,10 @@ describe('the clinical permission matrix', () => {
     await screen.findAllByText(/^Token \d+$/);
     expect(screen.queryByRole('button', { name: /^Start consultation/ })).not.toBeInTheDocument();
     expect(reads.some((path) => /\/encounters/.test(path))).toBe(false);
+    // The due list is theirs only with followUp:read.
+    expect(screen.queryByRole('link', { name: 'Follow-ups' }) !== null).toBe(
+      permissions.includes('followUp:read'),
+    );
   });
 
   it('lets the nurse read the timeline, but not start a consultation', async () => {

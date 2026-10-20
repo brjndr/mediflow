@@ -1,0 +1,98 @@
+{
+  "close": "Close",
+  "booked": "Booked for {{time}} with {{doctor}}.",
+  "cancelledNow": "Follow-up cancelled.",
+  "state": {
+    "due": "To book",
+    "overdue": "To book, overdue",
+    "booked": "Booked",
+    "bookedFor": "Booked for {{time}}",
+    "attended": "Attended",
+    "cancelled": "Cancelled"
+  },
+  "list": {
+    "heading": "Follow-ups",
+    "doctor": "Doctor",
+    "allDoctors": "All doctors",
+    "me": "{{name}} (me)",
+    "state": "State",
+    "allStates": "All states",
+    "dueTo": "Due by",
+    "count_one": "{{count}} follow-up",
+    "count_other": "{{count}} follow-ups",
+    "empty": "No follow-ups match.",
+    "book": "Book",
+    "openConsultation": "Open consultation",
+    "columns": {
+      "patient": "Patient",
+      "mrn": "MRN",
+      "due": "Due",
+      "doctor": "Doctor",
+      "state": "State",
+      "note": "Note"
+    },
+    "noLongerDue": "That follow-up is no longer to book: it was booked or cancelled meanwhile."
+  },
+  "panel": {
+    "heading": "Follow-up",
+    "none": "No follow-up set.",
+    "comeBack": "Come back on {{day}} to {{doctor}}",
+    "setBy": "Set by {{name}}, {{time}}",
+    "book": "Book now",
+    "cancel": "Cancel follow-up",
+    "cancelledOne": "Cancelled: {{day}} to {{doctor}}. {{reason}}"
+  },
+  "form": {
+    "heading": "Set a follow-up",
+    "quick": "Come back in",
+    "inDays_one": "In {{count}} day",
+    "inDays_other": "In {{count}} days",
+    "dueOn": "Come back on",
+    "doctor": "To",
+    "sameDoctor": "This consultation's doctor",
+    "note": "Message for the desk",
+    "noteHint": "Read by the front desk, which books it: what to bring or arrange, such as \"with the lab reports\". No clinical detail.",
+    "submit": "Set follow-up",
+    "saving": "Saving…",
+    "set": "Follow-up set.",
+    "errors": {
+      "day": "Enter a date.",
+      "dayRange": "Choose a day from today to a year ahead."
+    }
+  },
+  "cancel": {
+    "heading": "Cancel the follow-up",
+    "reason": "Why the patient need not come back",
+    "submit": "Cancel follow-up"
+  },
+  "book": {
+    "heading": "Book the follow-up of {{name}}",
+    "due": "Due {{day}}.",
+    "doctor": "Doctor",
+    "day": "Day",
+    "submit": "Book",
+    "submitting": "Booking…",
+    "errors": {
+      "doctor": "Choose a doctor.",
+      "dayRange": "Choose a day from today to 90 days ahead.",
+      "slot": "Choose a time."
+    },
+    "refused": {
+      "conflict": "This follow-up changed meanwhile. It has been read again: choose the time again.",
+      "notDue": "This follow-up is no longer to book: it was booked or cancelled meanwhile.",
+      "gone": "This follow-up is no longer available.",
+      "unknownDoctor": "This doctor cannot be booked. Choose another.",
+      "patientOverlap": "The patient already has an appointment at that time. Choose another time."
+    },
+    "beyondWindow": "Due {{day}}, beyond the {{days}} days appointments can be booked ahead: the last day that can be booked is offered."
+  },
+  "refused": {
+    "notOpen": "The consultation is no longer open.",
+    "exists": "This consultation already has a follow-up.",
+    "outsideWindow": "Choose a day from today to a year ahead.",
+    "unknownDoctor": "This doctor cannot see patients here. Choose another.",
+    "conflict": "This follow-up changed meanwhile. It has been read again.",
+    "notDue": "This follow-up is no longer to book: it was booked or cancelled meanwhile.",
+    "gone": "This follow-up is no longer available."
+  }
+}

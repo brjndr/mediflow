@@ -21,6 +21,10 @@ import type {
   Prescription,
   PrescriptionCreate,
   PrescriptionPage,
+  Referral,
+  ReferralCreate,
+  ReferralPage,
+  ReferralUrgency,
 } from './types';
 
 export const ENCOUNTER_STATUSES = [
@@ -463,3 +467,69 @@ export const orderedItemId = (order: Order) => order.labTestId ?? order.serviceI
 /** An order still in effect: not cancelled, and not yet completed. */
 export const isActiveOrder = (order: Order) =>
   order.status !== 'cancelled' && order.status !== 'completed';
+
+// ----- Referrals (#88) -------------------------------------------------------------------------
+
+export const REFERRAL_URGENCIES = [
+  'routine',
+  'urgent',
+] as const satisfies readonly ReferralUrgency[];
+/** The API's limit (`apps/api/src/features/clinical/schemas.ts`). */
+export const REFERRAL_REASON_MAX = 1000;
+
+export const referralSchema: z.ZodType<Referral> = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  encounterId: z.string(),
+  patientId: z.string(),
+  departmentId: z.string(),
+  departmentName: z.string(),
+  doctorId: z.string().optional(),
+  doctorName: z.string().optional(),
+  urgency: z.enum(REFERRAL_URGENCIES),
+  reason: z.string(),
+  referredAt: z.string(),
+  referredByName: z.string(),
+  cancelledAt: z.string().optional(),
+  cancelledByName: z.string().optional(),
+  cancelReason: z.string().optional(),
+});
+
+export const referralPageSchema: z.ZodType<ReferralPage> = z.object({
+  items: z.array(referralSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+/**
+ * A referral as typed: a department, and a doctor of it or none (any of its doctors), an urgency
+ * and why. The department is required on the form: choosing a doctor narrows it, never replaces it.
+ */
+export const referralFormSchema = z.object({
+  departmentId: z.string().min(1, 'clinical:referrals.form.departmentRequired'),
+  doctorId: z.string(),
+  urgency: z.enum(REFERRAL_URGENCIES),
+  reason: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(REFERRAL_REASON_MAX, 'validation.too_big')
+    .regex(PLAIN_LINES, 'validation.plain_text'),
+});
+export type ReferralValues = z.input<typeof referralFormSchema>;
+
+export const blankReferral: ReferralValues = {
+  departmentId: '',
+  doctorId: '',
+  urgency: 'routine',
+  reason: '',
+};
+
+export function toReferralCreate(values: z.output<typeof referralFormSchema>): ReferralCreate {
+  return {
+    departmentId: values.departmentId,
+    urgency: values.urgency,
+    reason: values.reason,
+    ...(values.doctorId ? { doctorId: values.doctorId } : {}),
+  };
+}

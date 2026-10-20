@@ -23,6 +23,12 @@ export const DOMAIN_EVENTS = [
   'order.placed',
   'order.cancelled',
   'order.completed',
+  // What a consultation asks to happen next (#88): ids and codes only, never the reason or note.
+  'referral.created',
+  'referral.cancelled',
+  'followup.created',
+  'followup.booked',
+  'followup.cancelled',
   'lab.sample_collected',
   'lab.result_verified',
   'lab.critical_value',

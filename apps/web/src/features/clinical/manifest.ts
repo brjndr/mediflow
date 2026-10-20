@@ -7,7 +7,8 @@ import type { FeatureManifest, SlotContribution } from '@/registry';
  * `appointment.detail.actions`), with what triage found (`TriageSummary` from triage), notes kept
  * as drafts on the server and then signed, diagnoses and prescriptions (#81), each behind its own
  * permission. The consultations list brings a doctor back to a visit left open, and the patient's
- * screen gets a "Clinical timeline" tab of their visits (`patient.detail.tabs`, #83).
+ * screen gets a "Clinical timeline" tab of their visits (`patient.detail.tabs`, #83). Referrals
+ * are on the consultation (#88); its follow-up is the `follow-ups` feature's panel.
  */
 export const clinicalFeature: FeatureManifest = {
   id: 'clinical',
@@ -43,6 +44,8 @@ export const clinicalFeature: FeatureManifest = {
     'diagnosis:write',
     'prescription:read',
     'prescription:create',
+    'referral:read',
+    'referral:create',
   ],
   // Opening also needs `patient:read`, checked by the component: a slot contribution requires the
   // feature's own permissions only. It opens the consultation, so it needs reading it too.

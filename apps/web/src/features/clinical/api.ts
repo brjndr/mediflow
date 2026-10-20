@@ -11,6 +11,8 @@ import {
   orderSchema,
   prescriptionPageSchema,
   prescriptionSchema,
+  referralPageSchema,
+  referralSchema,
 } from './schemas';
 import type {
   ClinicalNote,
@@ -29,6 +31,9 @@ import type {
   Prescription,
   PrescriptionCreate,
   PrescriptionPage,
+  Referral,
+  ReferralCreate,
+  ReferralPage,
 } from './types';
 
 // Every address holds ids only: nothing about the patient is in a URL. Every POST carries an
@@ -380,4 +385,40 @@ export async function cancelOrder(
     body,
   });
   return orderSchema.parse(requireData(result));
+}
+
+/** The encounter's referrals, oldest first, cancelled ones included (#88). */
+export async function fetchReferrals(
+  { encounterId, cursor, limit }: { encounterId: string; cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<ReferralPage> {
+  const result = await api.GET('/encounters/{encounterId}/referrals', {
+    params: { path: { encounterId }, query: { cursor, limit } },
+    signal,
+  });
+  return referralPageSchema.parse(requireData(result));
+}
+
+export async function createReferral(
+  encounterId: string,
+  body: ReferralCreate,
+  idempotencyKey: string,
+): Promise<Referral> {
+  const result = await api.POST('/encounters/{encounterId}/referrals', {
+    params: { path: { encounterId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return referralSchema.parse(requireData(result));
+}
+
+export async function cancelReferral(
+  referralId: string,
+  reason: string,
+  idempotencyKey: string,
+): Promise<Referral> {
+  const result = await api.POST('/referrals/{referralId}/cancel', {
+    params: { path: { referralId }, header: { 'idempotency-key': idempotencyKey } },
+    body: { reason },
+  });
+  return referralSchema.parse(requireData(result));
 }

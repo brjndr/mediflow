@@ -35,3 +35,9 @@ export type Credentials = Schemas['DoctorCredentials'];
 export type PrescriptionPage = Schemas['PrescriptionPage'];
 export type PrescriptionCreate = Schemas['PrescriptionCreate'];
 export type PrescriptionLine = Schemas['PrescriptionLine'];
+
+/** A referral to a department of the hospital, or one of its doctors (#88). Cancelled, never changed. */
+export type Referral = Schemas['Referral'];
+export type ReferralPage = Schemas['ReferralPage'];
+export type ReferralCreate = Schemas['ReferralCreate'];
+export type ReferralUrgency = Schemas['ReferralUrgency'];
