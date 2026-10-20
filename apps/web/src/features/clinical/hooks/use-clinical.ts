@@ -13,7 +13,9 @@ import {
   amendNote,
   cancelEncounter,
   cancelOrder,
+  cancelReferral,
   closeEncounter,
+  createReferral,
   discardNote,
   fetchDiagnoses,
   fetchEncounter,
@@ -21,6 +23,7 @@ import {
   fetchNotes,
   fetchOrders,
   fetchPrescriptions,
+  fetchReferrals,
   openEncounter,
   placeOrder,
   recordDiagnosis,
@@ -37,6 +40,7 @@ import type {
   Order,
   OrderCreate,
   PrescriptionCreate,
+  ReferralCreate,
 } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's visits never show in another. */
@@ -372,5 +376,55 @@ export function useCancelOrder(encounterId: string) {
     },
     onSuccess: () => keys.clear(),
     onSettled: (_order, _error, { order }) => refresh(order.type),
+  });
+}
+
+const referralsKey = (tenantId: string, encounterId: string) =>
+  [...clinicalKeys.detail(tenantId, encounterId), 'referrals'] as const;
+
+/** The encounter's referrals, oldest first, cancelled ones included (#88). */
+export function useReferrals(encounterId: string) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: referralsKey(tenantId ?? '', encounterId),
+    queryFn: ({ pageParam, signal }) =>
+      fetchReferrals({ encounterId, cursor: pageParam, limit: RECORDS_PAGE_SIZE }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: tenantId !== undefined && encounterId !== '',
+  });
+}
+
+function useRefreshReferrals(encounterId: string) {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  return () => {
+    const tenantId = stillHere();
+    if (tenantId) {
+      return queryClient.invalidateQueries({ queryKey: referralsKey(tenantId, encounterId) });
+    }
+  };
+}
+
+export function useCreateReferral(encounterId: string) {
+  const refresh = useRefreshReferrals(encounterId);
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: ReferralCreate) => createReferral(encounterId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+export function useCancelReferral(encounterId: string) {
+  const refresh = useRefreshReferrals(encounterId);
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ referralId, reason }: { referralId: string; reason: string }) =>
+      cancelReferral(referralId, reason, keys.keyFor({ referralId, reason })),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
   });
 }

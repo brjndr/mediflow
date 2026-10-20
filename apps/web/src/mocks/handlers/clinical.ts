@@ -5,8 +5,9 @@ import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 import { todayIn } from '@/shared/utils/timezone';
 import { currentPolicy, currentSession, mockTenantTimezone, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
-import { mockAppointment } from './appointments';
+import { bookMockAppointment, mockAppointment } from './appointments';
 import { mockCode } from './codes';
+import { mockDepartment } from './departments';
 import { mockCredentials, mockDoctor, mockDoctorOfUser } from './doctors';
 import { mockDrug } from './drugs';
 import { mockOrderableLabTest } from './lab-tests';
@@ -25,6 +26,28 @@ type Prescription = components['schemas']['Prescription'];
 type PrescriptionPage = components['schemas']['PrescriptionPage'];
 type MedicationRoute = components['schemas']['MedicationRoute'];
 type OrderPage = components['schemas']['OrderPage'];
+type Referral = components['schemas']['Referral'];
+type ReferralPage = components['schemas']['ReferralPage'];
+type FollowUp = components['schemas']['FollowUp'];
+type FollowUpPage = components['schemas']['FollowUpPage'];
+
+/** A follow-up as the mock keeps it: its state is read from its appointment, as the API does. */
+interface StoredFollowUp {
+  id: string;
+  tenantId: string;
+  encounterId: string;
+  patientId: string;
+  doctorId: string;
+  dueOn: string;
+  note?: string;
+  appointmentId?: string;
+  createdAt: string;
+  createdByName: string;
+  bookedAt?: string;
+  cancelledAt?: string;
+  cancelReason?: string;
+  version: number;
+}
 
 const ORDER_TYPES: readonly Order['type'][] = ['lab', 'imaging', 'procedure', 'medication', 'diet'];
 const PRIORITIES: readonly Order['priority'][] = ['routine', 'urgent', 'stat'];
@@ -264,7 +287,23 @@ function seed() {
   ];
   /** What was printed (#89), as the audit log keeps it: the entity and its id. */
   const prints: MockPrint[] = [];
-  return { encounters, notes, diagnoses, prescriptions, orders, prints };
+  const referrals: Referral[] = [];
+  // Yesterday's visit asked the patient back tomorrow, not booked yet (#88).
+  const followUps: StoredFollowUp[] = [
+    {
+      id: 'fu_h_1',
+      tenantId: hospital,
+      encounterId: 'enc_h_2',
+      patientId: 'pth_00002',
+      doctorId: 'doc_h_02',
+      dueOn: todayIn(mockTenantTimezone(hospital), new Date(Date.now() + 86_400_000)),
+      note: 'With the haemoglobin result',
+      createdAt: minutesAgo(25 * 60),
+      createdByName: prescriber.name,
+      version: 1,
+    },
+  ];
+  return { encounters, notes, diagnoses, prescriptions, orders, prints, referrals, followUps };
 }
 
 /** A print the API would record in the audit log (#89). */
@@ -477,6 +516,321 @@ function documentOf(value: unknown) {
   return isEmptyRichText(document) ? null : document;
 }
 
+// ----- Referrals and follow-ups (#88) ----------------------------------------------------------
+
+const referralNotFound = () => error(404, 'referral_not_found', 'Referral not found');
+const followUpNotFound = () => error(404, 'follow_up_not_found', 'Follow-up not found');
+const URGENCIES: readonly Referral['urgency'][] = ['routine', 'urgent'];
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function shiftDay(day: string, by: number) {
+  const date = new Date(`${day}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + by);
+  return date.toISOString().slice(0, 10);
+}
+
+/** Its state, read from its appointment: due again when that was cancelled or missed. */
+function followUpView(stored: StoredFollowUp): FollowUp {
+  const patient = mockPatient(stored.tenantId, stored.patientId);
+  const doctor = mockDoctor(stored.tenantId, stored.doctorId);
+  const appointment = stored.appointmentId
+    ? mockAppointment(stored.tenantId, stored.appointmentId)
+    : undefined;
+  const followUpState: FollowUp['state'] = stored.cancelledAt
+    ? 'cancelled'
+    : appointment?.status === 'scheduled'
+      ? 'booked'
+      : appointment?.status === 'completed'
+        ? 'attended'
+        : 'due';
+  return {
+    ...stored,
+    patientName: patient?.name ?? '',
+    patientMrn: patient?.mrn ?? '',
+    doctorName: doctor?.name ?? '',
+    state: followUpState,
+    ...(appointment ? { appointmentStartsAt: appointment.startsAt } : {}),
+  };
+}
+
+/** The follow-up of this hospital, in an encounter the caller reaches with followUp:read. */
+function followUpFor(tenantId: string, id: string) {
+  const found = state.followUps.find((each) => each.id === id && each.tenantId === tenantId);
+  return found && encounterFor(tenantId, found.encounterId, 'followUp:read') ? found : null;
+}
+
+const bySoonest = (a: FollowUp, b: FollowUp) =>
+  a.dueOn.localeCompare(b.dueOn) || a.id.localeCompare(b.id);
+
+function referralHandlers() {
+  return [
+    http.get('*/api/encounters/:encounterId/referrals', ({ request, params }) => {
+      const access = authorize(request, { permission: 'referral:read', featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+      const found = encounterFor(access.tenantId, String(params.encounterId), 'referral:read');
+      if (!found) return notFound();
+      const shown = state.referrals
+        .filter((each) => each.encounterId === found.id)
+        .sort((a, b) => a.referredAt.localeCompare(b.referredAt) || a.id.localeCompare(b.id));
+      const result = page(shown, request);
+      return 'refused' in result ? result.refused : HttpResponse.json<ReferralPage>(result.page);
+    }),
+
+    http.post('*/api/encounters/:encounterId/referrals', async ({ request, params }) => {
+      const access = authorize(request, {
+        permission: 'referral:create',
+        featureFlag: FEATURE_FLAG,
+      });
+      if ('denied' in access) return access.denied;
+      if (!currentPolicy()?.permissions.some((grant) => grant.permission === 'referral:read')) {
+        return error(403, 'permission_denied', 'referral:read is needed');
+      }
+      const { tenantId } = access;
+      const sent = await idempotent(request, tenantId);
+      if ('refused' in sent) return sent.refused;
+      const found = encounterFor(tenantId, String(params.encounterId), 'referral:create');
+      if (!found) return notFound();
+      if (sent.replay) {
+        const again = state.referrals.find((each) => each.id === sent.replay?.id);
+        return again ? HttpResponse.json<Referral>(again, { status: 201 }) : referralNotFound();
+      }
+      const body = sent.body;
+      const reason = isObject(body) ? plainOf(body.reason, 1000, PLAIN_LINES) : null;
+      const urgency = isObject(body) ? URGENCIES.find((each) => each === body.urgency) : undefined;
+      if (!isObject(body) || !reason || !urgency) {
+        return error(400, 'validation_failed', 'The request is not valid');
+      }
+      const departmentId = typeof body.departmentId === 'string' ? body.departmentId : undefined;
+      const doctorId = typeof body.doctorId === 'string' ? body.doctorId : undefined;
+      if (!departmentId && !doctorId) {
+        return error(400, 'validation_failed', 'A department or a doctor is needed');
+      }
+      if (found.status !== 'open') return notOpen();
+      const doctor = doctorId ? mockDoctor(tenantId, doctorId) : undefined;
+      if (doctorId && !doctor?.active) return error(422, 'unknown_doctor', 'No such doctor');
+      const department = mockDepartment(tenantId, departmentId ?? doctor?.departmentId ?? '');
+      if (!department || department.archived) {
+        return error(422, 'unknown_department', 'No such department');
+      }
+      if (doctor && doctor.departmentId !== department.id) {
+        return error(422, 'doctor_not_in_department', 'The doctor is of another department');
+      }
+      const referral: Referral = {
+        id: nextId('ref'),
+        tenantId,
+        encounterId: found.id,
+        patientId: found.patientId,
+        departmentId: department.id,
+        departmentName: department.name,
+        ...(doctor ? { doctorId: doctor.id, doctorName: doctor.name } : {}),
+        urgency,
+        reason,
+        referredAt: now(),
+        referredByName: caller().name,
+      };
+      state.referrals.push(referral);
+      remember(sent.keyOf, body, 201, referral.id);
+      return HttpResponse.json<Referral>(referral, { status: 201 });
+    }),
+
+    http.post('*/api/referrals/:referralId/cancel', async ({ request, params }) => {
+      const access = authorize(request, {
+        permission: 'referral:create',
+        featureFlag: FEATURE_FLAG,
+      });
+      if ('denied' in access) return access.denied;
+      if (!currentPolicy()?.permissions.some((grant) => grant.permission === 'referral:read')) {
+        return error(403, 'permission_denied', 'referral:read is needed');
+      }
+      const { tenantId } = access;
+      const sent = await idempotent(request, tenantId);
+      if ('refused' in sent) return sent.refused;
+      const referral = state.referrals.find(
+        (each) => each.id === String(params.referralId) && each.tenantId === tenantId,
+      );
+      if (!referral || !encounterFor(tenantId, referral.encounterId, 'referral:create')) {
+        return referralNotFound();
+      }
+      if (sent.replay) return HttpResponse.json<Referral>(referral);
+      const reason = isObject(sent.body) ? reasonOf(sent.body.reason) : null;
+      if (!reason) return error(400, 'validation_failed', 'A reason is required');
+      if (referral.cancelledAt) return error(409, 'already_cancelled', 'Already cancelled');
+      referral.cancelledAt = now();
+      referral.cancelledByName = caller().name;
+      referral.cancelReason = reason;
+      remember(sent.keyOf, sent.body, 200, referral.id);
+      return HttpResponse.json<Referral>(referral);
+    }),
+  ];
+}
+
+function followUpHandlers() {
+  return [
+    http.get('*/api/follow-ups', ({ request }) => {
+      const access = authorize(request, { permission: 'followUp:read', featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+      const query = new URL(request.url).searchParams;
+      const wanted = query.get('state');
+      const dueFrom = query.get('dueFrom');
+      const dueTo = query.get('dueTo');
+      const doctorId = query.get('doctorId');
+      const shown = state.followUps
+        .filter((each) => each.tenantId === access.tenantId)
+        .filter((each) => encounterFor(access.tenantId, each.encounterId, 'followUp:read'))
+        .filter((each) => !dueFrom || each.dueOn >= dueFrom)
+        .filter((each) => !dueTo || each.dueOn <= dueTo)
+        .filter((each) => !doctorId || each.doctorId === doctorId)
+        .map(followUpView)
+        .filter((each) => !wanted || each.state === wanted)
+        .sort(bySoonest);
+      const result = page(shown, request);
+      return 'refused' in result ? result.refused : HttpResponse.json<FollowUpPage>(result.page);
+    }),
+
+    http.get('*/api/encounters/:encounterId/follow-ups', ({ request, params }) => {
+      const access = authorize(request, { permission: 'followUp:read', featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+      const found = encounterFor(access.tenantId, String(params.encounterId), 'followUp:read');
+      if (!found) return notFound();
+      const shown = state.followUps
+        .filter((each) => each.encounterId === found.id)
+        .map(followUpView)
+        .sort(bySoonest);
+      const result = page(shown, request);
+      return 'refused' in result ? result.refused : HttpResponse.json<FollowUpPage>(result.page);
+    }),
+
+    http.post('*/api/encounters/:encounterId/follow-ups', async ({ request, params }) => {
+      const access = authorize(request, {
+        permission: 'followUp:create',
+        featureFlag: FEATURE_FLAG,
+      });
+      if ('denied' in access) return access.denied;
+      if (!currentPolicy()?.permissions.some((grant) => grant.permission === 'followUp:read')) {
+        return error(403, 'permission_denied', 'followUp:read is needed');
+      }
+      const { tenantId } = access;
+      const sent = await idempotent(request, tenantId);
+      if ('refused' in sent) return sent.refused;
+      const found = encounterFor(tenantId, String(params.encounterId), 'followUp:create');
+      if (!found) return notFound();
+      if (sent.replay) {
+        const again = followUpFor(tenantId, sent.replay.id);
+        return again
+          ? HttpResponse.json<FollowUp>(followUpView(again), { status: 201 })
+          : followUpNotFound();
+      }
+      const body = sent.body;
+      const note = isObject(body) ? plainOf(body.note, 500, PLAIN_LINES) : null;
+      if (
+        !isObject(body) ||
+        typeof body.dueOn !== 'string' ||
+        !DAY.test(body.dueOn) ||
+        note === null
+      ) {
+        return error(400, 'validation_failed', 'The request is not valid');
+      }
+      if (found.status !== 'open') return notOpen();
+      const doctorId = typeof body.doctorId === 'string' ? body.doctorId : found.doctorId;
+      if (!mockDoctor(tenantId, doctorId)?.active) {
+        return error(422, 'unknown_doctor', 'No such doctor');
+      }
+      const today = todayIn(mockTenantTimezone(tenantId));
+      if (body.dueOn < today || body.dueOn > shiftDay(today, 366)) {
+        return error(422, 'outside_window', 'Not a day from today to a year ahead');
+      }
+      if (state.followUps.some((each) => each.encounterId === found.id && !each.cancelledAt)) {
+        return error(409, 'follow_up_exists', 'The encounter has a follow-up');
+      }
+      const stored: StoredFollowUp = {
+        id: nextId('fu'),
+        tenantId,
+        encounterId: found.id,
+        patientId: found.patientId,
+        doctorId,
+        dueOn: body.dueOn,
+        ...(note ? { note } : {}),
+        createdAt: now(),
+        createdByName: caller().name,
+        version: 1,
+      };
+      state.followUps.push(stored);
+      remember(sent.keyOf, body, 201, stored.id);
+      return HttpResponse.json<FollowUp>(followUpView(stored), { status: 201 });
+    }),
+
+    http.post('*/api/follow-ups/:followUpId/book', async ({ request, params }) => {
+      const access = authorize(request, { permission: 'followUp:read', featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+      const { tenantId } = access;
+      const policy = currentPolicy();
+      if (!policy?.permissions.some((grant) => grant.permission === 'appointment:create')) {
+        return error(403, 'permission_denied', 'appointment:create is needed');
+      }
+      if (policy.features.appointments !== true) {
+        return error(403, 'feature_disabled', 'Appointments are switched off');
+      }
+      const sent = await idempotent(request, tenantId);
+      if ('refused' in sent) return sent.refused;
+      const stored = followUpFor(tenantId, String(params.followUpId));
+      if (!stored) return followUpNotFound();
+      if (sent.replay) return HttpResponse.json<FollowUp>(followUpView(stored));
+      const body = sent.body;
+      if (
+        !isObject(body) ||
+        typeof body.startsAt !== 'string' ||
+        typeof body.version !== 'number'
+      ) {
+        return error(400, 'validation_failed', 'The request is not valid');
+      }
+      if (body.version !== stored.version) return error(409, 'conflict', 'Changed meanwhile');
+      const view = followUpView(stored);
+      if (view.state !== 'due') return error(409, 'invalid_transition', `It is ${view.state}`);
+      const made = bookMockAppointment(tenantId, {
+        patientId: stored.patientId,
+        doctorId: typeof body.doctorId === 'string' ? body.doctorId : stored.doctorId,
+        startsAt: body.startsAt,
+      });
+      if ('refused' in made) return made.refused;
+      stored.appointmentId = made.appointment.id;
+      stored.bookedAt = now();
+      stored.version += 1;
+      remember(sent.keyOf, body, 200, stored.id);
+      return HttpResponse.json<FollowUp>(followUpView(stored));
+    }),
+
+    http.post('*/api/follow-ups/:followUpId/cancel', async ({ request, params }) => {
+      const access = authorize(request, {
+        permission: 'followUp:create',
+        featureFlag: FEATURE_FLAG,
+      });
+      if ('denied' in access) return access.denied;
+      if (!currentPolicy()?.permissions.some((grant) => grant.permission === 'followUp:read')) {
+        return error(403, 'permission_denied', 'followUp:read is needed');
+      }
+      const { tenantId } = access;
+      const sent = await idempotent(request, tenantId);
+      if ('refused' in sent) return sent.refused;
+      const stored = followUpFor(tenantId, String(params.followUpId));
+      if (!stored) return followUpNotFound();
+      if (sent.replay) return HttpResponse.json<FollowUp>(followUpView(stored));
+      const body = sent.body;
+      const reason = isObject(body) ? reasonOf(body.reason) : null;
+      if (!isObject(body) || !reason || typeof body.version !== 'number') {
+        return error(400, 'validation_failed', 'The request is not valid');
+      }
+      if (body.version !== stored.version) return error(409, 'conflict', 'Changed meanwhile');
+      const view = followUpView(stored);
+      if (view.state !== 'due') return error(409, 'invalid_transition', `It is ${view.state}`);
+      stored.cancelledAt = now();
+      stored.cancelReason = reason;
+      stored.version += 1;
+      remember(sent.keyOf, body, 200, stored.id);
+      return HttpResponse.json<FollowUp>(followUpView(stored));
+    }),
+  ];
+}
+
 export const clinicalHandlers = [
   http.get('*/api/encounters', ({ request }) => {
     const access = authorize(request, { permission: 'encounter:read', featureFlag: FEATURE_FLAG });
@@ -652,7 +1006,9 @@ export const clinicalHandlers = [
         action === 'cancel' &&
         (ofIt(state.notes).length > 0 ||
           ofIt(state.diagnoses).some((each) => !each.retractedAt) ||
-          ofIt(state.orders).length > 0)
+          ofIt(state.orders).length > 0 ||
+          ofIt(state.referrals).some((each) => !each.cancelledAt) ||
+          ofIt(state.followUps).some((each) => !each.cancelledAt))
       ) {
         return error(409, 'has_records', 'Something is on the record');
       }
@@ -1231,6 +1587,8 @@ export const clinicalHandlers = [
     }
     return new HttpResponse(null, { status: 204 });
   }),
+  ...referralHandlers(),
+  ...followUpHandlers(),
 ];
 
 /** An encounter as the mock holds it now, for tests. */
@@ -1294,3 +1652,16 @@ export function moveMockOrder(id: string, status: Order['status']): void {
 
 /** What the mock recorded as printed, as the API's audit log would, for tests. */
 export const mockPrints = (): readonly MockPrint[] => state.prints;
+
+/** The referrals of an encounter as the mock holds them, for tests. */
+export const mockReferralsOf = (encounterId: string): readonly Referral[] =>
+  state.referrals.filter((each) => each.encounterId === encounterId);
+
+/** The follow-ups as the API answers them, for tests. */
+export const mockFollowUps = (): FollowUp[] => state.followUps.map(followUpView);
+
+/** Changes a follow-up behind the screen, as another desk would: a new version. */
+export function touchMockFollowUp(id: string): void {
+  const stored = state.followUps.find((each) => each.id === id);
+  if (stored) stored.version += 1;
+}

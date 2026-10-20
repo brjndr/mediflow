@@ -43,23 +43,24 @@ See `docs/OPEN_DECISIONS.md`.
 
 Default matrix (seed data only; the live policy comes from the backend):
 
-| Area                                  | platform_admin | admin        | doctor          | nurse          | receptionist  | pharmacist    | lab_technician | radiologist | store_keeper |
-| ------------------------------------- | -------------- | ------------ | --------------- | -------------- | ------------- | ------------- | -------------- | ----------- | ------------ |
-| Manage hospitals/tenants              | yes            | no           | no              | no             | no            | no            | no             | no          | no           |
-| Users, roles, master data             | yes (tenants)  | own hospital | no              | no             | no            | no            | no             | no          | no           |
-| Patient registration and demographics | no*            | yes          | yes             | yes            | register/edit | view          | view           | view        | no           |
-| Appointments and queue                | no*            | yes          | view, own first | view           | create/edit   | no            | no             | no          | no           |
-| Triage and vitals                     | no*            | view         | view            | record         | no            | no            | no             | no          | no           |
-| Clinical notes, diagnosis, orders     | no*            | view         | yes             | limited        | no            | no            | no             | no          | no           |
-| Lab (collect, result, verify)         | no*            | view         | view results    | collect        | no            | no            | yes            | no          | no           |
-| Imaging (perform, report)             | no*            | view         | view results    | no             | no            | no            | no             | yes         | no           |
-| Pharmacy dispense and sales           | no*            | view         | no              | request/indent | no            | yes           | no             | no          | no           |
-| Inventory and purchasing              | no*            | view         | no              | indent         | no            | stock view    | no             | no          | yes          |
-| Admissions and beds (ADT)             | no*            | yes          | admit/discharge | transfer/view  | admit desk    | no            | no             | no          | no           |
-| Nursing care (MAR, notes)             | no*            | view         | view            | yes            | no            | no            | no             | no          | no           |
-| Billing and payments                  | no*            | yes          | view            | no             | yes           | counter sales | no             | no          | no           |
-| Insurance and claims                  | no*            | yes          | no              | no             | create/view   | no            | no             | no          | no           |
-| Reports                               | no*            | all          | own             | ward           | desk          | pharmacy      | lab            | imaging     | stock        |
+| Area                                  | platform_admin | admin        | doctor          | nurse          | receptionist   | pharmacist    | lab_technician | radiologist | store_keeper |
+| ------------------------------------- | -------------- | ------------ | --------------- | -------------- | -------------- | ------------- | -------------- | ----------- | ------------ |
+| Manage hospitals/tenants              | yes            | no           | no              | no             | no             | no            | no             | no          | no           |
+| Users, roles, master data             | yes (tenants)  | own hospital | no              | no             | no             | no            | no             | no          | no           |
+| Patient registration and demographics | no*            | yes          | yes             | yes            | register/edit  | view          | view           | view        | no           |
+| Appointments and queue                | no*            | yes          | view, own first | view           | create/edit    | no            | no             | no          | no           |
+| Triage and vitals                     | no*            | view         | view            | record         | no             | no            | no             | no          | no           |
+| Clinical notes, diagnosis, orders     | no*            | view         | yes             | limited        | no             | no            | no             | no          | no           |
+| Referrals and follow-ups              | no*            | yes          | yes             | view follow-up | book follow-up | no            | no             | no          | no           |
+| Lab (collect, result, verify)         | no*            | view         | view results    | collect        | no             | no            | yes            | no          | no           |
+| Imaging (perform, report)             | no*            | view         | view results    | no             | no             | no            | no             | yes         | no           |
+| Pharmacy dispense and sales           | no*            | view         | no              | request/indent | no             | yes           | no             | no          | no           |
+| Inventory and purchasing              | no*            | view         | no              | indent         | no             | stock view    | no             | no          | yes          |
+| Admissions and beds (ADT)             | no*            | yes          | admit/discharge | transfer/view  | admit desk     | no            | no             | no          | no           |
+| Nursing care (MAR, notes)             | no*            | view         | view            | yes            | no             | no            | no             | no          | no           |
+| Billing and payments                  | no*            | yes          | view            | no             | yes            | counter sales | no             | no          | no           |
+| Insurance and claims                  | no*            | yes          | no              | no             | create/view    | no            | no             | no          | no           |
+| Reports                               | no*            | all          | own             | ward           | desk           | pharmacy      | lab            | imaging     | stock        |
 
 \*Platform admins manage tenants but do **not** get default access to patient data. Any support access must be explicit, audited, and time-limited.
 

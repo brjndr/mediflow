@@ -309,6 +309,47 @@ function validBooking(body: unknown): body is {
   return true;
 }
 
+/**
+ * Books as the API does, with nothing awaited from the checks to the push: a patient of the
+ * hospital, a practising doctor, a slot of the hours, and neither already booked then. For the
+ * booking route and for booking a follow-up (#88), which the API does in one transaction.
+ */
+export function bookMockAppointment(
+  tenantId: string,
+  body: { patientId: string; doctorId: string; startsAt: string; reason?: string },
+): { appointment: Appointment } | { refused: Response } {
+  if (!mockPatient(tenantId, body.patientId)) {
+    return { refused: error(422, 'unknown_patient', 'No such patient') };
+  }
+  const doctor = mockDoctor(tenantId, body.doctorId);
+  if (!doctor?.active) return { refused: error(422, 'unknown_doctor', 'No such doctor') };
+  const startsAt = new Date(body.startsAt).toISOString();
+  const day = todayIn(mockTenantTimezone(tenantId), new Date(startsAt));
+  const slot = workingSlots(tenantId, doctor.id, day).find((s) => s.startsAt === startsAt);
+  if (!slot) return { refused: error(422, 'outside_hours', 'Not a slot of the working hours') };
+  if (doctorBusy(tenantId, doctor.id, slot)) {
+    return { refused: error(409, 'slot_taken', 'The doctor is booked at that time') };
+  }
+  if (patientBusy(tenantId, body.patientId, slot)) {
+    return { refused: error(409, 'patient_overlap', 'The patient is booked at that time') };
+  }
+  booked += 1;
+  const stored: StoredAppointment = {
+    id: `apt_${tenantId}_new_${pad(booked, 4)}`,
+    tenantId,
+    patientId: body.patientId,
+    doctorId: doctor.id,
+    startsAt: slot.startsAt,
+    endsAt: slot.endsAt,
+    status: 'scheduled',
+    version: 1,
+  };
+  const reason = body.reason?.trim() ?? '';
+  if (reason) stored.reason = reason;
+  appointments.push(stored);
+  return { appointment: recordOf(stored) as Appointment };
+}
+
 export const bookingHandlers = [
   http.get('*/api/appointments/free-slots', ({ request }) => {
     // Asked for to book, or to move a booking.
@@ -355,38 +396,10 @@ export const bookingHandlers = [
     if (Object.keys(extensions).some((id) => !extensionFeatures.has(id))) {
       return error(422, 'unknown_extension', 'A part of extensions belongs to no feature');
     }
-    const { tenantId } = access;
-    if (!mockPatient(tenantId, body.patientId)) {
-      return error(422, 'unknown_patient', 'No such patient');
-    }
-    const doctor = mockDoctor(tenantId, body.doctorId);
-    if (!doctor?.active) return error(422, 'unknown_doctor', 'No such doctor');
-    const startsAt = new Date(body.startsAt).toISOString();
-    const day = todayIn(mockTenantTimezone(tenantId), new Date(startsAt));
-    const slot = workingSlots(tenantId, doctor.id, day).find((s) => s.startsAt === startsAt);
-    if (!slot) return error(422, 'outside_hours', 'Not a slot of the working hours');
-    if (doctorBusy(tenantId, doctor.id, slot)) {
-      return error(409, 'slot_taken', 'The doctor is booked at that time');
-    }
-    if (patientBusy(tenantId, body.patientId, slot)) {
-      return error(409, 'patient_overlap', 'The patient is booked at that time');
-    }
-    booked += 1;
-    const stored: StoredAppointment = {
-      id: `apt_${tenantId}_new_${pad(booked, 4)}`,
-      tenantId,
-      patientId: body.patientId,
-      doctorId: doctor.id,
-      startsAt: slot.startsAt,
-      endsAt: slot.endsAt,
-      status: 'scheduled',
-      version: 1,
-    };
-    const reason = body.reason?.trim() ?? '';
-    if (reason) stored.reason = reason;
-    appointments.push(stored);
-    bookedExtensions.set(stored.id, extensions);
-    const record = recordOf(stored) as Appointment;
+    const made = bookMockAppointment(access.tenantId, body);
+    if ('refused' in made) return made.refused;
+    bookedExtensions.set(made.appointment.id, extensions);
+    const record = made.appointment;
     bookings.set(keyOf, { body: JSON.stringify(body), record });
     return HttpResponse.json<Appointment>(record, { status: 201 });
   }),

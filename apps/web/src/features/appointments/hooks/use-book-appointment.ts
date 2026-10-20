@@ -39,3 +39,15 @@ export function useBookAppointment() {
     },
   });
 }
+
+/**
+ * For a feature that books through a route of its own (a follow-up, #88): the lists, the
+ * calendar and the free times are read again, as after a booking here.
+ */
+export function useAppointmentsChanged() {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  return () => {
+    if (tenantId) return queryClient.invalidateQueries({ queryKey: appointmentKeys.all(tenantId) });
+  };
+}

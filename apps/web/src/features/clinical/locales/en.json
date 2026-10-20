@@ -422,5 +422,52 @@
       "instructionsHint": "For whoever does it: site, side, timing.",
       "submit": "Order the procedure"
     }
+  },
+  "referrals": {
+    "heading": "Referrals",
+    "empty": "No referrals.",
+    "open": "Open",
+    "referred": "Referral made.",
+    "cancelledNow": "Referral cancelled.",
+    "referredBy": "{{name}}, {{time}}",
+    "cancelled": "Cancelled by {{name}}, {{time}}: {{reason}}",
+    "cancel": "Cancel referral",
+    "cancelHeading": "Cancel the referral to {{to}}",
+    "cancelReason": "Why it is cancelled",
+    "cancelSubmit": "Cancel referral",
+    "urgency": {
+      "routine": "Routine",
+      "urgent": "Urgent"
+    },
+    "columns": {
+      "to": "Referred to",
+      "urgency": "Urgency",
+      "reason": "Reason",
+      "referred": "Referred",
+      "status": "Status"
+    },
+    "form": {
+      "heading": "Refer the patient",
+      "department": "Department",
+      "chooseDepartment": "Choose a department",
+      "departmentsLoading": "Loading departments…",
+      "departmentRequired": "Choose a department.",
+      "noDepartments": "Departments cannot be read here, so no referral can be made.",
+      "doctor": "Doctor",
+      "anyDoctor": "Any doctor of the department",
+      "urgency": "Urgency",
+      "reason": "Referral reason",
+      "reasonHint": "Why the patient is referred, for the doctor who sees them.",
+      "submit": "Refer",
+      "saving": "Referring…"
+    },
+    "refused": {
+      "notOpen": "The consultation is no longer open.",
+      "unknownDepartment": "This department is not available. Choose another.",
+      "unknownDoctor": "This doctor cannot see patients here. Choose another.",
+      "otherDepartment": "This doctor is of another department. Choose the doctor again.",
+      "alreadyCancelled": "This referral was already cancelled.",
+      "gone": "This referral is no longer available."
+    }
   }
 }

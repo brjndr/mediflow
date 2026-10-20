@@ -129,6 +129,11 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'order:create' },
   { permission: 'order:update' },
   { permission: 'order:cancel' },
+  // What happens next (#88): referrals, and the follow-up and its due list.
+  { permission: 'referral:read' },
+  { permission: 'referral:create' },
+  { permission: 'followUp:read' },
+  { permission: 'followUp:create' },
   { permission: 'billing:read' },
   { permission: 'billing:create' },
   { permission: 'billing:refund' },
@@ -192,6 +197,11 @@ const DOCTOR: PermissionGrantDto[] = [
   { permission: 'order:create' },
   { permission: 'order:update' },
   { permission: 'order:cancel' },
+  // What happens next (#88): referrals, and the follow-up and its due list.
+  { permission: 'referral:read' },
+  { permission: 'referral:create' },
+  { permission: 'followUp:read' },
+  { permission: 'followUp:create' },
   { permission: 'notice:read' },
   { permission: 'department:read' },
   { permission: 'doctor:read' },
@@ -223,6 +233,8 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
       // Issues tokens at the desk; the doctors call them.
       { permission: 'queue:read' },
       { permission: 'queue:create' },
+      // Books the follow-ups the doctors set, from the due list (#88).
+      { permission: 'followUp:read' },
       { permission: 'billing:read' },
       { permission: 'billing:create' },
     ],
