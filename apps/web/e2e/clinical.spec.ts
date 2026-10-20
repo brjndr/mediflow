@@ -189,9 +189,9 @@ test('order a lab test and cancel one with the keyboard alone', async ({ page })
   expect(await focusVisible(page)).toBe(true);
 
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('combobox', { name: /^Priority/ })).toBeFocused();
+  await expect(orders.getByRole('combobox', { name: /^Priority/ })).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('textbox', { name: /^Instructions/ })).toBeFocused();
+  await expect(orders.getByRole('textbox', { name: /^Instructions/ })).toBeFocused();
   await page.keyboard.type('Before the transfusion');
   await page.keyboard.press('Tab');
   const submit = page.getByRole('button', { name: 'Order the test' });
@@ -219,5 +219,47 @@ test('order a lab test and cancel one with the keyboard alone', async ({ page })
   // Focus is never left on the page body.
   expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
   expect(await focusVisible(page)).toBe(true);
+  await expectNoAxeViolations(page);
+});
+
+test('order an imaging study with the keyboard alone', async ({ page }) => {
+  await page.goto('/');
+  await goTo(page, 'Consultations');
+  await page.getByRole('main').getByRole('link').first().click();
+  const imaging = page
+    .getByRole('heading', { name: 'Imaging orders' })
+    .locator('xpath=ancestor::section[1]');
+  await expect(imaging.getByText('Chest X-ray')).toBeVisible();
+
+  // The study is searched among the imaging services and chosen with the arrows and Enter.
+  const search = imaging.getByRole('combobox', { name: 'Study' });
+  await search.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(search).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.type('ultrasound');
+  const wanted = page.getByRole('option', { name: 'Abdominal ultrasound (IMG-002)' });
+  await expect(wanted).toBeVisible();
+  await expect(wanted).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Enter');
+  await expect(
+    imaging.getByRole('button', { name: 'Change the study, now Abdominal ultrasound' }),
+  ).toBeFocused();
+
+  await page.keyboard.press('Tab');
+  await expect(imaging.getByRole('combobox', { name: /^Priority/ })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(imaging.getByRole('textbox', { name: /^Instructions/ })).toBeFocused();
+  await page.keyboard.type('Right iliac fossa pain');
+  await page.keyboard.press('Tab');
+  await expect(imaging.getByRole('button', { name: 'Order the study' })).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+  await page.keyboard.press('Enter');
+  await expect(imaging.getByText('Imaging ordered.')).toBeVisible();
+  await expect(imaging.getByText('Right iliac fossa pain')).toBeVisible();
+  expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
   await expectNoAxeViolations(page);
 });

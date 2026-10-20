@@ -288,9 +288,32 @@
   "labOrders": {
     "heading": "Lab orders",
     "empty": "No test ordered yet.",
-    "resultsLater": "Results are not shown here yet: they arrive with the laboratory module.",
+    "later": "Results are not shown here yet: they arrive with the laboratory module.",
+    "item": "Test",
+    "status": {
+      "placed": "Ordered, waiting for the laboratory",
+      "accepted": "Accepted by the laboratory",
+      "in_progress": "In progress at the laboratory",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "placed": "Test ordered.",
+    "refused": {
+      "unknownItem": "This test is no longer offered by the laboratory. Choose another.",
+      "started": "The laboratory has started on it, so it can no longer be cancelled."
+    },
+    "form": {
+      "heading": "Order a test",
+      "item": "Test or panel",
+      "itemRequired": "Choose a test or panel from the search.",
+      "changeItem": "Change the test, now {{name}}",
+      "repeated": "Already ordered in this consultation and still in effect ({{status}}). Order it again only if a second sample is wanted.",
+      "instructionsHint": "For the laboratory: fasting, timing, clinical details.",
+      "submit": "Order the test"
+    }
+  },
+  "orders": {
     "columns": {
-      "test": "Test",
       "priority": "Priority",
       "status": "Status",
       "ordered": "Ordered",
@@ -301,43 +324,79 @@
       "urgent": "Urgent",
       "stat": "Immediately (stat)"
     },
-    "status": {
-      "placed": "Ordered, waiting for the laboratory",
-      "accepted": "Accepted by the laboratory",
-      "in_progress": "In progress at the laboratory",
-      "completed": "Completed",
-      "cancelled": "Cancelled"
-    },
     "cancelled": "Cancelled: {{reason}}",
     "orderedBy": "{{time}} by {{name}}",
-    "placed": "Test ordered.",
     "cancel": "Cancel order",
     "cancelHeading": "Cancel the order for {{name}}",
     "cancelReason": "Why it is cancelled",
     "cancelSubmit": "Cancel the order",
     "keep": "Keep it",
+    "close": "Close",
     "cancelledNow": "Order cancelled.",
     "refused": {
       "notOpen": "The consultation is no longer open, so nothing more can be ordered.",
-      "unknownTest": "This test is no longer offered by the laboratory. Choose another.",
-      "started": "The laboratory has started on it, so it can no longer be cancelled.",
       "conflict": "The order changed meanwhile and has been read again. Cancel it again if it is still wanted.",
       "gone": "This order is no longer available.",
       "alreadyCancelled": "This order was cancelled meanwhile."
     },
     "form": {
-      "heading": "Order a test",
-      "test": "Test or panel",
-      "testRequired": "Choose a test or panel from the search.",
       "chosen": "{{name}} ({{code}})",
       "change": "Change",
-      "changeTest": "Change the test, now {{name}}",
-      "repeated": "Already ordered in this consultation and still in effect ({{status}}). Order it again only if a second sample is wanted.",
       "priority": "Priority",
-      "instructions": "Instructions",
-      "instructionsHint": "For the laboratory: fasting, timing, clinical details.",
-      "submit": "Order the test"
+      "instructions": "Instructions"
+    }
+  },
+  "imagingOrders": {
+    "heading": "Imaging orders",
+    "empty": "No imaging ordered yet.",
+    "later": "Reports are not shown here yet: they arrive with the radiology module.",
+    "item": "Study",
+    "status": {
+      "placed": "Ordered, waiting for radiology",
+      "accepted": "Accepted by radiology",
+      "in_progress": "In progress in radiology",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
     },
-    "close": "Close"
+    "placed": "Imaging ordered.",
+    "refused": {
+      "unknownItem": "This study is no longer offered by the hospital. Choose another.",
+      "started": "Radiology has started on it, so it can no longer be cancelled."
+    },
+    "form": {
+      "heading": "Order imaging",
+      "item": "Study",
+      "itemRequired": "Choose a study from the search.",
+      "changeItem": "Change the study, now {{name}}",
+      "repeated": "Already ordered in this consultation and still in effect ({{status}}). Order it again only if a second study is wanted.",
+      "instructionsHint": "For radiology: the clinical question, side, contrast, pregnancy.",
+      "submit": "Order the study"
+    }
+  },
+  "procedureOrders": {
+    "heading": "Procedure orders",
+    "empty": "No procedure ordered yet.",
+    "item": "Procedure",
+    "status": {
+      "placed": "Ordered, waiting to be done",
+      "accepted": "Accepted, to be done",
+      "in_progress": "Being done",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "placed": "Procedure ordered.",
+    "refused": {
+      "unknownItem": "This procedure is no longer offered by the hospital. Choose another.",
+      "started": "It has been started, so it can no longer be cancelled."
+    },
+    "form": {
+      "heading": "Order a procedure",
+      "item": "Procedure",
+      "itemRequired": "Choose a procedure from the search.",
+      "changeItem": "Change the procedure, now {{name}}",
+      "repeated": "Already ordered in this consultation and still in effect ({{status}}). Order it again only if it is to be done twice.",
+      "instructionsHint": "For whoever does it: site, side, timing.",
+      "submit": "Order the procedure"
+    }
   }
 }

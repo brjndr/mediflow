@@ -156,6 +156,21 @@ export function mockServiceNamed(tenantId: string, name?: string, id?: string) {
     : undefined;
 }
 
+/**
+ * For placing an imaging or procedure order (#87): the hospital's service of that category, not
+ * archived, with its code and name, as the API's `orderableService` answers.
+ */
+export function mockOrderableService(tenantId: string, id: string, category: Category) {
+  const service = state.services.find(
+    (candidate) =>
+      candidate.tenantId === tenantId &&
+      candidate.id === id &&
+      candidate.category === category &&
+      !candidate.archived,
+  );
+  return service ? { id: service.id, code: service.code, name: service.name } : undefined;
+}
+
 /** What another member of staff does meanwhile: changes a service behind the open screen. */
 export function editMockService(id: string, changes: Partial<Stored>): void {
   const service = state.services.find((candidate) => candidate.id === id);
