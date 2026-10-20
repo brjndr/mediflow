@@ -149,3 +149,75 @@ test('print a prescription and the visit summary with the keyboard alone', async
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 });
+
+test('order a lab test and cancel one with the keyboard alone', async ({ page }) => {
+  await page.goto('/');
+  await goTo(page, 'Consultations');
+  await page.getByRole('main').getByRole('link').first().click();
+  await expect(page.getByRole('heading', { name: 'Lab orders' })).toBeVisible();
+  const orders = page
+    .getByRole('heading', { name: 'Lab orders' })
+    .locator('xpath=ancestor::section[1]');
+  await expect(orders.getByText('Complete blood count')).toBeVisible();
+
+  // Reached by Tab, as the keyboard would arrive at it.
+  const reach = async (target: ReturnType<Page['getByRole']>) => {
+    await target.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(target).toBeFocused();
+  };
+
+  // The test is searched on the server and chosen from the list with the arrows and Enter.
+  const search = page.getByRole('combobox', { name: 'Test or panel' });
+  await reach(search);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.type('haemoglobin');
+  await expect(
+    page.getByRole('listbox', { name: 'Test or panel' }).getByRole('option').first(),
+  ).toBeVisible();
+  // The arrows move to the test wanted, whatever else the search found.
+  const wanted = page.getByRole('option', { name: 'Haemoglobin (HB), Single test' });
+  await expect(wanted).toBeVisible();
+  for (let step = 0; step < 10 && (await wanted.getAttribute('aria-selected')) !== 'true'; step++) {
+    await page.keyboard.press('ArrowDown');
+  }
+  await expect(wanted).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Enter');
+  const change = page.getByRole('button', { name: 'Change the test, now Haemoglobin' });
+  await expect(change).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('combobox', { name: /^Priority/ })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('textbox', { name: /^Instructions/ })).toBeFocused();
+  await page.keyboard.type('Before the transfusion');
+  await page.keyboard.press('Tab');
+  const submit = page.getByRole('button', { name: 'Order the test' });
+  await expect(submit).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Test ordered.')).toBeVisible();
+  await expect(orders.getByText('Before the transfusion')).toBeVisible();
+
+  // Cancelling asks why in place; focus goes to its heading, then to what was done.
+  const cancel = orders.getByRole('button', { name: /^Cancel order: Complete blood count/ });
+  await reach(cancel);
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('heading', { name: 'Cancel the order for Complete blood count' }),
+  ).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('textbox', { name: /^Why it is cancelled/ })).toBeFocused();
+  await page.keyboard.type('Wrong test');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Order cancelled.')).toBeVisible();
+  await expect(orders.getByText('Cancelled: Wrong test')).toBeVisible();
+  // Focus is never left on the page body.
+  expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
+  expect(await focusVisible(page)).toBe(true);
+  await expectNoAxeViolations(page);
+});

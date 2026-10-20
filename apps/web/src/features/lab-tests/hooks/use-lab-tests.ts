@@ -92,6 +92,29 @@ export function useComponentChoices(search: string, enabled: boolean) {
   });
 }
 
+/** How many tests and panels a search for ordering offers: the rest are found by typing. */
+export const ORDER_SUGGESTIONS = 10;
+
+/** The tests and panels that can be ordered (not archived), by words of the code or name. */
+export function useOrderableLabTests(search: string, enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  const q = search.trim();
+  return useQuery({
+    queryKey: labTestKeys.list(tenantId ?? '', { as: 'orderable', q }),
+    queryFn: ({ signal }) =>
+      fetchLabTests(
+        { q, department: '', kind: '', archived: false, limit: ORDER_SUGGESTIONS },
+        signal,
+      ),
+    enabled: enabled && tenantId !== undefined && q !== '',
+    staleTime: STALE_TIME_MS,
+    select: (page) => page.items,
+    // The last matches stay while more is typed, at the same hospital only.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === tenantId ? previous : undefined,
+  });
+}
+
 /** The laboratory services a test can be charged as, by a word of the code or name. */
 export function useServiceChoices(search: string, enabled: boolean) {
   const tenantId = useTenant()?.id;

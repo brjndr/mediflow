@@ -223,5 +223,16 @@
       "found": "Range used: {{who}}, {{age}}. Normal: {{normal}}. Critical: {{critical}}.",
       "notFound": "No range covers a patient of this age and sex. The result would be reported without one."
     }
+  },
+  "picker": {
+    "placeholder": "Code or name",
+    "unavailable": "The lab test catalog is not open to you at this hospital.",
+    "typeToSearch": "Type a code or a name of a test or panel.",
+    "loading": "Searching…",
+    "failed": "The lab test catalog could not be searched. Type again to retry.",
+    "none": "No test or panel matches.",
+    "found_one": "{{count}} test or panel. More are found by typing more.",
+    "found_other": "{{count}} tests or panels. More are found by typing more.",
+    "option": "{{name}} ({{code}}), {{kind}}"
   }
 }

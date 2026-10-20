@@ -306,6 +306,12 @@ export function editMockLabRanges(id: string, ranges: LabRange[]): void {
   state.ranges.set(id, { ranges, version: held.version + 1 });
 }
 
+/** A test or panel of the hospital, as ordering finds it (the API's `orderableLabTest`). */
+export function mockOrderableLabTest(tenantId: string, id: string) {
+  const test = find(tenantId, id);
+  return test && !test.archived ? { id: test.id, code: test.code, name: test.name } : undefined;
+}
+
 const invalid = () => error(400, 'validation_failed', 'The request is not valid');
 const notFound = () => error(404, 'lab_test_not_found', 'No such test');
 

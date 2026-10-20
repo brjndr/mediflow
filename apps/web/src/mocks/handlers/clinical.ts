@@ -9,6 +9,7 @@ import { mockAppointment } from './appointments';
 import { mockCode } from './codes';
 import { mockCredentials, mockDoctor, mockDoctorOfUser } from './doctors';
 import { mockDrug } from './drugs';
+import { mockOrderableLabTest } from './lab-tests';
 import { mockPatient } from './patients';
 import { mockQueueToken } from './queue';
 
@@ -22,6 +23,10 @@ type Order = components['schemas']['Order'];
 type Prescription = components['schemas']['Prescription'];
 type PrescriptionPage = components['schemas']['PrescriptionPage'];
 type MedicationRoute = components['schemas']['MedicationRoute'];
+type OrderPage = components['schemas']['OrderPage'];
+
+const ORDER_TYPES: readonly Order['type'][] = ['lab', 'imaging', 'procedure', 'medication', 'diet'];
+const PRIORITIES: readonly Order['priority'][] = ['routine', 'urgent', 'stat'];
 
 const FEATURE_FLAG = 'clinical';
 const REASON_MAX = 200;
@@ -202,6 +207,41 @@ function seed() {
       durationDays: 5,
       quantity: 5,
     }),
+    // A lab order placed at the start of the visit (#82).
+    {
+      id: 'ord_h_lab_1',
+      tenantId: hospital,
+      encounterId: 'enc_h_1',
+      patientId: 'pth_00001',
+      type: 'lab',
+      labTestId: 'lab_h_cbc',
+      itemCode: 'CBC',
+      itemName: 'Complete blood count',
+      status: 'placed',
+      priority: 'routine',
+      instructions: 'Fasting not needed',
+      placedAt: prescribedAt,
+      orderedById: prescriber.id,
+      orderedByName: prescriber.name,
+      version: 1,
+    },
+    // A lab order of yesterday's closed visit, not started yet: it can still be cancelled.
+    {
+      id: 'ord_h_lab_2',
+      tenantId: hospital,
+      encounterId: 'enc_h_2',
+      patientId: 'pth_00002',
+      type: 'lab',
+      labTestId: 'lab_h_hb',
+      itemCode: 'HB',
+      itemName: 'Haemoglobin',
+      status: 'placed',
+      priority: 'routine',
+      placedAt: minutesAgo(25 * 60 + 30),
+      orderedById: prescriber.id,
+      orderedByName: prescriber.name,
+      version: 1,
+    },
   ];
   /** What was printed (#89), as the audit log keeps it: the entity and its id. */
   const prints: MockPrint[] = [];
@@ -997,6 +1037,111 @@ export const clinicalHandlers = [
     return HttpResponse.json<Prescription>(prescriptionView(prescription), { status: 201 });
   }),
 
+  // Orders (#82): the encounter's orders of every type or of one, placing one, cancelling one.
+  http.get('*/api/encounters/:encounterId/orders', ({ request, params }) => {
+    const access = authorize(request, { permission: 'order:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const found = encounterFor(access.tenantId, String(params.encounterId), 'order:read');
+    if (!found) return notFound();
+    const type = new URL(request.url).searchParams.get('type');
+    if (type !== null && !ORDER_TYPES.includes(type as Order['type'])) {
+      return error(400, 'validation_failed', 'Bad type');
+    }
+    const shown = state.orders
+      .filter((each) => each.encounterId === found.id && (type === null || each.type === type))
+      .sort((a, b) => a.placedAt.localeCompare(b.placedAt) || a.id.localeCompare(b.id));
+    const result = page(shown, request);
+    return 'refused' in result ? result.refused : HttpResponse.json<OrderPage>(result.page);
+  }),
+
+  http.post('*/api/encounters/:encounterId/orders', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'order:create', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    if (sent.replay) {
+      const again = state.orders.find((each) => each.id === sent.replay?.id);
+      return again
+        ? HttpResponse.json<Order>(again, { status: 201 })
+        : error(404, 'order_not_found', 'Order not found');
+    }
+    const body = sent.body;
+    // The mock places lab orders only: the other types come with their own screens (#87).
+    if (!isObject(body) || body.type !== 'lab' || typeof body.labTestId !== 'string') {
+      return error(400, 'validation_failed', 'A lab order needs labTestId');
+    }
+    if (body.serviceId !== undefined) {
+      return error(400, 'validation_failed', 'A lab order takes no serviceId');
+    }
+    const priority = body.priority ?? 'routine';
+    if (!PRIORITIES.includes(priority as Order['priority'])) {
+      return error(400, 'validation_failed', 'Bad priority');
+    }
+    const instructions =
+      typeof body.instructions === 'string' && body.instructions.trim() === ''
+        ? undefined
+        : plainOf(body.instructions, INSTRUCTIONS_MAX, PLAIN_LINES);
+    if (instructions === null) return error(400, 'validation_failed', 'Bad instructions');
+    // The body is checked before the encounter is looked for, as the API does.
+    const found = encounterFor(tenantId, String(params.encounterId), 'order:create');
+    if (!found) return notFound();
+    if (found.status !== 'open') return notOpen();
+    const test = mockOrderableLabTest(tenantId, body.labTestId);
+    if (!test) return error(422, 'unknown_lab_test', 'No such lab test');
+    const who = caller();
+    const order: Order = {
+      id: nextId('ord'),
+      tenantId,
+      encounterId: found.id,
+      patientId: found.patientId,
+      type: 'lab',
+      labTestId: test.id,
+      itemCode: test.code,
+      itemName: test.name,
+      status: 'placed',
+      priority: priority as Order['priority'],
+      ...(instructions ? { instructions } : {}),
+      placedAt: now(),
+      orderedById: who.id,
+      orderedByName: who.name,
+      version: 1,
+    };
+    state.orders.push(order);
+    remember(sent.keyOf, body, 201, order.id);
+    return HttpResponse.json<Order>(order, { status: 201 });
+  }),
+
+  http.post('*/api/orders/:orderId/cancel', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'order:cancel', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const order = state.orders.find(
+      (each) => each.id === String(params.orderId) && each.tenantId === tenantId,
+    );
+    if (!order || !encounterFor(tenantId, order.encounterId, 'order:cancel')) {
+      return error(404, 'order_not_found', 'Order not found');
+    }
+    if (sent.replay) return HttpResponse.json<Order>(order);
+    const body = sent.body;
+    const reason = isObject(body) ? reasonOf(body.reason) : null;
+    if (!isObject(body) || !Number.isInteger(body.version) || !reason) {
+      return error(400, 'validation_failed', 'A version and a reason are required');
+    }
+    if (body.version !== order.version) return error(409, 'conflict', 'Changed meanwhile');
+    if (order.status !== 'placed' && order.status !== 'accepted') {
+      return error(409, 'invalid_transition', `A ${order.status} order is not cancelled`);
+    }
+    order.status = 'cancelled';
+    order.cancelReason = reason;
+    order.statusChangedAt = now();
+    order.version += 1;
+    remember(sent.keyOf, body, 200, order.id);
+    return HttpResponse.json<Order>(order);
+  }),
+
   // Printing (#89): an audit entry per print, nothing else.
   http.post('*/api/encounters/:encounterId/print', async ({ request, params }) => {
     for (const permission of ['encounter:read', 'encounter:print']) {
@@ -1073,7 +1218,11 @@ export function editMockNote(id: string, text: string): void {
 export const mockPrescriptionsOf = (encounterId: string): Prescription[] =>
   state.prescriptions.filter((each) => each.encounterId === encounterId).map(prescriptionView);
 
-/** Moves a medication order on behind the screen, as the pharmacy would. */
+/** The orders of an encounter as the mock holds them, for tests. */
+export const mockOrdersOf = (encounterId: string): readonly Order[] =>
+  state.orders.filter((each) => each.encounterId === encounterId);
+
+/** Moves an order on behind the screen, as the pharmacy or the laboratory would. */
 export function moveMockOrder(id: string, status: Order['status']): void {
   const order = state.orders.find((each) => each.id === id);
   if (!order) return;

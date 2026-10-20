@@ -7,6 +7,8 @@ import {
   encounterSchema,
   notePageSchema,
   noteSchema,
+  orderPageSchema,
+  orderSchema,
   prescriptionPageSchema,
   prescriptionSchema,
 } from './schemas';
@@ -20,6 +22,9 @@ import type {
   EncounterCreate,
   EncounterPage,
   EncounterStatus,
+  Order,
+  OrderCreate,
+  OrderPage,
   Prescription,
   PrescriptionCreate,
   PrescriptionPage,
@@ -324,4 +329,47 @@ export async function fetchVisitSummary(
     ...(diagnoses ? { diagnoses } : {}),
     ...(prescriptions ? { prescriptions } : {}),
   };
+}
+
+/** The encounter's orders of one type, oldest first, cancelled ones included (#82). */
+export async function fetchOrders(
+  {
+    encounterId,
+    type,
+    cursor,
+    limit,
+  }: { encounterId: string; type: Order['type']; cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<OrderPage> {
+  const result = await api.GET('/encounters/{encounterId}/orders', {
+    params: { path: { encounterId }, query: { type, cursor, limit } },
+    signal,
+  });
+  return orderPageSchema.parse(requireData(result));
+}
+
+/** Places one order; the module that does the work acts on it from `order.placed`. */
+export async function placeOrder(
+  encounterId: string,
+  body: OrderCreate,
+  idempotencyKey: string,
+): Promise<Order> {
+  const result = await api.POST('/encounters/{encounterId}/orders', {
+    params: { path: { encounterId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return orderSchema.parse(requireData(result));
+}
+
+/** Cancels an order not yet started, from the version shown, with a reason. */
+export async function cancelOrder(
+  orderId: string,
+  body: { version: number; reason: string },
+  idempotencyKey: string,
+): Promise<Order> {
+  const result = await api.POST('/orders/{orderId}/cancel', {
+    params: { path: { orderId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return orderSchema.parse(requireData(result));
 }

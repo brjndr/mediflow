@@ -13,6 +13,9 @@ import type {
   EncounterStatus,
   MedicationRoute,
   Order,
+  OrderCreate,
+  OrderPage,
+  OrderPriority,
   OrderStatus,
   Prescription,
   PrescriptionCreate,
@@ -393,3 +396,48 @@ export function toPrescriptionCreate(
 /** A prescription's lines in the order they were written. */
 export const linesInOrder = (prescription: Prescription): Order[] =>
   [...prescription.lines].sort((a, b) => (a.lineNumber ?? 0) - (b.lineNumber ?? 0));
+
+// ----- Lab orders (#82) -------------------------------------------------------------------------
+
+export const ORDER_PRIORITIES = [
+  'routine',
+  'urgent',
+  'stat',
+] as const satisfies readonly OrderPriority[];
+
+export const orderPageSchema: z.ZodType<OrderPage> = z.object({
+  items: z.array(orderSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+/** A lab order as typed: a test or panel chosen from the search, how soon, and instructions. */
+export const labOrderFormSchema = z.object({
+  labTestId: z.string().min(1, 'clinical:labOrders.form.testRequired'),
+  priority: z.enum(ORDER_PRIORITIES),
+  instructions: z
+    .string()
+    .trim()
+    .max(INSTRUCTIONS_MAX, 'validation.too_big')
+    .regex(PLAIN_LINES, 'validation.plain_text'),
+});
+export type LabOrderValues = z.input<typeof labOrderFormSchema>;
+
+export const blankLabOrder: LabOrderValues = {
+  labTestId: '',
+  priority: 'routine',
+  instructions: '',
+};
+
+export function toLabOrderCreate(values: z.output<typeof labOrderFormSchema>): OrderCreate {
+  return {
+    type: 'lab',
+    labTestId: values.labTestId,
+    priority: values.priority,
+    ...(values.instructions ? { instructions: values.instructions } : {}),
+  };
+}
+
+/** An order still in effect: not cancelled, and not yet completed. */
+export const isActiveOrder = (order: Order) =>
+  order.status !== 'cancelled' && order.status !== 'completed';
