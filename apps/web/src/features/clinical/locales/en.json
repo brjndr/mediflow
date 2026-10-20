@@ -284,5 +284,60 @@
     },
     "writtenAt": "Written {{time}}",
     "writtenByRegistered": "Written {{time}} by {{name}} (Reg. no. {{number}})"
+  },
+  "labOrders": {
+    "heading": "Lab orders",
+    "empty": "No test ordered yet.",
+    "resultsLater": "Results are not shown here yet: they arrive with the laboratory module.",
+    "columns": {
+      "test": "Test",
+      "priority": "Priority",
+      "status": "Status",
+      "ordered": "Ordered",
+      "instructions": "Instructions"
+    },
+    "priority": {
+      "routine": "Routine",
+      "urgent": "Urgent",
+      "stat": "Immediately (stat)"
+    },
+    "status": {
+      "placed": "Ordered, waiting for the laboratory",
+      "accepted": "Accepted by the laboratory",
+      "in_progress": "In progress at the laboratory",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "cancelled": "Cancelled: {{reason}}",
+    "orderedBy": "{{time}} by {{name}}",
+    "placed": "Test ordered.",
+    "cancel": "Cancel order",
+    "cancelHeading": "Cancel the order for {{name}}",
+    "cancelReason": "Why it is cancelled",
+    "cancelSubmit": "Cancel the order",
+    "keep": "Keep it",
+    "cancelledNow": "Order cancelled.",
+    "refused": {
+      "notOpen": "The consultation is no longer open, so nothing more can be ordered.",
+      "unknownTest": "This test is no longer offered by the laboratory. Choose another.",
+      "started": "The laboratory has started on it, so it can no longer be cancelled.",
+      "conflict": "The order changed meanwhile and has been read again. Cancel it again if it is still wanted.",
+      "gone": "This order is no longer available.",
+      "alreadyCancelled": "This order was cancelled meanwhile."
+    },
+    "form": {
+      "heading": "Order a test",
+      "test": "Test or panel",
+      "testRequired": "Choose a test or panel from the search.",
+      "chosen": "{{name}} ({{code}})",
+      "change": "Change",
+      "changeTest": "Change the test, now {{name}}",
+      "repeated": "Already ordered in this consultation and still in effect ({{status}}). Order it again only if a second sample is wanted.",
+      "priority": "Priority",
+      "instructions": "Instructions",
+      "instructionsHint": "For the laboratory: fasting, timing, clinical details.",
+      "submit": "Order the test"
+    },
+    "close": "Close"
   }
 }

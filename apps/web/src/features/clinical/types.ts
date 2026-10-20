@@ -22,6 +22,9 @@ export type DiagnosisKind = Schemas['DiagnosisKind'];
 /** A request for work for the patient. A medication order is a line of a prescription. */
 export type Order = Schemas['Order'];
 export type OrderStatus = Schemas['OrderStatus'];
+export type OrderPage = Schemas['OrderPage'];
+export type OrderCreate = Schemas['OrderCreate'];
+export type OrderPriority = Schemas['OrderPriority'];
 export type MedicationRoute = Schemas['MedicationRoute'];
 
 /** Medication orders written together. Never changed: a revision replaces it. */

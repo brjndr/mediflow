@@ -7,6 +7,7 @@ import { Button } from '@/shared/ui/button';
 import { useFormatters } from '@/tenancy';
 import { DiagnosesPanel } from '../components/DiagnosesPanel';
 import { EncounterActions } from '../components/EncounterActions';
+import { LabOrdersPanel } from '../components/LabOrdersPanel';
 import { NotesPanel } from '../components/NotesPanel';
 import { PrescriptionsPanel } from '../components/PrescriptionsPanel';
 import { PrintSummaryButton } from '../components/PrintDocuments';
@@ -19,8 +20,8 @@ const ID = /^[A-Za-z0-9_-]{1,64}$/;
 /**
  * The consultation (`encounters/:encounterId`), for `encounter:read`: who the visit is for and
  * with whom, what triage found (allergies and the newest vitals), the notes for
- * `clinicalNote:read`, the diagnoses for `diagnosis:read` and the prescriptions for
- * `prescription:read`, each part shown only to whoever
+ * `clinicalNote:read`, the diagnoses for `diagnosis:read`, the prescriptions for
+ * `prescription:read` and the lab orders for `order:read` (#82), each part shown only to whoever
  * holds its permission, printing the visit summary for `encounter:print` (#89), and closing or
  * cancelling for `encounter:update`.
  */
@@ -78,6 +79,7 @@ function Consultation({ encounter }: { encounter: Encounter }) {
   const canReadNotes = usePermission('clinicalNote:read');
   const canReadDiagnoses = usePermission('diagnosis:read');
   const canReadPrescriptions = usePermission('prescription:read');
+  const canReadOrders = usePermission('order:read');
   const canUpdate = usePermission('encounter:update');
   const canPrint = usePermission('encounter:print');
   const ended = encounter.endedAt
@@ -138,6 +140,7 @@ function Consultation({ encounter }: { encounter: Encounter }) {
           {canReadNotes && <NotesPanel encounter={encounter} />}
           {canReadDiagnoses && <DiagnosesPanel encounter={encounter} />}
           {canReadPrescriptions && <PrescriptionsPanel encounter={encounter} />}
+          {canReadOrders && <LabOrdersPanel encounter={encounter} />}
         </div>
       </div>
 

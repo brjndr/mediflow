@@ -12,14 +12,17 @@ import { useTenant } from '@/tenancy';
 import {
   amendNote,
   cancelEncounter,
+  cancelOrder,
   closeEncounter,
   discardNote,
   fetchDiagnoses,
   fetchEncounter,
   fetchEncounters,
   fetchNotes,
+  fetchOrders,
   fetchPrescriptions,
   openEncounter,
+  placeOrder,
   recordDiagnosis,
   retractDiagnosis,
   signNote,
@@ -27,7 +30,14 @@ import {
   type EncounterFilters,
 } from '../api';
 import type { RichTextDocument } from '@/shared/ui/rich-text';
-import type { DiagnosisCreate, Encounter, EncounterCreate, PrescriptionCreate } from '../types';
+import type {
+  DiagnosisCreate,
+  Encounter,
+  EncounterCreate,
+  Order,
+  OrderCreate,
+  PrescriptionCreate,
+} from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's visits never show in another. */
 export const clinicalKeys = createTenantKeys('clinical');
@@ -309,5 +319,58 @@ export function useWritePrescription(encounterId: string) {
         return queryClient.invalidateQueries({ queryKey: prescriptionsKey(tenantId, encounterId) });
       }
     },
+  });
+}
+
+const ordersKey = (tenantId: string, encounterId: string, type: Order['type']) =>
+  [...clinicalKeys.detail(tenantId, encounterId), 'orders', type] as const;
+
+/** The encounter's orders of one type, oldest first, cancelled ones included (#82). */
+export function useOrders(encounterId: string, type: Order['type']) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: ordersKey(tenantId ?? '', encounterId, type),
+    queryFn: ({ pageParam, signal }) =>
+      fetchOrders({ encounterId, type, cursor: pageParam, limit: RECORDS_PAGE_SIZE }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: tenantId !== undefined && encounterId !== '',
+  });
+}
+
+function useRefreshOrders(encounterId: string) {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  return (type: Order['type']) => {
+    const tenantId = stillHere();
+    if (tenantId) {
+      return queryClient.invalidateQueries({ queryKey: ordersKey(tenantId, encounterId, type) });
+    }
+  };
+}
+
+/** Places an order. Whatever the answer, the orders of its type are read again. */
+export function usePlaceOrder(encounterId: string) {
+  const refresh = useRefreshOrders(encounterId);
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: OrderCreate) => placeOrder(encounterId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: (_order, _error, body) => refresh(body.type),
+  });
+}
+
+export function useCancelOrder(encounterId: string) {
+  const refresh = useRefreshOrders(encounterId);
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ order, reason }: { order: Order; reason: string }) => {
+      const body = { version: order.version, reason };
+      return cancelOrder(order.id, body, keys.keyFor({ orderId: order.id, ...body }));
+    },
+    onSuccess: () => keys.clear(),
+    onSettled: (_order, _error, { order }) => refresh(order.type),
   });
 }
