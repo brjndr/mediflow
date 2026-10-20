@@ -1037,6 +1037,19 @@ describe('the hospital boundary, the module switch and scope', () => {
     const open_ = await ok<Page<Encounter>>(get('/encounters?status=open'), 200);
     expect(open_.items).toHaveLength(2);
     expect(open_.total).toBeUndefined();
+    // Of one type: only `opd` is opened yet.
+    const opd = await ok<Page<Encounter>>(
+      get(`/encounters?patientId=${patients.asha}&type=opd`),
+      200,
+    );
+    expect(opd.items.map((item) => item.id)).toEqual([second.id, first.id]);
+    const ipd = await ok<Page<Encounter>>(
+      get(`/encounters?patientId=${patients.asha}&type=ipd`),
+      200,
+    );
+    expect(ipd.items).toEqual([]);
+    expect(ipd.total).toBe(0);
+    expect(errorOf(await get('/encounters?type=surgery'))[0]).toBe(400);
     expect(errorOf(await get('/encounters?cursor=nonsense'))).toEqual([400, 'invalid_cursor']);
     expect(await audited('encounter', first.id)).toContain('read');
   });

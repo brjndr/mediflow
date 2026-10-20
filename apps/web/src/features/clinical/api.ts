@@ -22,6 +22,7 @@ import type {
   EncounterCreate,
   EncounterPage,
   EncounterStatus,
+  EncounterType,
   Order,
   OrderCreate,
   OrderPage,
@@ -34,14 +35,19 @@ import type {
 // idempotency key, which the API requires; saving and discarding a draft go by its version.
 
 export interface EncounterFilters {
-  attendingDoctorId: string;
+  /** One patient's encounters: the clinical timeline (#83). */
+  patientId?: string;
+  attendingDoctorId?: string;
   status: EncounterStatus | '';
+  type?: EncounterType | '';
 }
 
 export async function fetchEncounters(
   {
+    patientId,
     attendingDoctorId,
     status,
+    type,
     cursor,
     limit,
   }: EncounterFilters & { cursor?: string; limit: number },
@@ -50,8 +56,10 @@ export async function fetchEncounters(
   const result = await api.GET('/encounters', {
     params: {
       query: {
+        patientId: patientId || undefined,
         attendingDoctorId: attendingDoctorId || undefined,
         status: status || undefined,
+        type: type || undefined,
         cursor,
         limit,
       },

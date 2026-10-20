@@ -5,6 +5,12 @@
     "closed": "Closed",
     "cancelled": "Cancelled"
   },
+  "encounterType": {
+    "opd": "Outpatient",
+    "ipd": "Inpatient",
+    "er": "Emergency",
+    "daycare": "Day care"
+  },
   "start": {
     "action": "Start consultation",
     "saving": "Starting…",
@@ -33,6 +39,24 @@
       "doctor": "Doctor",
       "department": "Department",
       "opened": "Started",
+      "status": "Status"
+    }
+  },
+  "timeline": {
+    "tab": "Clinical timeline",
+    "heading": "Visits",
+    "type": "Type of visit",
+    "allTypes": "Every type",
+    "status": "Status",
+    "count_one": "{{count}} visit",
+    "count_other": "{{count}} visits",
+    "empty": "No visits to show.",
+    "rowLabel": "{{type}} visit, {{time}}",
+    "columns": {
+      "opened": "Started",
+      "type": "Type",
+      "doctor": "Doctor",
+      "department": "Department",
       "status": "Status"
     }
   },

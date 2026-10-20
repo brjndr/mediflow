@@ -1902,7 +1902,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The encounters the caller may see, newest first: of one patient (the clinical timeline), of one doctor, in one status, or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds encounter:read with: `own`, the encounters they attend; `department`, those of their department; an encounter outside it is left out, never refused. A list nobody types patient facts into, so a GET. Requires encounter:read and the clinical feature flag. Every encounter of a page is audited. `total` comes with the first page only. */
+        /** @description The encounters the caller may see, newest first: of one patient (the clinical timeline), of one doctor, in one status, of one type, or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds encounter:read with: `own`, the encounters they attend; `department`, those of their department; an encounter outside it is left out, never refused. A list nobody types patient facts into, so a GET. Requires encounter:read and the clinical feature flag. Every encounter of a page is audited. `total` comes with the first page only. */
         get: operations["listEncounters"];
         put?: never;
         /** @description Starts an OPD encounter (the consultation) for a patient: from the patient’s queue token of today (422 `token_not_for_patient` otherwise), from the patient’s appointment (422 `unknown_appointment` for one that does not exist, is another patient’s, or is outside the caller’s scope of appointment:read or with the appointments module off; 409 `invalid_transition` for a cancelled or no-show one), or a walk-in with neither. The doctor is attendingDoctorId, else the token’s, else the appointment’s, else the caller’s own profile; one who does not practise here, or is outside the scope the caller holds encounter:create with (`own`: only themselves), is 422 `unknown_doctor`. The department is the doctor’s. A token or an appointment opens one encounter that is not cancelled: asking again answers 200 with that encounter as it is now; two at the same moment get a 201 and a 409 `already_open` (a unique index decides). Requires encounter:create and patient:read (checked in the handler, within its scope): a patient the caller may not read and one that does not exist are both 422 `unknown_patient`. The Idempotency-Key header is required: a repeat opens nothing and answers with the encounter. Audited, and emits `encounter.opened` through the outbox with the patient, the type, the doctor, the department and the queue token and appointment when there are (triage attaches the token’s readings to it). */
@@ -13404,6 +13404,7 @@ export interface operations {
                 patientId?: string;
                 attendingDoctorId?: string;
                 status?: components["schemas"]["EncounterStatus"];
+                type?: components["schemas"]["EncounterType"];
                 /** @description Opaque. Pass the nextCursor of the previous page. */
                 cursor?: string;
                 limit: number;

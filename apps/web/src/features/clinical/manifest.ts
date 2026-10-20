@@ -1,12 +1,13 @@
 import { ClipboardPlus } from 'lucide-react';
-import type { FeatureManifest } from '@/registry';
+import type { FeatureManifest, SlotContribution } from '@/registry';
 
 /**
  * The OPD consultation (#80): an encounter opened from a token being served (the
  * `queue.row.actions` slot) or from today's appointment (`appointment.row.actions` and
  * `appointment.detail.actions`), with what triage found (`TriageSummary` from triage), notes kept
  * as drafts on the server and then signed, diagnoses and prescriptions (#81), each behind its own
- * permission. The consultations list brings a doctor back to a visit left open.
+ * permission. The consultations list brings a doctor back to a visit left open, and the patient's
+ * screen gets a "Clinical timeline" tab of their visits (`patient.detail.tabs`, #83).
  */
 export const clinicalFeature: FeatureManifest = {
   id: 'clinical',
@@ -45,12 +46,21 @@ export const clinicalFeature: FeatureManifest = {
   ],
   // Opening also needs `patient:read`, checked by the component: a slot contribution requires the
   // feature's own permissions only. It opens the consultation, so it needs reading it too.
-  extensions: (
-    ['queue.row.actions', 'appointment.row.actions', 'appointment.detail.actions'] as const
-  ).map((slot) => ({
-    slot,
-    component: () => import('./components/StartConsultationAction'),
-    requires: ['encounter:create', 'encounter:read'],
-    order: 20,
-  })),
+  extensions: [
+    ...(
+      ['queue.row.actions', 'appointment.row.actions', 'appointment.detail.actions'] as const
+    ).map((slot): SlotContribution => ({
+      slot,
+      component: () => import('./components/StartConsultationAction'),
+      requires: ['encounter:create', 'encounter:read'],
+      order: 20,
+    })),
+    // The patient's visits, newest first (#83).
+    {
+      slot: 'patient.detail.tabs',
+      component: () => import('./components/TimelineTab'),
+      requires: ['encounter:read'],
+      order: 30,
+    },
+  ],
 };

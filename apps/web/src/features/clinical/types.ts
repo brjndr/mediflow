@@ -7,6 +7,7 @@ export type Encounter = Schemas['Encounter'];
 export type EncounterPage = Schemas['EncounterPage'];
 export type EncounterCreate = Schemas['EncounterCreate'];
 export type EncounterStatus = Schemas['EncounterStatus'];
+export type EncounterType = Schemas['EncounterType'];
 
 /** A note of an encounter: a draft only its author reads, then signed and never changed. */
 export type ClinicalNote = Schemas['ClinicalNote'];

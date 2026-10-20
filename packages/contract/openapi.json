@@ -16860,7 +16860,7 @@
       "get": {
         "operationId": "listEncounters",
         "tags": ["clinical"],
-        "description": "The encounters the caller may see, newest first: of one patient (the clinical timeline), of one doctor, in one status, or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds encounter:read with: `own`, the encounters they attend; `department`, those of their department; an encounter outside it is left out, never refused. A list nobody types patient facts into, so a GET. Requires encounter:read and the clinical feature flag. Every encounter of a page is audited. `total` comes with the first page only.",
+        "description": "The encounters the caller may see, newest first: of one patient (the clinical timeline), of one doctor, in one status, of one type, or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds encounter:read with: `own`, the encounters they attend; `department`, those of their department; an encounter outside it is left out, never refused. A list nobody types patient facts into, so a GET. Requires encounter:read and the clinical feature flag. Every encounter of a page is audited. `total` comes with the first page only.",
         "parameters": [
           {
             "schema": {
@@ -16886,6 +16886,14 @@
             },
             "in": "query",
             "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/EncounterType"
+            },
+            "in": "query",
+            "name": "type",
             "required": false
           },
           {

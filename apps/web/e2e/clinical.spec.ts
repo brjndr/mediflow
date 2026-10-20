@@ -263,3 +263,39 @@ test('order an imaging study with the keyboard alone', async ({ page }) => {
   expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
   await expectNoAxeViolations(page);
 });
+
+test('open a visit from the patient’s clinical timeline with the keyboard alone', async ({
+  page,
+}) => {
+  await page.goto('/patients/pth_00001?tab=timeline');
+  const tab = page.getByRole('tab', { name: 'Clinical timeline', selected: true });
+  await expect(tab).toBeVisible();
+  await expect(page.getByText('1 visit', { exact: true })).toBeVisible();
+  await tab.focus();
+  // The panel, then the filters, each with focus visible.
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('tabpanel', { name: 'Clinical timeline' })).toBeFocused();
+  const type = page.getByRole('combobox', { name: 'Type of visit' });
+  await page.keyboard.press('Tab');
+  await expect(type).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await type.selectOption('ipd');
+  await expect(page.getByText('No visits to show.')).toBeVisible();
+  await type.selectOption('');
+  await expect(page.getByText('1 visit', { exact: true })).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('combobox', { name: 'Status' })).toBeFocused();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  // On to the visit's link, which opens the consultation.
+  const visit = page.getByRole('tabpanel', { name: 'Clinical timeline' }).getByRole('link');
+  for (let step = 0; step < 10; step++) {
+    await page.keyboard.press('Tab');
+    if (await visit.evaluate((link) => link === document.activeElement)) break;
+  }
+  await expect(visit).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Consultation', exact: true })).toBeVisible();
+});
