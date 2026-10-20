@@ -75,4 +75,10 @@ export const CLINICAL_PERMISSIONS = [
     description: 'Write and revise prescriptions',
     defaults: { admin: 'all', doctor: 'all' },
   },
+  {
+    id: 'encounter:print',
+    description:
+      'Print a prescription or the visit summary of an encounter (each print is recorded in the audit log)',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];

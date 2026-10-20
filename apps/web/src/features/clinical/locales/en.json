@@ -256,5 +256,21 @@
     },
     "revisesEarlier": "Revises an earlier prescription: {{reason}}",
     "replacedLater": "Replaced by a later prescription."
+  },
+  "print": {
+    "summary": "Print summary",
+    "prescription": "Print",
+    "prescriptionLabel": "Print the prescription written {{time}}",
+    "prescriptionTitle": "Prescription",
+    "summaryTitle": "Visit summary",
+    "patient": "Patient",
+    "visit": "Visit",
+    "note": "Note signed {{time}} by {{name}}",
+    "amendedNote": "Note (amended) signed {{time}} by {{name}}",
+    "noDiagnoses": "No diagnosis recorded.",
+    "noNotes": "No signed note.",
+    "noPrescriptions": "No prescription.",
+    "printedBy": "Printed {{time}} by {{name}}",
+    "notPrintable": "This is no longer to be printed: it was replaced or cancelled. Reload the consultation."
   }
 }
