@@ -56,6 +56,8 @@ interface Doctor {
   departmentName: string;
   specialization: string;
   registrationNumber?: string;
+  qualifications?: string;
+  registrationCouncil?: string;
   consultationMinutes: number;
   active: boolean;
   version: number;
@@ -205,6 +207,8 @@ describe('creating a profile', () => {
       profile(asha, 'Cardiology', {
         specialization: '  Electrophysiology ',
         registrationNumber: ' MCI-1 ',
+        qualifications: ' MBBS,  DM ',
+        registrationCouncil: ' National Medical Commission ',
       }),
     );
 
@@ -219,6 +223,8 @@ describe('creating a profile', () => {
       departmentName: 'Cardiology',
       specialization: 'Electrophysiology',
       registrationNumber: 'MCI-1',
+      qualifications: 'MBBS, DM',
+      registrationCouncil: 'National Medical Commission',
       consultationMinutes: 15,
       active: true,
       version: 1,
@@ -264,6 +270,8 @@ describe('creating a profile', () => {
       { ...good, consultationMinutes: 121 },
       { ...good, consultationMinutes: 12.5 },
       { ...good, registrationNumber: 'x'.repeat(51) },
+      { ...good, qualifications: 'x'.repeat(201) },
+      { ...good, registrationCouncil: 'x'.repeat(101) },
       { userId: bela.id },
     ]) {
       expect((await create(body)).statusCode, JSON.stringify(body)).toBe(400);
@@ -445,6 +453,31 @@ describe('the list and a profile', () => {
     expect(names(await get('/doctors'))).not.toContain('Asha Rao');
     const back = await change(ashaDoctor.id, { active: true, expectedVersion: 5 });
     expect(back.json()).toMatchObject({ active: true, version: 6 });
+  });
+
+  it('keeps the qualifications and the council printed on a prescription, and removes one sent empty', async () => {
+    const response = await change(ashaDoctor.id, {
+      qualifications: ' MBBS,  MD (Medicine) ',
+      registrationCouncil: ' Karnataka Medical Council ',
+      expectedVersion: 6,
+    });
+    expect(response.json()).toMatchObject({
+      qualifications: 'MBBS, MD (Medicine)',
+      registrationCouncil: 'Karnataka Medical Council',
+      version: 7,
+    });
+    const read = await get(`/doctors/${ashaDoctor.id}`);
+    expect(read.json()).toMatchObject({ qualifications: 'MBBS, MD (Medicine)' });
+
+    // The same again is no change; an empty one is none.
+    const same = await change(ashaDoctor.id, {
+      qualifications: 'MBBS, MD (Medicine)',
+      expectedVersion: 7,
+    });
+    expect(same.json()).toMatchObject({ version: 7 });
+    const cleared = await change(ashaDoctor.id, { registrationCouncil: '', expectedVersion: 7 });
+    expect(cleared.json()).toMatchObject({ version: 8, qualifications: 'MBBS, MD (Medicine)' });
+    expect(cleared.json<Doctor>().registrationCouncil).toBeUndefined();
   });
 
   it('counts a doctor whose membership was deactivated as inactive, until the member is back', async () => {
@@ -764,6 +797,8 @@ describe('the text of a profile', () => {
       { specialization: `Cardio${override}logy` },
       { specialization: zeroWidth },
       { registrationNumber: `MCI${zeroWidth}1` },
+      { qualifications: `MBBS${override}` },
+      { registrationCouncil: `Council${zeroWidth}` },
     ]) {
       const response = await create(profile(asha, 'Cardiology', extra));
       expect(response.statusCode, JSON.stringify(extra)).toBe(400);

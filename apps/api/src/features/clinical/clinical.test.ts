@@ -1067,6 +1067,84 @@ describe('printing', () => {
     expect(errorOf(await print(`/encounters/${encounter.id}/print`, { key: null }))[0]).toBe(400);
   });
 
+  it('names the prescriber’s and the attending doctor’s credentials, each hospital its own (#397)', async () => {
+    const credentials = (doctorId: string, values: (string | null)[]) =>
+      pool.query(
+        `update doctors set qualifications = $2, registration_number = $3, registration_council = $4
+         where id = $1`,
+        [doctorId, ...values],
+      );
+    await credentials(doctors.doctor, ['MBBS, MD', 'KMC-1', 'Karnataka Medical Council']);
+    await credentials(doctors.clinic, ['MBBS', null, null]);
+    try {
+      const encounter = await open();
+      const expected = {
+        qualifications: 'MBBS, MD',
+        registrationNumber: 'KMC-1',
+        registrationCouncil: 'Karnataka Medical Council',
+      };
+      expect((await get(`/encounters/${encounter.id}`)).json()).toMatchObject({
+        attendingDoctorCredentials: expected,
+      });
+      const written = await ok<Prescription>(
+        post(`/encounters/${encounter.id}/prescriptions`, { lines: [line()] }),
+      );
+      expect(written).toMatchObject({ prescribedByCredentials: expected });
+      expect((await get(`/prescriptions/${written.id}`)).json()).toMatchObject({
+        prescribedByCredentials: expected,
+      });
+      const page = await ok<Page<Prescription>>(
+        get(`/encounters/${encounter.id}/prescriptions`),
+        200,
+      );
+      expect(page.items[0]).toMatchObject({ prescribedByCredentials: expected });
+
+      // Someone with no doctor profile prescribes with no credentials to print.
+      const byAdmin = await ok<Prescription>(
+        post(`/encounters/${encounter.id}/prescriptions`, { lines: [line()] }, { user: admin }),
+      );
+      expect(byAdmin).not.toHaveProperty('prescribedByCredentials');
+
+      // The clinic's doctor has only some: the rest are absent, not another hospital's.
+      const asClinic = { tenant: clinic, user: clinicDoctor };
+      const atClinic = await open({ patientId: patients.clinic }, asClinic);
+      expect(
+        (await get(`/encounters/${atClinic.id}`, asClinic)).json<Record<string, unknown>>()
+          .attendingDoctorCredentials,
+      ).toEqual({ qualifications: 'MBBS' });
+
+      // An inactive profile still prints on what it wrote.
+      await pool.query('update doctors set active = false where id = $1', [doctors.doctor]);
+      expect((await get(`/prescriptions/${written.id}`)).json()).toMatchObject({
+        prescribedByCredentials: expected,
+      });
+
+      // The same person with a profile at the clinic too: each hospital prints its own.
+      await addMembership(pool, doctor, clinic, 'doctor');
+      const { rows } = await pool.query<{ id: string }>(
+        `select id from departments where tenant_id = $1 limit 1`,
+        [clinic.id],
+      );
+      const atBoth = await addDoctor(clinic, doctor, rows[0]?.id ?? '');
+      await credentials(atBoth, ['MBBS', 'DHA-9', 'Dubai Health Authority']);
+      expect((await get(`/prescriptions/${written.id}`)).json()).toMatchObject({
+        prescribedByCredentials: expected,
+      });
+    } finally {
+      await pool.query('delete from doctors where tenant_id = $1 and user_id = $2', [
+        clinic.id,
+        doctor.id,
+      ]);
+      await pool.query('delete from memberships where tenant_id = $1 and user_id = $2', [
+        clinic.id,
+        doctor.id,
+      ]);
+      await pool.query('update doctors set active = true where id = $1', [doctors.doctor]);
+      await credentials(doctors.doctor, [null, null, null]);
+      await credentials(doctors.clinic, [null, null, null]);
+    }
+  });
+
   it('is refused without the permission, with the module off, and outside the hospital or scope', async () => {
     const encounter = await open();
     const written = await ok<Prescription>(

@@ -2375,6 +2375,12 @@ export interface components {
                 /** @description https or same-origin URL of the hospital logo (SVG or WebP, at most 50 kB). */
                 logoUrl?: string;
             };
+            /** @description Postal address, printed on the letterhead. May hold line breaks. */
+            address?: string;
+            /** @description Phone number, printed on the letterhead. */
+            phone?: string;
+            /** @description The hospital's registration or licence number as a clinical establishment, printed on the letterhead. */
+            registrationNumber?: string;
             /** @description Module flags. A module that is absent is off. */
             features: {
                 [key: string]: boolean;
@@ -2576,6 +2582,8 @@ export interface components {
             departmentName: string;
             specialization: string;
             registrationNumber?: string;
+            qualifications?: string;
+            registrationCouncil?: string;
             consultationMinutes: number;
             /** @description False once the doctor no longer practises here, or while their membership of the hospital is deactivated: kept on old records, not offered for new ones. */
             active: boolean;
@@ -2594,6 +2602,10 @@ export interface components {
             specialization: string;
             /** @description The medical council registration number. */
             registrationNumber?: string;
+            /** @description Recognised degrees as printed after the name, e.g. "MBBS, MD (General Medicine)". */
+            qualifications?: string;
+            /** @description The council that gave the registration number: the NMC or a state medical council. */
+            registrationCouncil?: string;
             /** @description The usual length of one appointment. */
             consultationMinutes: number;
         };
@@ -2602,6 +2614,10 @@ export interface components {
             specialization?: string;
             /** @description The medical council registration number. */
             registrationNumber?: string;
+            /** @description Recognised degrees as printed after the name, e.g. "MBBS, MD (General Medicine)". */
+            qualifications?: string;
+            /** @description The council that gave the registration number: the NMC or a state medical council. */
+            registrationCouncil?: string;
             /** @description The usual length of one appointment. */
             consultationMinutes?: number;
             active?: boolean;
@@ -3681,6 +3697,12 @@ export interface components {
         OrderPriority: "routine" | "urgent" | "stat";
         /** @enum {string} */
         MedicationRoute: "oral" | "sublingual" | "topical" | "inhaled" | "nasal" | "eye" | "ear" | "rectal" | "vaginal" | "intramuscular" | "intravenous" | "subcutaneous" | "other";
+        /** @description What a printed prescription or visit summary says of a doctor beside the name, from the doctor's profile as it is now. A part the profile lacks is absent: the print says it is missing. */
+        DoctorCredentials: {
+            qualifications?: string;
+            registrationNumber?: string;
+            registrationCouncil?: string;
+        };
         /** @description A visit of one patient, which every clinical, ordering and billing record attaches to. */
         Encounter: {
             id: string;
@@ -3694,6 +3716,7 @@ export interface components {
             queueTokenId?: string;
             attendingDoctorId?: string;
             attendingDoctorName?: string;
+            attendingDoctorCredentials?: components["schemas"]["DoctorCredentials"];
             departmentId?: string;
             departmentName?: string;
             /** Format: date-time */
@@ -3901,6 +3924,7 @@ export interface components {
             prescribedAt: string;
             prescribedById: string;
             prescribedByName: string;
+            prescribedByCredentials?: components["schemas"]["DoctorCredentials"];
             advice?: string;
             replacesId?: string;
             replaceReason?: string;

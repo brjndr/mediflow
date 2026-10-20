@@ -17,6 +17,8 @@ export interface DoctorRow {
   department_name: string;
   specialization: string;
   registration_number: string | null;
+  qualifications: string | null;
+  registration_council: string | null;
   consultation_minutes: number;
   /** Practising here now: the profile is active and so is the person's membership. */
   active: boolean;
@@ -31,8 +33,8 @@ export interface DoctorRow {
 // brings the doctor back as they were.
 const DOCTORS = `select d.id, d.tenant_id, d.user_id, u.name, lower(u.name) as name_lower,
                         d.department_id, p.name as department_name, d.specialization,
-                        d.registration_number, d.consultation_minutes,
-                        (d.active and m.status = 'active') as active,
+                        d.registration_number, d.qualifications, d.registration_council,
+                        d.consultation_minutes, (d.active and m.status = 'active') as active,
                         d.active as profile_active, d.version, d.hours_version
                  from doctors d
                  join memberships m on m.user_id = d.user_id
@@ -201,6 +203,8 @@ export interface ProfileFields {
   departmentId: string;
   specialization: string;
   registrationNumber: string | null;
+  qualifications: string | null;
+  registrationCouncil: string | null;
   consultationMinutes: number;
   active: boolean;
 }
@@ -212,14 +216,16 @@ export async function insertDoctor(
 ): Promise<string> {
   const { rows } = await client.query<{ id: string }>(
     `insert into doctors (tenant_id, user_id, department_id, specialization, registration_number,
-                          consultation_minutes)
-     values (app_tenant_id(), $1, $2, $3, $4, $5)
+                          qualifications, registration_council, consultation_minutes)
+     values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7)
      returning id`,
     [
       userId,
       fields.departmentId,
       fields.specialization,
       fields.registrationNumber,
+      fields.qualifications,
+      fields.registrationCouncil,
       fields.consultationMinutes,
     ],
   );
@@ -236,13 +242,15 @@ export async function updateDoctor(
   await client.query(
     `update doctors
      set department_id = $2, specialization = $3, registration_number = $4,
-         consultation_minutes = $5, active = $6
+         qualifications = $5, registration_council = $6, consultation_minutes = $7, active = $8
      where id = $1`,
     [
       id,
       fields.departmentId,
       fields.specialization,
       fields.registrationNumber,
+      fields.qualifications,
+      fields.registrationCouncil,
       fields.consultationMinutes,
       fields.active,
     ],
@@ -289,4 +297,50 @@ export async function replaceHours(
   await client.query('update doctors set hours_version = hours_version + 1 where id = $1', [
     doctorId,
   ]);
+}
+
+/** What a printed prescription says of who wrote it, besides the name (#397). */
+export interface Credentials {
+  qualifications: string | null;
+  registrationNumber: string | null;
+  registrationCouncil: string | null;
+}
+
+/**
+ * The credentials on the profiles of these doctors, by doctor id, or of these staff members, by
+ * user id: whatever the profile's state, so an old record still prints them. Someone with no
+ * profile at this hospital is not in the answer.
+ */
+export async function credentialsOf(
+  client: pg.ClientBase,
+  key: 'doctor' | 'user',
+  ids: readonly string[],
+): Promise<Map<string, Credentials>> {
+  const wanted = [...new Set(ids)];
+  if (wanted.length === 0) return new Map();
+  const { rows } = await client.query<{
+    key: string;
+    qualifications: string | null;
+    registration_number: string | null;
+    registration_council: string | null;
+  }>(
+    `select ${key === 'doctor' ? 'id' : 'user_id'} as key, qualifications, registration_number,
+            registration_council
+     from doctors
+     -- Row-level security already leaves this hospital's rows only. Named too, since one person
+     -- has a profile at each hospital they work at, and a caller outside a request's transaction
+     -- would otherwise get each of them.
+     where tenant_id = app_tenant_id() and ${key === 'doctor' ? 'id' : 'user_id'} = any($1::uuid[])`,
+    [wanted],
+  );
+  return new Map(
+    rows.map((row) => [
+      row.key,
+      {
+        qualifications: row.qualifications,
+        registrationNumber: row.registration_number,
+        registrationCouncil: row.registration_council,
+      },
+    ]),
+  );
 }

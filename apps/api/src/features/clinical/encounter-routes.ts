@@ -8,7 +8,14 @@ import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { appointmentForCheckIn } from '../appointments/index.js';
 import { patientInScope } from '../patients/index.js';
 import { tokenForEncounter } from '../queue/index.js';
-import { encounterNotFound, encounterView, FEATURE, userIdOf, visibilityFor } from './http.js';
+import {
+  encounterAnswer,
+  encounterNotFound,
+  encounterViews,
+  FEATURE,
+  userIdOf,
+  visibilityFor,
+} from './http.js';
 import {
   encounterOpenedFor,
   endEncounter,
@@ -85,7 +92,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!page) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
       for (const row of page.rows) request.audit('read', 'encounter', row.id);
       return {
-        items: page.rows.map(encounterView),
+        items: await encounterViews(request.txClient, page.rows),
         nextCursor: page.nextCursor,
         ...(page.total === undefined ? {} : { total: page.total }),
       };
@@ -125,7 +132,9 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (!opened) throw encounterNotFound();
         request.audit('read', 'encounter', opened.id);
         // 200 when the first answer was the encounter already open for the token or appointment.
-        return reply.status(request.replayOf === 200 ? 200 : 201).send(encounterView(opened));
+        return reply
+          .status(request.replayOf === 200 ? 200 : 201)
+          .send(await encounterAnswer(request.txClient, opened));
       }
       const body = request.body as EncounterCreate;
 
@@ -197,7 +206,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (row) {
           request.idempotentId = row.id;
           request.audit('read', 'encounter', row.id);
-          return reply.status(200).send(encounterView(row));
+          return reply.status(200).send(await encounterAnswer(request.txClient, row));
         }
       }
 
@@ -238,7 +247,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       const opened = await findEncounter(request.txClient, id, { scope: 'all', userId });
       if (!opened) throw new Error('encounter was not opened');
-      return reply.status(201).send(encounterView(opened));
+      return reply.status(201).send(await encounterAnswer(request.txClient, opened));
     },
   );
 
@@ -263,7 +272,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
       );
       if (!row) throw encounterNotFound();
       request.audit('read', 'encounter', row.id);
-      return encounterView(row);
+      return encounterAnswer(request.txClient, row);
     },
   );
 
@@ -295,7 +304,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const now = await findEncounter(request.txClient, id, visibility);
     if (!now) throw encounterNotFound();
     if (request.replayOf !== null) request.audit('read', 'encounter', now.id);
-    return reply.status(200).send(encounterView(now));
+    return reply.status(200).send(await encounterAnswer(request.txClient, now));
   }
 
   const CHANGE =

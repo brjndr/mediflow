@@ -1,7 +1,9 @@
 import type { FastifyRequest } from 'fastify';
+import type pg from 'pg';
 import type { Permission } from '../../core/access/registry.js';
 import { HttpError } from '../../core/http/errors.js';
 import { isEmptyRichText, sanitizeRichText } from '../../core/http/rich-text.js';
+import { credentialsOf, type Credentials } from '../doctors/index.js';
 import {
   findEncounter,
   type DiagnosisRow,
@@ -66,7 +68,37 @@ const optional = <Key extends string, Value>(key: Key, value: Value | null) =>
   (value === null ? {} : { [key]: value }) as Partial<Record<Key, Value>>;
 const instant = (value: Date | null) => (value === null ? null : value.toISOString());
 
-export const encounterView = (row: EncounterRow) => ({
+const credentialsView = (credentials: Credentials | undefined) =>
+  credentials === undefined
+    ? null
+    : {
+        ...optional('qualifications', credentials.qualifications),
+        ...optional('registrationNumber', credentials.registrationNumber),
+        ...optional('registrationCouncil', credentials.registrationCouncil),
+      };
+
+/** The encounters as answered, each with its attending doctor's credentials, read at once. */
+export async function encounterViews(client: pg.ClientBase, rows: EncounterRow[]) {
+  const credentials = await credentialsOf(
+    client,
+    'doctor',
+    rows.flatMap((row) => (row.attending_doctor_id === null ? [] : [row.attending_doctor_id])),
+  );
+  return rows.map((row) =>
+    encounterView(
+      row,
+      row.attending_doctor_id === null ? undefined : credentials.get(row.attending_doctor_id),
+    ),
+  );
+}
+
+export const encounterAnswer = async (client: pg.ClientBase, row: EncounterRow) => {
+  const [view] = await encounterViews(client, [row]);
+  if (!view) throw new Error('no encounter view');
+  return view;
+};
+
+const encounterView = (row: EncounterRow, credentials: Credentials | undefined) => ({
   id: row.id,
   tenantId: row.tenant_id,
   patientId: row.patient_id,
@@ -78,6 +110,7 @@ export const encounterView = (row: EncounterRow) => ({
   ...optional('queueTokenId', row.queue_token_id),
   ...optional('attendingDoctorId', row.attending_doctor_id),
   ...optional('attendingDoctorName', row.attending_doctor_name),
+  ...optional('attendingDoctorCredentials', credentialsView(credentials)),
   ...optional('departmentId', row.department_id),
   ...optional('departmentName', row.department_name),
   openedAt: row.opened_at.toISOString(),
@@ -153,7 +186,19 @@ export const orderView = (row: OrderRow) => ({
   version: row.version,
 });
 
-export const prescriptionView = (row: PrescriptionRow, lines: OrderRow[]) => ({
+/** The prescribers' credentials, by user id, for `prescriptionView`. */
+export const prescriberCredentials = (client: pg.ClientBase, rows: PrescriptionRow[]) =>
+  credentialsOf(
+    client,
+    'user',
+    rows.map((row) => row.prescribed_by),
+  );
+
+export const prescriptionView = (
+  row: PrescriptionRow,
+  lines: OrderRow[],
+  credentials: Map<string, Credentials>,
+) => ({
   id: row.id,
   tenantId: row.tenant_id,
   encounterId: row.encounter_id,
@@ -161,6 +206,7 @@ export const prescriptionView = (row: PrescriptionRow, lines: OrderRow[]) => ({
   prescribedAt: row.prescribed_at.toISOString(),
   prescribedById: row.prescribed_by,
   prescribedByName: row.prescribed_by_name,
+  ...optional('prescribedByCredentials', credentialsView(credentials.get(row.prescribed_by))),
   ...optional('advice', row.advice),
   ...optional('replacesId', row.replaces_id),
   ...optional('replaceReason', row.replace_reason),

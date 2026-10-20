@@ -195,6 +195,18 @@
               }
             }
           },
+          "address": {
+            "description": "Postal address, printed on the letterhead. May hold line breaks.",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Phone number, printed on the letterhead.",
+            "type": "string"
+          },
+          "registrationNumber": {
+            "description": "The hospital's registration or licence number as a clinical establishment, printed on the letterhead.",
+            "type": "string"
+          },
           "features": {
             "type": "object",
             "additionalProperties": {
@@ -812,6 +824,12 @@
           "registrationNumber": {
             "type": "string"
           },
+          "qualifications": {
+            "type": "string"
+          },
+          "registrationCouncil": {
+            "type": "string"
+          },
           "consultationMinutes": {
             "type": "integer"
           },
@@ -877,6 +895,18 @@
             "description": "The medical council registration number.",
             "type": "string"
           },
+          "qualifications": {
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Recognised degrees as printed after the name, e.g. \"MBBS, MD (General Medicine)\".",
+            "type": "string"
+          },
+          "registrationCouncil": {
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "The council that gave the registration number: the NMC or a state medical council.",
+            "type": "string"
+          },
           "consultationMinutes": {
             "minimum": 5,
             "maximum": 120,
@@ -904,6 +934,18 @@
             "maxLength": 50,
             "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
             "description": "The medical council registration number.",
+            "type": "string"
+          },
+          "qualifications": {
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Recognised degrees as printed after the name, e.g. \"MBBS, MD (General Medicine)\".",
+            "type": "string"
+          },
+          "registrationCouncil": {
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "The council that gave the registration number: the NMC or a state medical council.",
             "type": "string"
           },
           "consultationMinutes": {
@@ -4000,6 +4042,22 @@
           "other"
         ]
       },
+      "DoctorCredentials": {
+        "additionalProperties": false,
+        "description": "What a printed prescription or visit summary says of a doctor beside the name, from the doctor's profile as it is now. A part the profile lacks is absent: the print says it is missing.",
+        "type": "object",
+        "properties": {
+          "qualifications": {
+            "type": "string"
+          },
+          "registrationNumber": {
+            "type": "string"
+          },
+          "registrationCouncil": {
+            "type": "string"
+          }
+        }
+      },
       "Encounter": {
         "additionalProperties": false,
         "description": "A visit of one patient, which every clinical, ordering and billing record attaches to.",
@@ -4049,6 +4107,9 @@
           },
           "attendingDoctorName": {
             "type": "string"
+          },
+          "attendingDoctorCredentials": {
+            "$ref": "#/components/schemas/DoctorCredentials"
           },
           "departmentId": {
             "type": "string"
@@ -4682,6 +4743,9 @@
           },
           "prescribedByName": {
             "type": "string"
+          },
+          "prescribedByCredentials": {
+            "$ref": "#/components/schemas/DoctorCredentials"
           },
           "advice": {
             "type": "string"

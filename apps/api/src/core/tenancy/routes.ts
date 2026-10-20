@@ -26,6 +26,18 @@ export const Tenant = Type.Object(
         }),
       ),
     }),
+    address: Type.Optional(
+      Type.String({
+        description: 'Postal address, printed on the letterhead. May hold line breaks.',
+      }),
+    ),
+    phone: Type.Optional(Type.String({ description: 'Phone number, printed on the letterhead.' })),
+    registrationNumber: Type.Optional(
+      Type.String({
+        description:
+          "The hospital's registration or licence number as a clinical establishment, printed on the letterhead.",
+      }),
+    ),
     features: Type.Unsafe<Record<string, boolean>>({
       type: 'object',
       additionalProperties: { type: 'boolean' },
@@ -94,6 +106,9 @@ export function toTenant(
       primary: tenant.themePrimary,
       ...(tenant.themeLogoUrl ? { logoUrl: tenant.themeLogoUrl } : {}),
     },
+    ...(tenant.address ? { address: tenant.address } : {}),
+    ...(tenant.phone ? { phone: tenant.phone } : {}),
+    ...(tenant.registrationNumber ? { registrationNumber: tenant.registrationNumber } : {}),
     features: Object.fromEntries(flags.map((flag) => [flag.feature, flag.enabled])),
     auth: { mode: tenant.authMode, idleTimeoutMinutes },
     status: tenant.status,

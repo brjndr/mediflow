@@ -120,6 +120,16 @@ const object = <Properties extends Record<string, TSchema>>(
     ...(description ? { description } : {}),
   });
 
+export const DoctorCredentials = object(
+  'DoctorCredentials',
+  {
+    qualifications: Type.Optional(Type.String()),
+    registrationNumber: Type.Optional(Type.String()),
+    registrationCouncil: Type.Optional(Type.String()),
+  },
+  "What a printed prescription or visit summary says of a doctor beside the name, from the doctor's profile as it is now. A part the profile lacks is absent: the print says it is missing.",
+);
+
 export const Encounter = object(
   'Encounter',
   {
@@ -134,6 +144,7 @@ export const Encounter = object(
     queueTokenId: Type.Optional(Type.String()),
     attendingDoctorId: Type.Optional(Type.String()),
     attendingDoctorName: Type.Optional(Type.String()),
+    attendingDoctorCredentials: Type.Optional(ref(DoctorCredentials)),
     departmentId: Type.Optional(Type.String()),
     departmentName: Type.Optional(Type.String()),
     openedAt: Instant,
@@ -354,6 +365,8 @@ export const Prescription = object(
     prescribedAt: Instant,
     prescribedById: Type.String(),
     prescribedByName: Type.String(),
+    // Absent when the prescriber has no doctor profile at the hospital.
+    prescribedByCredentials: Type.Optional(ref(DoctorCredentials)),
     advice: Type.Optional(Type.String()),
     replacesId: Type.Optional(Type.String()),
     replaceReason: Type.Optional(Type.String()),
@@ -446,6 +459,7 @@ export const CLINICAL_SCHEMAS = [
   OrderProgressStatus,
   OrderPriority,
   MedicationRoute,
+  DoctorCredentials,
   Encounter,
   EncounterPage,
   EncounterCreate,

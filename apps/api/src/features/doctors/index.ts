@@ -11,3 +11,9 @@ export const doctorsFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('doctors', DOCTOR_PERMISSIONS);
   await app.register(doctorRoutes);
 };
+
+/**
+ * For the clinical module: the qualifications and registration printed with a prescriber's or an
+ * attending doctor's name, by doctor id or user id.
+ */
+export { credentialsOf, type Credentials } from './repository.js';

@@ -14,6 +14,8 @@ export type Weekday = (typeof WEEKDAYS)[number];
 
 export const SPECIALIZATION_MAX = 100;
 export const REGISTRATION_MAX = 50;
+export const QUALIFICATIONS_MAX = 200;
+export const COUNCIL_MAX = 100;
 
 const TIME = '^([01][0-9]|2[0-3]):[0-5][0-9]$';
 
@@ -26,6 +28,16 @@ const registrationNumber = Type.String({
   maxLength: REGISTRATION_MAX,
   pattern: PLAIN_TEXT,
   description: 'The medical council registration number.',
+});
+const qualifications = Type.String({
+  maxLength: QUALIFICATIONS_MAX,
+  pattern: PLAIN_TEXT,
+  description: 'Recognised degrees as printed after the name, e.g. "MBBS, MD (General Medicine)".',
+});
+const registrationCouncil = Type.String({
+  maxLength: COUNCIL_MAX,
+  pattern: PLAIN_TEXT,
+  description: 'The council that gave the registration number: the NMC or a state medical council.',
 });
 const consultationMinutes = Type.Integer({
   minimum: 5,
@@ -43,6 +55,8 @@ export const Doctor = Type.Object(
     departmentName: Type.String(),
     specialization: Type.String(),
     registrationNumber: Type.Optional(Type.String()),
+    qualifications: Type.Optional(Type.String()),
+    registrationCouncil: Type.Optional(Type.String()),
     consultationMinutes: Type.Integer(),
     active: Type.Boolean({
       description:
@@ -66,6 +80,8 @@ export const DoctorCreate = Type.Object(
     departmentId: Type.String({ maxLength: 64 }),
     specialization,
     registrationNumber: Type.Optional(registrationNumber),
+    qualifications: Type.Optional(qualifications),
+    registrationCouncil: Type.Optional(registrationCouncil),
     consultationMinutes,
   },
   { $id: 'DoctorCreate', additionalProperties: false },
@@ -77,6 +93,8 @@ export const DoctorUpdate = Type.Object(
     departmentId: Type.Optional(Type.String({ maxLength: 64 })),
     specialization: Type.Optional(specialization),
     registrationNumber: Type.Optional(registrationNumber),
+    qualifications: Type.Optional(qualifications),
+    registrationCouncil: Type.Optional(registrationCouncil),
     consultationMinutes: Type.Optional(consultationMinutes),
     active: Type.Optional(Type.Boolean()),
     expectedVersion: Type.Integer(),
