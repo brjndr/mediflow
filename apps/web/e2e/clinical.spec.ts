@@ -301,3 +301,73 @@ test('open a visit from the patient’s clinical timeline with the keyboard alon
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Consultation', exact: true })).toBeVisible();
 });
+
+/** The paths of the API requests the page sends from now on. */
+function apiRequests(page: Page) {
+  const paths: string[] = [];
+  page.on('request', (request) => {
+    const { pathname } = new URL(request.url());
+    if (pathname.startsWith('/api/')) paths.push(pathname);
+  });
+  return paths;
+}
+
+test('a doctor whose hospital took ordering away sees no orders on the consultation', async ({
+  page,
+}) => {
+  // The clinic's doctors have no order permission (src/mocks/db.ts).
+  const requests = apiRequests(page);
+  await page.goto('/?mockUser=user_doctor');
+  await page.getByRole('button', { name: 'Riverside Clinic' }).click();
+  await goTo(page, 'Consultations');
+  // The list opens on the doctor's own visits; the clinic's open one is another doctor's.
+  await page.getByRole('combobox', { name: 'Doctor' }).selectOption({ label: 'Every doctor' });
+  await page.getByRole('main').getByRole('link').first().click();
+  await expect(page.getByRole('heading', { name: 'Consultation', exact: true })).toBeVisible();
+  // What they may do is there.
+  await expect(page.getByRole('heading', { name: 'Prescriptions' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Write a prescription' })).toBeVisible();
+
+  // No trace of the orders: no panel, no search, and nothing asked of the server.
+  for (const heading of ['Lab orders', 'Imaging orders', 'Procedure orders']) {
+    await expect(page.getByRole('heading', { name: heading })).toHaveCount(0);
+  }
+  await expect(page.getByRole('combobox', { name: 'Test or panel' })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Study' })).toHaveCount(0);
+  expect(requests.filter((path) => path.includes('/orders'))).toEqual([]);
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});
+
+test('a receptionist has no way into a consultation', async ({ page }) => {
+  // The clinic's receptionist issues tokens and reads patients, with no encounter permission.
+  const requests = apiRequests(page);
+  await page.goto('/?mockUser=user_receptionist');
+  await goTo(page, 'OPD queue');
+  await expect(page.getByRole('heading', { name: 'OPD queue', exact: true })).toBeVisible();
+  // The queue is there, without the action that starts a consultation.
+  await expect(page.getByRole('main').getByText('Token 1', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Start consultation/ })).toHaveCount(0);
+
+  // No consultations in the navigation, and the address alone does not open one.
+  // By address, so a link in the closed drawer of a phone counts too.
+  await expect(page.locator('a[href="/queue"]')).not.toHaveCount(0);
+  await expect(page.locator('a[href="/encounters"]')).toHaveCount(0);
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/encounters/enc_c_1');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await expect(
+    page.getByRole('heading', { name: 'You do not have access to this page' }),
+  ).toBeVisible();
+
+  // The patient's record offers no clinical timeline.
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/patients/ptc_00001');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await expect(page.getByRole('tab').first()).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Clinical timeline' })).toHaveCount(0);
+  expect(requests.filter((path) => path.includes('/encounters'))).toEqual([]);
+  await expectNoAxeViolations(page);
+});
