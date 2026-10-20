@@ -116,5 +116,16 @@
       "inForce": "That price is already in force, so it cannot be withdrawn. Set a new price instead.",
       "gone": "That price is no longer there. The list has been updated."
     }
+  },
+  "picker": {
+    "placeholder": "Code or name",
+    "unavailable": "The service catalog is not open to you at this hospital.",
+    "typeToSearch": "Type a code or a name of a service.",
+    "loading": "Searching…",
+    "failed": "The service catalog could not be searched. Type again to retry.",
+    "none": "No service matches.",
+    "found_one": "{{count}} service. More are found by typing more.",
+    "found_other": "{{count}} services. More are found by typing more.",
+    "option": "{{name}} ({{code}})"
   }
 }

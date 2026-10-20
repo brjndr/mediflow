@@ -12,6 +12,7 @@ import { mockDrug } from './drugs';
 import { mockOrderableLabTest } from './lab-tests';
 import { mockPatient } from './patients';
 import { mockQueueToken } from './queue';
+import { mockOrderableService } from './services';
 
 type Encounter = components['schemas']['Encounter'];
 type EncounterPage = components['schemas']['EncounterPage'];
@@ -220,6 +221,24 @@ function seed() {
       status: 'placed',
       priority: 'routine',
       instructions: 'Fasting not needed',
+      placedAt: prescribedAt,
+      orderedById: prescriber.id,
+      orderedByName: prescriber.name,
+      version: 1,
+    },
+    // An imaging study ordered with the blood count (#87).
+    {
+      id: 'ord_h_img_1',
+      tenantId: hospital,
+      encounterId: 'enc_h_1',
+      patientId: 'pth_00001',
+      type: 'imaging',
+      serviceId: 'svc_h_24',
+      itemCode: 'IMG-001',
+      itemName: 'Chest X-ray',
+      status: 'placed',
+      priority: 'urgent',
+      instructions: 'PA view. Cough for three weeks.',
       placedAt: prescribedAt,
       orderedById: prescriber.id,
       orderedByName: prescriber.name,
@@ -1067,12 +1086,15 @@ export const clinicalHandlers = [
         : error(404, 'order_not_found', 'Order not found');
     }
     const body = sent.body;
-    // The mock places lab orders only: the other types come with their own screens (#87).
-    if (!isObject(body) || body.type !== 'lab' || typeof body.labTestId !== 'string') {
-      return error(400, 'validation_failed', 'A lab order needs labTestId');
+    // Lab, imaging and procedure (#87); a diet order has no screen yet, so the mock refuses it.
+    const type = isObject(body) ? body.type : undefined;
+    if (!isObject(body) || (type !== 'lab' && type !== 'imaging' && type !== 'procedure')) {
+      return error(400, 'validation_failed', 'A lab, imaging or procedure order is placed here');
     }
-    if (body.serviceId !== undefined) {
-      return error(400, 'validation_failed', 'A lab order takes no serviceId');
+    const wants = type === 'lab' ? 'labTestId' : 'serviceId';
+    const other = type === 'lab' ? 'serviceId' : 'labTestId';
+    if (typeof body[wants] !== 'string' || body[other] !== undefined) {
+      return error(400, 'validation_failed', `A ${type} order needs ${wants} only`);
     }
     const priority = body.priority ?? 'routine';
     if (!PRIORITIES.includes(priority as Order['priority'])) {
@@ -1087,18 +1109,25 @@ export const clinicalHandlers = [
     const found = encounterFor(tenantId, String(params.encounterId), 'order:create');
     if (!found) return notFound();
     if (found.status !== 'open') return notOpen();
-    const test = mockOrderableLabTest(tenantId, body.labTestId);
-    if (!test) return error(422, 'unknown_lab_test', 'No such lab test');
+    const item =
+      type === 'lab'
+        ? mockOrderableLabTest(tenantId, String(body.labTestId))
+        : mockOrderableService(tenantId, String(body.serviceId), type);
+    if (!item) {
+      return type === 'lab'
+        ? error(422, 'unknown_lab_test', 'No such lab test')
+        : error(422, 'unknown_service', `No such ${type} service`);
+    }
     const who = caller();
     const order: Order = {
       id: nextId('ord'),
       tenantId,
       encounterId: found.id,
       patientId: found.patientId,
-      type: 'lab',
-      labTestId: test.id,
-      itemCode: test.code,
-      itemName: test.name,
+      type,
+      ...(type === 'lab' ? { labTestId: item.id } : { serviceId: item.id }),
+      itemCode: item.code,
+      itemName: item.name,
       status: 'placed',
       priority: priority as Order['priority'],
       ...(instructions ? { instructions } : {}),

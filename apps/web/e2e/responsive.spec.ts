@@ -133,9 +133,13 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Consultation', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Notes' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Diagnoses' })).toBeVisible();
-  // The lab orders as cards, with the form to order a test, one column on a phone.
+  // The lab, imaging and procedure orders as cards, each with its form, one column on a phone.
   await expect(page.getByRole('heading', { name: 'Lab orders' })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Test or panel' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Imaging orders' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Study' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Procedure orders' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Procedure' })).toBeVisible();
   await expectNoSidewaysScroll(page);
   // A prescription's lines stack in one column on a phone.
   await page.getByRole('button', { name: 'Write a prescription' }).click();

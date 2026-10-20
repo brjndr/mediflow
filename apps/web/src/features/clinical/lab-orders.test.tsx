@@ -66,9 +66,12 @@ describe('lab orders on the consultation', () => {
         screen.getByRole('button', { name: 'Change the test, now Haemoglobin' }),
       ).toHaveFocus(),
     );
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: /^Priority/ }), 'Urgent');
+    await userEvent.selectOptions(
+      within(await panel()).getByRole('combobox', { name: /^Priority/ }),
+      'Urgent',
+    );
     await userEvent.type(
-      screen.getByRole('textbox', { name: /^Instructions/ }),
+      within(await panel()).getByRole('textbox', { name: /^Instructions/ }),
       'Before the transfusion',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Order the test' }));
@@ -174,7 +177,10 @@ describe('lab orders on the consultation', () => {
     await openConsultation();
     await panel();
     await chooseTest('haemoglobin', /^Haemoglobin \(HB\), Single test$/);
-    await userEvent.type(screen.getByRole('textbox', { name: /^Instructions/ }), 'Morning sample');
+    await userEvent.type(
+      within(await panel()).getByRole('textbox', { name: /^Instructions/ }),
+      'Morning sample',
+    );
     // Archived by the laboratory between the search and the press.
     editMockLabTest('lab_h_hb', { archived: true });
     await userEvent.click(screen.getByRole('button', { name: 'Order the test' }));
@@ -182,7 +188,9 @@ describe('lab orders on the consultation', () => {
       await screen.findByText('This test is no longer offered by the laboratory. Choose another.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Haemoglobin (HB)')).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: /^Instructions/ })).toHaveValue('Morning sample');
+    expect(within(await panel()).getByRole('textbox', { name: /^Instructions/ })).toHaveValue(
+      'Morning sample',
+    );
   });
 
   it('keeps a half-filled order while a cancellation is asked', async () => {

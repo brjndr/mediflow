@@ -397,7 +397,7 @@ export function toPrescriptionCreate(
 export const linesInOrder = (prescription: Prescription): Order[] =>
   [...prescription.lines].sort((a, b) => (a.lineNumber ?? 0) - (b.lineNumber ?? 0));
 
-// ----- Lab orders (#82) -------------------------------------------------------------------------
+// ----- Lab, imaging and procedure orders (#82, #87) ----------------------------------------------
 
 export const ORDER_PRIORITIES = [
   'routine',
@@ -411,32 +411,47 @@ export const orderPageSchema: z.ZodType<OrderPage> = z.object({
   total: z.number().int().optional(),
 });
 
-/** A lab order as typed: a test or panel chosen from the search, how soon, and instructions. */
-export const labOrderFormSchema = z.object({
-  labTestId: z.string().min(1, 'clinical:labOrders.form.testRequired'),
-  priority: z.enum(ORDER_PRIORITIES),
-  instructions: z
-    .string()
-    .trim()
-    .max(INSTRUCTIONS_MAX, 'validation.too_big')
-    .regex(PLAIN_LINES, 'validation.plain_text'),
-});
-export type LabOrderValues = z.input<typeof labOrderFormSchema>;
+/** The orders the consultation places one at a time, each from its own catalog (#82, #87). */
+export const ORDER_KINDS = ['lab', 'imaging', 'procedure'] as const;
+export type OrderKind = (typeof ORDER_KINDS)[number];
 
-export const blankLabOrder: LabOrderValues = {
-  labTestId: '',
+/**
+ * An order as typed: a test, study or procedure chosen from its search, how soon, and
+ * instructions. The schema of each kind differs only in what its empty choice says.
+ */
+export const orderFormSchema = (kind: OrderKind) =>
+  z.object({
+    itemId: z.string().min(1, `clinical:${kind}Orders.form.itemRequired`),
+    priority: z.enum(ORDER_PRIORITIES),
+    instructions: z
+      .string()
+      .trim()
+      .max(INSTRUCTIONS_MAX, 'validation.too_big')
+      .regex(PLAIN_LINES, 'validation.plain_text'),
+  });
+export type OrderValues = z.input<ReturnType<typeof orderFormSchema>>;
+
+export const blankOrder: OrderValues = {
+  itemId: '',
   priority: 'routine',
   instructions: '',
 };
 
-export function toLabOrderCreate(values: z.output<typeof labOrderFormSchema>): OrderCreate {
+/** A lab order names a test or panel; imaging and procedure a service of that category. */
+export function toOrderCreate(
+  kind: OrderKind,
+  values: z.output<ReturnType<typeof orderFormSchema>>,
+): OrderCreate {
   return {
-    type: 'lab',
-    labTestId: values.labTestId,
+    type: kind,
+    ...(kind === 'lab' ? { labTestId: values.itemId } : { serviceId: values.itemId }),
     priority: values.priority,
     ...(values.instructions ? { instructions: values.instructions } : {}),
   };
 }
+
+/** The catalog item an order was placed for. */
+export const orderedItemId = (order: Order) => order.labTestId ?? order.serviceId;
 
 /** An order still in effect: not cancelled, and not yet completed. */
 export const isActiveOrder = (order: Order) =>

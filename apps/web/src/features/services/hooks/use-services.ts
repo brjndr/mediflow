@@ -14,7 +14,8 @@ import {
   updateService,
   type ServiceFilters,
 } from '../api';
-import type { ServiceCreate, ServicePriceCreate, ServiceUpdate } from '../types';
+import type { ServiceCategory, ServiceCreate, ServicePriceCreate, ServiceUpdate } from '../types';
+import type { ServiceOption } from './use-service-options';
 
 /** Every key is prefixed with the tenant, so one hospital's catalog never shows in another. */
 export const serviceKeys = createTenantKeys('services');
@@ -59,6 +60,29 @@ export function useServices(filters: ServiceFilters) {
         (previousFilters as ServiceFilters | undefined)?.archived === filters.archived;
       return same ? previous : undefined;
     },
+  });
+}
+
+/** How many matches a search box offers at a time: the rest are found by typing more. */
+export const ORDER_SUGGESTIONS = 10;
+
+/**
+ * Services of one category that can be ordered (not archived), by words of the code or name.
+ * Only the id, code and name leave this feature: a price is the price catalog's to show.
+ */
+export function useOrderableServices(search: string, category: ServiceCategory, enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  const q = search.trim();
+  return useQuery({
+    queryKey: serviceKeys.list(tenantId ?? '', { as: 'orderable', category, q }),
+    queryFn: ({ signal }) =>
+      fetchServices({ q, category, archived: false, limit: ORDER_SUGGESTIONS }, signal),
+    enabled: enabled && tenantId !== undefined && q !== '',
+    staleTime: STALE_TIME_MS,
+    select: (page): ServiceOption[] => page.items.map(({ id, code, name }) => ({ id, code, name })),
+    // The last matches stay while more is typed, at the same hospital only.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === tenantId ? previous : undefined,
   });
 }
 

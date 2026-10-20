@@ -7,11 +7,12 @@ import { Button } from '@/shared/ui/button';
 import { useFormatters } from '@/tenancy';
 import { DiagnosesPanel } from '../components/DiagnosesPanel';
 import { EncounterActions } from '../components/EncounterActions';
-import { LabOrdersPanel } from '../components/LabOrdersPanel';
 import { NotesPanel } from '../components/NotesPanel';
+import { OrdersPanel } from '../components/OrdersPanel';
 import { PrescriptionsPanel } from '../components/PrescriptionsPanel';
 import { PrintSummaryButton } from '../components/PrintDocuments';
 import { useEncounter } from '../hooks/use-clinical';
+import { ORDER_KINDS } from '../schemas';
 import type { Encounter } from '../types';
 
 /** An id from the address, or empty when it is not one. */
@@ -140,7 +141,8 @@ function Consultation({ encounter }: { encounter: Encounter }) {
           {canReadNotes && <NotesPanel encounter={encounter} />}
           {canReadDiagnoses && <DiagnosesPanel encounter={encounter} />}
           {canReadPrescriptions && <PrescriptionsPanel encounter={encounter} />}
-          {canReadOrders && <LabOrdersPanel encounter={encounter} />}
+          {canReadOrders &&
+            ORDER_KINDS.map((kind) => <OrdersPanel key={kind} encounter={encounter} kind={kind} />)}
         </div>
       </div>
 
