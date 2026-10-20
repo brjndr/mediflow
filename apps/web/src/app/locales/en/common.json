@@ -122,7 +122,9 @@
     "switched": "Now working at {{name}}.",
     "suspendedTitle": "{{name}} is suspended",
     "suspendedPageTitle": "Hospital suspended",
-    "suspendedDescription": "This hospital's access to Mediflow is paused. Its data is safe. Contact your hospital administrator for details."
+    "suspendedDescription": "This hospital's access to Mediflow is paused. Its data is safe. Contact your hospital administrator for details.",
+    "letterheadPhone": "Phone: {{phone}}",
+    "letterheadRegistration": "Registration no. {{number}}"
   },
   "desktopOnly": {
     "title": "This screen needs a wider display",

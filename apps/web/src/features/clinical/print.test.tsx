@@ -2,8 +2,16 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { revokePermission, setRolePermissions, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
+import {
+  revokePermission,
+  setRolePermissions,
+  setTenantLetterhead,
+  signIn,
+  TENANT_IDS,
+  USER_IDS,
+} from '@/mocks/db';
 import { mockPrescriptionsOf, mockPrints, moveMockOrder } from '@/mocks/handlers/clinical';
+import { editMockDoctor } from '@/mocks/handlers/doctors';
 import { server } from '@/mocks/node';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
@@ -52,6 +60,17 @@ describe('printing a prescription', () => {
     expect(within(sheet).getByText('Paracetamol 500 mg (ParaCare)')).toBeInTheDocument();
     expect(within(sheet).getByText(/Drink plenty of fluids/)).toBeInTheDocument();
     expect(within(sheet).getByText(/^Printed .* by Sample Admin$/)).toBeInTheDocument();
+    // The letterhead and the prescriber as the NMC asks (#397), and nothing said missing.
+    expect(within(sheet).getByText(/12 Sample Road, Indiranagar/)).toBeInTheDocument();
+    expect(
+      within(sheet).getByText('Phone: +91 80 4000 0000 · Registration no. KA-CE-0000'),
+    ).toBeInTheDocument();
+    expect(within(sheet).getByText('Signature')).toBeInTheDocument();
+    expect(within(sheet).getByText(/, MBBS, MD \(General Medicine\)$/)).toBeInTheDocument();
+    expect(
+      within(sheet).getByText('Reg. no. KMC-40001, Karnataka Medical Council'),
+    ).toBeInTheDocument();
+    expect(within(sheet).queryByText(/Not on record/)).not.toBeInTheDocument();
 
     closeDialog();
     await waitFor(() => expect(document.querySelector('[data-print-sheet]')).toBeNull());
@@ -76,6 +95,25 @@ describe('printing a prescription', () => {
     expect(print).not.toHaveBeenCalled();
     expect(document.querySelector('[data-print-sheet]')).toBeNull();
     expect(mockPrints()).toEqual([]);
+  });
+});
+
+describe('printing with details missing (#397)', () => {
+  it('prints all the same, and says on the page what is to be written in by hand', async () => {
+    editMockDoctor('doc_h_01', { qualifications: undefined, registrationNumber: undefined });
+    setTenantLetterhead(HOSPITAL, { address: undefined });
+    await openConsultation();
+    await userEvent.click(
+      await screen.findByRole('button', { name: /^Print the prescription written/ }),
+    );
+    const sheet = await printedSheet();
+    expect(within(sheet).getByText('Paracetamol 500 mg (ParaCare)')).toBeInTheDocument();
+    expect(
+      within(sheet).getByText(
+        'Not on record, to be written in by hand: the hospital’s address, the doctor’s qualifications and the doctor’s registration number.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(sheet).queryByText(/^Reg\. no\./)).not.toBeInTheDocument();
   });
 });
 
@@ -111,6 +149,27 @@ describe('printing the visit summary', () => {
     expect(within(sheet).getByRole('heading', { name: 'Notes' })).toBeInTheDocument();
     expect(within(sheet).getByRole('heading', { name: 'Prescriptions' })).toBeInTheDocument();
     expect(within(sheet).getByText('Cetirizine 10 mg (CetiCare)')).toBeInTheDocument();
+    // Each prescription names its prescriber in full, and the attending doctor signs (#397).
+    expect(
+      within(sheet).getByText(
+        /^Written .* by .*, MBBS, MD \(General Medicine\) \(Reg\. no\. KMC-40001\)$/,
+      ),
+    ).toBeInTheDocument();
+    expect(within(sheet).getByText('Signature')).toBeInTheDocument();
+    expect(
+      within(sheet).getByText('Reg. no. KMC-40001, Karnataka Medical Council'),
+    ).toBeInTheDocument();
+    expect(within(sheet).queryByText(/Not on record/)).not.toBeInTheDocument();
+  });
+
+  it('says on the summary only what is missing of the hospital when the doctor has it all (#397)', async () => {
+    setTenantLetterhead(HOSPITAL, { address: undefined });
+    await openConsultation();
+    await userEvent.click(await screen.findByRole('button', { name: 'Print summary' }));
+    const sheet = await printedSheet();
+    expect(
+      within(sheet).getByText('Not on record, to be written in by hand: the hospital’s address.'),
+    ).toBeInTheDocument();
   });
 
   it('leaves out what the caller may not read, with no trace of it', async () => {
@@ -136,6 +195,11 @@ describe('printing the visit summary', () => {
     expect(within(sheet).getByText('Riverside Clinic')).toBeInTheDocument();
     expect(within(sheet).queryByText('Sample Hospital')).not.toBeInTheDocument();
     expect(within(sheet).getByText('No prescription.')).toBeInTheDocument();
+    // Its own details: an address and phone, no registration number, its own doctor's.
+    expect(within(sheet).getByText('Unit 4, Riverside Walk, Dubai')).toBeInTheDocument();
+    expect(within(sheet).getByText('Phone: +971 4 000 0000')).toBeInTheDocument();
+    expect(within(sheet).queryByText(/12 Sample Road|KA-CE-0000|KMC-/)).not.toBeInTheDocument();
+    expect(within(sheet).getByText(/^Reg\. no\. DHA-/)).toBeInTheDocument();
     expect(mockPrints()).toEqual([
       { tenantId: CLINIC, entity: 'encounter', id: 'enc_c_1', userId: USER_IDS.doctor },
     ]);

@@ -22,6 +22,10 @@ const initialTenants: Record<string, TenantDto> = {
     timezone: 'Asia/Kolkata',
     currency: 'INR',
     theme: { primary: '#0f766e' },
+    // Printed on the letterhead. Not a real place.
+    address: '12 Sample Road, Indiranagar\nBengaluru 560038, Karnataka',
+    phone: '+91 80 4000 0000',
+    registrationNumber: 'KA-CE-0000',
     features: {
       patients: true,
       appointments: true,
@@ -58,6 +62,9 @@ const initialTenants: Record<string, TenantDto> = {
     timezone: 'Asia/Dubai',
     currency: 'AED',
     theme: { primary: '#4338ca', logoUrl: '/favicon.svg' },
+    // No registration number: a clinic's letterhead may have less.
+    address: 'Unit 4, Riverside Walk, Dubai',
+    phone: '+971 4 000 0000',
     features: {
       patients: true,
       appointments: true,
@@ -517,6 +524,19 @@ export function setTenantLocale(tenantId: string, locale: string): void {
   const tenant = tenants[tenantId];
   if (!tenant) throw new Error(`Unknown mock tenant: ${tenantId}`);
   tenant.locale = locale;
+}
+
+/** What a platform admin does: change what the letterhead prints. Undefined removes one. */
+export function setTenantLetterhead(
+  tenantId: string,
+  details: Partial<Pick<TenantDto, 'address' | 'phone' | 'registrationNumber'>>,
+): void {
+  const tenant = tenants[tenantId];
+  if (!tenant) throw new Error(`Unknown mock tenant: ${tenantId}`);
+  for (const [key, value] of Object.entries(details) as [keyof typeof details, string?][]) {
+    if (value === undefined) delete tenant[key];
+    else tenant[key] = value;
+  }
 }
 
 /** The session a mock user would get, without changing who is signed in. For test fixtures. */

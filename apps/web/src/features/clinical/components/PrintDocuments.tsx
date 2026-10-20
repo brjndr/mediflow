@@ -6,7 +6,7 @@ import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { PrintSheet } from '@/shared/ui/print-sheet';
 import { RichTextView } from '@/shared/ui/rich-text';
-import { Letterhead, useFormatters } from '@/tenancy';
+import { Letterhead, useFormatters, useTenant } from '@/tenancy';
 import {
   fetchPrescription,
   fetchVisitSummary,
@@ -16,7 +16,7 @@ import {
 } from '../api';
 import { usePrinting } from '../hooks/use-print';
 import { linesInOrder } from '../schemas';
-import type { Encounter, Prescription } from '../types';
+import type { Credentials, Encounter, Prescription } from '../types';
 import { useHowToTake } from './how-to-take';
 
 /**
@@ -144,6 +144,57 @@ function VisitHead({ encounter, title }: { encounter: Encounter; title: string }
   );
 }
 
+/**
+ * Where the doctor signs, and who they are as the NMC asks a prescription to say (#397): the name
+ * with the qualifications after it, then the registration number and its council.
+ */
+function Signature({ name, credentials }: { name: string; credentials?: Credentials }) {
+  const { t } = useTranslation('clinical');
+  const registration = credentials?.registrationNumber;
+  return (
+    <div className="mt-10 break-inside-avoid">
+      <div className="h-10 w-56 border-b border-black" />
+      <p className="text-xs">{t('print.signature')}</p>
+      <p className="font-semibold">
+        {credentials?.qualifications
+          ? t('print.nameWithQualifications', { name, qualifications: credentials.qualifications })
+          : name}
+      </p>
+      {registration && (
+        <p>
+          {credentials.registrationCouncil
+            ? t('print.registrationWithCouncil', {
+                number: registration,
+                council: credentials.registrationCouncil,
+              })
+            : t('print.registration', { number: registration })}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * What a printed prescription should carry and the records lack: said on the page, never a
+ * refusal, so it can be written in by hand (#397). The council and the phone are not required.
+ */
+function useMissingDetails(doctor: { credentials?: Credentials } | null): string[] {
+  const { t } = useTranslation('clinical');
+  const tenant = useTenant();
+  return [
+    !tenant?.address && t('print.missing.address'),
+    doctor && !doctor.credentials?.qualifications && t('print.missing.qualifications'),
+    doctor && !doctor.credentials?.registrationNumber && t('print.missing.registration'),
+  ].filter((each): each is string => typeof each === 'string');
+}
+
+function MissingDetails({ missing }: { missing: string[] }) {
+  const { t, i18n } = useTranslation('clinical');
+  if (missing.length === 0) return null;
+  const list = new Intl.ListFormat(i18n.language, { type: 'conjunction' }).format(missing);
+  return <p className="mt-4 text-sm font-medium">{t('print.missing.notice', { list })}</p>;
+}
+
 function PrintedBy() {
   const { t } = useTranslation('clinical');
   const format = useFormatters();
@@ -190,16 +241,20 @@ function PrescriptionDocument({
 }) {
   const { t } = useTranslation('clinical');
   const format = useFormatters();
+  const missing = useMissingDetails({ credentials: prescription.prescribedByCredentials });
   return (
     <article>
       <VisitHead encounter={encounter} title={t('print.prescriptionTitle')} />
       <PrescriptionBody prescription={prescription} />
-      <p className="mt-10">
-        {t('prescriptions.writtenBy', {
-          time: format.dateTime(prescription.prescribedAt),
-          name: prescription.prescribedByName,
-        })}
+      {/* The name is under the signature line, with what follows it. */}
+      <p className="mt-6">
+        {t('print.writtenAt', { time: format.dateTime(prescription.prescribedAt) })}
       </p>
+      <Signature
+        name={prescription.prescribedByName}
+        credentials={prescription.prescribedByCredentials}
+      />
+      <MissingDetails missing={missing} />
       <PrintedBy />
     </article>
   );
@@ -216,6 +271,9 @@ function SummaryDocument({ encounter, summary }: { encounter: Encounter; summary
   const diagnoses = summary.diagnoses?.filter((each) => !each.retractedAt);
   const notes = summary.notes?.filter((each) => each.status === 'signed' && !each.amendedById);
   const prescriptions = summary.prescriptions?.filter((each) => !each.replacedById);
+  const missing = useMissingDetails(
+    encounter.attendingDoctorName ? { credentials: encounter.attendingDoctorCredentials } : null,
+  );
   return (
     <article>
       <VisitHead encounter={encounter} title={t('print.summaryTitle')} />
@@ -264,10 +322,21 @@ function SummaryDocument({ encounter, summary }: { encounter: Encounter; summary
             prescriptions.map((each) => (
               <div key={each.id} className="mb-4">
                 <p className="mb-1 font-medium">
-                  {t('prescriptions.writtenBy', {
-                    time: format.dateTime(each.prescribedAt),
-                    name: each.prescribedByName,
-                  })}
+                  {t(
+                    each.prescribedByCredentials?.registrationNumber
+                      ? 'print.writtenByRegistered'
+                      : 'prescriptions.writtenBy',
+                    {
+                      time: format.dateTime(each.prescribedAt),
+                      name: each.prescribedByCredentials?.qualifications
+                        ? t('print.nameWithQualifications', {
+                            name: each.prescribedByName,
+                            qualifications: each.prescribedByCredentials.qualifications,
+                          })
+                        : each.prescribedByName,
+                      number: each.prescribedByCredentials?.registrationNumber,
+                    },
+                  )}
                 </p>
                 <PrescriptionBody prescription={each} />
               </div>
@@ -275,6 +344,13 @@ function SummaryDocument({ encounter, summary }: { encounter: Encounter; summary
           )}
         </Part>
       )}
+      {encounter.attendingDoctorName && (
+        <Signature
+          name={encounter.attendingDoctorName}
+          credentials={encounter.attendingDoctorCredentials}
+        />
+      )}
+      <MissingDetails missing={missing} />
       <PrintedBy />
     </article>
   );

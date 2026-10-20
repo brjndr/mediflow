@@ -50,6 +50,11 @@ export interface Tenant {
   timezone: string; // IANA, e.g. 'Asia/Kolkata'
   currency: string; // ISO 4217
   theme: { primary: string; logoUrl?: string };
+  /** Printed on the letterhead. The address may hold line breaks. */
+  address?: string;
+  phone?: string;
+  /** The hospital's registration or licence number as a clinical establishment. */
+  registrationNumber?: string;
   features: Record<string, boolean>;
   /** idleTimeoutMinutes: a session unused for this long is signed out. Absent means the app default. */
   auth: { mode: 'password' | 'sso'; idleTimeoutMinutes?: number };

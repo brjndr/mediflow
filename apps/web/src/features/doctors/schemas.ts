@@ -22,6 +22,8 @@ export const doctorSchema: z.ZodType<Doctor> = z.object({
   departmentName: z.string(),
   specialization: z.string(),
   registrationNumber: z.string().optional(),
+  qualifications: z.string().optional(),
+  registrationCouncil: z.string().optional(),
   consultationMinutes: z.number().int(),
   active: z.boolean(),
   version: z.number().int().min(1),
@@ -56,6 +58,8 @@ export const availabilitySchema: z.ZodType<DoctorAvailability> = z.object({
 
 export const SPECIALIZATION_MAX = 100;
 export const REGISTRATION_MAX = 50;
+export const QUALIFICATIONS_MAX = 200;
+export const COUNCIL_MAX = 100;
 /** The appointment lengths offered. A profile may hold another one, which the form keeps. */
 export const CONSULTATION_MINUTES = ['5', '10', '15', '20', '30', '45', '60'] as const;
 
@@ -72,6 +76,16 @@ export const doctorFormSchema = z.object({
     .string()
     .trim()
     .max(REGISTRATION_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  qualifications: z
+    .string()
+    .trim()
+    .max(QUALIFICATIONS_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  registrationCouncil: z
+    .string()
+    .trim()
+    .max(COUNCIL_MAX)
     .regex(PLAIN_TEXT, 'validation.plain_text'),
   consultationMinutes: z.string().regex(/^\d{1,3}$/, 'validation.required'),
 });
