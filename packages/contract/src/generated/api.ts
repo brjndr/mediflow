@@ -2208,6 +2208,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/encounters/{encounterId}/referrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The encounter’s referrals, oldest first, cancelled ones included with who cancelled them and why. Requires referral:read and the clinical feature flag. Every referral of a page is audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist. */
+        get: operations["listReferrals"];
+        put?: never;
+        /** @description Refers the patient of an open encounter (409 `encounter_not_open` otherwise) to a department of the hospital, or to one of its doctors, with a reason and an urgency. A department, a doctor or both (400 with neither): a doctor alone gives their department; a department archived, unknown or of another hospital is 422 `unknown_department`; a doctor who does not practise here is 422 `unknown_doctor`, and one of another department than the one named is 422 `doctor_not_in_department`. A referral is never changed: one made in error is cancelled. The Idempotency-Key header is required: a repeat refers nothing and answers with the referral as it is now. Requires referral:read and referral:create, and the clinical feature flag. Audited, and emits `referral.created` through the outbox with ids and the urgency, never the reason. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist. */
+        post: operations["createReferral"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/referrals/{referralId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cancels a referral with a reason: it stays, with who cancelled it and when. Once (409 `already_cancelled`), and also after the encounter closed. The Idempotency-Key header is required: a repeat changes nothing and answers with the referral as it is now. Requires referral:read and referral:create, and the clinical feature flag. Audited, and emits `referral.cancelled` through the outbox. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist. */
+        post: operations["cancelReferral"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/follow-ups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The follow-up due list: the follow-ups the caller may see, the soonest due first, in one state (`due` for those to book), due between two days at the hospital, of one doctor, or any of those together. Within the scope the caller holds followUp:read with, read from the encounter as for encounter:read (`own`: the encounters the caller attends); one outside it is left out, never refused. A list nobody types patient facts into, so a GET. Requires followUp:read and the clinical feature flag. Every follow-up of a page is audited. `total` comes with the first page only, and only with a `doctorId`: a whole hospital is not counted on every first page. Each follow-up names its patient (name and MRN), so whoever books it knows whom to call in: followUp:read gives that. */
+        get: operations["listFollowUps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/follow-ups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The encounter’s follow-ups, cancelled ones included: at most one that is not cancelled. Requires followUp:read and the clinical feature flag. Every follow-up of a page is audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds followUp:read with, is 404 as one that does not exist. Each follow-up names its patient (name and MRN), so whoever books it knows whom to call in: followUp:read gives that. */
+        get: operations["listEncounterFollowUps"];
+        put?: never;
+        /** @description Asks the patient of an open encounter (409 `encounter_not_open` otherwise) to come back on a day, from today to a year ahead at the hospital (422 `outside_window`), to a doctor: the one named, else the encounter’s (400 when it has none). A doctor who does not practise here is 422 `unknown_doctor`. One follow-up per encounter that is not cancelled (409 `follow_up_exists`): cancel it to set another. It is then due, and booking it makes the appointment. The Idempotency-Key header is required: a repeat sets nothing and answers with the follow-up as it is now. Requires followUp:create and followUp:read, and the clinical feature flag. Audited, and emits `followup.created` through the outbox with ids and the day, never the note. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds followUp:read with, is 404 as one that does not exist. */
+        post: operations["createFollowUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/follow-ups/{followUpId}/book": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Books a due follow-up as an appointment of its patient, with its doctor or another one, at one of the doctor’s free slots, and links the two in one transaction: the follow-up names the appointment. The booking follows `POST /appointments` (its scope of appointment:create, and its refusals: 422 `unknown_doctor`, `outside_hours`, 409 `slot_taken`, `patient_overlap`), audits it and emits `appointment.created`, then `followup.booked`. Requires followUp:read and appointment:create, and both the clinical and the appointments feature flags (403 `feature_disabled`). Only a due follow-up (409 `invalid_transition` for one booked, attended or cancelled); one whose appointment was cancelled or missed is due again. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed. The Idempotency-Key header is required: a repeat changes nothing and answers with the follow-up as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds followUp:read with, is 404 as one that does not exist. */
+        post: operations["bookFollowUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/follow-ups/{followUpId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cancels a follow-up with a reason: the patient need not come back. It stays, final, and the encounter may set another. A booked one is refused: cancel its appointment first. Requires followUp:read and followUp:create, and the clinical feature flag; the follow-up is found within the scope of followUp:create. Emits `followup.cancelled` through the outbox. Only a due follow-up (409 `invalid_transition` for one booked, attended or cancelled); one whose appointment was cancelled or missed is due again. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed. The Idempotency-Key header is required: a repeat changes nothing and answers with the follow-up as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds followUp:read with, is 404 as one that does not exist. */
+        post: operations["cancelFollowUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -3961,6 +4065,116 @@ export interface components {
             replacesId?: string;
             /** @description Plain text. Required with replacesId, refused without it. */
             replaceReason?: string;
+        };
+        /** @enum {string} */
+        ReferralUrgency: "routine" | "urgent";
+        /** @description A referral of the patient to a department of the hospital, or one of its doctors. Never changed; cancelled with a reason, and kept. */
+        Referral: {
+            id: string;
+            tenantId: string;
+            encounterId: string;
+            patientId: string;
+            departmentId: string;
+            departmentName: string;
+            doctorId?: string;
+            doctorName?: string;
+            urgency: components["schemas"]["ReferralUrgency"];
+            reason: string;
+            /** Format: date-time */
+            referredAt: string;
+            referredByName: string;
+            /** Format: date-time */
+            cancelledAt?: string;
+            cancelledByName?: string;
+            cancelReason?: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ReferralPage: {
+            items: components["schemas"]["Referral"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ReferralCreate: {
+            /** @description The department referred to. Taken from the doctor when only a doctor is named. */
+            departmentId?: string;
+            /** @description A doctor of that department, or none: any of them. */
+            doctorId?: string;
+            urgency: components["schemas"]["ReferralUrgency"];
+            /** @description Plain text of one or more lines: why the patient is referred. */
+            reason: string;
+        };
+        ReferralCancel: {
+            /** @description Plain text. Why the referral is withdrawn: made in error, no longer needed. */
+            reason: string;
+        };
+        /**
+         * @description Read from its appointment: `due` with none, or one cancelled or a no-show; `booked` with one scheduled; `attended` with one completed; `cancelled` when the follow-up itself was.
+         * @enum {string}
+         */
+        FollowUpState: "due" | "booked" | "attended" | "cancelled";
+        /** @description When the patient should come back after an encounter, and with whom, and the appointment it was booked as. */
+        FollowUp: {
+            id: string;
+            tenantId: string;
+            encounterId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            doctorId: string;
+            doctorName: string;
+            /**
+             * Format: date
+             * @description A calendar day at the hospital.
+             */
+            dueOn: string;
+            note?: string;
+            state: components["schemas"]["FollowUpState"];
+            appointmentId?: string;
+            /** Format: date-time */
+            appointmentStartsAt?: string;
+            /** Format: date-time */
+            createdAt: string;
+            createdByName: string;
+            /** Format: date-time */
+            bookedAt?: string;
+            /** Format: date-time */
+            cancelledAt?: string;
+            cancelReason?: string;
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        FollowUpPage: {
+            items: components["schemas"]["FollowUp"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        FollowUpCreate: {
+            /**
+             * Format: date
+             * @description The day the patient should come back, at the hospital: from today to a year ahead.
+             */
+            dueOn: string;
+            /** @description Whom the patient comes back to. The encounter’s doctor when absent. */
+            doctorId?: string;
+            /** @description Plain text of one or more lines, for whoever books it: "with the lab reports". */
+            note?: string;
+        };
+        FollowUpBook: {
+            /**
+             * Format: date-time
+             * @description UTC. One of the doctor’s free slots (`/appointments/free-slots`).
+             */
+            startsAt: string;
+            /** @description Another doctor to book with. The follow-up’s doctor when absent. */
+            doctorId?: string;
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
+        };
+        FollowUpCancel: {
+            /** @description Plain text. Why the patient need not come back. */
+            reason: string;
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
         };
         Notice: {
             id: string;
@@ -15434,6 +15648,701 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listReferrals: {
+        parameters: {
+            query: {
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit: number;
+            };
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferralPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createReferral: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferralCreate"];
+            };
+        };
+        responses: {
+            /** @description A referral of the patient to a department of the hospital, or one of its doctors. Never changed; cancelled with a reason, and kept. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Referral"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelReferral: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                referralId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferralCancel"];
+            };
+        };
+        responses: {
+            /** @description A referral of the patient to a department of the hospital, or one of its doctors. Never changed; cancelled with a reason, and kept. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Referral"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listFollowUps: {
+        parameters: {
+            query: {
+                state?: components["schemas"]["FollowUpState"];
+                /** @description The first day due, at the hospital. */
+                dueFrom?: string;
+                /** @description The last day due, at the hospital, included. */
+                dueTo?: string;
+                doctorId?: string;
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUpPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listEncounterFollowUps: {
+        parameters: {
+            query: {
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit: number;
+            };
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUpPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createFollowUp: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowUpCreate"];
+            };
+        };
+        responses: {
+            /** @description When the patient should come back after an encounter, and with whom, and the appointment it was booked as. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUp"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    bookFollowUp: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                followUpId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowUpBook"];
+            };
+        };
+        responses: {
+            /** @description When the patient should come back after an encounter, and with whom, and the appointment it was booked as. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUp"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelFollowUp: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                followUpId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowUpCancel"];
+            };
+        };
+        responses: {
+            /** @description When the patient should come back after an encounter, and with whom, and the appointment it was booked as. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUp"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

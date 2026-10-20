@@ -25,7 +25,7 @@ export interface Visibility {
 
 // `own` is the encounters the caller attends as a doctor; `department` those of the departments
 // the caller's active doctor profile is in. Someone with no profile sees nothing under either.
-const visible = (scope: string, user: string) =>
+export const visible = (scope: string, user: string) =>
   `(${scope}::text = 'all'
     or (${scope}::text = 'own' and d.user_id::text = ${user}::text)
     or (${scope}::text = 'department' and e.department_id in (
@@ -47,7 +47,7 @@ interface Cursor {
 const PG_TIMESTAMP = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?[+-]\d{2}(:\d{2})?$/;
 
 /** Null for anything that is not a cursor this module made. */
-function decodeCursor(cursor: string): Cursor | null {
+export function decodeCursor(cursor: string): Cursor | null {
   try {
     const value: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
     if (typeof value !== 'object' || value === null) return null;
@@ -64,7 +64,7 @@ function decodeCursor(cursor: string): Cursor | null {
  * One page of `query` (a select whose last clause is a `where`), ordered by `at` then `id`,
  * newest first or oldest first. Null for a bad cursor.
  */
-async function paged<Row extends { id: string }>(
+export async function paged<Row extends { id: string }>(
   client: pg.ClientBase,
   query: {
     sql: string;
@@ -118,7 +118,7 @@ async function paged<Row extends { id: string }>(
   return result;
 }
 
-const empty = <Row>(cursor: string | undefined): Page<Row> => ({
+export const empty = <Row>(cursor: string | undefined): Page<Row> => ({
   rows: [],
   nextCursor: null,
   ...(cursor === undefined ? { total: 0 } : {}),
@@ -346,14 +346,17 @@ export async function hasDrafts(client: pg.ClientBase, encounterId: string): Pro
 
 /**
  * Whether anything of the encounter is on the record: a signed note, a diagnosis that stands,
- * an order not cancelled or a prescription. A cancelled encounter must have none.
+ * an order not cancelled, a prescription, or a referral or follow-up not cancelled. A cancelled
+ * encounter must have none.
  */
 export async function hasRecords(client: pg.ClientBase, encounterId: string): Promise<boolean> {
   const { rows } = await client.query<{ any: boolean }>(
     `select exists (select 1 from clinical_notes where encounter_id = $1 and status = 'signed')
          or exists (select 1 from encounter_diagnoses where encounter_id = $1 and retracted_at is null)
          or exists (select 1 from orders where encounter_id = $1 and status <> 'cancelled')
-         or exists (select 1 from prescriptions where encounter_id = $1) as any`,
+         or exists (select 1 from prescriptions where encounter_id = $1)
+         or exists (select 1 from referrals where encounter_id = $1 and cancelled_at is null)
+         or exists (select 1 from follow_ups where encounter_id = $1 and cancelled_at is null) as any`,
     [encounterId],
   );
   return rows[0]?.any ?? false;

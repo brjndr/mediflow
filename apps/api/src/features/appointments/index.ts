@@ -14,3 +14,6 @@ export const appointmentsFeature: FastifyPluginAsync = async (app) => {
 
 /** For the queue: an appointment of today whose patient has arrived, to check them in. */
 export { appointmentForCheckIn, type CheckInAppointment } from './repository.js';
+
+/** For clinical follow-ups: book in the caller's transaction, under the booking route's rules. */
+export { bookAppointment, type Booking } from './booking.js';

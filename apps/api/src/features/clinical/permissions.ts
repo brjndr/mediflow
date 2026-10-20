@@ -81,4 +81,25 @@ export const CLINICAL_PERMISSIONS = [
       'Print a prescription or the visit summary of an encounter (each print is recorded in the audit log)',
     defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
   },
+  {
+    id: 'referral:read',
+    description: 'See the referrals of an encounter, with why the patient was referred',
+    defaults: { admin: 'all', doctor: 'all' },
+  },
+  {
+    id: 'referral:create',
+    description: 'Refer a patient to a department or a doctor, and cancel a referral',
+    defaults: { admin: 'all', doctor: 'all' },
+  },
+  {
+    id: 'followUp:read',
+    description:
+      'See follow-ups and the follow-up due list: when each patient should come back, the name and MRN of the patient, and the note for whoever books it',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
+  },
+  {
+    id: 'followUp:create',
+    description: 'Ask a patient to come back on a day, and cancel a follow-up',
+    defaults: { admin: 'all', doctor: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];

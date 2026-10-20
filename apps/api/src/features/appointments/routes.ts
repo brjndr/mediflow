@@ -5,13 +5,12 @@ import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { tidyLinesOptional } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { bookAppointment, bookingRefusal } from './booking.js';
 import {
   findAppointment,
   hasPassed,
-  insertAppointment,
   listAppointments,
   moveAppointment,
-  patientExists,
   practisingDoctor,
   setStatus,
   slotAt,
@@ -97,19 +96,6 @@ function noteFor(reason: string, note: string | undefined): string | null {
   const tidied = tidyLinesOptional(note, 500);
   if (reason === 'other' && tidied === null) throw invalid('A note is required for "other"');
   return tidied;
-}
-
-/** The refusal for a booking the exclusion constraints turned down, or the error itself. */
-function bookingRefusal(error: unknown): unknown {
-  const { code, constraint } = (error ?? {}) as { code?: unknown; constraint?: unknown };
-  if (code !== '23P01') return error;
-  if (constraint === 'appointments_doctor_free') {
-    return new HttpError(409, 'slot_taken', 'The doctor is booked at that time');
-  }
-  if (constraint === 'appointments_patient_free') {
-    return new HttpError(409, 'patient_overlap', 'The patient is booked at that time');
-  }
-  return error;
 }
 
 const SCHEDULED_ONLY =
@@ -222,7 +208,6 @@ export const appointmentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) => {
-      const userId = userIdOf(request);
       // Booked only with a doctor the caller's scope of `appointment:create` reaches.
       const visibility = visibilityFor(request, CREATE);
       if (request.replayOf !== null) {
@@ -243,32 +228,17 @@ export const appointmentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (extensions.length > 0) {
         throw new HttpError(422, 'unknown_extension', 'A part of extensions belongs to no feature');
       }
-      const reason = tidyLinesOptional(body.reason, 500);
-      if (!(await patientExists(request.txClient, body.patientId))) {
-        throw new HttpError(422, 'unknown_patient', 'No such patient');
-      }
-      const doctor = await practisingDoctor(request.txClient, body.doctorId, visibility);
-      if (!doctor) throw new HttpError(422, 'unknown_doctor', 'No such doctor');
-      const slot = await slotAt(request.txClient, doctor, body.startsAt);
-      if (!slot) throw new HttpError(422, 'outside_hours', 'Not a slot of the working hours');
-      let id: string;
-      try {
-        id = await insertAppointment(
-          request.txClient,
-          { patientId: body.patientId, doctorId: doctor.id, slot, reason },
-          userId,
-        );
-      } catch (error) {
-        throw bookingRefusal(error);
-      }
+      const id = await bookAppointment(
+        request,
+        {
+          patientId: body.patientId,
+          doctorId: body.doctorId,
+          startsAt: body.startsAt,
+          reason: tidyLinesOptional(body.reason, 500),
+        },
+        visibility,
+      );
       request.idempotentId = id;
-      request.audit('create', 'appointment', id);
-      await request.emit('appointment.created', id, {
-        appointmentId: id,
-        patientId: body.patientId,
-        doctorId: doctor.id,
-        startsAt: slot.starts_at.toISOString(),
-      });
       const booked = await findAppointment(request.txClient, id, visibility);
       if (!booked) throw notFound();
       return reply.status(201).send(record(booked));

@@ -4876,6 +4876,328 @@
             "type": "string"
           }
         }
+      },
+      "ReferralUrgency": {
+        "type": "string",
+        "enum": ["routine", "urgent"]
+      },
+      "Referral": {
+        "additionalProperties": false,
+        "description": "A referral of the patient to a department of the hospital, or one of its doctors. Never changed; cancelled with a reason, and kept.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "encounterId",
+          "patientId",
+          "departmentId",
+          "departmentName",
+          "urgency",
+          "reason",
+          "referredAt",
+          "referredByName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "departmentId": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "urgency": {
+            "$ref": "#/components/schemas/ReferralUrgency"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "referredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "referredByName": {
+            "type": "string"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "cancelledByName": {
+            "type": "string"
+          },
+          "cancelReason": {
+            "type": "string"
+          }
+        }
+      },
+      "ReferralPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Referral"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "ReferralCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["urgency", "reason"],
+        "properties": {
+          "departmentId": {
+            "maxLength": 64,
+            "description": "The department referred to. Taken from the doctor when only a doctor is named.",
+            "type": "string"
+          },
+          "doctorId": {
+            "maxLength": 64,
+            "description": "A doctor of that department, or none: any of them.",
+            "type": "string"
+          },
+          "urgency": {
+            "$ref": "#/components/schemas/ReferralUrgency"
+          },
+          "reason": {
+            "minLength": 1,
+            "maxLength": 1000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text of one or more lines: why the patient is referred.",
+            "type": "string"
+          }
+        }
+      },
+      "ReferralCancel": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text. Why the referral is withdrawn: made in error, no longer needed.",
+            "type": "string"
+          }
+        }
+      },
+      "FollowUpState": {
+        "type": "string",
+        "enum": ["due", "booked", "attended", "cancelled"],
+        "description": "Read from its appointment: `due` with none, or one cancelled or a no-show; `booked` with one scheduled; `attended` with one completed; `cancelled` when the follow-up itself was."
+      },
+      "FollowUp": {
+        "additionalProperties": false,
+        "description": "When the patient should come back after an encounter, and with whom, and the appointment it was booked as.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "encounterId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "doctorId",
+          "doctorName",
+          "dueOn",
+          "state",
+          "createdAt",
+          "createdByName",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "dueOn": {
+            "format": "date",
+            "description": "A calendar day at the hospital.",
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FollowUpState"
+          },
+          "appointmentId": {
+            "type": "string"
+          },
+          "appointmentStartsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "bookedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "cancelReason": {
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "FollowUpPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FollowUp"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "FollowUpCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["dueOn"],
+        "properties": {
+          "dueOn": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "The day the patient should come back, at the hospital: from today to a year ahead.",
+            "type": "string"
+          },
+          "doctorId": {
+            "maxLength": 64,
+            "description": "Whom the patient comes back to. The encounter’s doctor when absent.",
+            "type": "string"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text of one or more lines, for whoever books it: \"with the lab reports\".",
+            "type": "string"
+          }
+        }
+      },
+      "FollowUpBook": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["startsAt", "version"],
+        "properties": {
+          "startsAt": {
+            "format": "date-time",
+            "description": "UTC. One of the doctor’s free slots (`/appointments/free-slots`).",
+            "type": "string"
+          },
+          "doctorId": {
+            "maxLength": 64,
+            "description": "Another doctor to book with. The follow-up’s doctor when absent.",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          }
+        }
+      },
+      "FollowUpCancel": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason", "version"],
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text. Why the patient need not come back.",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          }
+        }
       }
     }
   },
@@ -19408,6 +19730,957 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/encounters/{encounterId}/referrals": {
+      "get": {
+        "operationId": "listReferrals",
+        "tags": ["clinical"],
+        "description": "The encounter’s referrals, oldest first, cancelled ones included with who cancelled them and why. Requires referral:read and the clinical feature flag. Every referral of a page is audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferralPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createReferral",
+        "tags": ["clinical"],
+        "description": "Refers the patient of an open encounter (409 `encounter_not_open` otherwise) to a department of the hospital, or to one of its doctors, with a reason and an urgency. A department, a doctor or both (400 with neither): a doctor alone gives their department; a department archived, unknown or of another hospital is 422 `unknown_department`; a doctor who does not practise here is 422 `unknown_doctor`, and one of another department than the one named is 422 `doctor_not_in_department`. A referral is never changed: one made in error is cancelled. The Idempotency-Key header is required: a repeat refers nothing and answers with the referral as it is now. Requires referral:read and referral:create, and the clinical feature flag. Audited, and emits `referral.created` through the outbox with ids and the urgency, never the reason. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferralCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A referral of the patient to a department of the hospital, or one of its doctors. Never changed; cancelled with a reason, and kept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Referral"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/referrals/{referralId}/cancel": {
+      "post": {
+        "operationId": "cancelReferral",
+        "tags": ["clinical"],
+        "description": "Cancels a referral with a reason: it stays, with who cancelled it and when. Once (409 `already_cancelled`), and also after the encounter closed. The Idempotency-Key header is required: a repeat changes nothing and answers with the referral as it is now. Requires referral:read and referral:create, and the clinical feature flag. Audited, and emits `referral.cancelled` through the outbox. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferralCancel"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "referralId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A referral of the patient to a department of the hospital, or one of its doctors. Never changed; cancelled with a reason, and kept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Referral"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/follow-ups": {
+      "get": {
+        "operationId": "listFollowUps",
+        "tags": ["clinical"],
+        "description": "The follow-up due list: the follow-ups the caller may see, the soonest due first, in one state (`due` for those to book), due between two days at the hospital, of one doctor, or any of those together. Within the scope the caller holds followUp:read with, read from the encounter as for encounter:read (`own`: the encounters the caller attends); one outside it is left out, never refused. A list nobody types patient facts into, so a GET. Requires followUp:read and the clinical feature flag. Every follow-up of a page is audited. `total` comes with the first page only, and only with a `doctorId`: a whole hospital is not counted on every first page. Each follow-up names its patient (name and MRN), so whoever books it knows whom to call in: followUp:read gives that.",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/FollowUpState"
+            },
+            "in": "query",
+            "name": "state",
+            "required": false
+          },
+          {
+            "schema": {
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "dueFrom",
+            "required": false,
+            "description": "The first day due, at the hospital."
+          },
+          {
+            "schema": {
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "dueTo",
+            "required": false,
+            "description": "The last day due, at the hospital, included."
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "doctorId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUpPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/encounters/{encounterId}/follow-ups": {
+      "get": {
+        "operationId": "listEncounterFollowUps",
+        "tags": ["clinical"],
+        "description": "The encounter’s follow-ups, cancelled ones included: at most one that is not cancelled. Requires followUp:read and the clinical feature flag. Every follow-up of a page is audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds followUp:read with, is 404 as one that does not exist. Each follow-up names its patient (name and MRN), so whoever books it knows whom to call in: followUp:read gives that.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUpPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createFollowUp",
+        "tags": ["clinical"],
+        "description": "Asks the patient of an open encounter (409 `encounter_not_open` otherwise) to come back on a day, from today to a year ahead at the hospital (422 `outside_window`), to a doctor: the one named, else the encounter’s (400 when it has none). A doctor who does not practise here is 422 `unknown_doctor`. One follow-up per encounter that is not cancelled (409 `follow_up_exists`): cancel it to set another. It is then due, and booking it makes the appointment. The Idempotency-Key header is required: a repeat sets nothing and answers with the follow-up as it is now. Requires followUp:create and followUp:read, and the clinical feature flag. Audited, and emits `followup.created` through the outbox with ids and the day, never the note. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds followUp:read with, is 404 as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowUpCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "When the patient should come back after an encounter, and with whom, and the appointment it was booked as.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUp"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/follow-ups/{followUpId}/book": {
+      "post": {
+        "operationId": "bookFollowUp",
+        "tags": ["clinical"],
+        "description": "Books a due follow-up as an appointment of its patient, with its doctor or another one, at one of the doctor’s free slots, and links the two in one transaction: the follow-up names the appointment. The booking follows `POST /appointments` (its scope of appointment:create, and its refusals: 422 `unknown_doctor`, `outside_hours`, 409 `slot_taken`, `patient_overlap`), audits it and emits `appointment.created`, then `followup.booked`. Requires followUp:read and appointment:create, and both the clinical and the appointments feature flags (403 `feature_disabled`). Only a due follow-up (409 `invalid_transition` for one booked, attended or cancelled); one whose appointment was cancelled or missed is due again. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed. The Idempotency-Key header is required: a repeat changes nothing and answers with the follow-up as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds followUp:read with, is 404 as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowUpBook"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "followUpId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "When the patient should come back after an encounter, and with whom, and the appointment it was booked as.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUp"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/follow-ups/{followUpId}/cancel": {
+      "post": {
+        "operationId": "cancelFollowUp",
+        "tags": ["clinical"],
+        "description": "Cancels a follow-up with a reason: the patient need not come back. It stays, final, and the encounter may set another. A booked one is refused: cancel its appointment first. Requires followUp:read and followUp:create, and the clinical feature flag; the follow-up is found within the scope of followUp:create. Emits `followup.cancelled` through the outbox. Only a due follow-up (409 `invalid_transition` for one booked, attended or cancelled); one whose appointment was cancelled or missed is due again. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed. The Idempotency-Key header is required: a repeat changes nothing and answers with the follow-up as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds followUp:read with, is 404 as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowUpCancel"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "followUpId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "When the patient should come back after an encounter, and with whom, and the appointment it was booked as.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUp"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

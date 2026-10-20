@@ -50,6 +50,7 @@ Core modules publish events through a transactional outbox (written in the same 
 - `appointment.created`, `appointment.rescheduled`, `appointment.cancelled`, `appointment.completed`, `appointment.no_show`
 - `encounter.opened`, `encounter.closed`, `encounter.cancelled`, `queue.token_issued`, `queue.called`, `vitals.recorded`, `allergy.updated`
 - `order.placed`, `order.cancelled`, `order.completed`
+- `referral.created`, `referral.cancelled`, `followup.created`, `followup.booked`, `followup.cancelled`
 - `lab.sample_collected`, `lab.result_verified`, `lab.critical_value`, `imaging.reported`
 - `pharmacy.dispensed`, `stock.low`, `stock.expiring`
 - `charge.posted`, `invoice.issued`, `invoice.paid`, `payment.refunded`
