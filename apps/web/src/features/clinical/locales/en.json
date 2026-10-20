@@ -271,6 +271,18 @@
     "noNotes": "No signed note.",
     "noPrescriptions": "No prescription.",
     "printedBy": "Printed {{time}} by {{name}}",
-    "notPrintable": "This is no longer to be printed: it was replaced or cancelled. Reload the consultation."
+    "notPrintable": "This is no longer to be printed: it was replaced or cancelled. Reload the consultation.",
+    "signature": "Signature",
+    "nameWithQualifications": "{{name}}, {{qualifications}}",
+    "registration": "Reg. no. {{number}}",
+    "registrationWithCouncil": "Reg. no. {{number}}, {{council}}",
+    "missing": {
+      "notice": "Not on record, to be written in by hand: {{list}}.",
+      "address": "the hospital’s address",
+      "qualifications": "the doctor’s qualifications",
+      "registration": "the doctor’s registration number"
+    },
+    "writtenAt": "Written {{time}}",
+    "writtenByRegistered": "Written {{time}} by {{name}} (Reg. no. {{number}})"
   }
 }

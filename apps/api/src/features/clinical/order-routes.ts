@@ -14,6 +14,7 @@ import {
   invalid,
   orderEvent,
   orderView,
+  prescriberCredentials,
   prescriptionView,
   uniqueRefusal,
   userIdOf,
@@ -365,7 +366,11 @@ export const orderRoutes: FastifyPluginAsyncTypebox = async (app) => {
       permission,
       prescriptionNotFound,
     );
-    return prescriptionView(row, await ordersOfPrescriptions(request.txClient, [row.id]));
+    return prescriptionView(
+      row,
+      await ordersOfPrescriptions(request.txClient, [row.id]),
+      await prescriberCredentials(request.txClient, [row]),
+    );
   };
 
   app.get(
@@ -395,11 +400,12 @@ export const orderRoutes: FastifyPluginAsyncTypebox = async (app) => {
         request.txClient,
         page.rows.map((row) => row.id),
       );
+      const credentials = await prescriberCredentials(request.txClient, page.rows);
       for (const row of page.rows) request.audit('read', 'prescription', row.id);
       // The lines are orders, read here as much as through the order routes.
       for (const order of lines) request.audit('read', 'order', order.id);
       return {
-        items: page.rows.map((row) => prescriptionView(row, lines)),
+        items: page.rows.map((row) => prescriptionView(row, lines, credentials)),
         nextCursor: page.nextCursor,
         ...(page.total === undefined ? {} : { total: page.total }),
       };
@@ -550,7 +556,13 @@ export const orderRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!written) throw new Error('prescription was not written');
       return reply
         .status(201)
-        .send(prescriptionView(written, await ordersOfPrescriptions(request.txClient, [id])));
+        .send(
+          prescriptionView(
+            written,
+            await ordersOfPrescriptions(request.txClient, [id]),
+            await prescriberCredentials(request.txClient, [written]),
+          ),
+        );
     },
   );
 

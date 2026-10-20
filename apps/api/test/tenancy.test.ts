@@ -436,6 +436,38 @@ describe('through the API', () => {
       expect(other.body).not.toContain('Isolation Hospital');
     });
 
+    it('gives the details printed on the letterhead when the hospital has them (#397)', async () => {
+      await pool.query(
+        `update tenants set address = $2, phone = $3, registration_number = $4 where id = $1`,
+        [hospital.id, '1 Main Road\nBengaluru', '+91 80 1234 5678', 'KA-CE-1'],
+      );
+      await pool.query(`update tenants set phone = $2 where id = $1`, [clinic.id, '+971 4 1']);
+      try {
+        expect((await get('/tenant', as(hospital.id))).json()).toMatchObject({
+          address: '1 Main Road\nBengaluru',
+          phone: '+91 80 1234 5678',
+          registrationNumber: 'KA-CE-1',
+        });
+        const other = (await get('/tenant', as(clinic.id))).json<Record<string, unknown>>();
+        expect(other.phone).toBe('+971 4 1');
+        expect(other).not.toHaveProperty('address');
+        expect(other).not.toHaveProperty('registrationNumber');
+        // The database keeps them tidy: no spaces around, nothing empty.
+        await expect(
+          pool.query(`update tenants set address = ' x' where id = $1`, [clinic.id]),
+        ).rejects.toThrow();
+        await expect(
+          pool.query(`update tenants set phone = '' where id = $1`, [clinic.id]),
+        ).rejects.toThrow();
+      } finally {
+        await pool.query(
+          `update tenants set address = null, phone = null, registration_number = null
+           where id = any($1::uuid[])`,
+          [[hospital.id, clinic.id]],
+        );
+      }
+    });
+
     it('takes the tenant from the session, never from the request', async () => {
       // Every client-controlled place a tenant could be smuggled in. None changes the answer.
       const response = await app.inject({

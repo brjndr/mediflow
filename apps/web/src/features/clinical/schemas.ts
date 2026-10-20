@@ -3,6 +3,7 @@ import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 import type {
   ClinicalNote,
   ClinicalNotePage,
+  Credentials,
   Diagnosis,
   DiagnosisCreate,
   DiagnosisKind,
@@ -31,6 +32,12 @@ export const DIAGNOSIS_TEXT_MAX = 300;
 
 // Responses are validated where they enter the app, so screens can trust their shape.
 
+const credentialsSchema: z.ZodType<Credentials> = z.object({
+  qualifications: z.string().optional(),
+  registrationNumber: z.string().optional(),
+  registrationCouncil: z.string().optional(),
+});
+
 export const encounterSchema: z.ZodType<Encounter> = z.object({
   id: z.string(),
   tenantId: z.string(),
@@ -43,6 +50,7 @@ export const encounterSchema: z.ZodType<Encounter> = z.object({
   queueTokenId: z.string().optional(),
   attendingDoctorId: z.string().optional(),
   attendingDoctorName: z.string().optional(),
+  attendingDoctorCredentials: credentialsSchema.optional(),
   departmentId: z.string().optional(),
   departmentName: z.string().optional(),
   openedAt: z.string(),
@@ -229,6 +237,7 @@ export const prescriptionSchema: z.ZodType<Prescription> = z.object({
   prescribedAt: z.string(),
   prescribedById: z.string(),
   prescribedByName: z.string(),
+  prescribedByCredentials: credentialsSchema.optional(),
   advice: z.string().optional(),
   replacesId: z.string().optional(),
   replaceReason: z.string().optional(),

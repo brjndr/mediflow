@@ -7,7 +7,7 @@ import { currentPolicy, currentSession, mockTenantTimezone, onMockReset, TENANT_
 import { authorize, error } from '../respond';
 import { mockAppointment } from './appointments';
 import { mockCode } from './codes';
-import { mockDoctor, mockDoctorOfUser } from './doctors';
+import { mockCredentials, mockDoctor, mockDoctorOfUser } from './doctors';
 import { mockDrug } from './drugs';
 import { mockPatient } from './patients';
 import { mockQueueToken } from './queue';
@@ -271,6 +271,13 @@ function viewOf(stored: StoredEncounter): Encounter {
     ...(stored.queueTokenId ? { queueTokenId: stored.queueTokenId } : {}),
     attendingDoctorId: stored.doctorId,
     ...(doctor ? { attendingDoctorName: doctor.name } : {}),
+    ...(doctor
+      ? {
+          attendingDoctorCredentials: mockCredentials(stored.tenantId, {
+            doctorId: stored.doctorId,
+          }),
+        }
+      : {}),
     ...(doctor ? { departmentId: doctor.departmentId, departmentName: doctor.departmentName } : {}),
     openedAt: stored.openedAt,
     openedByName: stored.openedByName,
@@ -350,8 +357,10 @@ function noteFor(tenantId: string, id: string, permission: string) {
 /** A prescription as the API answers: its lines in place, and the one that replaced it. */
 function prescriptionView(stored: StoredPrescription): Prescription {
   const replacement = state.prescriptions.find((each) => each.replacesId === stored.id);
+  const credentials = mockCredentials(stored.tenantId, { userId: stored.prescribedById });
   return {
     ...stored,
+    ...(credentials ? { prescribedByCredentials: credentials } : {}),
     ...(replacement ? { replacedById: replacement.id } : {}),
     lines: state.orders
       .filter((order) => order.prescriptionId === stored.id)

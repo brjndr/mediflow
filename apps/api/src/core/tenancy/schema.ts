@@ -14,6 +14,10 @@ export const tenants = pgTable('tenants', {
   currency: text('currency').notNull(),
   themePrimary: text('theme_primary').notNull(),
   themeLogoUrl: text('theme_logo_url'),
+  /** Printed on the letterhead (migration 0040). No screen sets them yet. */
+  address: text('address'),
+  phone: text('phone'),
+  registrationNumber: text('registration_number'),
   authMode: text('auth_mode', { enum: ['password', 'sso'] })
     .notNull()
     .default('password'),

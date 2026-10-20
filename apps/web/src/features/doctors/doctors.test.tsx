@@ -6,6 +6,7 @@ import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from
 import { editMockAvailability, editMockDoctor } from '@/mocks/handlers/doctors';
 import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
+import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 import { doctorKeys } from './hooks/use-doctors';
 import { hoursProblems } from './schemas';
@@ -121,6 +122,8 @@ describe('adding a doctor', () => {
     await chooseDepartment('Cardiology');
     await type(/^Specialization/, 'Electrophysiology');
     await type(/^Registration number/, 'MCI-12345');
+    await type(/^Registering council/, 'National Medical Commission');
+    await type(/^Qualifications/, 'MBBS, DM (Cardiology)');
     await userEvent.selectOptions(
       screen.getByRole('combobox', { name: /^Appointment length/ }),
       '20 min',
@@ -131,6 +134,9 @@ describe('adding a doctor', () => {
     expect(router.state.location.pathname).toBe('/doctors/doc_new_1');
     expect(screen.getByText('Electrophysiology')).toBeInTheDocument();
     expect(screen.getByText('MCI-12345')).toBeInTheDocument();
+    expect(screen.getByText('National Medical Commission')).toBeInTheDocument();
+    expect(screen.getByText('MBBS, DM (Cardiology)')).toBeInTheDocument();
+    expect(screen.queryByText(/a prescription must show/)).not.toBeInTheDocument();
     expect(screen.getByText('20 min')).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText('Day off')).toHaveLength(7));
   });
@@ -218,7 +224,11 @@ describe('a doctor’s profile', () => {
     expect(screen.getByRole('heading', { name: 'Diya Sharma' })).toBeInTheDocument();
     expect(screen.getAllByText('Cardiology').length).toBeGreaterThan(0);
     expect(screen.getByText('Surgery')).toBeInTheDocument();
-    expect(screen.getByText('Not given')).toBeInTheDocument();
+    // No registration number or council in the mock: said, and said why it matters (#397).
+    expect(screen.getAllByText('Not given')).toHaveLength(2);
+    expect(screen.getByText('MBBS, MS (General Surgery)')).toBeInTheDocument();
+    expect(screen.getByText(/No registration number: a prescription must show it/)).toBeVisible();
+    await expectNoAxeViolations();
     expect(screen.getByLabelText('Monday, session 1: from')).toHaveValue('09:00');
     expect(screen.getByLabelText('Friday, session 1: to')).toHaveValue('13:00');
     expect(screen.getAllByText('Day off')).toHaveLength(2);
@@ -244,6 +254,41 @@ describe('a doctor’s profile', () => {
     expect(await screen.findByText('Cardiac surgery')).toBeInTheDocument();
     expect(screen.getAllByText('Neurology').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Save profile' })).not.toBeInTheDocument();
+  });
+
+  it('says which of the qualifications and the registration number are missing (#397)', async () => {
+    editMockDoctor('doc_h_02', { qualifications: undefined });
+    await openDoctor();
+    expect(
+      screen.getByText(/No qualifications or registration number: a prescription must show both/),
+    ).toBeVisible();
+  });
+
+  it('says when only the qualifications are missing (#397)', async () => {
+    editMockDoctor('doc_h_02', { qualifications: undefined, registrationNumber: 'KMC-1' });
+    await openDoctor();
+    expect(screen.getByText(/No qualifications: a prescription must show them/)).toBeVisible();
+  });
+
+  it('records the registration and its council, which a prescription prints (#397)', async () => {
+    await openDoctor();
+    await userEvent.click(button('Edit profile'));
+    expect(textbox(/^Qualifications/)).toHaveValue('MBBS, MS (General Surgery)');
+
+    // Plain text only, as the API takes it.
+    await type(/^Registering council/, `Council${String.fromCodePoint(0x202e)}`);
+    await userEvent.click(button('Save profile'));
+    expect(await screen.findByText(/a character that cannot be seen/)).toBeInTheDocument();
+
+    await type(/^Registering council/, 'Karnataka Medical Council');
+    await type(/^Registration number/, 'KMC-777');
+    await userEvent.click(button('Save profile'));
+
+    await waitFor(() => expect(statuses()).toContain('The profile was saved.'));
+    expect(screen.getByText('KMC-777')).toBeInTheDocument();
+    expect(screen.getByText('Karnataka Medical Council')).toBeInTheDocument();
+    expect(screen.queryByText(/a prescription must show/)).not.toBeInTheDocument();
+    await expectNoAxeViolations();
   });
 
   it('keeps what was typed after a conflict, and saves it without undoing the other change', async () => {

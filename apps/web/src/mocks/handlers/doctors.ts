@@ -11,6 +11,7 @@ type DoctorCandidate = components['schemas']['DoctorCandidate'];
 type DoctorCandidatePage = components['schemas']['DoctorCandidatePage'];
 type DoctorSession = components['schemas']['DoctorSession'];
 type DoctorAvailability = components['schemas']['DoctorAvailability'];
+type Credentials = components['schemas']['DoctorCredentials'];
 
 const FEATURE_FLAG = 'doctors';
 const READ = 'doctor:read';
@@ -43,6 +44,17 @@ function seed(): State {
     departmentId,
     departmentName: mockDepartment(member.tenantId, departmentId)?.name ?? '',
     specialization: SPECIALIZATIONS[index % SPECIALIZATIONS.length] ?? 'General practice',
+    // What a printed prescription names (#397). The hospital's second doctor has no registration
+    // number or council, so the print and the profile say what is missing.
+    ...(member.tenantId === clinic[0]?.tenantId
+      ? { qualifications: 'MBBS', registrationNumber: `DHA-${1001 + index}` }
+      : index === 1
+        ? { qualifications: 'MBBS, MS (General Surgery)' }
+        : {
+            qualifications: 'MBBS, MD (General Medicine)',
+            registrationNumber: `KMC-${String(40001 + index)}`,
+            registrationCouncil: 'Karnataka Medical Council',
+          }),
     consultationMinutes: 15,
     active: true,
     version: 1,
@@ -83,6 +95,28 @@ onMockReset(() => {
 /** A doctor of this hospital as another feature's mock names one, or undefined. */
 export const mockDoctor = (tenantId: string, id: string): Doctor | undefined =>
   state.doctors.find((doctor) => doctor.id === id && doctor.tenantId === tenantId);
+
+/**
+ * The qualifications and registration of a doctor, or of a staff member's profile whatever its
+ * state, as the clinical API answers them with an encounter or a prescription (#397). Undefined
+ * for someone with no profile at this hospital.
+ */
+export function mockCredentials(
+  tenantId: string,
+  by: { doctorId: string } | { userId: string },
+): Credentials | undefined {
+  const doctor = state.doctors.find(
+    (each) =>
+      each.tenantId === tenantId &&
+      ('doctorId' in by ? each.id === by.doctorId : each.userId === by.userId),
+  );
+  if (!doctor) return undefined;
+  return {
+    ...(doctor.qualifications ? { qualifications: doctor.qualifications } : {}),
+    ...(doctor.registrationNumber ? { registrationNumber: doctor.registrationNumber } : {}),
+    ...(doctor.registrationCouncil ? { registrationCouncil: doctor.registrationCouncil } : {}),
+  };
+}
 
 /** The practising doctor profile of a staff member at this hospital, or undefined. */
 export const mockDoctorOfUser = (tenantId: string, userId: string): Doctor | undefined =>
@@ -136,7 +170,15 @@ function paged<T>(request: Request, all: T[], idOf: (item: T) => string) {
 /** The profile fields of a body, checked as the API's schema would. Null when not acceptable. */
 function readProfile(tenantId: string, body: Record<string, unknown>) {
   const fields: Partial<Doctor> = {};
-  const { departmentId, specialization, registrationNumber, consultationMinutes, active } = body;
+  const {
+    departmentId,
+    specialization,
+    registrationNumber,
+    qualifications,
+    registrationCouncil,
+    consultationMinutes,
+    active,
+  } = body;
   if (departmentId !== undefined) {
     const department = typeof departmentId === 'string' && mockDepartment(tenantId, departmentId);
     if (!department) return null;
@@ -151,6 +193,14 @@ function readProfile(tenantId: string, body: Record<string, unknown>) {
   if (registrationNumber !== undefined) {
     if (typeof registrationNumber !== 'string' || registrationNumber.length > 50) return null;
     fields.registrationNumber = registrationNumber.trim();
+  }
+  if (qualifications !== undefined) {
+    if (typeof qualifications !== 'string' || qualifications.length > 200) return null;
+    fields.qualifications = qualifications.trim();
+  }
+  if (registrationCouncil !== undefined) {
+    if (typeof registrationCouncil !== 'string' || registrationCouncil.length > 100) return null;
+    fields.registrationCouncil = registrationCouncil.trim();
   }
   if (consultationMinutes !== undefined) {
     if (!Number.isInteger(consultationMinutes)) return null;
@@ -255,6 +305,8 @@ export const doctorsHandlers = [
       departmentName,
       specialization,
       ...(fields.registrationNumber ? { registrationNumber: fields.registrationNumber } : {}),
+      ...(fields.qualifications ? { qualifications: fields.qualifications } : {}),
+      ...(fields.registrationCouncil ? { registrationCouncil: fields.registrationCouncil } : {}),
       consultationMinutes,
       active: true,
       version: 1,
@@ -291,6 +343,8 @@ export const doctorsHandlers = [
     const before = JSON.stringify(doctor);
     Object.assign(doctor, fields);
     if (doctor.registrationNumber === '') delete doctor.registrationNumber;
+    if (doctor.qualifications === '') delete doctor.qualifications;
+    if (doctor.registrationCouncil === '') delete doctor.registrationCouncil;
     // Sending what the profile already has changes nothing.
     if (JSON.stringify(doctor) !== before) doctor.version += 1;
     return HttpResponse.json<Doctor>(doctor);

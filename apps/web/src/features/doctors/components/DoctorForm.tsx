@@ -6,6 +6,8 @@ import { Form, SelectField, SubmitButton, TextField, useZodForm } from '@/shared
 import {
   CONSULTATION_MINUTES,
   doctorFormSchema,
+  COUNCIL_MAX,
+  QUALIFICATIONS_MAX,
   REGISTRATION_MAX,
   SPECIALIZATION_MAX,
   type DoctorField,
@@ -43,6 +45,8 @@ export function DoctorForm({
     departmentId: editing?.departmentId ?? '',
     specialization: editing?.specialization ?? '',
     registrationNumber: editing?.registrationNumber ?? '',
+    qualifications: editing?.qualifications ?? '',
+    registrationCouncil: editing?.registrationCouncil ?? '',
     consultationMinutes: current,
   });
   // Read while rendering, which is what keeps it up to date.
@@ -100,6 +104,20 @@ export function DoctorForm({
         label={t('form.registrationNumber')}
         hint={t('form.registrationHint')}
         maxLength={REGISTRATION_MAX}
+        autoComplete="off"
+      />
+      <TextField
+        name="registrationCouncil"
+        label={t('form.registrationCouncil')}
+        hint={t('form.registrationCouncilHint')}
+        maxLength={COUNCIL_MAX}
+        autoComplete="off"
+      />
+      <TextField
+        name="qualifications"
+        label={t('form.qualifications')}
+        hint={t('form.qualificationsHint')}
+        maxLength={QUALIFICATIONS_MAX}
         autoComplete="off"
       />
       <SelectField

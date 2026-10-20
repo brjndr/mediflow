@@ -41,6 +41,8 @@ export default function DoctorCreate() {
         departmentId: values.departmentId,
         specialization: values.specialization,
         registrationNumber: values.registrationNumber || undefined,
+        qualifications: values.qualifications || undefined,
+        registrationCouncil: values.registrationCouncil || undefined,
         consultationMinutes: Number(values.consultationMinutes),
       });
       // Straight to the new profile, where the working hours are set.

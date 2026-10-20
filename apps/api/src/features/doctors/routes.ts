@@ -32,6 +32,8 @@ import {
   DoctorListQuery,
   DoctorPage,
   DoctorUpdate,
+  COUNCIL_MAX,
+  QUALIFICATIONS_MAX,
   REGISTRATION_MAX,
   SPECIALIZATION_MAX,
   WEEKDAYS,
@@ -51,6 +53,8 @@ const view = (row: DoctorRow): Doctor => ({
   departmentName: row.department_name,
   specialization: row.specialization,
   ...(row.registration_number === null ? {} : { registrationNumber: row.registration_number }),
+  ...(row.qualifications === null ? {} : { qualifications: row.qualifications }),
+  ...(row.registration_council === null ? {} : { registrationCouncil: row.registration_council }),
   consultationMinutes: row.consultation_minutes,
   active: row.active,
   version: row.version,
@@ -74,6 +78,9 @@ function cleanSpecialization(text: string): string {
 /** An empty registration number is none. */
 const cleanRegistration = (text: string | undefined): string | null =>
   tidyOptional(text, REGISTRATION_MAX);
+const cleanQualifications = (text: string | undefined): string | null =>
+  tidyOptional(text, QUALIFICATIONS_MAX);
+const cleanCouncil = (text: string | undefined): string | null => tidyOptional(text, COUNCIL_MAX);
 
 /**
  * A department a doctor may be put in: one of this hospital, and not archived. Row-level
@@ -225,6 +232,8 @@ export const doctorRoutes: FastifyPluginAsyncTypebox = async (app) => {
           departmentId: body.departmentId,
           specialization,
           registrationNumber: cleanRegistration(body.registrationNumber),
+          qualifications: cleanQualifications(body.qualifications),
+          registrationCouncil: cleanCouncil(body.registrationCouncil),
           consultationMinutes: body.consultationMinutes,
         });
       } catch (error) {
@@ -294,6 +303,14 @@ export const doctorRoutes: FastifyPluginAsyncTypebox = async (app) => {
           body.registrationNumber === undefined
             ? current.registration_number
             : cleanRegistration(body.registrationNumber),
+        qualifications:
+          body.qualifications === undefined
+            ? current.qualifications
+            : cleanQualifications(body.qualifications),
+        registrationCouncil:
+          body.registrationCouncil === undefined
+            ? current.registration_council
+            : cleanCouncil(body.registrationCouncil),
         consultationMinutes: body.consultationMinutes ?? current.consultation_minutes,
         active: body.active ?? current.profile_active,
       };
@@ -301,6 +318,8 @@ export const doctorRoutes: FastifyPluginAsyncTypebox = async (app) => {
         next.departmentId === current.department_id &&
         next.specialization === current.specialization &&
         next.registrationNumber === current.registration_number &&
+        next.qualifications === current.qualifications &&
+        next.registrationCouncil === current.registration_council &&
         next.consultationMinutes === current.consultation_minutes &&
         next.active === current.profile_active
       ) {

@@ -368,6 +368,15 @@ const HOSPITALS = [
     timezone: 'Asia/Kolkata',
     currency: 'INR',
     themePrimary: '#0f766e',
+    // Printed on the letterhead. Not a real place.
+    address: '12 Sample Road, Indiranagar\nBengaluru 560038, Karnataka',
+    phone: '+91 80 4000 0000',
+    registrationNumber: 'KA-CE-0000',
+    // Given to the sample doctors' profiles, for the printed prescription.
+    doctorCredentials: {
+      qualifications: 'MBBS, MD (General Medicine)',
+      registrationCouncil: 'Karnataka Medical Council',
+    },
     features: {
       patients: true,
       departments: true,
@@ -399,6 +408,11 @@ const HOSPITALS = [
     timezone: 'Asia/Dubai',
     currency: 'AED',
     themePrimary: '#4338ca',
+    // No registration number, and no council for its doctors: the print says what is missing.
+    address: 'Unit 4, Riverside Walk, Dubai',
+    phone: '+971 4 000 0000',
+    registrationNumber: null,
+    doctorCredentials: { qualifications: 'MBBS', registrationCouncil: null },
     features: {
       patients: true,
       departments: true,
@@ -475,11 +489,14 @@ try {
   const tenantIds = new Map<string, string>();
   for (const hospital of HOSPITALS) {
     const { rows } = await client.query<{ id: string }>(
-      `insert into tenants (slug, name, locale, timezone, currency, theme_primary)
-       values ($1, $2, $3, $4, $5, $6)
+      `insert into tenants (slug, name, locale, timezone, currency, theme_primary, address, phone,
+                            registration_number)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        on conflict (slug) do update
          set name = excluded.name, locale = excluded.locale, timezone = excluded.timezone,
-             currency = excluded.currency, theme_primary = excluded.theme_primary
+             currency = excluded.currency, theme_primary = excluded.theme_primary,
+             address = excluded.address, phone = excluded.phone,
+             registration_number = excluded.registration_number
        returning id`,
       [
         hospital.slug,
@@ -488,6 +505,9 @@ try {
         hospital.timezone,
         hospital.currency,
         hospital.themePrimary,
+        hospital.address,
+        hospital.phone,
+        hospital.registrationNumber,
       ],
     );
     const id = rows[0]?.id;
@@ -799,6 +819,21 @@ try {
        on conflict on constraint doctors_one_profile do nothing
        returning id`,
       [tenantId],
+    );
+    // A registration number made from the person's id, so each differs. Only on profiles with
+    // neither qualifications nor a council (a database seeded before #397), and an existing
+    // registration number is kept; a profile left without them on purpose gets them too.
+    await client.query(
+      `update doctors
+       set qualifications = $2, registration_council = $3,
+           registration_number = coalesce(registration_number,
+                                          'REG-' || upper(left(user_id::text, 6)))
+       where tenant_id = $1 and qualifications is null and registration_council is null`,
+      [
+        tenantId,
+        hospital.doctorCredentials.qualifications,
+        hospital.doctorCredentials.registrationCouncil,
+      ],
     );
     for (const doctor of added.rows) {
       await client.query(

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Can } from '@/access';
@@ -22,6 +23,8 @@ function changes(values: DoctorFormValues, changed: DoctorField[]): Partial<Doct
     departmentId: values.departmentId,
     specialization: values.specialization,
     registrationNumber: values.registrationNumber,
+    qualifications: values.qualifications,
+    registrationCouncil: values.registrationCouncil,
     consultationMinutes: Number(values.consultationMinutes),
   } satisfies Partial<DoctorUpdate>;
   return Object.fromEntries(changed.map((field) => [field, all[field]]));
@@ -116,6 +119,19 @@ function Profile({ doctor }: { doctor: Doctor }) {
       {!doctor.active && (
         <p className="text-sm text-muted-foreground">{t('detail.inactiveNote')}</p>
       )}
+      {(!doctor.qualifications || !doctor.registrationNumber) && (
+        // Said, not refused: a prescription still prints, and says the same on paper (#397).
+        <p className="flex items-start gap-2 text-sm">
+          <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {t(
+            doctor.qualifications
+              ? 'detail.missingRegistration'
+              : doctor.registrationNumber
+                ? 'detail.missingQualifications'
+                : 'detail.missingBoth',
+          )}
+        </p>
+      )}
       {(conflict !== 'none' || conflicted) && (
         <p role="alert" className="text-sm text-destructive">
           {t(editing ? 'detail.conflict' : 'detail.conflictToggle')}
@@ -162,6 +178,14 @@ function Profile({ doctor }: { doctor: Doctor }) {
             <div>
               <dt className="text-muted-foreground">{t('form.registrationNumber')}</dt>
               <dd className="break-words">{doctor.registrationNumber || t('detail.notGiven')}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">{t('form.registrationCouncil')}</dt>
+              <dd className="break-words">{doctor.registrationCouncil || t('detail.notGiven')}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">{t('form.qualifications')}</dt>
+              <dd className="break-words">{doctor.qualifications || t('detail.notGiven')}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">{t('columns.consultation')}</dt>
