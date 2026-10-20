@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PLAIN_TEXT } from '@/shared/utils/text';
+import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 import type {
   ClinicalNote,
   ClinicalNotePage,
@@ -10,6 +10,12 @@ import type {
   Encounter,
   EncounterPage,
   EncounterStatus,
+  MedicationRoute,
+  Order,
+  OrderStatus,
+  Prescription,
+  PrescriptionCreate,
+  PrescriptionPage,
 } from './types';
 
 export const ENCOUNTER_STATUSES = [
@@ -152,3 +158,229 @@ export function diagnosisName(diagnosis: Diagnosis): string {
   const coded = diagnosis.code ? `${diagnosis.code} ${diagnosis.codeTitle ?? ''}`.trim() : '';
   return [coded, diagnosis.text].filter(Boolean).join(' · ');
 }
+
+// ----- Prescriptions (#81) ----------------------------------------------------------------------
+
+export const ORDER_STATUSES = [
+  'placed',
+  'accepted',
+  'in_progress',
+  'completed',
+  'cancelled',
+] as const satisfies readonly OrderStatus[];
+export const MEDICATION_ROUTES = [
+  'oral',
+  'sublingual',
+  'topical',
+  'inhaled',
+  'nasal',
+  'eye',
+  'ear',
+  'rectal',
+  'vaginal',
+  'intramuscular',
+  'intravenous',
+  'subcutaneous',
+  'other',
+] as const satisfies readonly MedicationRoute[];
+
+/** The API's limits for a prescription. */
+export const LINES_MAX = 30;
+export const DOSE_MAX = 50;
+export const INSTRUCTIONS_MAX = 500;
+export const ADVICE_MAX = 1000;
+export const DURATION_DAYS_MAX = 365;
+export const QUANTITY_MAX = 10_000;
+
+export const orderSchema: z.ZodType<Order> = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  encounterId: z.string(),
+  patientId: z.string(),
+  type: z.enum(['lab', 'imaging', 'procedure', 'medication', 'diet']),
+  labTestId: z.string().optional(),
+  serviceId: z.string().optional(),
+  drugId: z.string().optional(),
+  prescriptionId: z.string().optional(),
+  lineNumber: z.number().int().optional(),
+  itemCode: z.string().optional(),
+  itemName: z.string().optional(),
+  status: z.enum(ORDER_STATUSES),
+  priority: z.enum(['routine', 'urgent', 'stat']),
+  instructions: z.string().optional(),
+  dose: z.string().optional(),
+  route: z.enum(MEDICATION_ROUTES).optional(),
+  frequency: z.string().optional(),
+  durationDays: z.number().int().optional(),
+  quantity: z.number().int().optional(),
+  placedAt: z.string(),
+  orderedById: z.string(),
+  orderedByName: z.string(),
+  statusChangedAt: z.string().optional(),
+  cancelReason: z.string().optional(),
+  version: z.number().int(),
+});
+
+export const prescriptionSchema: z.ZodType<Prescription> = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  encounterId: z.string(),
+  patientId: z.string(),
+  prescribedAt: z.string(),
+  prescribedById: z.string(),
+  prescribedByName: z.string(),
+  advice: z.string().optional(),
+  replacesId: z.string().optional(),
+  replaceReason: z.string().optional(),
+  replacedById: z.string().optional(),
+  lines: z.array(orderSchema),
+});
+
+export const prescriptionPageSchema: z.ZodType<PrescriptionPage> = z.object({
+  items: z.array(prescriptionSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+/** A whole number typed in a box: empty, or digits from 1 to the limit. */
+const countField = (max: number, message: string) =>
+  z
+    .string()
+    .trim()
+    .refine(
+      (value) =>
+        value === '' || (/^\d{1,6}$/.test(value) && Number(value) >= 1 && Number(value) <= max),
+      message,
+    );
+
+/** One line as typed. The medicine is chosen from the search; its names are kept to show it. */
+const lineSchema = z.object({
+  drugId: z.string().min(1, 'clinical:prescriptions.form.drugRequired'),
+  drugName: z.string(),
+  genericName: z.string(),
+  brandName: z.string(),
+  dose: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(DOSE_MAX, 'validation.too_big')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  route: z.enum(MEDICATION_ROUTES, 'validation.required'),
+  frequency: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(DOSE_MAX, 'validation.too_big')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  durationDays: countField(DURATION_DAYS_MAX, 'clinical:prescriptions.form.daysRange'),
+  quantity: countField(QUANTITY_MAX, 'clinical:prescriptions.form.quantityRange'),
+  instructions: z
+    .string()
+    .trim()
+    .max(INSTRUCTIONS_MAX, 'validation.too_big')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+});
+export type PrescriptionLineValues = z.input<typeof lineSchema>;
+
+/**
+ * A prescription as typed: 1 to 30 lines and advice. A revision adds the reason, required; a
+ * new prescription has none, as the API refuses one without `replacesId`.
+ */
+export const prescriptionFormSchema = (revising: boolean) =>
+  z.object({
+    lines: z
+      .array(lineSchema)
+      .min(1, 'clinical:prescriptions.form.linesRequired')
+      .max(LINES_MAX, 'validation.too_big'),
+    advice: z
+      .string()
+      .trim()
+      .max(ADVICE_MAX, 'validation.too_big')
+      .regex(PLAIN_LINES, 'validation.plain_text'),
+    reason: revising
+      ? z
+          .string()
+          .trim()
+          .min(1, 'validation.required')
+          .max(REASON_MAX, 'validation.too_big')
+          .regex(PLAIN_TEXT, 'validation.plain_text')
+      : z.string(),
+  });
+export type PrescriptionValues = z.input<ReturnType<typeof prescriptionFormSchema>>;
+export type PrescriptionOutput = z.output<ReturnType<typeof prescriptionFormSchema>>;
+
+export const blankLine: PrescriptionLineValues = {
+  drugId: '',
+  drugName: '',
+  genericName: '',
+  brandName: '',
+  dose: '',
+  route: 'oral',
+  frequency: '',
+  durationDays: '',
+  quantity: '',
+  instructions: '',
+};
+
+export const blankPrescription: PrescriptionValues = {
+  lines: [blankLine],
+  advice: '',
+  reason: '',
+};
+
+/**
+ * A line the revision of its prescription cancels: one not started yet. A line in progress or
+ * completed stays as it is, whatever the revision says.
+ */
+export const replaceable = (line: Order) => line.status === 'placed' || line.status === 'accepted';
+
+/**
+ * A revision starts from the lines it would cancel, to be written again as corrected (a line
+ * cancelled on its own, or already started, is not), and the advice. The names of the catalog
+ * item are the ones it was ordered under.
+ */
+export function toPrescriptionValues(prescription: Prescription): PrescriptionValues {
+  const standing = [...prescription.lines]
+    .sort((a, b) => (a.lineNumber ?? 0) - (b.lineNumber ?? 0))
+    .filter((line) => replaceable(line) && line.drugId);
+  return {
+    lines: standing.map((line) => ({
+      drugId: line.drugId ?? '',
+      drugName: line.itemName ?? '',
+      // The checks read the name as it was ordered, which holds the generic name and brand.
+      genericName: line.itemName ?? '',
+      brandName: '',
+      dose: line.dose ?? '',
+      route: line.route ?? 'oral',
+      frequency: line.frequency ?? '',
+      durationDays: line.durationDays === undefined ? '' : String(line.durationDays),
+      quantity: line.quantity === undefined ? '' : String(line.quantity),
+      instructions: line.instructions ?? '',
+    })),
+    advice: prescription.advice ?? '',
+    reason: '',
+  };
+}
+
+export function toPrescriptionCreate(
+  values: PrescriptionOutput,
+  replacesId?: string,
+): PrescriptionCreate {
+  return {
+    lines: values.lines.map((line) => ({
+      drugId: line.drugId,
+      dose: line.dose,
+      route: line.route,
+      frequency: line.frequency,
+      ...(line.durationDays ? { durationDays: Number(line.durationDays) } : {}),
+      ...(line.quantity ? { quantity: Number(line.quantity) } : {}),
+      ...(line.instructions ? { instructions: line.instructions } : {}),
+    })),
+    ...(values.advice ? { advice: values.advice } : {}),
+    ...(replacesId ? { replacesId, replaceReason: values.reason } : {}),
+  };
+}
+
+/** A prescription's lines in the order they were written. */
+export const linesInOrder = (prescription: Prescription): Order[] =>
+  [...prescription.lines].sort((a, b) => (a.lineNumber ?? 0) - (b.lineNumber ?? 0));

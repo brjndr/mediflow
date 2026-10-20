@@ -187,6 +187,10 @@ export function editMockDrug(id: string, changes: Partial<Drug>): void {
   Object.assign(drug, changes, { version: drug.version + 1 });
 }
 
+/** An item of the hospital as the mock holds it now, for the mocks of other modules. */
+export const mockDrug = (tenantId: string, id: string): Drug | undefined =>
+  state.drugs.find((candidate) => candidate.id === id && candidate.tenantId === tenantId);
+
 const invalid = () => error(400, 'validation_failed', 'The request is not valid');
 const notFound = () => error(404, 'drug_not_found', 'No such item');
 const exists = () => error(409, 'drug_exists', 'The hospital has exactly this item');

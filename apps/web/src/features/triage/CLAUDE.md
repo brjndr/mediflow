@@ -39,4 +39,4 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 - No "vitals taken" mark on the queue board (see Decided).
 - No respiratory rate, pain score, blood glucose or head circumference: a field each, additive.
 - Units are fixed (°C, kg, cm).
-- Allergens are free text, so they cannot yet drive drug-allergy checks in prescribing or the pharmacy (#380).
+- Allergens are free text, so prescribing (#81, through the exported `useAllergies`) can only match them against a medicine's names by words; drug classes and the pharmacy need coded allergens (#380).

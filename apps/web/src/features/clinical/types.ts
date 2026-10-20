@@ -18,3 +18,14 @@ export type Diagnosis = Schemas['Diagnosis'];
 export type DiagnosisPage = Schemas['DiagnosisPage'];
 export type DiagnosisCreate = Schemas['DiagnosisCreate'];
 export type DiagnosisKind = Schemas['DiagnosisKind'];
+
+/** A request for work for the patient. A medication order is a line of a prescription. */
+export type Order = Schemas['Order'];
+export type OrderStatus = Schemas['OrderStatus'];
+export type MedicationRoute = Schemas['MedicationRoute'];
+
+/** Medication orders written together. Never changed: a revision replaces it. */
+export type Prescription = Schemas['Prescription'];
+export type PrescriptionPage = Schemas['PrescriptionPage'];
+export type PrescriptionCreate = Schemas['PrescriptionCreate'];
+export type PrescriptionLine = Schemas['PrescriptionLine'];

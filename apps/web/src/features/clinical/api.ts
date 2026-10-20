@@ -7,6 +7,8 @@ import {
   encounterSchema,
   notePageSchema,
   noteSchema,
+  prescriptionPageSchema,
+  prescriptionSchema,
 } from './schemas';
 import type {
   ClinicalNote,
@@ -18,6 +20,9 @@ import type {
   EncounterCreate,
   EncounterPage,
   EncounterStatus,
+  Prescription,
+  PrescriptionCreate,
+  PrescriptionPage,
 } from './types';
 
 // Every address holds ids only: nothing about the patient is in a URL. Every POST carries an
@@ -207,4 +212,32 @@ export async function retractDiagnosis(
     body: { reason },
   });
   return diagnosisSchema.parse(requireData(result));
+}
+
+/** The encounter's prescriptions with their lines, oldest first, replaced ones included. */
+export async function fetchPrescriptions(
+  { encounterId, cursor, limit }: { encounterId: string; cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<PrescriptionPage> {
+  const result = await api.GET('/encounters/{encounterId}/prescriptions', {
+    params: { path: { encounterId }, query: { cursor, limit } },
+    signal,
+  });
+  return prescriptionPageSchema.parse(requireData(result));
+}
+
+/**
+ * Writes a prescription, never changed after. A revision is a new one naming the one it replaces
+ * (`replacesId`, with a reason): the server cancels the old one's lines not yet started.
+ */
+export async function writePrescription(
+  encounterId: string,
+  body: PrescriptionCreate,
+  idempotencyKey: string,
+): Promise<Prescription> {
+  const result = await api.POST('/encounters/{encounterId}/prescriptions', {
+    params: { path: { encounterId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return prescriptionSchema.parse(requireData(result));
 }

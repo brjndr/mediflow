@@ -38,6 +38,18 @@
     "medicine": "Medicine",
     "consumable": "Consumable"
   },
+  "search": {
+    "placeholder": "Generic name or brand",
+    "unavailable": "The drug catalog is not open to you at this hospital.",
+    "typeToSearch": "Type a generic name or a brand.",
+    "loading": "Searching…",
+    "failed": "The drug catalog could not be searched. Type again to retry.",
+    "none": "No medicine matches.",
+    "found_one": "{{count}} medicine. More are found by typing more.",
+    "found_other": "{{count}} medicines. More are found by typing more.",
+    "name": "{{name}} {{form}}",
+    "nameWithBrand": "{{name}} {{form}} ({{brand}})"
+  },
   "forms": {
     "tablet": "Tablet",
     "capsule": "Capsule",
