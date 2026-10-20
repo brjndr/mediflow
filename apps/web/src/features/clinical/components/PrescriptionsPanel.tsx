@@ -10,7 +10,9 @@ import { useFormatters } from '@/tenancy';
 import { usePrescriptions } from '../hooks/use-clinical';
 import { linesInOrder } from '../schemas';
 import type { Encounter, Order, Prescription } from '../types';
+import { useHowToTake } from './how-to-take';
 import { PrescriptionForm } from './PrescriptionForm';
+import { PrintPrescriptionButton } from './PrintDocuments';
 
 type Writing = { kind: 'new' } | { kind: 'revise'; prescription: Prescription };
 
@@ -82,6 +84,7 @@ export function PrescriptionsPanel({ encounter }: { encounter: Encounter }) {
           {items.map((prescription) => (
             <li key={prescription.id}>
               <PrescriptionView
+                encounter={encounter}
                 prescription={prescription}
                 replaces={prescription.replacesId ? byId.get(prescription.replacesId) : undefined}
                 replacedBy={
@@ -141,11 +144,13 @@ export function PrescriptionsPanel({ encounter }: { encounter: Encounter }) {
 }
 
 function PrescriptionView({
+  encounter,
   prescription,
   replaces,
   replacedBy,
   onRevise,
 }: {
+  encounter: Encounter;
   prescription: Prescription;
   replaces: Prescription | undefined;
   replacedBy: Prescription | undefined;
@@ -156,6 +161,11 @@ function PrescriptionView({
   const headingId = useId();
   const replaced = prescription.replacedById !== undefined;
   const written = format.dateTime(prescription.prescribedAt);
+  // A replaced one, or one with every line cancelled, is not given to the patient (#89).
+  const printable =
+    usePermission('encounter:print') &&
+    !replaced &&
+    prescription.lines.some((line) => line.status !== 'cancelled');
   return (
     <article
       aria-labelledby={headingId}
@@ -200,17 +210,23 @@ function PrescriptionView({
           <p className="whitespace-pre-line break-words">{prescription.advice}</p>
         </div>
       )}
-      {onRevise && (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="self-start"
-          aria-label={t('prescriptions.reviseLabel', { time: written })}
-          onClick={onRevise}
-        >
-          {t('prescriptions.revise')}
-        </Button>
+      {(onRevise || printable) && (
+        <div className="flex flex-wrap items-start gap-2">
+          {onRevise && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label={t('prescriptions.reviseLabel', { time: written })}
+              onClick={onRevise}
+            >
+              {t('prescriptions.revise')}
+            </Button>
+          )}
+          {printable && (
+            <PrintPrescriptionButton encounter={encounter} prescription={prescription} />
+          )}
+        </div>
       )}
     </article>
   );
@@ -219,20 +235,12 @@ function PrescriptionView({
 /** A line: the medicine as ordered, how to take it, and where it stands when not just placed. */
 function LineView({ line }: { line: Order }) {
   const { t } = useTranslation('clinical');
-  const how = [
-    line.dose,
-    line.route ? t(`prescriptions.routes.${line.route}`) : undefined,
-    line.frequency,
-    line.durationDays === undefined
-      ? undefined
-      : t('prescriptions.days', { count: line.durationDays }),
-    line.quantity === undefined ? undefined : t('prescriptions.quantity', { count: line.quantity }),
-  ].filter(Boolean);
+  const howToTake = useHowToTake();
   const cancelled = line.status === 'cancelled';
   return (
     <div className="flex flex-col gap-0.5 text-sm">
       <p className={cn('break-words font-medium', cancelled && 'line-through')}>{line.itemName}</p>
-      <p className="break-words">{how.join(' · ')}</p>
+      <p className="break-words">{howToTake(line)}</p>
       {line.instructions && <p className="break-words">{line.instructions}</p>}
       {line.status !== 'placed' && (
         <p className="font-medium">

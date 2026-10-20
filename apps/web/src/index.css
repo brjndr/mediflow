@@ -107,3 +107,25 @@
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Printing (#89): a printed document is drawn by `PrintSheet` (shared/ui/print-sheet) into a box
+ * of its own under <body>, hidden on screen. When printing, that box is the only thing shown: the
+ * shell, the navigation and the screen behind it are left out, and it prints black on white.
+ */
+[data-print-sheet] {
+  display: none;
+}
+@media print {
+  body > :not([data-print-sheet]) {
+    display: none !important;
+  }
+  [data-print-sheet] {
+    display: block;
+    color: #000;
+    background: #fff;
+  }
+  body {
+    background: #fff;
+  }
+}

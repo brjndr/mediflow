@@ -107,3 +107,45 @@ test('write a prescription with the keyboard alone', async ({ page }) => {
   );
   await expectNoAxeViolations(page);
 });
+
+test('print a prescription and the visit summary with the keyboard alone', async ({ page }) => {
+  // The browser's own print dialog cannot be driven, so it is counted and closed at once.
+  await page.addInitScript(() => {
+    const counted = window as Window & { printed?: number };
+    counted.printed = 0;
+    window.print = () => {
+      counted.printed = (counted.printed ?? 0) + 1;
+      window.dispatchEvent(new Event('afterprint'));
+    };
+  });
+  const printed = () => page.evaluate(() => (window as Window & { printed?: number }).printed);
+  await page.goto('/');
+  await goTo(page, 'Consultations');
+  await page.getByRole('main').getByRole('link').first().click();
+  await expect(page.getByText('Paracetamol 500 mg (ParaCare)')).toBeVisible();
+
+  // Reached with the keyboard: from the control before it, Tab.
+  const reach = async (target: ReturnType<Page['getByRole']>) => {
+    await target.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(target).toBeFocused();
+  };
+  const prescription = page.getByRole('button', { name: /^Print the prescription written/ });
+  await reach(prescription);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect.poll(printed).toBe(1);
+  // Focus stays where it was, and the page printed is not left behind.
+  await expect(prescription).toBeFocused();
+  await expect(page.locator('[data-print-sheet]')).toHaveCount(0);
+
+  const summary = page.getByRole('button', { name: 'Print summary' });
+  await reach(summary);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect.poll(printed).toBe(2);
+  await expect(summary).toBeFocused();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});

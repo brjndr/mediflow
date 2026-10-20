@@ -241,3 +241,87 @@ export async function writePrescription(
   });
   return prescriptionSchema.parse(requireData(result));
 }
+
+/** One prescription with its lines as they are now. */
+export async function fetchPrescription(
+  prescriptionId: string,
+  signal?: AbortSignal,
+): Promise<Prescription> {
+  const result = await api.GET('/prescriptions/{prescriptionId}', {
+    params: { path: { prescriptionId } },
+    signal,
+  });
+  return prescriptionSchema.parse(requireData(result));
+}
+
+/** Records that the visit summary is printed (#89): an audit entry, nothing else. */
+export async function recordSummaryPrint(encounterId: string, idempotencyKey: string) {
+  await api.POST('/encounters/{encounterId}/print', {
+    params: { path: { encounterId }, header: { 'idempotency-key': idempotencyKey } },
+  });
+}
+
+/** Records that a prescription is printed (#89): an audit entry, nothing else. */
+export async function recordPrescriptionPrint(prescriptionId: string, idempotencyKey: string) {
+  await api.POST('/prescriptions/{prescriptionId}/print', {
+    params: { path: { prescriptionId }, header: { 'idempotency-key': idempotencyKey } },
+  });
+}
+
+/** At most this many pages of one list for a printed summary: far beyond any OPD visit. */
+const SUMMARY_PAGES_MAX = 20;
+
+/**
+ * Every page of a list, read for a printed summary, which must leave nothing out. A cursor that
+ * comes back again, or more pages than any visit has, is refused rather than read for ever.
+ */
+async function everyPage<Item>(
+  read: (cursor: string | undefined) => Promise<{ items: Item[]; nextCursor?: string | null }>,
+): Promise<Item[]> {
+  const items: Item[] = [];
+  const seen = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    if (seen.size >= SUMMARY_PAGES_MAX) throw new Error('summary_too_long');
+    if (cursor !== undefined) seen.add(cursor);
+    const page = await read(cursor);
+    items.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+    if (cursor !== undefined && seen.has(cursor)) throw new Error('summary_cursor_repeated');
+  } while (cursor !== undefined);
+  return items;
+}
+
+export interface VisitSummary {
+  notes?: ClinicalNote[];
+  diagnoses?: Diagnosis[];
+  prescriptions?: Prescription[];
+}
+
+/**
+ * What the printed visit summary shows, read whole and afresh: the notes, diagnoses and
+ * prescriptions, each only when asked for (the caller's permissions decide).
+ */
+export async function fetchVisitSummary(
+  encounterId: string,
+  parts: { notes: boolean; diagnoses: boolean; prescriptions: boolean },
+  signal?: AbortSignal,
+): Promise<VisitSummary> {
+  const limit = 100;
+  const [notes, diagnoses, prescriptions] = await Promise.all([
+    parts.notes
+      ? everyPage((cursor) => fetchNotes({ encounterId, cursor, limit }, signal))
+      : undefined,
+    parts.diagnoses
+      ? everyPage((cursor) => fetchDiagnoses({ encounterId, cursor, limit }, signal))
+      : undefined,
+    parts.prescriptions
+      ? everyPage((cursor) => fetchPrescriptions({ encounterId, cursor, limit }, signal))
+      : undefined,
+  ]);
+  return {
+    ...(notes ? { notes } : {}),
+    ...(diagnoses ? { diagnoses } : {}),
+    ...(prescriptions ? { prescriptions } : {}),
+  };
+}

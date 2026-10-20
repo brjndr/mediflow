@@ -203,7 +203,17 @@ function seed() {
       quantity: 5,
     }),
   ];
-  return { encounters, notes, diagnoses, prescriptions, orders };
+  /** What was printed (#89), as the audit log keeps it: the entity and its id. */
+  const prints: MockPrint[] = [];
+  return { encounters, notes, diagnoses, prescriptions, orders, prints };
+}
+
+/** A print the API would record in the audit log (#89). */
+export interface MockPrint {
+  tenantId: string;
+  entity: 'encounter' | 'prescription';
+  id: string;
+  userId: string;
 }
 
 let state = seed();
@@ -271,6 +281,7 @@ function viewOf(stored: StoredEncounter): Encounter {
 }
 
 const notFound = () => error(404, 'encounter_not_found', 'Encounter not found');
+const notPrintable = () => error(409, 'not_printable', 'Replaced or cancelled: not printed');
 
 /** The encounter of this hospital the caller reaches with the permission, or null. */
 function encounterFor(tenantId: string, id: string, permission: string) {
@@ -976,6 +987,61 @@ export const clinicalHandlers = [
     remember(sent.keyOf, body, 201, prescription.id);
     return HttpResponse.json<Prescription>(prescriptionView(prescription), { status: 201 });
   }),
+
+  // Printing (#89): an audit entry per print, nothing else.
+  http.post('*/api/encounters/:encounterId/print', async ({ request, params }) => {
+    for (const permission of ['encounter:read', 'encounter:print']) {
+      const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+    }
+    const access = { tenantId: currentPolicy()?.tenantId ?? '' };
+    const sent = await idempotent(request, access.tenantId);
+    if ('refused' in sent) return sent.refused;
+    const id = String(params.encounterId);
+    const found =
+      encounterFor(access.tenantId, id, 'encounter:read') &&
+      encounterFor(access.tenantId, id, 'encounter:print');
+    if (!found) return notFound();
+    if (found.status === 'cancelled') return notPrintable();
+    if (!sent.replay) {
+      state.prints.push({
+        tenantId: access.tenantId,
+        entity: 'encounter',
+        id: found.id,
+        userId: caller().id,
+      });
+      remember(sent.keyOf, sent.body, 204, found.id);
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post('*/api/prescriptions/:prescriptionId/print', async ({ request, params }) => {
+    for (const permission of ['prescription:read', 'encounter:print']) {
+      const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+    }
+    const tenantId = currentPolicy()?.tenantId ?? '';
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const stored = state.prescriptions.find(
+      (each) => each.id === String(params.prescriptionId) && each.tenantId === tenantId,
+    );
+    if (
+      !stored ||
+      !encounterFor(tenantId, stored.encounterId, 'prescription:read') ||
+      !encounterFor(tenantId, stored.encounterId, 'encounter:print')
+    ) {
+      return prescriptionNotFound();
+    }
+    const replaced = state.prescriptions.some((each) => each.replacesId === stored.id);
+    const lines = state.orders.filter((order) => order.prescriptionId === stored.id);
+    if (replaced || lines.every((order) => order.status === 'cancelled')) return notPrintable();
+    if (!sent.replay) {
+      state.prints.push({ tenantId, entity: 'prescription', id: stored.id, userId: caller().id });
+      remember(sent.keyOf, sent.body, 204, stored.id);
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
 ];
 
 /** An encounter as the mock holds it now, for tests. */
@@ -1006,3 +1072,6 @@ export function moveMockOrder(id: string, status: Order['status']): void {
   order.statusChangedAt = now();
   order.version += 1;
 }
+
+/** What the mock recorded as printed, as the API's audit log would, for tests. */
+export const mockPrints = (): readonly MockPrint[] => state.prints;

@@ -9,6 +9,7 @@ import { DiagnosesPanel } from '../components/DiagnosesPanel';
 import { EncounterActions } from '../components/EncounterActions';
 import { NotesPanel } from '../components/NotesPanel';
 import { PrescriptionsPanel } from '../components/PrescriptionsPanel';
+import { PrintSummaryButton } from '../components/PrintDocuments';
 import { useEncounter } from '../hooks/use-clinical';
 import type { Encounter } from '../types';
 
@@ -20,7 +21,8 @@ const ID = /^[A-Za-z0-9_-]{1,64}$/;
  * with whom, what triage found (allergies and the newest vitals), the notes for
  * `clinicalNote:read`, the diagnoses for `diagnosis:read` and the prescriptions for
  * `prescription:read`, each part shown only to whoever
- * holds its permission, and closing or cancelling for `encounter:update`.
+ * holds its permission, printing the visit summary for `encounter:print` (#89), and closing or
+ * cancelling for `encounter:update`.
  */
 export default function EncounterDetail() {
   const { t } = useTranslation('clinical');
@@ -77,6 +79,7 @@ function Consultation({ encounter }: { encounter: Encounter }) {
   const canReadDiagnoses = usePermission('diagnosis:read');
   const canReadPrescriptions = usePermission('prescription:read');
   const canUpdate = usePermission('encounter:update');
+  const canPrint = usePermission('encounter:print');
   const ended = encounter.endedAt
     ? t(encounter.status === 'cancelled' ? 'detail.cancelledBy' : 'detail.closedBy', {
         name: encounter.endedByName ?? '',
@@ -118,6 +121,11 @@ function Consultation({ encounter }: { encounter: Encounter }) {
             </>
           )}
         </dl>
+        {canPrint && encounter.status !== 'cancelled' && (
+          <div className="mt-2">
+            <PrintSummaryButton encounter={encounter} />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">

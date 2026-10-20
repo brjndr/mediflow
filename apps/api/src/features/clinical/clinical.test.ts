@@ -1042,6 +1042,121 @@ describe('the hospital boundary, the module switch and scope', () => {
   });
 });
 
+describe('printing', () => {
+  const print = (url: string, options: Options = {}) => send('POST', url, undefined, options);
+
+  it('records each print of the summary and of a prescription in the audit log, once per key', async () => {
+    const encounter = await open();
+    const written = await ok<Prescription>(
+      post(`/encounters/${encounter.id}/prescriptions`, { lines: [line()] }),
+    );
+    expect((await print(`/encounters/${encounter.id}/print`)).statusCode).toBe(204);
+    const key = randomUUID();
+    expect((await print(`/prescriptions/${written.id}/print`, { key })).statusCode).toBe(204);
+    const again = await print(`/prescriptions/${written.id}/print`, { key });
+    expect(again.statusCode).toBe(204);
+    expect(again.headers['idempotent-replayed']).toBe('true');
+    // The nurse prints too, by default.
+    expect((await print(`/prescriptions/${written.id}/print`, { user: nurse })).statusCode).toBe(
+      204,
+    );
+    expect((await audited('encounter', encounter.id)).filter((a) => a === 'print')).toHaveLength(1);
+    expect((await audited('prescription', written.id)).filter((a) => a === 'print')).toHaveLength(
+      2,
+    );
+    expect(errorOf(await print(`/encounters/${encounter.id}/print`, { key: null }))[0]).toBe(400);
+  });
+
+  it('is refused without the permission, with the module off, and outside the hospital or scope', async () => {
+    const encounter = await open();
+    const written = await ok<Prescription>(
+      post(`/encounters/${encounter.id}/prescriptions`, { lines: [line()] }),
+    );
+    expect(errorOf(await print(`/encounters/${encounter.id}/print`, { user: desk }))).toEqual([
+      403,
+      'permission_denied',
+    ]);
+    expect(errorOf(await print(`/encounters/${encounter.id}/print`, { tenant: closed }))).toEqual([
+      403,
+      'feature_disabled',
+    ]);
+    const asClinic = { tenant: clinic, user: clinicDoctor };
+    expect(errorOf(await print(`/encounters/${encounter.id}/print`, asClinic))).toEqual([
+      404,
+      'encounter_not_found',
+    ]);
+    expect(errorOf(await print(`/prescriptions/${written.id}/print`, asClinic))).toEqual([
+      404,
+      'prescription_not_found',
+    ]);
+    const scoped = (scope: string) =>
+      pool.query(
+        `update role_permissions set scope = $2
+         where tenant_id = $1 and permission = 'encounter:print' and role_id = 'doctor'`,
+        [hospital.id, scope],
+      );
+    try {
+      await scoped('own');
+      expect(
+        errorOf(await print(`/prescriptions/${written.id}/print`, { user: colleague })),
+      ).toEqual([404, 'prescription_not_found']);
+      expect(
+        errorOf(await print(`/encounters/${encounter.id}/print`, { user: colleague })),
+      ).toEqual([404, 'encounter_not_found']);
+    } finally {
+      await scoped('all');
+    }
+    expect(await audited('encounter', encounter.id)).not.toContain('print');
+    expect(await audited('prescription', written.id)).not.toContain('print');
+  });
+
+  it('prints only an encounter the caller reads, and refuses a replaced prescription or a cancelled visit', async () => {
+    const encounter = await open();
+    const first = await ok<Prescription>(
+      post(`/encounters/${encounter.id}/prescriptions`, { lines: [line()] }),
+    );
+    await ok(
+      post(`/encounters/${encounter.id}/prescriptions`, {
+        lines: [line({ dose: '650 mg' })],
+        replacesId: first.id,
+        replaceReason: 'Dose too low',
+      }),
+    );
+    expect(errorOf(await print(`/prescriptions/${first.id}/print`))).toEqual([
+      409,
+      'not_printable',
+    ]);
+    const mistaken = await open({ patientId: patients.bala });
+    await ok(
+      post(`/encounters/${mistaken.id}/cancel`, {
+        version: mistaken.version,
+        reason: 'Wrong patient',
+      }),
+      200,
+    );
+    expect(errorOf(await print(`/encounters/${mistaken.id}/print`))).toEqual([
+      409,
+      'not_printable',
+    ]);
+    const restrict = (scope: string) =>
+      pool.query(
+        `update role_permissions set scope = $2
+         where tenant_id = $1 and permission = 'encounter:read' and role_id = 'doctor'`,
+        [hospital.id, scope],
+      );
+    try {
+      await restrict('own');
+      expect(
+        errorOf(await print(`/encounters/${encounter.id}/print`, { user: colleague })),
+      ).toEqual([404, 'encounter_not_found']);
+    } finally {
+      await restrict('all');
+    }
+    expect(await audited('encounter', encounter.id)).not.toContain('print');
+    expect(await audited('prescription', first.id)).not.toContain('print');
+  });
+});
+
 describe('a whole OPD visit', () => {
   it('opens from the token, records, orders, prescribes and closes, with every event and audit', async () => {
     const token = await addToken(patients.asha, doctors.doctor);
