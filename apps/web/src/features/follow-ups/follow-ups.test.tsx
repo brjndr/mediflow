@@ -74,7 +74,7 @@ describe('setting a follow-up from the consultation', () => {
       await userEvent.click(within(panel()).getByRole('button', { name: 'In 14 days' }));
       expect(within(panel()).getByLabelText(/^Come back on/)).toHaveValue(shiftDay(today(), 14));
       await userEvent.type(
-        within(panel()).getByRole('textbox', { name: /^Note for the desk/ }),
+        within(panel()).getByRole('textbox', { name: /^Message for the desk/ }),
         'With the X-ray',
       );
       await userEvent.click(within(panel()).getByRole('button', { name: 'Set follow-up' }));

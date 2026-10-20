@@ -31,6 +31,8 @@ test('start a consultation and sign a note with the keyboard alone', async ({ pa
   // The editor loads on demand.
   const editor = page.getByRole('textbox', { name: 'Note' });
   await expect(editor).toBeVisible();
+  // Its box shows before the editor in it can take typing: wait until it can.
+  await expect(page.locator('[contenteditable="true"]')).toBeAttached();
   await page.keyboard.press('Tab');
   await expect(
     page.getByRole('toolbar', { name: 'Formatting' }).getByRole('button').first(),

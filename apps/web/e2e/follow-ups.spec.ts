@@ -37,6 +37,8 @@ function freeWorkingDay(): string {
 test('refer, set a follow-up and book it from the due list with the keyboard alone', async ({
   page,
 }) => {
+  // Colour transitions are instant, so axe never samples a button halfway to its pressed colour.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   await goTo(page, 'Consultations');
   await page.getByRole('main').getByRole('link').first().click();
