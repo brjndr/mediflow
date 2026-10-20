@@ -59,6 +59,38 @@ export function useDrugs(filters: DrugFilters) {
   });
 }
 
+/** How many medicines a search box offers. The rest are found by typing more. */
+export const SUGGESTIONS = 10;
+
+/**
+ * What a prescribing search box offers for what has been typed: the first medicines that match,
+ * archived ones and consumables left out. Nothing is asked before something is typed.
+ */
+export function useMedicineSuggestions(search: string, enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  const q = search.trim();
+  const filters: DrugFilters = {
+    q,
+    type: 'medicine',
+    form: '',
+    schedule: '',
+    controlled: false,
+    archived: false,
+  };
+  return useQuery({
+    queryKey: drugKeys.list(tenantId ?? '', { as: 'suggestions', q }),
+    queryFn: ({ signal }) => fetchDrugs({ ...filters, limit: SUGGESTIONS }, signal),
+    enabled: enabled && tenantId !== undefined && q !== '',
+    staleTime: STALE_TIME_MS,
+    select: (page) => page.items,
+    // The last matches stay while more is typed, at the same hospital only.
+    placeholderData: (previous, previousQuery) => {
+      const [, previousTenant] = previousQuery?.queryKey ?? [];
+      return previousTenant === tenantId ? previous : undefined;
+    },
+  });
+}
+
 export function useDrug(drugId: string) {
   const tenantId = useTenant()?.id;
   return useQuery({
