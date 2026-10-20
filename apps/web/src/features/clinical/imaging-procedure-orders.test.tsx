@@ -193,6 +193,111 @@ describe('procedure orders on the consultation', () => {
   });
 });
 
+describe.each([
+  {
+    kind: 'imaging',
+    heading: IMAGING,
+    box: 'Study',
+    search: 'ct head',
+    option: /^CT head plain \(IMG-003\)$/,
+    name: 'CT head plain',
+    submit: 'Order the study',
+    required: 'Choose a study from the search.',
+    unknown: 'This study is no longer offered by the hospital. Choose another.',
+    started: 'Radiology has started on it, so it can no longer be cancelled.',
+  },
+  {
+    kind: 'procedure',
+    heading: PROCEDURES,
+    box: 'Procedure',
+    search: 'sutur',
+    option: /^Suturing \(PRO-002\)$/,
+    name: 'Suturing',
+    submit: 'Order the procedure',
+    required: 'Choose a procedure from the search.',
+    unknown: 'This procedure is no longer offered by the hospital. Choose another.',
+    started: 'It has been started, so it can no longer be cancelled.',
+  },
+])('refusals of $kind orders, in their own words', (each) => {
+  it('asks for a choice before ordering', async () => {
+    await openConsultation();
+    const section = await panel(each.heading);
+    await userEvent.click(within(section).getByRole('button', { name: each.submit }));
+    expect(await within(section).findByText(each.required)).toBeInTheDocument();
+  });
+
+  it('says so when the service was archived meanwhile', async () => {
+    await openConsultation();
+    const section = await panel(each.heading);
+    await choose(section, each.box, each.search, each.option);
+    editMockService(mockServiceNamed(HOSPITAL, each.name)?.id ?? '', { archived: true });
+    await userEvent.click(within(section).getByRole('button', { name: each.submit }));
+    expect(await within(section).findByText(each.unknown)).toBeInTheDocument();
+  });
+
+  it('says so when it was started before the cancellation reached it', async () => {
+    await openConsultation();
+    const section = await panel(each.heading);
+    await choose(section, each.box, each.search, each.option);
+    await userEvent.click(within(section).getByRole('button', { name: each.submit }));
+    const table = within(section).getByRole('table', { name: each.heading.name });
+    await within(table).findByText(each.name);
+    const placed = mockOrdersOf('enc_h_1').find((order) => order.itemName === each.name);
+    moveMockOrder(placed?.id ?? '', 'in_progress');
+    await userEvent.click(
+      within(table).getByRole('button', { name: new RegExp(`^Cancel order: ${each.name}`) }),
+    );
+    await userEvent.type(
+      screen.getByRole('textbox', { name: /^Why it is cancelled/ }),
+      'Not needed',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel the order' }));
+    expect(await screen.findByText(each.started)).toBeInTheDocument();
+  });
+});
+
+describe('the service search with the keyboard', () => {
+  it('moves through the matches with the arrows, wrapping, and closes on Escape', async () => {
+    await openConsultation();
+    const section = await panel(PROCEDURES);
+    const search = within(section).getByRole('combobox', { name: 'Procedure' });
+    // "tion" is in Injection administration, Nebulisation and Plaster application.
+    await userEvent.type(search, 'tion');
+    const options = await within(await screen.findByRole('listbox')).findAllByRole('option');
+    expect(options).toHaveLength(3);
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+    // Up from the first wraps to the last.
+    await userEvent.keyboard('{ArrowUp}');
+    expect(options[2]).toHaveAttribute('aria-selected', 'true');
+    expect(search).toHaveAttribute('aria-activedescendant', options[2]?.id);
+    await userEvent.keyboard('{ArrowDown}');
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(search).toHaveAttribute('aria-expanded', 'false');
+    expect(search).toHaveValue('tion');
+
+    // Open again and choose with Enter.
+    await userEvent.keyboard('{ArrowDown}');
+    await screen.findByRole('listbox');
+    await userEvent.keyboard('{Enter}');
+    expect(within(section).getByText('Injection administration (PRO-003)')).toBeInTheDocument();
+  });
+
+  it('chooses nothing with Enter while a newer search is on its way', async () => {
+    await openConsultation();
+    const section = await panel(PROCEDURES);
+    const search = within(section).getByRole('combobox', { name: 'Procedure' });
+    await userEvent.type(search, 'ecg');
+    await screen.findByRole('option', { name: 'ECG (PRO-005)' });
+    // Typed and pressed at once: the matches of "ecg" belong to an earlier search.
+    await userEvent.type(search, 'x{Enter}');
+    expect(within(section).queryByText('ECG (PRO-005)')).not.toBeInTheDocument();
+    expect(search).toHaveValue('ecgx');
+  });
+});
+
 describe('who sees and orders imaging and procedures', () => {
   it('shows the nurse’s view the orders, without ordering or cancelling', async () => {
     setRolePermissions(HOSPITAL, 'admin', [

@@ -8,8 +8,8 @@ import type { ServiceCategory } from '../types';
 /**
  * A search box for a service of one category to order (an imaging study, a procedure): type words
  * of its code or name, and choose from what the server finds. Archived services are not offered,
- * and only the id, code and name are given: a price is the price catalog's to show. The catalog is searched on the server,
- * with the term in the body of the request, and never loaded whole.
+ * and only the id, code and name are given: a price is the price catalog's to show. The catalog
+ * is searched on the server, with the term in the body of the request, and never loaded whole.
  *
  * For any screen that orders a service (a consultation, a ward round). It works with the keyboard
  * (arrows, Enter, Escape), by touch, and at any width. It tells the screen which service was
