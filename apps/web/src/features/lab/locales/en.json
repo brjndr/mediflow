@@ -1,0 +1,124 @@
+{
+  "close": "Close",
+  "stage": {
+    "to_collect": "To collect",
+    "collected": "Collected",
+    "received": "Received"
+  },
+  "priority": {
+    "stat": "Stat",
+    "urgent": "Urgent",
+    "routine": "Routine"
+  },
+  "sampleType": {
+    "blood": "Blood",
+    "serum": "Serum",
+    "plasma": "Plasma",
+    "urine": "Urine",
+    "stool": "Stool",
+    "swab": "Swab",
+    "sputum": "Sputum",
+    "csf": "CSF",
+    "tissue": "Tissue",
+    "other": "Other sample"
+  },
+  "rejectReason": {
+    "haemolysed": "Haemolysed",
+    "clotted": "Clotted",
+    "insufficient": "Not enough sample",
+    "mislabelled": "Mislabelled",
+    "wrong_container": "Wrong container",
+    "contaminated": "Contaminated",
+    "other": "Other"
+  },
+  "list": {
+    "heading": "Laboratory worklist",
+    "stage": "Stage",
+    "priority": "Priority",
+    "allPriorities": "All priorities",
+    "count_one": "{{count}} order",
+    "count_other": "{{count}} orders",
+    "empty": {
+      "to_collect": "No samples to collect.",
+      "collected": "No collected samples waiting to be received.",
+      "received": "No received samples."
+    },
+    "rowLabel": "{{name}}, {{test}}",
+    "orderedBy": "{{time}} by {{name}}",
+    "sampleNone": "{{sample}}, not collected",
+    "sampleRejected": "{{id}} rejected: {{reason}}. Collect again",
+    "sample": {
+      "collected": "{{id}}, collected",
+      "received": "{{id}}, received"
+    },
+    "collect": "Collect sample",
+    "receive": "Receive",
+    "reject": "Reject",
+    "columns": {
+      "patient": "Patient",
+      "mrn": "MRN",
+      "test": "Test",
+      "priority": "Priority",
+      "sample": "Sample",
+      "ordered": "Ordered",
+      "instructions": "Instructions"
+    }
+  },
+  "collect": {
+    "heading": "Collect sample: {{test}}",
+    "check": "Check who the patient is before taking the sample.",
+    "patient": "Patient",
+    "mrn": "MRN",
+    "dob": "Date of birth",
+    "sample": "Sample",
+    "sampleIn": "{{sample}}, in {{container}}",
+    "priority": "Priority",
+    "instructions": "Instructions",
+    "recollect": "Collect again: sample {{id}} was rejected ({{reason}}).",
+    "submit": "Mark as collected",
+    "submitting": "Saving…",
+    "done": "Collected as {{id}}. Print the label and put it on the container.",
+    "refused": {
+      "alreadyCollected": "Someone else already collected this sample.",
+      "notActive": "This order was cancelled or completed meanwhile: nothing to collect.",
+      "gone": "This order is no longer on the worklist."
+    }
+  },
+  "receive": {
+    "done": "Sample {{id}} received.",
+    "refused": {
+      "conflict": "This sample changed meanwhile. The worklist was read again.",
+      "notCollected": "This sample can no longer be received: it was received or rejected, or its order was cancelled or completed.",
+      "gone": "This sample is no longer on the worklist."
+    }
+  },
+  "reject": {
+    "heading": "Reject sample {{id}}",
+    "of": "{{test}} for {{name}}. The order goes back to be collected again.",
+    "reason": "Reason",
+    "choose": "Choose a reason",
+    "note": "Note",
+    "noteHint": "Required when the reason is Other.",
+    "submit": "Reject sample",
+    "submitting": "Saving…",
+    "done": "Sample {{id}} rejected. The order is back on the list to collect.",
+    "errors": {
+      "reason": "Choose a reason.",
+      "note": "Say why the sample is rejected."
+    },
+    "refused": {
+      "conflict": "This sample changed meanwhile. Close and look at the worklist again.",
+      "notRejectable": "This sample can no longer be rejected.",
+      "gone": "This sample is no longer on the worklist."
+    }
+  },
+  "label": {
+    "print": "Print label",
+    "barcode": "Barcode of {{id}}",
+    "dob": "DOB {{day}}",
+    "refused": {
+      "notPrintable": "This sample was rejected: its label is not printed.",
+      "gone": "This sample is no longer on the worklist."
+    }
+  }
+}

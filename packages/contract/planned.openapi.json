@@ -254,6 +254,349 @@
           }
         }
       }
+    },
+    "/lab/worklist": {
+      "get": {
+        "operationId": "listLabWorklist",
+        "description": "The laboratory's worklist (#90): the hospital's lab orders not cancelled or completed, at one stage, stat first, then urgent, then routine, the oldest first within each. Each names the patient (name, MRN and date of birth), the test as ordered and the sample it needs, and its current sample. Requires labSample:read and the laboratory feature flag. Holds no patient term: a GET.",
+        "parameters": [
+          {
+            "name": "stage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/LabStage"
+            },
+            "description": "`to_collect` when absent."
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/OrderPriority"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the worklist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabWorkItemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/lab/orders/{orderId}/samples": {
+      "post": {
+        "operationId": "collectLabSample",
+        "description": "Records that the sample of a lab order was collected (#90). The server gives it an accession id, unique in the hospital (`YYMMDD-NNNN`, numbered within the hospital day), and the sample type and container of the test as the catalog has them now; the order is accepted if it was only placed. Refused while the order has a sample not rejected (409 `already_collected`) and once the order is cancelled or completed (409 `invalid_transition`). Requires labSample:collect and the laboratory feature flag. Emits `lab.sample_collected`.",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`).",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The sample collected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabSample"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/lab/samples/{sampleId}/receive": {
+      "post": {
+        "operationId": "receiveLabSample",
+        "description": "Records that the laboratory received a collected sample (#90). The order is left as it is: it goes in progress when its result is first entered (#91), so a sample rejected at reception never strands it. From `collected` only, while the order is not cancelled or completed (409 `invalid_transition`), at the version sent (409 `conflict`). Requires labSample:receive and the laboratory feature flag.",
+        "parameters": [
+          {
+            "name": "sampleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`).",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabSampleReceive"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The sample received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabSample"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/lab/samples/{sampleId}/reject": {
+      "post": {
+        "operationId": "rejectLabSample",
+        "description": "Rejects a collected or received sample with a reason (#90), and a note when the reason is `other` (400 otherwise). Refused for a rejected sample and once the order is cancelled or completed (409 `invalid_transition`); once results exist (#91) it will be refused too. The sample stays as it is, rejected; the order goes back to be collected again, as a new sample with a new accession id. At the version sent (409 `conflict`). Requires labSample:reject and the laboratory feature flag. Emits `lab.sample_rejected`.",
+        "parameters": [
+          {
+            "name": "sampleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`).",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabSampleReject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The sample rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabSample"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/lab/samples/{sampleId}/print": {
+      "post": {
+        "operationId": "printLabSampleLabel",
+        "description": "Records a print of a sample's label in the audit log, before anything prints (#90). A rejected sample's label is not printed (409 `not_printable`). Requires labSample:read and labSample:collect and the laboratory feature flag.",
+        "parameters": [
+          {
+            "name": "sampleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`).",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The print was recorded"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -342,6 +685,265 @@
           },
           "nextCursor": {
             "type": ["string", "null"]
+          }
+        }
+      },
+      "LabStage": {
+        "type": "string",
+        "enum": ["to_collect", "collected", "received"],
+        "description": "Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, or received by the laboratory."
+      },
+      "LabSampleStatus": {
+        "type": "string",
+        "enum": ["collected", "received", "rejected"]
+      },
+      "LabRejectReason": {
+        "type": "string",
+        "enum": [
+          "haemolysed",
+          "clotted",
+          "insufficient",
+          "mislabelled",
+          "wrong_container",
+          "contaminated",
+          "other"
+        ]
+      },
+      "LabSample": {
+        "type": "object",
+        "description": "One sample of a lab order. Never removed: a rejected one stays, and a new one is collected.",
+        "required": [
+          "id",
+          "tenantId",
+          "orderId",
+          "encounterId",
+          "patientId",
+          "accessionId",
+          "sampleType",
+          "status",
+          "collectedAt",
+          "collectedByName",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "accessionId": {
+            "type": "string",
+            "description": "Unique in the hospital: `YYMMDD-NNNN`, numbered within the hospital day. What the label carries as a barcode."
+          },
+          "sampleType": {
+            "type": "string",
+            "enum": [
+              "blood",
+              "serum",
+              "plasma",
+              "urine",
+              "stool",
+              "swab",
+              "sputum",
+              "csf",
+              "tissue",
+              "other"
+            ]
+          },
+          "container": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LabSampleStatus"
+          },
+          "collectedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "collectedByName": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "receivedByName": {
+            "type": "string"
+          },
+          "rejectedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rejectedByName": {
+            "type": "string"
+          },
+          "rejectReason": {
+            "$ref": "#/components/schemas/LabRejectReason"
+          },
+          "rejectNote": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "LabWorkItem": {
+        "type": "object",
+        "description": "A lab order as the laboratory works it, with its current sample.",
+        "required": [
+          "orderId",
+          "tenantId",
+          "encounterId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "itemName",
+          "priority",
+          "placedAt",
+          "orderedByName",
+          "orderStatus",
+          "sampleType",
+          "stage",
+          "rejectedSamples"
+        ],
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "patientDob": {
+            "type": "string",
+            "format": "date",
+            "description": "A calendar date, to tell the patient apart when the sample is taken."
+          },
+          "labTestId": {
+            "type": "string"
+          },
+          "itemCode": {
+            "type": "string"
+          },
+          "itemName": {
+            "type": "string"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/OrderPriority"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "placedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "orderedByName": {
+            "type": "string"
+          },
+          "orderStatus": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "sampleType": {
+            "type": "string",
+            "enum": [
+              "blood",
+              "serum",
+              "plasma",
+              "urine",
+              "stool",
+              "swab",
+              "sputum",
+              "csf",
+              "tissue",
+              "other"
+            ]
+          },
+          "container": {
+            "type": "string"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/LabStage"
+          },
+          "sample": {
+            "$ref": "#/components/schemas/LabSample",
+            "description": "The newest sample, rejected or not; absent before the first is collected."
+          },
+          "rejectedSamples": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many samples of the order were rejected."
+          }
+        }
+      },
+      "LabWorkItemPage": {
+        "type": "object",
+        "description": "Cursor envelope used by every list endpoint.",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabWorkItem"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "LabSampleReceive": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "LabSampleReject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "reason"],
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/LabRejectReason"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Required when the reason is `other`."
           }
         }
       }
