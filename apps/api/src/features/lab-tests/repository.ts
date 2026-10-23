@@ -382,25 +382,42 @@ interface RangeRow {
 
 /** The reference ranges of a test, in the order they were saved. */
 export async function listRanges(client: pg.ClientBase, testId: string): Promise<LabRange[]> {
-  const { rows } = await client.query<RangeRow>(
-    `select sex, age_from_value, age_from_unit, age_until_value, age_until_unit,
-       low, high, critical_low, critical_high, note
-     from lab_test_ranges where lab_test_id = $1 order by position`,
-    [testId],
-  );
-  return rows.map((row): LabRange => ({
-    sex: row.sex,
-    ageFrom: { value: row.age_from_value, unit: row.age_from_unit },
-    ...(row.age_until_value === null || row.age_until_unit === null
-      ? {}
-      : { ageUntil: { value: row.age_until_value, unit: row.age_until_unit } }),
-    ...(row.low === null ? {} : { low: row.low }),
-    ...(row.high === null ? {} : { high: row.high }),
-    ...(row.critical_low === null ? {} : { criticalLow: row.critical_low }),
-    ...(row.critical_high === null ? {} : { criticalHigh: row.critical_high }),
-    ...(row.note === null ? {} : { note: row.note }),
-  }));
+  return (await rangesOf(client, [testId])).get(testId) ?? [];
 }
+
+/** The reference ranges of each of these tests, in the order they were saved. */
+async function rangesOf(
+  client: pg.ClientBase,
+  testIds: readonly string[],
+): Promise<Map<string, LabRange[]>> {
+  const byTest = new Map<string, LabRange[]>();
+  if (testIds.length === 0) return byTest;
+  const { rows } = await client.query<RangeRow & { lab_test_id: string }>(
+    `select lab_test_id, sex, age_from_value, age_from_unit, age_until_value, age_until_unit,
+       low, high, critical_low, critical_high, note
+     from lab_test_ranges where lab_test_id = any($1::uuid[]) order by lab_test_id, position`,
+    [testIds],
+  );
+  for (const row of rows) {
+    const list = byTest.get(row.lab_test_id) ?? [];
+    list.push(rangeOf(row));
+    byTest.set(row.lab_test_id, list);
+  }
+  return byTest;
+}
+
+const rangeOf = (row: RangeRow): LabRange => ({
+  sex: row.sex,
+  ageFrom: { value: row.age_from_value, unit: row.age_from_unit },
+  ...(row.age_until_value === null || row.age_until_unit === null
+    ? {}
+    : { ageUntil: { value: row.age_until_value, unit: row.age_until_unit } }),
+  ...(row.low === null ? {} : { low: row.low }),
+  ...(row.high === null ? {} : { high: row.high }),
+  ...(row.critical_low === null ? {} : { criticalLow: row.critical_low }),
+  ...(row.critical_high === null ? {} : { criticalHigh: row.critical_high }),
+  ...(row.note === null ? {} : { note: row.note }),
+});
 
 /** Whether the test has any reference range. */
 export async function hasRanges(client: pg.ClientBase, testId: string): Promise<boolean> {
@@ -469,4 +486,67 @@ export async function orderableLabTest(
     [id],
   );
   return rows[0] ?? null;
+}
+
+/**
+ * For collecting a sample: the test's sample and container as they read now, archived or not,
+ * since an order placed before the test was archived is still collected. Exported from
+ * `index.ts`, so the laboratory module never reads this table itself.
+ */
+export async function labTestSample(
+  client: pg.ClientBase,
+  id: string,
+): Promise<{ sampleType: SampleType; container: string | null } | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<{ sample_type: SampleType; container: string | null }>(
+    'select sample_type, container from lab_tests where id = $1',
+    [id],
+  );
+  const row = rows[0];
+  return row ? { sampleType: row.sample_type, container: row.container } : null;
+}
+
+/** A single test a result is entered for, with its reference ranges in the order saved. */
+export interface LabAnalyte {
+  id: string;
+  code: string;
+  name: string;
+  resultType: ResultType;
+  unit: string | null;
+  ranges: LabRange[];
+}
+
+/**
+ * For entering results: what an order of this test is resulted as, in the order reported. A
+ * single test is resulted as itself, a panel as each of its tests. Exported from `index.ts`.
+ */
+export async function analytesOf(client: pg.ClientBase, id: string): Promise<LabAnalyte[]> {
+  if (!UUID.test(id)) return [];
+  const { rows } = await client.query<{
+    id: string;
+    code: string;
+    name: string;
+    result_type: ResultType;
+    unit: string | null;
+  }>(
+    `select t.id, t.code, t.name, t.result_type, t.unit
+     from lab_tests t
+     left join lab_test_components c on c.tenant_id = t.tenant_id and c.component_id = t.id
+       and c.panel_id = $1
+     where (t.id = $1 and t.kind = 'test') or c.panel_id is not null
+     order by c.position nulls first`,
+    [id],
+  );
+  const ranges = await rangesOf(
+    client,
+    rows.filter((row) => row.result_type === 'numeric').map((row) => row.id),
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    resultType: row.result_type,
+    unit: row.unit,
+    ranges: ranges.get(row.id) ?? [],
+  }));
 }

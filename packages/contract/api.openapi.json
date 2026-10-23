@@ -5198,6 +5198,560 @@
             "type": "integer"
           }
         }
+      },
+      "LabStage": {
+        "type": "string",
+        "enum": ["to_collect", "collected", "received"],
+        "description": "Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, or received by the laboratory."
+      },
+      "LabSampleStatus": {
+        "type": "string",
+        "enum": ["collected", "received", "rejected"]
+      },
+      "LabRejectReason": {
+        "type": "string",
+        "enum": [
+          "haemolysed",
+          "clotted",
+          "insufficient",
+          "mislabelled",
+          "wrong_container",
+          "contaminated",
+          "other"
+        ]
+      },
+      "LabResultFlag": {
+        "type": "string",
+        "enum": ["normal", "low", "high", "critical_low", "critical_high"],
+        "description": "A number read against its reference range: at or below the critical low, or at or above the critical high, first; then below the low or above the high; else normal."
+      },
+      "LabResultStatus": {
+        "type": "string",
+        "enum": ["entered", "verified"],
+        "description": "Entered, then verified once: a verified result is released to the doctor."
+      },
+      "LabSample": {
+        "description": "One sample of a lab order. Never removed: a rejected one stays, and a new one is collected.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "orderId",
+          "encounterId",
+          "patientId",
+          "accessionId",
+          "sampleType",
+          "status",
+          "collectedAt",
+          "collectedByName",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "accessionId": {
+            "description": "Unique in the hospital: `YYMMDD-NNNN`, numbered within the hospital day. What the label carries as a barcode.",
+            "type": "string"
+          },
+          "sampleType": {
+            "type": "string",
+            "enum": [
+              "blood",
+              "serum",
+              "plasma",
+              "urine",
+              "stool",
+              "swab",
+              "sputum",
+              "csf",
+              "tissue",
+              "other"
+            ]
+          },
+          "container": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LabSampleStatus"
+          },
+          "collectedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "collectedByName": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "receivedByName": {
+            "type": "string"
+          },
+          "rejectedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "rejectedByName": {
+            "type": "string"
+          },
+          "rejectReason": {
+            "$ref": "#/components/schemas/LabRejectReason"
+          },
+          "rejectNote": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "LabWorkItem": {
+        "description": "A lab order as the laboratory works it, with its current sample.",
+        "type": "object",
+        "required": [
+          "orderId",
+          "tenantId",
+          "encounterId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "itemName",
+          "priority",
+          "placedAt",
+          "orderedByName",
+          "orderStatus",
+          "sampleType",
+          "stage",
+          "rejectedSamples"
+        ],
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "patientDob": {
+            "format": "date",
+            "description": "A calendar date, to tell the patient apart when the sample is taken.",
+            "type": "string"
+          },
+          "labTestId": {
+            "type": "string"
+          },
+          "itemCode": {
+            "type": "string"
+          },
+          "itemName": {
+            "type": "string"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/OrderPriority"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "placedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "orderedByName": {
+            "type": "string"
+          },
+          "orderStatus": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "sampleType": {
+            "type": "string",
+            "enum": [
+              "blood",
+              "serum",
+              "plasma",
+              "urine",
+              "stool",
+              "swab",
+              "sputum",
+              "csf",
+              "tissue",
+              "other"
+            ]
+          },
+          "container": {
+            "type": "string"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/LabStage"
+          },
+          "sample": {
+            "$ref": "#/components/schemas/LabSample"
+          },
+          "rejectedSamples": {
+            "minimum": 0,
+            "description": "How many samples of the order were rejected.",
+            "type": "integer"
+          }
+        }
+      },
+      "LabWorkItemPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabWorkItem"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "LabSampleReceive": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          }
+        }
+      },
+      "LabSampleReject": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version", "reason"],
+        "properties": {
+          "version": {
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/LabRejectReason"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Required when the reason is `other`.",
+            "type": "string"
+          }
+        }
+      },
+      "LabResultRange": {
+        "description": "The reference range for the patient: the one of the test for their sex and their age on the day the sample was collected.",
+        "type": "object",
+        "properties": {
+          "low": {
+            "type": "number"
+          },
+          "high": {
+            "type": "number"
+          },
+          "criticalLow": {
+            "type": "number"
+          },
+          "criticalHigh": {
+            "type": "number"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "LabAnalyte": {
+        "description": "What a result is entered for: the test ordered, or each test of the panel ordered, as the catalog has them now, in the order reported.",
+        "type": "object",
+        "required": ["labTestId", "code", "name", "resultType"],
+        "properties": {
+          "labTestId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "resultType": {
+            "type": "string",
+            "enum": ["numeric", "text"]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "range": {
+            "$ref": "#/components/schemas/LabResultRange"
+          }
+        }
+      },
+      "LabResult": {
+        "description": "One result of one test of a sample. Never changed, apart from being verified once: a correction is a new result naming this one.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "sampleId",
+          "orderId",
+          "encounterId",
+          "patientId",
+          "labTestId",
+          "testCode",
+          "testName",
+          "resultType",
+          "value",
+          "status",
+          "enteredAt",
+          "enteredByName",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "sampleId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "labTestId": {
+            "type": "string"
+          },
+          "testCode": {
+            "type": "string"
+          },
+          "testName": {
+            "type": "string"
+          },
+          "resultType": {
+            "type": "string",
+            "enum": ["numeric", "text"]
+          },
+          "value": {
+            "description": "The number as entered, its decimals kept (`5.10`), or the text.",
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "range": {
+            "$ref": "#/components/schemas/LabResultRange"
+          },
+          "flag": {
+            "$ref": "#/components/schemas/LabResultFlag"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LabResultStatus"
+          },
+          "enteredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "enteredByName": {
+            "type": "string"
+          },
+          "verifiedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "verifiedByName": {
+            "type": "string"
+          },
+          "amendsId": {
+            "type": "string"
+          },
+          "amendmentReason": {
+            "type": "string"
+          },
+          "amendedById": {
+            "description": "The correction that replaced it: this one is history.",
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "LabOrderResults": {
+        "description": "The results of a lab order: those of its sample that is not rejected, and what they are entered for. No sample yet: no results.",
+        "type": "object",
+        "required": [
+          "orderId",
+          "tenantId",
+          "encounterId",
+          "patientId",
+          "orderStatus",
+          "analytes",
+          "results"
+        ],
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "orderStatus": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "sample": {
+            "$ref": "#/components/schemas/LabSample"
+          },
+          "analytes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabAnalyte"
+            }
+          },
+          "results": {
+            "description": "Every result of the sample, corrections included, oldest first. The current one of a test is the one with no `amendedById`.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabResult"
+            }
+          }
+        }
+      },
+      "LabResultEntry": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["labTestId", "value"],
+        "properties": {
+          "labTestId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "value": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "For a numeric test a decimal number (`5.1`, `-0.25`, up to six decimals and smaller than a thousand million either side of zero; 422 `invalid_number` otherwise); for a text test the text.",
+            "type": "string"
+          },
+          "comment": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "LabResultsEnter": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["results"],
+        "properties": {
+          "results": {
+            "minItems": 1,
+            "maxItems": 60,
+            "description": "Some or all of the tests of the order, each once.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabResultEntry"
+            }
+          }
+        }
+      },
+      "LabResultsVerify": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["resultIds"],
+        "properties": {
+          "resultIds": {
+            "minItems": 1,
+            "maxItems": 60,
+            "description": "The results as the verifier read them: each current and entered, or 409 `conflict`.",
+            "type": "array",
+            "items": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        }
+      },
+      "LabResultAmend": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["value", "reason"],
+        "properties": {
+          "value": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "For a numeric test a decimal number (`5.1`, `-0.25`, up to six decimals and smaller than a thousand million either side of zero; 422 `invalid_number` otherwise); for a text test the text.",
+            "type": "string"
+          },
+          "comment": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
       }
     }
   },
@@ -19037,7 +19591,7 @@
       "post": {
         "operationId": "advanceOrder",
         "tags": ["clinical"],
-        "description": "Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed, as results arrive later. The Idempotency-Key header is required: a repeat changes nothing and answers with the order as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist.",
+        "description": "Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). While the hospital has the laboratory switched on, a lab order is moved by its sample and results only (409 `lab_order`). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed, as results arrive later. The Idempotency-Key header is required: a repeat changes nothing and answers with the order as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist.",
         "requestBody": {
           "required": true,
           "content": {
@@ -20626,6 +21180,1012 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FollowUp"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/worklist": {
+      "get": {
+        "operationId": "listLabWorklist",
+        "tags": ["lab"],
+        "description": "The laboratory’s worklist (#90): the hospital’s lab orders not cancelled or completed, at one stage, stat first, then urgent, then routine, the oldest first within each. Each names the patient (name, MRN and date of birth), the test as ordered and the sample it needs, and its current sample. `total` comes with the first page. Every row read is audited. Requires labSample:read with the scope `all` (a narrower one sees nothing) and the laboratory feature flag. Holds no patient term: a GET.",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/LabStage"
+            },
+            "in": "query",
+            "name": "stage",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/OrderPriority"
+            },
+            "in": "query",
+            "name": "priority",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabWorkItemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/orders/{orderId}/samples": {
+      "post": {
+        "operationId": "collectLabSample",
+        "tags": ["lab"],
+        "description": "Records that the sample of a lab order was collected (#90). The server gives it an accession id, unique in the hospital (`YYMMDD-NNNN`, numbered within the hospital day), and the sample type and container of the test as the catalog has them now; the order is accepted if it was only placed. Refused while the order has a sample not rejected (409 `already_collected`) and once the order is cancelled or completed (409 `invalid_transition`). The Idempotency-Key header is required: a repeat answers with the sample as it is now. Requires labSample:collect and the laboratory feature flag. Emits `lab.sample_collected`. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "One sample of a lab order. Never removed: a rejected one stays, and a new one is collected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabSample"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/samples/{sampleId}/receive": {
+      "post": {
+        "operationId": "receiveLabSample",
+        "tags": ["lab"],
+        "description": "Records that the laboratory received a collected sample (#90). The order is left as it is: it goes in progress when its first result is entered, so a sample rejected at reception never strands it. From `collected` only, while the order is not cancelled or completed (409 `invalid_transition`). Requires labSample:receive and the laboratory feature flag. At the version sent (409 `conflict`). The Idempotency-Key header is required: a repeat changes nothing and answers with the sample as it is now. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabSampleReceive"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sampleId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One sample of a lab order. Never removed: a rejected one stays, and a new one is collected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabSample"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/samples/{sampleId}/reject": {
+      "post": {
+        "operationId": "rejectLabSample",
+        "tags": ["lab"],
+        "description": "Rejects a collected or received sample with a reason (#90), and a note when the reason is `other` (400 otherwise). Refused for a rejected sample and once the order is cancelled or completed (409 `invalid_transition`), and once the sample has results (409 `has_results`). The sample stays as it is, rejected; the order goes back to be collected again, as a new sample with a new accession id. Requires labSample:reject and the laboratory feature flag. Emits `lab.sample_rejected`. At the version sent (409 `conflict`). The Idempotency-Key header is required: a repeat changes nothing and answers with the sample as it is now. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabSampleReject"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sampleId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One sample of a lab order. Never removed: a rejected one stays, and a new one is collected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabSample"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/samples/{sampleId}/print": {
+      "post": {
+        "operationId": "printLabSampleLabel",
+        "tags": ["lab"],
+        "description": "Records a print of a sample’s label in the audit log, before anything prints (#90). A rejected sample’s label is not printed (409 `not_printable`). The Idempotency-Key header is required, one per press: a repeat records nothing more. Requires labSample:read and labSample:collect and the laboratory feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sampleId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Recorded"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/orders/{orderId}/results": {
+      "get": {
+        "operationId": "getLabOrderResults",
+        "tags": ["lab"],
+        "description": "The results of a lab order: those of its sample that is not rejected, corrections included, with what they are entered for and the reference range for the patient on the day the sample was collected. No sample yet: no results. Every result read is audited. Requires labResult:read with the scope `all` and the laboratory feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The results of a lab order: those of its sample that is not rejected, and what they are entered for. No sample yet: no results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrderResults"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/samples/{sampleId}/results": {
+      "post": {
+        "operationId": "enterLabResults",
+        "tags": ["lab"],
+        "description": "Enters results of a received sample: some or all of the tests of its order (the test, or each test of the panel), each once (400 otherwise). A test that is not of the order is 422 `unknown_test`, one that has a result already 409 `already_resulted` (correct it instead), a number that is not one 422 `invalid_number`. A sample not received, and an order cancelled or completed, are 409 `invalid_transition`. A number is read against the range for the patient’s sex and age on the day the sample was collected, which the result keeps. The first result moves the order in progress. A critical result emits `lab.critical_value`. The Idempotency-Key header is required: a repeat enters nothing and answers with the results as they are now. Requires labResult:enter and the laboratory feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabResultsEnter"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sampleId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The results of a lab order: those of its sample that is not rejected, and what they are entered for. No sample yet: no results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrderResults"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/samples/{sampleId}/verify": {
+      "post": {
+        "operationId": "verifyLabResults",
+        "tags": ["lab"],
+        "description": "Verifies results of a sample, as the verifier read them: each must be a result of the sample (422 `unknown_result`) that is current and not yet verified (409 `conflict`: corrected or verified meanwhile, read again). The person who entered a result may verify it. Once every test of the order has a current result and all are verified, the order is completed (emitting `order.completed`) and `lab.result_verified` is emitted; a correction verified after that emits `lab.result_verified` again. Refused for a cancelled order (409 `invalid_transition`). The Idempotency-Key header is required: a repeat verifies nothing and answers with the results as they are now. Requires labResult:verify and the laboratory feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabResultsVerify"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sampleId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The results of a lab order: those of its sample that is not rejected, and what they are entered for. No sample yet: no results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOrderResults"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/results/{resultId}/amend": {
+      "post": {
+        "operationId": "amendLabResult",
+        "tags": ["lab"],
+        "description": "Corrects a result: a new result of the same test and sample, with the whole corrected value and a reason, read against the range the replaced one kept. It is entered, so it needs verifying again; the order stays as it is, completed included. A result is corrected once (409 `already_amended`): a later correction corrects the correction. Refused for a cancelled order (409 `invalid_transition`). A critical result emits `lab.critical_value`. The Idempotency-Key header is required: a repeat answers with the correction as it is now. Requires labResult:enter and the laboratory feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabResultAmend"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "resultId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "One result of one test of a sample. Never changed, apart from being verified once: a correction is a new result naming this one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabResult"
                 }
               }
             }

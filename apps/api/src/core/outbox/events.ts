@@ -30,6 +30,8 @@ export const DOMAIN_EVENTS = [
   'followup.booked',
   'followup.cancelled',
   'lab.sample_collected',
+  // A sample was rejected, so its order is collected again as a new sample (#90).
+  'lab.sample_rejected',
   'lab.result_verified',
   'lab.critical_value',
   'imaging.reported',

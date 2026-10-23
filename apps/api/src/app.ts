@@ -39,6 +39,7 @@ import { departmentsFeature } from './features/departments/index.js';
 import { doctorsFeature } from './features/doctors/index.js';
 import { drugsFeature } from './features/drugs/index.js';
 import { importsFeature } from './features/imports/index.js';
+import { labFeature } from './features/lab/index.js';
 import { labTestsFeature } from './features/lab-tests/index.js';
 import { patientsFeature } from './features/patients/index.js';
 import { servicesFeature } from './features/services/index.js';
@@ -152,6 +153,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(queueFeature);
   await app.register(triageFeature);
   await app.register(clinicalFeature);
+  await app.register(labFeature);
 
   return app;
 }

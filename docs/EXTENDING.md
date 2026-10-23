@@ -51,7 +51,7 @@ Core modules publish events through a transactional outbox (written in the same 
 - `encounter.opened`, `encounter.closed`, `encounter.cancelled`, `queue.token_issued`, `queue.called`, `vitals.recorded`, `allergy.updated`
 - `order.placed`, `order.cancelled`, `order.completed`
 - `referral.created`, `referral.cancelled`, `followup.created`, `followup.booked`, `followup.cancelled`
-- `lab.sample_collected`, `lab.sample_rejected` (#90; added to the API's list with #95), `lab.result_verified`, `lab.critical_value`, `imaging.reported`
+- `lab.sample_collected`, `lab.sample_rejected` (#90), `lab.result_verified`, `lab.critical_value`, `imaging.reported`
 - `pharmacy.dispensed`, `stock.low`, `stock.expiring`
 - `charge.posted`, `invoice.issued`, `invoice.paid`, `payment.refunded`
 - `admission.created`, `bed.assigned`, `bed.released`, `medication.administered`, `discharge.completed`

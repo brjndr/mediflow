@@ -14,3 +14,10 @@ export const clinicalFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('clinical', CLINICAL_PERMISSIONS);
   await app.register(clinicalRoutes);
 };
+
+/**
+ * For the laboratory: a lab order, and moving it on as its sample and results go, so the
+ * laboratory never writes the orders table. The order's enums, for its own answers.
+ */
+export { labOrder, moveLabOrder, type LabOrder } from './lab.js';
+export { OrderPriority, OrderStatus } from './schemas.js';

@@ -71,6 +71,13 @@ export const REDACTED_KEYS = [
   'replace_reason',
   'cancelReason',
   'cancel_reason',
+  // Laboratory: a result's value and comment, and why a sample was rejected.
+  'value',
+  'value_number',
+  'value_text',
+  'comment',
+  'rejectNote',
+  'reject_note',
   // Secrets
   'password',
   'token',

@@ -17,3 +17,8 @@ export const labTestsFeature: FastifyPluginAsync = async (app) => {
 
 /** For the clinical module: a test that may be ordered, to place a lab order for. */
 export { orderableLabTest } from './repository.js';
+
+/** For the laboratory: the sample a test is collected in, and what its results are entered for. */
+export { analytesOf, labTestSample, type LabAnalyte } from './repository.js';
+export { bandFor } from './age.js';
+export type { LabRange } from './schemas.js';
