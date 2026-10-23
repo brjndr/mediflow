@@ -2114,7 +2114,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed, as results arrive later. The Idempotency-Key header is required: a repeat changes nothing and answers with the order as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist. */
+        /** @description Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). While the hospital has the laboratory switched on, a lab order is moved by its sample and results only (409 `lab_order`). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed, as results arrive later. The Idempotency-Key header is required: a repeat changes nothing and answers with the order as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist. */
         post: operations["advanceOrder"];
         delete?: never;
         options?: never;
@@ -2312,6 +2312,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lab/worklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The laboratory’s worklist (#90): the hospital’s lab orders not cancelled or completed, at one stage, stat first, then urgent, then routine, the oldest first within each. Each names the patient (name, MRN and date of birth), the test as ordered and the sample it needs, and its current sample. `total` comes with the first page. Every row read is audited. Requires labSample:read with the scope `all` (a narrower one sees nothing) and the laboratory feature flag. Holds no patient term: a GET. */
+        get: operations["listLabWorklist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/orders/{orderId}/samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records that the sample of a lab order was collected (#90). The server gives it an accession id, unique in the hospital (`YYMMDD-NNNN`, numbered within the hospital day), and the sample type and container of the test as the catalog has them now; the order is accepted if it was only placed. Refused while the order has a sample not rejected (409 `already_collected`) and once the order is cancelled or completed (409 `invalid_transition`). The Idempotency-Key header is required: a repeat answers with the sample as it is now. Requires labSample:collect and the laboratory feature flag. Emits `lab.sample_collected`. Audited. */
+        post: operations["collectLabSample"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/samples/{sampleId}/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records that the laboratory received a collected sample (#90). The order is left as it is: it goes in progress when its first result is entered, so a sample rejected at reception never strands it. From `collected` only, while the order is not cancelled or completed (409 `invalid_transition`). Requires labSample:receive and the laboratory feature flag. At the version sent (409 `conflict`). The Idempotency-Key header is required: a repeat changes nothing and answers with the sample as it is now. Audited. */
+        post: operations["receiveLabSample"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/samples/{sampleId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Rejects a collected or received sample with a reason (#90), and a note when the reason is `other` (400 otherwise). Refused for a rejected sample and once the order is cancelled or completed (409 `invalid_transition`), and once the sample has results (409 `has_results`). The sample stays as it is, rejected; the order goes back to be collected again, as a new sample with a new accession id. Requires labSample:reject and the laboratory feature flag. Emits `lab.sample_rejected`. At the version sent (409 `conflict`). The Idempotency-Key header is required: a repeat changes nothing and answers with the sample as it is now. Audited. */
+        post: operations["rejectLabSample"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/samples/{sampleId}/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records a print of a sample’s label in the audit log, before anything prints (#90). A rejected sample’s label is not printed (409 `not_printable`). The Idempotency-Key header is required, one per press: a repeat records nothing more. Requires labSample:read and labSample:collect and the laboratory feature flag. */
+        post: operations["printLabSampleLabel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/orders/{orderId}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The results of a lab order: those of its sample that is not rejected, corrections included, with what they are entered for and the reference range for the patient on the day the sample was collected. No sample yet: no results. Every result read is audited. Requires labResult:read with the scope `all` and the laboratory feature flag. */
+        get: operations["getLabOrderResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/samples/{sampleId}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Enters results of a received sample: some or all of the tests of its order (the test, or each test of the panel), each once (400 otherwise). A test that is not of the order is 422 `unknown_test`, one that has a result already 409 `already_resulted` (correct it instead), a number that is not one 422 `invalid_number`. A sample not received, and an order cancelled or completed, are 409 `invalid_transition`. A number is read against the range for the patient’s sex and age on the day the sample was collected, which the result keeps. The first result moves the order in progress. A critical result emits `lab.critical_value`. The Idempotency-Key header is required: a repeat enters nothing and answers with the results as they are now. Requires labResult:enter and the laboratory feature flag. Audited. */
+        post: operations["enterLabResults"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/samples/{sampleId}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Verifies results of a sample, as the verifier read them: each must be a result of the sample (422 `unknown_result`) that is current and not yet verified (409 `conflict`: corrected or verified meanwhile, read again). The person who entered a result may verify it. Once every test of the order has a current result and all are verified, the order is completed (emitting `order.completed`) and `lab.result_verified` is emitted; a correction verified after that emits `lab.result_verified` again. Refused for a cancelled order (409 `invalid_transition`). The Idempotency-Key header is required: a repeat verifies nothing and answers with the results as they are now. Requires labResult:verify and the laboratory feature flag. Audited. */
+        post: operations["verifyLabResults"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/results/{resultId}/amend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Corrects a result: a new result of the same test and sample, with the whole corrected value and a reason, read against the range the replaced one kept. It is entered, so it needs verifying again; the order stays as it is, completed included. A result is corrected once (409 `already_amended`): a later correction corrects the correction. Refused for a cancelled order (409 `invalid_transition`). A critical result emits `lab.critical_value`. The Idempotency-Key header is required: a repeat answers with the correction as it is now. Requires labResult:enter and the laboratory feature flag. Audited. */
+        post: operations["amendLabResult"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -2408,91 +2561,6 @@ export interface paths {
         put?: never;
         /** @description Archives a notice so it no longer appears in the list. Requires notice:manage. */
         post: operations["archiveNotice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/lab/worklist": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The laboratory's worklist (#90): the hospital's lab orders not cancelled or completed, at one stage, stat first, then urgent, then routine, the oldest first within each. Each names the patient (name, MRN and date of birth), the test as ordered and the sample it needs, and its current sample. Requires labSample:read and the laboratory feature flag. Holds no patient term: a GET. */
-        get: operations["listLabWorklist"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/lab/orders/{orderId}/samples": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Records that the sample of a lab order was collected (#90). The server gives it an accession id, unique in the hospital (`YYMMDD-NNNN`, numbered within the hospital day), and the sample type and container of the test as the catalog has them now; the order is accepted if it was only placed. Refused while the order has a sample not rejected (409 `already_collected`) and once the order is cancelled or completed (409 `invalid_transition`). Requires labSample:collect and the laboratory feature flag. Emits `lab.sample_collected`. */
-        post: operations["collectLabSample"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/lab/samples/{sampleId}/receive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Records that the laboratory received a collected sample (#90). The order is left as it is: it goes in progress when its result is first entered (#91), so a sample rejected at reception never strands it. From `collected` only, while the order is not cancelled or completed (409 `invalid_transition`), at the version sent (409 `conflict`). Requires labSample:receive and the laboratory feature flag. */
-        post: operations["receiveLabSample"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/lab/samples/{sampleId}/reject": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Rejects a collected or received sample with a reason (#90), and a note when the reason is `other` (400 otherwise). Refused for a rejected sample and once the order is cancelled or completed (409 `invalid_transition`); once results exist (#91) it will be refused too. The sample stays as it is, rejected; the order goes back to be collected again, as a new sample with a new accession id. At the version sent (409 `conflict`). Requires labSample:reject and the laboratory feature flag. Emits `lab.sample_rejected`. */
-        post: operations["rejectLabSample"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/lab/samples/{sampleId}/print": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Records a print of a sample's label in the audit log, before anything prints (#90). A rejected sample's label is not printed (409 `not_printable`). Requires labSample:read and labSample:collect and the laboratory feature flag. */
-        post: operations["printLabSampleLabel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4261,39 +4329,6 @@ export interface components {
             /** @description The version the change was made from. Another one gives 409 `conflict`. */
             version: number;
         };
-        Notice: {
-            id: string;
-            tenantId: string;
-            title: string;
-            body: string;
-            /**
-             * Format: date-time
-             * @description ISO datetime (UTC)
-             */
-            createdAt: string;
-            archived: boolean;
-        };
-        /** @description Cursor envelope used by every list endpoint. */
-        NoticePage: {
-            items: components["schemas"]["Notice"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        AccountSession: {
-            id: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            lastSeenAt: string;
-            /** @description The browser as it described itself at sign-in, for the person to recognise the device. */
-            userAgent: string | null;
-            /** @description True for the session making this call. */
-            current: boolean;
-        };
-        AccountSessionList: {
-            items: components["schemas"]["AccountSession"][];
-            nextCursor: string | null;
-        };
         /**
          * @description Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, or received by the laboratory.
          * @enum {string}
@@ -4303,6 +4338,16 @@ export interface components {
         LabSampleStatus: "collected" | "received" | "rejected";
         /** @enum {string} */
         LabRejectReason: "haemolysed" | "clotted" | "insufficient" | "mislabelled" | "wrong_container" | "contaminated" | "other";
+        /**
+         * @description A number read against its reference range: at or below the critical low, or at or above the critical high, first; then below the low or above the high; else normal.
+         * @enum {string}
+         */
+        LabResultFlag: "normal" | "low" | "high" | "critical_low" | "critical_high";
+        /**
+         * @description Entered, then verified once: a verified result is released to the doctor.
+         * @enum {string}
+         */
+        LabResultStatus: "entered" | "verified";
         /** @description One sample of a lab order. Never removed: a rejected one stays, and a new one is collected. */
         LabSample: {
             id: string;
@@ -4355,7 +4400,6 @@ export interface components {
             sampleType: "blood" | "serum" | "plasma" | "urine" | "stool" | "swab" | "sputum" | "csf" | "tissue" | "other";
             container?: string;
             stage: components["schemas"]["LabStage"];
-            /** @description The newest sample, rejected or not; absent before the first is collected. */
             sample?: components["schemas"]["LabSample"];
             /** @description How many samples of the order were rejected. */
             rejectedSamples: number;
@@ -4367,13 +4411,130 @@ export interface components {
             total?: number;
         };
         LabSampleReceive: {
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
             version: number;
         };
         LabSampleReject: {
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
             version: number;
             reason: components["schemas"]["LabRejectReason"];
             /** @description Required when the reason is `other`. */
             note?: string;
+        };
+        /** @description The reference range for the patient: the one of the test for their sex and their age on the day the sample was collected. */
+        LabResultRange: {
+            low?: number;
+            high?: number;
+            criticalLow?: number;
+            criticalHigh?: number;
+            note?: string;
+        };
+        /** @description What a result is entered for: the test ordered, or each test of the panel ordered, as the catalog has them now, in the order reported. */
+        LabAnalyte: {
+            labTestId: string;
+            code: string;
+            name: string;
+            /** @enum {string} */
+            resultType: "numeric" | "text";
+            unit?: string;
+            range?: components["schemas"]["LabResultRange"];
+        };
+        /** @description One result of one test of a sample. Never changed, apart from being verified once: a correction is a new result naming this one. */
+        LabResult: {
+            id: string;
+            tenantId: string;
+            sampleId: string;
+            orderId: string;
+            encounterId: string;
+            patientId: string;
+            labTestId: string;
+            testCode: string;
+            testName: string;
+            /** @enum {string} */
+            resultType: "numeric" | "text";
+            /** @description The number as entered, its decimals kept (`5.10`), or the text. */
+            value: string;
+            unit?: string;
+            range?: components["schemas"]["LabResultRange"];
+            flag?: components["schemas"]["LabResultFlag"];
+            comment?: string;
+            status: components["schemas"]["LabResultStatus"];
+            /** Format: date-time */
+            enteredAt: string;
+            enteredByName: string;
+            /** Format: date-time */
+            verifiedAt?: string;
+            verifiedByName?: string;
+            amendsId?: string;
+            amendmentReason?: string;
+            /** @description The correction that replaced it: this one is history. */
+            amendedById?: string;
+            version: number;
+        };
+        /** @description The results of a lab order: those of its sample that is not rejected, and what they are entered for. No sample yet: no results. */
+        LabOrderResults: {
+            orderId: string;
+            tenantId: string;
+            encounterId: string;
+            patientId: string;
+            orderStatus: components["schemas"]["OrderStatus"];
+            sample?: components["schemas"]["LabSample"];
+            analytes: components["schemas"]["LabAnalyte"][];
+            /** @description Every result of the sample, corrections included, oldest first. The current one of a test is the one with no `amendedById`. */
+            results: components["schemas"]["LabResult"][];
+        };
+        LabResultEntry: {
+            labTestId: string;
+            /** @description For a numeric test a decimal number (`5.1`, `-0.25`, up to six decimals and smaller than a thousand million either side of zero; 422 `invalid_number` otherwise); for a text test the text. */
+            value: string;
+            comment?: string;
+        };
+        LabResultsEnter: {
+            /** @description Some or all of the tests of the order, each once. */
+            results: components["schemas"]["LabResultEntry"][];
+        };
+        LabResultsVerify: {
+            /** @description The results as the verifier read them: each current and entered, or 409 `conflict`. */
+            resultIds: string[];
+        };
+        LabResultAmend: {
+            /** @description For a numeric test a decimal number (`5.1`, `-0.25`, up to six decimals and smaller than a thousand million either side of zero; 422 `invalid_number` otherwise); for a text test the text. */
+            value: string;
+            comment?: string;
+            reason: string;
+        };
+        Notice: {
+            id: string;
+            tenantId: string;
+            title: string;
+            body: string;
+            /**
+             * Format: date-time
+             * @description ISO datetime (UTC)
+             */
+            createdAt: string;
+            archived: boolean;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        NoticePage: {
+            items: components["schemas"]["Notice"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        AccountSession: {
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastSeenAt: string;
+            /** @description The browser as it described itself at sign-in, for the person to recognise the device. */
+            userAgent: string | null;
+            /** @description True for the session making this call. */
+            current: boolean;
+        };
+        AccountSessionList: {
+            items: components["schemas"]["AccountSession"][];
+            nextCursor: string | null;
         };
     };
     responses: {
@@ -16527,6 +16688,777 @@ export interface operations {
             };
         };
     };
+    listLabWorklist: {
+        parameters: {
+            query?: {
+                stage?: components["schemas"]["LabStage"];
+                priority?: components["schemas"]["OrderPriority"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabWorkItemPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    collectLabSample: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One sample of a lab order. Never removed: a rejected one stays, and a new one is collected. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabSample"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    receiveLabSample: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                sampleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabSampleReceive"];
+            };
+        };
+        responses: {
+            /** @description One sample of a lab order. Never removed: a rejected one stays, and a new one is collected. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabSample"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    rejectLabSample: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                sampleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabSampleReject"];
+            };
+        };
+        responses: {
+            /** @description One sample of a lab order. Never removed: a rejected one stays, and a new one is collected. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabSample"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    printLabSampleLabel: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                sampleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getLabOrderResults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The results of a lab order: those of its sample that is not rejected, and what they are entered for. No sample yet: no results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrderResults"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    enterLabResults: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                sampleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabResultsEnter"];
+            };
+        };
+        responses: {
+            /** @description The results of a lab order: those of its sample that is not rejected, and what they are entered for. No sample yet: no results. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrderResults"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    verifyLabResults: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                sampleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabResultsVerify"];
+            };
+        };
+        responses: {
+            /** @description The results of a lab order: those of its sample that is not rejected, and what they are entered for. No sample yet: no results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrderResults"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    amendLabResult: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                resultId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabResultAmend"];
+            };
+        };
+        responses: {
+            /** @description One result of one test of a sample. Never changed, apart from being verified once: a correction is a new result naming this one. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabResult"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     changePassword: {
         parameters: {
             query?: never;
@@ -16686,176 +17618,6 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listLabWorklist: {
-        parameters: {
-            query?: {
-                /** @description `to_collect` when absent. */
-                stage?: components["schemas"]["LabStage"];
-                priority?: components["schemas"]["OrderPriority"];
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of the worklist */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabWorkItemPage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    collectLabSample: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
-                "idempotency-key": string;
-            };
-            path: {
-                orderId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The sample collected */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabSample"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    receiveLabSample: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
-                "idempotency-key": string;
-            };
-            path: {
-                sampleId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LabSampleReceive"];
-            };
-        };
-        responses: {
-            /** @description The sample received */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabSample"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    rejectLabSample: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
-                "idempotency-key": string;
-            };
-            path: {
-                sampleId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LabSampleReject"];
-            };
-        };
-        responses: {
-            /** @description The sample rejected */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LabSample"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    printLabSampleLabel: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
-                "idempotency-key": string;
-            };
-            path: {
-                sampleId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The print was recorded */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
