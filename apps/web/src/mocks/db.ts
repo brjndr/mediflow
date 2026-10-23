@@ -134,6 +134,11 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'referral:create' },
   { permission: 'followUp:read' },
   { permission: 'followUp:create' },
+  // The laboratory (#90): the admin holds all of it, as the clinical defaults give it.
+  { permission: 'labSample:read' },
+  { permission: 'labSample:collect' },
+  { permission: 'labSample:receive' },
+  { permission: 'labSample:reject' },
   { permission: 'billing:read' },
   { permission: 'billing:create' },
   { permission: 'billing:refund' },

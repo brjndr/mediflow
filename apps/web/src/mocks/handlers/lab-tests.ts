@@ -312,6 +312,12 @@ export function mockOrderableLabTest(tenantId: string, id: string) {
   return test && !test.archived ? { id: test.id, code: test.code, name: test.name } : undefined;
 }
 
+/** The sample a test is collected as, archived or not, as the laboratory's mock reads it (#90). */
+export function mockLabTestSample(tenantId: string, id: string) {
+  const test = find(tenantId, id);
+  return test && { sampleType: test.sampleType, container: test.container };
+}
+
 const invalid = () => error(400, 'validation_failed', 'The request is not valid');
 const notFound = () => error(404, 'lab_test_not_found', 'No such test');
 

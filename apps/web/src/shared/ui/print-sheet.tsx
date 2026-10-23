@@ -6,9 +6,18 @@ import { createPortal } from 'react-dom';
  * thing shown on paper (the print rules of `index.css`). Once its images are ready it opens the
  * browser's print dialog, and calls `onDone` when the dialog closes. Mount one per print (a new
  * `key` each time), and only once whatever must happen first (the audit) has happened. What it
- * shows is held in memory only, as anything else on the screen.
+ * shows is held in memory only, as anything else on the screen. `className` replaces the page's
+ * padding and type, for something smaller than a page (a sample's label).
  */
-export function PrintSheet({ children, onDone }: { children: ReactNode; onDone: () => void }) {
+export function PrintSheet({
+  children,
+  onDone,
+  className = 'p-8 text-sm leading-relaxed',
+}: {
+  children: ReactNode;
+  onDone: () => void;
+  className?: string;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const done = useRef(onDone);
   useEffect(() => {
@@ -38,7 +47,7 @@ export function PrintSheet({ children, onDone }: { children: ReactNode; onDone: 
   }, []);
 
   return createPortal(
-    <div ref={box} data-print-sheet="" className="p-8 text-sm leading-relaxed">
+    <div ref={box} data-print-sheet="" className={className}>
       {children}
     </div>,
     document.body,

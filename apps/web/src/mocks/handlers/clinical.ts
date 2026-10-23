@@ -1641,6 +1641,13 @@ export const mockPrescriptionsOf = (encounterId: string): Prescription[] =>
 export const mockOrdersOf = (encounterId: string): readonly Order[] =>
   state.orders.filter((each) => each.encounterId === encounterId);
 
+/**
+ * The lab orders of a hospital as the mock holds them, which the laboratory's mock works (#90);
+ * it moves one on with `moveMockOrder`, as the laboratory API will through the clinical module.
+ */
+export const mockLabOrders = (tenantId: string): readonly Order[] =>
+  state.orders.filter((each) => each.tenantId === tenantId && each.type === 'lab');
+
 /** Moves an order on behind the screen, as the pharmacy or the laboratory would. */
 export function moveMockOrder(id: string, status: Order['status']): void {
   const order = state.orders.find((each) => each.id === id);

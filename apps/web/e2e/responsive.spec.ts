@@ -161,6 +161,17 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: /^Book the follow-up of / })).toBeVisible();
   await expect(page.getByRole('group', { name: /^Time/ })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // The laboratory worklist (#90): cards on a phone, and collecting a sample in place.
+  await goTo(page, 'Laboratory');
+  await expect(page.getByRole('heading', { name: 'Laboratory worklist' })).toBeVisible();
+  await expect(page.getByText('Complete blood count')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page
+    .getByRole('button', { name: /^Collect sample: / })
+    .first()
+    .click();
+  await expect(page.getByRole('button', { name: 'Mark as collected' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
 
   await goTo(page, 'Patients');
   await expect(page.getByRole('heading', { name: 'Patients', exact: true })).toBeVisible();
