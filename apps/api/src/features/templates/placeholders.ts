@@ -14,6 +14,7 @@ export const TEMPLATE_KINDS = [
   'clinical_note',
   'consent',
   'discharge_summary',
+  'imaging_report',
 ] as const;
 export type TemplateKind = (typeof TEMPLATE_KINDS)[number];
 
@@ -31,6 +32,7 @@ const EXTRA = {
   clinical_note: [],
   consent: ['procedure.name'],
   discharge_summary: ['admission.date', 'discharge.date'],
+  imaging_report: ['study.name', 'study.modality'],
 } as const satisfies Record<TemplateKind, readonly string[]>;
 
 export type Placeholder = (typeof COMMON)[number] | (typeof EXTRA)[TemplateKind][number];

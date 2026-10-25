@@ -151,6 +151,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'imagingStudy:read' },
   { permission: 'imagingStudy:schedule' },
   { permission: 'imagingStudy:perform' },
+  { permission: 'imagingReport:write' },
+  { permission: 'imagingReport:sign' },
   { permission: 'billing:read' },
   { permission: 'billing:create' },
   { permission: 'billing:refund' },

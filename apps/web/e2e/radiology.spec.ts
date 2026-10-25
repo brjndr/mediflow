@@ -62,3 +62,69 @@ test('schedule a study and mark it performed with the keyboard alone', async ({ 
   await expect(page.getByText('No studies are scheduled.')).toBeVisible();
   await expectNoAxeViolations(page);
 });
+
+test('write, sign and add to a report with the keyboard alone', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await goTo(page, 'Radiology');
+  await expect(page.getByRole('heading', { name: 'Radiology worklist' })).toBeVisible();
+
+  // Scheduled and performed first, as the test above does it.
+  await page.getByRole('button', { name: /^Schedule: .+, Chest X-ray$/ }).click();
+  await page.getByRole('button', { name: 'Schedule study' }).click();
+  const stage = page.getByRole('combobox', { name: 'Stage' });
+  await stage.selectOption('scheduled');
+  await page.getByRole('button', { name: /^Mark as performed: .+, Chest X-ray$/ }).click();
+  await stage.selectOption('performed');
+
+  const write = page.getByRole('button', { name: /^Write report: .+, Chest X-ray$/ });
+  await reach(page, write);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  const panel = page.getByRole('region', { name: 'Report of Chest X-ray' });
+  await expect(panel.getByRole('heading', { level: 2 })).toBeFocused();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  const findings = panel.getByRole('textbox', { name: 'Findings' });
+  await reach(page, findings);
+  await page.keyboard.type('Lungs clear.');
+  const impression = panel.getByRole('textbox', { name: 'Impression' });
+  await reach(page, impression);
+  await page.keyboard.type('Normal chest.');
+
+  const sign = panel.getByRole('button', { name: 'Sign report' });
+  await reach(page, sign);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(panel.getByRole('button', { name: 'Sign now' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Signed report of Chest X-ray' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'is signed' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  const signed = page.getByRole('region', { name: 'Signed report of Chest X-ray' });
+  const add = signed.getByRole('button', { name: 'Add addendum' });
+  await reach(page, add);
+  await page.keyboard.press('Enter');
+  await expect(signed.getByRole('heading', { name: 'Add an addendum' })).toBeFocused();
+  await reach(page, signed.getByRole('textbox', { name: 'Addendum' }));
+  await page.keyboard.type('Small left effusion.');
+  const reason = signed.getByRole('combobox', { name: /^Reason/ });
+  await reach(page, reason);
+  await reason.selectOption('correction');
+  const signAddendum = signed.getByRole('button', { name: 'Sign addendum' });
+  await reach(page, signAddendum);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(
+    signed.getByRole('status').filter({ hasText: 'Addendum added and signed.' }),
+  ).toBeFocused();
+  await expect(signed.getByText('Small left effusion.')).toBeVisible();
+  await expectNoAxeViolations(page);
+  // Nothing of the report is kept in the browser.
+  expect(await page.evaluate(() => window.localStorage.length + window.sessionStorage.length)).toBe(
+    0,
+  );
+});

@@ -11,3 +11,6 @@ export const templatesFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('templates', TEMPLATE_PERMISSIONS);
   await app.register(templateRoutes);
 };
+
+export { fillPlaceholders, placeholdersIn } from './placeholders.js';
+export { isTemplateVersion } from './repository.js';

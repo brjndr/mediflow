@@ -87,7 +87,7 @@ describe('the templates', () => {
     await openList();
 
     expect(screen.getByRole('heading', HEADING)).toBeInTheDocument();
-    await waitFor(() => expect(statuses()).toContain('5 templates'));
+    await waitFor(() => expect(statuses()).toContain('6 templates'));
     const row = within(
       screen.getByRole('link', { name: 'Discharge summary' }).closest('tr, li') as HTMLElement,
     );

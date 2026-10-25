@@ -23,7 +23,7 @@ test('write a template with a placeholder, preview it, and keep both versions', 
   await page.goto('/');
   await goTo(page, 'Document templates');
   await expect(heading(page, 'Document templates')).toBeVisible();
-  await expect(status(page, '5 templates')).toBeVisible();
+  await expect(status(page, '6 templates')).toBeVisible();
   await expectNoSidewaysScroll(page);
 
   await page.getByRole('link', { name: 'Add a template' }).click();

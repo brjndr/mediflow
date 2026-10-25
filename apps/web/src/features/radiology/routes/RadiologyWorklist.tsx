@@ -1,11 +1,13 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { focusIfLost } from '@/shared/lib/focus';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
+import { ReportPanel } from '../components/ReportPanel';
 import { ScheduleStudy } from '../components/ScheduleStudy';
 import { usePerformStudy, useUnscheduleStudy, useWorklist } from '../hooks/use-radiology';
 import { IMAGING_STAGES, MODALITIES, PRIORITIES } from '../schemas';
@@ -25,7 +27,8 @@ const CHANGE_REFUSED: Record<string, string> = {
 const STAGE_ACTIONS: Record<ImagingStage, readonly string[]> = {
   to_schedule: ['schedule'],
   scheduled: ['perform', 'reschedule', 'unschedule'],
-  performed: [],
+  performed: ['report'],
+  reported: ['viewReport'],
 };
 
 /**
@@ -34,8 +37,9 @@ const STAGE_ACTIONS: Record<ImagingStage, readonly string[]> = {
  * modality and priority on the server. To schedule is stat first and the oldest first within a
  * priority; scheduled is the soonest slot first. Scheduling and moving a study open a panel in
  * place (`imagingStudy:schedule`); unscheduling and recording that it was performed
- * (`imagingStudy:perform`) are row actions said in the status line. A performed study waits for
- * its report, which is #97. Works at every width.
+ * (`imagingStudy:perform`) are row actions said in the status line. A performed study's report
+ * (#97) is written, saved and signed in a panel in place; signing moves it to the reported stage,
+ * the newest signed first, where its report is read and addenda are added. Works at every width.
  */
 export default function RadiologyWorklist() {
   const { t } = useTranslation('radiology');
@@ -59,8 +63,11 @@ export default function RadiologyWorklist() {
   const [message, setMessage] = useState({ text: '', count: 0 });
   const say = (text: string) => setMessage((now) => ({ text, count: now.count + 1 }));
   // The panel works on the row as it was opened: a scheduled order leaves this stage at once.
-  const [panel, setPanel] = useState<ImagingWorkItem | null>(null);
-  usePanelFocus(panel ? `schedule:${panel.orderId}` : null, box, status);
+  const [panel, setPanel] = useState<{ kind: 'schedule' | 'report'; item: ImagingWorkItem } | null>(
+    null,
+  );
+  usePanelFocus(panel ? `${panel.kind}:${panel.item.orderId}` : null, box, status);
+  const canWrite = usePermission('imagingReport:write');
   useLayoutEffect(() => {
     if (message.count > 0) focusIfLost(status.current);
   }, [message]);
@@ -77,7 +84,19 @@ export default function RadiologyWorklist() {
     /** Where the study is, in words: its slot, when it was performed, or not scheduled. */
     const studyWords = (row: ImagingWorkItem): string => {
       const study = row.study;
+      if (row.stage === 'reported') {
+        return t('list.study.reported', {
+          time: row.reportSignedAt ? format.dateTime(row.reportSignedAt) : '',
+          name: row.reportSignedByName ?? '',
+        });
+      }
       if (study?.performedAt) {
+        if (row.reportStatus === 'draft') {
+          return t('list.study.performedDrafted', {
+            time: format.dateTime(study.performedAt),
+            name: study.performedByName ?? '',
+          });
+        }
         return t('list.study.performed', {
           time: format.dateTime(study.performedAt),
           name: study.performedByName ?? '',
@@ -135,7 +154,7 @@ export default function RadiologyWorklist() {
       label: t('list.schedule'),
       requires: 'imagingStudy:schedule',
       disabled: (row) => row.stage !== 'to_schedule',
-      onSelect: (row) => setPanel(row),
+      onSelect: (row) => setPanel({ kind: 'schedule', item: row }),
     },
     {
       id: 'perform',
@@ -155,7 +174,7 @@ export default function RadiologyWorklist() {
       label: t('list.reschedule'),
       requires: 'imagingStudy:schedule',
       disabled: (row) => !row.study?.scheduledAt,
-      onSelect: (row) => setPanel(row),
+      onSelect: (row) => setPanel({ kind: 'schedule', item: row }),
     },
     {
       id: 'unschedule',
@@ -170,6 +189,18 @@ export default function RadiologyWorklist() {
           onError: (error) => say(refusal(error)),
         });
       },
+    },
+    {
+      id: 'report',
+      label: t(canWrite ? 'list.writeReport' : 'list.viewReport'),
+      disabled: (row) => row.stage !== 'performed',
+      onSelect: (row) => setPanel({ kind: 'report', item: row }),
+    },
+    {
+      id: 'viewReport',
+      label: t('list.viewReport'),
+      disabled: (row) => row.stage !== 'reported',
+      onSelect: (row) => setPanel({ kind: 'report', item: row }),
     },
   ];
   const actions = allActions.filter((action) => STAGE_ACTIONS[stage].includes(action.id));
@@ -242,21 +273,31 @@ export default function RadiologyWorklist() {
           .filter(Boolean)
           .join(' ')}
       </p>
-      {panel && (
+      {panel?.kind === 'schedule' && (
         <ScheduleStudy
-          key={panel.orderId}
-          item={panel}
+          key={panel.item.orderId}
+          item={panel.item}
           onClose={() => setPanel(null)}
           onScheduled={(study) => {
             setPanel(null);
             say(
               t('schedule.done', {
-                study: panel.itemName,
-                name: panel.patientName,
+                study: panel.item.itemName,
+                name: panel.item.patientName,
                 time: study.scheduledAt ? format.dateTime(study.scheduledAt) : '',
               }),
             );
           }}
+        />
+      )}
+      {panel?.kind === 'report' && (
+        <ReportPanel
+          key={panel.item.orderId}
+          item={panel.item}
+          onClose={() => setPanel(null)}
+          onSigned={() =>
+            say(t('report.signed', { study: panel.item.itemName, name: panel.item.patientName }))
+          }
         />
       )}
       <DataGrid

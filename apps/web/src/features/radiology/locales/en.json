@@ -4,7 +4,8 @@
   "stage": {
     "to_schedule": "To schedule",
     "scheduled": "Scheduled",
-    "performed": "Performed, awaiting report"
+    "performed": "Performed, awaiting report",
+    "reported": "Reported"
   },
   "modality": {
     "xray": "X-ray",
@@ -46,7 +47,9 @@
       "unscheduled": "Unscheduled, to schedule again",
       "scheduled": "{{time}}",
       "performed": "Performed {{time}} by {{name}}",
-      "inProgress": "In progress"
+      "inProgress": "In progress",
+      "performedDrafted": "Performed {{time}} by {{name}}, report drafted",
+      "reported": "Reported {{time}} by {{name}}"
     },
     "orderedBy": "{{time}} by {{name}}",
     "schedule": "Schedule",
@@ -56,8 +59,11 @@
     "empty": {
       "to_schedule": "No imaging orders to schedule.",
       "scheduled": "No studies are scheduled.",
-      "performed": "No performed studies are waiting for a report."
-    }
+      "performed": "No performed studies are waiting for a report.",
+      "reported": "No reports have been signed."
+    },
+    "writeReport": "Write report",
+    "viewReport": "View report"
   },
   "schedule": {
     "heading": "Schedule {{study}}",
@@ -94,6 +100,94 @@
       "conflict": "Someone changed this study meanwhile. The worklist shows it as it is now.",
       "notScheduled": "This study is no longer scheduled: it was moved, performed or cancelled.",
       "gone": "This imaging order is no longer on the worklist."
+    }
+  },
+  "sex": {
+    "male": "Male",
+    "female": "Female",
+    "other": "Other"
+  },
+  "report": {
+    "heading": "Report of {{study}}",
+    "headingSigned": "Signed report of {{study}}",
+    "loading": "Loading the report…",
+    "retry": "Try again",
+    "none": "No report has been signed for this study yet.",
+    "draftNotice": "A draft, not yet signed.",
+    "performed": "Performed",
+    "age_one": "{{count}} year",
+    "age_other": "{{count}} years",
+    "ageMonths_one": "{{count}} month",
+    "ageMonths_other": "{{count}} months",
+    "parts": {
+      "technique": "Technique",
+      "findings": "Findings",
+      "impression": "Impression"
+    },
+    "template": {
+      "label": "Report template",
+      "choose": "Choose a template",
+      "fill": "Fill findings",
+      "hint": "Fills the findings with the template, filled in for this study, in place of what they say now. Check what it says before signing.",
+      "failed": "The template could not be read. Try again.",
+      "replace": "Replace findings"
+    },
+    "templateFilled": "Findings filled from the template. Save the draft to keep them.",
+    "links": {
+      "heading": "Links to images",
+      "hint": "Images held outside the system, at an https address. There is no image viewer here.",
+      "label": "Label",
+      "url": "Address",
+      "add": "Add link",
+      "remove": "Remove link {{label}}",
+      "removeShort": "Remove",
+      "full": "A report has at most 10 links.",
+      "invalid": "Enter an https address with no user name, password or access token in it.",
+      "opensElsewhere": "(opens in a new tab)"
+    },
+    "saveDraft": "Save draft",
+    "saving": "Saving…",
+    "saved": "Draft saved at {{time}}.",
+    "sign": "Sign report",
+    "confirmSign": "Signing completes the order, and the report can never be changed. A correction is added as an addendum. Sign now?",
+    "signNow": "Sign now",
+    "signing": "Signing…",
+    "back": "Back",
+    "signed": "The report of {{study}} for {{name}} is signed.",
+    "signedBy": "Signed by {{name}} on {{time}}. A signed report is never changed.",
+    "keepMine": "Keep the text here",
+    "useSaved": "Use the saved text",
+    "addenda": {
+      "heading": "Addenda",
+      "heading_new": "Add an addendum",
+      "hint": "An addendum is signed by you when added, and is never changed or removed.",
+      "text": "Addendum",
+      "reason": "Reason",
+      "chooseReason": "Choose a reason",
+      "reasons": {
+        "correction": "Correction",
+        "additional_finding": "Additional finding",
+        "clarification": "Clarification",
+        "comparison": "Comparison with an earlier study",
+        "other": "Other"
+      },
+      "by": "{{reason}}, by {{name}} on {{time}}",
+      "add": "Add addendum",
+      "sign": "Sign addendum",
+      "signing": "Signing…",
+      "added": "Addendum added and signed.",
+      "empty": "Write the addendum before signing it."
+    },
+    "refused": {
+      "conflict": "Someone saved this report meanwhile.",
+      "signed": "This report was signed meanwhile. Close this panel to see it as it is now.",
+      "notPerformed": "This study is no longer waiting for a report: it was not performed or was cancelled.",
+      "gone": "This imaging order is no longer on the worklist.",
+      "invalidLink": "A link is not an https address the system takes. Remove it and add it again.",
+      "template": "That template is no longer available. Choose another, or write the findings.",
+      "incomplete": "Write the findings and the impression before signing.",
+      "placeholders": "A placeholder of the template is still in the report, in double braces. Replace it before signing.",
+      "notSigned": "An addendum is added to a signed report only."
     }
   }
 }

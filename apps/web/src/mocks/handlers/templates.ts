@@ -126,6 +126,14 @@ function seed(): State {
       '{{doctor.name}}',
     ),
   ]);
+  add(H, 'tpl_h_xray', 'imaging_report', 'Plain radiograph', [
+    doc(
+      '{{study.name}} ({{study.modality}}) for {{patient.name}}, {{patient.age}}, {{patient.sex}}',
+      'Bones and joints:',
+      'Soft tissues:',
+      'Other:',
+    ),
+  ]);
   add(
     H,
     'tpl_h_old',
@@ -145,6 +153,17 @@ let state = seed();
 onMockReset(() => {
   state = seed();
 });
+
+/** Whether this is a saved version of an imaging report template of the hospital (#97). */
+export function isMockReportTemplate(tenantId: string, id: string, version: number): boolean {
+  return state.templates.some(
+    (each) =>
+      each.tenantId === tenantId &&
+      each.id === id &&
+      each.kind === 'imaging_report' &&
+      each.versions.some((saved) => saved.version === version),
+  );
+}
 
 /** What another member of staff does meanwhile: saves a new version behind the open screen. */
 export function saveMockTemplateVersion(id: string, lines: string[]): void {

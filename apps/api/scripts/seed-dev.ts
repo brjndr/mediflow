@@ -358,6 +358,16 @@ const SAMPLE_TEMPLATES = [
       '{{doctor.name}}',
     ],
   },
+  {
+    kind: 'imaging_report',
+    name: 'Plain radiograph',
+    lines: [
+      '{{study.name}} ({{study.modality}}) for {{patient.name}}, {{patient.age}}, {{patient.sex}}',
+      'Bones and joints:',
+      'Soft tissues:',
+      'Other:',
+    ],
+  },
 ] as const;
 
 const HOSPITALS = [
@@ -788,20 +798,23 @@ try {
     );
   }
 
-  // Sample templates, each as its version 1, saved by a member of the hospital's staff. Only for
-  // a hospital that has none, so running the seed again adds nothing.
+  // Sample templates, each as its version 1, saved by a member of the hospital's staff. Only one
+  // the hospital has no template of that kind and name for (archived ones included), so running
+  // the seed again adds nothing, and a hospital seeded earlier gets a new kind's sample (#97).
   for (const hospital of HOSPITALS) {
     const tenantId = tenantIds.get(hospital.slug);
-    const existing = await client.query('select 1 from templates where tenant_id = $1 limit 1', [
-      tenantId,
-    ]);
     const author = await client.query<{ user_id: string }>(
       `select user_id from memberships where tenant_id = $1 order by (role_id = 'admin') desc, user_id limit 1`,
       [tenantId],
     );
     const savedBy = author.rows[0]?.user_id;
-    if ((existing.rowCount ?? 0) > 0 || !savedBy) continue;
+    if (!savedBy) continue;
     for (const template of SAMPLE_TEMPLATES) {
+      const existing = await client.query(
+        'select 1 from templates where tenant_id = $1 and kind = $2 and name_lower = lower($3)',
+        [tenantId, template.kind, template.name],
+      );
+      if ((existing.rowCount ?? 0) > 0) continue;
       const body = {
         type: 'doc',
         content: template.lines.map((line) => ({
