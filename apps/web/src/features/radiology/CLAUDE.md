@@ -14,6 +14,8 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 **Modality in the services catalog:** an imaging service has a modality (X-ray, CT, MRI, ultrasound, mammography, fluoroscopy, nuclear medicine, other), chosen on the service's form, which offers it for the category imaging only and sends `null` for none. The worklist filters on it; a service with none is "Other". Notes on that field are in `features/services`.
 
+**Tests (#98):** `e2e/radiology.spec.ts` runs the worklist and the report with the keyboard alone, and the whole flow at every width: the doctor orders a study in the consultation, radiology schedules, performs, reports and signs it, opens it from the reported stage, and the consultation shows the order completed once its orders are read again (the clock is moved past the 30-second `staleTime`, as a reload would reset the mock).
+
 The endpoints are the radiology API's (`apps/api/src/features/radiology/CLAUDE.md`): `GET /radiology/worklist`, `POST /radiology/orders/{orderId}/schedule`, `/unschedule` and `/perform`, and for reports `GET` and `PUT /radiology/orders/{orderId}/report`, `POST /radiology/orders/{orderId}/report/sign` and `/report/addenda`.
 
 ## Decided

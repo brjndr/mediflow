@@ -2,9 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { expectNoAxeViolations, expectNoSidewaysScroll, goTo } from './support';
 
 /**
- * Radiology's worklist (#96) in a real browser against the mock backend, at every supported
- * width: a study scheduled, then performed, with the keyboard alone and focus visible at each
- * step.
+ * Radiology (#96, #97, #98) in a real browser against the mock backend, at every supported
+ * width: a study scheduled, performed and reported with the keyboard alone and focus visible at
+ * each step, and the whole flow from the doctor’s order to the signed report.
  *
  * A full page load resets the mock, so everything after the first load happens inside the app.
  */
@@ -127,4 +127,67 @@ test('write, sign and add to a report with the keyboard alone', async ({ page })
   expect(await page.evaluate(() => window.localStorage.length + window.sessionStorage.length)).toBe(
     0,
   );
+});
+
+test('an imaging study from the doctor’s order to its signed report (#98)', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  // Time runs as usual, and is moved on below so the consultation reads its orders again.
+  await page.clock.install();
+  await page.goto('/');
+
+  // The doctor orders an ultrasound for the patient of the consultation.
+  await goTo(page, 'Consultations');
+  await page.getByRole('main').getByRole('link').first().click();
+  const imaging = page
+    .getByRole('heading', { name: 'Imaging orders' })
+    .locator('xpath=ancestor::section[1]');
+  await imaging.getByRole('combobox', { name: 'Study' }).fill('ultrasound');
+  await page.getByRole('option', { name: 'Abdominal ultrasound (IMG-002)' }).click();
+  await imaging.getByRole('button', { name: 'Order the study' }).click();
+  await expect(imaging.getByText('Imaging ordered.')).toBeVisible();
+  const patient = 'Asha Verma1';
+
+  // Radiology schedules it, then performs it.
+  await goTo(page, 'Radiology');
+  await expect(page.getByRole('heading', { name: 'Radiology worklist' })).toBeVisible();
+  await page.getByRole('button', { name: `Schedule: ${patient}, Abdominal ultrasound` }).click();
+  await page
+    .getByRole('region', { name: 'Schedule Abdominal ultrasound' })
+    .getByRole('button', { name: 'Schedule study' })
+    .click();
+  await expect(page.getByRole('status').filter({ hasText: 'scheduled for' })).toBeVisible();
+  const stage = page.getByRole('combobox', { name: 'Stage' });
+  await stage.selectOption('scheduled');
+  await page
+    .getByRole('button', { name: `Mark as performed: ${patient}, Abdominal ultrasound` })
+    .click();
+  await expect(page.getByRole('status').filter({ hasText: 'marked as performed' })).toBeVisible();
+
+  // The report is written and signed, which completes the order.
+  await stage.selectOption('performed');
+  await page
+    .getByRole('button', { name: `Write report: ${patient}, Abdominal ultrasound` })
+    .click();
+  const draft = page.getByRole('region', { name: 'Report of Abdominal ultrasound' });
+  await draft.getByRole('textbox', { name: 'Findings' }).fill('Liver and gallbladder normal.');
+  await draft.getByRole('textbox', { name: 'Impression' }).fill('Normal abdomen.');
+  await draft.getByRole('button', { name: 'Sign report' }).click();
+  await draft.getByRole('button', { name: 'Sign now' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'is signed' })).toBeVisible();
+
+  // The signed report is listed as reported and opened from there.
+  await stage.selectOption('reported');
+  await page.getByRole('button', { name: `View report: ${patient}, Abdominal ultrasound` }).click();
+  const signed = page.getByRole('region', { name: 'Signed report of Abdominal ultrasound' });
+  await expect(signed.getByText('Normal abdomen.')).toBeVisible();
+  await expect(signed.getByRole('button', { name: 'Sign report' })).toHaveCount(0);
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  // The doctor comes back later, once the orders held are stale, and sees it completed.
+  await page.clock.fastForward('00:31');
+  await goTo(page, 'Consultations');
+  await page.getByRole('main').getByRole('link').first().click();
+  await expect(imaging.getByText('Completed')).toBeVisible();
+  await expectNoSidewaysScroll(page);
 });
