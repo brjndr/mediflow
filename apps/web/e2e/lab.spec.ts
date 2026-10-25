@@ -233,3 +233,63 @@ test('print a report, acknowledge a critical result and open a trend with the ke
   await expect(page.getByRole('heading', { name: /^Trend of / })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Show trend/ }).first()).toBeFocused();
 });
+
+test('a lab test from the doctor’s order to its result in the consultation (#93)', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+
+  // The doctor orders a haemoglobin for the patient of the consultation.
+  await goTo(page, 'Consultations');
+  await page.getByRole('main').getByRole('link').first().click();
+  const orders = page
+    .getByRole('heading', { name: 'Lab orders' })
+    .locator('xpath=ancestor::section[1]');
+  await orders.getByRole('combobox', { name: 'Test or panel' }).fill('haemoglobin');
+  await page.getByRole('option', { name: 'Haemoglobin (HB), Single test' }).click();
+  await orders.getByRole('button', { name: 'Order the test' }).click();
+  await expect(page.getByText('Test ordered.')).toBeVisible();
+  const patient = 'Asha Verma1';
+
+  // The sample is collected and received on the worklist.
+  await goTo(page, 'Laboratory');
+  await expect(page.getByRole('heading', { name: 'Laboratory worklist' })).toBeVisible();
+  await page.getByRole('button', { name: `Collect sample: ${patient}, Haemoglobin` }).click();
+  const panel = page.getByRole('region', { name: 'Collect sample: Haemoglobin' });
+  await panel.getByRole('button', { name: 'Mark as collected' }).click();
+  await expect(panel.getByRole('status')).toHaveText(/^Collected as \d{6}-\d{4}\./);
+  await panel.getByRole('button', { name: 'Close' }).click();
+  const stage = page.getByRole('combobox', { name: 'Stage' });
+  await stage.selectOption('collected');
+  await page.getByRole('button', { name: `Receive: ${patient}, Haemoglobin` }).click();
+  await expect(page.getByText(/^Sample \d{6}-\d{4} received\./)).toBeVisible();
+
+  // The result is entered, then verified, which completes the order.
+  await stage.selectOption('received');
+  await page.getByRole('button', { name: `Results: ${patient}, Haemoglobin` }).click();
+  await expect(page.getByRole('heading', { name: 'Results: Haemoglobin', level: 1 })).toBeVisible();
+  await page.getByRole('textbox', { name: 'Haemoglobin (g/dL)' }).fill('6.5');
+  await page.getByRole('button', { name: 'Save results' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /result saved/ })).toHaveText(
+    /Critical: Haemoglobin/,
+  );
+  await expect(
+    page.getByRole('checkbox', { name: /^Haemoglobin: 6.5 g\/dL, Critical low/ }),
+  ).toBeChecked();
+  await page.getByRole('button', { name: 'Verify ticked results' }).click();
+  await expect(page.getByText(/the order is completed/)).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
+  // The doctor sees the verified result, and its flag in words, in the consultation.
+  await goTo(page, 'Consultations');
+  await page.getByRole('main').getByRole('link').first().click();
+  const released = page
+    .getByRole('heading', { name: 'Lab results of this visit' })
+    .locator('xpath=ancestor::section[1]');
+  await expect(released.getByText('6.5 g/dL')).toBeVisible();
+  await expect(released.getByText('Critical low')).toBeVisible();
+  await expect(released.getByText('Critical, not acknowledged')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});
