@@ -57,6 +57,8 @@ interface WorkItem {
   orderStatus: string;
   sample?: Sample;
   rejectedSamples: number;
+  resultsEntered: number;
+  resultsToVerify: number;
 }
 interface Result {
   id: string;
@@ -70,10 +72,14 @@ interface Result {
   amendedById?: string;
 }
 interface OrderResults {
+  patientName: string;
+  patientMrn: string;
+  priority: string;
   orderStatus: string;
   sample?: Sample;
   analytes: { labTestId: string; range?: { low?: number } }[];
   results: Result[];
+  awaitingVerification?: string[];
 }
 interface Page<Item> {
   items: Item[];
@@ -477,6 +483,8 @@ describe('results', () => {
       201,
     );
     expect(entered.orderStatus).toBe('in_progress');
+    expect(entered).toMatchObject({ patientName: 'Asha Test', priority: 'routine' });
+    expect(entered.patientMrn).toMatch(/^LB-/);
     const result = entered.results[0];
     expect(result).toMatchObject({
       value: '6.50',
@@ -491,8 +499,11 @@ describe('results', () => {
       409,
       'already_resulted',
     ]);
-    // The doctor reads results; the nurse does not.
-    expect((await resultsOf(order.id, { user: doctor })).results).toHaveLength(1);
+    // The doctor reads results once verified, never one entered as final; the nurse reads none.
+    const forDoctor = await resultsOf(order.id, { user: doctor });
+    expect(forDoctor.results).toEqual([]);
+    expect(forDoctor.awaitingVerification).toEqual([catalog.hb]);
+    expect((await resultsOf(order.id)).awaitingVerification).toBeUndefined();
     expect(errorOf(await get(`/lab/orders/${order.id}/results`, { user: nurse }))).toEqual([
       403,
       'permission_denied',
@@ -559,6 +570,67 @@ describe('results', () => {
     const verified = (await events(sample.id)).filter((e) => e.event === 'lab.result_verified');
     expect(verified).toHaveLength(2);
     expect(await orderStatus(order.id)).toBe('completed');
+  });
+
+  it('gives the doctor a verified result, and the replaced one while its correction waits', async () => {
+    const { order, sample } = await received();
+    const entered = await ok<OrderResults>(
+      enter(sample.id, [{ labTestId: catalog.hb, value: '13.2' }]),
+      201,
+    );
+    const original = entered.results[0];
+    await ok(post(`/lab/samples/${sample.id}/verify`, { resultIds: [original?.id] }));
+    const released = await resultsOf(order.id, { user: doctor });
+    expect(released.results).toMatchObject([{ id: original?.id, value: '13.2' }]);
+    expect(released.awaitingVerification).toEqual([]);
+    const corrected = await ok<Result>(
+      post(`/lab/results/${original?.id}/amend`, { value: '14.1', reason: 'Wrong patient tube' }),
+      201,
+    );
+    const waiting = await resultsOf(order.id, { user: doctor });
+    expect(waiting.results.map((r) => [r.id, r.amendedById])).toEqual([
+      [original?.id, corrected.id],
+    ]);
+    expect(waiting.awaitingVerification).toEqual([catalog.hb]);
+    expect(await audited('lab_result', corrected.id)).not.toContain('read');
+  });
+
+  it('lists completed orders the newest first, with what waits for verifying', async () => {
+    const first = await received();
+    const second = await received();
+    for (const { sample } of [first, second]) {
+      const r = await ok<OrderResults>(
+        enter(sample.id, [{ labTestId: catalog.hb, value: '13' }]),
+        201,
+      );
+      await ok(post(`/lab/samples/${sample.id}/verify`, { resultIds: [r.results[0]?.id] }));
+    }
+    const read = await resultsOf(first.order.id);
+    await ok(
+      post(`/lab/results/${read.results[0]?.id}/amend`, { value: '12.5', reason: 'Recalibrated' }),
+      201,
+    );
+    const page = await worklist('completed');
+    const ids = page.items.map((item) => item.orderId);
+    expect(ids.indexOf(second.order.id)).toBeLessThan(ids.indexOf(first.order.id));
+    expect(page.total).toBeUndefined();
+    expect(page.items.find((item) => item.orderId === first.order.id)).toMatchObject({
+      stage: 'completed',
+      resultsEntered: 1,
+      resultsToVerify: 1,
+    });
+    expect(page.items.find((item) => item.orderId === second.order.id)).toMatchObject({
+      resultsEntered: 1,
+      resultsToVerify: 0,
+    });
+    expect((await worklist('received')).items.map((item) => item.orderId)).not.toContain(
+      first.order.id,
+    );
+    const paged: Page<WorkItem> = await ok(get('/lab/worklist?stage=completed&limit=1'));
+    const next: Page<WorkItem> = await ok(
+      get(`/lab/worklist?stage=completed&limit=1&cursor=${paged.nextCursor ?? ''}`),
+    );
+    expect(next.items[0]?.orderId).not.toBe(paged.items[0]?.orderId);
   });
 
   it('enters nothing more on a repeat', async () => {
@@ -684,6 +756,26 @@ describe('the edges', () => {
         404,
         'order_not_found',
       ]);
+    } finally {
+      await setScope('all');
+    }
+  });
+
+  it('gives verified results only to one who enters and verifies at a narrower scope', async () => {
+    const { order, sample } = await received();
+    await ok(enter(sample.id, [{ labTestId: catalog.hb, value: '13' }]), 201);
+    const setScope = (scope: string) =>
+      pool.query(
+        `update role_permissions set scope = $2
+         where tenant_id = $1 and permission in ('labResult:enter', 'labResult:verify')
+           and role_id = 'lab_technician'`,
+        [hospital.id, scope],
+      );
+    await setScope('own');
+    try {
+      const read = await resultsOf(order.id);
+      expect(read.results).toEqual([]);
+      expect(read.awaitingVerification).toEqual([catalog.hb]);
     } finally {
       await setScope('all');
     }

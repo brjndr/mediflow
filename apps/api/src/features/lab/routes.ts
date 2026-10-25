@@ -21,6 +21,7 @@ import {
   rejectSample,
   resultsOf,
   samplesByIds,
+  orderHeading,
   standingSample,
   verifyResult,
   type ResultRow,
@@ -124,6 +125,8 @@ function workItemView(row: WorkItemRow, sample: SampleRow | undefined) {
     stage: row.stage,
     ...(sample ? { sample: sampleView(sample) } : {}),
     rejectedSamples: row.rejected_samples,
+    resultsEntered: row.results_entered,
+    resultsToVerify: row.results_to_verify,
   };
 }
 
@@ -204,10 +207,27 @@ export const labRoutes: FastifyPluginAsyncTypebox = async (app) => {
     }));
   }
 
-  /** The results of an order's sample that is not rejected, each read audited. */
+  /**
+   * The results of an order's sample that is not rejected, each read audited. A caller who may
+   * neither enter nor verify results (a doctor) is given no result that is not verified (#91):
+   * the tests whose current result waits for verification are named in `awaitingVerification`.
+   */
   async function orderResults(request: FastifyRequest, order: LabOrder): Promise<LabOrderResults> {
     const sample = await standingSample(request.txClient, order.id);
-    const results = sample ? await resultsOf(request.txClient, sample.id) : [];
+    const heading = await orderHeading(request.txClient, order.id);
+    const all = sample ? await resultsOf(request.txClient, sample.id) : [];
+    const policy = await request.access.policy();
+    const releasedOnly = !(policy?.permissions ?? []).some(
+      (grant) =>
+        (grant.permission === RESULT_ENTER || grant.permission === RESULT_VERIFY) &&
+        (grant.scope ?? 'all') === 'all',
+    );
+    const results = releasedOnly ? all.filter((row) => row.status === 'verified') : all;
+    const awaiting = releasedOnly
+      ? all
+          .filter((row) => row.status === 'entered' && row.amended_by_id === null)
+          .map((row) => row.lab_test_id)
+      : [];
     const analytes = sample
       ? await analytesFor(request, order.labTestId, order.patientId, sample.collected_on)
       : [];
@@ -218,6 +238,10 @@ export const labRoutes: FastifyPluginAsyncTypebox = async (app) => {
       tenantId: sample?.tenant_id ?? (await tenantIdOf(request)),
       encounterId: order.encounterId,
       patientId: order.patientId,
+      patientName: heading?.patient_name ?? '',
+      patientMrn: heading?.patient_mrn ?? '',
+      itemName: heading?.item_name ?? '',
+      priority: (heading?.priority ?? 'routine') as LabOrderResults['priority'],
       orderStatus: order.status,
       ...(sample ? { sample: sampleView(sample) } : {}),
       analytes: analytes.map(({ analyte, band }): LabAnalyteView => ({
@@ -229,6 +253,7 @@ export const labRoutes: FastifyPluginAsyncTypebox = async (app) => {
         ...(band ? { range: band } : {}),
       })),
       results: results.map(resultView),
+      ...(releasedOnly ? { awaitingVerification: awaiting } : {}),
     };
   }
 
@@ -283,7 +308,7 @@ export const labRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listLabWorklist',
         tags: ['lab'],
         description:
-          'The laboratory’s worklist (#90): the hospital’s lab orders not cancelled or completed, at one stage, stat first, then urgent, then routine, the oldest first within each. Each names the patient (name, MRN and date of birth), the test as ordered and the sample it needs, and its current sample. `total` comes with the first page. Every row read is audited. Requires labSample:read with the scope `all` (a narrower one sees nothing) and the laboratory feature flag. Holds no patient term: a GET.',
+          'The laboratory’s worklist (#90): the hospital’s lab orders not cancelled, at one stage. Open stages are stat first, then urgent, then routine, the oldest first within each; the completed stage (#91) is the newest completed first, with no `total`. Each names the patient (name, MRN and date of birth), the test as ordered and the sample it needs, its current sample and how many of its results are entered and still to verify. `total` comes with the first page of an open stage. Every row read is audited. Requires labSample:read with the scope `all` (a narrower one sees nothing) and the laboratory feature flag. Holds no patient term: a GET.',
         querystring: WorklistQuery,
         response: { 200: ref(LabWorkItemPage), ...errors(400, 401, 403, 409, 429) },
       },
@@ -524,7 +549,7 @@ export const labRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'getLabOrderResults',
         tags: ['lab'],
         description:
-          'The results of a lab order: those of its sample that is not rejected, corrections included, with what they are entered for and the reference range for the patient on the day the sample was collected. No sample yet: no results. Every result read is audited. Requires labResult:read with the scope `all` and the laboratory feature flag.',
+          'The results of a lab order: those of its sample that is not rejected, corrections included, with what they are entered for and the reference range for the patient on the day the sample was collected. No sample yet: no results. A caller who may neither enter nor verify results (labResult:enter or labResult:verify at the scope `all`) gets verified results only, and `awaitingVerification` names the tests whose result is still to verify. Every result given is audited. Requires labResult:read with the scope `all` and the laboratory feature flag.',
         params: OrderParams,
         response: { 200: ref(LabOrderResults), ...errors(400, 401, 403, 404, 429) },
       },

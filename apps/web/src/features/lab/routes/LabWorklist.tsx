@@ -1,5 +1,6 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { focusIfLost } from '@/shared/lib/focus';
@@ -34,7 +35,8 @@ const PRINT_REFUSED: Record<string, string> = {
 const STAGE_ACTIONS: Record<LabStage, readonly string[]> = {
   to_collect: ['collect'],
   collected: ['receive', 'reject', 'label'],
-  received: ['reject', 'label'],
+  received: ['results', 'reject', 'label'],
+  completed: ['results'],
 };
 
 /** The sample a row's actions work on: its newest, unless that one was rejected. */
@@ -50,12 +52,15 @@ type Panel =
  * within a priority, filtered by priority on the server. Collecting gives the sample its
  * accession id and prints its label (`labSample:collect`); the laboratory receives it
  * (`labSample:receive`) or rejects it with a reason (`labSample:reject`), which puts the order
- * back to be collected again. Works at every width: a nurse collects at the bedside.
+ * back to be collected again. A received or completed order opens its results (#91,
+ * `labResult:read`), where they are entered, verified and corrected; completed orders are the
+ * newest completed first. Works at every width: a nurse collects at the bedside.
  */
 export default function LabWorklist() {
   const { t } = useTranslation('lab');
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
+  const navigate = useNavigate();
   const stageFieldId = useId();
   const priorityFieldId = useId();
   const [stage, setStage] = useState<LabStage>('to_collect');
@@ -135,6 +140,19 @@ export default function LabWorklist() {
         value: (row) => sampleWords(row),
       },
       {
+        id: 'results',
+        header: t('list.columns.results'),
+        value: (row) =>
+          row.resultsEntered === 0
+            ? ''
+            : row.resultsToVerify > 0
+              ? t('list.resultsToVerify', {
+                  count: row.resultsEntered,
+                  verify: row.resultsToVerify,
+                })
+              : t('list.resultsVerified', { count: row.resultsEntered }),
+      },
+      {
         id: 'ordered',
         header: t('list.columns.ordered'),
         value: (row) =>
@@ -149,6 +167,12 @@ export default function LabWorklist() {
   }, [t, format]);
 
   const allActions: GridAction<LabWorkItem>[] = [
+    {
+      id: 'results',
+      label: t('list.results'),
+      requires: 'labResult:read',
+      onSelect: (row) => navigate(`/lab/orders/${row.orderId}`),
+    },
     {
       id: 'collect',
       label: t('list.collect'),

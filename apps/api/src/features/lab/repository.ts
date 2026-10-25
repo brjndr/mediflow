@@ -177,6 +177,31 @@ export async function patientForRanges(
   return rows[0] ?? null;
 }
 
+/** Who and what a lab order is for, as the results page heads it (#91). */
+export async function orderHeading(
+  client: pg.ClientBase,
+  orderId: string,
+): Promise<{
+  patient_name: string;
+  patient_mrn: string;
+  item_name: string;
+  priority: string;
+} | null> {
+  const { rows } = await client.query<{
+    patient_name: string;
+    patient_mrn: string;
+    item_name: string;
+    priority: string;
+  }>(
+    `select p.first_name || ' ' || p.last_name as patient_name, p.mrn as patient_mrn,
+       o.item_name, o.priority
+     from orders o join patients p on p.tenant_id = o.tenant_id and p.id = o.patient_id
+     where o.id = $1`,
+    [orderId],
+  );
+  return rows[0] ?? null;
+}
+
 // ----- Worklist ----------------------------------------------------------------------------------
 
 export interface WorkItemRow {
@@ -200,6 +225,8 @@ export interface WorkItemRow {
   stage: LabStageValue;
   sample_id: string | null;
   rejected_samples: number;
+  results_entered: number;
+  results_to_verify: number;
   rank: number;
   cursor_at: string;
 }
@@ -233,19 +260,27 @@ function decodeCursor(cursor: string): Cursor | null {
   }
 }
 
-// The hospital's lab orders still open, each with its newest sample and its stage.
-const WORK_ITEMS = `
+/**
+ * The hospital's lab orders, each with its newest sample, its stage and how far its results are.
+ * Open orders sort by priority, then the oldest first (`placed_at`); completed ones the newest
+ * completed first (`status_changed_at`), each through its own partial index.
+ */
+const workItems = (completed: boolean) => `
   select o.id as order_id, o.tenant_id, o.encounter_id, o.patient_id,
     p.first_name || ' ' || p.last_name as patient_name, p.mrn as patient_mrn,
     p.dob::text as patient_dob, o.lab_test_id, o.item_code, o.item_name, o.priority,
     o.instructions, o.placed_at, coalesce(u.name, '') as ordered_by_name,
     o.status as order_status, t.sample_type, t.container,
-    case when s.id is null or s.status = 'rejected' then 'to_collect' else s.status end as stage,
+    case when o.status = 'completed' then 'completed'
+      when s.id is null or s.status = 'rejected' then 'to_collect' else s.status end as stage,
     s.id as sample_id,
     (select count(*) from lab_samples r where r.order_id = o.id and r.status = 'rejected')::int
       as rejected_samples,
-    case o.priority when 'stat' then 0 when 'urgent' then 1 else 2 end as rank,
-    to_char(o.placed_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at
+    coalesce(c.entered, 0)::int as results_entered, coalesce(c.to_verify, 0)::int as results_to_verify,
+    ${completed ? '0' : "case o.priority when 'stat' then 0 when 'urgent' then 1 else 2 end"} as rank,
+    ${completed ? 'o.status_changed_at' : 'o.placed_at'} as sort_at,
+    to_char(${completed ? 'o.status_changed_at' : 'o.placed_at'} at time zone 'UTC',
+      'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at
   from orders o
   join patients p on p.tenant_id = o.tenant_id and p.id = o.patient_id
   join lab_tests t on t.tenant_id = o.tenant_id and t.id = o.lab_test_id
@@ -255,7 +290,16 @@ const WORK_ITEMS = `
     where s.tenant_id = o.tenant_id and s.order_id = o.id
     order by s.collected_at desc, s.id desc limit 1
   ) s on true
-  where o.type = 'lab' and o.status not in ('cancelled', 'completed')
+  left join lateral (
+    select count(*) as entered, count(*) filter (where r.status = 'entered') as to_verify
+    from lab_results r
+    where r.tenant_id = o.tenant_id and r.sample_id = s.id and s.status <> 'rejected'
+      and not exists (
+        select from lab_results a where a.tenant_id = r.tenant_id and a.amends_id = r.id
+      )
+  ) c on true
+  where o.type = 'lab'
+    and ${completed ? "o.status = 'completed'" : "o.status not in ('cancelled', 'completed')"}
     and ($1::text is null or o.priority = $1)`;
 
 export interface Worklist {
@@ -264,19 +308,29 @@ export interface Worklist {
   total?: number;
 }
 
-/** One page of the worklist at a stage: stat, urgent, routine, the oldest first. Null for a bad cursor. */
+/**
+ * One page of the worklist at a stage: open orders stat, urgent, routine, the oldest first;
+ * completed ones the newest completed first, with no `total` (they only grow). Null for a bad cursor.
+ */
 export async function listWorklist(
   client: pg.ClientBase,
   filters: { stage: LabStageValue; priority?: string; cursor?: string; limit: number },
 ): Promise<Worklist | null> {
   const after = filters.cursor === undefined ? undefined : decodeCursor(filters.cursor);
   if (after === null) return null;
+  const completed = filters.stage === 'completed';
   const { rows } = await client.query<WorkItemRow>(
-    `select * from (${WORK_ITEMS}) w
-     where w.stage = $2
-       and ($3::int is null or (w.rank, w.placed_at, w.order_id) > ($3, $4::timestamptz, $5::uuid))
-     order by w.rank, w.placed_at, w.order_id
-     limit $6`,
+    completed
+      ? `select * from (${workItems(true)}) w
+         where ($3::int is null or (w.sort_at, w.order_id) < ($4::timestamptz, $5::uuid))
+           and $2::text = 'completed'
+         order by w.sort_at desc, w.order_id desc
+         limit $6`
+      : `select * from (${workItems(false)}) w
+         where w.stage = $2
+           and ($3::int is null or (w.rank, w.sort_at, w.order_id) > ($3, $4::timestamptz, $5::uuid))
+         order by w.rank, w.sort_at, w.order_id
+         limit $6`,
     [
       filters.priority ?? null,
       filters.stage,
@@ -290,9 +344,9 @@ export async function listWorklist(
   const page = more ? rows.slice(0, filters.limit) : rows;
   const last = page.at(-1);
   const list: Worklist = { rows: page, nextCursor: more && last ? encodeCursor(last) : null };
-  if (after === undefined) {
+  if (after === undefined && !completed) {
     const counted = await client.query<{ total: number }>(
-      `select count(*)::int as total from (${WORK_ITEMS}) w where w.stage = $2`,
+      `select count(*)::int as total from (${workItems(false)}) w where w.stage = $2`,
       [filters.priority ?? null, filters.stage],
     );
     list.total = counted.rows[0]?.total ?? 0;
@@ -300,7 +354,6 @@ export async function listWorklist(
   return list;
 }
 
-/** The samples of these ids, for the worklist's rows. */
 export async function samplesByIds(
   client: pg.ClientBase,
   ids: readonly string[],

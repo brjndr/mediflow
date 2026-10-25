@@ -8,6 +8,7 @@ import {
   AGE_UNITS,
   ageBefore,
   ageWithinMax,
+  bandFor,
   bandForAge,
   bandsOverlap,
   type Age,
@@ -316,6 +317,46 @@ export function mockOrderableLabTest(tenantId: string, id: string) {
 export function mockLabTestSample(tenantId: string, id: string) {
   const test = find(tenantId, id);
   return test && { sampleType: test.sampleType, container: test.container };
+}
+
+/**
+ * What a result is entered for (#91): the test, or each test of the panel in the catalog's order,
+ * as the catalog has them now, each with the band for the patient on the day (the API's
+ * `analytesOf` and `bandFor`). No band, or a text test: no range.
+ */
+export function mockLabAnalytes(
+  tenantId: string,
+  id: string,
+  patient: { sex: string; dob: string } | undefined,
+  on: string,
+) {
+  const test = find(tenantId, id);
+  if (!test) return [];
+  const parts =
+    test.kind === 'panel'
+      ? test.componentIds.flatMap((part) => find(tenantId, part) ?? [])
+      : [test];
+  return parts.map((part) => {
+    const band =
+      patient && part.resultType === 'numeric'
+        ? bandFor(state.ranges.get(part.id)?.ranges ?? [], patient.sex, patient.dob, on)
+        : undefined;
+    const range = band && {
+      ...(band.low !== undefined ? { low: band.low } : {}),
+      ...(band.high !== undefined ? { high: band.high } : {}),
+      ...(band.criticalLow !== undefined ? { criticalLow: band.criticalLow } : {}),
+      ...(band.criticalHigh !== undefined ? { criticalHigh: band.criticalHigh } : {}),
+      ...(band.note ? { note: band.note } : {}),
+    };
+    return {
+      labTestId: part.id,
+      code: part.code,
+      name: part.name,
+      resultType: part.resultType,
+      ...(part.unit ? { unit: part.unit } : {}),
+      ...(range && (range.low !== undefined || range.high !== undefined) ? { range } : {}),
+    };
+  });
 }
 
 const invalid = () => error(400, 'validation_failed', 'The request is not valid');

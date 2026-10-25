@@ -16,12 +16,12 @@ const named = <const Values extends readonly string[]>(
     ...(description ? { description } : {}),
   });
 
-export const STAGES = ['to_collect', 'collected', 'received'] as const;
+export const STAGES = ['to_collect', 'collected', 'received', 'completed'] as const;
 export type LabStageValue = (typeof STAGES)[number];
 export const LabStage = named(
   'LabStage',
   STAGES,
-  'Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, or received by the laboratory.',
+  'Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, received by the laboratory, or completed (every result verified; a correction may still be waiting to be verified).',
 );
 
 export const SAMPLE_STATUSES = ['collected', 'received', 'rejected'] as const;
@@ -135,6 +135,14 @@ export const LabWorkItem = Type.Object(
     rejectedSamples: Type.Integer({
       minimum: 0,
       description: 'How many samples of the order were rejected.',
+    }),
+    resultsEntered: Type.Integer({
+      minimum: 0,
+      description: 'How many tests of the current sample have a current result, verified or not.',
+    }),
+    resultsToVerify: Type.Integer({
+      minimum: 0,
+      description: 'How many of those are entered and not yet verified.',
     }),
   },
   {
@@ -260,13 +268,23 @@ export const LabOrderResults = Type.Object(
     tenantId: Type.String(),
     encounterId: Type.String(),
     patientId: Type.String(),
+    patientName: Type.String(),
+    patientMrn: Type.String(),
+    itemName: Type.String({ description: 'The test as ordered.' }),
+    priority: ref(OrderPriority),
     orderStatus: ref(OrderStatus),
     sample: Type.Optional(ref(LabSample)),
     analytes: Type.Array(ref(LabAnalyte)),
     results: Type.Array(ref(LabResult), {
       description:
-        'Every result of the sample, corrections included, oldest first. The current one of a test is the one with no `amendedById`.',
+        'Every result of the sample, corrections included, oldest first. The current one of a test is the one with no `amendedById`. A caller who may neither enter nor verify results gets no result that is not verified: see `awaitingVerification`.',
     }),
+    awaitingVerification: Type.Optional(
+      Type.Array(Type.String(), {
+        description:
+          'Given only to a caller who may neither enter nor verify results (a doctor): the tests (`labTestId`) whose current result is entered and not yet verified, left out of `results` so it is never read as final. A test being corrected keeps its replaced result in `results`, which names a correction that is not there.',
+      }),
+    ),
   },
   {
     $id: 'LabOrderResults',
