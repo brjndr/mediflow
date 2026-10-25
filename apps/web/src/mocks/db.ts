@@ -139,6 +139,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'labSample:collect' },
   { permission: 'labSample:receive' },
   { permission: 'labSample:reject' },
+  // Outsourced tests (#94): sent to a partner laboratory and its report back.
+  { permission: 'labSample:outsource' },
   // Its results (#91): entered, verified and corrected.
   { permission: 'labResult:read' },
   { permission: 'labResult:enter' },

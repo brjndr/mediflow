@@ -35,6 +35,12 @@ export interface SampleRow {
   rejected_by_name: string | null;
   reject_reason: LabRejectReasonValue | null;
   reject_note: string | null;
+  partner_lab: string | null;
+  partner_ref: string | null;
+  sent_out_at: Date | null;
+  sent_out_by_name: string | null;
+  returned_at: Date | null;
+  returned_by_name: string | null;
   version: number;
   /** The calendar day at the hospital it was collected on, which ranges are read for. */
   collected_on: string;
@@ -43,13 +49,17 @@ export interface SampleRow {
 const SAMPLE_COLUMNS = `s.id, s.tenant_id, s.order_id, s.encounter_id, s.patient_id, s.lab_test_id,
   s.accession_id, s.sample_type, s.container, s.status, s.collected_at,
   coalesce(cu.name, '') as collected_by_name, s.received_at, ru.name as received_by_name,
-  s.rejected_at, xu.name as rejected_by_name, s.reject_reason, s.reject_note, s.version,
+  s.rejected_at, xu.name as rejected_by_name, s.reject_reason, s.reject_note,
+  s.partner_lab, s.partner_ref, s.sent_out_at, ou.name as sent_out_by_name, s.returned_at,
+  bu.name as returned_by_name, s.version,
   (s.collected_at at time zone tn.timezone)::date::text as collected_on`;
 
 const SAMPLE_JOINS = `join tenants tn on tn.id = s.tenant_id
   left join users cu on cu.id = s.collected_by
   left join users ru on ru.id = s.received_by
-  left join users xu on xu.id = s.rejected_by`;
+  left join users xu on xu.id = s.rejected_by
+  left join users ou on ou.id = s.sent_out_by
+  left join users bu on bu.id = s.returned_by`;
 
 export async function findSample(
   client: pg.ClientBase,
@@ -155,6 +165,30 @@ export async function rejectSample(
      where id = $1`,
     [id, userId, reason, note],
   );
+}
+
+/** Sends a received sample to a partner laboratory (#94). */
+export async function sendOutSample(
+  client: pg.ClientBase,
+  id: string,
+  userId: string,
+  partnerLab: string,
+  partnerRef: string | null,
+) {
+  await client.query(
+    `update lab_samples set sent_out_at = now(), sent_out_by = $2, partner_lab = $3,
+       partner_ref = $4
+     where id = $1`,
+    [id, userId, partnerLab, partnerRef],
+  );
+}
+
+/** Records that the partner laboratory's report of a sample came back (#94). */
+export async function returnSample(client: pg.ClientBase, id: string, userId: string) {
+  await client.query('update lab_samples set returned_at = now(), returned_by = $2 where id = $1', [
+    id,
+    userId,
+  ]);
 }
 
 export async function hasResults(client: pg.ClientBase, sampleId: string): Promise<boolean> {
@@ -272,7 +306,9 @@ const workItems = (completed: boolean) => `
     o.instructions, o.placed_at, coalesce(u.name, '') as ordered_by_name,
     o.status as order_status, t.sample_type, t.container,
     case when o.status = 'completed' then 'completed'
-      when s.id is null or s.status = 'rejected' then 'to_collect' else s.status end as stage,
+      when s.id is null or s.status = 'rejected' then 'to_collect'
+      when s.sent_out_at is not null and s.returned_at is null then 'with_partner'
+      else s.status end as stage,
     s.id as sample_id,
     (select count(*) from lab_samples r where r.order_id = o.id and r.status = 'rejected')::int
       as rejected_samples,
@@ -286,7 +322,7 @@ const workItems = (completed: boolean) => `
   join lab_tests t on t.tenant_id = o.tenant_id and t.id = o.lab_test_id
   left join users u on u.id = o.ordered_by
   left join lateral (
-    select s.id, s.status from lab_samples s
+    select s.id, s.status, s.sent_out_at, s.returned_at from lab_samples s
     where s.tenant_id = o.tenant_id and s.order_id = o.id
     order by s.collected_at desc, s.id desc limit 1
   ) s on true

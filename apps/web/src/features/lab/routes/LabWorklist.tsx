@@ -11,7 +11,13 @@ import { useFormatters } from '@/tenancy';
 import { CollectSample } from '../components/CollectSample';
 import { RejectSample } from '../components/RejectSample';
 import { SampleLabel } from '../components/SampleLabel';
-import { useLabelPrinting, useReceiveSample, useWorklist } from '../hooks/use-lab';
+import { SendOutSample } from '../components/SendOutSample';
+import {
+  useLabelPrinting,
+  useReceiveSample,
+  useReturnPartnerReport,
+  useWorklist,
+} from '../hooks/use-lab';
 import { LAB_STAGES, PRIORITIES } from '../schemas';
 import type { LabSample, LabStage, LabWorkItem, OrderPriority } from '../types';
 
@@ -25,6 +31,13 @@ const RECEIVE_REFUSED: Record<string, string> = {
   sample_not_found: 'receive.refused.gone',
 };
 
+/** What a refused "Report received" says (#94). */
+const REPORT_REFUSED: Record<string, string> = {
+  conflict: 'reportBack.refused.conflict',
+  invalid_transition: 'reportBack.refused.notWithPartner',
+  sample_not_found: 'reportBack.refused.gone',
+};
+
 /** What a refused label print says. */
 const PRINT_REFUSED: Record<string, string> = {
   not_printable: 'label.refused.notPrintable',
@@ -35,7 +48,8 @@ const PRINT_REFUSED: Record<string, string> = {
 const STAGE_ACTIONS: Record<LabStage, readonly string[]> = {
   to_collect: ['collect'],
   collected: ['receive', 'reject', 'label'],
-  received: ['results', 'reject', 'label'],
+  received: ['results', 'sendOut', 'reject', 'label'],
+  with_partner: ['reportBack', 'reject', 'label'],
   completed: ['results'],
 };
 
@@ -44,7 +58,8 @@ const live = (row: LabWorkItem) =>
   row.sample && row.sample.status !== 'rejected' ? row.sample : undefined;
 
 type Panel =
-  { kind: 'collect'; item: LabWorkItem } | { kind: 'reject'; item: LabWorkItem; sample: LabSample };
+  | { kind: 'collect'; item: LabWorkItem }
+  | { kind: 'reject' | 'sendOut'; item: LabWorkItem; sample: LabSample };
 
 /**
  * The laboratory worklist (`lab`, #90), for `labSample:read`: the hospital's lab orders at one
@@ -52,7 +67,9 @@ type Panel =
  * within a priority, filtered by priority on the server. Collecting gives the sample its
  * accession id and prints its label (`labSample:collect`); the laboratory receives it
  * (`labSample:receive`) or rejects it with a reason (`labSample:reject`), which puts the order
- * back to be collected again. A received or completed order opens its results (#91,
+ * back to be collected again. A received sample may go to a partner laboratory
+ * (`labSample:outsource`, #94) and waits "With partner lab" until its report is back. A received
+ * or completed order opens its results (#91,
  * `labResult:read`), where they are entered, verified and corrected; completed orders are the
  * newest completed first. Works at every width: a nurse collects at the bedside.
  */
@@ -85,6 +102,7 @@ export default function LabWorklist() {
   }, [message]);
 
   const receive = useReceiveSample();
+  const reportBack = useReturnPartnerReport();
   const printing = useLabelPrinting();
   const refusal = (error: unknown, refused: Record<string, string>) => {
     const key = isApiError(error) ? refused[error.serverCode ?? ''] : undefined;
@@ -110,6 +128,13 @@ export default function LabWorklist() {
         return t('list.sampleRejected', {
           id: sample.accessionId,
           reason: sample.rejectReason ? t(`rejectReason.${sample.rejectReason}`) : '',
+        });
+      }
+      if (sample.partnerLab && sample.sentOutAt) {
+        return t(sample.returnedAt ? 'list.sample.partnerBack' : 'list.sample.withPartner', {
+          id: sample.accessionId,
+          partner: sample.partnerLab,
+          time: format.dateTime(sample.returnedAt ?? sample.sentOutAt),
         });
       }
       return t(`list.sample.${sample.status}`, { id: sample.accessionId });
@@ -191,6 +216,32 @@ export default function LabWorklist() {
         receive.mutate(sample, {
           onSuccess: (received) => say(t('receive.done', { id: received.accessionId })),
           onError: (error) => say(refusal(error, RECEIVE_REFUSED)),
+        });
+      },
+    },
+    {
+      id: 'sendOut',
+      label: t('list.sendOut'),
+      requires: 'labSample:outsource',
+      disabled: (row) => !live(row) || Boolean(live(row)?.sentOutAt) || row.resultsEntered > 0,
+      onSelect: (row) => {
+        const sample = live(row);
+        if (sample && !sample.sentOutAt && row.resultsEntered === 0) {
+          setPanel({ kind: 'sendOut', item: row, sample });
+        }
+      },
+    },
+    {
+      id: 'reportBack',
+      label: t('list.reportBack'),
+      requires: 'labSample:outsource',
+      disabled: (row) => row.stage !== 'with_partner' || reportBack.isPending,
+      onSelect: (row) => {
+        const sample = live(row);
+        if (!sample || reportBack.isPending) return;
+        reportBack.mutate(sample, {
+          onSuccess: (back) => say(t('reportBack.done', { id: back.accessionId })),
+          onError: (error) => say(refusal(error, REPORT_REFUSED)),
         });
       },
     },
@@ -296,6 +347,18 @@ export default function LabWorklist() {
           onRejected={(rejected) => {
             closePanel();
             say(t('reject.done', { id: rejected.accessionId }));
+          }}
+        />
+      )}
+      {panel?.kind === 'sendOut' && (
+        <SendOutSample
+          key={panel.sample.id}
+          item={panel.item}
+          sample={panel.sample}
+          onClose={closePanel}
+          onSent={(sent) => {
+            closePanel();
+            say(t('sendOut.done', { id: sent.accessionId, partner: sent.partnerLab ?? '' }));
           }}
         />
       )}

@@ -19,6 +19,7 @@ export const LAB_STAGES = [
   'to_collect',
   'collected',
   'received',
+  'with_partner',
   'completed',
 ] as const satisfies readonly LabStage[];
 
@@ -79,6 +80,12 @@ export const labSampleSchema: z.ZodType<LabSample> = z.object({
   rejectedByName: z.string().optional(),
   rejectReason: z.enum(REJECT_REASONS).optional(),
   rejectNote: z.string().optional(),
+  partnerLab: z.string().optional(),
+  partnerRef: z.string().optional(),
+  sentOutAt: z.string().optional(),
+  sentOutByName: z.string().optional(),
+  returnedAt: z.string().optional(),
+  returnedByName: z.string().optional(),
   version: z.number().int(),
 });
 
@@ -133,6 +140,26 @@ export const rejectSchema = z
   });
 export type RejectValues = z.input<typeof rejectSchema>;
 export type RejectOutput = z.output<typeof rejectSchema>;
+
+/** The API's limits for a sample sent to a partner laboratory (#94). */
+export const PARTNER_LAB_MAX = 100;
+export const PARTNER_REF_MAX = 50;
+
+export const sendOutSchema = z.object({
+  partnerLab: z
+    .string()
+    .trim()
+    .min(1, 'lab:sendOut.errors.partnerLab')
+    .max(PARTNER_LAB_MAX, 'validation.too_big')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  partnerRef: z
+    .string()
+    .trim()
+    .max(PARTNER_REF_MAX, 'validation.too_big')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+});
+export type SendOutValues = z.input<typeof sendOutSchema>;
+export type SendOutOutput = z.output<typeof sendOutSchema>;
 
 export const RESULT_FLAGS = ['normal', 'low', 'high', 'critical_low', 'critical_high'] as const;
 

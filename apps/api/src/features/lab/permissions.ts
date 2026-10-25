@@ -30,6 +30,11 @@ export const LAB_PERMISSIONS = [
     defaults: { admin: 'all', lab_technician: 'all' },
   },
   {
+    id: 'labSample:outsource',
+    description: 'Send a sample to a partner laboratory, and record that its report came back',
+    defaults: { admin: 'all', lab_technician: 'all' },
+  },
+  {
     id: 'labResult:read',
     description: 'See the results of lab orders, with the patient they are for',
     defaults: { admin: 'all', doctor: 'all', lab_technician: 'all' },

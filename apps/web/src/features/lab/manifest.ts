@@ -34,6 +34,7 @@ export const labFeature: FeatureManifest = {
     'labSample:collect',
     'labSample:receive',
     'labSample:reject',
+    'labSample:outsource',
     'labResult:read',
     'labResult:enter',
     'labResult:verify',

@@ -4,7 +4,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Permission } from '../../core/access/registry.js';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidyLinesOptional, tidyOptional } from '../../core/http/text.js';
+import { tidyLinesOptional, tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { labOrder, moveLabOrder, type LabOrder } from '../clinical/index.js';
 import { analytesOf, bandFor, labTestSample, type LabAnalyte } from '../lab-tests/index.js';
@@ -21,6 +21,8 @@ import {
   receiveSample,
   rejectSample,
   resultsOf,
+  returnSample,
+  sendOutSample,
   samplesByIds,
   orderHeading,
   patientResults,
@@ -45,8 +47,11 @@ import {
   LabSample,
   LabSampleReceive,
   LabSampleReject,
+  LabSampleSendOut,
   LabWorkItemPage,
   NOTE_MAX,
+  PARTNER_LAB_MAX,
+  PARTNER_REF_MAX,
   OrderParams,
   REASON_MAX,
   ResultParams,
@@ -62,6 +67,7 @@ const SAMPLE_READ = 'labSample:read';
 const SAMPLE_COLLECT = 'labSample:collect';
 const SAMPLE_RECEIVE = 'labSample:receive';
 const SAMPLE_REJECT = 'labSample:reject';
+const SAMPLE_OUTSOURCE = 'labSample:outsource';
 const RESULT_READ = 'labResult:read';
 const RESULT_ENTER = 'labResult:enter';
 const RESULT_VERIFY = 'labResult:verify';
@@ -72,6 +78,10 @@ const orderNotFound = () => new HttpError(404, 'order_not_found', 'No such lab o
 const sampleNotFound = () => new HttpError(404, 'sample_not_found', 'No such sample');
 const resultNotFound = () => new HttpError(404, 'result_not_found', 'No such result');
 const invalid = (message: string) => new HttpError(409, 'invalid_transition', message);
+
+/** Sent to a partner laboratory and its report not yet back (#94). */
+const withPartner = (sample: SampleRow) =>
+  sample.sent_out_at !== null && sample.returned_at === null;
 
 /** An order the laboratory still works: not cancelled, and not completed unless `completed`. */
 const closed = (order: LabOrder, { completed = false } = {}) =>
@@ -106,6 +116,12 @@ function sampleView(row: SampleRow): LabSample {
     ...optional('rejectedByName', row.rejected_at && (row.rejected_by_name ?? '')),
     ...optional('rejectReason', row.reject_reason),
     ...optional('rejectNote', row.reject_note),
+    ...optional('partnerLab', row.partner_lab),
+    ...optional('partnerRef', row.partner_ref),
+    ...optional('sentOutAt', row.sent_out_at && iso(row.sent_out_at)),
+    ...optional('sentOutByName', row.sent_out_at && (row.sent_out_by_name ?? '')),
+    ...optional('returnedAt', row.returned_at && iso(row.returned_at)),
+    ...optional('returnedByName', row.returned_at && (row.returned_by_name ?? '')),
     version: row.version,
   };
 }
@@ -470,6 +486,74 @@ export const labRoutes: FastifyPluginAsyncTypebox = async (app) => {
   );
 
   app.post(
+    '/lab/samples/:sampleId/send-out',
+    {
+      config: {
+        permissions: [SAMPLE_OUTSOURCE],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'sendOutLabSample',
+        tags: ['lab'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Records that a received sample was sent to a partner laboratory (#94), named in plain text, with the partner’s own number when it gives one. The sample stays received, at the stage `with_partner` until its report is back, and takes no results meanwhile. Once only, for a received sample with no results (409 `has_results`) while the order is not cancelled or completed (409 `invalid_transition`). Requires labSample:outsource and the laboratory feature flag.' +
+          CHANGE,
+        params: SampleParams,
+        body: ref(LabSampleSendOut),
+        response: { 200: ref(LabSample), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as LabSampleSendOut;
+      const partnerLab = tidyWithin(body.partnerLab, PARTNER_LAB_MAX);
+      if (!partnerLab) throw new HttpError(400, 'validation_failed', 'The partner is named');
+      const partnerRef = tidyOptional(body.partnerRef, PARTNER_REF_MAX);
+      return changeSample(request, reply, SAMPLE_OUTSOURCE, body.version, async (sample, order) => {
+        if (sample.status !== 'received' || sample.sent_out_at !== null || closed(order)) {
+          throw invalid(`A ${sample.status} sample is not sent out`);
+        }
+        if (await hasResults(request.txClient, sample.id)) {
+          throw new HttpError(409, 'has_results', 'A sample with results is not sent out');
+        }
+        await sendOutSample(request.txClient, sample.id, userIdOf(request), partnerLab, partnerRef);
+      });
+    },
+  );
+
+  app.post(
+    '/lab/samples/:sampleId/partner-report',
+    {
+      config: {
+        permissions: [SAMPLE_OUTSOURCE],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'returnLabSample',
+        tags: ['lab'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Records that the partner laboratory’s report of a sample sent out came back (#94), so its results can be entered from it and verified as any other. Once only, for a sample with a partner (409 `invalid_transition` otherwise, and once the order is cancelled or completed). Requires labSample:outsource and the laboratory feature flag.' +
+          CHANGE,
+        params: SampleParams,
+        body: ref(LabSampleReceive),
+        response: { 200: ref(LabSample), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as LabSampleReceive;
+      return changeSample(request, reply, SAMPLE_OUTSOURCE, body.version, async (sample, order) => {
+        if (sample.status !== 'received' || !withPartner(sample) || closed(order)) {
+          throw invalid(`A ${sample.status} sample has no partner report to come back`);
+        }
+        await returnSample(request.txClient, sample.id, userIdOf(request));
+      });
+    },
+  );
+
+  app.post(
     '/lab/samples/:sampleId/reject',
     {
       config: {
@@ -581,7 +665,7 @@ export const labRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['lab'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Enters results of a received sample: some or all of the tests of its order (the test, or each test of the panel), each once (400 otherwise). A test that is not of the order is 422 `unknown_test`, one that has a result already 409 `already_resulted` (correct it instead), a number that is not one 422 `invalid_number`. A sample not received, and an order cancelled or completed, are 409 `invalid_transition`. A number is read against the range for the patient’s sex and age on the day the sample was collected, which the result keeps. The first result moves the order in progress. A critical result emits `lab.critical_value`. The Idempotency-Key header is required: a repeat enters nothing and answers with the results as they are now. Requires labResult:enter and the laboratory feature flag. Audited.',
+          'Enters results of a received sample: some or all of the tests of its order (the test, or each test of the panel), each once (400 otherwise). A test that is not of the order is 422 `unknown_test`, one that has a result already 409 `already_resulted` (correct it instead), a number that is not one 422 `invalid_number`. A sample not received, and an order cancelled or completed, are 409 `invalid_transition`. A sample with a partner laboratory whose report is not back is 409 `with_partner` (#94). A number is read against the range for the patient’s sex and age on the day the sample was collected, which the result keeps. The first result moves the order in progress. A critical result emits `lab.critical_value`. The Idempotency-Key header is required: a repeat enters nothing and answers with the results as they are now. Requires labResult:enter and the laboratory feature flag. Audited.',
         params: SampleParams,
         body: ref(LabResultsEnter),
         response: { 201: ref(LabOrderResults), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -601,6 +685,9 @@ export const labRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const { sample, order } = await sampleFor(request, id, RESULT_ENTER, { forUpdate: true });
       if (closed(order)) throw invalid(`A ${order.status} order takes no results`);
       if (sample.status !== 'received') throw invalid(`A ${sample.status} sample takes no results`);
+      if (withPartner(sample)) {
+        throw new HttpError(409, 'with_partner', 'The partner laboratory’s report is not back');
+      }
       const analytes = new Map(
         (await analytesFor(request, order.labTestId, order.patientId, sample.collected_on)).map(
           (each) => [each.analyte.id, each],

@@ -14,6 +14,7 @@ import type {
   LabResultPage,
   LabSample,
   LabSampleReject,
+  LabSampleSendOut,
   LabStage,
   LabWorkItemPage,
   OrderPriority,
@@ -67,6 +68,32 @@ export async function rejectSample(
   idempotencyKey: string,
 ): Promise<LabSample> {
   const result = await api.POST('/lab/samples/{sampleId}/reject', {
+    params: { path: { sampleId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return labSampleSchema.parse(requireData(result));
+}
+
+/** Sends a received sample to a partner laboratory (#94). */
+export async function sendOutSample(
+  sampleId: string,
+  body: LabSampleSendOut,
+  idempotencyKey: string,
+): Promise<LabSample> {
+  const result = await api.POST('/lab/samples/{sampleId}/send-out', {
+    params: { path: { sampleId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return labSampleSchema.parse(requireData(result));
+}
+
+/** Records that the partner laboratory's report came back, so results can be entered (#94). */
+export async function returnPartnerReport(
+  sampleId: string,
+  body: { version: number },
+  idempotencyKey: string,
+): Promise<LabSample> {
+  const result = await api.POST('/lab/samples/{sampleId}/partner-report', {
     params: { path: { sampleId }, header: { 'idempotency-key': idempotencyKey } },
     body,
   });

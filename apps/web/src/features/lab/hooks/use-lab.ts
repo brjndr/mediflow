@@ -20,7 +20,9 @@ import {
   recordLabelPrint,
   recordReportPrint,
   rejectSample,
+  returnPartnerReport,
   searchResults,
+  sendOutSample,
   verifyResults,
   type WorklistFilters,
 } from '../api';
@@ -31,6 +33,7 @@ import type {
   LabResultEntry,
   LabSample,
   LabSampleReject,
+  LabSampleSendOut,
   LabWorkItem,
 } from '../types';
 
@@ -147,6 +150,40 @@ export function useRejectSample() {
     }) => {
       const sent = { ...body, version: sample.version };
       return rejectSample(sample.id, sent, keys.keyFor({ id: sample.id, ...sent }));
+    },
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+export function useSendOutSample() {
+  const refresh = useRefreshWorklist();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({
+      sample,
+      body,
+    }: {
+      sample: LabSample;
+      body: Omit<LabSampleSendOut, 'version'>;
+    }) => {
+      const sent = { ...body, version: sample.version };
+      return sendOutSample(sample.id, sent, keys.keyFor({ id: sample.id, ...sent }));
+    },
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+export function useReturnPartnerReport() {
+  const refresh = useRefreshWorklist();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (sample: LabSample) => {
+      const body = { version: sample.version };
+      return returnPartnerReport(sample.id, body, keys.keyFor({ id: sample.id, ...body }));
     },
     onSuccess: () => keys.clear(),
     onSettled: refresh,

@@ -39,6 +39,7 @@ const REFUSED: Record<string, string> = {
   invalid_transition: 'results.refused.notOpen',
   invalid_number: 'results.refused.invalidNumber',
   sample_not_found: 'results.refused.gone',
+  with_partner: 'results.refused.withPartner',
 };
 
 /**

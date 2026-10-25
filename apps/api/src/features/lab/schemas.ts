@@ -16,12 +16,12 @@ const named = <const Values extends readonly string[]>(
     ...(description ? { description } : {}),
   });
 
-export const STAGES = ['to_collect', 'collected', 'received', 'completed'] as const;
+export const STAGES = ['to_collect', 'collected', 'received', 'with_partner', 'completed'] as const;
 export type LabStageValue = (typeof STAGES)[number];
 export const LabStage = named(
   'LabStage',
   STAGES,
-  'Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, received by the laboratory, or completed (every result verified; a correction may still be waiting to be verified).',
+  'Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, received by the laboratory, with a partner laboratory (sent out and its report not yet back, #94), or completed (every result verified; a correction may still be waiting to be verified).',
 );
 
 export const SAMPLE_STATUSES = ['collected', 'received', 'rejected'] as const;
@@ -96,6 +96,21 @@ export const LabSample = Type.Object(
     rejectedByName: Type.Optional(Type.String()),
     rejectReason: Type.Optional(ref(LabRejectReason)),
     rejectNote: Type.Optional(Type.String()),
+    partnerLab: Type.Optional(
+      Type.String({ description: 'The partner laboratory the sample was sent to (#94).' }),
+    ),
+    partnerRef: Type.Optional(
+      Type.String({ description: 'The partner’s own number for the sample or its report.' }),
+    ),
+    sentOutAt: Type.Optional(Type.String({ format: 'date-time' })),
+    sentOutByName: Type.Optional(Type.String()),
+    returnedAt: Type.Optional(
+      Type.String({
+        format: 'date-time',
+        description: 'When the partner’s report came back; results are entered from then.',
+      }),
+    ),
+    returnedByName: Type.Optional(Type.String()),
     version: Type.Integer(),
   },
   {
@@ -173,6 +188,26 @@ export const LabSampleReceive = Type.Object(
   { $id: 'LabSampleReceive', additionalProperties: false },
 );
 export type LabSampleReceive = Static<typeof LabSampleReceive>;
+
+export const PARTNER_LAB_MAX = 100;
+export const PARTNER_REF_MAX = 50;
+
+export const LabSampleSendOut = Type.Object(
+  {
+    version: Version,
+    partnerLab: Type.String({ minLength: 1, maxLength: PARTNER_LAB_MAX, pattern: PLAIN_TEXT }),
+    partnerRef: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: PARTNER_REF_MAX,
+        pattern: PLAIN_TEXT,
+        description: 'The partner’s own number for the sample, when it gives one.',
+      }),
+    ),
+  },
+  { $id: 'LabSampleSendOut', additionalProperties: false },
+);
+export type LabSampleSendOut = Static<typeof LabSampleSendOut>;
 
 export const LabSampleReject = Type.Object(
   {
@@ -390,6 +425,7 @@ export const LAB_SCHEMAS = [
   LabWorkItem,
   LabWorkItemPage,
   LabSampleReceive,
+  LabSampleSendOut,
   LabSampleReject,
   LabRange,
   LabAnalyte,
