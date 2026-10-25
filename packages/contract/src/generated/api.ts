@@ -1337,7 +1337,7 @@ export interface paths {
         /** @description The document templates of the active tenant, by name: each hospital has its own. Requires template:read and the templates feature flag. `total` comes with the first page only. */
         get: operations["listTemplates"];
         put?: never;
-        /** @description Adds a template, as its version 1. Requires template:manage and template:read. The hospital is the session’s. The kind cannot be changed later. A name another template of the same kind has at the hospital, archived or not, whatever the capitals, is refused with 409 template_name_taken. The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited. A repeat with the same Idempotency-Key adds nothing and answers with the template as it is now. */
+        /** @description Adds a template, as its version 1. Requires template:manage and template:read. The hospital is the session’s. The kind cannot be changed later. A name another template of the same kind has at the hospital, archived or not, whatever the capitals, is refused with 409 template_name_taken. The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary; study.name and study.modality for an imaging report. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited. A repeat with the same Idempotency-Key adds nothing and answers with the template as it is now. */
         post: operations["createTemplate"];
         delete?: never;
         options?: never;
@@ -1354,7 +1354,7 @@ export interface paths {
         };
         /** @description One template with the text of its newest version and the list of every version it has had. Requires template:read. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
         get: operations["getTemplate"];
-        /** @description Saves a new version of a template: the name, the text, or both. Requires template:manage and template:read. Versions are append-only: nothing saved is ever changed or removed, except by a redaction, and a document made from a template keeps the version it was made from. Send the version the change was made from: 409 conflict when a newer one has been saved since. Saving what the newest version already has makes no new version. An archived template is read-only: 409 template_archived until it is restored. A template has at most 500 versions (409 template_version_limit), the last of which only someone who holds template:redact may save, so that a correction is always possible. The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
+        /** @description Saves a new version of a template: the name, the text, or both. Requires template:manage and template:read. Versions are append-only: nothing saved is ever changed or removed, except by a redaction, and a document made from a template keeps the version it was made from. Send the version the change was made from: 409 conflict when a newer one has been saved since. Saving what the newest version already has makes no new version. An archived template is read-only: 409 template_archived until it is restored. A template has at most 500 versions (409 template_version_limit), the last of which only someone who holds template:redact may save, so that a correction is always possible. The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary; study.name and study.modality for an imaging report. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it. Audited. A template of another hospital answers 404 template_not_found, the same as one that does not exist. */
         put: operations["saveTemplateVersion"];
         post?: never;
         delete?: never;
@@ -2557,7 +2557,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Radiology’s worklist (#96): the hospital’s imaging orders not cancelled or completed, at one stage, of one modality and priority when asked. To schedule is stat first, then urgent, then routine, the oldest ordered first within each; scheduled is the soonest slot first; performed the longest waiting first. Each names the patient (name, MRN and date of birth), the study as ordered, its modality and its study. `total` comes with the first page. Every row read is audited. Requires imagingStudy:read with the scope `all` (a narrower one sees nothing) and the radiology feature flag. Holds no patient term: a GET. */
+        /** @description Radiology’s worklist (#96): the hospital’s imaging orders not cancelled or completed, at one stage, of one modality and priority when asked. To schedule is stat first, then urgent, then routine, the oldest ordered first within each; scheduled is the soonest slot first; performed the longest waiting first; reported (#97) the newest signed first. Each names the patient (name, MRN and date of birth), the study as ordered, its modality and its study. `total` comes with the first page, except for reported, whose count only grows. Every row read is audited. Requires imagingStudy:read with the scope `all` (a narrower one sees nothing) and the radiology feature flag. Holds no patient term: a GET. */
         get: operations["listImagingWorklist"];
         put?: never;
         post?: never;
@@ -2612,6 +2612,58 @@ export interface paths {
         put?: never;
         /** @description Records that a scheduled study was performed (#96), at the version sent (409 `conflict`), and moves its order in progress: it then waits for its report. Refused for a study not scheduled or already performed, and for an order cancelled or completed (409 `invalid_transition`); an order with no study is 404. Requires imagingStudy:perform and the radiology feature flag. Emits `imaging.performed`. The Idempotency-Key header is required: a repeat changes nothing and answers with the study as it is now. Audited. */
         post: operations["performImagingStudy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/radiology/orders/{orderId}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The report of an imaging order’s study (#97), with its addenda: a signed one for anyone who reads the worklist, a draft only for whoever may write or sign reports (otherwise 404 `report_not_found`, as with no report), as an unverified lab result is withheld. `order_not_found` for no such order. Requires imagingStudy:read with the scope `all` and the radiology feature flag. Audited. */
+        get: operations["getImagingReport"];
+        /** @description Saves the draft report of a performed study (#97), the whole of it: the first save makes it, after that the report’s version is required (409 `conflict`). Anyone who may write reports edits the draft. Refused for a study not performed (409 `invalid_transition`) and once the report is signed (409 `report_signed`). A link is https with no credentials (400 `invalid_link`); a template is an imaging report template of the hospital at that version (422 `template_not_found`). Requires imagingReport:write and imagingStudy:read with the scope `all` and the radiology feature flag. The Idempotency-Key header is required: a repeat changes nothing and answers with the report as it is now. Audited. */
+        put: operations["saveImagingReport"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/radiology/orders/{orderId}/report/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Signs the draft report of a study (#97) at the version sent (409 `conflict`): it never changes after, and its order is completed. The findings and the impression are needed (422 `report_incomplete`), and no placeholder of a template may be left unfilled in any part (422 `unfilled_placeholders`). Refused once signed (409 `report_signed`); 404 `report_not_found` with no draft. Requires imagingReport:sign and imagingStudy:read with the scope `all` and the radiology feature flag. Emits `imaging.reported`, and the order’s `order.completed`. The Idempotency-Key header is required: a repeat changes nothing and answers with the report as it is now. Audited. */
+        post: operations["signImagingReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/radiology/orders/{orderId}/report/addenda": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a signed addendum to a signed report (#97): a correction, a later finding, a clarification or a comparison, with its reason from a list. The report itself never changes, and an addendum is never changed or removed. Its text is not empty (400 `validation_failed`). Refused for a draft (409 `report_not_signed`); 404 `report_not_found` with no report. Requires imagingReport:sign and imagingStudy:read with the scope `all` and the radiology feature flag. Emits `imaging.addendum_added`. The Idempotency-Key header is required: a repeat changes nothing and answers with the report as it is now. Audited. */
+        post: operations["addImagingAddendum"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3629,7 +3681,7 @@ export interface components {
             id: string;
             tenantId: string;
             /** @enum {string} */
-            kind: "prescription" | "clinical_note" | "consent" | "discharge_summary";
+            kind: "prescription" | "clinical_note" | "consent" | "discharge_summary" | "imaging_report";
             name: string;
             version: number;
             /** Format: date-time */
@@ -3688,7 +3740,7 @@ export interface components {
         };
         TemplateCreate: {
             /** @enum {string} */
-            kind: "prescription" | "clinical_note" | "consent" | "discharge_summary";
+            kind: "prescription" | "clinical_note" | "consent" | "discharge_summary" | "imaging_report";
             name: string;
             /** @description The text of a template: the rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML. Reduced to that allowlist on the way in. Placeholders are plain text in double braces, `{{patient.name}}`. A placeholder is recognised only inside one run of text, for the check and for filling alike: one that is split by formatting (half of it bold) is neither checked nor ever filled, by any part of the system. Names are trimmed and case-sensitive. A value is filled in as text and is never read for placeholders again. */
             body: {
@@ -4729,10 +4781,10 @@ export interface components {
             total?: number;
         };
         /**
-         * @description Where an imaging order is in radiology: ordered and still to schedule (never scheduled, or unscheduled), scheduled for a slot, or performed and waiting for its report.
+         * @description Where an imaging order is in radiology: ordered and still to schedule (never scheduled, or unscheduled), scheduled for a slot, performed and waiting for its report to be signed, or reported (its report signed and the order completed).
          * @enum {string}
          */
-        ImagingStage: "to_schedule" | "scheduled" | "performed";
+        ImagingStage: "to_schedule" | "scheduled" | "performed" | "reported";
         /**
          * @description The equipment a study is performed on, from its imaging service; `other` when the service has none.
          * @enum {string}
@@ -4757,6 +4809,103 @@ export interface components {
             performedByName?: string;
             version: number;
         };
+        /**
+         * @description A report is a draft, kept on the server, until a radiologist signs it; a signed report never changes.
+         * @enum {string}
+         */
+        ImagingReportStatus: "draft" | "signed";
+        /** @description A link to images of the study held outside the system. */
+        ImagingLink: {
+            label: string;
+            /** @description An https address of the images held elsewhere (a viewer, another hospital), with no user name or password and no parameter named as a secret (token, signature, key, session and the like) in it (400 `invalid_link`). No DICOM viewer in this release. */
+            url: string;
+        };
+        /** @description Text added to a signed report, signed by its author. Never changed or removed. */
+        ImagingAddendum: {
+            id: string;
+            /** @description What is added. The rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML, reduced to that allowlist on the way in. */
+            body: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            reason: "correction" | "additional_finding" | "clarification" | "comparison" | "other";
+            signedByName: string;
+            /** Format: date-time */
+            signedAt: string;
+        };
+        /** @description The report of a performed imaging study: a draft until signed, then never changed; corrections are addenda. */
+        ImagingReport: {
+            id: string;
+            tenantId: string;
+            orderId: string;
+            studyId: string;
+            encounterId: string;
+            patientId: string;
+            status: components["schemas"]["ImagingReportStatus"];
+            /** @description How the study was done. May be empty. The rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML, reduced to that allowlist on the way in. */
+            technique: {
+                [key: string]: unknown;
+            };
+            /** @description What was seen. The rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML, reduced to that allowlist on the way in. */
+            findings: {
+                [key: string]: unknown;
+            };
+            /** @description The conclusion. The rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML, reduced to that allowlist on the way in. */
+            impression: {
+                [key: string]: unknown;
+            };
+            links: components["schemas"]["ImagingLink"][];
+            templateId?: string;
+            templateVersion?: number;
+            createdByName: string;
+            /** Format: date-time */
+            createdAt: string;
+            updatedByName: string;
+            /** Format: date-time */
+            updatedAt: string;
+            signedByName?: string;
+            /** Format: date-time */
+            signedAt?: string;
+            /** @description The oldest first. */
+            addenda: components["schemas"]["ImagingAddendum"][];
+            version: number;
+        };
+        ImagingReportDraft: {
+            /** @description How the study was done. May be empty. The rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML, reduced to that allowlist on the way in. */
+            technique: {
+                [key: string]: unknown;
+            };
+            /** @description What was seen. May be empty in a draft. The rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML, reduced to that allowlist on the way in. */
+            findings: {
+                [key: string]: unknown;
+            };
+            /** @description The conclusion. May be empty in a draft. The rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML, reduced to that allowlist on the way in. */
+            impression: {
+                [key: string]: unknown;
+            };
+            /** @description Every link the report has: the list replaces the saved one. */
+            links: components["schemas"]["ImagingLink"][];
+            /** @description The imaging report template the text was filled from, sent with its version (422 `template_not_found` when it is no such template and version). Left out, the report names none. */
+            templateId?: string;
+            templateVersion?: number;
+            /** @description The version of the report the change was made from, required once the study has one (409 `conflict` when it is missing or another). */
+            version?: number;
+        };
+        ImagingReportSign: {
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
+        };
+        ImagingAddendumCreate: {
+            /** @description What is added, never empty. The rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML, reduced to that allowlist on the way in. */
+            body: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description Why it is added, from a list.
+             * @enum {string}
+             */
+            reason: "correction" | "additional_finding" | "clarification" | "comparison" | "other";
+        };
         /** @description An imaging order as radiology works it, with its study once it has one. */
         ImagingWorkItem: {
             orderId: string;
@@ -4765,6 +4914,8 @@ export interface components {
             patientId: string;
             patientName: string;
             patientMrn: string;
+            /** @description The patient’s gender as registered, to fill a report template. */
+            patientSex: string;
             /**
              * Format: date
              * @description A calendar date, to tell the patient apart before the study.
@@ -4782,6 +4933,10 @@ export interface components {
             orderStatus: components["schemas"]["OrderStatus"];
             stage: components["schemas"]["ImagingStage"];
             study?: components["schemas"]["ImagingStudy"];
+            reportStatus?: components["schemas"]["ImagingReportStatus"];
+            /** Format: date-time */
+            reportSignedAt?: string;
+            reportSignedByName?: string;
         };
         /** @description Cursor envelope used by every list endpoint. */
         ImagingWorkItemPage: {
@@ -11094,7 +11249,7 @@ export interface operations {
                 /** @description Opaque. Pass the nextCursor of the previous page. */
                 cursor?: string;
                 limit?: number;
-                kind?: "prescription" | "clinical_note" | "consent" | "discharge_summary";
+                kind?: "prescription" | "clinical_note" | "consent" | "discharge_summary" | "imaging_report";
                 /** @description True lists the archived templates instead of the ones in use. */
                 archived?: boolean;
             };
@@ -18465,6 +18620,358 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImagingStudy"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getImagingReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report of a performed imaging study: a draft until signed, then never changed; corrections are addenda. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingReport"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    saveImagingReport: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImagingReportDraft"];
+            };
+        };
+        responses: {
+            /** @description The report of a performed imaging study: a draft until signed, then never changed; corrections are addenda. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingReport"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    signImagingReport: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImagingReportSign"];
+            };
+        };
+        responses: {
+            /** @description The report of a performed imaging study: a draft until signed, then never changed; corrections are addenda. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingReport"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addImagingAddendum: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImagingAddendumCreate"];
+            };
+        };
+        responses: {
+            /** @description The report of a performed imaging study: a draft until signed, then never changed; corrections are addenda. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingReport"];
                 };
             };
             /** @description Standard error body. */

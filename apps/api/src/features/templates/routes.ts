@@ -126,7 +126,7 @@ async function detail(request: FastifyRequest, template: TemplateRow): Promise<T
 }
 
 const PLACEHOLDERS =
-  ' The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it.';
+  ' The body is not empty, and every placeholder in it is one the kind of template knows (400 otherwise): patient.name, patient.mrn, patient.age, patient.sex, doctor.name, hospital.name and date.today for every kind; procedure.name for a consent form; admission.date and discharge.date for a discharge summary; study.name and study.modality for an imaging report. A template is a blank form: it holds no patient data, and a placeholder is filled in only when a document is made from it.';
 const OTHER_HOSPITAL =
   ' A template of another hospital answers 404 template_not_found, the same as one that does not exist.';
 

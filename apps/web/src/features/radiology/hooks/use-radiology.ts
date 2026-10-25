@@ -2,20 +2,32 @@ import {
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import { useCallback, useMemo, useRef } from 'react';
 import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
+import type { RichTextDocument } from '@/shared/ui/rich-text';
 import { useTenant } from '@/tenancy';
 import {
+  addAddendum,
+  fetchReport,
   fetchWorklist,
+  saveReport,
+  signReport,
   performStudy,
   scheduleStudy,
   unscheduleStudy,
   type WorklistFilters,
 } from '../api';
-import type { ImagingStudy, ImagingWorkItem } from '../types';
+import type {
+  AddendumReason,
+  ImagingReport,
+  ImagingReportDraft,
+  ImagingStudy,
+  ImagingWorkItem,
+} from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's worklist never shows in another. */
 export const radiologyKeys = createTenantKeys('radiology');
@@ -126,3 +138,70 @@ function useStudyChange(
 
 export const useUnscheduleStudy = () => useStudyChange(unscheduleStudy);
 export const usePerformStudy = () => useStudyChange(performStudy);
+
+/**
+ * The report of an order's study, or null while it has none. Kept in memory only, and dropped
+ * soon after the panel closes: it is a patient's record.
+ */
+export function useReport(orderId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: radiologyKeys.detail(tenantId ?? '', orderId),
+    queryFn: ({ signal }) => fetchReport(orderId, signal),
+    enabled: tenantId !== undefined,
+    gcTime: 30_000,
+  });
+}
+
+/**
+ * A change of a report: the answer is the report as it now is, put where `useReport` reads it,
+ * and the worklist's lists are read again. The report itself is not read again: that would be a
+ * second request, and a second audited read, for what the answer already gave.
+ */
+function useReportChange<Variables>(
+  send: (variables: Variables, keyFor: (body: unknown) => string) => Promise<ImagingReport>,
+) {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const refresh = () => {
+    const tenantId = stillHere();
+    if (tenantId) return queryClient.invalidateQueries({ queryKey: radiologyKeys.lists(tenantId) });
+  };
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (variables: Variables) => send(variables, (body) => keys.keyFor(body)),
+    onSuccess: (report) => {
+      keys.clear();
+      const tenantId = stillHere();
+      if (tenantId)
+        queryClient.setQueryData(radiologyKeys.detail(tenantId, report.orderId), report);
+    },
+    onSettled: refresh,
+  });
+}
+
+/** Saves the whole draft, from the version the panel holds. */
+export const useSaveReport = () =>
+  useReportChange(({ orderId, draft }: { orderId: string; draft: ImagingReportDraft }, keyFor) =>
+    saveReport(orderId, draft, keyFor({ id: orderId, ...draft })),
+  );
+
+/** Signs the draft at its version. */
+export const useSignReport = () =>
+  useReportChange(({ orderId, version }: { orderId: string; version: number }, keyFor) =>
+    signReport(orderId, { version }, keyFor({ id: orderId, version })),
+  );
+
+/** Adds a signed addendum to a signed report. */
+export const useAddAddendum = () =>
+  useReportChange(
+    (
+      {
+        orderId,
+        body,
+        reason,
+      }: { orderId: string; body: RichTextDocument; reason: AddendumReason },
+      keyFor,
+    ) => addAddendum(orderId, { body, reason }, keyFor({ id: orderId, body, reason })),
+  );

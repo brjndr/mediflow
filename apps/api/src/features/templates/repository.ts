@@ -247,3 +247,22 @@ export async function redactVersion(
   );
   return rowCount === 1;
 }
+
+/**
+ * For a module that records the template a document was made from (#97): whether this is a saved
+ * version of a template of that kind at the hospital, and not archived unless `archivedToo`.
+ */
+export async function isTemplateVersion(
+  client: pg.ClientBase,
+  { templateId, version, kind }: { templateId: string; version: number; kind: TemplateKind },
+  { archivedToo = false }: { archivedToo?: boolean } = {},
+): Promise<boolean> {
+  if (!UUID.test(templateId)) return false;
+  const { rows } = await client.query(
+    `select 1 from templates t
+     join template_versions v on v.tenant_id = t.tenant_id and v.template_id = t.id
+     where t.id = $1 and t.kind = $2 and v.version = $3 and ($4 or not t.archived)`,
+    [templateId, kind, version, archivedToo],
+  );
+  return rows.length > 0;
+}

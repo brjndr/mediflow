@@ -40,7 +40,9 @@ export const DOMAIN_EVENTS = [
   'imaging.scheduled',
   'imaging.unscheduled',
   'imaging.performed',
+  // A report signed (#97), and an addendum to a signed one: ids only, never the text.
   'imaging.reported',
+  'imaging.addendum_added',
   'pharmacy.dispensed',
   'stock.low',
   'stock.expiring',

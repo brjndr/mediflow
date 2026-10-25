@@ -151,6 +151,7 @@ export interface WorkItemRow {
   patient_name: string;
   patient_mrn: string;
   patient_dob: string;
+  patient_sex: string;
   service_id: string;
   item_code: string | null;
   item_name: string;
@@ -162,6 +163,9 @@ export interface WorkItemRow {
   order_status: 'placed' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
   stage: ImagingStageValue;
   study_id: string | null;
+  report_status: 'draft' | 'signed' | null;
+  report_signed_at: Date | null;
+  report_signed_by_name: string | null;
   rank: number;
   cursor_at: string;
 }
@@ -186,7 +190,7 @@ function decodeCursor(cursor: string): Cursor | null {
     const value: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
     if (typeof value !== 'object' || value === null) return null;
     const { r, a, i } = value as Record<string, unknown>;
-    if (r !== 0 && r !== 1 && r !== 2) return null;
+    if (r !== 0 && r !== 1 && r !== 2 && r !== REPORTED_RANK) return null;
     if (typeof a !== 'string' || !CURSOR_AT.test(a)) return null;
     if (typeof i !== 'string' || !UUID.test(i)) return null;
     return { r, a, i };
@@ -205,10 +209,11 @@ function decodeCursor(cursor: string): Cursor | null {
 const WORK_ITEMS = `
   select o.id as order_id, o.tenant_id, o.encounter_id, o.patient_id,
     p.first_name || ' ' || p.last_name as patient_name, p.mrn as patient_mrn,
-    p.dob::text as patient_dob, o.service_id, o.item_code, o.item_name,
+    p.dob::text as patient_dob, p.gender as patient_sex, o.service_id, o.item_code, o.item_name,
     coalesce(st.modality, sv.modality, 'other') as modality, o.priority, o.instructions,
     o.placed_at, coalesce(u.name, '') as ordered_by_name, o.status as order_status,
-    w.stage, st.id as study_id,
+    w.stage, st.id as study_id, r.status as report_status, r.signed_at as report_signed_at,
+    ru.name as report_signed_by_name,
     case when w.stage = 'to_schedule'
       then case o.priority when 'stat' then 0 when 'urgent' then 1 else 2 end
       else 0 end as rank,
@@ -219,6 +224,8 @@ const WORK_ITEMS = `
   join services sv on sv.tenant_id = o.tenant_id and sv.id = o.service_id
   left join users u on u.id = o.ordered_by
   left join imaging_studies st on st.tenant_id = o.tenant_id and st.order_id = o.id
+  left join imaging_reports r on r.tenant_id = st.tenant_id and r.study_id = st.id
+  left join users ru on ru.id = r.signed_by
   cross join lateral (
     select
       case when st.performed_at is not null or o.status = 'in_progress' then 'performed'
@@ -232,6 +239,34 @@ const WORK_ITEMS = `
   where o.type = 'imaging' and o.status not in ('cancelled', 'completed')
     and ($1::text is null or o.priority = $1)
     and ($2::text is null or coalesce(st.modality, sv.modality, 'other') = $2)`;
+
+/** The rank in the cursor of the reported stage, which has none of its own. */
+const REPORTED_RANK = 3;
+
+/**
+ * The reported stage: the hospital's signed reports, the newest signed first, read through
+ * `imaging_reports_tenant_signed`, with the same columns as `WORK_ITEMS`. A report is signed only
+ * for an order radiology moved to completed, so a cancelled one is never here.
+ */
+const REPORTED_ITEMS = `
+  select o.id as order_id, o.tenant_id, o.encounter_id, o.patient_id,
+    p.first_name || ' ' || p.last_name as patient_name, p.mrn as patient_mrn,
+    p.dob::text as patient_dob, p.gender as patient_sex, o.service_id, o.item_code, o.item_name,
+    st.modality, o.priority, o.instructions,
+    o.placed_at, coalesce(u.name, '') as ordered_by_name, o.status as order_status,
+    'reported' as stage, st.id as study_id, r.status as report_status,
+    r.signed_at as report_signed_at, ru.name as report_signed_by_name,
+    ${REPORTED_RANK} as rank, r.signed_at as sort_at,
+    to_char(r.signed_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at
+  from imaging_reports r
+  join imaging_studies st on st.tenant_id = r.tenant_id and st.id = r.study_id
+  join orders o on o.tenant_id = r.tenant_id and o.id = r.order_id
+  join patients p on p.tenant_id = o.tenant_id and p.id = o.patient_id
+  left join users u on u.id = o.ordered_by
+  left join users ru on ru.id = r.signed_by
+  where r.status = 'signed'
+    and ($1::text is null or o.priority = $1)
+    and ($2::text is null or st.modality = $2)`;
 
 export interface Worklist {
   rows: WorkItemRow[];
@@ -252,6 +287,8 @@ export async function listWorklist(
 ): Promise<Worklist | null> {
   const after = filters.cursor === undefined ? undefined : decodeCursor(filters.cursor);
   if (after === null) return null;
+  if (filters.stage === 'reported') return listReported(client, filters, after);
+  if (after && after.r === REPORTED_RANK) return null;
   const { rows } = await client.query<WorkItemRow>(
     `select * from (${WORK_ITEMS}) w
      where w.stage = $3
@@ -280,4 +317,179 @@ export async function listWorklist(
     list.total = counted.rows[0]?.total ?? 0;
   }
   return list;
+}
+
+async function listReported(
+  client: pg.ClientBase,
+  filters: { modality?: string; priority?: string; limit: number },
+  after: Cursor | undefined,
+): Promise<Worklist | null> {
+  if (after && after.r !== REPORTED_RANK) return null;
+  const { rows } = await client.query<WorkItemRow>(
+    `select * from (${REPORTED_ITEMS}) w
+     where ($3::timestamptz is null or (w.sort_at, w.order_id) < ($3::timestamptz, $4::uuid))
+     order by w.sort_at desc, w.order_id desc
+     limit $5`,
+    [
+      filters.priority ?? null,
+      filters.modality ?? null,
+      after?.a ?? null,
+      after?.i ?? null,
+      filters.limit + 1,
+    ],
+  );
+  const more = rows.length > filters.limit;
+  const page = more ? rows.slice(0, filters.limit) : rows;
+  const last = page.at(-1);
+  // No total: the signed reports only grow, and counting them all on every first page would cost
+  // in proportion to the hospital's whole history.
+  return { rows: page, nextCursor: more && last ? encodeCursor(last) : null };
+}
+
+export interface ReportRow {
+  id: string;
+  tenant_id: string;
+  study_id: string;
+  order_id: string;
+  encounter_id: string;
+  patient_id: string;
+  technique: unknown;
+  findings: unknown;
+  impression: unknown;
+  links: unknown;
+  template_id: string | null;
+  template_version: number | null;
+  status: 'draft' | 'signed';
+  created_by_name: string | null;
+  created_at: Date;
+  updated_by_name: string | null;
+  updated_at: Date;
+  signed_by_name: string | null;
+  signed_at: Date | null;
+  version: number;
+}
+
+export interface AddendumRow {
+  id: string;
+  body: unknown;
+  reason: string;
+  signed_by_name: string | null;
+  signed_at: Date;
+}
+
+/** The report of a study, if it has one; `forUpdate` locks it (its order is locked first). */
+export async function reportOf(
+  client: pg.ClientBase,
+  studyId: string,
+  { forUpdate = false }: { forUpdate?: boolean } = {},
+): Promise<ReportRow | null> {
+  const { rows } = await client.query<ReportRow>(
+    `select r.id, r.tenant_id, r.study_id, r.order_id, r.encounter_id, r.patient_id, r.technique,
+       r.findings, r.impression, r.links, r.template_id, r.template_version, r.status,
+       cu.name as created_by_name, r.created_at, uu.name as updated_by_name, r.updated_at,
+       su.name as signed_by_name, r.signed_at, r.version
+     from imaging_reports r
+     left join users cu on cu.id = r.created_by
+     left join users uu on uu.id = r.updated_by
+     left join users su on su.id = r.signed_by
+     where r.study_id = $1 ${forUpdate ? 'for update of r' : ''}`,
+    [studyId],
+  );
+  return rows[0] ?? null;
+}
+
+/** A report's addenda, the oldest first. */
+export async function addendaOf(client: pg.ClientBase, reportId: string): Promise<AddendumRow[]> {
+  const { rows } = await client.query<AddendumRow>(
+    `select a.id, a.body, a.reason, u.name as signed_by_name, a.signed_at
+     from imaging_report_addenda a left join users u on u.id = a.signed_by
+     where a.report_id = $1 order by a.signed_at, a.id`,
+    [reportId],
+  );
+  return rows;
+}
+
+export interface ReportText {
+  technique: unknown;
+  findings: unknown;
+  impression: unknown;
+  links: unknown;
+  templateId: string | null;
+  templateVersion: number | null;
+}
+
+export async function insertReport(
+  client: pg.ClientBase,
+  study: { id: string; orderId: string; encounterId: string; patientId: string },
+  text: ReportText,
+  userId: string,
+): Promise<void> {
+  await client.query(
+    `insert into imaging_reports
+       (tenant_id, study_id, order_id, encounter_id, patient_id, technique, findings, impression,
+        links, template_id, template_version, created_by, updated_by)
+     values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)`,
+    [
+      study.id,
+      study.orderId,
+      study.encounterId,
+      study.patientId,
+      JSON.stringify(text.technique),
+      JSON.stringify(text.findings),
+      JSON.stringify(text.impression),
+      JSON.stringify(text.links),
+      text.templateId,
+      text.templateVersion,
+      userId,
+    ],
+  );
+}
+
+export async function updateReport(
+  client: pg.ClientBase,
+  id: string,
+  text: ReportText,
+  userId: string,
+): Promise<void> {
+  await client.query(
+    `update imaging_reports set technique = $2, findings = $3, impression = $4, links = $5,
+       template_id = $6, template_version = $7, updated_by = $8
+     where id = $1`,
+    [
+      id,
+      JSON.stringify(text.technique),
+      JSON.stringify(text.findings),
+      JSON.stringify(text.impression),
+      JSON.stringify(text.links),
+      text.templateId,
+      text.templateVersion,
+      userId,
+    ],
+  );
+}
+
+export async function signReport(client: pg.ClientBase, id: string, userId: string) {
+  await client.query(
+    `update imaging_reports set status = 'signed', signed_at = now(), signed_by = $2,
+       updated_by = $2
+     where id = $1`,
+    [id, userId],
+  );
+}
+
+export async function insertAddendum(
+  client: pg.ClientBase,
+  reportId: string,
+  body: unknown,
+  reason: string,
+  userId: string,
+): Promise<string> {
+  const { rows } = await client.query<{ id: string }>(
+    `insert into imaging_report_addenda (tenant_id, report_id, body, reason, signed_by)
+     values (app_tenant_id(), $1, $2, $3, $4) returning id`,
+    [reportId, JSON.stringify(body), reason, userId],
+  );
+  const row = rows[0];
+  if (!row) throw new Error('addendum was not created');
+  return row.id;
 }

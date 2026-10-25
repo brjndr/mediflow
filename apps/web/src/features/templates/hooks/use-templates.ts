@@ -139,3 +139,29 @@ export function useSaveTemplate(templateId: string) {
     onSettled: refresh,
   });
 }
+
+/**
+ * For a module that writes a document from a template (#97): the templates of one kind in use,
+ * the first page (a hospital keeps a handful of each), and a way to read one's newest text when
+ * it is chosen. Both under this module's keys, so a template read here is the one the templates
+ * screen shows.
+ */
+export function useTemplateChoices(kind: TemplateKind, { enabled }: { enabled: boolean }) {
+  const tenantId = useTenant()?.id;
+  const queryClient = useQueryClient();
+  const filters = { kind, archived: false, limit: TEMPLATES_PAGE_SIZE };
+  const list = useQuery({
+    queryKey: [...templateKeys.list(tenantId ?? '', filters), 'choices'],
+    queryFn: ({ signal }) =>
+      fetchTemplates({ kind, archived: false, limit: TEMPLATES_PAGE_SIZE }, signal),
+    enabled: enabled && tenantId !== undefined,
+    staleTime: STALE_TIME_MS,
+  });
+  const load = (templateId: string) =>
+    queryClient.fetchQuery({
+      queryKey: templateKeys.detail(tenantId ?? '', templateId),
+      queryFn: ({ signal }) => fetchTemplate(templateId, signal),
+      staleTime: STALE_TIME_MS,
+    });
+  return { list, load };
+}

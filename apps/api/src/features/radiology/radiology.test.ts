@@ -19,7 +19,8 @@ import {
 
 /**
  * The radiology API through the real app and database: the worklist, scheduling, rescheduling,
- * unscheduling and performing a study, and what they do to the order; the hospital boundary,
+ * unscheduling and performing a study, its report, signing it and its addenda (#97), and what
+ * they do to the order; the hospital boundary,
  * permissions, audit, events and the database's own rules.
  */
 
@@ -33,6 +34,8 @@ let admin: TestUser;
 let doctor: TestUser;
 let radiologist: TestUser;
 let clinicRadiologist: TestUser;
+/** A custom role that reads the worklist and nothing more. */
+let reader: TestUser;
 const catalog = { chest: '', knee: '', clinicChest: '' };
 const patients = { asha: '', clinic: '' };
 
@@ -57,6 +60,9 @@ interface WorkItem {
   stage: string;
   orderStatus: string;
   study?: Study;
+  patientSex?: string;
+  reportStatus?: string;
+  reportSignedByName?: string;
 }
 interface Page<Item> {
   items: Item[];
@@ -198,7 +204,13 @@ async function addService(tenant: TestTenant, code: string, modality: string | n
 beforeAll(async () => {
   app = await buildTestApp({ resolveSession: resolveTestSession });
   pool = app.database.pool;
-  const features = { clinical: true, patients: true, services: true, radiology: true };
+  const features = {
+    clinical: true,
+    patients: true,
+    services: true,
+    radiology: true,
+    templates: true,
+  };
   hospital = await createTenant(pool, 'Radiology Hospital', { features });
   clinic = await createTenant(pool, 'Radiology Clinic', { features });
   closed = await createTenant(pool, 'Radiology Closed', {
@@ -210,6 +222,7 @@ beforeAll(async () => {
   doctor = await user('Radiology Doctor');
   radiologist = await user('Radiologist');
   clinicRadiologist = await user('Clinic Radiologist');
+  reader = await user('Worklist Reader');
   await addMembership(pool, admin, hospital, 'admin');
   await addMembership(pool, doctor, hospital, 'doctor');
   await addMembership(pool, doctor, clinic, 'doctor');
@@ -217,6 +230,16 @@ beforeAll(async () => {
   await addMembership(pool, radiologist, hospital, 'radiologist');
   await addMembership(pool, radiologist, closed, 'radiologist');
   await addMembership(pool, clinicRadiologist, clinic, 'radiologist');
+  await pool.query(
+    "insert into roles (tenant_id, id, name) values ($1, 'worklist_reader', 'Worklist reader')",
+    [hospital.id],
+  );
+  await pool.query(
+    `insert into role_permissions (tenant_id, role_id, permission)
+     values ($1, 'worklist_reader', 'imagingStudy:read')`,
+    [hospital.id],
+  );
+  await addMembership(pool, reader, hospital, 'worklist_reader');
   await addDoctor(hospital, doctor);
   await addDoctor(clinic, doctor);
   await addDoctor(closed, doctor);
@@ -233,6 +256,10 @@ afterAll(async () => {
     await client.query('begin');
     await client.query('set local session_replication_role = replica');
     for (const table of [
+      'imaging_report_addenda',
+      'imaging_reports',
+      'template_versions',
+      'templates',
       'imaging_studies',
       'orders',
       'encounters',
@@ -248,7 +275,7 @@ afterAll(async () => {
   } finally {
     client.release();
   }
-  await deleteUsers(pool, [admin, doctor, radiologist, clinicRadiologist]);
+  await deleteUsers(pool, [admin, doctor, radiologist, clinicRadiologist, reader]);
   await deleteTenants(pool, [hospital, clinic, closed]);
   await app.close();
 });
@@ -678,5 +705,370 @@ describe('the database', () => {
         [hospital.id],
       ),
     ).rejects.toThrow();
+  });
+});
+
+interface Report {
+  id: string;
+  orderId: string;
+  studyId: string;
+  status: string;
+  findings: { type: string; content: unknown[] };
+  impression: { type: string; content: unknown[] };
+  links: { label: string; url: string }[];
+  templateId?: string;
+  templateVersion?: number;
+  createdByName: string;
+  signedByName?: string;
+  signedAt?: string;
+  addenda: { id: string; reason: string; signedByName: string; body: unknown }[];
+  version: number;
+}
+
+const text = (value: string) => ({
+  type: 'doc',
+  content: value ? [{ type: 'paragraph', content: [{ type: 'text', text: value }] }] : [],
+});
+const EMPTY = text('');
+const draft = (overrides: object = {}) => ({
+  technique: EMPTY,
+  findings: text('Lungs clear.'),
+  impression: text('Normal chest.'),
+  links: [],
+  ...overrides,
+});
+
+const put = (url: string, body: object, options: Options = {}) => {
+  const { tenant = hospital, user = radiologist, key = randomUUID() } = options;
+  return app.inject({
+    method: 'PUT',
+    url,
+    headers: { ...as(tenant.id, user.id), 'idempotency-key': key },
+    payload: body,
+  });
+};
+const saveReport = (orderId: string, body: object, options: Options = {}) =>
+  put(`/radiology/orders/${orderId}/report`, body, options);
+const sign = (report: Report, options: Options = {}) =>
+  post(`/radiology/orders/${report.orderId}/report/sign`, { version: report.version }, options);
+const addendum = (report: Report, body: object, options: Options = {}) =>
+  post(`/radiology/orders/${report.orderId}/report/addenda`, body, options);
+
+/** A study performed and waiting for its report. */
+const performed = async () => {
+  const { study } = await scheduled();
+  return ok<Study>(perform(study));
+};
+const drafted = async (body: object = draft()) => {
+  const study = await performed();
+  return ok<Report>(saveReport(study.orderId, body));
+};
+const signed = async () => ok<Report>(sign(await drafted()));
+
+describe('reports', () => {
+  it('saves a draft, then at its version, signs it and completes the order', async () => {
+    const study = await performed();
+    expect(errorOf(await get(`/radiology/orders/${study.orderId}/report`))).toEqual([
+      404,
+      'report_not_found',
+    ]);
+    const first = await ok<Report>(saveReport(study.orderId, draft({ impression: EMPTY })));
+    expect(first).toMatchObject({ status: 'draft', createdByName: 'Radiologist', version: 1 });
+    expect((await itemOf(study.orderId, 'performed'))?.reportStatus).toBe('draft');
+    const second = await ok<Report>(saveReport(study.orderId, draft({ version: first.version })));
+    expect(second.version).toBe(2);
+    expect(errorOf(await saveReport(study.orderId, draft({ version: 1 })))).toEqual([
+      409,
+      'conflict',
+    ]);
+    const done = await ok<Report>(sign(second, { user: admin }));
+    expect(done).toMatchObject({ status: 'signed', signedByName: 'Radiology Admin' });
+    expect(await orderStatus(study.orderId)).toBe('completed');
+    expect(await itemOf(study.orderId, 'performed')).toBeUndefined();
+    expect(await itemOf(study.orderId, 'reported')).toMatchObject({
+      stage: 'reported',
+      reportStatus: 'signed',
+      reportSignedByName: 'Radiology Admin',
+      patientSex: 'female',
+    });
+    expect(await ok<Report>(get(`/radiology/orders/${study.orderId}/report`))).toMatchObject({
+      status: 'signed',
+    });
+    expect(await audited('imaging_report', done.id)).toEqual([
+      'create',
+      'update',
+      'update',
+      'read',
+    ]);
+    const reported = await events(done.id);
+    expect(reported.map((each) => each.event)).toEqual(['imaging.reported']);
+    expect(Object.keys(reported[0]?.payload ?? {}).sort()).toEqual(
+      ['encounterId', 'orderId', 'patientId', 'reportId', 'serviceId', 'studyId'].sort(),
+    );
+  });
+
+  it('lists the reported stage newest signed first, with a cursor', async () => {
+    const older = await signed();
+    const newer = await signed();
+    const page = await ok<Page<WorkItem>>(get('/radiology/worklist?stage=reported&limit=1'));
+    expect(page.items[0]?.orderId).toBe(newer.orderId);
+    // Signed reports only grow: the stage is not counted.
+    expect(page.total).toBeUndefined();
+    const next = await ok<Page<WorkItem>>(
+      get(`/radiology/worklist?stage=reported&limit=1&cursor=${page.nextCursor ?? ''}`),
+    );
+    expect(next.items[0]?.orderId).toBe(older.orderId);
+    // A cursor of the reported stage is no cursor of another.
+    expect(
+      errorOf(await get(`/radiology/worklist?stage=performed&cursor=${page.nextCursor ?? ''}`)),
+    ).toEqual([400, 'invalid_cursor']);
+  });
+
+  it('refuses a report before the study is performed, and signing what is incomplete', async () => {
+    const { study } = await scheduled();
+    expect(errorOf(await saveReport(study.orderId, draft()))).toEqual([409, 'invalid_transition']);
+    const empty = await drafted(draft({ impression: EMPTY }));
+    expect(errorOf(await sign(empty))).toEqual([422, 'report_incomplete']);
+    const unfilled = await drafted(draft({ findings: text('Seen in {{study.name}}.') }));
+    expect(errorOf(await sign(unfilled))).toEqual([422, 'unfilled_placeholders']);
+    expect(errorOf(await sign({ ...unfilled, version: 9 }))).toEqual([409, 'conflict']);
+    expect(await orderStatus(unfilled.orderId)).toBe('in_progress');
+  });
+
+  it('keeps https links with no credentials, tidied', async () => {
+    const study = await performed();
+    const link = (url: string) => draft({ links: [{ label: '  Outside   viewer ', url }] });
+    const saved = await ok<Report>(saveReport(study.orderId, link('https://pacs.example.org/s/1')));
+    expect(saved.links).toEqual([{ label: 'Outside viewer', url: 'https://pacs.example.org/s/1' }]);
+    // A study's own parameters are kept.
+    const study2 = await ok<Report>(
+      saveReport(study.orderId, {
+        ...link('https://pacs.example.org/viewer?StudyInstanceUIDs=1.2.3'),
+        version: saved.version,
+      }),
+    );
+    expect(study2.links[0]?.url).toBe('https://pacs.example.org/viewer?StudyInstanceUIDs=1.2.3');
+    saved.version = study2.version;
+    for (const url of [
+      'https://user:pass@pacs.example.org/',
+      'https://',
+      'http://pacs.example.org/',
+      'https://pacs.example.org/s/1?access_token=abc',
+      'https://pacs.example.org/s/1?X-Amz-Signature=abc',
+      'https://pacs.example.org/viewer#/study?session=abc',
+    ]) {
+      const reply = await saveReport(study.orderId, { ...link(url), version: saved.version });
+      expect(reply.statusCode).toBe(400);
+    }
+  });
+
+  it('records the imaging report template and its version, and refuses another', async () => {
+    const template = await ok<{ template: { id: string } }>(
+      post(
+        '/templates',
+        { kind: 'imaging_report', name: 'Chest X-ray', body: text('Study: {{study.name}}') },
+        { user: admin },
+      ),
+      201,
+    );
+    const consent = await ok<{ template: { id: string } }>(
+      post(
+        '/templates',
+        { kind: 'consent', name: 'Imaging consent', body: text('I agree.') },
+        { user: admin },
+      ),
+      201,
+    );
+    const study = await performed();
+    const withTemplate = (templateId: string, templateVersion: number) =>
+      saveReport(study.orderId, draft({ templateId, templateVersion }));
+    expect(errorOf(await withTemplate(consent.template.id, 1))).toEqual([
+      422,
+      'template_not_found',
+    ]);
+    expect(errorOf(await withTemplate(template.template.id, 2))).toEqual([
+      422,
+      'template_not_found',
+    ]);
+    expect(
+      (await saveReport(study.orderId, draft({ templateId: template.template.id }))).statusCode,
+    ).toBe(400);
+    const recorded = await ok<Report>(withTemplate(template.template.id, 1));
+    expect(recorded).toMatchObject({ templateId: template.template.id, templateVersion: 1 });
+
+    // Once archived, the template the draft names stays; a new choice of it is refused.
+    await ok(post(`/templates/${template.template.id}/archive`, undefined, { user: admin }));
+    expect(
+      (
+        await saveReport(
+          study.orderId,
+          draft({
+            templateId: template.template.id,
+            templateVersion: 1,
+            version: recorded.version,
+          }),
+        )
+      ).statusCode,
+    ).toBe(200);
+    const other = await performed();
+    expect(
+      errorOf(
+        await saveReport(
+          other.orderId,
+          draft({ templateId: template.template.id, templateVersion: 1 }),
+        ),
+      ),
+    ).toEqual([422, 'template_not_found']);
+  });
+
+  it('never changes a signed report; addenda are added to it, the oldest first', async () => {
+    const report = await signed();
+    expect(errorOf(await saveReport(report.orderId, draft({ version: report.version })))).toEqual([
+      409,
+      'report_signed',
+    ]);
+    expect(errorOf(await sign(report))).toEqual([409, 'report_signed']);
+    expect((await addendum(report, { body: EMPTY, reason: 'correction' })).statusCode).toBe(400);
+    const once = await ok<Report>(
+      addendum(report, { body: text('Left base: small effusion.'), reason: 'correction' }),
+    );
+    const twice = await ok<Report>(
+      addendum(report, { body: text('Compared with 2025.'), reason: 'comparison' }),
+    );
+    expect(once.addenda).toHaveLength(1);
+    expect(twice.addenda.map((each) => each.reason)).toEqual(['correction', 'comparison']);
+    expect(twice.addenda[0]?.signedByName).toBe('Radiologist');
+    expect(twice.findings).toEqual(report.findings);
+    expect(twice.version).toBe(report.version);
+    const added = await events(twice.addenda[1]?.id ?? '');
+    expect(added.map((each) => each.event)).toEqual(['imaging.addendum_added']);
+    const unsigned = await drafted();
+    expect(errorOf(await addendum(unsigned, { body: text('More.'), reason: 'other' }))).toEqual([
+      409,
+      'report_not_signed',
+    ]);
+  });
+
+  it('answers a repeat with the report as it is now, and signs once', async () => {
+    const report = await drafted();
+    const key = randomUUID();
+    const first = await ok<Report>(sign(report, { key }));
+    const again = await ok<Report>(sign(report, { key }));
+    expect(again).toMatchObject({ id: first.id, status: 'signed', version: first.version });
+    expect((await events(first.id)).map((each) => each.event)).toEqual(['imaging.reported']);
+  });
+
+  it('withholds a draft from a role that only reads the worklist, and shows it signed', async () => {
+    const report = await drafted();
+    const url = `/radiology/orders/${report.orderId}/report`;
+    expect(errorOf(await get(url, { user: reader }))).toEqual([404, 'report_not_found']);
+    expect((await get(url)).statusCode).toBe(200);
+    await ok<Report>(sign(report));
+    expect(await ok<Report>(get(url, { user: reader }))).toMatchObject({ status: 'signed' });
+  });
+
+  it('makes one report of two first saves at the same moment', async () => {
+    const study = await performed();
+    const replies = await Promise.all([
+      saveReport(study.orderId, draft()),
+      saveReport(study.orderId, draft({ findings: text('Other words.') })),
+    ]);
+    expect(replies.map((each) => each.statusCode).sort()).toEqual([200, 409]);
+    const { rows } = await pool.query('select 1 from imaging_reports where order_id = $1', [
+      study.orderId,
+    ]);
+    expect(rows).toHaveLength(1);
+  });
+
+  it('refuses without the permissions, the switch or the hospital', async () => {
+    const report = await drafted();
+    const url = `/radiology/orders/${report.orderId}/report`;
+    expect(errorOf(await get(url, { user: doctor }))).toEqual([403, 'permission_denied']);
+    expect(errorOf(await saveReport(report.orderId, draft(), { user: doctor }))).toEqual([
+      403,
+      'permission_denied',
+    ]);
+    expect(errorOf(await sign(report, { user: doctor }))).toEqual([403, 'permission_denied']);
+    expect(errorOf(await get(url, { tenant: closed }))).toEqual([403, 'feature_disabled']);
+    expect(errorOf(await get(url, { tenant: clinic, user: clinicRadiologist }))).toEqual([
+      404,
+      'order_not_found',
+    ]);
+    expect(errorOf(await sign(report, { tenant: clinic, user: clinicRadiologist }))).toEqual([
+      404,
+      'order_not_found',
+    ]);
+  });
+
+  it('keeps reports and addenda to the hospital, and never changes a signed one', async () => {
+    const report = await signed();
+    const added = await ok<Report>(
+      addendum(report, { body: text('Clarified.'), reason: 'clarification' }),
+    );
+    const addendumId = added.addenda[0]?.id ?? '';
+    const seen = await asTenantSql(pool, clinic.id, async (sql) => [
+      (await sql.query('select 1 from imaging_reports where id = $1', [report.id])).rowCount,
+      (await sql.query('select 1 from imaging_report_addenda where id = $1', [addendumId]))
+        .rowCount,
+    ]);
+    expect(seen).toEqual([0, 0]);
+    // The clinic's reported stage holds none of the hospital's reports.
+    const clinicReported = await ok<Page<WorkItem>>(
+      get('/radiology/worklist?stage=reported', { tenant: clinic, user: clinicRadiologist }),
+    );
+    expect(clinicReported.items.map((each) => each.orderId)).not.toContain(report.orderId);
+    // Under the clinic, a report or an addendum of the hospital cannot be written.
+    const { rows: of } = await pool.query<{
+      study_id: string;
+      encounter_id: string;
+      patient_id: string;
+    }>('select study_id, encounter_id, patient_id from imaging_reports where id = $1', [report.id]);
+    const row = of[0];
+    await asTenantSql(pool, clinic.id, async (sql) => {
+      await sql.query('savepoint s');
+      await expect(
+        sql.query(
+          `insert into imaging_reports (tenant_id, study_id, order_id, encounter_id, patient_id,
+             technique, findings, impression, created_by, updated_by)
+           values ($1, $2, $3, $4, $5, '{}', '{}', '{}', $6, $6)`,
+          [
+            hospital.id,
+            row?.study_id,
+            report.orderId,
+            row?.encounter_id,
+            row?.patient_id,
+            clinicRadiologist.id,
+          ],
+        ),
+      ).rejects.toThrow();
+      await sql.query('rollback to savepoint s');
+      await expect(
+        sql.query(
+          `insert into imaging_report_addenda (tenant_id, report_id, body, reason, signed_by)
+           values ($1, $2, '{}'::jsonb, 'other', $3)`,
+          [hospital.id, report.id, clinicRadiologist.id],
+        ),
+      ).rejects.toThrow();
+    });
+    const unsigned = await drafted();
+    await asTenantSql(pool, hospital.id, async (sql) => {
+      for (const statement of [
+        "update imaging_reports set findings = '{}'::jsonb where id = $1",
+        'delete from imaging_reports where id = $1',
+        "update imaging_report_addenda set reason = 'other' where report_id = $1",
+        'delete from imaging_report_addenda where report_id = $1',
+      ]) {
+        await sql.query('savepoint s');
+        await expect(sql.query(statement, [report.id])).rejects.toThrow();
+        await sql.query('rollback to savepoint s');
+      }
+      await expect(
+        sql.query(
+          `insert into imaging_report_addenda (tenant_id, report_id, body, reason, signed_by)
+           values ($1, $2, '{}'::jsonb, 'other', $3)`,
+          [hospital.id, unsigned.id, radiologist.id],
+        ),
+      ).rejects.toThrow();
+    });
   });
 });

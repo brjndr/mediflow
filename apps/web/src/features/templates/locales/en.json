@@ -16,7 +16,8 @@
     "prescription": "Prescription",
     "clinical_note": "Clinical note",
     "consent": "Consent form",
-    "discharge_summary": "Discharge summary"
+    "discharge_summary": "Discharge summary",
+    "imaging_report": "Imaging report"
   },
   "filters": {
     "kind": "Kind",
@@ -39,7 +40,9 @@
     "date.today": "Today's date",
     "procedure.name": "Name of the procedure",
     "admission.date": "Date of admission",
-    "discharge.date": "Date of discharge"
+    "discharge.date": "Date of discharge",
+    "study.name": "Name of the study",
+    "study.modality": "Modality of the study"
   },
   "sample": {
     "patientName": "Sample Patient",
@@ -48,7 +51,9 @@
     "patientSex": "Female",
     "doctorName": "Dr Sample Doctor",
     "hospitalName": "Sample Hospital",
-    "procedureName": "Sample procedure"
+    "procedureName": "Sample procedure",
+    "studyName": "Chest X-ray, PA view",
+    "studyModality": "X-ray"
   },
   "form": {
     "kind": "Kind",

@@ -31,6 +31,8 @@ function useSampleValues(): Record<Placeholder, string> {
       'procedure.name': t('sample.procedureName'),
       'admission.date': today,
       'discharge.date': today,
+      'study.name': t('sample.studyName'),
+      'study.modality': t('sample.studyModality'),
     };
   }, [t, format, hospital]);
 }

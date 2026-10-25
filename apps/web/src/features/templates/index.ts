@@ -8,3 +8,4 @@ export {
   type TemplateKind,
 } from './placeholders';
 export type { Template, TemplateVersion } from './types';
+export { useTemplateChoices } from './hooks/use-templates';

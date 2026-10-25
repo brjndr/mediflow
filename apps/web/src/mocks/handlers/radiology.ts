@@ -1,11 +1,14 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
+import { placeholdersIn } from '@/features/templates';
+import { isEmptyRichText, sanitizeRichText, type RichTextDocument } from '@/shared/ui/rich-text';
 import { nextDay, todayIn, zonedToUtc } from '@/shared/utils/timezone';
 import { currentSession, mockTenantTimezone, onMockReset } from '../db';
 import { authorize, error } from '../respond';
 import { mockImagingOrders, moveMockOrder } from './clinical';
-import { mockPatient, mockPatientDob } from './patients';
+import { mockPatient, mockPatientDob, mockPatientSex } from './patients';
 import { mockServiceModality } from './services';
+import { isMockReportTemplate } from './templates';
 
 type ImagingStage = components['schemas']['ImagingStage'];
 type ImagingModality = components['schemas']['ImagingModality'];
@@ -13,9 +16,20 @@ type ImagingStudy = components['schemas']['ImagingStudy'];
 type ImagingWorkItem = components['schemas']['ImagingWorkItem'];
 type ImagingWorkItemPage = components['schemas']['ImagingWorkItemPage'];
 type Order = components['schemas']['Order'];
+type ImagingReport = components['schemas']['ImagingReport'];
+type ImagingLink = components['schemas']['ImagingLink'];
+type AddendumReason = ImagingReport['addenda'][number]['reason'];
+
+const ADDENDUM_REASONS: readonly AddendumReason[] = [
+  'correction',
+  'additional_finding',
+  'clarification',
+  'comparison',
+  'other',
+];
 
 const FEATURE_FLAG = 'radiology';
-const STAGES: readonly ImagingStage[] = ['to_schedule', 'scheduled', 'performed'];
+const STAGES: readonly ImagingStage[] = ['to_schedule', 'scheduled', 'performed', 'reported'];
 const MODALITIES: readonly ImagingModality[] = [
   'xray',
   'ct',
@@ -32,11 +46,13 @@ const DAYS_AHEAD = 90;
 
 /**
  * Radiology's studies (#96), at most one per imaging order of the clinical mock, never removed:
- * unscheduling clears the time. As the API: scheduled, then performed, then never changed.
+ * unscheduling clears the time. As the API: scheduled, then performed, then never changed. And
+ * their reports (#97): a draft, then signed and never changed, with addenda added after.
  */
 function seed() {
   return {
     studies: [] as ImagingStudy[],
+    reports: [] as ImagingReport[],
     answered: new Map<string, string>(),
     counter: 0,
   };
@@ -54,8 +70,11 @@ const callerOf = () => currentSession()?.user ?? { id: '', name: '' };
 
 const studyOf = (orderId: string) => state.studies.find((each) => each.orderId === orderId);
 
+const reportOf = (orderId: string) => state.reports.find((each) => each.orderId === orderId);
+
 /** Where an order is in radiology, as the API's worklist works it out. */
 function stageOf(order: Order): ImagingStage {
+  if (reportOf(order.id)?.status === 'signed') return 'reported';
   const study = studyOf(order.id);
   if (study?.performedAt || order.status === 'in_progress') return 'performed';
   return study?.scheduledAt ? 'scheduled' : 'to_schedule';
@@ -68,6 +87,7 @@ function itemOf(order: Order): ImagingWorkItem {
   const patient = mockPatient(order.tenantId, order.patientId);
   const dob = mockPatientDob(order.tenantId, order.patientId);
   const study = studyOf(order.id);
+  const report = reportOf(order.id);
   return {
     orderId: order.id,
     tenantId: order.tenantId,
@@ -75,6 +95,7 @@ function itemOf(order: Order): ImagingWorkItem {
     patientId: order.patientId,
     patientName: patient?.name ?? '',
     patientMrn: patient?.mrn ?? '',
+    patientSex: mockPatientSex(order.tenantId, order.patientId) ?? 'other',
     ...(dob ? { patientDob: dob } : {}),
     serviceId: order.serviceId ?? '',
     ...(order.itemCode ? { itemCode: order.itemCode } : {}),
@@ -87,6 +108,10 @@ function itemOf(order: Order): ImagingWorkItem {
     orderStatus: order.status,
     stage: stageOf(order),
     ...(study ? { study: { ...study } } : {}),
+    ...(report ? { reportStatus: report.status } : {}),
+    ...(report?.signedAt
+      ? { reportSignedAt: report.signedAt, reportSignedByName: report.signedByName ?? '' }
+      : {}),
   };
 }
 
@@ -94,13 +119,15 @@ function itemOf(order: Order): ImagingWorkItem {
 function sortAt(order: Order): string {
   const study = studyOf(order.id);
   const stage = stageOf(order);
+  if (stage === 'reported') return reportOf(order.id)?.signedAt ?? order.placedAt;
   if (stage === 'performed') return study?.performedAt ?? order.statusChangedAt ?? order.placedAt;
   if (stage === 'scheduled') return study?.scheduledAt ?? order.placedAt;
   return order.placedAt;
 }
 
-/** An order still to be worked: not cancelled or completed. */
-const active = (order: Order) => order.status !== 'cancelled' && order.status !== 'completed';
+/** An order still to be worked, not cancelled or completed, or one reported. */
+const listed = (order: Order) =>
+  stageOf(order) === 'reported' || (order.status !== 'cancelled' && order.status !== 'completed');
 
 const orderFor = (tenantId: string, id: string) =>
   mockImagingOrders(tenantId).find((each) => each.id === id);
@@ -205,14 +232,17 @@ export const radiologyHandlers = [
       return error(400, 'validation_failed', 'The request is not valid');
     }
     const rank = (order: Order) => (stage === 'to_schedule' ? PRIORITY_RANK[order.priority] : 0);
+    // Reported is the newest signed first.
+    const direction = stage === 'reported' ? -1 : 1;
     const items = mockImagingOrders(access.tenantId)
-      .filter(active)
+      .filter(listed)
       .filter((order) => stageOf(order) === stage)
       .filter((order) => modality === null || modalityOf(order) === modality)
       .filter((order) => priority === null || order.priority === priority)
       .sort(
         (a, b) =>
-          rank(a) - rank(b) || sortAt(a).localeCompare(sortAt(b)) || a.id.localeCompare(b.id),
+          rank(a) - rank(b) ||
+          direction * (sortAt(a).localeCompare(sortAt(b)) || a.id.localeCompare(b.id)),
       );
     const cursor = query.get('cursor');
     const first = cursor ? items.findIndex((each) => each.id === cursor) : 0;
@@ -221,7 +251,8 @@ export const radiologyHandlers = [
     return HttpResponse.json<ImagingWorkItemPage>({
       items: items.slice(first, first + limit).map(itemOf),
       nextCursor: next ? next.id : null,
-      ...(cursor ? {} : { total: items.length }),
+      // The reported stage is not counted, as the API does not count it.
+      ...(cursor || stage === 'reported' ? {} : { total: items.length }),
     });
   }),
 
@@ -291,6 +322,228 @@ export const radiologyHandlers = [
     moveMockOrder(order.id, 'in_progress');
   }),
 ];
+
+const reportNotFound = () => error(404, 'report_not_found', 'The study has no report');
+const reportSigned = () => error(409, 'report_signed', 'A signed report does not change');
+
+const SECRET_PARAMETER = /token|sig|key|auth|pass|secret|credential|session/i;
+
+/** The names of an address's parameters, in its query and in a fragment written as one. */
+function parameterNames(url: URL): string[] {
+  const fragment = url.hash.slice(1);
+  return [
+    ...url.searchParams.keys(),
+    ...(fragment.includes('=')
+      ? new URLSearchParams(fragment.slice(fragment.indexOf('?') + 1)).keys()
+      : []),
+  ];
+}
+
+/**
+ * A link as the API takes it: https with a host, no credentials and no parameter named as a
+ * secret (400 `invalid_link`).
+ */
+function cleanLinks(value: unknown): ImagingLink[] | null {
+  if (!Array.isArray(value) || value.length > 10) return null;
+  const links: ImagingLink[] = [];
+  for (const link of value) {
+    if (!isObject(link) || typeof link.label !== 'string' || typeof link.url !== 'string') {
+      return null;
+    }
+    const label = link.label.replace(/\s+/g, ' ').trim();
+    let url: URL;
+    try {
+      url = new URL(link.url);
+    } catch {
+      return null;
+    }
+    if (
+      !label ||
+      url.protocol !== 'https:' ||
+      !url.hostname ||
+      url.username ||
+      url.password ||
+      parameterNames(url).some((name) => SECRET_PARAMETER.test(name))
+    ) {
+      return null;
+    }
+    links.push({ label, url: url.href });
+  }
+  return links;
+}
+
+const asDocument = (value: unknown) =>
+  sanitizeRichText(value) as unknown as Record<string, unknown>;
+
+/**
+ * The study a report is of, and the report: the caller's permission and the switch first, and
+ * `imagingStudy:read` too, as every report route of the API asks for it.
+ */
+async function reportRequest(request: Request, orderId: string, permission: string) {
+  const reads = authorize(request, { permission: 'imagingStudy:read', featureFlag: FEATURE_FLAG });
+  if ('denied' in reads) return { refused: reads.denied } as const;
+  const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+  if ('denied' in access) return { refused: access.denied } as const;
+  const sent = request.method === 'GET' ? null : await idempotent(request, access.tenantId);
+  if (sent && 'refused' in sent) return { refused: sent.refused } as const;
+  const order = orderFor(access.tenantId, orderId);
+  if (!order) return { refused: orderNotFound() } as const;
+  return { order, study: studyOf(order.id), report: reportOf(order.id), sent } as const;
+}
+
+function reportHandlers() {
+  return [
+    http.get('*/api/radiology/orders/:orderId/report', async ({ request, params }) => {
+      const found = await reportRequest(request, String(params.orderId), 'imagingStudy:read');
+      if ('refused' in found) return found.refused;
+      // A draft only for whoever may write or sign reports, as the API withholds it.
+      const writes = ['imagingReport:write', 'imagingReport:sign'].some(
+        (permission) =>
+          !('denied' in authorize(request, { permission, featureFlag: FEATURE_FLAG })),
+      );
+      return found.report && (found.report.status === 'signed' || writes)
+        ? HttpResponse.json<ImagingReport>(found.report)
+        : reportNotFound();
+    }),
+
+    http.put('*/api/radiology/orders/:orderId/report', async ({ request, params }) => {
+      const found = await reportRequest(request, String(params.orderId), 'imagingReport:write');
+      if ('refused' in found) return found.refused;
+      const { order, study, report, sent } = found;
+      if (!sent || 'refused' in sent) return reportNotFound();
+      if (sent.replay) {
+        return report ? HttpResponse.json<ImagingReport>(report) : reportNotFound();
+      }
+      const body = sent.body;
+      if (!isObject(body)) return error(400, 'validation_failed', 'The request is not valid');
+      if (report?.status === 'signed') return reportSigned();
+      if (!study?.performedAt || order.status !== 'in_progress') {
+        return error(409, 'invalid_transition', 'Only a performed study is reported');
+      }
+      if (report && body.version !== report.version) return conflict();
+      const links = cleanLinks(body.links);
+      if (!links) return error(400, 'invalid_link', 'A link is an https address');
+      const hasTemplate = body.templateId !== undefined;
+      if (hasTemplate !== (body.templateVersion !== undefined)) {
+        return error(400, 'validation_failed', 'A template is sent with its version');
+      }
+      if (
+        hasTemplate &&
+        !isMockReportTemplate(order.tenantId, String(body.templateId), Number(body.templateVersion))
+      ) {
+        return error(422, 'template_not_found', 'No such imaging report template');
+      }
+      const text = {
+        technique: asDocument(body.technique),
+        findings: asDocument(body.findings),
+        impression: asDocument(body.impression),
+        links,
+      };
+      const template = hasTemplate
+        ? { templateId: String(body.templateId), templateVersion: Number(body.templateVersion) }
+        : {};
+      const at = now();
+      const caller = callerOf().name;
+      if (report) {
+        delete report.templateId;
+        delete report.templateVersion;
+        Object.assign(report, text, template, {
+          updatedAt: at,
+          updatedByName: caller,
+          version: report.version + 1,
+        });
+      } else {
+        state.reports.push({
+          id: `rpt_mock_${++state.counter}`,
+          tenantId: order.tenantId,
+          orderId: order.id,
+          studyId: study.id,
+          encounterId: order.encounterId,
+          patientId: order.patientId,
+          status: 'draft',
+          ...text,
+          ...template,
+          createdByName: caller,
+          createdAt: at,
+          updatedByName: caller,
+          updatedAt: at,
+          addenda: [],
+          version: 1,
+        });
+      }
+      state.answered.set(sent.keyOf, JSON.stringify(body));
+      const saved = reportOf(order.id);
+      return saved ? HttpResponse.json<ImagingReport>(saved) : reportNotFound();
+    }),
+
+    http.post('*/api/radiology/orders/:orderId/report/sign', async ({ request, params }) => {
+      const found = await reportRequest(request, String(params.orderId), 'imagingReport:sign');
+      if ('refused' in found) return found.refused;
+      const { order, report, sent } = found;
+      if (!report || !sent || 'refused' in sent) return reportNotFound();
+      if (sent.replay) return HttpResponse.json<ImagingReport>(report);
+      const body = sent.body;
+      if (!isObject(body) || !Number.isInteger(body.version)) {
+        return error(400, 'validation_failed', 'A version is required');
+      }
+      if (report.status === 'signed') return reportSigned();
+      if (report.version !== body.version) return conflict();
+      const parts = [report.technique, report.findings, report.impression].map(sanitizeRichText);
+      if (
+        isEmptyRichText(parts[1] as RichTextDocument) ||
+        isEmptyRichText(parts[2] as RichTextDocument)
+      ) {
+        return error(422, 'report_incomplete', 'A report needs findings and an impression');
+      }
+      if (parts.some((part) => placeholdersIn(part).length > 0)) {
+        return error(422, 'unfilled_placeholders', 'A placeholder is left unfilled');
+      }
+      const at = now();
+      Object.assign(report, {
+        status: 'signed',
+        signedAt: at,
+        signedByName: callerOf().name,
+        updatedAt: at,
+        updatedByName: callerOf().name,
+        version: report.version + 1,
+      });
+      moveMockOrder(order.id, 'completed');
+      state.answered.set(sent.keyOf, JSON.stringify(body));
+      return HttpResponse.json<ImagingReport>(report);
+    }),
+
+    http.post('*/api/radiology/orders/:orderId/report/addenda', async ({ request, params }) => {
+      const found = await reportRequest(request, String(params.orderId), 'imagingReport:sign');
+      if ('refused' in found) return found.refused;
+      const { report, sent } = found;
+      if (!report || !sent || 'refused' in sent) return reportNotFound();
+      if (sent.replay) return HttpResponse.json<ImagingReport>(report);
+      const body = sent.body;
+      if (!isObject(body) || !ADDENDUM_REASONS.includes(body.reason as AddendumReason)) {
+        return error(400, 'validation_failed', 'A reason is required');
+      }
+      if (report.status !== 'signed') {
+        return error(409, 'report_not_signed', 'An addendum is added to a signed report');
+      }
+      const text = sanitizeRichText(body.body);
+      if (isEmptyRichText(text)) return error(400, 'validation_failed', 'The addendum is empty');
+      report.addenda.push({
+        id: `add_mock_${++state.counter}`,
+        body: text as unknown as Record<string, unknown>,
+        reason: body.reason as AddendumReason,
+        signedByName: callerOf().name,
+        signedAt: now(),
+      });
+      state.answered.set(sent.keyOf, JSON.stringify(body));
+      return HttpResponse.json<ImagingReport>(report);
+    }),
+  ];
+}
+
+radiologyHandlers.push(...reportHandlers());
+
+/** The reports as the mock holds them, for tests. */
+export const mockReports = (): readonly ImagingReport[] => state.reports;
 
 /** The studies as the mock holds them, for tests. */
 export const mockStudies = (): readonly ImagingStudy[] => state.studies;

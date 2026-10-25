@@ -5,7 +5,7 @@ import type { FeatureManifest } from '@/registry';
  * Radiology (#96): the worklist of imaging orders, scheduling each study for a slot, moving or
  * unscheduling it, and recording that it was performed. Orders come from the consultation
  * (`order.placed`); the studies are the services catalog's imaging services, sorted by their
- * modality. Reports and their sign-off are #97. Works at every width.
+ * modality, and their reports (#97): a draft, signed, then addenda. Works at every width.
  */
 export const radiologyFeature: FeatureManifest = {
   id: 'radiology',
@@ -24,5 +24,11 @@ export const radiologyFeature: FeatureManifest = {
     },
   ],
   nav: { icon: ScanLine, order: 29.7, requires: ['imagingStudy:read'] },
-  permissions: ['imagingStudy:read', 'imagingStudy:schedule', 'imagingStudy:perform'],
+  permissions: [
+    'imagingStudy:read',
+    'imagingStudy:schedule',
+    'imagingStudy:perform',
+    'imagingReport:write',
+    'imagingReport:sign',
+  ],
 };
