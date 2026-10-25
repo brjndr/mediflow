@@ -34,6 +34,8 @@ export const DOMAIN_EVENTS = [
   'lab.sample_rejected',
   'lab.result_verified',
   'lab.critical_value',
+  // A doctor acknowledged a verified critical result (#92).
+  'lab.critical_acknowledged',
   'imaging.reported',
   'pharmacy.dispensed',
   'stock.low',

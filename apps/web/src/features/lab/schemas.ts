@@ -5,6 +5,7 @@ import type {
   LabOrderResults,
   LabRejectReason,
   LabResult,
+  LabResultPage,
   LabResultRange,
   LabSample,
   LabSampleStatus,
@@ -189,8 +190,23 @@ export const labResultSchema: z.ZodType<LabResult> = z.object({
   amendsId: z.string().optional(),
   amendmentReason: z.string().optional(),
   amendedById: z.string().optional(),
+  collectedAt: z.string(),
+  acknowledgedAt: z.string().optional(),
+  acknowledgedByName: z.string().optional(),
   version: z.number().int(),
 });
+
+/** A page of a patient's released results (#92). */
+export const labResultPageSchema: z.ZodType<LabResultPage> = z.object({
+  items: z.array(labResultSchema),
+  nextCursor: z.string().nullable(),
+});
+
+/** A critical result a doctor still has to acknowledge (#92): verified, critical, not yet seen. */
+export const needsAcknowledging = (result: LabResult) =>
+  result.status === 'verified' &&
+  (result.flag === 'critical_low' || result.flag === 'critical_high') &&
+  result.acknowledgedAt === undefined;
 
 export const labOrderResultsSchema: z.ZodType<LabOrderResults> = z.object({
   orderId: z.string(),

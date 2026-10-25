@@ -10,6 +10,7 @@ import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
+  acknowledgeResult,
   amendResult,
   collectSample,
   enterResults,
@@ -17,7 +18,9 @@ import {
   fetchWorklist,
   receiveSample,
   recordLabelPrint,
+  recordReportPrint,
   rejectSample,
+  searchResults,
   verifyResults,
   type WorklistFilters,
 } from '../api';
@@ -248,6 +251,91 @@ export function useVerifyResults(orderId: string) {
     },
     onSettled: refresh,
   });
+}
+
+export const RELEASED_PAGE_SIZE = 25;
+/** The most points of a trend: the newest hundred results of the test. */
+export const TREND_SIZE = 100;
+
+/**
+ * A patient's released results (#92), the newest collected first, a page at a time: all of them
+ * (the patient's tab) or one encounter's (the consultation). Read only while `enabled`.
+ */
+export function usePatientResults(
+  filters: { patientId: string; encounterId?: string },
+  enabled = true,
+) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: labKeys.list(tenantId ?? '', {
+      released: true,
+      ...filters,
+      limit: RELEASED_PAGE_SIZE,
+    }),
+    queryFn: ({ pageParam, signal }) =>
+      searchResults({ ...filters, cursor: pageParam, limit: RELEASED_PAGE_SIZE }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: enabled && tenantId !== undefined && filters.patientId !== '',
+  });
+}
+
+/** The newest results of one test of a patient (#92), for its trend: one page of a hundred. */
+export function useResultTrend(patientId: string, labTestId: string | null) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: labKeys.list(tenantId ?? '', { trend: true, patientId, labTestId }),
+    queryFn: ({ signal }) =>
+      searchResults({ patientId, labTestId: labTestId ?? '', limit: TREND_SIZE }, signal),
+    enabled: tenantId !== undefined && labTestId !== null,
+  });
+}
+
+/**
+ * Acknowledges a verified critical result, one key per result; whatever the answer, every
+ * view of results is read again, as another doctor may have acknowledged it meanwhile.
+ */
+export function useAcknowledgeResult() {
+  const refresh = useRefreshWorklist();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (result: LabResult) => acknowledgeResult(result.id, keys.keyFor(result.id)),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+/**
+ * A report print (#92): the order's results read afresh, then the print recorded on the server
+ * with a new idempotency key per press; the page is shown (`job`) only once both succeeded, and
+ * only for the session it was asked in. `done` drops it when the print dialog closes. Leaving the
+ * page aborts the read.
+ */
+export function useReportPrinting(orderId: string) {
+  const stillHere = useStillHere();
+  const abort = useRef<AbortController>(undefined);
+  useEffect(() => () => abort.current?.abort(), []);
+  const [job, setJob] = useState<{ id: number; value: LabOrderResults } | null>(null);
+  const mutation = useMutation({
+    gcTime: 0,
+    mutationFn: async () => {
+      abort.current = new AbortController();
+      const results = await fetchOrderResults(orderId, abort.current.signal);
+      await recordReportPrint(orderId, crypto.randomUUID());
+      return results;
+    },
+    onSuccess: (value) => {
+      if (stillHere() && !abort.current?.signal.aborted)
+        setJob((now) => ({ id: (now?.id ?? 0) + 1, value }));
+    },
+  });
+  const { isPending, mutate } = mutation;
+  const print = useCallback(() => {
+    if (!isPending) mutate();
+  }, [isPending, mutate]);
+  const done = useCallback(() => setJob(null), []);
+  return { print, busy: isPending, error: mutation.error, job, done };
 }
 
 /** Corrects a result with a reason: a new result, to verify again. */

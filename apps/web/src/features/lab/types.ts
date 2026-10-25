@@ -28,3 +28,5 @@ export type LabResultFlag = Schemas['LabResultFlag'];
 export type LabResultRange = Schemas['LabResultRange'];
 export type LabResultEntry = Schemas['LabResultEntry'];
 export type LabResultAmend = Schemas['LabResultAmend'];
+/** A page of a patient's released results (#92): of each test of each sample, the newest verified. */
+export type LabResultPage = Schemas['LabResultPage'];

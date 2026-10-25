@@ -16,6 +16,7 @@ type LabRejectReason = components['schemas']['LabRejectReason'];
 type Order = components['schemas']['Order'];
 type LabResult = components['schemas']['LabResult'];
 type LabOrderResults = components['schemas']['LabOrderResults'];
+type LabResultPage = components['schemas']['LabResultPage'];
 type LabResultFlag = components['schemas']['LabResultFlag'];
 type LabRange = NonNullable<LabResult['range']>;
 type StoredResult = Omit<LabResult, 'amendedById'>;
@@ -47,6 +48,13 @@ export interface MockLabelPrint {
   userId: string;
 }
 
+/** A report print the API would record in the audit log (#92). */
+export interface MockReportPrint {
+  tenantId: string;
+  orderId: string;
+  userId: string;
+}
+
 /**
  * The laboratory's samples (#90), one or more per lab order of the clinical mock, never removed:
  * a rejected one stays and a new one is collected. Accession ids are numbered per hospital day.
@@ -61,6 +69,8 @@ function seed() {
     completedAt: new Map<string, string>(),
     numbers: new Map<string, number>(),
     prints: [] as MockLabelPrint[],
+    // Report prints (#92), as the API's audit log would hold them.
+    reportPrints: [] as MockReportPrint[],
     answered: new Map<string, { body: string; id: string }>(),
     counter: 0,
   };
@@ -267,6 +277,7 @@ function newResult(
     status: 'entered',
     enteredAt: now(),
     enteredByName: callerOf().name,
+    collectedAt: sample.collectedAt,
     ...(amends ? { amendsId: amends.id, amendmentReason: amends.reason } : {}),
     version: 1,
   };
@@ -657,7 +668,161 @@ export const labHandlers = [
     }
     return new HttpResponse(null, { status: 204 });
   }),
+
+  // ----- Reports, acknowledgements and a patient's results (#92) -----
+
+  http.post('*/api/lab/results/search', async ({ request }) => {
+    const access = authorize(request, { permission: 'labResult:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const body: unknown = await request.json().catch(() => null);
+    if (!isObject(body) || typeof body.patientId !== 'string') {
+      return error(400, 'validation_failed', 'The patient is required');
+    }
+    const limit = body.limit === undefined ? 25 : Number(body.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const items = releasedOf(access.tenantId, body.patientId).filter(
+      (each) =>
+        (body.labTestId === undefined || each.labTestId === body.labTestId) &&
+        (body.encounterId === undefined || each.encounterId === body.encounterId),
+    );
+    const cursor = typeof body.cursor === 'string' ? body.cursor : null;
+    const first = cursor ? items.findIndex((each) => each.id === cursor) : 0;
+    if (first < 0) return error(400, 'invalid_cursor', 'Unknown cursor');
+    const next = items[first + limit];
+    return HttpResponse.json<LabResultPage>({
+      items: items.slice(first, first + limit),
+      nextCursor: next ? next.id : null,
+    });
+  }),
+
+  http.post('*/api/lab/results/:resultId/acknowledge', async ({ request, params }) => {
+    for (const permission of ['labResult:read', 'labResult:acknowledge']) {
+      const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+    }
+    const tenantId = currentPolicy()?.tenantId ?? '';
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const stored = state.results.find(
+      (each) => each.id === String(params.resultId) && each.tenantId === tenantId,
+    );
+    if (!stored) return error(404, 'result_not_found', 'Result not found');
+    if (!sent.replay) {
+      if (stored.acknowledgedAt) {
+        return error(409, 'already_acknowledged', 'The result was acknowledged already');
+      }
+      if (stored.status !== 'verified' || !isCritical(stored.flag)) {
+        return error(409, 'not_acknowledgeable', 'Only a verified critical result is acknowledged');
+      }
+      Object.assign(stored, { acknowledgedAt: now(), acknowledgedByName: callerOf().name });
+      remember(sent.keyOf, sent.body, stored.id);
+    }
+    const result = resultsOfSample(stored.sampleId).find((each) => each.id === stored.id);
+    return HttpResponse.json<LabResult>(result ?? { ...stored });
+  }),
+
+  http.post('*/api/lab/orders/:orderId/print', async ({ request, params }) => {
+    for (const permission of ['labResult:read', 'labReport:print']) {
+      const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+    }
+    const tenantId = currentPolicy()?.tenantId ?? '';
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const order = orderFor(tenantId, String(params.orderId));
+    if (!order) return error(404, 'order_not_found', 'Order not found');
+    if (!sent.replay) {
+      const sample = liveSample(order.id);
+      const results = sample ? resultsOfSample(sample.id) : [];
+      if (!results.some((each) => each.status === 'verified')) {
+        return error(409, 'not_printable', 'The order has no verified result');
+      }
+      state.reportPrints.push({ tenantId, orderId: order.id, userId: callerOf().id });
+      remember(sent.keyOf, sent.body, order.id);
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
 ];
+
+const isCritical = (flag: LabResultFlag | undefined) =>
+  flag === 'critical_low' || flag === 'critical_high';
+
+/**
+ * A patient's released results as the API gives them (#92): of each test of each sample, the
+ * newest verified result, the newest collected first.
+ */
+function releasedOf(tenantId: string, patientId: string): LabResult[] {
+  const newestVerified = new Map<string, LabResult>();
+  for (const sample of state.samples) {
+    if (sample.tenantId !== tenantId || sample.patientId !== patientId) continue;
+    for (const result of resultsOfSample(sample.id)) {
+      if (result.status === 'verified')
+        newestVerified.set(`${sample.id}:${result.labTestId}`, result);
+    }
+  }
+  return [...newestVerified.values()].sort(
+    (a, b) => b.collectedAt.localeCompare(a.collectedAt) || b.id.localeCompare(a.id),
+  );
+}
+
+/**
+ * For tests and the examples: a received sample of a mock lab order with every test of it
+ * entered and verified (`values` by test code; a test not named gets `fallback`), the order
+ * completed, as the laboratory would leave it. Gives the results.
+ */
+export function releaseMockResults(
+  tenantId: string,
+  orderId: string,
+  values: Record<string, string>,
+  { fallback = '1', collectedAt = now() }: { fallback?: string; collectedAt?: string } = {},
+): LabResult[] {
+  const order = orderFor(tenantId, orderId);
+  if (!order) throw new Error(`no lab order ${orderId}`);
+  const sample: LabSample = {
+    id: `smp_mock_${++state.counter}`,
+    tenantId,
+    orderId: order.id,
+    encounterId: order.encounterId,
+    patientId: order.patientId,
+    accessionId: nextAccession(tenantId),
+    sampleType: 'blood',
+    status: 'received',
+    collectedAt,
+    collectedByName: 'Lab Technician',
+    receivedAt: collectedAt,
+    receivedByName: 'Lab Technician',
+    version: 2,
+  };
+  state.samples.push(sample);
+  for (const test of analytesOf(order, sample)) {
+    const typed = values[test.code] ?? fallback;
+    const result = newResult(
+      sample,
+      test,
+      test.range,
+      test.resultType === 'numeric' ? { value: typed, number: Number(typed) } : { value: typed },
+      undefined,
+    );
+    state.results.push({
+      ...result,
+      enteredByName: 'Lab Technician',
+      status: 'verified',
+      verifiedAt: collectedAt,
+      verifiedByName: 'Lab Technician',
+      version: 2,
+    });
+  }
+  if (active(order)) {
+    moveMockOrder(order.id, 'completed');
+    state.completedAt.set(order.id, now());
+  }
+  return resultsOfSample(sample.id);
+}
+
+/** The report prints the API's audit log would hold (#92), for tests. */
+export const mockReportPrints = (): readonly MockReportPrint[] => state.reportPrints;
 
 /** The samples of a lab order as the mock holds them, oldest first, for tests. */
 export const mockSamplesOf = (orderId: string): readonly LabSample[] => samplesOf(orderId);

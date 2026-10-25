@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { usePermission } from '@/access';
 import { FollowUpPanel } from '@/features/follow-ups';
+import { LabResultsPanel } from '@/features/lab';
 import { TriageSummary } from '@/features/triage';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
@@ -147,6 +148,8 @@ function Consultation({ encounter }: { encounter: Encounter }) {
           {canReadPrescriptions && <PrescriptionsPanel encounter={encounter} />}
           {canReadOrders &&
             ORDER_KINDS.map((kind) => <OrdersPanel key={kind} encounter={encounter} kind={kind} />)}
+          {/* The visit's released lab results (#92): their own permission, checked by the panel. */}
+          <LabResultsPanel encounterId={encounter.id} patientId={encounter.patientId} />
           {canReadReferrals && <ReferralsPanel encounter={encounter} />}
           {/* What happens next: its own permission, checked by the panel. */}
           <FollowUpPanel

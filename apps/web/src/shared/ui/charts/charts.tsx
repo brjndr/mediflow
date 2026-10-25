@@ -39,6 +39,8 @@ export interface ChartProps {
   formatValue?: (value: number) => string;
   /** Pixels. The width follows the container. */
   height?: number;
+  /** A time series marks each value with a dot, for a few values far apart (a lab trend). */
+  dots?: boolean;
 }
 
 // Colours come from the theme tokens, so a chart follows the hospital's brand colour and stays
@@ -171,7 +173,7 @@ export function TimeSeriesChart(props: ChartProps) {
           name={valueHeader}
           stroke={SERIES}
           strokeWidth={2}
-          dot={false}
+          dot={props.dots ? { r: 3, fill: SERIES, stroke: SERIES } : false}
           isAnimationActive={false}
         />
       </LineChart>

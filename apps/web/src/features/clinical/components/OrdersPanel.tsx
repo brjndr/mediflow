@@ -63,8 +63,11 @@ interface Item {
   name: string;
 }
 
-/** Results and reports come with the lab and radiology modules; a procedure has none. */
-const SAYS_LATER: Record<OrderKind, boolean> = { lab: true, imaging: true, procedure: false };
+/**
+ * Imaging reports come with the radiology module; a procedure has none. Lab results are the
+ * laboratory's own panel on the consultation (#92).
+ */
+const SAYS_LATER: Record<OrderKind, boolean> = { lab: false, imaging: true, procedure: false };
 
 const cancellable = (order: Order) => order.status === 'placed' || order.status === 'accepted';
 

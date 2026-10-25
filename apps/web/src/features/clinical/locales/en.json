@@ -312,7 +312,6 @@
   "labOrders": {
     "heading": "Lab orders",
     "empty": "No test ordered yet.",
-    "later": "Results are not shown here yet: they arrive with the laboratory module.",
     "item": "Test",
     "status": {
       "placed": "Ordered, waiting for the laboratory",

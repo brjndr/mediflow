@@ -1,6 +1,7 @@
 import { api, requireData } from '@/shared/api';
 import {
   labOrderResultsSchema,
+  labResultPageSchema,
   labResultSchema,
   labSampleSchema,
   labWorkItemPageSchema,
@@ -10,6 +11,7 @@ import type {
   LabResult,
   LabResultAmend,
   LabResultEntry,
+  LabResultPage,
   LabSample,
   LabSampleReject,
   LabStage,
@@ -112,6 +114,42 @@ export async function verifyResults(
     body: { resultIds },
   });
   return labOrderResultsSchema.parse(requireData(result));
+}
+
+/**
+ * A patient's released results (#92), the newest collected first, narrowed to one test (its
+ * trend) or one encounter. A POST: the patient and the test together say what was tested.
+ */
+export async function searchResults(
+  body: {
+    patientId: string;
+    labTestId?: string;
+    encounterId?: string;
+    cursor?: string;
+    limit: number;
+  },
+  signal?: AbortSignal,
+): Promise<LabResultPage> {
+  const result = await api.POST('/lab/results/search', { body, signal });
+  return labResultPageSchema.parse(requireData(result));
+}
+
+/** A doctor has seen a verified critical result (#92). */
+export async function acknowledgeResult(
+  resultId: string,
+  idempotencyKey: string,
+): Promise<LabResult> {
+  const result = await api.POST('/lab/results/{resultId}/acknowledge', {
+    params: { path: { resultId }, header: { 'idempotency-key': idempotencyKey } },
+  });
+  return labResultSchema.parse(requireData(result));
+}
+
+/** Records a print of the order's report in the audit log; nothing prints until it is answered. */
+export async function recordReportPrint(orderId: string, idempotencyKey: string) {
+  await api.POST('/lab/orders/{orderId}/print', {
+    params: { path: { orderId }, header: { 'idempotency-key': idempotencyKey } },
+  });
 }
 
 export async function amendResult(

@@ -5,8 +5,10 @@ import type { FeatureManifest } from '@/registry';
  * The laboratory (#90, #91): the worklist of lab orders, collecting their samples with an
  * accession id and a printed barcode label, receiving them, and rejecting one to be collected
  * again; then each order's results, entered, verified and corrected with their history. Orders
- * come from the consultation (`order.placed`); the tests are the lab test catalog's. Reports are
- * #92. Works at every width: a nurse collects at the bedside.
+ * come from the consultation (`order.placed`); the tests are the lab test catalog's. Reports
+ * (#92): the printed report, the released results in the consultation (`LabResultsPanel`) and on
+ * the patient's screen (a tab, with each test's trend), and a doctor acknowledging a critical one.
+ * Works at every width: a nurse collects at the bedside.
  */
 export const labFeature: FeatureManifest = {
   id: 'lab',
@@ -35,5 +37,16 @@ export const labFeature: FeatureManifest = {
     'labResult:read',
     'labResult:enter',
     'labResult:verify',
+    'labResult:acknowledge',
+    'labReport:print',
+  ],
+  extensions: [
+    // The patient's released results, with each test's trend (#92).
+    {
+      slot: 'patient.detail.tabs',
+      component: () => import('./components/LabResultsTab'),
+      requires: ['labResult:read'],
+      order: 35,
+    },
   ],
 };
