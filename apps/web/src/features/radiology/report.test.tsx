@@ -324,6 +324,24 @@ describe('a signed report', () => {
 });
 
 describe('access', () => {
+  it('shows a signed report to a role that only reads the worklist, and offers no addendum', async () => {
+    await performStudy();
+    const draft = await send('PUT', `/radiology/orders/${ORDER}/report`, {
+      technique: { type: 'doc', content: [] },
+      findings: doc('Lungs clear.'),
+      impression: doc('Normal chest.'),
+      links: [],
+    });
+    await send('POST', `/radiology/orders/${ORDER}/report/sign`, { version: draft.version });
+    setRolePermissions(HOSPITAL, 'admin', [{ permission: 'imagingStudy:read' }]);
+    await openStage('Reported');
+    await userEvent.click(rowAction('View report'));
+    await screen.findByRole('heading', { name: 'Signed report of Chest X-ray' });
+    expect(screen.getByText('Normal chest.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add addendum' })).toBeNull();
+    await expectNoAxeViolations(document.body);
+  });
+
   it('withholds a draft from a role that only reads the worklist', async () => {
     await performStudy();
     await send('PUT', `/radiology/orders/${ORDER}/report`, {
