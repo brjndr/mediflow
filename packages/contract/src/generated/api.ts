@@ -686,7 +686,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description Changes a service: its name, category, tax class or description, never its code. Send the version the change was made from: 409 conflict when the service has changed since. Sending what the service already has changes nothing. A price is not changed here: see the prices of a service. A service of another hospital answers 404 service_not_found, the same as one that does not exist. */
+        /** @description Changes a service: its name, category, tax class, modality or description, never its code. A modality is only for an imaging service (400 validation_failed), null removes it, and a service moved to another category loses it. Send the version the change was made from: 409 conflict when the service has changed since. Sending what the service already has changes nothing. A price is not changed here: see the prices of a service. A service of another hospital answers 404 service_not_found, the same as one that does not exist. */
         patch: operations["updateService"];
         trace?: never;
     };
@@ -2114,7 +2114,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). While the hospital has the laboratory switched on, a lab order is moved by its sample and results only (409 `lab_order`). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed, as results arrive later. The Idempotency-Key header is required: a repeat changes nothing and answers with the order as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist. */
+        /** @description Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). While the hospital has the laboratory switched on, a lab order is moved by its sample and results only (409 `lab_order`); while it has radiology switched on, an imaging order is moved by its study only (409 `imaging_order`). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed, as results arrive later. The Idempotency-Key header is required: a repeat changes nothing and answers with the order as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist. */
         post: operations["advanceOrder"];
         delete?: never;
         options?: never;
@@ -2544,6 +2544,74 @@ export interface paths {
         put?: never;
         /** @description Records a print of a lab order’s report in the audit log, before anything prints (#92). The web app makes the page from the results it read: verified results only. An order with no verified result is 409 `not_printable`. The Idempotency-Key header is required, one per press: a repeat records nothing more. Requires labResult:read and labReport:print with the scope `all` and the laboratory feature flag. */
         post: operations["printLabReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/radiology/worklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Radiology’s worklist (#96): the hospital’s imaging orders not cancelled or completed, at one stage, of one modality and priority when asked. To schedule is stat first, then urgent, then routine, the oldest ordered first within each; scheduled is the soonest slot first; performed the longest waiting first. Each names the patient (name, MRN and date of birth), the study as ordered, its modality and its study. `total` comes with the first page. Every row read is audited. Requires imagingStudy:read with the scope `all` (a narrower one sees nothing) and the radiology feature flag. Holds no patient term: a GET. */
+        get: operations["listImagingWorklist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/radiology/orders/{orderId}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Schedules the study of an imaging order for a slot, or moves it to another (#96). The first time makes the study, with the modality of its service as it is now, and accepts the order if it was only placed; after that the study’s version is required (409 `conflict`). Refused once the study is performed, and for an order cancelled, completed or moved in progress (409 `invalid_transition`). Requires imagingStudy:schedule and the radiology feature flag. Emits `imaging.scheduled`. The Idempotency-Key header is required: a repeat changes nothing and answers with the study as it is now. Audited. */
+        post: operations["scheduleImagingStudy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/radiology/orders/{orderId}/unschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Takes a scheduled study off its slot (#96), at the version sent (409 `conflict`), so it is to schedule again; the order stays accepted. Refused for a study not scheduled or performed, and for an order cancelled or completed (409 `invalid_transition`); an order with no study is 404. Requires imagingStudy:schedule and the radiology feature flag. Emits `imaging.unscheduled`. The Idempotency-Key header is required: a repeat changes nothing and answers with the study as it is now. Audited. */
+        post: operations["unscheduleImagingStudy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/radiology/orders/{orderId}/perform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records that a scheduled study was performed (#96), at the version sent (409 `conflict`), and moves its order in progress: it then waits for its report. Refused for a study not scheduled or already performed, and for an order cancelled or completed (409 `invalid_transition`); an order with no study is 404. Requires imagingStudy:perform and the radiology feature flag. Emits `imaging.performed`. The Idempotency-Key header is required: a repeat changes nothing and answers with the study as it is now. Audited. */
+        post: operations["performImagingStudy"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3033,6 +3101,11 @@ export interface components {
              * @enum {string}
              */
             taxClass: "exempt" | "reduced" | "standard" | "higher";
+            /**
+             * @description The equipment an imaging service is performed on, which sorts radiology’s worklist. Only a service of the category imaging has one.
+             * @enum {string}
+             */
+            modality?: "xray" | "ct" | "mri" | "ultrasound" | "mammography" | "fluoroscopy" | "nuclear" | "other";
             description?: string;
             archived: boolean;
             /** @description Counts the changes. Sent back as expectedVersion. */
@@ -3055,6 +3128,11 @@ export interface components {
              * @enum {string}
              */
             taxClass: "exempt" | "reduced" | "standard" | "higher";
+            /**
+             * @description The equipment an imaging service is performed on, which sorts radiology’s worklist. Only a service of the category imaging has one.
+             * @enum {string}
+             */
+            modality?: "xray" | "ct" | "mri" | "ultrasound" | "mammography" | "fluoroscopy" | "nuclear" | "other";
             description?: string;
             /** @description In the minor unit of the hospital's currency. */
             priceMinor?: number;
@@ -3068,6 +3146,11 @@ export interface components {
              * @enum {string}
              */
             taxClass?: "exempt" | "reduced" | "standard" | "higher";
+            /**
+             * @description Null removes the modality. Only a service of the category imaging has one.
+             * @enum {string|null}
+             */
+            modality?: "xray" | "ct" | "mri" | "ultrasound" | "mammography" | "fluoroscopy" | "nuclear" | "other" | null;
             description?: string;
             expectedVersion: number;
         };
@@ -4644,6 +4727,80 @@ export interface components {
             items: components["schemas"]["LabResult"][];
             nextCursor: string | null;
             total?: number;
+        };
+        /**
+         * @description Where an imaging order is in radiology: ordered and still to schedule (never scheduled, or unscheduled), scheduled for a slot, or performed and waiting for its report.
+         * @enum {string}
+         */
+        ImagingStage: "to_schedule" | "scheduled" | "performed";
+        /**
+         * @description The equipment a study is performed on, from its imaging service; `other` when the service has none.
+         * @enum {string}
+         */
+        ImagingModality: "xray" | "ct" | "mri" | "ultrasound" | "mammography" | "fluoroscopy" | "nuclear" | "other";
+        /** @description The study of one imaging order: scheduled, then performed. Never removed; once performed, never changed. */
+        ImagingStudy: {
+            id: string;
+            tenantId: string;
+            orderId: string;
+            encounterId: string;
+            patientId: string;
+            modality: components["schemas"]["ImagingModality"];
+            /**
+             * Format: date-time
+             * @description The start of its slot. Absent once unscheduled, until scheduled again.
+             */
+            scheduledAt?: string;
+            scheduledByName?: string;
+            /** Format: date-time */
+            performedAt?: string;
+            performedByName?: string;
+            version: number;
+        };
+        /** @description An imaging order as radiology works it, with its study once it has one. */
+        ImagingWorkItem: {
+            orderId: string;
+            tenantId: string;
+            encounterId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            /**
+             * Format: date
+             * @description A calendar date, to tell the patient apart before the study.
+             */
+            patientDob?: string;
+            serviceId: string;
+            itemCode?: string;
+            itemName: string;
+            modality: components["schemas"]["ImagingModality"];
+            priority: components["schemas"]["OrderPriority"];
+            instructions?: string;
+            /** Format: date-time */
+            placedAt: string;
+            orderedByName: string;
+            orderStatus: components["schemas"]["OrderStatus"];
+            stage: components["schemas"]["ImagingStage"];
+            study?: components["schemas"]["ImagingStudy"];
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ImagingWorkItemPage: {
+            items: components["schemas"]["ImagingWorkItem"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ImagingSchedule: {
+            /**
+             * Format: date-time
+             * @description The start of the slot: on a 15-minute step (422 `invalid_slot`), from the current step to the end of the 90th day ahead at the hospital (422 `outside_window`).
+             */
+            scheduledAt: string;
+            /** @description The version of the study the change was made from, required once the order has one (409 `conflict` when it is missing or another). */
+            version?: number;
+        };
+        ImagingStudyChange: {
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
         };
         Notice: {
             id: string;
@@ -17962,6 +18119,353 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listImagingWorklist: {
+        parameters: {
+            query?: {
+                stage?: components["schemas"]["ImagingStage"];
+                modality?: components["schemas"]["ImagingModality"];
+                priority?: components["schemas"]["OrderPriority"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingWorkItemPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    scheduleImagingStudy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImagingSchedule"];
+            };
+        };
+        responses: {
+            /** @description The study of one imaging order: scheduled, then performed. Never removed; once performed, never changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingStudy"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    unscheduleImagingStudy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImagingStudyChange"];
+            };
+        };
+        responses: {
+            /** @description The study of one imaging order: scheduled, then performed. Never removed; once performed, never changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingStudy"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    performImagingStudy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImagingStudyChange"];
+            };
+        };
+        responses: {
+            /** @description The study of one imaging order: scheduled, then performed. Never removed; once performed, never changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingStudy"];
+                };
             };
             /** @description Standard error body. */
             400: {

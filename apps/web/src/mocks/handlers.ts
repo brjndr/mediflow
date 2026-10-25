@@ -20,6 +20,7 @@ import { clinicalHandlers } from './handlers/clinical';
 import { codesHandlers } from './handlers/codes';
 import { drugsHandlers } from './handlers/drugs';
 import { labHandlers } from './handlers/lab';
+import { radiologyHandlers } from './handlers/radiology';
 import { labTestsHandlers } from './handlers/lab-tests';
 import { examplesHandlers } from './handlers/examples';
 import { importsHandlers } from './handlers/imports';
@@ -128,6 +129,7 @@ export const handlers = [
   ...triageHandlers,
   ...clinicalHandlers,
   ...labHandlers,
+  ...radiologyHandlers,
   ...staffHandlers,
   ...servicesHandlers,
   ...drugsHandlers,

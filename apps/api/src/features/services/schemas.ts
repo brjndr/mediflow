@@ -24,6 +24,19 @@ export const SERVICE_CATEGORIES = [
 ] as const;
 export type ServiceCategory = (typeof SERVICE_CATEGORIES)[number];
 
+/** The kind of equipment an imaging service is performed on (#96). Only imaging services have one. */
+export const MODALITIES = [
+  'xray',
+  'ct',
+  'mri',
+  'ultrasound',
+  'mammography',
+  'fluoroscopy',
+  'nuclear',
+  'other',
+] as const;
+export type Modality = (typeof MODALITIES)[number];
+
 export const TAX_CLASSES = ['exempt', 'reduced', 'standard', 'higher'] as const;
 export type TaxClass = (typeof TAX_CLASSES)[number];
 
@@ -31,6 +44,16 @@ const Category = StringEnum(SERVICE_CATEGORIES);
 const TaxClassSchema = StringEnum(TAX_CLASSES, {
   description:
     "Which tax rate applies, as a class. The rate of each class is the hospital's tax setting, so a change of rate does not touch the services.",
+});
+const ModalitySchema = StringEnum(MODALITIES, {
+  description:
+    'The equipment an imaging service is performed on, which sorts radiology’s worklist. Only a service of the category imaging has one.',
+});
+/** A modality or null, in a request: one schema with both types, never a union. */
+const NullableModality = Type.Unsafe<Modality | null>({
+  type: ['string', 'null'],
+  enum: [...MODALITIES, null],
+  description: 'Null removes the modality. Only a service of the category imaging has one.',
 });
 const Amount = Type.Integer({
   minimum: 0,
@@ -74,6 +97,7 @@ export const Service = Type.Object(
     name: Type.String({ minLength: 1, maxLength: NAME_MAX }),
     category: Category,
     taxClass: TaxClassSchema,
+    modality: Type.Optional(ModalitySchema),
     description: Type.Optional(Type.String({ maxLength: DESCRIPTION_MAX })),
     archived: Type.Boolean(),
     version: Type.Integer({ description: 'Counts the changes. Sent back as expectedVersion.' }),
@@ -102,6 +126,7 @@ export const ServiceCreate = Type.Object(
     name,
     category: Category,
     taxClass: TaxClassSchema,
+    modality: Type.Optional(ModalitySchema),
     description: Type.Optional(description),
     priceMinor: Type.Optional(Amount),
   },
@@ -114,6 +139,7 @@ export const ServiceUpdate = Type.Object(
     name: Type.Optional(name),
     category: Type.Optional(Category),
     taxClass: Type.Optional(TaxClassSchema),
+    modality: Type.Optional(NullableModality),
     description: Type.Optional(description),
     expectedVersion: Type.Integer(),
   },

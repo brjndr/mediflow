@@ -32,6 +32,7 @@ describe('shell', () => {
       'Consultations',
       'Follow-ups',
       'Laboratory',
+      'Radiology',
       'Departments',
       'Doctors',
       'Services and prices',
@@ -77,6 +78,7 @@ describe('shell', () => {
       'Consultations',
       'Follow-ups',
       'Laboratory',
+      'Radiology',
       'Departments',
       'Doctors',
       'Services and prices',
@@ -129,6 +131,8 @@ describe('keyboard', () => {
     expect(within(sidebar()).getByRole('link', { name: 'Follow-ups' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Laboratory' })).toHaveFocus();
+    await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Radiology' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Departments' })).toHaveFocus();
     await userEvent.tab();
@@ -196,6 +200,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Consultations',
       'Follow-ups',
       'Laboratory',
+      'Radiology',
       'Departments',
       'Doctors',
       'Services and prices',
@@ -250,6 +255,7 @@ describe('system pages', () => {
       'Consultations',
       'Follow-ups',
       'Laboratory',
+      'Radiology',
       'Departments',
       'Doctors',
       'Services and prices',

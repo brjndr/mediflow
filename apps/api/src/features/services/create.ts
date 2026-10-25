@@ -12,10 +12,13 @@ import {
 } from './repository.js';
 import {
   DESCRIPTION_MAX,
+  MODALITIES,
   NAME_MAX,
   SERVICE_CATEGORIES,
   ServiceCreate,
   TAX_CLASSES,
+  type Modality,
+  type ServiceCategory,
 } from './schemas.js';
 
 export const noSuchList = () => new HttpError(404, 'price_list_not_found', 'No such price list');
@@ -33,6 +36,13 @@ export function cleanName(name: string): string {
 /** An empty description is no description. */
 export const cleanDescription = (description: string | undefined): string | null =>
   tidyLinesOptional(description, DESCRIPTION_MAX);
+
+/** A modality only for an imaging service (400 otherwise); none when none is given. */
+export function modalityFor(category: ServiceCategory, modality: Modality | null | undefined) {
+  if (modality === null || modality === undefined) return null;
+  if (category !== 'imaging') throw invalid('Only an imaging service has a modality');
+  return modality;
+}
 
 export interface NewService {
   code: string;
@@ -52,6 +62,7 @@ export async function prepareService(writer: Writer, body: ServiceCreate): Promi
       name,
       category: body.category,
       taxClass: body.taxClass,
+      modality: modalityFor(body.category, body.modality),
       description: cleanDescription(body.description),
     },
     ...(body.priceMinor === undefined ? {} : { priceMinor: body.priceMinor }),
@@ -103,6 +114,7 @@ export const serviceImport: ImportKind<NewService> = {
     { field: 'name', required: true, type: 'text' },
     { field: 'category', required: true, type: 'enum', values: SERVICE_CATEGORIES },
     { field: 'taxClass', required: true, type: 'enum', values: TAX_CLASSES },
+    { field: 'modality', required: false, type: 'enum', values: MODALITIES },
     { field: 'description', required: false, type: 'text' },
     { field: 'priceMinor', required: false, type: 'amount' },
   ],

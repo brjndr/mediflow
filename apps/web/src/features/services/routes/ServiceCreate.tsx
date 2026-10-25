@@ -18,7 +18,15 @@ import {
 const link =
   'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 
-const EMPTY = { code: '', name: '', category: '', taxClass: '', description: '', price: '' };
+const EMPTY = {
+  code: '',
+  name: '',
+  category: '',
+  taxClass: '',
+  modality: '',
+  description: '',
+  price: '',
+};
 
 function NewService() {
   const { t } = useTranslation('services');
@@ -39,6 +47,7 @@ function NewService() {
         name: values.name,
         category: values.category,
         taxClass: values.taxClass,
+        ...(values.category === 'imaging' && values.modality ? { modality: values.modality } : {}),
         description: values.description || undefined,
         ...(priceMinor === null ? {} : { priceMinor }),
       });

@@ -58,6 +58,7 @@ const probeKind: ImportKind<NewService> = {
         details: {
           name: `Probe ${code}`,
           category: 'consultation',
+          modality: null,
           taxClass: 'exempt',
           description: null,
         },
