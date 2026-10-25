@@ -360,6 +360,8 @@ describe('the printed report', () => {
     signIn(USER_IDS.doctor, HOSPITAL);
     renderApp({ entry: '/lab/orders/ord_h_lab_2' });
     await screen.findByRole('heading', HEADING);
+    // The worklist is the laboratory's: no way there that ends in "no access".
+    expect(screen.queryByRole('link', { name: 'Back to the worklist' })).toBeNull();
     expect(screen.getByText('Critical, not acknowledged')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /^Acknowledge/ }));
     expect(

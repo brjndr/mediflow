@@ -79,6 +79,7 @@ export default function LabResults() {
   const canEnter = usePermission('labResult:enter');
   const canVerify = usePermission('labResult:verify');
   const canPrint = usePermission('labReport:print');
+  const canWorklist = usePermission('labSample:read');
   const acknowledge = useAcknowledgeResult();
   const query = useOrderResults(orderId);
 
@@ -206,9 +207,12 @@ export default function LabResults() {
               {t('results.retry')}
             </Button>
           )}
-          <Button asChild variant="outline">
-            <Link to="/lab">{t('results.back')}</Link>
-          </Button>
+          {/* The worklist is the laboratory's: a doctor who came from the consultation has none. */}
+          {canWorklist && (
+            <Button asChild variant="outline">
+              <Link to="/lab">{t('results.back')}</Link>
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -295,9 +299,12 @@ export default function LabResults() {
           {canPrint && data.results.some((result) => result.status === 'verified') && (
             <PrintReportButton orderId={data.orderId} />
           )}
-          <Button asChild variant="outline">
-            <Link to="/lab">{t('results.back')}</Link>
-          </Button>
+          {/* The worklist is the laboratory's: a doctor who came from the consultation has none. */}
+          {canWorklist && (
+            <Button asChild variant="outline">
+              <Link to="/lab">{t('results.back')}</Link>
+            </Button>
+          )}
         </div>
       </div>
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">

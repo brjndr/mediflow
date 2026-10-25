@@ -507,6 +507,24 @@ export async function insertResult(
   return id;
 }
 
+/**
+ * Whether a later result of the same test and sample is verified: a verified correction replaced
+ * this one, so it is no longer the result released (#92).
+ */
+export async function replacedByVerified(client: pg.ClientBase, resultId: string) {
+  // Compared in the database: a JavaScript date would drop the microseconds.
+  const { rowCount } = await client.query(
+    `select 1 from lab_results r
+     join lab_results later on later.tenant_id = r.tenant_id and later.sample_id = r.sample_id
+       and later.lab_test_id = r.lab_test_id and later.status = 'verified'
+       and (later.entered_at, later.id) > (r.entered_at, r.id)
+     where r.id = $1
+     limit 1`,
+    [resultId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 /** Records that a doctor saw a verified critical result (#92). */
 export async function acknowledgeResult(client: pg.ClientBase, id: string, userId: string) {
   await client.query(
@@ -567,19 +585,29 @@ export async function patientResults(
   ) {
     return { rows: [], nextCursor: null };
   }
+  // The released ids are picked over the results and samples alone; the names, the
+  // acknowledgement and the correction are read for the page only, so a long history costs a
+  // sort of ids per page, not every join.
   const { rows } = await client.query<PatientResultRow>(
-    `select * from (
-       select distinct on (r.sample_id, r.lab_test_id) ${RESULT_COLUMNS},
-         to_char(s.collected_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at
-       ${RESULT_JOINS}
+    `with released as (
+       select distinct on (r.sample_id, r.lab_test_id) r.id, s.collected_at
+       from lab_results r
+       join lab_samples s on s.tenant_id = r.tenant_id and s.id = r.sample_id
        where r.patient_id = $1 and r.status = 'verified'
          and ($2::uuid is null or r.lab_test_id = $2)
          and ($3::uuid is null or r.encounter_id = $3)
        order by r.sample_id, r.lab_test_id, r.entered_at desc, r.id desc
-     ) x
-     where ($4::timestamptz is null or (x.collected_at, x.id) < ($4::timestamptz, $5::uuid))
-     order by x.collected_at desc, x.id desc
-     limit $6`,
+     ), page as (
+       select id from released
+       where ($4::timestamptz is null or (collected_at, id) < ($4::timestamptz, $5::uuid))
+       order by collected_at desc, id desc
+       limit $6
+     )
+     select ${RESULT_COLUMNS},
+       to_char(s.collected_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at
+     ${RESULT_JOINS}
+     where r.id in (select id from page)
+     order by s.collected_at desc, r.id desc`,
     [
       filters.patientId,
       filters.labTestId ?? null,

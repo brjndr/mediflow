@@ -1059,6 +1059,38 @@ describe('reports, acknowledgements and a patient’s results (#92)', () => {
     ).toEqual([409, 'not_acknowledgeable']);
   });
 
+  it('acknowledges only the critical result released, not one a verified correction replaced', async () => {
+    const patient = await forNewPatient();
+    const { sample } = await patient.another();
+    const criticalId = await resulted(sample.id, '5');
+    const acknowledge = (id: string) =>
+      post(`/lab/results/${id}/acknowledge`, undefined, { user: doctor });
+    // While its correction waits for verification, the critical one is still what is released.
+    const corrected = await ok<Result>(
+      post(`/lab/results/${criticalId}/amend`, { value: '5.5', reason: 'Recalibrated' }),
+      201,
+    );
+    await ok(post(`/lab/samples/${sample.id}/verify`, { resultIds: [corrected.id] }));
+    // Verified, the correction replaces it: the old one is not acknowledged, the correction is.
+    expect(errorOf(await acknowledge(criticalId))).toEqual([409, 'not_acknowledgeable']);
+    await ok(acknowledge(corrected.id));
+    await asTenantSql(pool, hospital.id, async (sql) => {
+      await expect(
+        sql.query(
+          `insert into lab_result_acknowledgements (tenant_id, result_id, acknowledged_by)
+           values ($1, $2, $3)`,
+          [hospital.id, criticalId, doctor.id],
+        ),
+      ).rejects.toThrow();
+    });
+
+    // A correction still to verify leaves the critical one to acknowledge.
+    const other = await patient.another();
+    const pendingId = await resulted(other.sample.id, '6');
+    await ok(post(`/lab/results/${pendingId}/amend`, { value: '13', reason: 'Wrong tube' }), 201);
+    await ok(acknowledge(pendingId));
+  });
+
   it('keeps acknowledgements to the hospital, and never changes or removes one', async () => {
     const patient = await forNewPatient();
     const { sample } = await patient.another();
@@ -1113,5 +1145,23 @@ describe('reports, acknowledgements and a patient’s results (#92)', () => {
       'order_not_found',
     ]);
     expect(errorOf(await print({ tenant: closed, user: tech }))).toEqual([403, 'feature_disabled']);
+  });
+
+  it('refuses searching and acknowledging with the laboratory off, and acknowledging with no key', async () => {
+    const patient = await forNewPatient();
+    const { sample } = await patient.another();
+    const id = await resulted(sample.id, '5');
+    const offSearch = await search({ patientId: patient.patientId }, { tenant: closed });
+    expect(errorOf(offSearch)).toEqual([403, 'feature_disabled']);
+    const offAcknowledge = await post(`/lab/results/${id}/acknowledge`, undefined, {
+      tenant: closed,
+    });
+    expect(errorOf(offAcknowledge)).toEqual([403, 'feature_disabled']);
+    const keyless = await app.inject({
+      method: 'POST',
+      url: `/lab/results/${id}/acknowledge`,
+      headers: as(hospital.id, doctor.id),
+    });
+    expect(keyless.statusCode).toBe(400);
   });
 });

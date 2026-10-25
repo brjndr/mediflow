@@ -24,6 +24,7 @@ import {
   samplesByIds,
   orderHeading,
   patientResults,
+  replacedByVerified,
   standingSample,
   verifyResult,
   type ResultRow,
@@ -899,7 +900,11 @@ export const labRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (result.acknowledged_at !== null) {
           throw new HttpError(409, 'already_acknowledged', 'The result was acknowledged already');
         }
-        if (result.status !== 'verified' || !isCritical(result.flag)) {
+        if (
+          result.status !== 'verified' ||
+          !isCritical(result.flag) ||
+          (await replacedByVerified(request.txClient, result.id))
+        ) {
           throw new HttpError(
             409,
             'not_acknowledgeable',

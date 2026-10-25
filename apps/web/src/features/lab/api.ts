@@ -146,9 +146,14 @@ export async function acknowledgeResult(
 }
 
 /** Records a print of the order's report in the audit log; nothing prints until it is answered. */
-export async function recordReportPrint(orderId: string, idempotencyKey: string) {
+export async function recordReportPrint(
+  orderId: string,
+  idempotencyKey: string,
+  signal?: AbortSignal,
+) {
   await api.POST('/lab/orders/{orderId}/print', {
     params: { path: { orderId }, header: { 'idempotency-key': idempotencyKey } },
+    signal,
   });
 }
 

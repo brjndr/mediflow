@@ -322,7 +322,7 @@ export function useReportPrinting(orderId: string) {
     mutationFn: async () => {
       abort.current = new AbortController();
       const results = await fetchOrderResults(orderId, abort.current.signal);
-      await recordReportPrint(orderId, crypto.randomUUID());
+      await recordReportPrint(orderId, crypto.randomUUID(), abort.current.signal);
       return results;
     },
     onSuccess: (value) => {

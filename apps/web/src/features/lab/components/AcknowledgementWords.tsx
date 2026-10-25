@@ -22,10 +22,12 @@ export function AcknowledgementWords({ result }: { result: LabResult }) {
   if (!result.acknowledgedAt) return null;
   return (
     <span className="text-muted-foreground">
-      {t('acknowledge.by', {
-        name: result.acknowledgedByName ?? '',
-        time: format.dateTime(result.acknowledgedAt),
-      })}
+      {result.acknowledgedByName
+        ? t('acknowledge.by', {
+            name: result.acknowledgedByName,
+            time: format.dateTime(result.acknowledgedAt),
+          })
+        : t('acknowledge.at', { time: format.dateTime(result.acknowledgedAt) })}
     </span>
   );
 }
