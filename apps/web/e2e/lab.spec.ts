@@ -134,3 +134,102 @@ test('enter a result and verify it with the keyboard alone (#91)', async ({ page
   await expect(page.getByText(/the order is completed/)).toBeVisible();
   await expectNoAxeViolations(page);
 });
+
+test('print a report, acknowledge a critical result and open a trend with the keyboard alone (#92)', async ({
+  page,
+}) => {
+  // The browser's own print dialog cannot be driven, so it is counted and closed at once.
+  await page.addInitScript(() => {
+    const counted = window as Window & { printed?: number };
+    counted.printed = 0;
+    window.print = () => {
+      counted.printed = (counted.printed ?? 0) + 1;
+      window.dispatchEvent(new Event('afterprint'));
+    };
+  });
+  const printed = () => page.evaluate(() => (window as Window & { printed?: number }).printed);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await goTo(page, 'Laboratory');
+  await expect(page.getByRole('heading', { name: 'Laboratory worklist' })).toBeVisible();
+  // The blood count of Asha Verma1 collected, resulted (a critical haemoglobin) and verified, as
+  // the laboratory would, from inside the app once the mock answers.
+  await page.evaluate(async () => {
+    const post = async (path: string, body?: unknown) => {
+      const answer = await fetch(`/api${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      return (await answer.json()) as { id?: string; results?: { id: string }[] };
+    };
+    const sample = await post('/lab/orders/ord_h_lab_1/samples');
+    await post(`/lab/samples/${sample.id ?? ''}/receive`, { version: 1 });
+    const values = { hb: '6.5', wbc: '7', plt: '250', rbc: '5', hct: '40', mcv: '90' };
+    const entered = await post(`/lab/samples/${sample.id ?? ''}/results`, {
+      results: Object.entries(values).map(([code, value]) => ({
+        labTestId: `lab_h_${code}`,
+        value,
+      })),
+    });
+    await post(`/lab/samples/${sample.id ?? ''}/verify`, {
+      resultIds: (entered.results ?? []).map((result) => result.id),
+    });
+  });
+  const stage = page.getByRole('combobox', { name: 'Stage' });
+  await reach(page, stage);
+  await stage.selectOption('completed');
+  const results = page.getByRole('button', { name: /^Results: .+, Complete blood count$/ });
+  await reach(page, results);
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('heading', { name: 'Results: Complete blood count', level: 1 }),
+  ).toBeVisible();
+
+  // The report: recorded, then printed.
+  const print = page.getByRole('button', { name: 'Print report' });
+  await reach(page, print);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect.poll(printed).toBe(1);
+  await expect(page.locator('[data-print-sheet]')).toHaveCount(0);
+
+  // The critical haemoglobin, acknowledged.
+  await expect(page.getByText('Critical, not acknowledged')).toBeVisible();
+  const acknowledge = page.getByRole('button', { name: /^Acknowledge/ }).first();
+  await reach(page, acknowledge);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Critical result of Haemoglobin acknowledged.')).toBeVisible();
+  await expect(page.getByText(/^Acknowledged by /)).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  // The patient's lab results, and a test's trend.
+  await goTo(page, 'Patients');
+  await page.getByRole('link', { name: 'Asha Verma1', exact: true }).click();
+  // The tabs are one stop: the arrow keys move along them from the one selected.
+  const tab = page.getByRole('tab', { name: 'Lab results' });
+  await page.getByRole('tab', { selected: true }).focus();
+  for (let step = 0; step < 10; step++) {
+    if (await tab.evaluate((element) => element === document.activeElement)) break;
+    await page.keyboard.press('ArrowRight');
+  }
+  await expect(tab).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText('6.5 g/dL')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+  const trend = page.getByRole('button', { name: /^Show trend/ }).first();
+  await reach(page, trend);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: /^Trend of / })).toBeFocused();
+  const close = page.getByRole('button', { name: 'Close trend' });
+  await reach(page, close);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: /^Trend of / })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Show trend/ }).first()).toBeFocused();
+});

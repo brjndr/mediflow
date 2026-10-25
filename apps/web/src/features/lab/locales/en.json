@@ -251,5 +251,52 @@
       "notOpen": "This order was cancelled meanwhile: nothing is corrected.",
       "gone": "This result is no longer available."
     }
+  },
+  "released": {
+    "tab": "Lab results",
+    "patientHeading": "Lab results",
+    "encounterHeading": "Lab results of this visit",
+    "columns": {
+      "test": "Test",
+      "collected": "Collected"
+    },
+    "rowLabel": "{{name}}, collected {{time}}",
+    "corrected": "Corrected result.",
+    "empty": "No verified results yet."
+  },
+  "acknowledge": {
+    "action": "Acknowledge",
+    "not": "Critical, not acknowledged",
+    "by": "Acknowledged by {{name}}, {{time}}",
+    "at": "Acknowledged {{time}}",
+    "waiting_one": "{{count}} critical result needs acknowledging.",
+    "waiting_other": "{{count}} critical results need acknowledging.",
+    "done": "Critical result of {{name}} acknowledged.",
+    "already": "Someone acknowledged {{name}} meanwhile. The results were read again.",
+    "notAcknowledgeable": "{{name}} changed meanwhile and has nothing to acknowledge now. The results were read again."
+  },
+  "trend": {
+    "action": "Show trend",
+    "heading": "Trend of {{name}}",
+    "close": "Close trend",
+    "value": "Result",
+    "valueWithUnit": "Result ({{unit}})",
+    "range": "Reference range of the newest result: {{range}}",
+    "tooFew": "A trend needs at least two verified results of this test.",
+    "newestOnly": "The newest {{count}} results are shown."
+  },
+  "report": {
+    "print": "Print report",
+    "notPrintable": "Nothing to print yet: no result of this order is verified.",
+    "title": "Laboratory report: {{test}}",
+    "patient": "{{name}}, MRN {{mrn}}",
+    "accession": "Accession id",
+    "collected": "Collected",
+    "received": "Received",
+    "corrected": "Corrected result",
+    "pending": "Pending",
+    "pendingNote": "A test marked pending is reported once it is verified.",
+    "verifiedBy": "Verified by {{names}}",
+    "printedBy": "Printed {{time}} by {{name}}"
   }
 }

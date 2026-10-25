@@ -9,6 +9,7 @@ import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { labOrder, moveLabOrder, type LabOrder } from '../clinical/index.js';
 import { analytesOf, bandFor, labTestSample, type LabAnalyte } from '../lab-tests/index.js';
 import {
+  acknowledgeResult,
   findResult,
   findSample,
   hasResults,
@@ -22,6 +23,8 @@ import {
   resultsOf,
   samplesByIds,
   orderHeading,
+  patientResults,
+  replacedByVerified,
   standingSample,
   verifyResult,
   type ResultRow,
@@ -35,6 +38,8 @@ import {
   LabOrderResults,
   LabResult,
   LabResultAmend,
+  LabResultPage,
+  LabResultSearch,
   LabResultsEnter,
   LabResultsVerify,
   LabSample,
@@ -60,6 +65,8 @@ const SAMPLE_REJECT = 'labSample:reject';
 const RESULT_READ = 'labResult:read';
 const RESULT_ENTER = 'labResult:enter';
 const RESULT_VERIFY = 'labResult:verify';
+const RESULT_ACKNOWLEDGE = 'labResult:acknowledge';
+const REPORT_PRINT = 'labReport:print';
 
 const orderNotFound = () => new HttpError(404, 'order_not_found', 'No such lab order');
 const sampleNotFound = () => new HttpError(404, 'sample_not_found', 'No such sample');
@@ -167,6 +174,9 @@ function resultView(row: ResultRow): LabResult {
     ...optional('amendsId', row.amends_id),
     ...optional('amendmentReason', row.amendment_reason),
     ...optional('amendedById', row.amended_by_id),
+    collectedAt: iso(row.collected_at),
+    ...optional('acknowledgedAt', row.acknowledged_at && iso(row.acknowledged_at)),
+    ...optional('acknowledgedByName', row.acknowledged_at && (row.acknowledged_by_name ?? '')),
     version: row.version,
   };
 }
@@ -828,6 +838,139 @@ export const labRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const amended = await findResult(request.txClient, id);
       if (!amended) throw resultNotFound();
       return reply.status(201).send(resultView(amended));
+    },
+  );
+
+  // ----- Reports, acknowledgements and a patient's results (#92) ---------------------------------
+
+  app.post(
+    '/lab/results/search',
+    {
+      config: { permissions: [RESULT_READ], feature: FEATURE },
+      schema: {
+        operationId: 'searchLabResults',
+        tags: ['lab'],
+        description:
+          'A patient’s released results (#92): of each test of each sample, the newest verified result, the newest collected first, narrowed to one test (its trend) or one encounter. A correction still to verify leaves the result it replaces. Every result given is audited. Requires labResult:read with the scope `all` (a narrower one finds nothing) and the laboratory feature flag. The patient and the test travel in the body, never in a query string: together they say what was tested.',
+        body: ref(LabResultSearch),
+        response: { 200: ref(LabResultPage), ...errors(400, 401, 403, 409, 429) },
+      },
+    },
+    async (request) => {
+      const body = request.body as LabResultSearch;
+      if (!reaches(request, RESULT_READ)) return { items: [], nextCursor: null };
+      const page = await patientResults(request.txClient, {
+        patientId: body.patientId,
+        ...optional('labTestId', body.labTestId),
+        ...optional('encounterId', body.encounterId),
+        ...optional('cursor', body.cursor),
+        limit: body.limit ?? DEFAULT_PAGE_SIZE,
+      });
+      if (!page) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
+      for (const row of page.rows) request.audit('read', 'lab_result', row.id);
+      return { items: page.rows.map(resultView), nextCursor: page.nextCursor };
+    },
+  );
+
+  app.post(
+    '/lab/results/:resultId/acknowledge',
+    {
+      config: {
+        permissions: [RESULT_READ, RESULT_ACKNOWLEDGE],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'acknowledgeLabResult',
+        tags: ['lab'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Records that a doctor saw a verified critical result (#92), once (409 `already_acknowledged`). A result not verified or not critical is 409 `not_acknowledgeable`. A correction is a new result, acknowledged again. The Idempotency-Key header is required: a repeat records nothing more and answers with the result as it is now. Requires labResult:read and labResult:acknowledge with the scope `all` and the laboratory feature flag. Emits `lab.critical_acknowledged`. Audited.',
+        params: ResultParams,
+        response: { 200: ref(LabResult), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request, reply) => {
+      if (!reaches(request, RESULT_READ) || !reaches(request, RESULT_ACKNOWLEDGE)) {
+        throw resultNotFound();
+      }
+      const result = await findResult(request.txClient, request.params.resultId);
+      if (!result) throw resultNotFound();
+      if (request.replayOf === null) {
+        if (result.acknowledged_at !== null) {
+          throw new HttpError(409, 'already_acknowledged', 'The result was acknowledged already');
+        }
+        if (
+          result.status !== 'verified' ||
+          !isCritical(result.flag) ||
+          (await replacedByVerified(request.txClient, result.id))
+        ) {
+          throw new HttpError(
+            409,
+            'not_acknowledgeable',
+            'Only a verified critical result is acknowledged',
+          );
+        }
+        try {
+          await acknowledgeResult(request.txClient, result.id, userIdOf(request));
+        } catch (error) {
+          const { code, constraint } = (error ?? {}) as { code?: unknown; constraint?: unknown };
+          if (code === '23505' && constraint === 'lab_result_acknowledgements_once') {
+            throw new HttpError(409, 'already_acknowledged', 'The result was acknowledged already');
+          }
+          throw error;
+        }
+        request.audit('acknowledge', 'lab_result', result.id);
+        await request.emit('lab.critical_acknowledged', result.id, {
+          resultId: result.id,
+          sampleId: result.sample_id,
+          orderId: result.order_id,
+          encounterId: result.encounter_id,
+          patientId: result.patient_id,
+          labTestId: result.lab_test_id,
+        });
+      } else {
+        request.audit('read', 'lab_result', result.id);
+      }
+      const now = await findResult(request.txClient, result.id);
+      if (!now) throw resultNotFound();
+      return reply.status(200).send(resultView(now));
+    },
+  );
+
+  app.post(
+    '/lab/orders/:orderId/print',
+    {
+      config: {
+        permissions: [RESULT_READ, REPORT_PRINT],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'printLabReport',
+        tags: ['lab'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Records a print of a lab order’s report in the audit log, before anything prints (#92). The web app makes the page from the results it read: verified results only. An order with no verified result is 409 `not_printable`. The Idempotency-Key header is required, one per press: a repeat records nothing more. Requires labResult:read and labReport:print with the scope `all` and the laboratory feature flag.',
+        params: OrderParams,
+        response: {
+          204: Type.Null({ description: 'Recorded' }),
+          ...errors(400, 401, 403, 404, 409, 422, 429),
+        },
+      },
+    },
+    async (request, reply) => {
+      const order = await orderFor(request, request.params.orderId, RESULT_READ);
+      if (!reaches(request, REPORT_PRINT)) throw orderNotFound();
+      if (request.replayOf === null) {
+        const sample = await standingSample(request.txClient, order.id);
+        const results = sample ? await resultsOf(request.txClient, sample.id) : [];
+        if (!results.some((result) => result.status === 'verified')) {
+          throw new HttpError(409, 'not_printable', 'The order has no verified result');
+        }
+        request.audit('print', 'lab_report', order.id);
+      }
+      return reply.status(204).send(null);
     },
   );
 };

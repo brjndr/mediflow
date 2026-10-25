@@ -263,6 +263,7 @@ afterAll(async () => {
     await client.query('begin');
     await client.query('set local session_replication_role = replica');
     for (const table of [
+      'lab_result_acknowledgements',
       'lab_results',
       'lab_samples',
       'lab_accession_counters',
@@ -912,5 +913,255 @@ describe('the edges', () => {
         ).rowCount,
     );
     expect(counters).toBe(0);
+  });
+});
+
+describe('reports, acknowledgements and a patient’s results (#92)', () => {
+  type Released = Result & {
+    collectedAt: string;
+    acknowledgedAt?: string;
+    acknowledgedByName?: string;
+  };
+
+  /** A new patient's encounter, which places and receives samples of a test for them alone. */
+  async function forNewPatient(labTestId = catalog.hb) {
+    const patientId = await addPatient(hospital, 'Trend');
+    const encounter = await ok<{ id: string }>(
+      post('/encounters', { patientId }, { user: doctor }),
+      201,
+    );
+    const another = async () => {
+      const order = await ok<{ id: string }>(
+        post(`/encounters/${encounter.id}/orders`, { type: 'lab', labTestId }, { user: doctor }),
+        201,
+      );
+      return { order, sample: await receive(await collect(order.id)) };
+    };
+    return { patientId, encounterId: encounter.id, another };
+  }
+
+  /** Enters and verifies one value of a sample's test, giving the result's id. */
+  async function resulted(sampleId: string, value: string, labTestId = catalog.hb) {
+    const entered = await ok<OrderResults>(enter(sampleId, [{ labTestId, value }]), 201);
+    const result = entered.results.find((r) => r.labTestId === labTestId && !r.amendedById);
+    await ok(post(`/lab/samples/${sampleId}/verify`, { resultIds: [result?.id] }));
+    return result?.id ?? '';
+  }
+
+  const search = (body: object, options: Options = {}) =>
+    post('/lab/results/search', body, options);
+
+  it('lists a patient’s verified results the newest collected first, by test and in pages', async () => {
+    const patient = await forNewPatient();
+    const first = await patient.another();
+    const firstId = await resulted(first.sample.id, '13.1');
+    const second = await patient.another();
+    const secondId = await resulted(second.sample.id, '12.4');
+    // Entered and not verified: not released.
+    const third = await patient.another();
+    await ok(enter(third.sample.id, [{ labTestId: catalog.hb, value: '11' }]), 201);
+
+    const all = await ok<Page<Released>>(
+      search({ patientId: patient.patientId }, { user: doctor }),
+    );
+    expect(all.items.map((r) => [r.id, r.value])).toEqual([
+      [secondId, '12.4'],
+      [firstId, '13.1'],
+    ]);
+    expect(all.items[0]?.collectedAt).toMatch(/Z$/);
+    expect(await audited('lab_result', secondId)).toContain('read');
+
+    const byTest = { patientId: patient.patientId, labTestId: catalog.hb, limit: 1 };
+    const paged = await ok<Page<Released>>(search(byTest, { user: doctor }));
+    expect(paged.items.map((r) => r.id)).toEqual([secondId]);
+    const rest = await ok<Page<Released>>(
+      search({ ...byTest, cursor: paged.nextCursor }, { user: doctor }),
+    );
+    expect(rest.items.map((r) => r.id)).toEqual([firstId]);
+    expect(rest.nextCursor).toBeNull();
+    const other = await ok<Page<Released>>(
+      search({ patientId: patient.patientId, labTestId: catalog.alt }, { user: doctor }),
+    );
+    expect(other.items).toEqual([]);
+    expect(errorOf(await search({ patientId: patient.patientId, cursor: 'nope' }))).toEqual([
+      400,
+      'invalid_cursor',
+    ]);
+    // The nurse reads no results; the clinic finds none of the hospital's.
+    expect(errorOf(await search({ patientId: patient.patientId }, { user: nurse }))).toEqual([
+      403,
+      'permission_denied',
+    ]);
+    const fromClinic = await ok<Page<Released>>(
+      search({ patientId: patient.patientId }, { tenant: clinic, user: clinicTech }),
+    );
+    expect(fromClinic.items).toEqual([]);
+  });
+
+  it('keeps the verified result while its correction waits, then gives the correction', async () => {
+    const patient = await forNewPatient();
+    const { sample } = await patient.another();
+    const originalId = await resulted(sample.id, '13.2');
+    const corrected = await ok<Result>(
+      post(`/lab/results/${originalId}/amend`, { value: '14.1', reason: 'Transcription error' }),
+      201,
+    );
+    const waiting = await ok<Page<Released>>(search({ patientId: patient.patientId }));
+    expect(waiting.items.map((r) => r.id)).toEqual([originalId]);
+    await ok(post(`/lab/samples/${sample.id}/verify`, { resultIds: [corrected.id] }));
+    const now = await ok<Page<Released>>(
+      search({ patientId: patient.patientId, encounterId: patient.encounterId }),
+    );
+    expect(now.items.map((r) => [r.id, r.value])).toEqual([[corrected.id, '14.1']]);
+  });
+
+  it('has a doctor acknowledge a verified critical result once', async () => {
+    const patient = await forNewPatient();
+    const { order, sample } = await patient.another();
+    const entered = await ok<OrderResults>(
+      enter(sample.id, [{ labTestId: catalog.hb, value: '6.2' }]),
+      201,
+    );
+    const id = entered.results[0]?.id ?? '';
+    const acknowledge = (options: Options = {}) =>
+      post(`/lab/results/${id}/acknowledge`, undefined, { user: doctor, ...options });
+    // Not verified yet: nothing to acknowledge.
+    expect(errorOf(await acknowledge())).toEqual([409, 'not_acknowledgeable']);
+    await ok(post(`/lab/samples/${sample.id}/verify`, { resultIds: [id] }));
+    // The lab technician does not acknowledge; another hospital finds no such result.
+    expect(errorOf(await acknowledge({ user: tech }))).toEqual([403, 'permission_denied']);
+    expect(errorOf(await acknowledge({ tenant: clinic }))).toEqual([404, 'result_not_found']);
+
+    const key = randomUUID();
+    const done = await ok<Released>(acknowledge({ key }));
+    expect(done.acknowledgedAt).toBeDefined();
+    expect(done.acknowledgedByName).toBe('Lab Doctor');
+    expect(await audited('lab_result', id)).toContain('acknowledge');
+    const acknowledged = async () =>
+      (await events(id)).filter((e) => e.event === 'lab.critical_acknowledged');
+    expect(await acknowledged()).toHaveLength(1);
+    expect((await acknowledged())[0]?.payload).toMatchObject({
+      resultId: id,
+      patientId: patient.patientId,
+    });
+    // A repeat records nothing more; a second press is refused.
+    await ok(acknowledge({ key }));
+    expect(await acknowledged()).toHaveLength(1);
+    expect(errorOf(await acknowledge())).toEqual([409, 'already_acknowledged']);
+    const read = await resultsOf(order.id, { user: doctor });
+    expect(read.results[0]).toMatchObject({ acknowledgedByName: 'Lab Doctor' });
+
+    // A normal result is not acknowledged.
+    const normal = await patient.another();
+    const normalId = await resulted(normal.sample.id, '13');
+    expect(
+      errorOf(await post(`/lab/results/${normalId}/acknowledge`, undefined, { user: doctor })),
+    ).toEqual([409, 'not_acknowledgeable']);
+  });
+
+  it('acknowledges only the critical result released, not one a verified correction replaced', async () => {
+    const patient = await forNewPatient();
+    const { sample } = await patient.another();
+    const criticalId = await resulted(sample.id, '5');
+    const acknowledge = (id: string) =>
+      post(`/lab/results/${id}/acknowledge`, undefined, { user: doctor });
+    // While its correction waits for verification, the critical one is still what is released.
+    const corrected = await ok<Result>(
+      post(`/lab/results/${criticalId}/amend`, { value: '5.5', reason: 'Recalibrated' }),
+      201,
+    );
+    await ok(post(`/lab/samples/${sample.id}/verify`, { resultIds: [corrected.id] }));
+    // Verified, the correction replaces it: the old one is not acknowledged, the correction is.
+    expect(errorOf(await acknowledge(criticalId))).toEqual([409, 'not_acknowledgeable']);
+    await ok(acknowledge(corrected.id));
+    await asTenantSql(pool, hospital.id, async (sql) => {
+      await expect(
+        sql.query(
+          `insert into lab_result_acknowledgements (tenant_id, result_id, acknowledged_by)
+           values ($1, $2, $3)`,
+          [hospital.id, criticalId, doctor.id],
+        ),
+      ).rejects.toThrow();
+    });
+
+    // A correction still to verify leaves the critical one to acknowledge.
+    const other = await patient.another();
+    const pendingId = await resulted(other.sample.id, '6');
+    await ok(post(`/lab/results/${pendingId}/amend`, { value: '13', reason: 'Wrong tube' }), 201);
+    await ok(acknowledge(pendingId));
+  });
+
+  it('keeps acknowledgements to the hospital, and never changes or removes one', async () => {
+    const patient = await forNewPatient();
+    const { sample } = await patient.another();
+    const id = await resulted(sample.id, '21');
+    await ok(post(`/lab/results/${id}/acknowledge`, undefined, { user: doctor }));
+    const seen = await asTenantSql(
+      pool,
+      clinic.id,
+      async (sql) =>
+        (await sql.query('select 1 from lab_result_acknowledgements where result_id = $1', [id]))
+          .rowCount,
+    );
+    expect(seen).toBe(0);
+    const normal = await patient.another();
+    const normalId = await resulted(normal.sample.id, '13');
+    const insert = (sql: pg.ClientBase, tenantId: string, resultId: string) =>
+      sql.query(
+        `insert into lab_result_acknowledgements (tenant_id, result_id, acknowledged_by)
+         values ($1, $2, $3)`,
+        [tenantId, resultId, doctor.id],
+      );
+    await asTenantSql(pool, hospital.id, async (sql) => {
+      await sql.query('savepoint s');
+      await expect(
+        sql.query('update lab_result_acknowledgements set acknowledged_at = now()'),
+      ).rejects.toThrow();
+      await sql.query('rollback to savepoint s');
+      await expect(sql.query('delete from lab_result_acknowledgements')).rejects.toThrow();
+      await sql.query('rollback to savepoint s');
+      // A row of another hospital, and a result that is not verified and critical, are refused.
+      await expect(insert(sql, clinic.id, id)).rejects.toThrow();
+      await sql.query('rollback to savepoint s');
+      await expect(insert(sql, hospital.id, normalId)).rejects.toThrow();
+    });
+  });
+
+  it('records a report print once there is a verified result', async () => {
+    const patient = await forNewPatient();
+    const { order, sample } = await patient.another();
+    const print = (options: Options = {}) =>
+      post(`/lab/orders/${order.id}/print`, undefined, { user: doctor, ...options });
+    expect(errorOf(await print())).toEqual([409, 'not_printable']);
+    await resulted(sample.id, '13');
+    const key = randomUUID();
+    expect((await print({ key })).statusCode).toBe(204);
+    expect((await print({ key })).statusCode).toBe(204);
+    expect((await audited('lab_report', order.id)).filter((a) => a === 'print')).toHaveLength(1);
+    expect((await print({ user: tech })).statusCode).toBe(204);
+    expect(errorOf(await print({ user: nurse }))).toEqual([403, 'permission_denied']);
+    expect(errorOf(await print({ tenant: clinic, user: clinicTech }))).toEqual([
+      404,
+      'order_not_found',
+    ]);
+    expect(errorOf(await print({ tenant: closed, user: tech }))).toEqual([403, 'feature_disabled']);
+  });
+
+  it('refuses searching and acknowledging with the laboratory off, and acknowledging with no key', async () => {
+    const patient = await forNewPatient();
+    const { sample } = await patient.another();
+    const id = await resulted(sample.id, '5');
+    const offSearch = await search({ patientId: patient.patientId }, { tenant: closed });
+    expect(errorOf(offSearch)).toEqual([403, 'feature_disabled']);
+    const offAcknowledge = await post(`/lab/results/${id}/acknowledge`, undefined, {
+      tenant: closed,
+    });
+    expect(errorOf(offAcknowledge)).toEqual([403, 'feature_disabled']);
+    const keyless = await app.inject({
+      method: 'POST',
+      url: `/lab/results/${id}/acknowledge`,
+      headers: as(hospital.id, doctor.id),
+    });
+    expect(keyless.statusCode).toBe(400);
   });
 });

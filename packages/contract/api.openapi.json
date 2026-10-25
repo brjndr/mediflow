@@ -5554,6 +5554,7 @@
           "status",
           "enteredAt",
           "enteredByName",
+          "collectedAt",
           "version"
         ],
         "properties": {
@@ -5629,6 +5630,19 @@
           },
           "amendedById": {
             "description": "The correction that replaced it: this one is history.",
+            "type": "string"
+          },
+          "collectedAt": {
+            "format": "date-time",
+            "description": "When its sample was collected: the time a trend is drawn at (#92).",
+            "type": "string"
+          },
+          "acknowledgedAt": {
+            "format": "date-time",
+            "description": "When a doctor acknowledged this critical result (#92).",
+            "type": "string"
+          },
+          "acknowledgedByName": {
             "type": "string"
           },
           "version": {
@@ -5786,6 +5800,63 @@
             "maxLength": 200,
             "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
             "type": "string"
+          }
+        }
+      },
+      "LabResultSearch": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "labTestId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "encounterId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "cursor": {
+            "maxLength": 1024,
+            "description": "Opaque. Pass the nextCursor of the previous page.",
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Absent: 25.",
+            "type": "integer"
+          }
+        }
+      },
+      "LabResultPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabResult"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
           }
         }
       }
@@ -22225,6 +22296,300 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/results/search": {
+      "post": {
+        "operationId": "searchLabResults",
+        "tags": ["lab"],
+        "description": "A patient’s released results (#92): of each test of each sample, the newest verified result, the newest collected first, narrowed to one test (its trend) or one encounter. A correction still to verify leaves the result it replaces. Every result given is audited. Requires labResult:read with the scope `all` (a narrower one finds nothing) and the laboratory feature flag. The patient and the test travel in the body, never in a query string: together they say what was tested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabResultSearch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabResultPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/results/{resultId}/acknowledge": {
+      "post": {
+        "operationId": "acknowledgeLabResult",
+        "tags": ["lab"],
+        "description": "Records that a doctor saw a verified critical result (#92), once (409 `already_acknowledged`). A result not verified or not critical is 409 `not_acknowledgeable`. A correction is a new result, acknowledged again. The Idempotency-Key header is required: a repeat records nothing more and answers with the result as it is now. Requires labResult:read and labResult:acknowledge with the scope `all` and the laboratory feature flag. Emits `lab.critical_acknowledged`. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "resultId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One result of one test of a sample. Never changed, apart from being verified once: a correction is a new result naming this one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/orders/{orderId}/print": {
+      "post": {
+        "operationId": "printLabReport",
+        "tags": ["lab"],
+        "description": "Records a print of a lab order’s report in the audit log, before anything prints (#92). The web app makes the page from the results it read: verified results only. An order with no verified result is 409 `not_printable`. The Idempotency-Key header is required, one per press: a repeat records nothing more. Requires labResult:read and labReport:print with the scope `all` and the laboratory feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Recorded"
           },
           "400": {
             "description": "Standard error body.",

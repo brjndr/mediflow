@@ -2,7 +2,8 @@ import type { PermissionDefinition } from '../../core/access/registry.js';
 
 /**
  * The defaults of the "Lab (collect, result, verify)" row of `docs/PRODUCT.md`: the nurse
- * collects, the lab technician does everything, the doctor views results. The admin holds every
+ * collects, the lab technician does everything, the doctor views results, acknowledges a critical
+ * one and prints reports (#92), as the lab technician prints them. The admin holds every
  * one, as in the clinical module: nobody invites into a role that holds more than their own.
  * The laboratory works the whole hospital's orders, so only the scope `all` reaches anything.
  */
@@ -42,5 +43,15 @@ export const LAB_PERMISSIONS = [
     id: 'labResult:verify',
     description: 'Verify lab results, which releases them and completes the order',
     defaults: { admin: 'all', lab_technician: 'all' },
+  },
+  {
+    id: 'labResult:acknowledge',
+    description: 'Acknowledge a verified critical lab result, as the doctor who has seen it',
+    defaults: { admin: 'all', doctor: 'all' },
+  },
+  {
+    id: 'labReport:print',
+    description: 'Print the report of a lab order, with its verified results',
+    defaults: { admin: 'all', doctor: 'all', lab_technician: 'all' },
   },
 ] as const satisfies readonly PermissionDefinition[];

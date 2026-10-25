@@ -10,12 +10,15 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { maskMrn } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
+import { AcknowledgementWords } from '../components/AcknowledgementWords';
 import { AmendResult } from '../components/AmendResult';
+import { PrintReportButton } from '../components/LabReport';
 import { ResultEntry } from '../components/ResultEntry';
 import { ResultFlag } from '../components/ResultFlag';
 import { rangeWords } from '../range-words';
 import { VerifyResults } from '../components/VerifyResults';
-import { useOrderResults } from '../hooks/use-lab';
+import { useAcknowledgeResult, useOrderResults } from '../hooks/use-lab';
+import { needsAcknowledging } from '../schemas';
 import type { LabAnalyte, LabOrderResults, LabResult } from '../types';
 
 /** One line of the results: a test, its current result, and whether it waits for verifying. */
@@ -64,7 +67,9 @@ function linesOf(data: LabOrderResults): ResultLine[] {
  * and corrects one with a reason, which the history keeps (`labResult:enter`). The flags are the
  * API's. A reader who may neither enter nor verify (a doctor) is given verified results only: a
  * result still to verify says so and shows no value, so it is never read as final. Works at
- * every width, with one column of fields on a phone.
+ * every width, with one column of fields on a phone. Reports (#92): "Print report" for
+ * `labReport:print` once a result is verified, and "Acknowledge" on a verified critical result
+ * for `labResult:acknowledge` (the doctor), which the state column says in words until done.
  */
 export default function LabResults() {
   const { orderId = '' } = useParams();
@@ -73,6 +78,9 @@ export default function LabResults() {
   const format = useFormatters();
   const canEnter = usePermission('labResult:enter');
   const canVerify = usePermission('labResult:verify');
+  const canPrint = usePermission('labReport:print');
+  const canWorklist = usePermission('labSample:read');
+  const acknowledge = useAcknowledgeResult();
   const query = useOrderResults(orderId);
 
   const box = useRef<HTMLDivElement>(null);
@@ -161,12 +169,19 @@ export default function LabResults() {
               </span>
             );
           }
-          return result
-            ? t('results.verifiedBy', {
-                name: result.verifiedByName ?? '',
-                time: result.verifiedAt ? format.dateTime(result.verifiedAt) : '',
-              })
-            : '';
+          return result ? (
+            <span className="flex flex-col gap-0.5">
+              <span>
+                {t('results.verifiedBy', {
+                  name: result.verifiedByName ?? '',
+                  time: result.verifiedAt ? format.dateTime(result.verifiedAt) : '',
+                })}
+              </span>
+              <AcknowledgementWords result={result} />
+            </span>
+          ) : (
+            ''
+          );
         },
       },
       {
@@ -192,9 +207,12 @@ export default function LabResults() {
               {t('results.retry')}
             </Button>
           )}
-          <Button asChild variant="outline">
-            <Link to="/lab">{t('results.back')}</Link>
-          </Button>
+          {/* The worklist is the laboratory's: a doctor who came from the consultation has none. */}
+          {canWorklist && (
+            <Button asChild variant="outline">
+              <Link to="/lab">{t('results.back')}</Link>
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -212,6 +230,28 @@ export default function LabResults() {
     canVerify && sample !== undefined && data.orderStatus !== 'cancelled' && toVerify.length > 0;
 
   const actions: GridAction<ResultLine>[] = [
+    {
+      id: 'acknowledge',
+      label: t('acknowledge.action'),
+      requires: 'labResult:acknowledge',
+      disabled: (line) =>
+        !line.current || !needsAcknowledging(line.current) || acknowledge.isPending,
+      onSelect: (line) => {
+        const result = line.current;
+        if (!result || !needsAcknowledging(result) || acknowledge.isPending) return;
+        acknowledge.mutate(result, {
+          onSuccess: (done) => say(t('acknowledge.done', { name: done.testName })),
+          onError: (error) =>
+            say(
+              isApiError(error) && error.serverCode === 'already_acknowledged'
+                ? t('acknowledge.already', { name: result.testName })
+                : isApiError(error) && error.serverCode === 'not_acknowledgeable'
+                  ? t('acknowledge.notAcknowledgeable', { name: result.testName })
+                  : tCommon(errorMessageKey(error)),
+            ),
+        });
+      },
+    },
     {
       id: 'amend',
       label: t('results.correct'),
@@ -255,9 +295,17 @@ export default function LabResults() {
         <h1 className="text-2xl font-semibold tracking-tight">
           {t('results.heading', { test: data.itemName })}
         </h1>
-        <Button asChild variant="outline">
-          <Link to="/lab">{t('results.back')}</Link>
-        </Button>
+        <div className="flex flex-wrap items-start gap-2">
+          {canPrint && data.results.some((result) => result.status === 'verified') && (
+            <PrintReportButton orderId={data.orderId} />
+          )}
+          {/* The worklist is the laboratory's: a doctor who came from the consultation has none. */}
+          {canWorklist && (
+            <Button asChild variant="outline">
+              <Link to="/lab">{t('results.back')}</Link>
+            </Button>
+          )}
+        </div>
       </div>
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>

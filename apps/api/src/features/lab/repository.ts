@@ -400,20 +400,30 @@ export interface ResultRow {
   amends_id: string | null;
   amendment_reason: string | null;
   amended_by_id: string | null;
+  collected_at: Date;
+  acknowledged_at: Date | null;
+  acknowledged_by_name: string | null;
   version: number;
 }
 
-const RESULTS = `select r.id, r.tenant_id, r.sample_id, r.order_id, r.encounter_id, r.patient_id, r.lab_test_id,
+const RESULT_COLUMNS = `r.id, r.tenant_id, r.sample_id, r.order_id, r.encounter_id, r.patient_id, r.lab_test_id,
     r.test_code, r.test_name, r.result_type, r.value_number::text as value_number, r.value_text,
     r.unit, r.range_low, r.range_high, r.range_critical_low, r.range_critical_high, r.range_note,
     r.flag, r.comment, r.status, r.entered_at, r.entered_by, coalesce(eu.name, '') as entered_by_name,
     r.verified_at, vu.name as verified_by_name, r.amends_id, r.amendment_reason,
     (select a.id from lab_results a where a.tenant_id = r.tenant_id and a.amends_id = r.id)
       as amended_by_id,
-    r.version
-  from lab_results r
+    s.collected_at, ak.acknowledged_at, coalesce(au.name, '') as acknowledged_by_name,
+    r.version`;
+
+const RESULT_JOINS = `from lab_results r
+  join lab_samples s on s.tenant_id = r.tenant_id and s.id = r.sample_id
   left join users eu on eu.id = r.entered_by
-  left join users vu on vu.id = r.verified_by`;
+  left join users vu on vu.id = r.verified_by
+  left join lab_result_acknowledgements ak on ak.tenant_id = r.tenant_id and ak.result_id = r.id
+  left join users au on au.id = ak.acknowledged_by`;
+
+const RESULTS = `select ${RESULT_COLUMNS} ${RESULT_JOINS}`;
 
 /** Every result of a sample, corrections included, oldest first. */
 export async function resultsOf(client: pg.ClientBase, sampleId: string): Promise<ResultRow[]> {
@@ -495,6 +505,122 @@ export async function insertResult(
   const id = rows[0]?.id;
   if (!id) throw new Error('result was not inserted');
   return id;
+}
+
+/**
+ * Whether a later result of the same test and sample is verified: a verified correction replaced
+ * this one, so it is no longer the result released (#92).
+ */
+export async function replacedByVerified(client: pg.ClientBase, resultId: string) {
+  // Compared in the database: a JavaScript date would drop the microseconds.
+  const { rowCount } = await client.query(
+    `select 1 from lab_results r
+     join lab_results later on later.tenant_id = r.tenant_id and later.sample_id = r.sample_id
+       and later.lab_test_id = r.lab_test_id and later.status = 'verified'
+       and (later.entered_at, later.id) > (r.entered_at, r.id)
+     where r.id = $1
+     limit 1`,
+    [resultId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/** Records that a doctor saw a verified critical result (#92). */
+export async function acknowledgeResult(client: pg.ClientBase, id: string, userId: string) {
+  await client.query(
+    `insert into lab_result_acknowledgements (tenant_id, result_id, acknowledged_by)
+     values (app_tenant_id(), $1, $2)`,
+    [id, userId],
+  );
+}
+
+export interface PatientResultRow extends ResultRow {
+  cursor_at: string;
+}
+
+interface ResultCursor {
+  a: string;
+  i: string;
+}
+
+const encodeResultCursor = (row: PatientResultRow) =>
+  Buffer.from(JSON.stringify({ a: row.cursor_at, i: row.id } satisfies ResultCursor)).toString(
+    'base64url',
+  );
+
+function decodeResultCursor(cursor: string): ResultCursor | null {
+  try {
+    const value: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (typeof value !== 'object' || value === null) return null;
+    const { a, i } = value as Record<string, unknown>;
+    if (typeof a !== 'string' || !CURSOR_AT.test(a)) return null;
+    if (typeof i !== 'string' || !UUID.test(i)) return null;
+    return { a, i };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A patient's released results (#92): of each test of each sample, the newest verified result
+ * (a correction waiting for verification leaves the one it replaces), the newest collected
+ * first, narrowed to one test or one encounter. Null for a bad cursor.
+ */
+export async function patientResults(
+  client: pg.ClientBase,
+  filters: {
+    patientId: string;
+    labTestId?: string;
+    encounterId?: string;
+    cursor?: string;
+    limit: number;
+  },
+): Promise<{ rows: PatientResultRow[]; nextCursor: string | null } | null> {
+  const after = filters.cursor === undefined ? undefined : decodeResultCursor(filters.cursor);
+  if (after === null) return null;
+  if (
+    !UUID.test(filters.patientId) ||
+    (filters.labTestId !== undefined && !UUID.test(filters.labTestId)) ||
+    (filters.encounterId !== undefined && !UUID.test(filters.encounterId))
+  ) {
+    return { rows: [], nextCursor: null };
+  }
+  // The released ids are picked over the results and samples alone; the names, the
+  // acknowledgement and the correction are read for the page only, so a long history costs a
+  // sort of ids per page, not every join.
+  const { rows } = await client.query<PatientResultRow>(
+    `with released as (
+       select distinct on (r.sample_id, r.lab_test_id) r.id, s.collected_at
+       from lab_results r
+       join lab_samples s on s.tenant_id = r.tenant_id and s.id = r.sample_id
+       where r.patient_id = $1 and r.status = 'verified'
+         and ($2::uuid is null or r.lab_test_id = $2)
+         and ($3::uuid is null or r.encounter_id = $3)
+       order by r.sample_id, r.lab_test_id, r.entered_at desc, r.id desc
+     ), page as (
+       select id from released
+       where ($4::timestamptz is null or (collected_at, id) < ($4::timestamptz, $5::uuid))
+       order by collected_at desc, id desc
+       limit $6
+     )
+     select ${RESULT_COLUMNS},
+       to_char(s.collected_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at
+     ${RESULT_JOINS}
+     where r.id in (select id from page)
+     order by s.collected_at desc, r.id desc`,
+    [
+      filters.patientId,
+      filters.labTestId ?? null,
+      filters.encounterId ?? null,
+      after?.a ?? null,
+      after?.i ?? null,
+      filters.limit + 1,
+    ],
+  );
+  const more = rows.length > filters.limit;
+  const page = more ? rows.slice(0, filters.limit) : rows;
+  const last = page.at(-1);
+  return { rows: page, nextCursor: more && last ? encodeResultCursor(last) : null };
 }
 
 export async function verifyResult(client: pg.ClientBase, id: string, userId: string) {

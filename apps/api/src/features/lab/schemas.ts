@@ -252,6 +252,17 @@ export const LabResult = Type.Object(
     amendedById: Type.Optional(
       Type.String({ description: 'The correction that replaced it: this one is history.' }),
     ),
+    collectedAt: Type.String({
+      format: 'date-time',
+      description: 'When its sample was collected: the time a trend is drawn at (#92).',
+    }),
+    acknowledgedAt: Type.Optional(
+      Type.String({
+        format: 'date-time',
+        description: 'When a doctor acknowledged this critical result (#92).',
+      }),
+    ),
+    acknowledgedByName: Type.Optional(Type.String()),
     version: Type.Integer(),
   },
   {
@@ -346,6 +357,27 @@ export const LabResultAmend = Type.Object(
 );
 export type LabResultAmend = Static<typeof LabResultAmend>;
 
+export const LabResultSearch = Type.Object(
+  {
+    patientId: Id,
+    labTestId: Type.Optional(Id),
+    encounterId: Type.Optional(Id),
+    cursor: Type.Optional(
+      Type.String({
+        maxLength: 1024,
+        description: 'Opaque. Pass the nextCursor of the previous page.',
+      }),
+    ),
+    limit: Type.Optional(
+      Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, description: 'Absent: 25.' }),
+    ),
+  },
+  { $id: 'LabResultSearch', additionalProperties: false },
+);
+export type LabResultSearch = Static<typeof LabResultSearch>;
+
+export const LabResultPage = CursorPage(ref(LabResult), { $id: 'LabResultPage' });
+
 export const LAB_SCHEMAS = [
   OrderPriority,
   OrderStatus,
@@ -367,4 +399,6 @@ export const LAB_SCHEMAS = [
   LabResultsEnter,
   LabResultsVerify,
   LabResultAmend,
+  LabResultSearch,
+  LabResultPage,
 ];

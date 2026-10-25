@@ -36,7 +36,7 @@ async function chooseTest(search: string, option: RegExp) {
 }
 
 describe('lab orders on the consultation', () => {
-  it('shows each order with its priority and status in words, and where results come from', async () => {
+  it('shows each order with its priority and status in words', async () => {
     await openConsultation();
     const section = await panel();
     const table = await within(section).findByRole('table', { name: 'Lab orders' });
@@ -44,9 +44,8 @@ describe('lab orders on the consultation', () => {
     expect(within(table).getByText('Routine')).toBeInTheDocument();
     expect(within(table).getByText('Ordered, waiting for the laboratory')).toBeInTheDocument();
     expect(within(table).getByText('Fasting not needed')).toBeInTheDocument();
-    expect(
-      within(section).getByText(/Results are not shown here yet: they arrive with the laboratory/),
-    ).toBeInTheDocument();
+    // Results are the laboratory's own panel (#92), not a line here.
+    expect(within(section).queryByText(/arrive with the laboratory/)).not.toBeInTheDocument();
     await expectNoAxeViolations();
   });
 

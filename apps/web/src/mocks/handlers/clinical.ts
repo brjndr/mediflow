@@ -1648,6 +1648,34 @@ export const mockOrdersOf = (encounterId: string): readonly Order[] =>
 export const mockLabOrders = (tenantId: string): readonly Order[] =>
   state.orders.filter((each) => each.tenantId === tenantId && each.type === 'lab');
 
+/**
+ * A lab order of an encounter's patient placed behind the screen, as a doctor would, for tests
+ * that need a test ordered more than once (a trend, #92). Gives its id.
+ */
+export function addMockLabOrder(
+  encounterId: string,
+  test: { labTestId: string; itemCode: string; itemName: string },
+): string {
+  const encounter = state.encounters.find((each) => each.id === encounterId);
+  if (!encounter) throw new Error(`no encounter ${encounterId}`);
+  const id = `ord_mock_${state.orders.length + 1}`;
+  state.orders.push({
+    id,
+    tenantId: encounter.tenantId,
+    encounterId,
+    patientId: encounter.patientId,
+    type: 'lab',
+    ...test,
+    status: 'placed',
+    priority: 'routine',
+    placedAt: now(),
+    orderedById: 'usr_mock',
+    orderedByName: 'Dr Mock',
+    version: 1,
+  });
+  return id;
+}
+
 /** Moves an order on behind the screen, as the pharmacy or the laboratory would. */
 export function moveMockOrder(id: string, status: Order['status']): void {
   const order = state.orders.find((each) => each.id === id);
