@@ -3,7 +3,8 @@
   "stage": {
     "to_collect": "To collect",
     "collected": "Collected",
-    "received": "Received"
+    "received": "Received",
+    "completed": "Completed"
   },
   "priority": {
     "stat": "Stat",
@@ -41,7 +42,8 @@
     "empty": {
       "to_collect": "No samples to collect.",
       "collected": "No collected samples waiting to be received.",
-      "received": "No received samples."
+      "received": "No received samples.",
+      "completed": "No completed orders."
     },
     "rowLabel": "{{name}}, {{test}}",
     "orderedBy": "{{time}} by {{name}}",
@@ -61,8 +63,14 @@
       "priority": "Priority",
       "sample": "Sample",
       "ordered": "Ordered",
-      "instructions": "Instructions"
-    }
+      "instructions": "Instructions",
+      "results": "Results"
+    },
+    "results": "Results",
+    "resultsToVerify_one": "{{count}} entered, {{verify}} to verify",
+    "resultsToVerify_other": "{{count}} entered, {{verify}} to verify",
+    "resultsVerified_one": "{{count}} verified",
+    "resultsVerified_other": "{{count}} verified"
   },
   "collect": {
     "heading": "Collect sample: {{test}}",
@@ -119,6 +127,129 @@
     "refused": {
       "notPrintable": "This sample was rejected: its label is not printed.",
       "gone": "This sample is no longer on the worklist."
+    }
+  },
+  "flag": {
+    "normal": "Normal",
+    "low": "Low",
+    "high": "High",
+    "critical_low": "Critical low",
+    "critical_high": "Critical high",
+    "none": "no flag"
+  },
+  "range": {
+    "between": "{{low}} to {{high}}",
+    "upTo": "up to {{high}}",
+    "from": "{{low}} or more",
+    "criticalLow": "critical at or below {{value}}",
+    "criticalHigh": "critical at or above {{value}}",
+    "separator": "; "
+  },
+  "orderStatus": {
+    "placed": "placed",
+    "accepted": "accepted",
+    "in_progress": "in progress",
+    "completed": "completed",
+    "cancelled": "cancelled"
+  },
+  "results": {
+    "title": "Lab results",
+    "loading": "Loading the results…",
+    "notFound": "This lab order is not available.",
+    "retry": "Try again",
+    "back": "Back to the worklist",
+    "heading": "Results: {{test}}",
+    "patient": "Patient",
+    "mrn": "MRN",
+    "sample": "Sample",
+    "sampleOf": "{{id}}, {{sample}}, collected {{time}}",
+    "orderState": "Order",
+    "listLabel": "Results of {{test}}",
+    "empty": "No tests to result.",
+    "noSample": "No sample collected yet.",
+    "notReceived": "Sample {{id}} is not received yet: results are entered once the laboratory receives it.",
+    "awaiting": "Awaiting verification",
+    "none": "Not entered",
+    "notVerified": "Not verified",
+    "enteredBy": "Entered by {{name}}, {{time}}",
+    "verifiedBy": "Verified by {{name}}, {{time}}",
+    "correct": "Correct",
+    "history": "Corrections",
+    "replaced": "{{name}}: {{value}}, replaced",
+    "reason": "Reason: {{reason}}",
+    "saved_one": "{{count}} result saved, to verify.",
+    "saved_other": "{{count}} results saved, to verify.",
+    "criticalSaved": "Critical: {{names}}. Tell the doctor now.",
+    "columns": {
+      "test": "Test",
+      "result": "Result",
+      "flag": "Flag",
+      "range": "Reference range",
+      "state": "Status",
+      "comment": "Comment"
+    },
+    "enterHeading": "Enter results",
+    "enterHint": "Fill in the results you have. The others can be entered later.",
+    "valueWithUnit": "{{name}} ({{unit}})",
+    "rangeHint": "Reference range: {{range}}",
+    "addComment": "Add a comment on {{name}}",
+    "comment": "Comment on {{name}}",
+    "save": "Save results",
+    "saving": "Saving…",
+    "errors": {
+      "number": "Enter a number, such as 5.1 or -0.25.",
+      "commentNeedsValue": "Enter the result the comment is about.",
+      "none": "Enter at least one result."
+    },
+    "refused": {
+      "alreadyResulted": "Someone else entered a result meanwhile. The results were read again: check them before saving.",
+      "unknownTest": "The tests of this order changed meanwhile. The results were read again.",
+      "notOpen": "This order or its sample changed meanwhile and takes no results now. The results were read again.",
+      "invalidNumber": "A result is not a number the laboratory accepts. The results were read again.",
+      "gone": "This sample is no longer available."
+    },
+    "orderStateValue": "{{priority}}, {{status}}"
+  },
+  "verify": {
+    "heading": "Verify results",
+    "hint": "Check each result before verifying it. Verified results are released to the doctor.",
+    "legend": "Results to verify",
+    "item": "{{name}}: {{value}}, {{flag}}",
+    "enteredBy": "Entered by {{name}}",
+    "submit": "Verify ticked results",
+    "submitting": "Verifying…",
+    "done_one": "{{count}} result verified and released to the doctor.",
+    "done_other": "{{count}} results verified and released to the doctor.",
+    "doneCompleted_one": "{{count}} result verified. Every result of the order is verified: the order is completed.",
+    "doneCompleted_other": "{{count}} results verified. Every result of the order is verified: the order is completed.",
+    "errors": {
+      "none": "Tick at least one result to verify."
+    },
+    "refused": {
+      "conflict": "A result changed meanwhile: it was corrected or verified. The results were read again: check them before verifying.",
+      "notOpen": "This order was cancelled meanwhile.",
+      "gone": "This sample is no longer available."
+    }
+  },
+  "amend": {
+    "heading": "Correct {{name}}",
+    "was": "Now {{value}}, entered by {{name}}. The correction replaces it and is verified again before the doctor sees it.",
+    "value": "Corrected result",
+    "valueWithUnit": "Corrected result ({{unit}})",
+    "comment": "Comment",
+    "reason": "Reason for the correction",
+    "reasonHint": "Kept with the history of the result.",
+    "submit": "Save correction",
+    "submitting": "Saving…",
+    "done": "{{name}} corrected, to verify again.",
+    "errors": {
+      "value": "Enter the corrected result.",
+      "reason": "Say why the result is corrected."
+    },
+    "refused": {
+      "alreadyAmended": "This result was corrected meanwhile. Close and look at the results again.",
+      "notOpen": "This order was cancelled meanwhile: nothing is corrected.",
+      "gone": "This result is no longer available."
     }
   }
 }

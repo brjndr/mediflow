@@ -82,3 +82,55 @@ test('collect a sample, print its label and receive it with the keyboard alone',
   await expect(page.getByText(`Sample ${accession} received.`, { exact: false })).toBeFocused();
   await expectNoAxeViolations(page);
 });
+
+test('enter a result and verify it with the keyboard alone (#91)', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await goTo(page, 'Laboratory');
+  await expect(page.getByRole('heading', { name: 'Laboratory worklist' })).toBeVisible();
+  // The haemoglobin's sample collected and received, from inside the app once the mock answers.
+  await page.evaluate(async () => {
+    const post = async (path: string, body?: unknown) => {
+      const answer = await fetch(`/api${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      return (await answer.json()) as { id?: string };
+    };
+    const sample = await post('/lab/orders/ord_h_lab_2/samples');
+    await post(`/lab/samples/${sample.id ?? ''}/receive`, { version: 1 });
+  });
+  const stage = page.getByRole('combobox', { name: 'Stage' });
+  await reach(page, stage);
+  await stage.selectOption('received');
+  const results = page.getByRole('button', { name: /^Results: .+, Haemoglobin$/ });
+  await reach(page, results);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Results: Haemoglobin', level: 1 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  const value = page.getByRole('textbox', { name: 'Haemoglobin (g/dL)' });
+  await reach(page, value);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.type('6.5');
+  const save = page.getByRole('button', { name: 'Save results' });
+  await reach(page, save);
+  await page.keyboard.press('Enter');
+  const status = page.getByRole('status').filter({ hasText: /result saved/ });
+  await expect(status).toHaveText(/Critical: Haemoglobin/);
+  await expect(status).toBeFocused();
+
+  const tick = page.getByRole('checkbox', { name: /^Haemoglobin: 6.5 g\/dL, Critical low/ });
+  await reach(page, tick);
+  await expect(tick).toBeChecked();
+  expect(await focusVisible(page)).toBe(true);
+  const verify = page.getByRole('button', { name: 'Verify ticked results' });
+  await reach(page, verify);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('status').filter({ hasText: /verified/ })).toBeFocused();
+  await expect(page.getByText(/the order is completed/)).toBeVisible();
+  await expectNoAxeViolations(page);
+});

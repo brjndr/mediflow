@@ -79,6 +79,25 @@ const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
   appointments: (page) => scheduledAppointment(page),
   // Triage has no list of its own: a patient of the mock with readings and allergies.
   triage: () => Promise.resolve('pth_00001'),
+  // A lab order's results (#91) are opened from a worklist row action: its sample collected,
+  // received and one result entered, so entry and verifying are both on the screen.
+  'lab/orders': (page) =>
+    page.evaluate(async () => {
+      const post = async (path: string, body?: unknown) => {
+        const answer = await fetch(`/api${path}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        });
+        return (await answer.json()) as { id?: string };
+      };
+      const sample = await post('/lab/orders/ord_h_lab_1/samples');
+      await post(`/lab/samples/${sample.id ?? ''}/receive`, { version: 1 });
+      await post(`/lab/samples/${sample.id ?? ''}/results`, {
+        results: [{ labTestId: 'lab_h_hb', value: '13.5' }],
+      });
+      return 'ord_h_lab_1';
+    }),
   // The mock keeps no import until one is started.
   imports: (page) =>
     page.evaluate(async () => {

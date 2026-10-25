@@ -2,6 +2,7 @@ import {
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -9,14 +10,26 @@ import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
+  amendResult,
   collectSample,
+  enterResults,
+  fetchOrderResults,
   fetchWorklist,
   receiveSample,
   recordLabelPrint,
   rejectSample,
+  verifyResults,
   type WorklistFilters,
 } from '../api';
-import type { LabSample, LabSampleReject, LabWorkItem } from '../types';
+import type {
+  LabOrderResults,
+  LabResult,
+  LabResultAmend,
+  LabResultEntry,
+  LabSample,
+  LabSampleReject,
+  LabWorkItem,
+} from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's worklist never shows in another. */
 export const labKeys = createTenantKeys('lab');
@@ -176,4 +189,76 @@ export function useLabelPrinting() {
   );
   const done = useCallback(() => setJob(null), []);
   return { print, busy: isPending, error: mutation.error, reset, job, done };
+}
+
+/** The results of one lab order (#91), read again whenever the laboratory changes them. */
+export function useOrderResults(orderId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: labKeys.detail(tenantId ?? '', orderId),
+    queryFn: ({ signal }) => fetchOrderResults(orderId, signal),
+    enabled: tenantId !== undefined,
+  });
+}
+
+/**
+ * After entering or verifying: the answer is the order's results as they are now, written to
+ * its page for the session it was asked in; the worklist and the page are read again either way.
+ */
+function useResultsAnswered(orderId: string) {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const refresh = useRefreshWorklist();
+  return {
+    answered: (results: LabOrderResults) => {
+      const tenantId = stillHere();
+      if (tenantId) queryClient.setQueryData(labKeys.detail(tenantId, orderId), results);
+    },
+    refresh,
+  };
+}
+
+/** Enters results of a received sample: the rows filled in, one key per body. */
+export function useEnterResults(orderId: string) {
+  const { answered, refresh } = useResultsAnswered(orderId);
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ sampleId, results }: { sampleId: string; results: LabResultEntry[] }) =>
+      enterResults(sampleId, results, keys.keyFor({ sampleId, results })),
+    onSuccess: (results) => {
+      keys.clear();
+      answered(results);
+    },
+    onSettled: refresh,
+  });
+}
+
+/** Verifies the results the verifier read, by id. */
+export function useVerifyResults(orderId: string) {
+  const { answered, refresh } = useResultsAnswered(orderId);
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ sampleId, resultIds }: { sampleId: string; resultIds: string[] }) =>
+      verifyResults(sampleId, resultIds, keys.keyFor({ sampleId, resultIds })),
+    onSuccess: (results) => {
+      keys.clear();
+      answered(results);
+    },
+    onSettled: refresh,
+  });
+}
+
+/** Corrects a result with a reason: a new result, to verify again. */
+export function useAmendResult() {
+  const refresh = useRefreshWorklist();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ result, body }: { result: LabResult; body: LabResultAmend }) =>
+      amendResult(result.id, body, keys.keyFor({ id: result.id, ...body })),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
 }

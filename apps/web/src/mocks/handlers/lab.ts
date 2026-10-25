@@ -1,12 +1,12 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { PLAIN_TEXT } from '@/shared/utils/text';
+import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 import { todayIn } from '@/shared/utils/timezone';
 import { currentPolicy, currentSession, mockTenantTimezone, onMockReset } from '../db';
 import { authorize, error } from '../respond';
 import { mockLabOrders, moveMockOrder } from './clinical';
-import { mockLabTestSample } from './lab-tests';
-import { mockPatient, mockPatientDob } from './patients';
+import { mockLabAnalytes, mockLabTestSample } from './lab-tests';
+import { mockPatient, mockPatientDob, mockPatientSex } from './patients';
 
 type LabSample = components['schemas']['LabSample'];
 type LabStage = components['schemas']['LabStage'];
@@ -14,9 +14,14 @@ type LabWorkItem = components['schemas']['LabWorkItem'];
 type LabWorkItemPage = components['schemas']['LabWorkItemPage'];
 type LabRejectReason = components['schemas']['LabRejectReason'];
 type Order = components['schemas']['Order'];
+type LabResult = components['schemas']['LabResult'];
+type LabOrderResults = components['schemas']['LabOrderResults'];
+type LabResultFlag = components['schemas']['LabResultFlag'];
+type LabRange = NonNullable<LabResult['range']>;
+type StoredResult = Omit<LabResult, 'amendedById'>;
 
 const FEATURE_FLAG = 'laboratory';
-const STAGES: readonly LabStage[] = ['to_collect', 'collected', 'received'];
+const STAGES: readonly LabStage[] = ['to_collect', 'collected', 'received', 'completed'];
 const PRIORITY_RANK: Record<Order['priority'], number> = { stat: 0, urgent: 1, routine: 2 };
 const REASONS: readonly LabRejectReason[] = [
   'haemolysed',
@@ -28,6 +33,12 @@ const REASONS: readonly LabRejectReason[] = [
   'other',
 ];
 const NOTE_MAX = 200;
+const VALUE_MAX = 500;
+const COMMENT_MAX = 500;
+const REASON_MAX = 200;
+const RESULTS_MAX = 60;
+// The API's decimal: up to nine digits before the point and six after.
+const DECIMAL = /^-?\d{1,9}(\.\d{1,6})?$/;
 
 /** A print the API would record in the audit log. */
 export interface MockLabelPrint {
@@ -43,6 +54,11 @@ export interface MockLabelPrint {
 function seed() {
   return {
     samples: [] as LabSample[],
+    // Results (#91), never removed or changed but for being verified once; `amendedById` is
+    // worked out when read, as the API does.
+    results: [] as StoredResult[],
+    // When each order was completed, for the completed stage's order.
+    completedAt: new Map<string, string>(),
     numbers: new Map<string, number>(),
     prints: [] as MockLabelPrint[],
     answered: new Map<string, { body: string; id: string }>(),
@@ -77,7 +93,8 @@ const liveSample = (orderId: string) => {
 };
 
 /** Where an order is in the laboratory: collected again once its last sample is rejected. */
-function stageOf(orderId: string): LabStage {
+function stageOf(orderId: string, order?: Order): LabStage {
+  if (order?.status === 'completed') return 'completed';
   const sample = liveSample(orderId);
   return sample ? (sample.status as LabStage) : 'to_collect';
 }
@@ -87,6 +104,8 @@ function itemOf(order: Order): LabWorkItem {
   const dob = mockPatientDob(order.tenantId, order.patientId);
   const sampleOf = order.labTestId ? mockLabTestSample(order.tenantId, order.labTestId) : undefined;
   const sample = newest(order.id);
+  const standing = liveSample(order.id);
+  const current = standing ? currentResults(standing.id) : [];
   return {
     orderId: order.id,
     tenantId: order.tenantId,
@@ -105,9 +124,151 @@ function itemOf(order: Order): LabWorkItem {
     orderStatus: order.status,
     sampleType: sampleOf?.sampleType ?? 'other',
     ...(sampleOf?.container ? { container: sampleOf.container } : {}),
-    stage: stageOf(order.id),
+    stage: stageOf(order.id, order),
     ...(sample ? { sample } : {}),
     rejectedSamples: samplesOf(order.id).filter((each) => each.status === 'rejected').length,
+    resultsEntered: current.length,
+    resultsToVerify: current.filter((each) => each.status === 'entered').length,
+  };
+}
+
+/** Every result of a sample, oldest first, each naming the correction that replaced it. */
+function resultsOfSample(sampleId: string): LabResult[] {
+  const held = state.results.filter((each) => each.sampleId === sampleId);
+  return held.map((result) => {
+    const by = held.find((each) => each.amendsId === result.id);
+    return by ? { ...result, amendedById: by.id } : { ...result };
+  });
+}
+
+const currentResults = (sampleId: string) =>
+  resultsOfSample(sampleId).filter((each) => each.amendedById === undefined);
+
+/** A number read against its range: the critical limits first, as the API does (#310). */
+function flagOf(value: number, range: LabRange): LabResultFlag {
+  if (range.criticalLow !== undefined && value <= range.criticalLow) return 'critical_low';
+  if (range.criticalHigh !== undefined && value >= range.criticalHigh) return 'critical_high';
+  if (range.low !== undefined && value < range.low) return 'low';
+  if (range.high !== undefined && value > range.high) return 'high';
+  return 'normal';
+}
+
+/** What a result of the order is entered for, with the patient's range on the collection day. */
+function analytesOf(order: Order, sample: LabSample) {
+  const dob = mockPatientDob(order.tenantId, order.patientId);
+  const sex = mockPatientSex(order.tenantId, order.patientId);
+  const on = todayIn(mockTenantTimezone(order.tenantId), new Date(sample.collectedAt));
+  return order.labTestId
+    ? mockLabAnalytes(order.tenantId, order.labTestId, dob && sex ? { sex, dob } : undefined, on)
+    : [];
+}
+
+/**
+ * The results of an order as the API gives them. A caller who may neither enter nor verify
+ * results gets the verified ones only, and the tests still to verify by id (#91).
+ */
+function orderResultsOf(order: Order): LabOrderResults {
+  const sample = liveSample(order.id);
+  const all = sample ? resultsOfSample(sample.id) : [];
+  const works = (currentPolicy()?.permissions ?? []).some(
+    (grant) =>
+      (grant.permission === 'labResult:enter' || grant.permission === 'labResult:verify') &&
+      (grant.scope ?? 'all') === 'all',
+  );
+  return {
+    orderId: order.id,
+    tenantId: order.tenantId,
+    encounterId: order.encounterId,
+    patientId: order.patientId,
+    patientName: mockPatient(order.tenantId, order.patientId)?.name ?? '',
+    patientMrn: mockPatient(order.tenantId, order.patientId)?.mrn ?? '',
+    itemName: order.itemName ?? '',
+    priority: order.priority,
+    orderStatus: order.status,
+    ...(sample ? { sample } : {}),
+    analytes: sample ? analytesOf(order, sample) : [],
+    results: works ? all : all.filter((each) => each.status === 'verified'),
+    ...(works
+      ? {}
+      : {
+          awaitingVerification: all
+            .filter((each) => each.status === 'entered' && each.amendedById === undefined)
+            .map((each) => each.labTestId),
+        }),
+  };
+}
+
+/** A result's value as the API keeps it, or the refusal. */
+function valueOf(
+  resultType: 'numeric' | 'text',
+  value: unknown,
+): { value: string; number?: number } | { refused: Response } {
+  if (typeof value !== 'string' || !value.trim() || value.length > VALUE_MAX) {
+    return { refused: error(400, 'validation_failed', 'A result is required') };
+  }
+  if (resultType === 'numeric') {
+    const typed = value.trim();
+    if (!DECIMAL.test(typed)) {
+      return { refused: error(422, 'invalid_number', 'A numeric result is a decimal number') };
+    }
+    // Leading zeros go and the decimals stay, as in the database (`007.50` is `7.50`).
+    const kept = typed.replace(/^(-?)0+(?=\d)/, '$1');
+    return { value: kept, number: Number(kept) };
+  }
+  if (!PLAIN_LINES.test(value)) return { refused: error(400, 'validation_failed', 'Plain text') };
+  return { value: value.trim() };
+}
+
+/** An optional comment, tidied, or false when the API would refuse it. */
+function commentOf(comment: unknown): { comment?: string } | false {
+  if (comment === undefined) return {};
+  return typeof comment === 'string' &&
+    comment.trim() &&
+    comment.length <= COMMENT_MAX &&
+    PLAIN_LINES.test(comment)
+    ? { comment: comment.trim() }
+    : false;
+}
+
+interface Analyte {
+  labTestId: string;
+  code: string;
+  name: string;
+  resultType: 'numeric' | 'text';
+  unit?: string;
+}
+
+/** A result written as the API writes it, read against the range it is given. */
+function newResult(
+  sample: LabSample,
+  test: Analyte,
+  range: LabRange | undefined,
+  value: { value: string; number?: number },
+  comment: string | undefined,
+  amends?: { id: string; reason: string },
+): StoredResult {
+  const kept = test.resultType === 'numeric' ? range : undefined;
+  return {
+    id: `res_mock_${++state.counter}`,
+    tenantId: sample.tenantId,
+    sampleId: sample.id,
+    orderId: sample.orderId,
+    encounterId: sample.encounterId,
+    patientId: sample.patientId,
+    labTestId: test.labTestId,
+    testCode: test.code,
+    testName: test.name,
+    resultType: test.resultType,
+    value: value.value,
+    ...(test.resultType === 'numeric' && test.unit ? { unit: test.unit } : {}),
+    ...(kept ? { range: kept } : {}),
+    ...(kept && value.number !== undefined ? { flag: flagOf(value.number, kept) } : {}),
+    ...(comment ? { comment } : {}),
+    status: 'entered',
+    enteredAt: now(),
+    enteredByName: callerOf().name,
+    ...(amends ? { amendsId: amends.id, amendmentReason: amends.reason } : {}),
+    version: 1,
   };
 }
 
@@ -163,15 +324,19 @@ export const labHandlers = [
     ) {
       return error(400, 'validation_failed', 'The request is not valid');
     }
+    // Open stages stat first and the oldest first; completed the newest completed first.
+    const completed = stage === 'completed';
+    const completedAt = (order: Order) => state.completedAt.get(order.id) ?? order.placedAt;
     const items = mockLabOrders(access.tenantId)
-      .filter(active)
-      .filter((order) => stageOf(order.id) === stage)
+      .filter((order) => (completed ? order.status === 'completed' : active(order)))
+      .filter((order) => completed || stageOf(order.id) === stage)
       .filter((order) => priority === null || order.priority === priority)
-      .sort(
-        (a, b) =>
-          PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
-          a.placedAt.localeCompare(b.placedAt) ||
-          a.id.localeCompare(b.id),
+      .sort((a, b) =>
+        completed
+          ? completedAt(b).localeCompare(completedAt(a)) || b.id.localeCompare(a.id)
+          : PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
+            a.placedAt.localeCompare(b.placedAt) ||
+            a.id.localeCompare(b.id),
       );
     const cursor = query.get('cursor');
     const first = cursor ? items.findIndex((each) => each.id === cursor) : 0;
@@ -180,8 +345,184 @@ export const labHandlers = [
     return HttpResponse.json<LabWorkItemPage>({
       items: items.slice(first, first + limit).map(itemOf),
       nextCursor: next ? next.id : null,
-      ...(cursor ? {} : { total: items.length }),
+      ...(cursor || completed ? {} : { total: items.length }),
     });
+  }),
+
+  http.get('*/api/lab/orders/:orderId/results', ({ request, params }) => {
+    const access = authorize(request, { permission: 'labResult:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const order = orderFor(access.tenantId, String(params.orderId));
+    if (!order) return error(404, 'order_not_found', 'Order not found');
+    return HttpResponse.json<LabOrderResults>(orderResultsOf(order));
+  }),
+
+  http.post('*/api/lab/samples/:sampleId/results', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'labResult:enter',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const sample = sampleFor(tenantId, String(params.sampleId));
+    const order = sample && orderFor(tenantId, sample.orderId);
+    if (!sample || !order) return sampleNotFound();
+    if (sent.replay) {
+      return HttpResponse.json<LabOrderResults>(orderResultsOf(order), { status: 201 });
+    }
+    const body = sent.body;
+    const entries = isObject(body) && Array.isArray(body.results) ? body.results : null;
+    const ids = (entries ?? []).map((entry: unknown) =>
+      isObject(entry) ? entry.labTestId : undefined,
+    );
+    if (
+      !entries ||
+      entries.length < 1 ||
+      entries.length > RESULTS_MAX ||
+      !ids.every((id) => typeof id === 'string') ||
+      new Set(ids).size !== ids.length
+    ) {
+      return error(400, 'validation_failed', 'Each test is entered once');
+    }
+    if (!active(order) || sample.status !== 'received') {
+      return error(409, 'invalid_transition', 'The sample takes no results');
+    }
+    const analytes = new Map(analytesOf(order, sample).map((each) => [each.labTestId, each]));
+    const resulted = new Set(resultsOfSample(sample.id).map((each) => each.labTestId));
+    const written: StoredResult[] = [];
+    for (const entry of entries as Record<string, unknown>[]) {
+      const analyte = analytes.get(String(entry.labTestId));
+      if (!analyte) return error(422, 'unknown_test', 'The test is not of this order');
+      if (resulted.has(analyte.labTestId)) {
+        return error(409, 'already_resulted', 'The test has a result; correct it instead');
+      }
+      const value = valueOf(analyte.resultType, entry.value);
+      if ('refused' in value) return value.refused;
+      const comment = commentOf(entry.comment);
+      if (!comment) return error(400, 'validation_failed', 'The comment is not valid');
+      written.push(newResult(sample, analyte, analyte.range, value, comment.comment));
+    }
+    // All or nothing, as the API's transaction.
+    state.results.push(...written);
+    if (order.status === 'accepted') moveMockOrder(order.id, 'in_progress');
+    remember(sent.keyOf, body, sample.id);
+    return HttpResponse.json<LabOrderResults>(orderResultsOf(order), { status: 201 });
+  }),
+
+  http.post('*/api/lab/samples/:sampleId/verify', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'labResult:verify',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const sample = sampleFor(tenantId, String(params.sampleId));
+    const order = sample && orderFor(tenantId, sample.orderId);
+    if (!sample || !order) return sampleNotFound();
+    if (sent.replay) return HttpResponse.json<LabOrderResults>(orderResultsOf(order));
+    const body = sent.body;
+    const ids = isObject(body) && Array.isArray(body.resultIds) ? body.resultIds : null;
+    if (
+      !ids ||
+      ids.length < 1 ||
+      ids.length > RESULTS_MAX ||
+      !ids.every((id) => typeof id === 'string')
+    ) {
+      return error(400, 'validation_failed', 'The results read are required');
+    }
+    if (order.status === 'cancelled') {
+      return error(409, 'invalid_transition', 'A cancelled order is not verified');
+    }
+    const held = resultsOfSample(sample.id);
+    const named = [...new Set(ids as string[])];
+    for (const id of named) {
+      const result = held.find((each) => each.id === id);
+      if (!result) return error(422, 'unknown_result', 'The result is not of this sample');
+      if (result.amendedById !== undefined || result.status !== 'entered') {
+        return error(409, 'conflict', 'The result has changed since it was read');
+      }
+    }
+    for (const stored of state.results.filter((each) => named.includes(each.id))) {
+      Object.assign(stored, {
+        status: 'verified',
+        verifiedAt: now(),
+        verifiedByName: callerOf().name,
+        version: stored.version + 1,
+      });
+    }
+    const verified = new Set(
+      currentResults(sample.id)
+        .filter((each) => each.status === 'verified')
+        .map((each) => each.labTestId),
+    );
+    const analytes = analytesOf(order, sample);
+    if (
+      order.status === 'in_progress' &&
+      analytes.length > 0 &&
+      analytes.every((each) => verified.has(each.labTestId))
+    ) {
+      moveMockOrder(order.id, 'completed');
+      state.completedAt.set(order.id, now());
+    }
+    remember(sent.keyOf, body, sample.id);
+    return HttpResponse.json<LabOrderResults>(orderResultsOf(order));
+  }),
+
+  http.post('*/api/lab/results/:resultId/amend', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'labResult:enter',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const resultFor = (id: string) => {
+      const stored = state.results.find((each) => each.id === id && each.tenantId === tenantId);
+      return stored && resultsOfSample(stored.sampleId).find((each) => each.id === id);
+    };
+    const notFound = () => error(404, 'result_not_found', 'Result not found');
+    if (sent.replay) {
+      const again = resultFor(sent.replay.id);
+      return again ? HttpResponse.json<LabResult>(again, { status: 201 }) : notFound();
+    }
+    const body = sent.body;
+    const reason = isObject(body) && typeof body.reason === 'string' ? body.reason.trim() : '';
+    if (!isObject(body) || !reason || reason.length > REASON_MAX || !PLAIN_TEXT.test(reason)) {
+      return error(400, 'validation_failed', 'A reason is required');
+    }
+    const found = resultFor(String(params.resultId));
+    const sample = found && sampleFor(tenantId, found.sampleId);
+    const order = sample && orderFor(tenantId, sample.orderId);
+    if (!found || !sample || !order) return notFound();
+    if (order.status === 'cancelled') {
+      return error(409, 'invalid_transition', 'A cancelled order is not corrected');
+    }
+    if (found.amendedById !== undefined) {
+      return error(409, 'already_amended', 'The result was corrected already');
+    }
+    const value = valueOf(found.resultType, body.value);
+    if ('refused' in value) return value.refused;
+    const comment = commentOf(body.comment);
+    if (!comment) return error(400, 'validation_failed', 'The comment is not valid');
+    const analyte: Analyte = {
+      labTestId: found.labTestId,
+      code: found.testCode,
+      name: found.testName,
+      resultType: found.resultType,
+      ...(found.unit ? { unit: found.unit } : {}),
+    };
+    const amended = newResult(sample, analyte, found.range, value, comment.comment, {
+      id: found.id,
+      reason,
+    });
+    state.results.push(amended);
+    remember(sent.keyOf, body, amended.id);
+    return HttpResponse.json<LabResult>({ ...amended }, { status: 201 });
   }),
 
   http.post('*/api/lab/orders/:orderId/samples', async ({ request, params }) => {
@@ -320,6 +661,9 @@ export const labHandlers = [
 
 /** The samples of a lab order as the mock holds them, oldest first, for tests. */
 export const mockSamplesOf = (orderId: string): readonly LabSample[] => samplesOf(orderId);
+
+/** The results of a sample as the mock holds them, corrections included, for tests. */
+export const mockResultsOf = (sampleId: string): readonly LabResult[] => resultsOfSample(sampleId);
 
 /** The label prints the API's audit log would hold, for tests. */
 export const mockLabelPrints = (): readonly MockLabelPrint[] => state.prints;

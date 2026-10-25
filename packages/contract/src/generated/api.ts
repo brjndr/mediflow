@@ -2319,7 +2319,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The laboratory’s worklist (#90): the hospital’s lab orders not cancelled or completed, at one stage, stat first, then urgent, then routine, the oldest first within each. Each names the patient (name, MRN and date of birth), the test as ordered and the sample it needs, and its current sample. `total` comes with the first page. Every row read is audited. Requires labSample:read with the scope `all` (a narrower one sees nothing) and the laboratory feature flag. Holds no patient term: a GET. */
+        /** @description The laboratory’s worklist (#90): the hospital’s lab orders not cancelled, at one stage. Open stages are stat first, then urgent, then routine, the oldest first within each; the completed stage (#91) is the newest completed first, with no `total`. Each names the patient (name, MRN and date of birth), the test as ordered and the sample it needs, its current sample and how many of its results are entered and still to verify. `total` comes with the first page of an open stage. Every row read is audited. Requires labSample:read with the scope `all` (a narrower one sees nothing) and the laboratory feature flag. Holds no patient term: a GET. */
         get: operations["listLabWorklist"];
         put?: never;
         post?: never;
@@ -2404,7 +2404,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The results of a lab order: those of its sample that is not rejected, corrections included, with what they are entered for and the reference range for the patient on the day the sample was collected. No sample yet: no results. Every result read is audited. Requires labResult:read with the scope `all` and the laboratory feature flag. */
+        /** @description The results of a lab order: those of its sample that is not rejected, corrections included, with what they are entered for and the reference range for the patient on the day the sample was collected. No sample yet: no results. A caller who may neither enter nor verify results (labResult:enter or labResult:verify at the scope `all`) gets verified results only, and `awaitingVerification` names the tests whose result is still to verify. Every result given is audited. Requires labResult:read with the scope `all` and the laboratory feature flag. */
         get: operations["getLabOrderResults"];
         put?: never;
         post?: never;
@@ -4330,10 +4330,10 @@ export interface components {
             version: number;
         };
         /**
-         * @description Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, or received by the laboratory.
+         * @description Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, received by the laboratory, or completed (every result verified; a correction may still be waiting to be verified).
          * @enum {string}
          */
-        LabStage: "to_collect" | "collected" | "received";
+        LabStage: "to_collect" | "collected" | "received" | "completed";
         /** @enum {string} */
         LabSampleStatus: "collected" | "received" | "rejected";
         /** @enum {string} */
@@ -4403,6 +4403,10 @@ export interface components {
             sample?: components["schemas"]["LabSample"];
             /** @description How many samples of the order were rejected. */
             rejectedSamples: number;
+            /** @description How many tests of the current sample have a current result, verified or not. */
+            resultsEntered: number;
+            /** @description How many of those are entered and not yet verified. */
+            resultsToVerify: number;
         };
         /** @description Cursor envelope used by every list endpoint. */
         LabWorkItemPage: {
@@ -4477,11 +4481,18 @@ export interface components {
             tenantId: string;
             encounterId: string;
             patientId: string;
+            patientName: string;
+            patientMrn: string;
+            /** @description The test as ordered. */
+            itemName: string;
+            priority: components["schemas"]["OrderPriority"];
             orderStatus: components["schemas"]["OrderStatus"];
             sample?: components["schemas"]["LabSample"];
             analytes: components["schemas"]["LabAnalyte"][];
-            /** @description Every result of the sample, corrections included, oldest first. The current one of a test is the one with no `amendedById`. */
+            /** @description Every result of the sample, corrections included, oldest first. The current one of a test is the one with no `amendedById`. A caller who may neither enter nor verify results gets no result that is not verified: see `awaitingVerification`. */
             results: components["schemas"]["LabResult"][];
+            /** @description Given only to a caller who may neither enter nor verify results (a doctor): the tests (`labTestId`) whose current result is entered and not yet verified, left out of `results` so it is never read as final. A test being corrected keeps its replaced result in `results`, which names a correction that is not there. */
+            awaitingVerification?: string[];
         };
         LabResultEntry: {
             labTestId: string;

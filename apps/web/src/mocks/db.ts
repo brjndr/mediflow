@@ -139,6 +139,10 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'labSample:collect' },
   { permission: 'labSample:receive' },
   { permission: 'labSample:reject' },
+  // Its results (#91): entered, verified and corrected.
+  { permission: 'labResult:read' },
+  { permission: 'labResult:enter' },
+  { permission: 'labResult:verify' },
   { permission: 'billing:read' },
   { permission: 'billing:create' },
   { permission: 'billing:refund' },
@@ -207,6 +211,8 @@ const DOCTOR: PermissionGrantDto[] = [
   { permission: 'referral:create' },
   { permission: 'followUp:read' },
   { permission: 'followUp:create' },
+  // Lab results once verified (#91), as the API's defaults give the doctor.
+  { permission: 'labResult:read' },
   { permission: 'notice:read' },
   { permission: 'department:read' },
   { permission: 'doctor:read' },

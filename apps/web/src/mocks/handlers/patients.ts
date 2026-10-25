@@ -140,6 +140,12 @@ export function editMockPatient(id: string, changes: PatientChanges): void {
   if (record) applyChange(record, changes, 'user_someone_else');
 }
 
+/** A patient's recorded sex, as the laboratory's mock reads ranges by it (#91). */
+export function mockPatientSex(tenantId: string, id: string): string | undefined {
+  const record = recordOf(id);
+  return record?.tenantId === tenantId ? record.gender : undefined;
+}
+
 /** A patient's date of birth, as another feature's mock needs it (triage's ranges are by age). */
 export function mockPatientDob(tenantId: string, id: string): string | undefined {
   const record = recordOf(id);

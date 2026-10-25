@@ -172,6 +172,23 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
     .click();
   await expect(page.getByRole('button', { name: 'Mark as collected' })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // A lab order's results (#91): the tests as cards on a phone, one column of fields to enter.
+  await page.getByRole('button', { name: 'Mark as collected' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('combobox', { name: 'Stage' }).selectOption('collected');
+  await page
+    .getByRole('button', { name: /^Receive: / })
+    .first()
+    .click();
+  await expect(page.getByText(/^Sample .+ received\./)).toBeVisible();
+  await page.getByRole('combobox', { name: 'Stage' }).selectOption('received');
+  await page
+    .getByRole('button', { name: /^Results: / })
+    .first()
+    .click();
+  await expect(page.getByRole('heading', { name: /^Results: /, level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save results' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
 
   await goTo(page, 'Patients');
   await expect(page.getByRole('heading', { name: 'Patients', exact: true })).toBeVisible();
