@@ -351,13 +351,11 @@ export const rangesFormSchema = z
       } else if (low !== undefined && high !== undefined && low >= high) {
         issue(index, 'high', 'lab_tests:ranges.errors.highAboveLow');
       }
-      // A critical limit lies outside what is normal, never inside it.
-      const floor = low ?? high;
-      const ceiling = high ?? low;
-      if (criticalLow !== undefined && floor !== undefined && criticalLow > floor) {
+      // A critical limit lies strictly beyond the normal limit on its side, so no value is both.
+      if (criticalLow !== undefined && (low === undefined || criticalLow >= low)) {
         issue(index, 'criticalLow', 'lab_tests:ranges.errors.criticalLow');
       }
-      if (criticalHigh !== undefined && ceiling !== undefined && criticalHigh < ceiling) {
+      if (criticalHigh !== undefined && (high === undefined || criticalHigh <= high)) {
         issue(index, 'criticalHigh', 'lab_tests:ranges.errors.criticalHigh');
       }
       if (ranges.slice(0, index).some((earlier) => earlier && rangesOverlap(earlier, range))) {

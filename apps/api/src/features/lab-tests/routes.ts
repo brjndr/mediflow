@@ -112,7 +112,7 @@ const DETAIL_FIELDS = [
 
 /**
  * The reference ranges of a body, checked for what a schema cannot say: each row has a limit,
- * `low` is below `high`, a critical limit is never inside the normal range, an age is within 150
+ * `low` is below `high`, a critical low is below `low` and a critical high above `high`, an age is within 150
  * years in its unit and `ageUntil` is later than `ageFrom` for every date of birth, and two rows
  * for the same sex never both hold for a patient (age.ts). Throws 400 otherwise.
  */
@@ -134,13 +134,12 @@ function checkedRanges(ranges: readonly LabRange[]): LabRange[] {
     if (low !== undefined && high !== undefined && low >= high) {
       throw invalid(`${at}: low is not below high`);
     }
-    const floor = low ?? high;
-    const ceiling = high ?? low;
-    if (criticalLow !== undefined && floor !== undefined && criticalLow > floor) {
-      throw invalid(`${at}: criticalLow is inside the normal range`);
+    // A critical limit lies strictly beyond the normal limit on its side, so no value is both (#310).
+    if (criticalLow !== undefined && (low === undefined || criticalLow >= low)) {
+      throw invalid(`${at}: criticalLow is not below low`);
     }
-    if (criticalHigh !== undefined && ceiling !== undefined && criticalHigh < ceiling) {
-      throw invalid(`${at}: criticalHigh is inside the normal range`);
+    if (criticalHigh !== undefined && (high === undefined || criticalHigh <= high)) {
+      throw invalid(`${at}: criticalHigh is not above high`);
     }
     const note = tidyOptional(range.note, NOTE_MAX);
     const row: LabRange = {
@@ -460,7 +459,7 @@ export const labTestRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'setLabTestRanges',
         tags: ['lab-tests'],
         description:
-          'Replaces the reference ranges of a test. Only a numeric single test has ranges (409 lab_test_has_no_ranges for a panel or a text test). Each row gives at least one limit, `low` below `high`, a critical limit never inside the normal range, and an `ageUntil` that is later than `ageFrom` for every date of birth. Two rows for the same sex must never both hold for a patient: one has to end at or before the age the other starts from, for every date of birth. Years and months compare exactly with each other, and weeks and days with each other; a limit in months or years against one in weeks or days is accepted only when no date of birth can bring them together (a month is 28 to 31 days), so ranges that meet give the age in the same unit. A row for one sex and a row for any may share ages, and the one for the sex is used. 400 otherwise. 409 conflict when the ranges have changed since the version sent. A limit is a number: one sent as null or as text is refused, never read as 0. A result already reported keeps the range it was reported against. Audited.' +
+          'Replaces the reference ranges of a test. Only a numeric single test has ranges (409 lab_test_has_no_ranges for a panel or a text test). Each row gives at least one limit, `low` below `high`, a critical low only with a `low` and below it, a critical high only with a `high` and above it, and an `ageUntil` that is later than `ageFrom` for every date of birth. Two rows for the same sex must never both hold for a patient: one has to end at or before the age the other starts from, for every date of birth. Years and months compare exactly with each other, and weeks and days with each other; a limit in months or years against one in weeks or days is accepted only when no date of birth can bring them together (a month is 28 to 31 days), so ranges that meet give the age in the same unit. A row for one sex and a row for any may share ages, and the one for the sex is used. 400 otherwise. 409 conflict when the ranges have changed since the version sent. A limit is a number: one sent as null or as text is refused, never read as 0. A result already reported keeps the range it was reported against. Audited.' +
           OTHER_HOSPITAL,
         params: Params,
         body: ref(LabRangesUpdate),

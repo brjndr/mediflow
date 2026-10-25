@@ -240,13 +240,13 @@ export const LabRange = Type.Object(
     criticalLow: Type.Optional(
       Type.Number({
         ...LIMIT,
-        description: 'At or below this the result is critical. Never above `low`.',
+        description: 'At or below this the result is critical. Only with `low`, and below it.',
       }),
     ),
     criticalHigh: Type.Optional(
       Type.Number({
         ...LIMIT,
-        description: 'At or above this the result is critical. Never below `high`.',
+        description: 'At or above this the result is critical. Only with `high`, and above it.',
       }),
     ),
     note: Type.Optional(Type.String({ maxLength: NOTE_MAX, pattern: PLAIN_TEXT })),

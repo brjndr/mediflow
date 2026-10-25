@@ -974,7 +974,7 @@ export interface paths {
         };
         /** @description The reference ranges of a numeric test, by sex and age, with their own version. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
         get: operations["getLabTestRanges"];
-        /** @description Replaces the reference ranges of a test. Only a numeric single test has ranges (409 lab_test_has_no_ranges for a panel or a text test). Each row gives at least one limit, `low` below `high`, a critical limit never inside the normal range, and an `ageUntil` that is later than `ageFrom` for every date of birth. Two rows for the same sex must never both hold for a patient: one has to end at or before the age the other starts from, for every date of birth. Years and months compare exactly with each other, and weeks and days with each other; a limit in months or years against one in weeks or days is accepted only when no date of birth can bring them together (a month is 28 to 31 days), so ranges that meet give the age in the same unit. A row for one sex and a row for any may share ages, and the one for the sex is used. 400 otherwise. 409 conflict when the ranges have changed since the version sent. A limit is a number: one sent as null or as text is refused, never read as 0. A result already reported keeps the range it was reported against. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
+        /** @description Replaces the reference ranges of a test. Only a numeric single test has ranges (409 lab_test_has_no_ranges for a panel or a text test). Each row gives at least one limit, `low` below `high`, a critical low only with a `low` and below it, a critical high only with a `high` and above it, and an `ageUntil` that is later than `ageFrom` for every date of birth. Two rows for the same sex must never both hold for a patient: one has to end at or before the age the other starts from, for every date of birth. Years and months compare exactly with each other, and weeks and days with each other; a limit in months or years against one in weeks or days is accepted only when no date of birth can bring them together (a month is 28 to 31 days), so ranges that meet give the age in the same unit. A row for one sex and a row for any may share ages, and the one for the sex is used. 400 otherwise. 409 conflict when the ranges have changed since the version sent. A limit is a number: one sent as null or as text is refused, never read as 0. A result already reported keeps the range it was reported against. Audited. A test of another hospital answers 404 lab_test_not_found, the same as one that does not exist. */
         put: operations["setLabTestRanges"];
         post?: never;
         delete?: never;
@@ -3360,9 +3360,9 @@ export interface components {
             low?: number;
             /** @description The highest normal value. Absent: no upper limit. */
             high?: number;
-            /** @description At or below this the result is critical. Never above `low`. */
+            /** @description At or below this the result is critical. Only with `low`, and below it. */
             criticalLow?: number;
-            /** @description At or above this the result is critical. Never below `high`. */
+            /** @description At or above this the result is critical. Only with `high`, and above it. */
             criticalHigh?: number;
             note?: string;
         };
