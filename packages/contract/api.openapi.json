@@ -5201,8 +5201,8 @@
       },
       "LabStage": {
         "type": "string",
-        "enum": ["to_collect", "collected", "received", "completed"],
-        "description": "Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, received by the laboratory, or completed (every result verified; a correction may still be waiting to be verified)."
+        "enum": ["to_collect", "collected", "received", "with_partner", "completed"],
+        "description": "Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, received by the laboratory, with a partner laboratory (sent out and its report not yet back, #94), or completed (every result verified; a correction may still be waiting to be verified)."
       },
       "LabSampleStatus": {
         "type": "string",
@@ -5312,6 +5312,29 @@
             "$ref": "#/components/schemas/LabRejectReason"
           },
           "rejectNote": {
+            "type": "string"
+          },
+          "partnerLab": {
+            "description": "The partner laboratory the sample was sent to (#94).",
+            "type": "string"
+          },
+          "partnerRef": {
+            "description": "The partner’s own number for the sample or its report.",
+            "type": "string"
+          },
+          "sentOutAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "sentOutByName": {
+            "type": "string"
+          },
+          "returnedAt": {
+            "format": "date-time",
+            "description": "When the partner’s report came back; results are entered from then.",
+            "type": "string"
+          },
+          "returnedByName": {
             "type": "string"
           },
           "version": {
@@ -5465,6 +5488,30 @@
           "version": {
             "description": "The version the change was made from. Another one gives 409 `conflict`.",
             "type": "integer"
+          }
+        }
+      },
+      "LabSampleSendOut": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version", "partnerLab"],
+        "properties": {
+          "version": {
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "partnerLab": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "partnerRef": {
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "The partner’s own number for the sample, when it gives one.",
+            "type": "string"
           }
         }
       },
@@ -21702,6 +21749,248 @@
         }
       }
     },
+    "/lab/samples/{sampleId}/send-out": {
+      "post": {
+        "operationId": "sendOutLabSample",
+        "tags": ["lab"],
+        "description": "Records that a received sample was sent to a partner laboratory (#94), named in plain text, with the partner’s own number when it gives one. The sample stays received, at the stage `with_partner` until its report is back, and takes no results meanwhile. Once only, for a received sample with no results (409 `has_results`) while the order is not cancelled or completed (409 `invalid_transition`). Requires labSample:outsource and the laboratory feature flag. At the version sent (409 `conflict`). The Idempotency-Key header is required: a repeat changes nothing and answers with the sample as it is now. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabSampleSendOut"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sampleId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One sample of a lab order. Never removed: a rejected one stays, and a new one is collected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabSample"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lab/samples/{sampleId}/partner-report": {
+      "post": {
+        "operationId": "returnLabSample",
+        "tags": ["lab"],
+        "description": "Records that the partner laboratory’s report of a sample sent out came back (#94), so its results can be entered from it and verified as any other. Once only, for a sample with a partner (409 `invalid_transition` otherwise, and once the order is cancelled or completed). Requires labSample:outsource and the laboratory feature flag. At the version sent (409 `conflict`). The Idempotency-Key header is required: a repeat changes nothing and answers with the sample as it is now. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabSampleReceive"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sampleId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One sample of a lab order. Never removed: a rejected one stays, and a new one is collected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabSample"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/lab/samples/{sampleId}/reject": {
       "post": {
         "operationId": "rejectLabSample",
@@ -22011,7 +22300,7 @@
       "post": {
         "operationId": "enterLabResults",
         "tags": ["lab"],
-        "description": "Enters results of a received sample: some or all of the tests of its order (the test, or each test of the panel), each once (400 otherwise). A test that is not of the order is 422 `unknown_test`, one that has a result already 409 `already_resulted` (correct it instead), a number that is not one 422 `invalid_number`. A sample not received, and an order cancelled or completed, are 409 `invalid_transition`. A number is read against the range for the patient’s sex and age on the day the sample was collected, which the result keeps. The first result moves the order in progress. A critical result emits `lab.critical_value`. The Idempotency-Key header is required: a repeat enters nothing and answers with the results as they are now. Requires labResult:enter and the laboratory feature flag. Audited.",
+        "description": "Enters results of a received sample: some or all of the tests of its order (the test, or each test of the panel), each once (400 otherwise). A test that is not of the order is 422 `unknown_test`, one that has a result already 409 `already_resulted` (correct it instead), a number that is not one 422 `invalid_number`. A sample not received, and an order cancelled or completed, are 409 `invalid_transition`. A sample with a partner laboratory whose report is not back is 409 `with_partner` (#94). A number is read against the range for the patient’s sex and age on the day the sample was collected, which the result keeps. The first result moves the order in progress. A critical result emits `lab.critical_value`. The Idempotency-Key header is required: a repeat enters nothing and answers with the results as they are now. Requires labResult:enter and the laboratory feature flag. Audited.",
         "requestBody": {
           "required": true,
           "content": {

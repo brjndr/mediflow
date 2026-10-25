@@ -117,6 +117,19 @@ function LabReportDocument({ data }: { data: LabOrderResults }) {
                 <dd>{format.dateTime(sample.receivedAt)}</dd>
               </>
             )}
+            {sample.partnerLab && (
+              <>
+                <dt className="font-medium">{t('results.partner')}</dt>
+                <dd>
+                  {sample.partnerRef
+                    ? t('results.partnerWithRef', {
+                        partner: sample.partnerLab,
+                        ref: sample.partnerRef,
+                      })
+                    : sample.partnerLab}
+                </dd>
+              </>
+            )}
           </>
         )}
       </dl>

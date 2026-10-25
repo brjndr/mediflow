@@ -14,6 +14,8 @@ export type LabStage = Schemas['LabStage'];
 export type LabSampleStatus = Schemas['LabSampleStatus'];
 export type LabRejectReason = Schemas['LabRejectReason'];
 export type LabSampleReject = Schemas['LabSampleReject'];
+/** A received sample sent to a partner laboratory (#94). */
+export type LabSampleSendOut = Schemas['LabSampleSendOut'];
 export type OrderPriority = Schemas['OrderPriority'];
 
 /**

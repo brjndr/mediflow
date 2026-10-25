@@ -22,7 +22,15 @@ type LabRange = NonNullable<LabResult['range']>;
 type StoredResult = Omit<LabResult, 'amendedById'>;
 
 const FEATURE_FLAG = 'laboratory';
-const STAGES: readonly LabStage[] = ['to_collect', 'collected', 'received', 'completed'];
+const STAGES: readonly LabStage[] = [
+  'to_collect',
+  'collected',
+  'received',
+  'with_partner',
+  'completed',
+];
+const PARTNER_LAB_MAX = 100;
+const PARTNER_REF_MAX = 50;
 const PRIORITY_RANK: Record<Order['priority'], number> = { stat: 0, urgent: 1, routine: 2 };
 const REASONS: readonly LabRejectReason[] = [
   'haemolysed',
@@ -106,8 +114,12 @@ const liveSample = (orderId: string) => {
 function stageOf(orderId: string, order?: Order): LabStage {
   if (order?.status === 'completed') return 'completed';
   const sample = liveSample(orderId);
-  return sample ? (sample.status as LabStage) : 'to_collect';
+  if (!sample) return 'to_collect';
+  return withPartner(sample) ? 'with_partner' : (sample.status as LabStage);
 }
+
+/** Sent to a partner laboratory and its report not yet back (#94). */
+const withPartner = (sample: LabSample) => Boolean(sample.sentOutAt) && !sample.returnedAt;
 
 function itemOf(order: Order): LabWorkItem {
   const patient = mockPatient(order.tenantId, order.patientId);
@@ -400,6 +412,9 @@ export const labHandlers = [
     if (!active(order) || sample.status !== 'received') {
       return error(409, 'invalid_transition', 'The sample takes no results');
     }
+    if (withPartner(sample)) {
+      return error(409, 'with_partner', 'The partner laboratory’s report is not back');
+    }
     const analytes = new Map(analytesOf(order, sample).map((each) => [each.labTestId, each]));
     const resulted = new Set(resultsOfSample(sample.id).map((each) => each.labTestId));
     const written: StoredResult[] = [];
@@ -604,6 +619,85 @@ export const labHandlers = [
       version: sample.version + 1,
     });
     // The order is left accepted: it goes in progress when its result is first entered (#91).
+    remember(sent.keyOf, body, sample.id);
+    return HttpResponse.json<LabSample>(sample);
+  }),
+
+  // Outsourced tests (#94): a received sample with no results sent out once, its report back once.
+  http.post('*/api/lab/samples/:sampleId/send-out', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'labSample:outsource',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const sample = sampleFor(tenantId, String(params.sampleId));
+    if (!sample) return sampleNotFound();
+    if (sent.replay) return HttpResponse.json<LabSample>(sample);
+    const body = sent.body;
+    const tidy = (value: unknown) =>
+      typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : undefined;
+    const partnerLab = isObject(body) ? tidy(body.partnerLab) : undefined;
+    const partnerRef = isObject(body) ? tidy(body.partnerRef) : undefined;
+    if (
+      !isObject(body) ||
+      !Number.isInteger(body.version) ||
+      !partnerLab ||
+      partnerLab.length > PARTNER_LAB_MAX ||
+      !PLAIN_TEXT.test(partnerLab) ||
+      (body.partnerRef !== undefined && typeof body.partnerRef !== 'string') ||
+      (partnerRef !== undefined &&
+        (partnerRef.length > PARTNER_REF_MAX || !PLAIN_TEXT.test(partnerRef)))
+    ) {
+      return error(400, 'validation_failed', 'A version and the partner are required');
+    }
+    if (body.version !== sample.version) return error(409, 'conflict', 'Changed meanwhile');
+    const order = orderFor(tenantId, sample.orderId);
+    if (sample.status !== 'received' || sample.sentOutAt || !order || !active(order)) {
+      return error(409, 'invalid_transition', `A ${sample.status} sample is not sent out`);
+    }
+    if (resultsOfSample(sample.id).length > 0) {
+      return error(409, 'has_results', 'A sample with results is not sent out');
+    }
+    Object.assign(sample, {
+      partnerLab,
+      ...(partnerRef ? { partnerRef } : {}),
+      sentOutAt: now(),
+      sentOutByName: callerOf().name,
+      version: sample.version + 1,
+    });
+    remember(sent.keyOf, body, sample.id);
+    return HttpResponse.json<LabSample>(sample);
+  }),
+
+  http.post('*/api/lab/samples/:sampleId/partner-report', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'labSample:outsource',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const sample = sampleFor(tenantId, String(params.sampleId));
+    if (!sample) return sampleNotFound();
+    if (sent.replay) return HttpResponse.json<LabSample>(sample);
+    const body = sent.body;
+    if (!isObject(body) || !Number.isInteger(body.version)) {
+      return error(400, 'validation_failed', 'A version is required');
+    }
+    if (body.version !== sample.version) return error(409, 'conflict', 'Changed meanwhile');
+    const order = orderFor(tenantId, sample.orderId);
+    if (sample.status !== 'received' || !withPartner(sample) || !order || !active(order)) {
+      return error(409, 'invalid_transition', 'No partner report to come back');
+    }
+    Object.assign(sample, {
+      returnedAt: now(),
+      returnedByName: callerOf().name,
+      version: sample.version + 1,
+    });
     remember(sent.keyOf, body, sample.id);
     return HttpResponse.json<LabSample>(sample);
   }),

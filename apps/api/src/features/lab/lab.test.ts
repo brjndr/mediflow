@@ -1165,3 +1165,151 @@ describe('reports, acknowledgements and a patient’s results (#92)', () => {
     expect(keyless.statusCode).toBe(400);
   });
 });
+
+describe('outsourced tests (#94)', () => {
+  const sendOut = (sample: Sample, body: object = {}, options: Options = {}) =>
+    post(
+      `/lab/samples/${sample.id}/send-out`,
+      { version: sample.version, partnerLab: 'City Reference Lab', ...body },
+      options,
+    );
+  const reportBack = (sample: Sample, options: Options = {}) =>
+    post(`/lab/samples/${sample.id}/partner-report`, { version: sample.version }, options);
+
+  interface Outsourced extends Sample {
+    partnerLab?: string;
+    partnerRef?: string;
+    sentOutAt?: string;
+    sentOutByName?: string;
+    returnedAt?: string;
+    returnedByName?: string;
+  }
+
+  it('sends a sample out, takes no results until its report is back, then results it', async () => {
+    const { order, sample } = await received();
+    const sent = await ok<Outsourced>(
+      sendOut(sample, { partnerLab: '  City   Reference Lab ', partnerRef: 'CRL-7781' }),
+    );
+    expect(sent).toMatchObject({
+      status: 'received',
+      partnerLab: 'City Reference Lab',
+      partnerRef: 'CRL-7781',
+      sentOutByName: 'Lab Technician',
+    });
+    expect(sent.returnedAt).toBeUndefined();
+    const out = await worklist('with_partner');
+    expect(out.items.find((item) => item.orderId === order.id)?.sample).toMatchObject({
+      partnerLab: 'City Reference Lab',
+    });
+    expect((await worklist('received')).items.some((item) => item.orderId === order.id)).toBe(
+      false,
+    );
+    expect(errorOf(await enter(sample.id, [{ labTestId: catalog.hb, value: '13' }]))).toEqual([
+      409,
+      'with_partner',
+    ]);
+
+    const back = await ok<Outsourced>(reportBack(sent));
+    expect(back.returnedAt).toBeDefined();
+    expect((await resultsOf(order.id)).sample).toMatchObject({ partnerRef: 'CRL-7781' });
+    const entered = await ok<OrderResults>(
+      enter(sample.id, [{ labTestId: catalog.hb, value: '13' }]),
+      201,
+    );
+    await ok(post(`/lab/samples/${sample.id}/verify`, { resultIds: [entered.results[0]?.id] }));
+    expect(await orderStatus(order.id)).toBe('completed');
+    expect(await audited('lab_sample', sample.id)).toEqual([
+      'create',
+      'update',
+      'update',
+      'update',
+    ]);
+  });
+
+  it('refuses what does not apply, without the permission, the switch or the hospital', async () => {
+    const order = await placeOrder();
+    const collected = await collect(order.id);
+    expect(errorOf(await sendOut(collected))).toEqual([409, 'invalid_transition']);
+    const sample = await receive(collected);
+    expect(errorOf(await reportBack(sample))).toEqual([409, 'invalid_transition']);
+    expect(errorOf(await sendOut(sample, { partnerLab: '   ' }))).toEqual([
+      400,
+      'validation_failed',
+    ]);
+    expect(errorOf(await sendOut(sample, { partnerLab: 'Lab\u0000' }))).toEqual([
+      400,
+      'validation_failed',
+    ]);
+    expect(errorOf(await sendOut(sample, {}, { user: nurse }))).toEqual([403, 'permission_denied']);
+    expect(errorOf(await sendOut(sample, {}, { tenant: closed }))).toEqual([
+      403,
+      'feature_disabled',
+    ]);
+    expect(errorOf(await sendOut(sample, {}, { tenant: clinic, user: clinicTech }))).toEqual([
+      404,
+      'sample_not_found',
+    ]);
+    const sent = await ok<Outsourced>(sendOut(sample));
+    expect(errorOf(await sendOut(sent))).toEqual([409, 'invalid_transition']);
+    const back = await ok<Outsourced>(reportBack(sent));
+    expect(errorOf(await reportBack(back))).toEqual([409, 'invalid_transition']);
+
+    const { sample: resulted } = await received();
+    await ok(enter(resulted.id, [{ labTestId: catalog.hb, value: '13' }]), 201);
+    const current = await ok<OrderResults>(get(`/lab/orders/${resulted.orderId}/results`));
+    expect(errorOf(await sendOut(current.sample ?? resulted))).toEqual([409, 'has_results']);
+  });
+
+  it('changes nothing on a repeat, and never changes a send-out in the database', async () => {
+    const { sample } = await received();
+    const key = randomUUID();
+    const sent = await ok<Outsourced>(sendOut(sample, {}, { key }));
+    const again = await ok<Outsourced>(sendOut(sample, {}, { key }));
+    expect(again.version).toBe(sent.version);
+    await asTenantSql(pool, hospital.id, async (sql) => {
+      await sql.query('savepoint s');
+      await expect(
+        sql.query("update lab_samples set partner_lab = 'Other' where id = $1", [sample.id]),
+      ).rejects.toThrow();
+      await sql.query('rollback to savepoint s');
+      await expect(
+        sql.query(
+          'update lab_samples set sent_out_at = null, sent_out_by = null, partner_lab = null, partner_ref = null where id = $1',
+          [sample.id],
+        ),
+      ).rejects.toThrow();
+    });
+    const { sample: other } = await received();
+    await asTenantSql(pool, hospital.id, async (sql) => {
+      await sql.query('savepoint s');
+      await expect(
+        sql.query('update lab_samples set returned_at = now(), returned_by = $2 where id = $1', [
+          other.id,
+          tech.id,
+        ]),
+      ).rejects.toThrow();
+      await sql.query('rollback to savepoint s');
+      // Sent out and back in one statement would take results with no report in hand.
+      await expect(
+        sql.query(
+          `update lab_samples set sent_out_at = now(), sent_out_by = $2, partner_lab = 'X',
+             returned_at = now(), returned_by = $2
+           where id = $1`,
+          [other.id, tech.id],
+        ),
+      ).rejects.toThrow();
+    });
+  });
+
+  it('rejects a sample while it is with the partner, so it is collected again', async () => {
+    const { order, sample } = await received();
+    const sent = await ok<Outsourced>(sendOut(sample));
+    const rejected = await ok<Outsourced>(
+      post(`/lab/samples/${sample.id}/reject`, { version: sent.version, reason: 'insufficient' }),
+    );
+    expect(rejected).toMatchObject({ status: 'rejected', partnerLab: 'City Reference Lab' });
+    expect(
+      (await worklist('to_collect')).items.find((item) => item.orderId === order.id),
+    ).toBeDefined();
+  });
+});

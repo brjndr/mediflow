@@ -4,6 +4,7 @@
     "to_collect": "To collect",
     "collected": "Collected",
     "received": "Received",
+    "with_partner": "With partner lab",
     "completed": "Completed"
   },
   "priority": {
@@ -43,7 +44,8 @@
       "to_collect": "No samples to collect.",
       "collected": "No collected samples waiting to be received.",
       "received": "No received samples.",
-      "completed": "No completed orders."
+      "completed": "No completed orders.",
+      "with_partner": "No samples with a partner laboratory."
     },
     "rowLabel": "{{name}}, {{test}}",
     "orderedBy": "{{time}} by {{name}}",
@@ -51,7 +53,9 @@
     "sampleRejected": "{{id}} rejected: {{reason}}. Collect again",
     "sample": {
       "collected": "{{id}}, collected",
-      "received": "{{id}}, received"
+      "received": "{{id}}, received",
+      "withPartner": "{{id}}, sent to {{partner}} {{time}}",
+      "partnerBack": "{{id}}, report back from {{partner}} {{time}}"
     },
     "collect": "Collect sample",
     "receive": "Receive",
@@ -70,7 +74,9 @@
     "resultsToVerify_one": "{{count}} entered, {{verify}} to verify",
     "resultsToVerify_other": "{{count}} entered, {{verify}} to verify",
     "resultsVerified_one": "{{count}} verified",
-    "resultsVerified_other": "{{count}} verified"
+    "resultsVerified_other": "{{count}} verified",
+    "sendOut": "Send to partner lab",
+    "reportBack": "Report received"
   },
   "collect": {
     "heading": "Collect sample: {{test}}",
@@ -206,9 +212,13 @@
       "unknownTest": "The tests of this order changed meanwhile. The results were read again.",
       "notOpen": "This order or its sample changed meanwhile and takes no results now. The results were read again.",
       "invalidNumber": "A result is not a number the laboratory accepts. The results were read again.",
-      "gone": "This sample is no longer available."
+      "gone": "This sample is no longer available.",
+      "withPartner": "This sample is with a partner laboratory. Enter its results once the report is back."
     },
-    "orderStateValue": "{{priority}}, {{status}}"
+    "orderStateValue": "{{priority}}, {{status}}",
+    "withPartner": "Sample {{id}} is with {{partner}}. Results are entered once its report is back.",
+    "partner": "Tested at",
+    "partnerWithRef": "{{partner}} (ref. {{ref}})"
   },
   "verify": {
     "heading": "Verify results",
@@ -298,5 +308,32 @@
     "pendingNote": "A test marked pending is reported once it is verified.",
     "verifiedBy": "Verified by {{names}}",
     "printedBy": "Printed {{time}} by {{name}}"
+  },
+  "sendOut": {
+    "heading": "Send sample {{id}} to a partner laboratory",
+    "of": "{{test}} for {{name}}. Results are entered from the partner’s report once it is back.",
+    "partnerLab": "Partner laboratory",
+    "partnerRef": "Partner’s reference",
+    "partnerRefHint": "Their number for the sample, if they give one.",
+    "submit": "Mark as sent",
+    "submitting": "Saving…",
+    "done": "Sample {{id}} sent to {{partner}}.",
+    "errors": {
+      "partnerLab": "Name the partner laboratory."
+    },
+    "refused": {
+      "conflict": "This sample changed meanwhile. Close and look at the worklist again.",
+      "notSendable": "This sample can no longer be sent out: it was sent or rejected, or its order was cancelled or completed.",
+      "hasResults": "This sample has results already, so it is not sent out.",
+      "gone": "This sample is no longer on the worklist."
+    }
+  },
+  "reportBack": {
+    "done": "Partner report for sample {{id}} received. Its results can be entered.",
+    "refused": {
+      "conflict": "This sample changed meanwhile. The worklist was read again.",
+      "notWithPartner": "This sample is no longer with a partner laboratory.",
+      "gone": "This sample is no longer on the worklist."
+    }
   }
 }

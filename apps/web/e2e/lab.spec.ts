@@ -83,6 +83,65 @@ test('collect a sample, print its label and receive it with the keyboard alone',
   await expectNoAxeViolations(page);
 });
 
+test('send a sample to a partner laboratory and take its report back with the keyboard alone (#94)', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await goTo(page, 'Laboratory');
+  await expect(page.getByRole('heading', { name: 'Laboratory worklist' })).toBeVisible();
+  // The blood count collected and received, as the laboratory would before sending it out.
+  await page.evaluate(async () => {
+    const post = async (path: string, body?: unknown) => {
+      const answer = await fetch(`/api${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      return (await answer.json()) as { id?: string };
+    };
+    const sample = await post('/lab/orders/ord_h_lab_1/samples');
+    await post(`/lab/samples/${sample.id ?? ''}/receive`, { version: 1 });
+  });
+
+  const stage = page.getByRole('combobox', { name: 'Stage' });
+  await reach(page, stage);
+  await stage.selectOption('received');
+  const sendOut = page.getByRole('button', {
+    name: /^Send to partner lab: .+, Complete blood count$/,
+  });
+  await reach(page, sendOut);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  const panel = page.getByRole('region', { name: /^Send sample .+ to a partner laboratory$/ });
+  await expect(panel.getByRole('heading', { level: 2 })).toBeFocused();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  await page.keyboard.press('Tab');
+  await expect(panel.getByLabel(/Partner laboratory/)).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.type('City Lab');
+  await page.keyboard.press('Tab');
+  await expect(panel.getByLabel(/Partner’s reference/)).toBeFocused();
+  await page.keyboard.type('CL-12');
+  await page.keyboard.press('Tab');
+  await expect(panel.getByRole('button', { name: 'Mark as sent' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(/^Sample .+ sent to City Lab\./)).toBeFocused();
+
+  await reach(page, stage);
+  await stage.selectOption('with_partner');
+  const reportBack = page.getByRole('button', {
+    name: /^Report received: .+, Complete blood count$/,
+  });
+  await reach(page, reportBack);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(/^Partner report for sample .+ received/)).toBeFocused();
+  await expectNoAxeViolations(page);
+});
+
 test('enter a result and verify it with the keyboard alone (#91)', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');

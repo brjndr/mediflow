@@ -225,7 +225,10 @@ export default function LabResults() {
     line.current?.status === 'entered' ? [line.current] : [],
   );
   const history = data.results.filter((result) => result.amendedById !== undefined);
-  const showEntry = canEnter && sample?.status === 'received' && open && toEnter.length > 0;
+  // A sample with a partner laboratory takes its results from the partner's report, once back (#94).
+  const withPartner = Boolean(sample?.sentOutAt) && !sample?.returnedAt;
+  const showEntry =
+    canEnter && sample?.status === 'received' && !withPartner && open && toEnter.length > 0;
   const showVerify =
     canVerify && sample !== undefined && data.orderStatus !== 'cancelled' && toVerify.length > 0;
 
@@ -268,7 +271,9 @@ export default function LabResults() {
     ? t('results.noSample')
     : sample.status === 'collected'
       ? t('results.notReceived', { id: sample.accessionId })
-      : '';
+      : withPartner
+        ? t('results.withPartner', { id: sample.accessionId, partner: sample.partnerLab ?? '' })
+        : '';
 
   const saved = (answer: LabOrderResults, entered: string[]) => {
     const critical = answer.results.filter(
@@ -328,6 +333,19 @@ export default function LabResults() {
               : t('results.noSample')}
           </dd>
         </div>
+        {sample?.partnerLab && (
+          <div>
+            <dt className="text-muted-foreground">{t('results.partner')}</dt>
+            <dd>
+              {sample.partnerRef
+                ? t('results.partnerWithRef', {
+                    partner: sample.partnerLab,
+                    ref: sample.partnerRef,
+                  })
+                : sample.partnerLab}
+            </dd>
+          </div>
+        )}
         <div>
           <dt className="text-muted-foreground">{t('results.orderState')}</dt>
           <dd>

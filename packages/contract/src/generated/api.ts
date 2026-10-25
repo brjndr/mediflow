@@ -2363,6 +2363,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lab/samples/{sampleId}/send-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records that a received sample was sent to a partner laboratory (#94), named in plain text, with the partner’s own number when it gives one. The sample stays received, at the stage `with_partner` until its report is back, and takes no results meanwhile. Once only, for a received sample with no results (409 `has_results`) while the order is not cancelled or completed (409 `invalid_transition`). Requires labSample:outsource and the laboratory feature flag. At the version sent (409 `conflict`). The Idempotency-Key header is required: a repeat changes nothing and answers with the sample as it is now. Audited. */
+        post: operations["sendOutLabSample"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/samples/{sampleId}/partner-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records that the partner laboratory’s report of a sample sent out came back (#94), so its results can be entered from it and verified as any other. Once only, for a sample with a partner (409 `invalid_transition` otherwise, and once the order is cancelled or completed). Requires labSample:outsource and the laboratory feature flag. At the version sent (409 `conflict`). The Idempotency-Key header is required: a repeat changes nothing and answers with the sample as it is now. Audited. */
+        post: operations["returnLabSample"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lab/samples/{sampleId}/reject": {
         parameters: {
             query?: never;
@@ -2423,7 +2457,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Enters results of a received sample: some or all of the tests of its order (the test, or each test of the panel), each once (400 otherwise). A test that is not of the order is 422 `unknown_test`, one that has a result already 409 `already_resulted` (correct it instead), a number that is not one 422 `invalid_number`. A sample not received, and an order cancelled or completed, are 409 `invalid_transition`. A number is read against the range for the patient’s sex and age on the day the sample was collected, which the result keeps. The first result moves the order in progress. A critical result emits `lab.critical_value`. The Idempotency-Key header is required: a repeat enters nothing and answers with the results as they are now. Requires labResult:enter and the laboratory feature flag. Audited. */
+        /** @description Enters results of a received sample: some or all of the tests of its order (the test, or each test of the panel), each once (400 otherwise). A test that is not of the order is 422 `unknown_test`, one that has a result already 409 `already_resulted` (correct it instead), a number that is not one 422 `invalid_number`. A sample not received, and an order cancelled or completed, are 409 `invalid_transition`. A sample with a partner laboratory whose report is not back is 409 `with_partner` (#94). A number is read against the range for the patient’s sex and age on the day the sample was collected, which the result keeps. The first result moves the order in progress. A critical result emits `lab.critical_value`. The Idempotency-Key header is required: a repeat enters nothing and answers with the results as they are now. Requires labResult:enter and the laboratory feature flag. Audited. */
         post: operations["enterLabResults"];
         delete?: never;
         options?: never;
@@ -4381,10 +4415,10 @@ export interface components {
             version: number;
         };
         /**
-         * @description Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, received by the laboratory, or completed (every result verified; a correction may still be waiting to be verified).
+         * @description Where a lab order is in the laboratory: its sample still to collect (none yet, or the last one rejected), collected, received by the laboratory, with a partner laboratory (sent out and its report not yet back, #94), or completed (every result verified; a correction may still be waiting to be verified).
          * @enum {string}
          */
-        LabStage: "to_collect" | "collected" | "received" | "completed";
+        LabStage: "to_collect" | "collected" | "received" | "with_partner" | "completed";
         /** @enum {string} */
         LabSampleStatus: "collected" | "received" | "rejected";
         /** @enum {string} */
@@ -4423,6 +4457,19 @@ export interface components {
             rejectedByName?: string;
             rejectReason?: components["schemas"]["LabRejectReason"];
             rejectNote?: string;
+            /** @description The partner laboratory the sample was sent to (#94). */
+            partnerLab?: string;
+            /** @description The partner’s own number for the sample or its report. */
+            partnerRef?: string;
+            /** Format: date-time */
+            sentOutAt?: string;
+            sentOutByName?: string;
+            /**
+             * Format: date-time
+             * @description When the partner’s report came back; results are entered from then.
+             */
+            returnedAt?: string;
+            returnedByName?: string;
             version: number;
         };
         /** @description A lab order as the laboratory works it, with its current sample. */
@@ -4468,6 +4515,13 @@ export interface components {
         LabSampleReceive: {
             /** @description The version the change was made from. Another one gives 409 `conflict`. */
             version: number;
+        };
+        LabSampleSendOut: {
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
+            partnerLab: string;
+            /** @description The partner’s own number for the sample, when it gives one. */
+            partnerRef?: string;
         };
         LabSampleReject: {
             /** @description The version the change was made from. Another one gives 409 `conflict`. */
@@ -16935,6 +16989,190 @@ export interface operations {
         };
     };
     receiveLabSample: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                sampleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabSampleReceive"];
+            };
+        };
+        responses: {
+            /** @description One sample of a lab order. Never removed: a rejected one stays, and a new one is collected. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabSample"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    sendOutLabSample: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                sampleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabSampleSendOut"];
+            };
+        };
+        responses: {
+            /** @description One sample of a lab order. Never removed: a rejected one stays, and a new one is collected. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabSample"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    returnLabSample: {
         parameters: {
             query?: never;
             header: {
