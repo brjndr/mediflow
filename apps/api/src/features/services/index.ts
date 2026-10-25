@@ -16,3 +16,5 @@ export const servicesFeature: FastifyPluginAsync = async (app) => {
 
 /** For the clinical module: a service of a category that may be ordered (imaging, procedure). */
 export { orderableService } from './repository.js';
+/** For radiology: the modalities an imaging service may have (#96). */
+export { MODALITIES, type Modality } from './schemas.js';

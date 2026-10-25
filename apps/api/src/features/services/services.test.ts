@@ -58,6 +58,7 @@ interface Service {
   code: string;
   name: string;
   category: string;
+  modality?: string;
   taxClass: string;
   description?: string;
   archived: boolean;
@@ -475,6 +476,35 @@ describe('changing a service', () => {
     expect(response.json<Service>().description).toBeUndefined();
     expect((await change(service.id, { name: '  ', expectedVersion: 2 })).statusCode).toBe(400);
     expect((await change(service.id, { name: 'No version' })).statusCode).toBe(400);
+  });
+
+  it('gives a modality to an imaging service only, and drops it when it leaves imaging (#96)', async () => {
+    expect(
+      errorOf(
+        await add({
+          code: code(),
+          name: 'Bad',
+          category: 'lab',
+          taxClass: 'exempt',
+          modality: 'ct',
+        }),
+      ),
+    ).toEqual([400, 'validation_failed']);
+    const scan = await added('Chest X-ray', {}, { category: 'imaging', modality: 'xray' });
+    expect(scan.modality).toBe('xray');
+    const ct = await change(scan.id, { modality: 'ct', expectedVersion: 1 });
+    expect(ct.json()).toMatchObject({ modality: 'ct', version: 2 });
+    expect((await events(hospital, scan.id)).at(-1)).toMatchObject({ fields: ['modality'] });
+    const none = await change(scan.id, { modality: null, expectedVersion: 2 });
+    expect(none.json<Service>().modality).toBeUndefined();
+    await change(scan.id, { modality: 'mri', expectedVersion: 3 });
+    const moved = await change(scan.id, { category: 'procedure', expectedVersion: 4 });
+    expect(moved.json<Service>()).toMatchObject({ category: 'procedure', version: 5 });
+    expect(moved.json<Service>().modality).toBeUndefined();
+    expect(errorOf(await change(scan.id, { modality: 'ct', expectedVersion: 5 }))).toEqual([
+      400,
+      'validation_failed',
+    ]);
   });
 
   it('archives and restores, and doing either twice changes nothing', async () => {

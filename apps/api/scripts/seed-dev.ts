@@ -437,6 +437,15 @@ const HOSPITALS = [
   },
 ] as const;
 
+/** The modality of each sample imaging service (#96), by name: radiology's worklist sorts by it. */
+const SAMPLE_MODALITIES: readonly [string, string][] = [
+  ['Chest X-ray', 'xray'],
+  ['Abdominal ultrasound', 'ultrasound'],
+  ['CT head plain', 'ct'],
+  ['MRI brain', 'mri'],
+  ['Echocardiography', 'ultrasound'],
+];
+
 const STAFF = [
   {
     email: 'admin@sample-hospital.test',
@@ -599,6 +608,14 @@ try {
                    ($4::bigint, date '2025-04-01', null)) as p (amount, starts, ends)
          where l.tenant_id = $1 and l.standard`,
         [tenantId, serviceId, Math.round(amount * 0.9), amount],
+      );
+    }
+    // Given to the imaging services that have none yet, so a hospital seeded before #96 has them.
+    for (const [name, modality] of SAMPLE_MODALITIES) {
+      await client.query(
+        `update services set modality = $3
+         where tenant_id = $1 and name = $2 and category = 'imaging' and modality is null`,
+        [tenantId, name, modality],
       );
     }
   }

@@ -254,7 +254,8 @@ describe('the appointment calendar', () => {
     expect(blocks()).toHaveLength(200);
   });
 
-  it('has no accessibility violations in the day and the week', async () => {
+  // Two axe passes over a whole calendar: about 5 s under coverage in CI.
+  it('has no accessibility violations in the day and the week', { timeout: 15_000 }, async () => {
     await openCalendar();
     await expectNoAxeViolations();
     await userEvent.click(screen.getByRole('button', { name: 'Day' }));

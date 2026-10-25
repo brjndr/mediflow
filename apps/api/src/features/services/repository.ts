@@ -1,5 +1,5 @@
 import type pg from 'pg';
-import type { ServiceCategory, TaxClass } from './schemas.js';
+import type { Modality, ServiceCategory, TaxClass } from './schemas.js';
 
 /**
  * The services and prices SQL. Every statement runs on the request's own transaction, so
@@ -24,6 +24,7 @@ export interface StoredService {
   name_lower: string;
   category: ServiceCategory;
   tax_class: TaxClass;
+  modality: Modality | null;
   description: string | null;
   archived: boolean;
   version: number;
@@ -39,7 +40,7 @@ export interface ServiceRow extends StoredService {
 }
 
 const STORED =
-  'id, tenant_id, code, name, name_lower, category, tax_class, description, archived, version';
+  'id, tenant_id, code, name, name_lower, category, tax_class, modality, description, archived, version';
 
 // An amount is at most 10^12, well inside what a JavaScript number holds exactly.
 const PRICE_COLUMNS = `id, service_id, price_list_id, amount_minor::float8 as amount_minor,
@@ -51,7 +52,7 @@ const PRICE_COLUMNS = `id, service_id, price_list_id, amount_minor::float8 as am
  */
 const servicesWithPrice = (today: number) => `
   select s.id, s.tenant_id, s.code, s.name, s.name_lower, s.category, s.tax_class,
-    s.description, s.archived, s.version,
+    s.modality, s.description, s.archived, s.version,
     p.id as price_id, p.price_list_id, p.amount_minor::float8 as amount_minor,
     p.effective_from::text as effective_from, p.effective_to::text as effective_to
   from services s
@@ -236,6 +237,7 @@ export interface ServiceDetails {
   name: string;
   category: ServiceCategory;
   taxClass: TaxClass;
+  modality: Modality | null;
   description: string | null;
 }
 
@@ -244,10 +246,10 @@ export async function insertService(
   input: ServiceDetails & { code: string },
 ): Promise<StoredService> {
   const { rows } = await client.query<StoredService>(
-    `insert into services (tenant_id, code, name, category, tax_class, description)
-     values (app_tenant_id(), $1, $2, $3, $4, $5)
+    `insert into services (tenant_id, code, name, category, tax_class, modality, description)
+     values (app_tenant_id(), $1, $2, $3, $4, $5, $6)
      returning ${STORED}`,
-    [input.code, input.name, input.category, input.taxClass, input.description],
+    [input.code, input.name, input.category, input.taxClass, input.modality, input.description],
   );
   const row = rows[0];
   if (!row) throw new Error('service was not created');
@@ -260,8 +262,9 @@ export async function updateService(
   changes: ServiceDetails,
 ): Promise<void> {
   const { rowCount } = await client.query(
-    'update services set name = $2, category = $3, tax_class = $4, description = $5 where id = $1',
-    [id, changes.name, changes.category, changes.taxClass, changes.description],
+    `update services set name = $2, category = $3, tax_class = $4, modality = $5, description = $6
+     where id = $1`,
+    [id, changes.name, changes.category, changes.taxClass, changes.modality, changes.description],
   );
   if (rowCount !== 1) throw new Error('service was not updated');
 }

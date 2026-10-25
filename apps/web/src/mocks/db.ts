@@ -147,6 +147,10 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'labResult:verify' },
   { permission: 'labResult:acknowledge' },
   { permission: 'labReport:print' },
+  // Radiology (#96): the worklist, scheduling and performing studies.
+  { permission: 'imagingStudy:read' },
+  { permission: 'imagingStudy:schedule' },
+  { permission: 'imagingStudy:perform' },
   { permission: 'billing:read' },
   { permission: 'billing:create' },
   { permission: 'billing:refund' },

@@ -9,6 +9,7 @@ import { todayAtHospital } from '../../core/tenancy/today.js';
 import {
   cleanDescription,
   cleanName,
+  modalityFor,
   invalid,
   noSuchList,
   prepareService,
@@ -69,6 +70,7 @@ const view = (row: ServiceRow): Service => ({
   name: row.name,
   category: row.category,
   taxClass: row.tax_class,
+  ...(row.modality === null ? {} : { modality: row.modality }),
   ...(row.description === null ? {} : { description: row.description }),
   archived: row.archived,
   version: row.version,
@@ -209,7 +211,7 @@ export const serviceRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'updateService',
         tags: ['services'],
         description:
-          'Changes a service: its name, category, tax class or description, never its code. Send the version the change was made from: 409 conflict when the service has changed since. Sending what the service already has changes nothing. A price is not changed here: see the prices of a service.' +
+          'Changes a service: its name, category, tax class, modality or description, never its code. A modality is only for an imaging service (400 validation_failed), null removes it, and a service moved to another category loses it. Send the version the change was made from: 409 conflict when the service has changed since. Sending what the service already has changes nothing. A price is not changed here: see the prices of a service.' +
           OTHER_HOSPITAL,
         params: Params,
         body: ref(ServiceUpdate),
@@ -225,10 +227,18 @@ export const serviceRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (current.version !== body.expectedVersion) {
         throw new HttpError(409, 'conflict', 'The service has changed');
       }
+      const category = body.category ?? current.category;
       const next = {
         name: body.name === undefined ? current.name : cleanName(body.name),
-        category: body.category ?? current.category,
+        category,
         taxClass: body.taxClass ?? current.tax_class,
+        // A service moved out of imaging loses its modality, unless one is sent (a 400).
+        modality:
+          body.modality === undefined
+            ? category === 'imaging'
+              ? current.modality
+              : null
+            : modalityFor(category, body.modality),
         description:
           body.description === undefined ? current.description : cleanDescription(body.description),
       };
@@ -237,6 +247,7 @@ export const serviceRoutes: FastifyPluginAsyncTypebox = async (app) => {
         next.name !== current.name && 'name',
         next.category !== current.category && 'category',
         next.taxClass !== current.tax_class && 'taxClass',
+        next.modality !== current.modality && 'modality',
         next.description !== current.description && 'description',
       ].filter((field): field is string => field !== false);
       if (changed.length > 0) {

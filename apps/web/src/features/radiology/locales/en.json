@@ -1,0 +1,99 @@
+{
+  "title": "Radiology",
+  "close": "Close",
+  "stage": {
+    "to_schedule": "To schedule",
+    "scheduled": "Scheduled",
+    "performed": "Performed, awaiting report"
+  },
+  "modality": {
+    "xray": "X-ray",
+    "ct": "CT",
+    "mri": "MRI",
+    "ultrasound": "Ultrasound",
+    "mammography": "Mammography",
+    "fluoroscopy": "Fluoroscopy",
+    "nuclear": "Nuclear medicine",
+    "other": "Other"
+  },
+  "priority": {
+    "stat": "Stat",
+    "urgent": "Urgent",
+    "routine": "Routine"
+  },
+  "list": {
+    "heading": "Radiology worklist",
+    "stage": "Stage",
+    "modality": "Modality",
+    "allModalities": "All modalities",
+    "priority": "Priority",
+    "allPriorities": "All priorities",
+    "count_one": "{{count}} study.",
+    "count_other": "{{count}} studies.",
+    "rowLabel": "{{name}}, {{study}}",
+    "columns": {
+      "patient": "Patient",
+      "mrn": "MRN",
+      "study": "Study",
+      "modality": "Modality",
+      "priority": "Priority",
+      "slot": "Slot",
+      "ordered": "Ordered",
+      "instructions": "Instructions"
+    },
+    "study": {
+      "none": "Not scheduled",
+      "unscheduled": "Unscheduled, to schedule again",
+      "scheduled": "{{time}}",
+      "performed": "Performed {{time}} by {{name}}",
+      "inProgress": "In progress"
+    },
+    "orderedBy": "{{time}} by {{name}}",
+    "schedule": "Schedule",
+    "reschedule": "Reschedule",
+    "unschedule": "Unschedule",
+    "perform": "Mark as performed",
+    "empty": {
+      "to_schedule": "No imaging orders to schedule.",
+      "scheduled": "No studies are scheduled.",
+      "performed": "No performed studies are waiting for a report."
+    }
+  },
+  "schedule": {
+    "heading": "Schedule {{study}}",
+    "headingMove": "Reschedule {{study}}",
+    "patient": "Patient",
+    "dob": "Date of birth",
+    "modality": "Modality",
+    "priority": "Priority",
+    "now": "Scheduled now for",
+    "instructions": "Instructions",
+    "day": "Day",
+    "time": "Start time",
+    "timeHint": "On the hospital's clock, in 15-minute steps.",
+    "dayOutside": "Choose a day from today to 90 days ahead.",
+    "submit": "Schedule study",
+    "submitting": "Scheduling…",
+    "done": "{{study}} for {{name}} scheduled for {{time}}.",
+    "refused": {
+      "conflict": "Someone changed this study meanwhile. Close this panel to see it as it is now.",
+      "notSchedulable": "This order can no longer be scheduled: it was cancelled or the study was performed.",
+      "gone": "This imaging order is no longer on the worklist.",
+      "outsideWindow": "That time has passed or is more than 90 days ahead. Choose another.",
+      "invalidSlot": "A study starts on a 15-minute step. Choose another time."
+    }
+  },
+  "unschedule": {
+    "done": "{{study}} for {{name}} unscheduled. It is back to schedule."
+  },
+  "perform": {
+    "done": "{{study}} for {{name}} marked as performed. It now waits for its report."
+  },
+  "change": {
+    "refused": {
+      "conflict": "Someone changed this study meanwhile. The worklist shows it as it is now.",
+      "notScheduled": "This study is no longer scheduled: it was moved, performed or cancelled.",
+      "gone": "This imaging order is no longer on the worklist."
+    }
+  }
+}

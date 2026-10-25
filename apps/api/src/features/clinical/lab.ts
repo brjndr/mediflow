@@ -48,7 +48,7 @@ export async function labOrder(
     : null;
 }
 
-/** The step the laboratory moves an order on by, from the status before it. */
+/** The step a fulfilling module moves an order on by, from the status before it. */
 const FROM: Record<'accepted' | 'in_progress' | 'completed', OrderStatusValue> = {
   accepted: 'placed',
   in_progress: 'accepted',
@@ -56,17 +56,18 @@ const FROM: Record<'accepted' | 'in_progress' | 'completed', OrderStatusValue> =
 };
 
 /**
- * For the laboratory: moves a lab order on by one step, as `POST /orders/:id/status` does, with
- * its audit and, on completing, `order.completed`. The order is locked by the caller
- * (`labOrder` with `forUpdate`). A move from any other status is 409 `invalid_transition`.
+ * Moves an order of `type` on by one step, as `POST /orders/:id/status` does, with its audit and,
+ * on completing, `order.completed`. The order is locked by the caller. A move from any other
+ * status is 409 `invalid_transition`.
  */
-export async function moveLabOrder(
+export async function moveOrderOf(
   request: FastifyRequest,
+  type: 'lab' | 'imaging',
   orderId: string,
   to: 'accepted' | 'in_progress' | 'completed',
 ): Promise<void> {
   const row = await findOrder(request.txClient, orderId);
-  if (!row || row.type !== 'lab') throw new HttpError(404, 'order_not_found', 'No such order');
+  if (!row || row.type !== type) throw new HttpError(404, 'order_not_found', 'No such order');
   if (row.status !== FROM[to]) {
     throw new HttpError(409, 'invalid_transition', `A ${row.status} order does not become ${to}`);
   }
@@ -74,3 +75,13 @@ export async function moveLabOrder(
   request.audit('update', 'order', row.id);
   if (to === 'completed') await request.emit('order.completed', row.id, orderEvent(row));
 }
+
+/**
+ * For the laboratory: moves a lab order on by one step (`labOrder` with `forUpdate` locks it
+ * first).
+ */
+export const moveLabOrder = (
+  request: FastifyRequest,
+  orderId: string,
+  to: 'accepted' | 'in_progress' | 'completed',
+): Promise<void> => moveOrderOf(request, 'lab', orderId, to);

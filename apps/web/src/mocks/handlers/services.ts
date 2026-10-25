@@ -10,6 +10,7 @@ type ServicePricePage = components['schemas']['ServicePricePage'];
 type PriceListList = components['schemas']['PriceListList'];
 type Category = Service['category'];
 type TaxClass = Service['taxClass'];
+type Modality = NonNullable<Service['modality']>;
 
 const FEATURE_FLAG = 'services';
 const READ = 'service:read';
@@ -24,6 +25,24 @@ const CATEGORIES: readonly Category[] = [
   'package',
 ];
 const TAX_CLASSES: readonly TaxClass[] = ['exempt', 'reduced', 'standard', 'higher'];
+const MODALITIES: readonly Modality[] = [
+  'xray',
+  'ct',
+  'mri',
+  'ultrasound',
+  'mammography',
+  'fluoroscopy',
+  'nuclear',
+  'other',
+];
+/** The modality of each sample imaging service (#96), as the dev seed gives it. */
+const SAMPLE_MODALITIES: Record<string, Modality> = {
+  'Chest X-ray': 'xray',
+  'Abdominal ultrasound': 'ultrasound',
+  'CT head plain': 'ct',
+  'MRI brain': 'mri',
+  Echocardiography: 'ultrasound',
+};
 const CODE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const AMOUNT_MAX = 1_000_000_000_000;
@@ -96,6 +115,9 @@ function seed(): State {
       category,
       // Clinical services are exempt; rooms and packages carry a rate.
       taxClass: category === 'bed' || category === 'package' ? 'standard' : 'exempt',
+      ...(category === 'imaging' && SAMPLE_MODALITIES[name]
+        ? { modality: SAMPLE_MODALITIES[name] }
+        : {}),
       archived,
       version: 1,
     };
@@ -155,6 +177,10 @@ export function mockServiceNamed(tenantId: string, name?: string, id?: string) {
     ? { id: service.id, name: service.name, category: service.category, archived: service.archived }
     : undefined;
 }
+
+/** The modality of a hospital's imaging service, `other` when it has none (#96), for radiology. */
+export const mockServiceModality = (tenantId: string, id: string): Modality =>
+  state.services.find((each) => each.tenantId === tenantId && each.id === id)?.modality ?? 'other';
 
 /**
  * For placing an imaging or procedure order (#87): the hospital's service of that category, not
@@ -222,10 +248,21 @@ async function readBody(request: Request): Promise<Record<string, unknown> | nul
   return typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : null;
 }
 
-/** The detail fields of a body, checked as the API's schema would. Null when not acceptable. */
-function readDetails(body: Record<string, unknown>): Partial<Stored> | null {
-  const fields: Partial<Stored> = {};
-  const { name, category, taxClass, description } = body;
+/**
+ * The detail fields of a body, checked as the API's schema would. Null when not acceptable. A
+ * modality sent as null is `removeModality`.
+ */
+function readDetails(
+  body: Record<string, unknown>,
+): (Partial<Stored> & { removeModality?: true }) | null {
+  const fields: Partial<Stored> & { removeModality?: true } = {};
+  const { name, category, taxClass, description, modality } = body;
+  if (modality === null) fields.removeModality = true;
+  else if (modality !== undefined) {
+    const known = MODALITIES.find((value) => value === modality);
+    if (!known) return null;
+    fields.modality = known;
+  }
   if (name !== undefined) {
     if (typeof name !== 'string' || !name.trim() || name.trim().length > 150) return null;
     fields.name = name.trim();
@@ -299,6 +336,8 @@ export const servicesHandlers = [
     const fields = body && readDetails(body);
     const code = typeof body?.code === 'string' ? body.code.trim() : '';
     if (!fields?.name || !fields.category || !fields.taxClass) return invalid();
+    // Only an imaging service has a modality, as the API's `modalityFor` says.
+    if (fields.modality && fields.category !== 'imaging') return invalid();
     if (!CODE.test(code) || code.length > 30) return invalid();
     if (body?.priceMinor !== undefined && !isAmount(body.priceMinor)) return invalid();
     const taken = state.services.some(
@@ -313,6 +352,7 @@ export const servicesHandlers = [
       name: fields.name,
       category: fields.category,
       taxClass: fields.taxClass,
+      ...(fields.modality ? { modality: fields.modality } : {}),
       ...(fields.description ? { description: fields.description } : {}),
       archived: false,
       version: 1,
@@ -351,9 +391,14 @@ export const servicesHandlers = [
     if (service.version !== body.expectedVersion) {
       return error(409, 'conflict', 'The service has changed');
     }
+    const { removeModality, ...changes } = fields;
+    const category = changes.category ?? service.category;
+    if (changes.modality && category !== 'imaging') return invalid();
     const before = JSON.stringify(service);
-    Object.assign(service, fields);
+    Object.assign(service, changes);
     if (service.description === '') delete service.description;
+    // Removed when asked, and when the service leaves imaging.
+    if (removeModality || category !== 'imaging') delete service.modality;
     // Sending what the service already has changes nothing.
     if (JSON.stringify(service) !== before) service.version += 1;
     return HttpResponse.json<Service>(view(service));

@@ -11,6 +11,17 @@ export const CATEGORIES = [
   'package',
 ] as const;
 export const TAX_CLASSES = ['exempt', 'reduced', 'standard', 'higher'] as const;
+/** The equipment an imaging service is performed on (#96); only imaging services have one. */
+export const MODALITIES = [
+  'xray',
+  'ct',
+  'mri',
+  'ultrasound',
+  'mammography',
+  'fluoroscopy',
+  'nuclear',
+  'other',
+] as const;
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -31,6 +42,7 @@ export const serviceSchema: z.ZodType<Service> = z.object({
   name: z.string(),
   category: z.enum(CATEGORIES),
   taxClass: z.enum(TAX_CLASSES),
+  modality: z.enum(MODALITIES).optional(),
   description: z.string().optional(),
   archived: z.boolean(),
   version: z.number().int().min(1),
@@ -121,6 +133,8 @@ const details = {
     .regex(PLAIN_TEXT, 'validation.plain_text'),
   category: z.enum(CATEGORIES, 'validation.required'),
   taxClass: z.enum(TAX_CLASSES, 'validation.required'),
+  // Empty is none. Offered for an imaging service only, and sent only for one.
+  modality: z.union([z.literal(''), z.enum(MODALITIES)]),
   description: z.string().trim().max(DESCRIPTION_MAX).regex(PLAIN_LINES, 'validation.plain_text'),
 };
 

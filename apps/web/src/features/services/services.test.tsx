@@ -215,6 +215,38 @@ describe('a service', () => {
     server.events.removeAllListeners();
   });
 
+  it('offers a modality for an imaging service only, and sends none as null (#96)', async () => {
+    const bodies: unknown[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'PATCH')
+        void request
+          .clone()
+          .json()
+          .then((body) => bodies.push(body));
+    });
+    // Chest X-ray, an X-ray.
+    await openService('svc_h_24');
+    expect(screen.getByText('X-ray')).toBeInTheDocument();
+    await userEvent.click(button('Edit details'));
+    await choose(/^Modality/, 'CT');
+    await userEvent.click(button('Save service'));
+    await waitFor(() => expect(statuses()).toContain('The service was saved.'));
+    expect(await screen.findByText('CT')).toBeInTheDocument();
+    await userEvent.click(button('Edit details'));
+    await choose(/^Modality/, 'None');
+    await userEvent.click(button('Save service'));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies).toEqual([
+      { modality: 'ct', expectedVersion: 1 },
+      { modality: null, expectedVersion: 2 },
+    ]);
+    // Moved to another category, the field goes.
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit details' }));
+    await choose(/^Category/, 'Procedure');
+    expect(screen.queryByRole('combobox', { name: /^Modality/ })).toBeNull();
+    server.events.removeAllListeners();
+  });
+
   it('keeps what was typed after a conflict, and saves it without undoing the other change', async () => {
     await openService();
     await userEvent.click(button('Edit details'));

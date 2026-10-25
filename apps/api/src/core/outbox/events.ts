@@ -36,6 +36,10 @@ export const DOMAIN_EVENTS = [
   'lab.critical_value',
   // A doctor acknowledged a verified critical result (#92).
   'lab.critical_acknowledged',
+  // Radiology's study of an imaging order (#96): ids and the modality, never the slot.
+  'imaging.scheduled',
+  'imaging.unscheduled',
+  'imaging.performed',
   'imaging.reported',
   'pharmacy.dispensed',
   'stock.low',

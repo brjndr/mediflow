@@ -40,6 +40,16 @@
     "standard": "Standard rate",
     "higher": "Higher rate"
   },
+  "modalities": {
+    "xray": "X-ray",
+    "ct": "CT",
+    "mri": "MRI",
+    "ultrasound": "Ultrasound",
+    "mammography": "Mammography",
+    "fluoroscopy": "Fluoroscopy",
+    "nuclear": "Nuclear medicine",
+    "other": "Other"
+  },
   "form": {
     "code": "Code",
     "codeHint": "How the service is named on bills. Letters, digits, dots and dashes. It cannot be changed later.",
@@ -49,6 +59,9 @@
     "taxClass": "Tax class",
     "taxClassHint": "Which tax rate applies. The rates themselves are set for the hospital, not here.",
     "chooseTaxClass": "Choose a tax class",
+    "modality": "Modality",
+    "modalityHint": "The equipment the study is done on. Radiology’s worklist is sorted by it.",
+    "noModality": "None",
     "description": "Description",
     "descriptionHint": "Optional. What the service includes.",
     "price": "Price from today ({{currency}})",

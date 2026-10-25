@@ -1649,6 +1649,13 @@ export const mockLabOrders = (tenantId: string): readonly Order[] =>
   state.orders.filter((each) => each.tenantId === tenantId && each.type === 'lab');
 
 /**
+ * The imaging orders of a hospital as the mock holds them, which radiology's mock works (#96); it
+ * moves one on with `moveMockOrder`, as the radiology API does through the clinical module.
+ */
+export const mockImagingOrders = (tenantId: string): readonly Order[] =>
+  state.orders.filter((each) => each.tenantId === tenantId && each.type === 'imaging');
+
+/**
  * A lab order of an encounter's patient placed behind the screen, as a doctor would, for tests
  * that need a test ordered more than once (a trend, #92). Gives its id.
  */

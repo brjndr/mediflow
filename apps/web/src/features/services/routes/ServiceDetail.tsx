@@ -42,6 +42,7 @@ function EditForm({
     name: from.name,
     category: from.category,
     taxClass: from.taxClass,
+    modality: from.modality ?? '',
     description: from.description ?? '',
   });
   // Read while rendering, which is what keeps it up to date.
@@ -55,18 +56,23 @@ function EditForm({
         name: latest.name,
         category: latest.category,
         taxClass: latest.taxClass,
+        modality: latest.modality ?? '',
         description: latest.description ?? '',
       },
       { keepDirtyValues: true },
     );
   }, [reset, latest]);
-  const FIELDS: ServiceField[] = ['name', 'category', 'taxClass', 'description'];
+  const FIELDS: ServiceField[] = ['name', 'category', 'taxClass', 'modality', 'description'];
   const shown = (service: Service, field: ServiceField) =>
     field === 'category'
       ? t(`categories.${service.category}`)
       : field === 'taxClass'
         ? t(`taxClasses.${service.taxClass}`)
-        : (service[field] ?? '') || t('detail.notGiven');
+        : field === 'modality'
+          ? service.modality
+            ? t(`modalities.${service.modality}`)
+            : t('form.noModality')
+          : (service[field] ?? '') || t('detail.notGiven');
   // Fields this person changed that someone else has changed too: saving puts this person's
   // value over theirs, so theirs is shown before that happens.
   const theirs = FIELDS.filter(
@@ -150,10 +156,18 @@ function Details({ service, refreshFailed }: { service: Service; refreshFailed: 
     setDone(null);
     // Nothing was changed: there is nothing to send.
     if (changed.length === 0) return start(null);
+    // A modality is sent for an imaging service only, empty as none; a service moved out of
+    // imaging loses it on the server.
+    const sent = changed.filter((field) => field !== 'modality' || values.category === 'imaging');
     try {
       await update.mutateAsync({
         body: {
-          ...Object.fromEntries(changed.map((field) => [field, values[field]])),
+          ...Object.fromEntries(
+            sent.map((field) => [
+              field,
+              field === 'modality' ? values.modality || null : values[field],
+            ]),
+          ),
           expectedVersion: expected,
         },
       });
@@ -232,6 +246,14 @@ function Details({ service, refreshFailed }: { service: Service; refreshFailed: 
               <dt className="text-muted-foreground">{t('columns.taxClass')}</dt>
               <dd>{t(`taxClasses.${service.taxClass}`)}</dd>
             </div>
+            {service.category === 'imaging' && (
+              <div>
+                <dt className="text-muted-foreground">{t('form.modality')}</dt>
+                <dd>
+                  {service.modality ? t(`modalities.${service.modality}`) : t('form.noModality')}
+                </dd>
+              </div>
+            )}
             <div>
               <dt className="text-muted-foreground">{t('form.description')}</dt>
               <dd className="break-words">{service.description || t('detail.notGiven')}</dd>
