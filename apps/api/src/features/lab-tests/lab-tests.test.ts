@@ -714,6 +714,12 @@ describe('reference ranges', () => {
       { ...row, low: 5, high: 9, criticalHigh: 8 },
       { ...row, high: 9, criticalLow: 10 },
       { ...row, low: 5, criticalHigh: 4 },
+      // A critical limit without the normal limit on its side, or on it: normal and critical at once.
+      { ...row, high: 5, criticalLow: 4 },
+      { ...row, low: 5, criticalHigh: 6 },
+      { ...row, high: 5, criticalLow: 5, criticalHigh: 5 },
+      { ...row, low: 5, high: 9, criticalLow: 5 },
+      { ...row, low: 5, high: 9, criticalHigh: 9 },
       // An end that is not after the start for every date of birth.
       { ...row, ageFrom: age(1, 'years'), ageUntil: age(12, 'months'), low: 1 },
       { ...row, ageFrom: age(1, 'months'), ageUntil: age(30, 'days'), low: 1 },
@@ -970,9 +976,15 @@ describe('two hospitals', () => {
     await expect(sql(range, [hospital.id, ours.id, 5, 4, null])).rejects.toThrow(
       /lab_test_ranges_low_below_high/,
     );
-    await expect(sql(range, [hospital.id, ours.id, 5, 9, 6])).rejects.toThrow(
-      /lab_test_ranges_critical_low/,
-    );
+    for (const [low, high, criticalLow] of [
+      [5, 9, 6],
+      [5, 9, 5],
+      [null, 9, 4],
+    ]) {
+      await expect(sql(range, [hospital.id, ours.id, low, high, criticalLow])).rejects.toThrow(
+        /lab_test_ranges_critical_low/,
+      );
+    }
     // A test with ranges stays numeric, and a panel has no result of its own.
     await expect(
       sql("update lab_tests set result_type = 'text' where id = $1", [ours.id]),

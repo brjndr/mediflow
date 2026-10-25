@@ -6,6 +6,7 @@ import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from
 import { editMockLabRanges, editMockLabTest } from '@/mocks/handlers/lab-tests';
 import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
+import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 import { labTestKeys } from './hooks/use-lab-tests';
 import { blankRangeRow, rangesOverlap, toRange, toRangeRow } from './schemas';
@@ -716,12 +717,15 @@ describe('reference ranges', () => {
     await typeIn(1, /^Until age/, '5');
     await userEvent.click(button('Save ranges'));
     expect(
-      await range(1).findByText('This must not be above the lowest normal value.'),
+      await range(1).findByText('Give the lowest normal value, and make this below it.'),
     ).toBeVisible();
-    expect(range(1).getByText('This must not be below the highest normal value.')).toBeVisible();
+    expect(
+      range(1).getByText('Give the highest normal value, and make this above it.'),
+    ).toBeVisible();
     expect(
       range(1).getByText('This age must be later than the age the range starts from.'),
     ).toBeVisible();
+    await expectNoAxeViolations();
 
     await typeIn(1, /^Lowest normal/, 'ten');
     await userEvent.click(button('Save ranges'));
@@ -793,6 +797,10 @@ describe('reference ranges', () => {
       [{ sex: 'any', ageFrom: birth }],
       [{ sex: 'any', ageFrom: birth, low: 5, high: 5 }],
       [{ sex: 'any', ageFrom: birth, low: 5, criticalLow: 6 }],
+      // A critical limit needs the normal limit on its side, and lies strictly beyond it (#310).
+      [{ sex: 'any', ageFrom: birth, high: 5, criticalLow: 4 }],
+      [{ sex: 'any', ageFrom: birth, low: 5, high: 9, criticalLow: 5 }],
+      [{ sex: 'any', ageFrom: birth, low: 5, high: 9, criticalHigh: 9 }],
       // An age is a whole value with a known unit, of at most 150 years.
       [{ sex: 'any', ageFrom: 0, low: 1 }],
       [{ sex: 'any', ageFrom: age(1, 'decades'), low: 1 }],

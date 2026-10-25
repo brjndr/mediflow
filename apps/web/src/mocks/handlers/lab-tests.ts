@@ -493,16 +493,10 @@ function readRanges(value: unknown): LabRange[] | null {
     if (numbers.low !== undefined && numbers.high !== undefined && numbers.low >= numbers.high) {
       return null;
     }
-    const floor = numbers.low ?? numbers.high;
-    const ceiling = numbers.high ?? numbers.low;
-    if (numbers.criticalLow !== undefined && floor !== undefined && numbers.criticalLow > floor) {
-      return null;
-    }
-    if (
-      numbers.criticalHigh !== undefined &&
-      ceiling !== undefined &&
-      numbers.criticalHigh < ceiling
-    ) {
+    // A critical limit lies strictly beyond the normal limit on its side.
+    const { criticalLow: lowest, criticalHigh: highest } = numbers;
+    if (lowest !== undefined && (numbers.low === undefined || lowest >= numbers.low)) return null;
+    if (highest !== undefined && (numbers.high === undefined || highest <= numbers.high)) {
       return null;
     }
     if (note !== undefined && (typeof note !== 'string' || note.length > 150)) return null;

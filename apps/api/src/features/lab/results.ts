@@ -19,9 +19,9 @@ export function decimalOf(text: string): string | null {
 }
 
 /**
- * A number read against its range. The critical limits come first, so a range that contradicts
- * itself (#310) still gives one flag: at or below the critical low, at or above the critical
- * high, then below the low, above the high, else normal.
+ * A number read against its range: at or below the critical low, at or above the critical high,
+ * then below the low, above the high, else normal. A critical limit lies strictly beyond its
+ * normal limit (#310), so no value falls in two of these.
  */
 export function flagOf(value: number, range: RangeLimits): LabResultFlagValue {
   if (range.criticalLow !== undefined && value <= range.criticalLow) return 'critical_low';

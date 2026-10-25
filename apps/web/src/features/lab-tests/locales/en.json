@@ -208,8 +208,8 @@
       "untilAfterFrom": "This age must be later than the age the range starts from.",
       "oneLimit": "Give a lowest or a highest normal value.",
       "highAboveLow": "This must be above the lowest normal value.",
-      "criticalLow": "This must not be above the lowest normal value.",
-      "criticalHigh": "This must not be below the highest normal value.",
+      "criticalLow": "Give the lowest normal value, and make this below it.",
+      "criticalHigh": "Give the highest normal value, and make this above it.",
       "overlap": "Another range for the same people already covers some of these ages, or could for some dates of birth. Where two ranges meet, give the same age in the same unit."
     },
     "check": {
