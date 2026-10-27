@@ -2670,6 +2670,178 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/inventory/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The places of the active tenant that keep stock, in use (or archived), by name. `total` comes with the first page. */
+        get: operations["listStockLocations"];
+        put?: never;
+        /** @description Adds a place that keeps stock. A name the hospital already has, archived or not, whatever the capitals, is 409 location_name_taken. Audited. */
+        post: operations["createStockLocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/locations/{locationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Renames a place or changes its kind. 409 conflict when it changed since the version sent; 409 location_name_taken as on adding. Sending what it has changes nothing. Audited. A place of another hospital answers 404, the same as one that does not exist. */
+        patch: operations["updateStockLocation"];
+        trace?: never;
+    };
+    "/inventory/locations/{locationId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a place: no stock is moved there any more. Refused with 409 location_has_stock while any batch has stock there. Doing it twice changes nothing. Audited. A place of another hospital answers 404. */
+        post: operations["archiveStockLocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/locations/{locationId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived place back. Doing it twice changes nothing. Audited. A place of another hospital answers 404. */
+        post: operations["restoreStockLocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The items in use of the drug and consumable master with their stock, by generic name then brand: units on hand at the place asked (or the whole hospital) and at the whole hospital, whether the hospital’s stock is low (at or below the item’s reorder level, whatever the place), and the batches with stock at the place, soonest expiry first. `alert` narrows to low, expiring or expired items; a batch is expired the day after its expiry date at the hospital. `total` comes with the first page. No patient data: a GET. */
+        get: operations["listStock"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/stock/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description How many items are low (the whole hospital’s stock), and have stock expiring or expired at the place asked (or anywhere): the counts of the stock list’s alerts. */
+        get: operations["getStockAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every change of stock, newest first, of an item, a batch and a place, from and to an instant when asked. Append-only: a correction is a later entry. No `total`: the ledger only grows. */
+        get: operations["listStockLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The adjustments of a status (pending when not sent), newest asked first, each with the batch’s stock at its place now. `total` comes with the first page. */
+        get: operations["listStockAdjustments"];
+        put?: never;
+        /** @description Asks for a stock adjustment, which waits for someone else to approve it: nothing moves yet. The place must be in use and the item in use (400). Either a batch of the item (`batchId`), or a new batch (`batchNumber` and `expiryDate`, with `mrpMinor` and `costMinor` when known) for opening stock only; a new batch whose number the item already has is 409 batch_exists, to be chosen instead. Opening stock is positive, damaged and expired stock negative, a count correction and other either way, never 0 (400). Taking out more than the batch has at the place now is 409 insufficient_stock (checked again on approval). Audited. */
+        post: operations["createStockAdjustment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/adjustments/{adjustmentId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Approves a pending adjustment someone else asked for (409 own_adjustment), at its version (409 conflict): it moves the stock through the ledger, making the new batch of opening stock first (409 batch_exists when a batch of that number with another expiry was made meanwhile). Refused with 409 insufficient_stock when the batch has fewer units at the place than it takes out, 409 location_archived when its place was archived, 409 adjustment_decided once decided. Emits `stock.adjusted`, and `stock.low` when it brings the hospital’s stock of the item to its reorder level or below. Audited. */
+        post: operations["approveStockAdjustment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/adjustments/{adjustmentId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Rejects a pending adjustment someone else asked for, with a note saying why: nothing moves. The same refusals as approving, apart from those of stock. Audited. */
+        post: operations["rejectStockAdjustment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -4956,6 +5128,213 @@ export interface components {
         ImagingStudyChange: {
             /** @description The version the change was made from. Another one gives 409 `conflict`. */
             version: number;
+        };
+        /**
+         * @description What a place that keeps stock is: a store, a pharmacy counter, or a ward’s own stock.
+         * @enum {string}
+         */
+        StockLocationKind: "store" | "pharmacy" | "ward";
+        /**
+         * @description Why stock is adjusted: opening stock (brought in, the only reason that may describe a new batch), a correction after a count (either way), damaged or expired stock (taken out), or another reason given in the note.
+         * @enum {string}
+         */
+        StockAdjustmentReason: "opening" | "count_correction" | "damaged" | "expired" | "other";
+        /**
+         * @description An adjustment waits for a second person, who approves it (stock moves, in the ledger) or rejects it (nothing moves).
+         * @enum {string}
+         */
+        StockAdjustmentStatus: "pending" | "approved" | "rejected";
+        /**
+         * @description Whether a batch is past its expiry date at the hospital today (`expired`), expires within the days asked (`expiring`), or neither.
+         * @enum {string}
+         */
+        StockExpiryState: "ok" | "expiring" | "expired";
+        /**
+         * @description What made a ledger entry. Goods receipts, dispenses and transfers come with their modules.
+         * @enum {string}
+         */
+        StockLedgerSource: "adjustment";
+        /** @description A place of the hospital that keeps stock. */
+        StockLocation: {
+            id: string;
+            tenantId: string;
+            name: string;
+            kind: components["schemas"]["StockLocationKind"];
+            archived: boolean;
+            /** @description Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        StockLocationPage: {
+            items: components["schemas"]["StockLocation"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        StockLocationCreate: {
+            name: string;
+            kind: components["schemas"]["StockLocationKind"];
+        };
+        StockLocationUpdate: {
+            /** @description The version the change was made from. */
+            expectedVersion: number;
+            name?: string;
+            kind?: components["schemas"]["StockLocationKind"];
+        };
+        /** @description An item of the drug and consumable master, as it reads now. */
+        StockItemName: {
+            drugId: string;
+            /** @enum {string} */
+            type: "medicine" | "consumable";
+            genericName: string;
+            brandName?: string;
+            form: string;
+            strength?: string;
+            /** @description What one unit of stock is. */
+            unit?: string;
+        };
+        /** @description How many units of a batch are at one place. Only batches with stock are listed. */
+        StockBatchBalance: {
+            batchId: string;
+            batchNumber: string;
+            /**
+             * Format: date
+             * @description A calendar date, not an instant: YYYY-MM-DD.
+             */
+            expiryDate: string;
+            mrpMinor?: number;
+            locationId: string;
+            locationName: string;
+            onHand: number;
+            expiry: components["schemas"]["StockExpiryState"];
+        };
+        /** @description An item and its stock. */
+        StockItem: {
+            item: components["schemas"]["StockItemName"];
+            /** @description Stock of the whole hospital at or below this is low. */
+            reorderLevel?: number;
+            /** @description Units on hand at the place asked, or at the whole hospital when none was. */
+            onHand: number;
+            /** @description Units on hand at the whole hospital. */
+            hospitalOnHand: number;
+            /** @description The hospital’s stock is at or below the reorder level. Never without a level. */
+            low: boolean;
+            /** @description The batches with stock at the place asked (or anywhere), soonest expiry first. */
+            batches: components["schemas"]["StockBatchBalance"][];
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        StockItemPage: {
+            items: components["schemas"]["StockItem"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        StockAlertCounts: {
+            /** @description Items whose hospital stock is low. */
+            low: number;
+            /** @description Items with stock expiring at the place. */
+            expiring: number;
+            /** @description Items with expired stock at the place. */
+            expired: number;
+        };
+        /** @description One change of stock. The ledger is append-only: a correction is a new entry. */
+        StockLedgerEntry: {
+            id: string;
+            /** Format: date-time */
+            at: string;
+            item: components["schemas"]["StockItemName"];
+            batchId: string;
+            batchNumber: string;
+            /**
+             * Format: date
+             * @description A calendar date, not an instant: YYYY-MM-DD.
+             */
+            expiryDate: string;
+            locationId: string;
+            locationName: string;
+            /** @description Positive in, negative out. */
+            quantity: number;
+            /** @description The batch’s stock at the place right after the entry. */
+            balanceAfter: number;
+            source: components["schemas"]["StockLedgerSource"];
+            sourceId: string;
+            reason: components["schemas"]["StockAdjustmentReason"];
+            /** @description Who made the change: for an adjustment, the approver. */
+            actorName: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        StockLedgerPage: {
+            items: components["schemas"]["StockLedgerEntry"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description A change of stock asked for by one person and decided by another. Only an approved one moves stock, through the ledger. */
+        StockAdjustment: {
+            id: string;
+            tenantId: string;
+            locationId: string;
+            locationName: string;
+            item: components["schemas"]["StockItemName"];
+            /** @description Empty for a new batch not yet approved. */
+            batchId?: string;
+            batchNumber: string;
+            /**
+             * Format: date
+             * @description A calendar date, not an instant: YYYY-MM-DD.
+             */
+            expiryDate: string;
+            /** @description The adjustment brings in a batch new to the hospital. */
+            newBatch: boolean;
+            mrpMinor?: number;
+            costMinor?: number;
+            /** @description Positive in, negative out. */
+            quantity: number;
+            reason: components["schemas"]["StockAdjustmentReason"];
+            note?: string;
+            /** @description The batch’s stock at the place now. */
+            onHand: number;
+            status: components["schemas"]["StockAdjustmentStatus"];
+            requestedById: string;
+            requestedByName: string;
+            /** Format: date-time */
+            requestedAt: string;
+            decidedByName?: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            rejectionNote?: string;
+            /** @description Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        StockAdjustmentPage: {
+            items: components["schemas"]["StockAdjustment"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        StockAdjustmentCreate: {
+            locationId: string;
+            drugId: string;
+            /** @description A batch of the item. Or describe a new one. */
+            batchId?: string;
+            /** @description A new batch, as printed on the pack: opening stock only. */
+            batchNumber?: string;
+            /**
+             * Format: date
+             * @description A calendar date, not an instant: YYYY-MM-DD.
+             */
+            expiryDate?: string;
+            mrpMinor?: number;
+            costMinor?: number;
+            quantity: number;
+            reason: components["schemas"]["StockAdjustmentReason"];
+            note?: string;
+        };
+        StockAdjustmentApprove: {
+            /** @description The version the change was made from. */
+            expectedVersion: number;
+        };
+        StockAdjustmentReject: {
+            /** @description The version the change was made from. */
+            expectedVersion: number;
+            note: string;
         };
         Notice: {
             id: string;
@@ -18972,6 +19351,924 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImagingReport"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listStockLocations: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                /** @description The archived places instead of those in use. */
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockLocationPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createStockLocation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockLocationCreate"];
+            };
+        };
+        responses: {
+            /** @description A place of the hospital that keeps stock. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockLocation"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateStockLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockLocationUpdate"];
+            };
+        };
+        responses: {
+            /** @description A place of the hospital that keeps stock. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockLocation"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    archiveStockLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A place of the hospital that keeps stock. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockLocation"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restoreStockLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A place of the hospital that keeps stock. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockLocation"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listStock: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                locationId?: string;
+                /** @description One item only. */
+                drugId?: string;
+                /** @description Only items whose hospital stock is low (whatever the place), or that have a batch with stock at the place that is expiring or expired. */
+                alert?: "low" | "expiring" | "expired";
+                /** @description A batch expiring within this many days of today at the hospital is expiring: 90 when not sent. */
+                expiringWithinDays?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockItemPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getStockAlerts: {
+        parameters: {
+            query?: {
+                locationId?: string;
+                /** @description A batch expiring within this many days of today at the hospital is expiring: 90 when not sent. */
+                expiringWithinDays?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockAlertCounts"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listStockLedger: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                drugId?: string;
+                batchId?: string;
+                locationId?: string;
+                /** @description At or after. */
+                from?: string;
+                /** @description Before. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockLedgerPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listStockAdjustments: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                status?: components["schemas"]["StockAdjustmentStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockAdjustmentPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createStockAdjustment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockAdjustmentCreate"];
+            };
+        };
+        responses: {
+            /** @description A change of stock asked for by one person and decided by another. Only an approved one moves stock, through the ledger. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockAdjustment"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    approveStockAdjustment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                adjustmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockAdjustmentApprove"];
+            };
+        };
+        responses: {
+            /** @description A change of stock asked for by one person and decided by another. Only an approved one moves stock, through the ledger. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockAdjustment"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    rejectStockAdjustment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                adjustmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockAdjustmentReject"];
+            };
+        };
+        responses: {
+            /** @description A change of stock asked for by one person and decided by another. Only an approved one moves stock, through the ledger. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockAdjustment"];
                 };
             };
             /** @description Standard error body. */

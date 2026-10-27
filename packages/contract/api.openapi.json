@@ -6406,6 +6406,587 @@
             "type": "integer"
           }
         }
+      },
+      "StockLocationKind": {
+        "type": "string",
+        "enum": ["store", "pharmacy", "ward"],
+        "description": "What a place that keeps stock is: a store, a pharmacy counter, or a ward’s own stock."
+      },
+      "StockAdjustmentReason": {
+        "type": "string",
+        "enum": ["opening", "count_correction", "damaged", "expired", "other"],
+        "description": "Why stock is adjusted: opening stock (brought in, the only reason that may describe a new batch), a correction after a count (either way), damaged or expired stock (taken out), or another reason given in the note."
+      },
+      "StockAdjustmentStatus": {
+        "type": "string",
+        "enum": ["pending", "approved", "rejected"],
+        "description": "An adjustment waits for a second person, who approves it (stock moves, in the ledger) or rejects it (nothing moves)."
+      },
+      "StockExpiryState": {
+        "type": "string",
+        "enum": ["ok", "expiring", "expired"],
+        "description": "Whether a batch is past its expiry date at the hospital today (`expired`), expires within the days asked (`expiring`), or neither."
+      },
+      "StockLedgerSource": {
+        "type": "string",
+        "enum": ["adjustment"],
+        "description": "What made a ledger entry. Goods receipts, dispenses and transfers come with their modules."
+      },
+      "StockLocation": {
+        "description": "A place of the hospital that keeps stock.",
+        "type": "object",
+        "required": ["id", "tenantId", "name", "kind", "archived", "version"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/StockLocationKind"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`.",
+            "type": "integer"
+          }
+        }
+      },
+      "StockLocationPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockLocation"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "StockLocationCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "kind"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/StockLocationKind"
+          }
+        }
+      },
+      "StockLocationUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The version the change was made from.",
+            "type": "integer"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/StockLocationKind"
+          }
+        }
+      },
+      "StockItemName": {
+        "description": "An item of the drug and consumable master, as it reads now.",
+        "type": "object",
+        "required": ["drugId", "type", "genericName", "form"],
+        "properties": {
+          "drugId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["medicine", "consumable"]
+          },
+          "genericName": {
+            "type": "string"
+          },
+          "brandName": {
+            "type": "string"
+          },
+          "form": {
+            "type": "string"
+          },
+          "strength": {
+            "type": "string"
+          },
+          "unit": {
+            "description": "What one unit of stock is.",
+            "type": "string"
+          }
+        }
+      },
+      "StockBatchBalance": {
+        "description": "How many units of a batch are at one place. Only batches with stock are listed.",
+        "type": "object",
+        "required": [
+          "batchId",
+          "batchNumber",
+          "expiryDate",
+          "locationId",
+          "locationName",
+          "onHand",
+          "expiry"
+        ],
+        "properties": {
+          "batchId": {
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, not an instant: YYYY-MM-DD.",
+            "type": "string"
+          },
+          "mrpMinor": {
+            "type": "integer"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "locationName": {
+            "type": "string"
+          },
+          "onHand": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "expiry": {
+            "$ref": "#/components/schemas/StockExpiryState"
+          }
+        }
+      },
+      "StockItem": {
+        "description": "An item and its stock.",
+        "type": "object",
+        "required": ["item", "onHand", "hospitalOnHand", "low", "batches"],
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/StockItemName"
+          },
+          "reorderLevel": {
+            "description": "Stock of the whole hospital at or below this is low.",
+            "type": "integer"
+          },
+          "onHand": {
+            "description": "Units on hand at the place asked, or at the whole hospital when none was.",
+            "type": "integer"
+          },
+          "hospitalOnHand": {
+            "description": "Units on hand at the whole hospital.",
+            "type": "integer"
+          },
+          "low": {
+            "description": "The hospital’s stock is at or below the reorder level. Never without a level.",
+            "type": "boolean"
+          },
+          "batches": {
+            "description": "The batches with stock at the place asked (or anywhere), soonest expiry first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockBatchBalance"
+            }
+          }
+        }
+      },
+      "StockItemPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockItem"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "StockAlertCounts": {
+        "type": "object",
+        "required": ["low", "expiring", "expired"],
+        "properties": {
+          "low": {
+            "minimum": 0,
+            "description": "Items whose hospital stock is low.",
+            "type": "integer"
+          },
+          "expiring": {
+            "minimum": 0,
+            "description": "Items with stock expiring at the place.",
+            "type": "integer"
+          },
+          "expired": {
+            "minimum": 0,
+            "description": "Items with expired stock at the place.",
+            "type": "integer"
+          }
+        }
+      },
+      "StockLedgerEntry": {
+        "description": "One change of stock. The ledger is append-only: a correction is a new entry.",
+        "type": "object",
+        "required": [
+          "id",
+          "at",
+          "item",
+          "batchId",
+          "batchNumber",
+          "expiryDate",
+          "locationId",
+          "locationName",
+          "quantity",
+          "balanceAfter",
+          "source",
+          "sourceId",
+          "reason",
+          "actorName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "item": {
+            "$ref": "#/components/schemas/StockItemName"
+          },
+          "batchId": {
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, not an instant: YYYY-MM-DD.",
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "locationName": {
+            "type": "string"
+          },
+          "quantity": {
+            "description": "Positive in, negative out.",
+            "type": "integer"
+          },
+          "balanceAfter": {
+            "description": "The batch’s stock at the place right after the entry.",
+            "type": "integer"
+          },
+          "source": {
+            "$ref": "#/components/schemas/StockLedgerSource"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/StockAdjustmentReason"
+          },
+          "actorName": {
+            "description": "Who made the change: for an adjustment, the approver.",
+            "type": "string"
+          }
+        }
+      },
+      "StockLedgerPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockLedgerEntry"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "StockAdjustment": {
+        "description": "A change of stock asked for by one person and decided by another. Only an approved one moves stock, through the ledger.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "locationId",
+          "locationName",
+          "item",
+          "batchNumber",
+          "expiryDate",
+          "newBatch",
+          "quantity",
+          "reason",
+          "onHand",
+          "status",
+          "requestedById",
+          "requestedByName",
+          "requestedAt",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "locationName": {
+            "type": "string"
+          },
+          "item": {
+            "$ref": "#/components/schemas/StockItemName"
+          },
+          "batchId": {
+            "description": "Empty for a new batch not yet approved.",
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, not an instant: YYYY-MM-DD.",
+            "type": "string"
+          },
+          "newBatch": {
+            "description": "The adjustment brings in a batch new to the hospital.",
+            "type": "boolean"
+          },
+          "mrpMinor": {
+            "type": "integer"
+          },
+          "costMinor": {
+            "type": "integer"
+          },
+          "quantity": {
+            "description": "Positive in, negative out.",
+            "type": "integer"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/StockAdjustmentReason"
+          },
+          "note": {
+            "type": "string"
+          },
+          "onHand": {
+            "description": "The batch’s stock at the place now.",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StockAdjustmentStatus"
+          },
+          "requestedById": {
+            "type": "string"
+          },
+          "requestedByName": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "decidedByName": {
+            "type": "string"
+          },
+          "decidedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "rejectionNote": {
+            "type": "string"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`.",
+            "type": "integer"
+          }
+        }
+      },
+      "StockAdjustmentPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockAdjustment"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "StockAdjustmentCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["locationId", "drugId", "quantity", "reason"],
+        "properties": {
+          "locationId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "drugId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "batchId": {
+            "maxLength": 64,
+            "description": "A batch of the item. Or describe a new one.",
+            "type": "string"
+          },
+          "batchNumber": {
+            "minLength": 1,
+            "maxLength": 40,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "A new batch, as printed on the pack: opening stock only.",
+            "type": "string"
+          },
+          "expiryDate": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, not an instant: YYYY-MM-DD.",
+            "type": "string"
+          },
+          "mrpMinor": {
+            "minimum": 0,
+            "maximum": 100000000000,
+            "type": "integer"
+          },
+          "costMinor": {
+            "minimum": 0,
+            "maximum": 100000000000,
+            "type": "integer"
+          },
+          "quantity": {
+            "minimum": -1000000,
+            "maximum": 1000000,
+            "type": "integer"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/StockAdjustmentReason"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "StockAdjustmentApprove": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The version the change was made from.",
+            "type": "integer"
+          }
+        }
+      },
+      "StockAdjustmentReject": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion", "note"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The version the change was made from.",
+            "type": "integer"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
       }
     }
   },
@@ -24310,6 +24891,1259 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ImagingReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/locations": {
+      "get": {
+        "operationId": "listStockLocations",
+        "tags": ["inventory"],
+        "description": "The places of the active tenant that keep stock, in use (or archived), by name. `total` comes with the first page.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "archived",
+            "required": false,
+            "description": "The archived places instead of those in use."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockLocationPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createStockLocation",
+        "tags": ["inventory"],
+        "description": "Adds a place that keeps stock. A name the hospital already has, archived or not, whatever the capitals, is 409 location_name_taken. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockLocationCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A place of the hospital that keeps stock.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockLocation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/locations/{locationId}": {
+      "patch": {
+        "operationId": "updateStockLocation",
+        "tags": ["inventory"],
+        "description": "Renames a place or changes its kind. 409 conflict when it changed since the version sent; 409 location_name_taken as on adding. Sending what it has changes nothing. Audited. A place of another hospital answers 404, the same as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockLocationUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "locationId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A place of the hospital that keeps stock.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockLocation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/locations/{locationId}/archive": {
+      "post": {
+        "operationId": "archiveStockLocation",
+        "tags": ["inventory"],
+        "description": "Archives a place: no stock is moved there any more. Refused with 409 location_has_stock while any batch has stock there. Doing it twice changes nothing. Audited. A place of another hospital answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "locationId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A place of the hospital that keeps stock.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockLocation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/locations/{locationId}/restore": {
+      "post": {
+        "operationId": "restoreStockLocation",
+        "tags": ["inventory"],
+        "description": "Brings an archived place back. Doing it twice changes nothing. Audited. A place of another hospital answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "locationId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A place of the hospital that keeps stock.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockLocation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/stock": {
+      "get": {
+        "operationId": "listStock",
+        "tags": ["inventory"],
+        "description": "The items in use of the drug and consumable master with their stock, by generic name then brand: units on hand at the place asked (or the whole hospital) and at the whole hospital, whether the hospital’s stock is low (at or below the item’s reorder level, whatever the place), and the batches with stock at the place, soonest expiry first. `alert` narrows to low, expiring or expired items; a batch is expired the day after its expiry date at the hospital. `total` comes with the first page. No patient data: a GET.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "locationId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "drugId",
+            "required": false,
+            "description": "One item only."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["low", "expiring", "expired"]
+            },
+            "in": "query",
+            "name": "alert",
+            "required": false,
+            "description": "Only items whose hospital stock is low (whatever the place), or that have a batch with stock at the place that is expiring or expired."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 365,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "expiringWithinDays",
+            "required": false,
+            "description": "A batch expiring within this many days of today at the hospital is expiring: 90 when not sent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockItemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/stock/alerts": {
+      "get": {
+        "operationId": "getStockAlerts",
+        "tags": ["inventory"],
+        "description": "How many items are low (the whole hospital’s stock), and have stock expiring or expired at the place asked (or anywhere): the counts of the stock list’s alerts.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "locationId",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 365,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "expiringWithinDays",
+            "required": false,
+            "description": "A batch expiring within this many days of today at the hospital is expiring: 90 when not sent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockAlertCounts"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/ledger": {
+      "get": {
+        "operationId": "listStockLedger",
+        "tags": ["inventory"],
+        "description": "Every change of stock, newest first, of an item, a batch and a place, from and to an instant when asked. Append-only: a correction is a later entry. No `total`: the ledger only grows.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "drugId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "batchId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "locationId",
+            "required": false
+          },
+          {
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "description": "At or after."
+          },
+          {
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "description": "Before."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockLedgerPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/adjustments": {
+      "get": {
+        "operationId": "listStockAdjustments",
+        "tags": ["inventory"],
+        "description": "The adjustments of a status (pending when not sent), newest asked first, each with the batch’s stock at its place now. `total` comes with the first page.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/StockAdjustmentStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockAdjustmentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createStockAdjustment",
+        "tags": ["inventory"],
+        "description": "Asks for a stock adjustment, which waits for someone else to approve it: nothing moves yet. The place must be in use and the item in use (400). Either a batch of the item (`batchId`), or a new batch (`batchNumber` and `expiryDate`, with `mrpMinor` and `costMinor` when known) for opening stock only; a new batch whose number the item already has is 409 batch_exists, to be chosen instead. Opening stock is positive, damaged and expired stock negative, a count correction and other either way, never 0 (400). Taking out more than the batch has at the place now is 409 insufficient_stock (checked again on approval). Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockAdjustmentCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A change of stock asked for by one person and decided by another. Only an approved one moves stock, through the ledger.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockAdjustment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/adjustments/{adjustmentId}/approve": {
+      "post": {
+        "operationId": "approveStockAdjustment",
+        "tags": ["inventory"],
+        "description": "Approves a pending adjustment someone else asked for (409 own_adjustment), at its version (409 conflict): it moves the stock through the ledger, making the new batch of opening stock first (409 batch_exists when a batch of that number with another expiry was made meanwhile). Refused with 409 insufficient_stock when the batch has fewer units at the place than it takes out, 409 location_archived when its place was archived, 409 adjustment_decided once decided. Emits `stock.adjusted`, and `stock.low` when it brings the hospital’s stock of the item to its reorder level or below. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockAdjustmentApprove"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "adjustmentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A change of stock asked for by one person and decided by another. Only an approved one moves stock, through the ledger.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockAdjustment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/adjustments/{adjustmentId}/reject": {
+      "post": {
+        "operationId": "rejectStockAdjustment",
+        "tags": ["inventory"],
+        "description": "Rejects a pending adjustment someone else asked for, with a note saying why: nothing moves. The same refusals as approving, apart from those of stock. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockAdjustmentReject"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "adjustmentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A change of stock asked for by one person and decided by another. Only an approved one moves stock, through the ledger.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockAdjustment"
                 }
               }
             }

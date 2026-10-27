@@ -44,6 +44,8 @@ export const DOMAIN_EVENTS = [
   'imaging.reported',
   'imaging.addendum_added',
   'pharmacy.dispensed',
+  // An approved stock adjustment moved stock (#102): ids and the reason, never a quantity.
+  'stock.adjusted',
   'stock.low',
   'stock.expiring',
   'charge.posted',

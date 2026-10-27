@@ -7,7 +7,8 @@ import type { Drug } from '../types';
 
 /**
  * A search box for a medicine to prescribe: type words of its generic name or brand, and choose
- * from what the server finds. Consumables and archived items are not offered. The catalog is
+ * from what the server finds. Archived items are not offered, nor consumables unless the screen
+ * asks for them (`includeConsumables`, for stock). The catalog is
  * searched on the server, with the term in the body of the request, and never loaded whole.
  *
  * For any screen that records a medicine (a prescription, a medication order). It works with the
@@ -19,6 +20,7 @@ export function DrugSearch({
   onSelect,
   invalid,
   describedBy,
+  includeConsumables = false,
 }: {
   /** Already translated: what the medicine is for on this screen. */
   label: string;
@@ -26,6 +28,8 @@ export function DrugSearch({
   /** The screen's own error for the field, when it has one. */
   invalid?: boolean;
   describedBy?: string;
+  /** Offer consumables too: for a screen about any item kept, such as stock. */
+  includeConsumables?: boolean;
 }) {
   const { t } = useTranslation('drugs');
   const nameOf = useMedicineName();
@@ -41,7 +45,7 @@ export function DrugSearch({
   const switchedOn = useFeatureFlag('drugs');
   const available = allowed && switchedOn;
   const searching = text.trim() !== '';
-  const suggestions = useMedicineSuggestions(typed, open && available);
+  const suggestions = useMedicineSuggestions(typed, open && available, includeConsumables);
   // What is listed belongs to what was typed: while a search is on its way nothing of an
   // earlier one can be chosen by mistake.
   const settled = typed === text && !suggestions.isPlaceholderData;
@@ -102,7 +106,8 @@ export function DrugSearch({
         id={inputId}
         type="text"
         role="combobox"
-        aria-expanded={open}
+        // Expanded only while a list is drawn: an open box with nothing in it controls nothing.
+        aria-expanded={listed}
         aria-controls={listed ? listId : undefined}
         aria-autocomplete="list"
         aria-activedescendant={listed ? optionId(highlighted) : undefined}

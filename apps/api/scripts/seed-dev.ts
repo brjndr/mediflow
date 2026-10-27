@@ -406,6 +406,7 @@ const HOSPITALS = [
       laboratory: true,
       radiology: true,
       pharmacy: true,
+      inventory: true,
       billing: true,
       reports: true,
     },
@@ -441,6 +442,7 @@ const HOSPITALS = [
       laboratory: false,
       radiology: false,
       pharmacy: false,
+      inventory: false,
       billing: true,
       reports: false,
     },
@@ -476,6 +478,18 @@ const STAFF = [
     email: 'nurse@sample-hospital.test',
     name: 'Sample Nurse',
     memberships: [{ slug: 'sample-hospital', roleId: 'nurse' }],
+  },
+  {
+    // Keeps the stock and asks for adjustments, which the admin approves (#102).
+    email: 'stores@sample-hospital.test',
+    name: 'Sample Store Keeper',
+    memberships: [{ slug: 'sample-hospital', roleId: 'store_keeper' }],
+  },
+  {
+    // Sees the stock (#102); dispenses once the pharmacy module exists.
+    email: 'pharmacy@sample-hospital.test',
+    name: 'Sample Pharmacist',
+    memberships: [{ slug: 'sample-hospital', roleId: 'pharmacist' }],
   },
   {
     email: 'reception@riverside-clinic.test',
@@ -995,6 +1009,83 @@ try {
        from place pl cross join counter cross join generate_series(1, 5) as n`,
       [tenantId],
     );
+  }
+
+  // Inventory (#102): two places and opening stock of every sample item, asked for by the store
+  // keeper and approved by the admin, so each batch has its adjustment and ledger entry. Only for a
+  // hospital with no batches yet, so running again adds nothing. One batch expires within the
+  // month and a few items are below their reorder level, to show the alerts.
+  {
+    const tenantId = tenantIds.get('sample-hospital');
+    const { rowCount } = await client.query(
+      'select 1 from stock_batches where tenant_id = $1 limit 1',
+      [tenantId],
+    );
+    if (rowCount === 0) {
+      const userId = async (email: string) =>
+        (await client.query<{ id: string }>('select id from users where email = $1', [email]))
+          .rows[0]?.id;
+      const keeper = await userId('stores@sample-hospital.test');
+      const admin = await userId('admin@sample-hospital.test');
+      const places = [];
+      for (const [name, kind] of [
+        ['Main store', 'store'],
+        ['Pharmacy counter', 'pharmacy'],
+      ]) {
+        const { rows } = await client.query<{ id: string }>(
+          `insert into stock_locations (tenant_id, name, kind) values ($1, $2, $3)
+           on conflict on constraint stock_locations_name_taken do update set kind = excluded.kind
+           returning id`,
+          [tenantId, name, kind],
+        );
+        places.push(rows[0]?.id);
+      }
+      const { rows: stocked } = await client.query<{
+        id: string;
+        type: string;
+        reorder_level: number | null;
+      }>(
+        `select id, type, reorder_level from drugs where tenant_id = $1 and not archived
+         order by generic_name, strength nulls first, id`,
+        [tenantId],
+      );
+      for (const [index, drug] of stocked.entries()) {
+        // Every fifth item low, the third one expiring within the month.
+        const quantity = index % 5 === 0 ? 20 : 400;
+        const expiryDays = index === 2 ? 20 : 300 + index * 7;
+        for (const [place, share] of [
+          [places[0], 0.75],
+          [places[1], 0.25],
+        ] as const) {
+          const units = Math.round(quantity * share);
+          const batchNumber = `SB${String(index + 1).padStart(3, '0')}${place === places[0] ? 'A' : 'B'}`;
+          const { rows: batch } = await client.query<{ id: string }>(
+            `insert into stock_batches (tenant_id, drug_id, batch_number, expiry_date, mrp_minor, cost_minor, created_by)
+             values ($1, $2, $3, current_date + $4::int, $5, $6, $7) returning id`,
+            [
+              tenantId,
+              drug.id,
+              batchNumber,
+              expiryDays,
+              drug.type === 'medicine' ? 4500 : 1200,
+              drug.type === 'medicine' ? 3000 : 800,
+              admin,
+            ],
+          );
+          const { rows: adjustment } = await client.query<{ id: string }>(
+            `insert into stock_adjustments (tenant_id, location_id, drug_id, batch_id, quantity, reason, status,
+               requested_by, decided_by, decided_at)
+             values ($1, $2, $3, $4, $5, 'opening', 'approved', $6, $7, now()) returning id`,
+            [tenantId, place, drug.id, batch[0]?.id, units, keeper, admin],
+          );
+          await client.query(
+            `insert into stock_ledger (tenant_id, batch_id, drug_id, location_id, quantity, source, source_id, reason, actor_id)
+             values ($1, $2, $3, $4, $5, 'adjustment', $6, 'opening', $7)`,
+            [tenantId, batch[0]?.id, drug.id, place, units, adjustment[0]?.id, admin],
+          );
+        }
+      }
+    }
   }
 
   // The clinic's own normal ranges: it marks a temperature high a little sooner. The hospital has

@@ -187,6 +187,10 @@ export function editMockDrug(id: string, changes: Partial<Drug>): void {
   Object.assign(drug, changes, { version: drug.version + 1 });
 }
 
+/** The hospital's items in use as the mock holds them now, for the stock mock (#102). */
+export const mockDrugsOf = (tenantId: string): Drug[] =>
+  state.drugs.filter((candidate) => candidate.tenantId === tenantId && !candidate.archived);
+
 /** An item of the hospital as the mock holds it now, for the mocks of other modules. */
 export const mockDrug = (tenantId: string, id: string): Drug | undefined =>
   state.drugs.find((candidate) => candidate.id === id && candidate.tenantId === tenantId);
