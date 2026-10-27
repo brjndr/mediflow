@@ -13,3 +13,9 @@ export const inventoryFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('inventory', INVENTORY_PERMISSIONS);
   await app.register(inventoryRoutes);
 };
+
+/**
+ * For the pharmacy (#100): the batches that may be given from a place, nearest expiry first, and
+ * taking units out of stock through the ledger, so no other module writes stock.
+ */
+export { stockOut, usableBatches, type UsableBatch } from './stock-out.js';

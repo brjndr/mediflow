@@ -1683,6 +1683,13 @@ export function addMockLabOrder(
   return id;
 }
 
+/**
+ * The prescriptions of a hospital as the API answers them, with their medication lines, which the
+ * pharmacy's mock dispenses (#100); it moves a line on with `moveMockOrder`.
+ */
+export const mockMedicationPrescriptions = (tenantId: string): Prescription[] =>
+  state.prescriptions.filter((each) => each.tenantId === tenantId).map(prescriptionView);
+
 /** Moves an order on behind the screen, as the pharmacy or the laboratory would. */
 export function moveMockOrder(id: string, status: Order['status']): void {
   const order = state.orders.find((each) => each.id === id);

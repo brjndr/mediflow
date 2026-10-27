@@ -62,7 +62,7 @@ const FROM: Record<'accepted' | 'in_progress' | 'completed', OrderStatusValue> =
  */
 export async function moveOrderOf(
   request: FastifyRequest,
-  type: 'lab' | 'imaging',
+  type: 'lab' | 'imaging' | 'medication',
   orderId: string,
   to: 'accepted' | 'in_progress' | 'completed',
 ): Promise<void> {

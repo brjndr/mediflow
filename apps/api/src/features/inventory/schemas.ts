@@ -60,11 +60,20 @@ export const StockExpiryState = named(
   'Whether a batch is past its expiry date at the hospital today (`expired`), expires within the days asked (`expiring`), or neither.',
 );
 
-export const LEDGER_SOURCES = ['adjustment'] as const;
+export const LEDGER_SOURCES = ['adjustment', 'dispense'] as const;
+export type LedgerSource = (typeof LEDGER_SOURCES)[number];
 export const StockLedgerSource = named(
   'StockLedgerSource',
   LEDGER_SOURCES,
-  'What made a ledger entry. Goods receipts, dispenses and transfers come with their modules.',
+  'What made a ledger entry: an approved adjustment, or a dispense of the pharmacy (#100). Goods receipts and transfers come with their modules.',
+);
+
+export const LEDGER_REASONS = [...ADJUSTMENT_REASONS, 'dispense'] as const;
+export type LedgerReason = (typeof LEDGER_REASONS)[number];
+export const StockLedgerReason = named(
+  'StockLedgerReason',
+  LEDGER_REASONS,
+  'Why stock moved: the reason of its adjustment, or `dispense` for units given against a prescription.',
 );
 
 const Id = Type.String({ maxLength: 64 });
@@ -235,9 +244,10 @@ export const StockLedgerEntry = Type.Object(
     }),
     source: ref(StockLedgerSource),
     sourceId: Type.String(),
-    reason: ref(StockAdjustmentReason),
+    reason: ref(StockLedgerReason),
     actorName: Type.String({
-      description: 'Who made the change: for an adjustment, the approver.',
+      description:
+        'Who made the change: for an adjustment, the approver; for a dispense, the pharmacist.',
     }),
   },
   {
@@ -350,6 +360,7 @@ export const INVENTORY_SCHEMAS = [
   StockAdjustmentStatus,
   StockExpiryState,
   StockLedgerSource,
+  StockLedgerReason,
   StockLocation,
   StockLocationPage,
   StockLocationCreate,

@@ -121,12 +121,12 @@ export const useLedger = (filters: LedgerFilters) => usePaged('ledger', filters,
 export const useAdjustments = (status: StockAdjustmentStatus) =>
   usePaged('adjustments', { status }, fetchAdjustments);
 
-export const useLocations = (archived: boolean) =>
-  usePaged('locations', { archived }, fetchLocations, LOCATIONS_IN_A_LIST);
+export const useLocations = (archived: boolean, enabled = true) =>
+  usePaged('locations', { archived }, fetchLocations, LOCATIONS_IN_A_LIST, enabled);
 
-/** The places in use, for a filter or a form's list. */
-export function usePlaces(): StockLocation[] {
-  const places = useLocations(false);
+/** The places in use, for a filter or a form's list; asked for only while `enabled`. */
+export function usePlaces(enabled = true): StockLocation[] {
+  const places = useLocations(false, enabled);
   return useMemo(() => places.data?.pages.flatMap((page) => page.items) ?? [], [places.data]);
 }
 

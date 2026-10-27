@@ -236,6 +236,25 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expectNoSidewaysScroll(page);
   await page.getByRole('button', { name: 'Close' }).click();
 
+  // The pharmacy (#100): the queue as cards on a phone, a prescription's lines, and dispensing a
+  // line in place.
+  await goTo(page, 'Pharmacy');
+  await expect(page.getByRole('heading', { name: 'Pharmacy', level: 1 })).toBeVisible();
+  await expect(page.getByText('2 of 2 to dispense')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page
+    .getByRole('button', { name: /^Dispense: / })
+    .first()
+    .click();
+  await expect(
+    page.getByRole('heading', { name: 'Dispense prescription', level: 1 }),
+  ).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: /^Dispense: Paracetamol/ }).click();
+  await expect(page.getByRole('textbox', { name: /^Batch PCM24A/ })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'Close' }).click();
+
   // Inventory (#102): the stock as cards on a phone with its batches, the filters one column,
   // and an adjustment asked for in place.
   await goTo(page, 'Inventory');

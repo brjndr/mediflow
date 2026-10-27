@@ -486,7 +486,7 @@ const STAFF = [
     memberships: [{ slug: 'sample-hospital', roleId: 'store_keeper' }],
   },
   {
-    // Sees the stock (#102); dispenses once the pharmacy module exists.
+    // Sees the stock (#102) and dispenses prescriptions at the pharmacy (#100).
     email: 'pharmacy@sample-hospital.test',
     name: 'Sample Pharmacist',
     memberships: [{ slug: 'sample-hospital', roleId: 'pharmacist' }],

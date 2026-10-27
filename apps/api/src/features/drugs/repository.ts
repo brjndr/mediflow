@@ -332,3 +332,71 @@ export async function stockableDrug(
   const row = rows[0];
   return row ? { id: row.id, reorderLevel: row.reorder_level } : null;
 }
+
+/** A medicine as a dispense records it. */
+export interface DispensableDrug {
+  id: string;
+  /** As a prescription line reads it: generic name, strength and brand. */
+  name: string;
+  schedule: string;
+  controlled: boolean;
+  reorderLevel: number | null;
+}
+
+const DISPENSABLE = `select id,
+    generic_name || coalesce(' ' || strength, '') || coalesce(' (' || brand_name || ')', '') as name,
+    schedule, controlled, reorder_level
+  from drugs`;
+
+const dispensableView = (row: {
+  id: string;
+  name: string;
+  schedule: string;
+  controlled: boolean;
+  reorder_level: number | null;
+}): DispensableDrug => ({
+  id: row.id,
+  name: row.name,
+  schedule: row.schedule,
+  controlled: row.controlled,
+  reorderLevel: row.reorder_level,
+});
+
+/**
+ * For dispensing: a medicine of the hospital that is not archived, as a dispense records it, or
+ * null. Exported from `index.ts`, so the pharmacy never checks this table itself.
+ */
+export async function dispensableDrug(
+  client: pg.ClientBase,
+  id: string,
+): Promise<DispensableDrug | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<Parameters<typeof dispensableView>[0]>(
+    `${DISPENSABLE} where id = $1 and type = 'medicine' and not archived`,
+    [id],
+  );
+  const row = rows[0];
+  return row ? dispensableView(row) : null;
+}
+
+/**
+ * For generic substitution: the other medicines in use with the same generic name, form and
+ * strength as this one (any brand), by brand. Compared on the stored keys, as the duplicate checks
+ * are (#322). Empty for an item that is not a medicine of the hospital.
+ */
+export async function substitutesOf(client: pg.ClientBase, id: string): Promise<DispensableDrug[]> {
+  if (!UUID.test(id)) return [];
+  const { rows } = await client.query<Parameters<typeof dispensableView>[0]>(
+    `${DISPENSABLE} s
+     where s.type = 'medicine' and not s.archived and s.id <> $1
+       and exists (
+         select 1 from drugs d
+         where d.id = $1 and d.type = 'medicine'
+           and d.generic_key = s.generic_key and d.form = s.form and d.strength_key = s.strength_key
+       )
+     order by s.brand_key, s.id
+     limit 50`,
+    [id],
+  );
+  return rows.map(dispensableView);
+}

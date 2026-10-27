@@ -13,6 +13,7 @@ import { patientsFeature } from '@/features/patients';
 import { queueFeature } from '@/features/queue';
 import { radiologyFeature } from '@/features/radiology';
 import { inventoryFeature } from '@/features/inventory';
+import { pharmacyFeature } from '@/features/pharmacy';
 import { servicesFeature } from '@/features/services';
 import { staffFeature } from '@/features/staff';
 import { templatesFeature } from '@/features/templates';
@@ -48,6 +49,7 @@ export const features: FeatureManifest[] = [
   followUpsFeature,
   labFeature,
   radiologyFeature,
+  pharmacyFeature,
   inventoryFeature,
   staffFeature,
 ];

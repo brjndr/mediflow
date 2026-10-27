@@ -98,6 +98,8 @@ const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
       });
       return 'ord_h_lab_1';
     }),
+  // The pharmacy's prescriptions are opened from a queue row action (#100): the mock's one.
+  'pharmacy/prescriptions': () => Promise.resolve('rx_h_1'),
   // The mock keeps no import until one is started.
   imports: (page) =>
     page.evaluate(async () => {
