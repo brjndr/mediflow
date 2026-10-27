@@ -100,6 +100,19 @@ const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
     }),
   // The pharmacy's prescriptions are opened from a queue row action (#100): the mock's one.
   'pharmacy/prescriptions': () => Promise.resolve('rx_h_1'),
+  // The mock keeps no counter sale until one is made (#101): two units of cetirizine.
+  'pharmacy/sales': (page) =>
+    page.evaluate(async () => {
+      const answer = await fetch('/api/pharmacy/sales', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+        body: JSON.stringify({
+          locationId: 'loc_h_pharmacy',
+          lines: [{ drugId: 'drg_h_0805', batches: [{ batchId: 'bat_h_rx5', quantity: 2 }] }],
+        }),
+      });
+      return ((await answer.json()) as { id?: string }).id ?? '';
+    }),
   // The mock keeps no import until one is started.
   imports: (page) =>
     page.evaluate(async () => {

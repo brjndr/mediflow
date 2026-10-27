@@ -152,6 +152,31 @@ function seed() {
       at: at(30),
     });
   }
+  // A Schedule H1 medicine at the counter, for counter sales and the drug register (#101).
+  const h1 = mockDrugsOf(TENANT_IDS.hospital).find(
+    (drug) => drug.schedule === 'h1' && drug.type === 'medicine' && !drug.archived,
+  );
+  if (h1) {
+    const batch: Batch = {
+      id: 'bat_h_rx6',
+      tenantId: TENANT_IDS.hospital,
+      drugId: h1.id,
+      batchNumber: 'CFX25A',
+      expiryDate: day(300),
+      mrpMinor: 1800,
+    };
+    state.batches.push(batch);
+    post(state, {
+      tenantId: TENANT_IDS.hospital,
+      batch,
+      locationId: 'loc_h_pharmacy',
+      quantity: 40,
+      reason: 'opening',
+      sourceId: 'adj_h_bat_h_rx6',
+      actorName: 'Sample Admin',
+      at: at(30),
+    });
+  }
   // Two waiting for a second person: a damaged strip and opening stock of a new batch.
   const first = stocked[1];
   const firstBatch = state.batches[2];
@@ -352,6 +377,8 @@ export function mockStockOut(
     drugId: string;
     sourceId: string;
     actorName: string;
+    /** A dispense when not said; a counter sale (#101). */
+    source?: 'dispense' | 'sale';
     lines: { batchId: string; quantity: number }[];
   },
 ):
@@ -386,8 +413,8 @@ export function mockStockOut(
         batch,
         locationId: movement.locationId,
         quantity: -line.quantity,
-        reason: 'dispense',
-        source: 'dispense',
+        reason: movement.source ?? 'dispense',
+        source: movement.source ?? 'dispense',
         sourceId: movement.sourceId,
         actorName: movement.actorName,
       });
@@ -400,6 +427,57 @@ export function mockStockOut(
     }),
   };
 }
+
+/**
+ * For the pharmacy's mock, as `stockIn` of the API: puts units of a sale's batches back at the
+ * place, all or nothing (#101). Gives the refusal's code, or nothing.
+ */
+export function mockStockIn(
+  tenantId: string,
+  movement: {
+    locationId: string;
+    sourceId: string;
+    actorName: string;
+    lines: { batchId: string; quantity: number }[];
+  },
+): { refused: string } | null {
+  const location = state.locations.find(
+    (each) => each.id === movement.locationId && each.tenantId === tenantId && !each.archived,
+  );
+  if (!location) return { refused: 'unknown_location' };
+  const today = todayIn(mockTenantTimezone(tenantId));
+  const batches: Batch[] = [];
+  for (const line of movement.lines) {
+    const batch = state.batches.find(
+      (each) => each.id === line.batchId && each.tenantId === tenantId,
+    );
+    if (!batch) return { refused: 'unknown_batch' };
+    if (batch.expiryDate < today) return { refused: 'batch_expired' };
+    batches.push(batch);
+  }
+  movement.lines.forEach((line, index) => {
+    post(state, {
+      tenantId,
+      batch: batches[index] as Batch,
+      locationId: movement.locationId,
+      quantity: line.quantity,
+      reason: 'sale_return',
+      source: 'sale_return',
+      sourceId: movement.sourceId,
+      actorName: movement.actorName,
+    });
+  });
+  return null;
+}
+
+/** For the pharmacy's mock: an item's ledger at the hospital, the oldest first (#101). */
+export const mockLedgerOf = (tenantId: string, drugId: string) =>
+  state.ledger
+    .filter((entry) => entry.item.drugId === drugId && mockBatchTenant(entry.batchId) === tenantId)
+    .sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+
+const mockBatchTenant = (batchId: string) =>
+  state.batches.find((each) => each.id === batchId)?.tenantId;
 
 /** For tests: the mock's adjustments and ledger as they are now. */
 export const mockStock = () => ({ adjustments: state.adjustments, ledger: state.ledger });

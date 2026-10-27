@@ -21,7 +21,9 @@
     "damaged": "Damaged",
     "expired": "Expired",
     "other": "Other",
-    "dispense": "Dispensed"
+    "dispense": "Dispensed",
+    "sale": "Sold at the counter",
+    "sale_return": "Returned from a sale"
   },
   "change": {
     "in_one": "{{count}} unit in",
