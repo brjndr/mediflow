@@ -1,0 +1,250 @@
+{
+  "close": "Close",
+  "links": {
+    "label": "Inventory",
+    "stock": "Stock",
+    "adjustments": "Adjustments",
+    "ledger": "Ledger",
+    "locations": "Places"
+  },
+  "item": {
+    "change": "Change"
+  },
+  "kind": {
+    "store": "Store",
+    "pharmacy": "Pharmacy counter",
+    "ward": "Ward stock"
+  },
+  "reason": {
+    "opening": "Opening stock",
+    "count_correction": "Count correction",
+    "damaged": "Damaged",
+    "expired": "Expired",
+    "other": "Other"
+  },
+  "change": {
+    "in_one": "{{count}} unit in",
+    "in_other": "{{count}} units in",
+    "out_one": "{{count}} unit out",
+    "out_other": "{{count}} units out"
+  },
+  "stock": {
+    "heading": "Stock",
+    "alerts": "Alerts",
+    "alert": {
+      "low_one": "{{count}} item low",
+      "low_other": "{{count}} items low",
+      "expiring_one": "{{count}} item expiring",
+      "expiring_other": "{{count}} items expiring",
+      "expired_one": "{{count}} item expired",
+      "expired_other": "{{count}} items expired"
+    },
+    "place": "Place",
+    "allPlaces": "All places",
+    "show": "Show",
+    "allItems": "All items",
+    "only": {
+      "low": "Low stock",
+      "expiring": "Expiring",
+      "expired": "Expired"
+    },
+    "window": "Expiring within",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "item": "Item",
+    "count_one": "{{count}} item.",
+    "count_other": "{{count}} items.",
+    "columns": {
+      "item": "Item",
+      "onHand": "On hand",
+      "onHandHere": "On hand here",
+      "hospital": "Whole hospital",
+      "reorder": "Reorder level",
+      "state": "Status",
+      "batches": "Batches"
+    },
+    "units_one": "{{number}} {{unit}}",
+    "units_other": "{{number}} {{unit}}",
+    "low": "Low",
+    "batch": {
+      "ok_one": "{{number}}, expires {{expiry}}, {{place}}: {{count}}",
+      "ok_other": "{{number}}, expires {{expiry}}, {{place}}: {{count}}",
+      "expiring_one": "{{number}}, expiring {{expiry}}, {{place}}: {{count}}",
+      "expiring_other": "{{number}}, expiring {{expiry}}, {{place}}: {{count}}",
+      "expired_one": "{{number}}, expired {{expiry}}, {{place}}: {{count}}",
+      "expired_other": "{{number}}, expired {{expiry}}, {{place}}: {{count}}"
+    },
+    "noBatches": "No stock",
+    "ledger": "Ledger",
+    "adjust": "Adjust stock",
+    "empty": {
+      "all": "No items in use.",
+      "low": "No item is low.",
+      "expiring": "No stock expires in that time.",
+      "expired": "No expired stock."
+    }
+  },
+  "adjustments": {
+    "heading": "Stock adjustments",
+    "description": "An adjustment moves stock only once someone other than the person who asked for it approves it.",
+    "status": "Show",
+    "statuses": {
+      "pending": "Waiting for approval",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "new": "New adjustment",
+    "count_one": "{{count}} adjustment.",
+    "count_other": "{{count}} adjustments.",
+    "columns": {
+      "item": "Item",
+      "change": "Change",
+      "batch": "Batch",
+      "place": "Place",
+      "reason": "Reason",
+      "onHand": "On hand now",
+      "asked": "Asked for",
+      "decided": "Decided"
+    },
+    "batch": "{{number}}, expires {{expiry}}",
+    "newBatch": "New batch {{number}}, expires {{expiry}}",
+    "reasonNote": "{{reason}}: {{note}}",
+    "by": "{{name}}, {{time}}",
+    "decided": {
+      "approved": "Approved by {{name}}, {{time}}.",
+      "rejected": "Rejected by {{name}}, {{time}}:"
+    },
+    "rowLabel_one": "{{item}}, {{count}} unit, {{place}}",
+    "rowLabel_other": "{{item}}, {{count}} units, {{place}}",
+    "empty": {
+      "pending": "Nothing is waiting for approval.",
+      "approved": "No approved adjustments.",
+      "rejected": "No rejected adjustments."
+    }
+  },
+  "adjust": {
+    "heading": "New stock adjustment",
+    "description": "Nothing moves until someone else approves it.",
+    "place": "Place",
+    "choosePlace": "Choose a place",
+    "item": "Item",
+    "itemRequired": "Choose an item.",
+    "reason": "Reason",
+    "batch": "Batch",
+    "batchHint": "Choose the item first.",
+    "chooseBatch": "Choose a batch",
+    "batchOption": "{{number}}, expires {{expiry}}",
+    "newBatch": "A new batch",
+    "newBatchOpeningOnly": "Only opening stock brings in a new batch.",
+    "batchNumber": "Batch number",
+    "expiryDate": "Expiry date",
+    "mrp": "Maximum retail price",
+    "mrpHint": "Of one unit, as printed. Optional.",
+    "mrpInvalid": "Enter an amount such as 125.50.",
+    "direction": "In or out",
+    "in": "In: add to stock",
+    "out": "Out: take from stock",
+    "directionFixed": "This reason fixes whether stock comes in or goes out.",
+    "fixed": {
+      "in": "This reason brings stock in.",
+      "out": "This reason takes stock out."
+    },
+    "quantity": "Units",
+    "quantityHint": "A whole number of units of the item.",
+    "quantityWhole": "Enter a whole number.",
+    "quantityRange": "Enter from 1 to 1,000,000.",
+    "note": "Note",
+    "noteHint": "Optional: what happened.",
+    "noteRequired": "Say what happened.",
+    "noteForOther": "Say what happened.",
+    "submit": "Ask for approval",
+    "submitting": "Asking…",
+    "asked_one": "Asked for {{count}} unit of {{item}} at {{place}}. It waits for approval.",
+    "asked_other": "Asked for {{count}} units of {{item}} at {{place}}. It waits for approval.",
+    "refused": {
+      "insufficient": "The batch has fewer units at that place than that.",
+      "batchExists": "The item already has a batch of that number: choose it from the list.",
+      "invalid": "That place, item or batch can no longer be used. Check them and try again."
+    },
+    "reject": {
+      "noteRequired": "Say why it is rejected."
+    },
+    "batchOptionHere_one": "{{number}}, expires {{expiry}}: {{count}} unit here",
+    "batchOptionHere_other": "{{number}}, expires {{expiry}}: {{count}} units here"
+  },
+  "decide": {
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved_one": "Approved: {{count}} unit of {{item}} at {{place}}.",
+    "approved_other": "Approved: {{count}} units of {{item}} at {{place}}.",
+    "rejected_one": "Rejected: {{count}} unit of {{item}} at {{place}}.",
+    "rejected_other": "Rejected: {{count}} units of {{item}} at {{place}}.",
+    "rejectHeading_one": "Reject {{count}} unit of {{item}} at {{place}}",
+    "rejectHeading_other": "Reject {{count}} units of {{item}} at {{place}}",
+    "note": "Why",
+    "noteHint": "The person who asked will read it.",
+    "rejectSubmit": "Reject",
+    "refused": {
+      "conflict": "It changed since it was shown. The list is read again.",
+      "decided": "Someone has decided it already.",
+      "own": "Someone else decides an adjustment you asked for.",
+      "insufficient": "The batch no longer has that many units at the place. Reject it, or count again.",
+      "locationArchived": "Its place was archived.",
+      "batchExists": "A batch of that number with another expiry date was added meanwhile.",
+      "gone": "That adjustment is no longer there.",
+      "itemArchived": "The item was archived since it was asked for."
+    }
+  },
+  "ledger": {
+    "heading": "Stock ledger",
+    "description": "Every change of stock, newest first. Nothing in it is ever changed: a correction is a later entry.",
+    "oneItem": "One item",
+    "from": "From",
+    "to": "To",
+    "columns": {
+      "item": "Item",
+      "at": "When",
+      "change": "Change",
+      "balance": "Stock after",
+      "batch": "Batch",
+      "place": "Place",
+      "reason": "Reason",
+      "by": "By"
+    },
+    "rowLabel": "{{item}}, {{time}}",
+    "empty": "No changes of stock."
+  },
+  "locations": {
+    "heading": "Stock places",
+    "view": "Show",
+    "active": "In use",
+    "archivedView": "Archived",
+    "add": "Add a place",
+    "addHeading": "Add a place",
+    "edit": "Edit",
+    "editHeading": "Edit {{name}}",
+    "name": "Name",
+    "kind": "Kind",
+    "save": "Save",
+    "archive": "Archive",
+    "restore": "Restore",
+    "added": "Added {{name}}.",
+    "saved": "Saved {{name}}.",
+    "archived": "Archived {{name}}.",
+    "restored": "Restored {{name}}.",
+    "count_one": "{{count}} place.",
+    "count_other": "{{count}} places.",
+    "columns": {
+      "name": "Name",
+      "kind": "Kind"
+    },
+    "empty": "No places yet.",
+    "emptyArchived": "No archived places.",
+    "refused": {
+      "nameTaken": "The hospital already has a place of that name.",
+      "hasStock": "A batch has stock at that place. Move or adjust it out first.",
+      "conflict": "It changed since it was shown. Close and try again.",
+      "gone": "That place is no longer there."
+    }
+  }
+}

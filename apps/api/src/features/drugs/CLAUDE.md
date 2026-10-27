@@ -13,3 +13,4 @@ What was decided for this feature's API. Moved out of `apps/api/CLAUDE.md` (#370
 - **A dispense, a stock entry and a prescription line will store what the item was** (name, brand, form, strength, schedule, controlled) when the line was written, so renaming or reclassifying here never changes history. That is theirs to do (M7, M10); nothing here keeps versions of an item.
 - **`POST /drugs` accepts an Idempotency-Key** and stores the whole answer for a replay.
 - **Exports** from `index.ts`: `prescribableDrug`, a medicine that is not archived with its name as a prescription line reads it (generic name, strength, brand), which the clinical module prescribes (#86).
+- **`stockableDrug`** (from `index.ts`, #102) is the inventory module's check of an item it is asked to stock: one of the hospital, medicine or consumable, not archived, with its reorder level. Inventory reads item names in its own lists' SQL.

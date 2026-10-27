@@ -314,3 +314,21 @@ export async function prescribableDrug(
   );
   return rows[0] ?? null;
 }
+
+/**
+ * For stock: an item of the hospital, medicine or consumable, that is not archived, with its
+ * reorder level, or null. Exported from `index.ts`, so the inventory module never checks this
+ * table itself.
+ */
+export async function stockableDrug(
+  client: pg.ClientBase,
+  id: string,
+): Promise<{ id: string; reorderLevel: number | null } | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<{ id: string; reorder_level: number | null }>(
+    'select id, reorder_level from drugs where id = $1 and not archived',
+    [id],
+  );
+  const row = rows[0];
+  return row ? { id: row.id, reorderLevel: row.reorder_level } : null;
+}

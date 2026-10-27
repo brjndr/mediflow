@@ -16,3 +16,6 @@ export const drugsFeature: FastifyPluginAsync = async (app) => {
 
 /** For the clinical module: a medicine that may be prescribed. */
 export { prescribableDrug } from './repository.js';
+
+/** For the inventory module: an item that may be stocked, with its reorder level. */
+export { stockableDrug } from './repository.js';

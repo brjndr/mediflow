@@ -64,21 +64,26 @@ export const SUGGESTIONS = 10;
 
 /**
  * What a prescribing search box offers for what has been typed: the first medicines that match,
- * archived ones and consumables left out. Nothing is asked before something is typed.
+ * archived ones and consumables left out, unless consumables are asked for too (stock, #102).
+ * Nothing is asked before something is typed.
  */
-export function useMedicineSuggestions(search: string, enabled: boolean) {
+export function useMedicineSuggestions(
+  search: string,
+  enabled: boolean,
+  includeConsumables = false,
+) {
   const tenantId = useTenant()?.id;
   const q = search.trim();
   const filters: DrugFilters = {
     q,
-    type: 'medicine',
+    type: includeConsumables ? '' : 'medicine',
     form: '',
     schedule: '',
     controlled: false,
     archived: false,
   };
   return useQuery({
-    queryKey: drugKeys.list(tenantId ?? '', { as: 'suggestions', q }),
+    queryKey: drugKeys.list(tenantId ?? '', { as: 'suggestions', q, includeConsumables }),
     queryFn: ({ signal }) => fetchDrugs({ ...filters, limit: SUGGESTIONS }, signal),
     enabled: enabled && tenantId !== undefined && q !== '',
     staleTime: STALE_TIME_MS,

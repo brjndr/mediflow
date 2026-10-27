@@ -35,6 +35,7 @@ const initialTenants: Record<string, TenantDto> = {
       laboratory: true,
       radiology: true,
       pharmacy: true,
+      inventory: true,
       billing: true,
       reports: true,
       notices: true,
@@ -74,6 +75,7 @@ const initialTenants: Record<string, TenantDto> = {
       laboratory: false,
       radiology: false,
       pharmacy: false,
+      inventory: false,
       billing: true,
       reports: false,
       notices: false,
@@ -153,6 +155,11 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'imagingStudy:perform' },
   { permission: 'imagingReport:write' },
   { permission: 'imagingReport:sign' },
+  // Inventory (#102): stock, adjustments asked for and approved, and the places.
+  { permission: 'stock:read' },
+  { permission: 'stock:adjust' },
+  { permission: 'stock:approve' },
+  { permission: 'stockLocation:manage' },
   { permission: 'billing:read' },
   { permission: 'billing:create' },
   { permission: 'billing:refund' },
@@ -241,7 +248,17 @@ const DOCTOR: PermissionGrantDto[] = [
 
 /** Roles are per tenant: the same role id can carry different permissions in each hospital. */
 const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
-  [TENANT_IDS.hospital]: { admin: ADMIN, doctor: DOCTOR },
+  [TENANT_IDS.hospital]: {
+    admin: ADMIN,
+    doctor: DOCTOR,
+    // Keeps the stock and asks for adjustments, which someone else approves (#102).
+    store_keeper: [
+      { permission: 'drug:read' },
+      { permission: 'stock:read' },
+      { permission: 'stock:adjust' },
+      { permission: 'stock:approve' },
+    ],
+  },
   [TENANT_IDS.clinic]: {
     admin: ADMIN,
     // This clinic's admin removed ordering and billing access from its doctors.
@@ -289,6 +306,7 @@ export const USER_IDS = {
   doctor: 'user_doctor',
   receptionist: 'user_receptionist',
   billingClerk: 'user_billing_clerk',
+  storeKeeper: 'user_store_keeper',
 } as const;
 
 const users: Record<string, MockUser> = {
@@ -307,6 +325,12 @@ const users: Record<string, MockUser> = {
       { tenantId: TENANT_IDS.hospital, roleId: 'doctor' },
       { tenantId: TENANT_IDS.clinic, roleId: 'doctor' },
     ],
+  },
+  [USER_IDS.storeKeeper]: {
+    id: USER_IDS.storeKeeper,
+    email: 'stores@sample-hospital.test',
+    name: 'Sample Store Keeper',
+    memberships: [{ tenantId: TENANT_IDS.hospital, roleId: 'store_keeper' }],
   },
   [USER_IDS.receptionist]: {
     id: USER_IDS.receptionist,
