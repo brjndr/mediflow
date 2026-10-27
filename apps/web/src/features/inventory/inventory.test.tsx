@@ -250,9 +250,11 @@ describe('adjustments', () => {
 describe('the ledger and the places', () => {
   it('lists every change newest first', async () => {
     await open('/inventory/ledger', 'Stock ledger');
-    const rows = await within(grid('Stock ledger')).findAllByRole('row');
-    expect(rows.length).toBeGreaterThan(2);
-    expect(within(grid('Stock ledger')).getAllByText('Opening stock').length).toBeGreaterThan(0);
+    // The rows of the loading state come first: wait for the entries themselves.
+    expect(
+      (await within(grid('Stock ledger')).findAllByText('Opening stock')).length,
+    ).toBeGreaterThan(0);
+    expect(within(grid('Stock ledger')).getAllByRole('row').length).toBeGreaterThan(2);
     await expectNoAxeViolations(document.body);
   });
 

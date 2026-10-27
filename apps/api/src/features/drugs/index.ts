@@ -19,3 +19,9 @@ export { prescribableDrug } from './repository.js';
 
 /** For the inventory module: an item that may be stocked, with its reorder level. */
 export { stockableDrug } from './repository.js';
+
+/**
+ * For the pharmacy: a medicine as a dispense records it, and its generic substitutes (same generic
+ * name, form and strength, any brand).
+ */
+export { dispensableDrug, substitutesOf, type DispensableDrug } from './repository.js';

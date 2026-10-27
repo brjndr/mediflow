@@ -1,0 +1,184 @@
+{
+  "close": "Close",
+  "retry": "Try again",
+  "queue": {
+    "heading": "Pharmacy",
+    "state": "Show",
+    "states": {
+      "open": "To dispense",
+      "done": "Dispensed"
+    },
+    "days": "Prescribed within",
+    "window_one": "Today",
+    "window_other": "The last {{count}} days",
+    "count_one": "{{count}} prescription.",
+    "count_other": "{{count}} prescriptions.",
+    "columns": {
+      "patient": "Patient",
+      "mrn": "MRN",
+      "lines": "Medicines",
+      "progress": "Progress",
+      "prescribed": "Prescribed"
+    },
+    "toDispense_one": "{{count}} of {{total}} to dispense",
+    "toDispense_other": "{{count}} of {{total}} to dispense",
+    "lineCount_one": "{{count}} medicine",
+    "lineCount_other": "{{count}} medicines",
+    "progress": {
+      "new": "Not started",
+      "partly": "Partly dispensed",
+      "done": "Dispensed"
+    },
+    "prescribedBy": "{{time}} by {{name}}",
+    "dispense": "Dispense",
+    "view": "View",
+    "rowLabel": "Prescription of {{name}}",
+    "empty": {
+      "open": "No prescription is waiting to be dispensed.",
+      "done": "Nothing was dispensed in this time."
+    }
+  },
+  "detail": {
+    "loading": "Reading the prescription…",
+    "heading": "Dispense prescription",
+    "notFound": "This prescription is not available.",
+    "back": "Back to the pharmacy queue",
+    "patient": "{{name}} ({{mrn}})",
+    "prescribedBy": "{{name}}, {{time}}",
+    "allergies": "Allergies",
+    "replaced": "The doctor revised this prescription. Lines not started were cancelled; dispense from the revision.",
+    "place": "Dispense from",
+    "noPlaces": "The hospital has no place that keeps stock.",
+    "placesLoading": "Reading the places that keep stock…",
+    "refreshFailed": "This prescription could not be read again; what is shown may be out of date.",
+    "placesHidden": "The places that keep stock cannot be read here, so nothing can be dispensed.",
+    "days_one": "for {{count}} day",
+    "days_other": "for {{count}} days"
+  },
+  "allergies": {
+    "hidden": "The patient’s allergies cannot be read here, so they are not checked.",
+    "loading": "The patient’s allergies are still being read, so they are not checked yet.",
+    "failed": "The patient’s allergies could not be read, so they are not checked.",
+    "unknown": "The patient was never asked about allergies.",
+    "none": "No known allergies"
+  },
+  "lines": {
+    "heading": "Medicines",
+    "empty": "This prescription has no medicines.",
+    "columns": {
+      "item": "Medicine",
+      "dosage": "How to take",
+      "quantity": "Prescribed",
+      "given": "Dispensed",
+      "status": "Status"
+    },
+    "noQuantity": "Not given",
+    "units_one": "{{count}} unit",
+    "units_other": "{{count}} units",
+    "status": {
+      "open": "To dispense",
+      "partly": "Partly dispensed",
+      "completed": "Dispensed",
+      "cancelled": "Cancelled: {{reason}}"
+    },
+    "dispense": "Dispense",
+    "complete": "Mark complete"
+  },
+  "complete": {
+    "done": "{{item}} marked complete: nothing more will be given.",
+    "refused": {
+      "conflict": "This line changed meanwhile. It is shown as it is now; try again.",
+      "closed": "This line is no longer open."
+    }
+  },
+  "dispense": {
+    "heading": "Dispense {{item}}",
+    "dosage": "{{dose}}, {{frequency}}",
+    "noQuantity_one": "No quantity prescribed; {{count}} unit given so far.",
+    "noQuantity_other": "No quantity prescribed; {{count}} units given so far.",
+    "remaining_one": "{{count}} unit left to give of the prescribed quantity ({{given}} given).",
+    "remaining_other": "{{count}} units left to give of the prescribed quantity ({{given}} given).",
+    "loading": "Reading the batches at this place…",
+    "noStock": "Neither this medicine nor a generic substitute has stock in date at this place.",
+    "archivedNoSubstitute": "The prescribed medicine was archived and has no generic substitute in use.",
+    "item": "Give",
+    "prescribedOption_one": "{{name}}, as prescribed ({{count}} unit here)",
+    "prescribedOption_other": "{{name}}, as prescribed ({{count}} units here)",
+    "substituteOption_one": "{{name}}, generic substitute ({{count}} unit here)",
+    "substituteOption_other": "{{name}}, generic substitute ({{count}} units here)",
+    "reason": "Why a substitute",
+    "reasonHint": "Recorded with the dispense, for example: the brand prescribed is out of stock.",
+    "batch": "Batch {{number}}, expires {{expiry}}",
+    "batchHint_one": "{{count}} unit here. Units to give from this batch.",
+    "batchHint_other": "{{count}} units here. Units to give from this batch.",
+    "allergyWarning": "{{item}} matches the patient’s recorded allergy: {{allergies}}.",
+    "confirm": {
+      "warned": "Dispense with this allergy warning?",
+      "unchecked": "Dispense without an allergy check?",
+      "anyway": "Dispense anyway",
+      "review": "Review"
+    },
+    "submit": "Dispense",
+    "submitting": "Dispensing…",
+    "done_one": "{{count}} unit of {{item}} dispensed.",
+    "done_other": "{{count}} units of {{item}} dispensed.",
+    "refused": {
+      "conflict": "This line changed meanwhile, perhaps dispensed at another counter. Close and look again.",
+      "closed": "This line is no longer open: it was completed or cancelled.",
+      "gone": "This prescription line is not available.",
+      "overQuantity": "That is more than is left of the prescribed quantity.",
+      "insufficient": "A batch has fewer units here than that now. The batches were read again.",
+      "expired": "A batch has expired. The batches were read again.",
+      "place": "This place is no longer in use.",
+      "batch": "A batch is not one of the medicine’s, or is given twice.",
+      "substitute": "That medicine is not a generic substitute of the one prescribed.",
+      "archived": "The prescribed medicine was archived. Give a substitute."
+    },
+    "form": {
+      "chooseItem": "Choose what to give.",
+      "reasonRequired": "Say why a substitute is given.",
+      "wholeUnits": "Type a whole number of units.",
+      "moreThanHere": "This batch has fewer units here than that.",
+      "nothing": "Give at least one unit.",
+      "tooMuch": "That is more than is left of the prescribed quantity.",
+      "tooManyBatches": "Give from at most 10 batches at once.",
+      "tooManyUnits": "Give at most 10,000 units at once."
+    }
+  },
+  "dispenses": {
+    "heading": "Dispensed",
+    "none": "Nothing dispensed yet.",
+    "substitute": "Generic substitute: {{reason}}",
+    "by": "{{time}} by {{name}}, from {{place}}",
+    "print": "Print slip",
+    "printLabel": "Print slip of {{item}}"
+  },
+  "slip": {
+    "title": "Dispense slip",
+    "patient": "Patient",
+    "prescribedBy": "Prescribed by",
+    "dispensed": "Dispensed",
+    "dispensedBy": "{{time}} by {{name}}",
+    "item_one": "{{item}}: {{count}} unit",
+    "item_other": "{{item}}: {{count}} units",
+    "substitute": "Given in place of {{prescribed}}: {{reason}}",
+    "batch_one": "Batch {{number}}, expires {{expiry}}: {{count}} unit",
+    "batch_other": "Batch {{number}}, expires {{expiry}}: {{count}} units",
+    "advice": "Advice:"
+  },
+  "route": {
+    "oral": "by mouth",
+    "sublingual": "under the tongue",
+    "topical": "on the skin",
+    "inhaled": "inhaled",
+    "nasal": "in the nose",
+    "eye": "in the eye",
+    "ear": "in the ear",
+    "rectal": "rectal",
+    "vaginal": "vaginal",
+    "intramuscular": "into a muscle",
+    "intravenous": "into a vein",
+    "subcutaneous": "under the skin",
+    "other": "other route"
+  }
+}

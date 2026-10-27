@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Mediflow API",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "description": "Generated from the API route schemas by `pnpm gen:api`. Do not edit by hand."
   },
   "components": {
@@ -6429,8 +6429,13 @@
       },
       "StockLedgerSource": {
         "type": "string",
-        "enum": ["adjustment"],
-        "description": "What made a ledger entry. Goods receipts, dispenses and transfers come with their modules."
+        "enum": ["adjustment", "dispense"],
+        "description": "What made a ledger entry: an approved adjustment, or a dispense of the pharmacy (#100). Goods receipts and transfers come with their modules."
+      },
+      "StockLedgerReason": {
+        "type": "string",
+        "enum": ["opening", "count_correction", "damaged", "expired", "other", "dispense"],
+        "description": "Why stock moved: the reason of its adjustment, or `dispense` for units given against a prescription."
       },
       "StockLocation": {
         "description": "A place of the hospital that keeps stock.",
@@ -6738,10 +6743,10 @@
             "type": "string"
           },
           "reason": {
-            "$ref": "#/components/schemas/StockAdjustmentReason"
+            "$ref": "#/components/schemas/StockLedgerReason"
           },
           "actorName": {
-            "description": "Who made the change: for an adjustment, the approver.",
+            "description": "Who made the change: for an adjustment, the approver; for a dispense, the pharmacist.",
             "type": "string"
           }
         }
@@ -6985,6 +6990,458 @@
             "maxLength": 200,
             "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
             "type": "string"
+          }
+        }
+      },
+      "PharmacyQueueItem": {
+        "description": "A prescription in the pharmacy’s queue, with who it is for.",
+        "type": "object",
+        "required": [
+          "prescriptionId",
+          "encounterId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "prescribedAt",
+          "prescribedByName",
+          "lineCount",
+          "openLineCount",
+          "startedLineCount"
+        ],
+        "properties": {
+          "prescriptionId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "prescribedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "prescribedByName": {
+            "type": "string"
+          },
+          "lineCount": {
+            "description": "Its medication lines, cancelled ones included.",
+            "type": "integer"
+          },
+          "openLineCount": {
+            "description": "Lines still to dispense: placed, accepted or in progress.",
+            "type": "integer"
+          },
+          "startedLineCount": {
+            "description": "Lines with some dispensed: in progress or completed.",
+            "type": "integer"
+          }
+        }
+      },
+      "PharmacyQueuePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PharmacyQueueItem"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "DispenseBatch": {
+        "description": "Units of one batch given in a dispense.",
+        "type": "object",
+        "required": ["batchId", "batchNumber", "expiryDate", "quantity"],
+        "properties": {
+          "batchId": {
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, `YYYY-MM-DD`.",
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          }
+        }
+      },
+      "Dispense": {
+        "description": "Units given against a prescription line. Never changed or removed.",
+        "type": "object",
+        "required": [
+          "id",
+          "orderId",
+          "prescriptionId",
+          "encounterId",
+          "patientId",
+          "locationId",
+          "locationName",
+          "prescribedDrugId",
+          "drugId",
+          "itemName",
+          "schedule",
+          "controlled",
+          "quantity",
+          "batches",
+          "dispensedAt",
+          "dispensedByName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "prescriptionId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "locationName": {
+            "type": "string"
+          },
+          "prescribedDrugId": {
+            "type": "string"
+          },
+          "drugId": {
+            "description": "The item given: the prescribed one, or its substitute.",
+            "type": "string"
+          },
+          "itemName": {
+            "description": "The item given as it read when dispensed.",
+            "type": "string"
+          },
+          "schedule": {
+            "type": "string"
+          },
+          "controlled": {
+            "type": "boolean"
+          },
+          "substitutionReason": {
+            "description": "Why another brand was given; only for a substitute.",
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "batches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DispenseBatch"
+            }
+          },
+          "dispensedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dispensedByName": {
+            "type": "string"
+          }
+        }
+      },
+      "PharmacyLine": {
+        "description": "A medication line of a prescription, as dispensed.",
+        "type": "object",
+        "required": [
+          "orderId",
+          "lineNumber",
+          "version",
+          "status",
+          "drugId",
+          "itemName",
+          "dose",
+          "frequency",
+          "route",
+          "dispensedQuantity"
+        ],
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "lineNumber": {
+            "type": "integer"
+          },
+          "version": {
+            "description": "Sent back as expectedVersion.",
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["placed", "accepted", "in_progress", "completed", "cancelled"],
+            "description": "The order’s status: placed or accepted until something is dispensed, in progress once some is, completed when all is (or the pharmacist completes it), cancelled by the doctor."
+          },
+          "drugId": {
+            "type": "string"
+          },
+          "itemName": {
+            "description": "The medicine as it read when prescribed.",
+            "type": "string"
+          },
+          "dose": {
+            "type": "string"
+          },
+          "frequency": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          },
+          "durationDays": {
+            "type": "integer"
+          },
+          "quantity": {
+            "description": "How much to dispense; absent when the doctor did not say.",
+            "type": "integer"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "cancelReason": {
+            "type": "string"
+          },
+          "dispensedQuantity": {
+            "description": "Units given so far, every dispense.",
+            "type": "integer"
+          }
+        }
+      },
+      "PharmacyPrescription": {
+        "description": "A prescription as the pharmacy dispenses it: its lines and its dispenses.",
+        "type": "object",
+        "required": [
+          "prescriptionId",
+          "encounterId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "prescribedAt",
+          "prescribedByName",
+          "lines",
+          "dispenses"
+        ],
+        "properties": {
+          "prescriptionId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "prescribedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "prescribedByName": {
+            "type": "string"
+          },
+          "advice": {
+            "type": "string"
+          },
+          "replacesId": {
+            "type": "string"
+          },
+          "replacedById": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PharmacyLine"
+            }
+          },
+          "dispenses": {
+            "description": "Oldest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Dispense"
+            }
+          }
+        }
+      },
+      "DispensableBatch": {
+        "description": "A batch in date with stock at the place.",
+        "type": "object",
+        "required": ["batchId", "batchNumber", "expiryDate", "onHand"],
+        "properties": {
+          "batchId": {
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, `YYYY-MM-DD`.",
+            "type": "string"
+          },
+          "onHand": {
+            "description": "Units at the place.",
+            "type": "integer"
+          },
+          "mrpMinor": {
+            "description": "Maximum retail price of a unit, in minor units.",
+            "type": "string"
+          }
+        }
+      },
+      "DispensableItem": {
+        "description": "An item that may be given, with its batches.",
+        "type": "object",
+        "required": ["drugId", "name", "schedule", "controlled", "batches"],
+        "properties": {
+          "drugId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "schedule": {
+            "type": "string"
+          },
+          "controlled": {
+            "type": "boolean"
+          },
+          "batches": {
+            "description": "Nearest expiry first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DispensableBatch"
+            }
+          }
+        }
+      },
+      "DispenseOptions": {
+        "description": "What may be given for a line at a place: the prescribed item (absent once archived) and its generic substitutes, each with its batches in date there, nearest expiry first.",
+        "type": "object",
+        "required": ["substitutes"],
+        "properties": {
+          "prescribed": {
+            "$ref": "#/components/schemas/DispensableItem"
+          },
+          "substitutes": {
+            "description": "Other brands of the same generic name, form and strength, in use.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DispensableItem"
+            }
+          }
+        }
+      },
+      "DispenseCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "orderId",
+          "expectedVersion",
+          "expectedDispensedQuantity",
+          "locationId",
+          "batches"
+        ],
+        "properties": {
+          "orderId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "expectedVersion": {
+            "description": "The order’s version the dispense was made from.",
+            "type": "integer"
+          },
+          "expectedDispensedQuantity": {
+            "minimum": 0,
+            "description": "The units dispensed against the line when the dispense was made (its dispensedQuantity): another dispense meanwhile is 409 conflict.",
+            "type": "integer"
+          },
+          "locationId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "drugId": {
+            "maxLength": 64,
+            "description": "A generic substitute to give instead; absent gives the prescribed item. Needs substitutionReason.",
+            "type": "string"
+          },
+          "substitutionReason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "batches": {
+            "minItems": 1,
+            "maxItems": 10,
+            "description": "Each batch once.",
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["batchId", "quantity"],
+              "properties": {
+                "batchId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "quantity": {
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PharmacyLineComplete": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The order’s version.",
+            "type": "integer"
           }
         }
       },
@@ -20931,7 +21388,7 @@
       "post": {
         "operationId": "advanceOrder",
         "tags": ["clinical"],
-        "description": "Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). While the hospital has the laboratory switched on, a lab order is moved by its sample and results only (409 `lab_order`); while it has radiology switched on, an imaging order is moved by its study only (409 `imaging_order`). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed, as results arrive later. The Idempotency-Key header is required: a repeat changes nothing and answers with the order as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist.",
+        "description": "Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). While the hospital has the laboratory switched on, a lab order is moved by its sample and results only (409 `lab_order`); while it has radiology switched on, an imaging order is moved by its study only (409 `imaging_order`); while it has the pharmacy switched on, a medication order is moved by its dispenses only (409 `medication_order`). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed, as results arrive later. The Idempotency-Key header is required: a repeat changes nothing and answers with the order as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist.",
         "requestBody": {
           "required": true,
           "content": {
@@ -26246,6 +26703,638 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/queue": {
+      "get": {
+        "operationId": "listPharmacyQueue",
+        "tags": ["pharmacy"],
+        "description": "The pharmacy’s queue (#100): prescriptions with a medication line still to dispense (`open`, the oldest first), or with none left and some dispensed (`done`, the newest first), prescribed within `days` at the hospital (default 7, at most 90), of one patient when asked. Each names the patient (name and MRN), as dispense:read says, and counts its lines. `total` with the first page. Every prescription listed is audited as read. Requires dispense:read with the scope `all` (a narrower one sees nothing) and the pharmacy feature flag. Holds no patient term: a GET.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["open", "done"]
+            },
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "description": "`open` (the default): with a line still to dispense, the oldest first. `done`: every line completed or cancelled and at least one dispensed, the newest first."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 90,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "description": "Prescribed within this many days at the hospital, today included. Default 7."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "patientId",
+            "required": false,
+            "description": "One patient’s prescriptions only."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PharmacyQueuePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/prescriptions/{prescriptionId}": {
+      "get": {
+        "operationId": "getPharmacyPrescription",
+        "tags": ["pharmacy"],
+        "description": "A prescription as the pharmacy dispenses it: who it is for, its medication lines with the units dispensed against each, and its dispenses with their batches, oldest first. Audited: the prescription, each line and each dispense. Requires dispense:read with the scope `all` and the pharmacy feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "prescriptionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A prescription as the pharmacy dispenses it: its lines and its dispenses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PharmacyPrescription"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/orders/{orderId}/options": {
+      "get": {
+        "operationId": "getDispenseOptions",
+        "tags": ["pharmacy"],
+        "description": "What may be given for a medication line at a place: the prescribed medicine (absent once archived) and its generic substitutes (other medicines in use of the same generic name, form and strength), each with its batches in date that have stock there, nearest expiry first. A place not in use has no batches. Requires dispense:read with the scope `all` and the pharmacy feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "locationId",
+            "required": true,
+            "description": "The place to give from."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What may be given for a line at a place: the prescribed item (absent once archived) and its generic substitutes, each with its batches in date there, nearest expiry first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispenseOptions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/dispenses": {
+      "post": {
+        "operationId": "createDispense",
+        "tags": ["pharmacy"],
+        "description": "Dispenses units of a medication line (#100) from batches at a place, at the order’s version and the units given so far (409 `conflict` when either changed), in full or in part: the units leave stock through the ledger and the order moves in progress, or completed once the prescribed quantity is given. A line with no quantity prescribed stays in progress until completed (`POST /pharmacy/orders/:id/complete`). `drugId` gives a generic substitute instead (the same generic name, form and strength, in use; 422 `not_a_substitute`) with a reason. Refused: an order completed or cancelled (409 `invalid_transition`), more than the prescribed quantity in all (409 `over_quantity`), the prescribed medicine archived (409 `item_archived`), a place not in use (422 `unknown_location`), a batch that is not the item’s (422 `unknown_batch`) or given twice, an expired batch (409 `batch_expired`), more than a batch holds at the place (409 `insufficient_stock`). Emits `pharmacy.dispensed`, `order.completed` when it completes the order, and `stock.low` when the hospital’s stock of the item reaches its reorder level. The Idempotency-Key header is required: a repeat moves no stock and answers with the dispense as it is now. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispenseCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Units given against a prescription line. Never changed or removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dispense"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/orders/{orderId}/complete": {
+      "post": {
+        "operationId": "completeMedicationOrder",
+        "tags": ["pharmacy"],
+        "description": "Completes a medication line in progress (some dispensed) at its version (409 `conflict`) when nothing more will be given: the rest of the prescribed quantity, or a line with no quantity prescribed. Refused for a line with nothing dispensed, completed or cancelled (409 `invalid_transition`). Emits `order.completed`. Answers the prescription as it is now. The Idempotency-Key header is required: a repeat changes nothing. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PharmacyLineComplete"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A prescription as the pharmacy dispenses it: its lines and its dispenses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PharmacyPrescription"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/dispenses/{dispenseId}/print": {
+      "post": {
+        "operationId": "printDispenseSlip",
+        "tags": ["pharmacy"],
+        "description": "Records that a dispense slip is printed (the audit entry `print` of the dispense) and answers 204: the web app makes the page from what it read. A new key per press; a repeat records nothing more. Requires dispense:read with the scope `all` and the pharmacy feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "dispenseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
           },
           "400": {
             "description": "Standard error body.",

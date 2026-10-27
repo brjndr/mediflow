@@ -160,6 +160,9 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'stock:adjust' },
   { permission: 'stock:approve' },
   { permission: 'stockLocation:manage' },
+  // The pharmacy (#100): the queue and dispensing.
+  { permission: 'dispense:read' },
+  { permission: 'dispense:create' },
   { permission: 'billing:read' },
   { permission: 'billing:create' },
   { permission: 'billing:refund' },
@@ -258,6 +261,14 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
       { permission: 'stock:adjust' },
       { permission: 'stock:approve' },
     ],
+    // Dispenses prescriptions (#100), reading the stock, the drugs and the patient's allergies.
+    pharmacist: [
+      { permission: 'drug:read' },
+      { permission: 'stock:read' },
+      { permission: 'allergy:read' },
+      { permission: 'dispense:read' },
+      { permission: 'dispense:create' },
+    ],
   },
   [TENANT_IDS.clinic]: {
     admin: ADMIN,
@@ -307,6 +318,7 @@ export const USER_IDS = {
   receptionist: 'user_receptionist',
   billingClerk: 'user_billing_clerk',
   storeKeeper: 'user_store_keeper',
+  pharmacist: 'user_pharmacist',
 } as const;
 
 const users: Record<string, MockUser> = {
@@ -331,6 +343,12 @@ const users: Record<string, MockUser> = {
     email: 'stores@sample-hospital.test',
     name: 'Sample Store Keeper',
     memberships: [{ tenantId: TENANT_IDS.hospital, roleId: 'store_keeper' }],
+  },
+  [USER_IDS.pharmacist]: {
+    id: USER_IDS.pharmacist,
+    email: 'pharmacy@sample-hospital.test',
+    name: 'Sample Pharmacist',
+    memberships: [{ tenantId: TENANT_IDS.hospital, roleId: 'pharmacist' }],
   },
   [USER_IDS.receptionist]: {
     id: USER_IDS.receptionist,

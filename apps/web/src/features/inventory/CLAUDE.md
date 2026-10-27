@@ -27,16 +27,17 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 - **Every address holds ids only:** the stock list's Adjust passes the item in the router's state (memory), the Ledger link its id in the query. Nothing typed is in an address; stock holds no patient data, so the lists are `GET`s.
 - **Every POST carries an idempotency key,** one per body.
 - **Focus.** A panel's heading takes focus when it opens (`usePanelFocus`), and focus goes back to its button when it closes, or to the status line when that went away. A row that leaves the list (approved, rejected) is said in the status line, which takes focus. A failed submit of the adjustment focuses the first invalid field, the item first (it is first on the form). A refusal is an alert in the panel; the form stays open to change it.
+- **Dispensing (#100) is the pharmacy's,** which takes stock out through the API's `stockOut`: its entries show in the ledger with the reason "Dispensed". The pharmacy chooses its place from `usePlaces` (exported from `index.ts`; `usePlaces(enabled)` reads nothing while `enabled` is false).
 - **`DrugSearch` offers consumables on request** (`includeConsumables`, #102), and its `aria-expanded` now follows whether a list is drawn (an open box with nothing in it controlled nothing, which axe found when the form moved focus to it).
 
 ## Known gaps
 
 - A batch with no stock anywhere cannot be chosen for a positive count correction; opening stock of it again is refused as `batch_exists`. Rare: a count that finds stock of a batch the ledger says is gone.
 - `stock.expiring` is not emitted yet: it needs a daily job (BE-21, #107). `stock.low` is emitted when an approval brings the hospital to its reorder level.
-- No transfer between places yet (store indents, #105), no goods receipt (#103), no dispensing (#100).
+- No transfer between places yet (store indents, #105), no goods receipt (#103).
 - The adjustments list has no filter by item or place.
 - The item is chosen with the drug search, which needs the `drugs` switch and `drug:read` (the store keeper and the pharmacist hold it by default). With the drugs module off, an adjustment can only be started from a row of the stock list.
 
 ## Mock
 
-`mocks/handlers/inventory.ts` follows the API's rules and codes. At the hospital: a main store and a pharmacy counter (`loc_h_store`, `loc_h_pharmacy`), opening stock of the first thirty items of the drugs mock by name (batches `SB001A` at the store and `SB001B` at the counter, and on; the third item's expire within the month; every fifth item is low), each with its approved adjustment and ledger entry, and two adjustments the store keeper asked for: `adj_h_pending_1` (10 units of `SB002A` out, damaged) and `adj_h_pending_2` (120 units of a new batch `NEW001` in, opening). The clinic has one place, no stock and inventory switched off. Tests read it with `mockStock`.
+`mocks/handlers/inventory.ts` follows the API's rules and codes. At the hospital: a main store and a pharmacy counter (`loc_h_store`, `loc_h_pharmacy`), opening stock of the first thirty items of the drugs mock by name (batches `SB001A` at the store and `SB001B` at the counter, and on; the third item's expire within the month; every fifth item is low), each with its approved adjustment and ledger entry, and two adjustments the store keeper asked for: `adj_h_pending_1` (10 units of `SB002A` out, damaged) and `adj_h_pending_2` (120 units of a new batch `NEW001` in, opening). For the pharmacy (#100) it adds stock at the pharmacy counter for the clinical mock's prescription (batches `PCM24A`, `PCM25B`, an expired `PCM23X`, `PMD25C` and `CTZ25A`; the pharmacy's notes say which) and exports `mockUsableBatches` and `mockStockOut`. The clinic has one place, no stock and inventory switched off. Tests read it with `mockStock`.

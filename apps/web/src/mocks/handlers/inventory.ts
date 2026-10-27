@@ -122,6 +122,36 @@ function seed() {
       });
     }
   }
+  // At the pharmacy counter, for the prescription of the clinical mock (#100): paracetamol 500 mg
+  // tablets in a batch expiring sooner and one later, an expired one never offered, another brand
+  // of the same (a generic substitute), and cetirizine.
+  for (const [id, drugId, batchNumber, expiryDays, units] of [
+    ['bat_h_rx1', 'drg_h_2573', 'PCM24A', 120, 4],
+    ['bat_h_rx2', 'drg_h_2573', 'PCM25B', 400, 100],
+    ['bat_h_rx3', 'drg_h_2573', 'PCM23X', -10, 20],
+    ['bat_h_rx4', 'drg_h_2574', 'PMD25C', 300, 30],
+    ['bat_h_rx5', 'drg_h_0805', 'CTZ25A', 250, 50],
+  ] as const) {
+    const batch: Batch = {
+      id,
+      tenantId: TENANT_IDS.hospital,
+      drugId,
+      batchNumber,
+      expiryDate: day(expiryDays),
+      mrpMinor: 250,
+    };
+    state.batches.push(batch);
+    post(state, {
+      tenantId: TENANT_IDS.hospital,
+      batch,
+      locationId: 'loc_h_pharmacy',
+      quantity: units,
+      reason: 'opening',
+      sourceId: `adj_h_${id}`,
+      actorName: 'Sample Admin',
+      at: at(30),
+    });
+  }
   // Two waiting for a second person: a damaged strip and opening stock of a new batch.
   const first = stocked[1];
   const firstBatch = state.batches[2];
@@ -216,7 +246,8 @@ function post(
     batch: Batch;
     locationId: string;
     quantity: number;
-    reason: Reason;
+    reason: StockLedgerEntry['reason'];
+    source?: StockLedgerEntry['source'];
     sourceId: string;
     actorName: string;
     at?: string;
@@ -252,7 +283,7 @@ function post(
     locationName: location?.name ?? '',
     quantity: change.quantity,
     balanceAfter: balance.onHand,
-    source: 'adjustment',
+    source: change.source ?? 'adjustment',
     sourceId: change.sourceId,
     reason: change.reason,
     actorName: change.actorName,
@@ -264,6 +295,111 @@ let state = seed();
 onMockReset(() => {
   state = seed();
 });
+
+/** A batch that may be given from a place (#100): in date, with stock there. */
+export interface MockUsableBatch {
+  batchId: string;
+  drugId: string;
+  batchNumber: string;
+  expiryDate: string;
+  onHand: number;
+  mrpMinor?: number;
+}
+
+/**
+ * For the pharmacy's mock, as `usableBatches` of the API: the batches of these items with stock
+ * at the place, not expired at the hospital today, nearest expiry first.
+ */
+export function mockUsableBatches(
+  tenantId: string,
+  drugIds: string[],
+  locationId: string,
+): MockUsableBatch[] {
+  const today = todayIn(mockTenantTimezone(tenantId));
+  return state.balances
+    .filter(
+      (each) => each.tenantId === tenantId && each.locationId === locationId && each.onHand > 0,
+    )
+    .flatMap((balance) => {
+      const batch = state.batches.find((each) => each.id === balance.batchId);
+      return batch && drugIds.includes(batch.drugId) && batch.expiryDate >= today
+        ? [
+            {
+              batchId: batch.id,
+              drugId: batch.drugId,
+              batchNumber: batch.batchNumber,
+              expiryDate: batch.expiryDate,
+              onHand: balance.onHand,
+              ...(batch.mrpMinor === undefined ? {} : { mrpMinor: batch.mrpMinor }),
+            },
+          ]
+        : [];
+    })
+    .sort(
+      (a, b) =>
+        a.expiryDate.localeCompare(b.expiryDate) || a.batchNumber.localeCompare(b.batchNumber),
+    );
+}
+
+/**
+ * For the pharmacy's mock, as `stockOut` of the API: takes units of an item out at a place, all
+ * or nothing. Gives the refusal's code, or the batches taken from.
+ */
+export function mockStockOut(
+  tenantId: string,
+  movement: {
+    locationId: string;
+    drugId: string;
+    sourceId: string;
+    actorName: string;
+    lines: { batchId: string; quantity: number }[];
+  },
+):
+  | { refused: string }
+  | {
+      locationName: string;
+      batches: { batchId: string; batchNumber: string; expiryDate: string; quantity: number }[];
+    } {
+  const location = state.locations.find(
+    (each) => each.id === movement.locationId && each.tenantId === tenantId && !each.archived,
+  );
+  if (!location) return { refused: 'unknown_location' };
+  const today = todayIn(mockTenantTimezone(tenantId));
+  const batches: Batch[] = [];
+  for (const line of movement.lines) {
+    const batch = state.batches.find(
+      (each) =>
+        each.id === line.batchId && each.tenantId === tenantId && each.drugId === movement.drugId,
+    );
+    if (!batch) return { refused: 'unknown_batch' };
+    if (batch.expiryDate < today) return { refused: 'batch_expired' };
+    if (onHandAt(batch.id, movement.locationId) < line.quantity)
+      return { refused: 'insufficient_stock' };
+    batches.push(batch);
+  }
+  return {
+    locationName: location.name,
+    batches: movement.lines.map((line, index) => {
+      const batch = batches[index] as Batch;
+      post(state, {
+        tenantId,
+        batch,
+        locationId: movement.locationId,
+        quantity: -line.quantity,
+        reason: 'dispense',
+        source: 'dispense',
+        sourceId: movement.sourceId,
+        actorName: movement.actorName,
+      });
+      return {
+        batchId: batch.id,
+        batchNumber: batch.batchNumber,
+        expiryDate: batch.expiryDate,
+        quantity: line.quantity,
+      };
+    }),
+  };
+}
 
 /** For tests: the mock's adjustments and ledger as they are now. */
 export const mockStock = () => ({ adjustments: state.adjustments, ledger: state.ledger });

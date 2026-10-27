@@ -2,7 +2,8 @@ import type { PermissionDefinition } from '../../core/access/registry.js';
 
 /**
  * The defaults of the "Triage and vitals" row of `docs/PRODUCT.md`: nurses record, doctors view,
- * and the hospital admin holds all four to set the module up.
+ * and the hospital admin holds all four to set the module up. The pharmacist reads allergies, for
+ * the warning as a medicine is dispensed (#100).
  */
 export const TRIAGE_PERMISSIONS = [
   {
@@ -18,7 +19,8 @@ export const TRIAGE_PERMISSIONS = [
   {
     id: 'allergy:read',
     description: 'See a patient’s allergies',
-    defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
+    // The pharmacist, to be warned of an allergy as a medicine is dispensed (#100).
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all', pharmacist: 'all' },
   },
   {
     id: 'allergy:update',

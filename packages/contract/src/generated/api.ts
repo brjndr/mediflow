@@ -2114,7 +2114,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). While the hospital has the laboratory switched on, a lab order is moved by its sample and results only (409 `lab_order`); while it has radiology switched on, an imaging order is moved by its study only (409 `imaging_order`). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed, as results arrive later. The Idempotency-Key header is required: a repeat changes nothing and answers with the order as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist. */
+        /** @description Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). While the hospital has the laboratory switched on, a lab order is moved by its sample and results only (409 `lab_order`); while it has radiology switched on, an imaging order is moved by its study only (409 `imaging_order`); while it has the pharmacy switched on, a medication order is moved by its dispenses only (409 `medication_order`). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag. The `version` must be the current one, or 409 `conflict`. Allowed after the encounter closed, as results arrive later. The Idempotency-Key header is required: a repeat changes nothing and answers with the order as it is now. Audited. The encounter decides who reaches it: one of another hospital, or outside the scope the caller holds the route’s permission with, is 404 as one that does not exist. */
         post: operations["advanceOrder"];
         delete?: never;
         options?: never;
@@ -2836,6 +2836,108 @@ export interface paths {
         put?: never;
         /** @description Rejects a pending adjustment someone else asked for, with a note saying why: nothing moves. The same refusals as approving, apart from those of stock. Audited. */
         post: operations["rejectStockAdjustment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The pharmacy’s queue (#100): prescriptions with a medication line still to dispense (`open`, the oldest first), or with none left and some dispensed (`done`, the newest first), prescribed within `days` at the hospital (default 7, at most 90), of one patient when asked. Each names the patient (name and MRN), as dispense:read says, and counts its lines. `total` with the first page. Every prescription listed is audited as read. Requires dispense:read with the scope `all` (a narrower one sees nothing) and the pharmacy feature flag. Holds no patient term: a GET. */
+        get: operations["listPharmacyQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/prescriptions/{prescriptionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A prescription as the pharmacy dispenses it: who it is for, its medication lines with the units dispensed against each, and its dispenses with their batches, oldest first. Audited: the prescription, each line and each dispense. Requires dispense:read with the scope `all` and the pharmacy feature flag. */
+        get: operations["getPharmacyPrescription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/orders/{orderId}/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What may be given for a medication line at a place: the prescribed medicine (absent once archived) and its generic substitutes (other medicines in use of the same generic name, form and strength), each with its batches in date that have stock there, nearest expiry first. A place not in use has no batches. Requires dispense:read with the scope `all` and the pharmacy feature flag. */
+        get: operations["getDispenseOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/dispenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Dispenses units of a medication line (#100) from batches at a place, at the order’s version and the units given so far (409 `conflict` when either changed), in full or in part: the units leave stock through the ledger and the order moves in progress, or completed once the prescribed quantity is given. A line with no quantity prescribed stays in progress until completed (`POST /pharmacy/orders/:id/complete`). `drugId` gives a generic substitute instead (the same generic name, form and strength, in use; 422 `not_a_substitute`) with a reason. Refused: an order completed or cancelled (409 `invalid_transition`), more than the prescribed quantity in all (409 `over_quantity`), the prescribed medicine archived (409 `item_archived`), a place not in use (422 `unknown_location`), a batch that is not the item’s (422 `unknown_batch`) or given twice, an expired batch (409 `batch_expired`), more than a batch holds at the place (409 `insufficient_stock`). Emits `pharmacy.dispensed`, `order.completed` when it completes the order, and `stock.low` when the hospital’s stock of the item reaches its reorder level. The Idempotency-Key header is required: a repeat moves no stock and answers with the dispense as it is now. Audited. */
+        post: operations["createDispense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/orders/{orderId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Completes a medication line in progress (some dispensed) at its version (409 `conflict`) when nothing more will be given: the rest of the prescribed quantity, or a line with no quantity prescribed. Refused for a line with nothing dispensed, completed or cancelled (409 `invalid_transition`). Emits `order.completed`. Answers the prescription as it is now. The Idempotency-Key header is required: a repeat changes nothing. Audited. */
+        post: operations["completeMedicationOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/dispenses/{dispenseId}/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records that a dispense slip is printed (the audit entry `print` of the dispense) and answers 204: the web app makes the page from what it read. A new key per press; a repeat records nothing more. Requires dispense:read with the scope `all` and the pharmacy feature flag. */
+        post: operations["printDispenseSlip"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5150,10 +5252,15 @@ export interface components {
          */
         StockExpiryState: "ok" | "expiring" | "expired";
         /**
-         * @description What made a ledger entry. Goods receipts, dispenses and transfers come with their modules.
+         * @description What made a ledger entry: an approved adjustment, or a dispense of the pharmacy (#100). Goods receipts and transfers come with their modules.
          * @enum {string}
          */
-        StockLedgerSource: "adjustment";
+        StockLedgerSource: "adjustment" | "dispense";
+        /**
+         * @description Why stock moved: the reason of its adjustment, or `dispense` for units given against a prescription.
+         * @enum {string}
+         */
+        StockLedgerReason: "opening" | "count_correction" | "damaged" | "expired" | "other" | "dispense";
         /** @description A place of the hospital that keeps stock. */
         StockLocation: {
             id: string;
@@ -5256,8 +5363,8 @@ export interface components {
             balanceAfter: number;
             source: components["schemas"]["StockLedgerSource"];
             sourceId: string;
-            reason: components["schemas"]["StockAdjustmentReason"];
-            /** @description Who made the change: for an adjustment, the approver. */
+            reason: components["schemas"]["StockLedgerReason"];
+            /** @description Who made the change: for an adjustment, the approver; for a dispense, the pharmacist. */
             actorName: string;
         };
         /** @description Cursor envelope used by every list endpoint. */
@@ -5335,6 +5442,149 @@ export interface components {
             /** @description The version the change was made from. */
             expectedVersion: number;
             note: string;
+        };
+        /** @description A prescription in the pharmacy’s queue, with who it is for. */
+        PharmacyQueueItem: {
+            prescriptionId: string;
+            encounterId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            /** Format: date-time */
+            prescribedAt: string;
+            prescribedByName: string;
+            /** @description Its medication lines, cancelled ones included. */
+            lineCount: number;
+            /** @description Lines still to dispense: placed, accepted or in progress. */
+            openLineCount: number;
+            /** @description Lines with some dispensed: in progress or completed. */
+            startedLineCount: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        PharmacyQueuePage: {
+            items: components["schemas"]["PharmacyQueueItem"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description Units of one batch given in a dispense. */
+        DispenseBatch: {
+            batchId: string;
+            batchNumber: string;
+            /** @description A calendar date, `YYYY-MM-DD`. */
+            expiryDate: string;
+            quantity: number;
+        };
+        /** @description Units given against a prescription line. Never changed or removed. */
+        Dispense: {
+            id: string;
+            orderId: string;
+            prescriptionId: string;
+            encounterId: string;
+            patientId: string;
+            locationId: string;
+            locationName: string;
+            prescribedDrugId: string;
+            /** @description The item given: the prescribed one, or its substitute. */
+            drugId: string;
+            /** @description The item given as it read when dispensed. */
+            itemName: string;
+            schedule: string;
+            controlled: boolean;
+            /** @description Why another brand was given; only for a substitute. */
+            substitutionReason?: string;
+            quantity: number;
+            batches: components["schemas"]["DispenseBatch"][];
+            /** Format: date-time */
+            dispensedAt: string;
+            dispensedByName: string;
+        };
+        /** @description A medication line of a prescription, as dispensed. */
+        PharmacyLine: {
+            orderId: string;
+            lineNumber: number;
+            /** @description Sent back as expectedVersion. */
+            version: number;
+            /**
+             * @description The order’s status: placed or accepted until something is dispensed, in progress once some is, completed when all is (or the pharmacist completes it), cancelled by the doctor.
+             * @enum {string}
+             */
+            status: "placed" | "accepted" | "in_progress" | "completed" | "cancelled";
+            drugId: string;
+            /** @description The medicine as it read when prescribed. */
+            itemName: string;
+            dose: string;
+            frequency: string;
+            route: string;
+            durationDays?: number;
+            /** @description How much to dispense; absent when the doctor did not say. */
+            quantity?: number;
+            instructions?: string;
+            cancelReason?: string;
+            /** @description Units given so far, every dispense. */
+            dispensedQuantity: number;
+        };
+        /** @description A prescription as the pharmacy dispenses it: its lines and its dispenses. */
+        PharmacyPrescription: {
+            prescriptionId: string;
+            encounterId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            /** Format: date-time */
+            prescribedAt: string;
+            prescribedByName: string;
+            advice?: string;
+            replacesId?: string;
+            replacedById?: string;
+            lines: components["schemas"]["PharmacyLine"][];
+            /** @description Oldest first. */
+            dispenses: components["schemas"]["Dispense"][];
+        };
+        /** @description A batch in date with stock at the place. */
+        DispensableBatch: {
+            batchId: string;
+            batchNumber: string;
+            /** @description A calendar date, `YYYY-MM-DD`. */
+            expiryDate: string;
+            /** @description Units at the place. */
+            onHand: number;
+            /** @description Maximum retail price of a unit, in minor units. */
+            mrpMinor?: string;
+        };
+        /** @description An item that may be given, with its batches. */
+        DispensableItem: {
+            drugId: string;
+            name: string;
+            schedule: string;
+            controlled: boolean;
+            /** @description Nearest expiry first. */
+            batches: components["schemas"]["DispensableBatch"][];
+        };
+        /** @description What may be given for a line at a place: the prescribed item (absent once archived) and its generic substitutes, each with its batches in date there, nearest expiry first. */
+        DispenseOptions: {
+            prescribed?: components["schemas"]["DispensableItem"];
+            /** @description Other brands of the same generic name, form and strength, in use. */
+            substitutes: components["schemas"]["DispensableItem"][];
+        };
+        DispenseCreate: {
+            orderId: string;
+            /** @description The order’s version the dispense was made from. */
+            expectedVersion: number;
+            /** @description The units dispensed against the line when the dispense was made (its dispensedQuantity): another dispense meanwhile is 409 conflict. */
+            expectedDispensedQuantity: number;
+            locationId: string;
+            /** @description A generic substitute to give instead; absent gives the prescribed item. Needs substitutionReason. */
+            drugId?: string;
+            substitutionReason?: string;
+            /** @description Each batch once. */
+            batches: {
+                batchId: string;
+                quantity: number;
+            }[];
+        };
+        PharmacyLineComplete: {
+            /** @description The order’s version. */
+            expectedVersion: number;
         };
         Notice: {
             id: string;
@@ -20270,6 +20520,495 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StockAdjustment"];
                 };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listPharmacyQueue: {
+        parameters: {
+            query?: {
+                /** @description `open` (the default): with a line still to dispense, the oldest first. `done`: every line completed or cancelled and at least one dispensed, the newest first. */
+                state?: "open" | "done";
+                /** @description Prescribed within this many days at the hospital, today included. Default 7. */
+                days?: number;
+                /** @description One patient’s prescriptions only. */
+                patientId?: string;
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PharmacyQueuePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPharmacyPrescription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                prescriptionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A prescription as the pharmacy dispenses it: its lines and its dispenses. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PharmacyPrescription"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDispenseOptions: {
+        parameters: {
+            query: {
+                /** @description The place to give from. */
+                locationId: string;
+            };
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What may be given for a line at a place: the prescribed item (absent once archived) and its generic substitutes, each with its batches in date there, nearest expiry first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DispenseOptions"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createDispense: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DispenseCreate"];
+            };
+        };
+        responses: {
+            /** @description Units given against a prescription line. Never changed or removed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dispense"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    completeMedicationOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PharmacyLineComplete"];
+            };
+        };
+        responses: {
+            /** @description A prescription as the pharmacy dispenses it: its lines and its dispenses. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PharmacyPrescription"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    printDispenseSlip: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                dispenseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Standard error body. */
             400: {

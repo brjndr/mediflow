@@ -22,4 +22,6 @@ export const clinicalFeature: FastifyPluginAsync = async (app) => {
 export { labOrder, moveLabOrder, type LabOrder } from './lab.js';
 /** For radiology: an imaging order, and moving it on as it is scheduled, performed and reported. */
 export { imagingOrder, moveImagingOrder, type ImagingOrder } from './imaging.js';
+/** For the pharmacy: a medication order, and moving it on as it is dispensed (#100). */
+export { medicationOrder, moveMedicationOrder, type MedicationOrder } from './medication.js';
 export { OrderPriority, OrderStatus } from './schemas.js';

@@ -20,7 +20,8 @@
     "count_correction": "Count correction",
     "damaged": "Damaged",
     "expired": "Expired",
-    "other": "Other"
+    "other": "Other",
+    "dispense": "Dispensed"
   },
   "change": {
     "in_one": "{{count}} unit in",

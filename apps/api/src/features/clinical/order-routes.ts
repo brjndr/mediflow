@@ -296,7 +296,7 @@ export const orderRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['clinical'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). While the hospital has the laboratory switched on, a lab order is moved by its sample and results only (409 `lab_order`); while it has radiology switched on, an imaging order is moved by its study only (409 `imaging_order`). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag.' +
+          'Moves an order on by one step: placed -> accepted -> in_progress -> completed. Any other move, and any move of a completed or cancelled order, is 409 `invalid_transition` (the database refuses it too). While the hospital has the laboratory switched on, a lab order is moved by its sample and results only (409 `lab_order`); while it has radiology switched on, an imaging order is moved by its study only (409 `imaging_order`); while it has the pharmacy switched on, a medication order is moved by its dispenses only (409 `medication_order`). Completing emits `order.completed` through the outbox. Requires order:update and the clinical feature flag.' +
           CHANGE +
           SCOPE,
         params: OrderParams,
@@ -318,6 +318,17 @@ export const orderRoutes: FastifyPluginAsyncTypebox = async (app) => {
           (await request.access.policy())?.features.radiology === true
         ) {
           throw new HttpError(409, 'imaging_order', 'An imaging order moves with its study');
+        }
+        // The pharmacy moves medication orders as it dispenses them (#100).
+        if (
+          row.type === 'medication' &&
+          (await request.access.policy())?.features.pharmacy === true
+        ) {
+          throw new HttpError(
+            409,
+            'medication_order',
+            'A medication order moves as it is dispensed',
+          );
         }
         if (NEXT[row.status] !== body.status) {
           throw new HttpError(

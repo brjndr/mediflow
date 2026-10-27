@@ -1,5 +1,12 @@
 import type pg from 'pg';
-import type { AdjustmentReason, AdjustmentStatus, LocationKind, StockAlert } from './schemas.js';
+import type {
+  AdjustmentReason,
+  AdjustmentStatus,
+  LedgerReason,
+  LedgerSource,
+  LocationKind,
+  StockAlert,
+} from './schemas.js';
 
 /**
  * Inventory's SQL. Every statement runs on the request's own transaction, so row-level security
@@ -449,9 +456,9 @@ export async function postEntry(
     drugId: string;
     locationId: string;
     quantity: number;
-    source: 'adjustment';
+    source: LedgerSource;
     sourceId: string;
-    reason: AdjustmentReason;
+    reason: LedgerReason;
     actorId: string;
   },
 ): Promise<{ id: string; balanceAfter: number }> {
@@ -485,9 +492,9 @@ export interface LedgerRow extends ItemColumns {
   location_name: string;
   quantity: number;
   balance_after: number;
-  source: 'adjustment';
+  source: LedgerSource;
   source_id: string;
-  reason: AdjustmentReason;
+  reason: LedgerReason;
   actor_name: string | null;
   /** The instant to the microsecond, for the cursor: a Date keeps milliseconds only. */
   at_exact: string;
