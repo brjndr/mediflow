@@ -7,7 +7,8 @@ import { inventoryRoutes } from './routes.js';
  * their stock at each place, the append-only ledger of every change, and adjustments that a
  * second person approves. Behind the `inventory` module flag. Checks an item through
  * `stockableDrug` from `features/drugs`. Publishes `stock.adjusted` and `stock.low`.
- * Dispensing, goods receipts and indents (#100, #103, #105) post to the same ledger.
+ * Dispensing, counter sales, goods receipts and indents (#100, #101, #103, #105) post to the same
+ * ledger.
  */
 export const inventoryFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('inventory', INVENTORY_PERMISSIONS);
@@ -16,7 +17,15 @@ export const inventoryFeature: FastifyPluginAsync = async (app) => {
 
 /**
  * For the pharmacy (#100, #101): the batches that may be given from a place, nearest expiry
- * first, taking units out of stock and putting returned units back through the ledger, so no
+ * first, taking units out of stock and putting returned units back through the ledger; for
+ * purchasing (#103), bringing received goods in and sending units back to the supplier. So no
  * other module writes stock.
  */
-export { stockIn, stockOut, usableBatches, type UsableBatch } from './stock-out.js';
+export {
+  placeInUse,
+  stockIn,
+  stockOut,
+  stockReceive,
+  usableBatches,
+  type UsableBatch,
+} from './stock-out.js';
