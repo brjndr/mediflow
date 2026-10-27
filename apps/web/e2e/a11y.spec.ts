@@ -113,6 +113,29 @@ const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
       });
       return ((await answer.json()) as { id?: string }).id ?? '';
     }),
+  // Purchase orders are opened from a list row action (#103): the mock's draft, which its edit
+  // screen can also open.
+  'purchasing/orders': () => Promise.resolve('po_h_draft'),
+  // The mock keeps no goods receipt until one is made: a batch of the approved order.
+  'purchasing/receipts': (page) =>
+    page.evaluate(async () => {
+      const answer = await fetch('/api/purchasing/orders/po_h_approved/receipts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+        body: JSON.stringify({
+          lines: [
+            {
+              orderLineId: 'po_h_approved_line_1',
+              batchNumber: 'A11Y-1',
+              expiryDate: '2030-06-30',
+              quantity: 10,
+              unitCostMinor: 2800,
+            },
+          ],
+        }),
+      });
+      return ((await answer.json()) as { id?: string }).id ?? '';
+    }),
   // The mock keeps no import until one is started.
   imports: (page) =>
     page.evaluate(async () => {

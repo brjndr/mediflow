@@ -377,9 +377,13 @@ export function mockStockOut(
     drugId: string;
     sourceId: string;
     actorName: string;
-    /** A dispense when not said; a counter sale (#101). */
-    source?: 'dispense' | 'sale';
+    /** A dispense when not said; a counter sale (#101); goods sent back to a supplier (#103). */
+    source?: 'dispense' | 'sale' | 'purchase_return';
     lines: { batchId: string; quantity: number }[];
+    /** Expired units may go: only back to the supplier. */
+    expiredAllowed?: boolean;
+    /** Checks only, moving nothing: for a movement of several items, all or nothing. */
+    dryRun?: boolean;
   },
 ):
   | { refused: string }
@@ -399,11 +403,12 @@ export function mockStockOut(
         each.id === line.batchId && each.tenantId === tenantId && each.drugId === movement.drugId,
     );
     if (!batch) return { refused: 'unknown_batch' };
-    if (batch.expiryDate < today) return { refused: 'batch_expired' };
+    if (batch.expiryDate < today && !movement.expiredAllowed) return { refused: 'batch_expired' };
     if (onHandAt(batch.id, movement.locationId) < line.quantity)
       return { refused: 'insufficient_stock' };
     batches.push(batch);
   }
+  if (movement.dryRun) return { locationName: location.name, batches: [] };
   return {
     locationName: location.name,
     batches: movement.lines.map((line, index) => {
@@ -468,6 +473,89 @@ export function mockStockIn(
     });
   });
   return null;
+}
+
+/** For purchasing's mock (#103): a place of the hospital in use, or null. */
+export function mockPlaceInUse(tenantId: string, locationId: string) {
+  const location = state.locations.find(
+    (each) => each.id === locationId && each.tenantId === tenantId && !each.archived,
+  );
+  return location ? { id: location.id, name: location.name } : null;
+}
+
+/**
+ * For purchasing's mock, as `stockReceive` of the API (#103): brings goods received into stock at
+ * a place, each line a batch made when the item has no batch of that number (whatever the
+ * capitals), found when it has one of the same expiry, all or nothing. Gives the refusal's code,
+ * or each line's batch.
+ */
+export function mockStockReceive(
+  tenantId: string,
+  movement: {
+    locationId: string;
+    drugId: string;
+    sourceId: string;
+    actorName: string;
+    lines: {
+      batchNumber: string;
+      expiryDate: string;
+      mrpMinor?: number;
+      quantity: number;
+    }[];
+    /** Checks only, moving nothing: for a receipt of several items, all or nothing. */
+    dryRun?: boolean;
+  },
+):
+  { refused: string } | { batches: { batchId: string; batchNumber: string; mrpMinor?: number }[] } {
+  if (!mockPlaceInUse(tenantId, movement.locationId)) return { refused: 'unknown_location' };
+  const today = todayIn(mockTenantTimezone(tenantId));
+  const found: (Batch | null)[] = [];
+  for (const line of movement.lines) {
+    if (line.expiryDate < today) return { refused: 'batch_expired' };
+    const batch =
+      state.batches.find(
+        (each) =>
+          each.tenantId === tenantId &&
+          each.drugId === movement.drugId &&
+          each.batchNumber.toUpperCase() === line.batchNumber.toUpperCase(),
+      ) ?? null;
+    if (batch && batch.expiryDate !== line.expiryDate) return { refused: 'batch_exists' };
+    found.push(batch);
+  }
+  if (movement.dryRun) return { batches: [] };
+  return {
+    batches: movement.lines.map((line, index) => {
+      let batch = found[index] ?? null;
+      if (!batch) {
+        state.counter += 1;
+        batch = {
+          id: `bat_rcv_${state.counter}`,
+          tenantId,
+          drugId: movement.drugId,
+          batchNumber: line.batchNumber,
+          expiryDate: line.expiryDate,
+          ...(line.mrpMinor === undefined ? {} : { mrpMinor: line.mrpMinor }),
+        };
+        state.batches.push(batch);
+      }
+      post(state, {
+        tenantId,
+        batch,
+        locationId: movement.locationId,
+        quantity: line.quantity,
+        reason: 'receipt',
+        source: 'receipt',
+        sourceId: movement.sourceId,
+        actorName: movement.actorName,
+      });
+      // The batch as it is: one already there keeps its own number and price.
+      return {
+        batchId: batch.id,
+        batchNumber: batch.batchNumber,
+        ...(batch.mrpMinor === undefined ? {} : { mrpMinor: batch.mrpMinor }),
+      };
+    }),
+  };
 }
 
 /** For the pharmacy's mock: an item's ledger at the hospital, the oldest first (#101). */
