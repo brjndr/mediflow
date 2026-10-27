@@ -547,6 +547,43 @@ describe('adjustments', () => {
     ).not.toContain(asked.id);
   });
 
+  it('sends stock.low once when two approvals of one item at once cross the reorder level', async () => {
+    const drugId = await addDrug(hospital, 'Metformin', 'medicine', 10);
+    const store = await opening(7, { drugId });
+    const counter = await opening(7, { drugId, locationId: places.pharmacy });
+    const out = (from: Adjustment, locationId: string) =>
+      ok<Adjustment>(
+        ask({ locationId, drugId, batchId: from.batchId, quantity: -3, reason: 'damaged' }),
+        201,
+      );
+    const first = await out(store, places.store);
+    const second = await out(counter, places.pharmacy);
+    const results = await Promise.all([approve(first), approve(second)]);
+    expect(results.map((each) => each.statusCode)).toEqual([200, 200]);
+    expect((await itemOf(drugId)).hospitalOnHand).toBe(8);
+    expect((await events(drugId)).map((each) => each.event)).toEqual(['stock.low']);
+  });
+
+  it('refuses to approve stock of an item archived since it was asked for', async () => {
+    const drugId = await addDrug(hospital, 'Ranitidine', 'medicine', null);
+    const asked = await ok<Adjustment>(
+      ask({
+        locationId: places.store,
+        drugId,
+        batchNumber: nextBatch(),
+        expiryDate: day(200),
+        quantity: 5,
+        reason: 'opening',
+      }),
+      201,
+    );
+    await pool.query('update drugs set archived = true where id = $1', [drugId]);
+    expect(errorOf(await approve(asked))).toEqual([409, 'item_archived']);
+    expect(
+      (await pool.query('select 1 from stock_ledger where source_id = $1', [asked.id])).rowCount,
+    ).toBe(0);
+  });
+
   it('emits stock.low when an approval brings the hospital to the reorder level', async () => {
     const drugId = await addDrug(hospital, 'Paracetamol', 'medicine', 50);
     const opened = await opening(60, { drugId });
@@ -665,6 +702,46 @@ describe('stock and alerts', () => {
       get(`/inventory/ledger?limit=1&cursor=${ledger.nextCursor}`),
     );
     expect(next.items[0]?.id).not.toBe(ledger.items[0]?.id);
+  });
+});
+
+describe('paging the ledger and the adjustments', () => {
+  it('pages newest first with no row twice, and refuses a forged cursor', async () => {
+    // Entries of one approval share nothing but their place in time: page one at a time.
+    for (let i = 0; i < 3; i += 1) await opening(1, { drugId: items.gloves });
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    for (let i = 0; i < 4; i += 1) {
+      const page: Page<LedgerEntry> = await ok(
+        get(`/inventory/ledger?limit=1${cursor ? `&cursor=${cursor}` : ''}`),
+      );
+      seen.push(...page.items.map((each) => each.id));
+      cursor = page.nextCursor;
+    }
+    expect(new Set(seen).size).toBe(4);
+
+    const asked: string[] = [];
+    let next: string | null = null;
+    for (let i = 0; i < 3; i += 1) {
+      const page: Page<Adjustment> = await ok(
+        get(`/inventory/adjustments?status=approved&limit=1${next ? `&cursor=${next}` : ''}`),
+      );
+      if (i === 0) expect(page.total).toBeGreaterThan(2);
+      else expect(page.total).toBeUndefined();
+      asked.push(...page.items.map((each) => each.id));
+      next = page.nextCursor;
+    }
+    expect(new Set(asked).size).toBe(3);
+
+    const forged = Buffer.from(JSON.stringify(['yesterday', randomUUID()])).toString('base64url');
+    expect(errorOf(await get(`/inventory/ledger?cursor=${forged}`))).toEqual([
+      400,
+      'invalid_cursor',
+    ]);
+    expect(errorOf(await get(`/inventory/adjustments?cursor=${forged}`))).toEqual([
+      400,
+      'invalid_cursor',
+    ]);
   });
 });
 
@@ -795,6 +872,10 @@ describe('the database', () => {
         code: '42501',
       });
     });
+    // Not even the owner empties the ledger, the balances or the batches.
+    for (const table of ['stock_ledger', 'stock_balances', 'stock_batches']) {
+      await expect(pool.query(`truncate ${table} cascade`)).rejects.toThrow('never emptied');
+    }
     // Not even the owner changes an entry.
     await expect(
       pool.query('update stock_ledger set quantity = 1 where batch_id = $1', [opened.batchId]),

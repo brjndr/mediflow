@@ -20,19 +20,29 @@ export const isViolation = (error: unknown, constraint: string): boolean =>
 
 /**
  * Where the next page starts: the sort values of the last row, its id last. Opaque to the client;
- * null for anything that is not a cursor of this shape.
+ * null for anything that is not a cursor of this shape, each part checked for its kind, so a
+ * forged one is a 400 and never reaches a cast in the database.
  */
 const encodeCursor = (values: string[]): string =>
   Buffer.from(JSON.stringify(values)).toString('base64url');
 
-function decodeCursor(cursor: string, size: number): string[] | null {
+/** An instant as the cursors hold it: UTC, to the microsecond. */
+const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+const PART = {
+  text: (value: string) => [...value].length <= 400 && !value.includes('\u0000'),
+  instant: (value: string) => INSTANT.test(value) && !Number.isNaN(Date.parse(value)),
+  uuid: (value: string) => UUID.test(value),
+};
+
+function decodeCursor(cursor: string, kinds: (keyof typeof PART)[]): string[] | null {
   try {
     const value: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
-    if (!Array.isArray(value) || value.length !== size) return null;
-    if (!value.every((each) => typeof each === 'string' && each.length <= 400)) return null;
-    const strings = value as string[];
-    if (strings.some((each) => each.includes('\u0000'))) return null;
-    return UUID.test(strings[size - 1] ?? '') ? strings : null;
+    if (!Array.isArray(value) || value.length !== kinds.length) return null;
+    const fits = value.every((each, index) => {
+      const kind = kinds[index];
+      return typeof each === 'string' && kind !== undefined && PART[kind](each);
+    });
+    return fits ? (value as string[]) : null;
   } catch {
     return null;
   }
@@ -92,7 +102,7 @@ export async function listLocations(
   client: pg.ClientBase,
   { archived, cursor, limit }: { archived: boolean; cursor?: string; limit: number },
 ): Promise<Page<LocationRow> | null> {
-  const after = cursor === undefined ? undefined : decodeCursor(cursor, 2);
+  const after = cursor === undefined ? undefined : decodeCursor(cursor, ['text', 'uuid']);
   if (after === null) return null;
   const { rows } = await client.query<LocationRow>(
     `${LOCATIONS}
@@ -245,7 +255,10 @@ export async function listStock(
     limit: number;
   },
 ): Promise<Page<StockItemRow> | null> {
-  const after = options.cursor === undefined ? undefined : decodeCursor(options.cursor, 3);
+  const after =
+    options.cursor === undefined
+      ? undefined
+      : decodeCursor(options.cursor, ['text', 'text', 'uuid']);
   if (after === null) return null;
   const filters = `
     and ($3::uuid is null or d.id = $3)
@@ -325,6 +338,17 @@ export async function batchBalances(
     [drugIds, locationId, expiringWithinDays],
   );
   return rows;
+}
+
+/**
+ * Holds an item's stock until the transaction ends, against another change of it anywhere in the
+ * hospital: two approvals of one item at different batches or places take their turn, so whether
+ * one brings the hospital to its reorder level is seen by one of them only.
+ */
+export async function lockItemStock(client: pg.ClientBase, drugId: string): Promise<void> {
+  await client.query("select pg_advisory_xact_lock(hashtextextended('stock:' || $1::text, 0))", [
+    drugId,
+  ]);
 }
 
 /** An item's stock at the whole hospital. */
@@ -482,7 +506,8 @@ export async function listLedger(
     limit: number;
   },
 ): Promise<Page<LedgerRow> | null> {
-  const after = options.cursor === undefined ? undefined : decodeCursor(options.cursor, 2);
+  const after =
+    options.cursor === undefined ? undefined : decodeCursor(options.cursor, ['instant', 'uuid']);
   if (after === null) return null;
   const { rows } = await client.query<LedgerRow>(
     `select e.id, e.at, ${ITEM_COLUMNS}, e.batch_id, t.batch_number,
@@ -550,7 +575,9 @@ const ADJUSTMENTS = `
     a.batch_id, coalesce(t.batch_number, a.batch_number) as batch_number,
     to_char(coalesce(t.expiry_date, a.expiry_date), 'YYYY-MM-DD') as expiry_date,
     a.batch_number is not null as new_batch,
-    coalesce(a.mrp_minor, t.mrp_minor) as mrp_minor, coalesce(a.cost_minor, t.cost_minor) as cost_minor,
+    -- The batch's prices once there is one: an approval may have taken a batch made meanwhile.
+    case when t.id is null then a.mrp_minor else t.mrp_minor end as mrp_minor,
+    case when t.id is null then a.cost_minor else t.cost_minor end as cost_minor,
     a.quantity, a.reason, a.note,
     coalesce((select b.on_hand from stock_balances b
               where b.tenant_id = a.tenant_id and b.batch_id = a.batch_id and b.location_id = a.location_id), 0)
@@ -570,7 +597,7 @@ export async function listAdjustments(
   client: pg.ClientBase,
   { status, cursor, limit }: { status: AdjustmentStatus; cursor?: string; limit: number },
 ): Promise<Page<AdjustmentRow> | null> {
-  const after = cursor === undefined ? undefined : decodeCursor(cursor, 2);
+  const after = cursor === undefined ? undefined : decodeCursor(cursor, ['instant', 'uuid']);
   if (after === null) return null;
   const { rows } = await client.query<AdjustmentRow>(
     `${ADJUSTMENTS}

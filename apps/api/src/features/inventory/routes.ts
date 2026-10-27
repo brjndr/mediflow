@@ -27,6 +27,7 @@ import {
   locationHasStock,
   locationNameTaken,
   lockAdjustment,
+  lockItemStock,
   lockLocation,
   onHandAt,
   postEntry,
@@ -590,7 +591,7 @@ export const inventoryRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['inventory'],
         headers: IdempotencyHeaders,
         description:
-          'Approves a pending adjustment someone else asked for (409 own_adjustment), at its version (409 conflict): it moves the stock through the ledger, making the new batch of opening stock first (409 batch_exists when a batch of that number with another expiry was made meanwhile). Refused with 409 insufficient_stock when the batch has fewer units at the place than it takes out, 409 location_archived when its place was archived, 409 adjustment_decided once decided. Emits `stock.adjusted`, and `stock.low` when it brings the hospital’s stock of the item to its reorder level or below. Audited.',
+          'Approves a pending adjustment someone else asked for (409 own_adjustment), at its version (409 conflict): it moves the stock through the ledger, making the new batch of opening stock first (409 batch_exists when a batch of that number with another expiry was made meanwhile). Refused with 409 insufficient_stock when the batch has fewer units at the place than it takes out, 409 location_archived when its place was archived, 409 item_archived when its item was, 409 adjustment_decided once decided. Emits `stock.adjusted`, and `stock.low` when it brings the hospital’s stock of the item to its reorder level or below. Audited.',
         params: AdjustmentParams,
         body: ref(StockAdjustmentApprove),
         response: { 200: ref(StockAdjustment), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -609,6 +610,14 @@ export const inventoryRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!location || location.archived) {
         throw new HttpError(409, 'location_archived', 'The place was archived');
       }
+      // Stock of an item archived since it was asked for is not moved: the stock list no longer
+      // shows it.
+      const drug = await stockableDrug(request.txClient, current.drug_id);
+      if (!drug) throw new HttpError(409, 'item_archived', 'The item was archived');
+      // Held against another approval of the item, so the hospital's stock before and after this
+      // one is known and the reorder level is crossed by one approval only.
+      await lockItemStock(request.txClient, current.drug_id);
+      const before = await hospitalOnHand(request.txClient, current.drug_id);
       let batchId = current.batch_id;
       if (batchId === null) {
         const batch = await insertBatch(request.txClient, {
@@ -655,13 +664,10 @@ export const inventoryRoutes: FastifyPluginAsyncTypebox = async (app) => {
         locationId: current.location_id,
         reason: current.reason,
       });
-      const drug = await stockableDrug(request.txClient, current.drug_id);
-      const reorderLevel = drug?.reorderLevel ?? null;
-      if (reorderLevel !== null) {
-        const after = await hospitalOnHand(request.txClient, current.drug_id);
-        if (after <= reorderLevel && after - current.quantity > reorderLevel) {
-          await request.emit('stock.low', current.drug_id, { drugId: current.drug_id });
-        }
+      const reorderLevel = drug.reorderLevel;
+      const after = before + current.quantity;
+      if (reorderLevel !== null && after <= reorderLevel && before > reorderLevel) {
+        await request.emit('stock.low', current.drug_id, { drugId: current.drug_id });
       }
       const row = await findAdjustment(request.txClient, current.id);
       if (!row) throw adjustmentGone();

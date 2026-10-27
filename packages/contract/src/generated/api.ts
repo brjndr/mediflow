@@ -2817,7 +2817,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Approves a pending adjustment someone else asked for (409 own_adjustment), at its version (409 conflict): it moves the stock through the ledger, making the new batch of opening stock first (409 batch_exists when a batch of that number with another expiry was made meanwhile). Refused with 409 insufficient_stock when the batch has fewer units at the place than it takes out, 409 location_archived when its place was archived, 409 adjustment_decided once decided. Emits `stock.adjusted`, and `stock.low` when it brings the hospital’s stock of the item to its reorder level or below. Audited. */
+        /** @description Approves a pending adjustment someone else asked for (409 own_adjustment), at its version (409 conflict): it moves the stock through the ledger, making the new batch of opening stock first (409 batch_exists when a batch of that number with another expiry was made meanwhile). Refused with 409 insufficient_stock when the batch has fewer units at the place than it takes out, 409 location_archived when its place was archived, 409 item_archived when its item was, 409 adjustment_decided once decided. Emits `stock.adjusted`, and `stock.low` when it brings the hospital’s stock of the item to its reorder level or below. Audited. */
         post: operations["approveStockAdjustment"];
         delete?: never;
         options?: never;

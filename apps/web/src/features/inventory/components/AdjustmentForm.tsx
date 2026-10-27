@@ -149,6 +149,7 @@ function AdjustmentFields({ initialItem }: { initialItem: PickedItem | null }) {
   const set = useSetFieldValue();
   const places = usePlaces();
   const drugId = String(useFieldValue('drugId') ?? '');
+  const locationId = String(useFieldValue('locationId') ?? '');
   const reason = useFieldValue('reason') as AdjustmentFormValues['reason'];
   const batch = String(useFieldValue('batch') ?? '');
   const itemError = useFieldError('drugId');
@@ -157,28 +158,34 @@ function AdjustmentFields({ initialItem }: { initialItem: PickedItem | null }) {
   // The item as shown; the form holds its id.
   const [item, setItem] = useState(initialItem);
 
-  // The batches of the item with stock somewhere, each once, soonest expiry first: never those of
+  // The batches of the item with stock somewhere, each once, soonest expiry first, with its units
+  // at the place chosen (stock taken out of a batch that is elsewhere is refused): never those of
   // the item chosen before, still shown while the new one's are read.
   const stock = useStock(
     { locationId: '', drugId, alert: '', expiringWithinDays: EXPIRING_DEFAULT },
     drugId !== '',
   );
   const batches = useMemo(() => {
-    const seen = new Map<string, { id: string; label: string }>();
+    const seen = new Map<string, { number: string; expiry: string; here: number }>();
     const shown = stock.isPlaceholderData ? undefined : stock.data?.pages[0]?.items[0];
     for (const each of shown?.batches ?? []) {
-      if (!seen.has(each.batchId)) {
-        seen.set(each.batchId, {
-          id: each.batchId,
-          label: t('adjust.batchOption', {
-            number: each.batchNumber,
-            expiry: format.calendarDate(each.expiryDate),
-          }),
-        });
-      }
+      const known = seen.get(each.batchId) ?? {
+        number: each.batchNumber,
+        expiry: each.expiryDate,
+        here: 0,
+      };
+      if (each.locationId === locationId) known.here += each.onHand;
+      seen.set(each.batchId, known);
     }
-    return [...seen.values()];
-  }, [stock.data, stock.isPlaceholderData, t, format]);
+    return [...seen.entries()].map(([id, each]) => ({
+      id,
+      label: t(locationId ? 'adjust.batchOptionHere' : 'adjust.batchOption', {
+        number: each.number,
+        expiry: format.calendarDate(each.expiry),
+        count: each.here,
+      }),
+    }));
+  }, [stock.data, stock.isPlaceholderData, locationId, t, format]);
 
   // The reason decides the way for opening, damaged and expired stock; a new batch is opening.
   const fixed = FIXED_DIRECTION[reason];

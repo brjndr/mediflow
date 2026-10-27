@@ -176,6 +176,8 @@ BEGIN
     END IF;
   END IF;
   NEW.balance_after := balance;
+  -- When it happened is the database's to say, so no entry is back-dated.
+  NEW.at := now();
   RETURN NEW;
 END;
 $$;
@@ -261,3 +263,20 @@ $$;
 
 CREATE TRIGGER stock_adjustments_guard_update BEFORE UPDATE ON stock_adjustments
   FOR EACH ROW EXECUTE FUNCTION stock_adjustments_guard_update();
+
+-- A row trigger never sees TRUNCATE: the ledger, the balances and the batches refuse it to
+-- everyone, the owner included, as the audit log does.
+CREATE FUNCTION inventory_no_truncate() RETURNS trigger
+  LANGUAGE plpgsql
+  AS $$
+BEGIN
+  RAISE EXCEPTION 'Stock is never emptied' USING ERRCODE = '42501';
+END;
+$$;
+
+CREATE TRIGGER stock_ledger_no_truncate BEFORE TRUNCATE ON stock_ledger
+  FOR EACH STATEMENT EXECUTE FUNCTION inventory_no_truncate();
+CREATE TRIGGER stock_balances_no_truncate BEFORE TRUNCATE ON stock_balances
+  FOR EACH STATEMENT EXECUTE FUNCTION inventory_no_truncate();
+CREATE TRIGGER stock_batches_no_truncate BEFORE TRUNCATE ON stock_batches
+  FOR EACH STATEMENT EXECUTE FUNCTION inventory_no_truncate();

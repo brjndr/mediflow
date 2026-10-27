@@ -160,6 +160,13 @@ export const rejectFormSchema = z.object({
 });
 export type RejectFormValues = z.infer<typeof rejectFormSchema>;
 
+/** Whether a YYYY-MM-DD text is a day of the calendar: not 2027-02-30. */
+function realDay(text: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+  const day = new Date(`${text}T00:00:00Z`);
+  return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === text;
+}
+
 /** Which way a reason moves stock: fixed for opening, damaged and expired, chosen otherwise. */
 export const FIXED_DIRECTION: Partial<Record<StockAdjustmentReason, 'in' | 'out'>> = {
   opening: 'in',
@@ -201,7 +208,7 @@ export function createAdjustmentFormSchema(checkMoney: (text: string) => number 
       if (isNew && values.reason !== 'opening')
         issue('batch', 'inventory:adjust.newBatchOpeningOnly');
       if (isNew && values.batchNumber === '') issue('batchNumber', 'validation.required');
-      if (isNew && !/^\d{4}-\d{2}-\d{2}$/.test(values.expiryDate)) {
+      if (isNew && !realDay(values.expiryDate)) {
         issue('expiryDate', 'validation.required');
       }
       if (isNew && values.mrp !== '' && checkMoney(values.mrp) === null) {

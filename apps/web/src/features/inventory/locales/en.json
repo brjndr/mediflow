@@ -168,7 +168,9 @@
     },
     "reject": {
       "noteRequired": "Say why it is rejected."
-    }
+    },
+    "batchOptionHere_one": "{{number}}, expires {{expiry}}: {{count}} unit here",
+    "batchOptionHere_other": "{{number}}, expires {{expiry}}: {{count}} units here"
   },
   "decide": {
     "approve": "Approve",
@@ -189,7 +191,8 @@
       "insufficient": "The batch no longer has that many units at the place. Reject it, or count again.",
       "locationArchived": "Its place was archived.",
       "batchExists": "A batch of that number with another expiry date was added meanwhile.",
-      "gone": "That adjustment is no longer there."
+      "gone": "That adjustment is no longer there.",
+      "itemArchived": "The item was archived since it was asked for."
     }
   },
   "ledger": {

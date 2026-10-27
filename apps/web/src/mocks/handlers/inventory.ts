@@ -375,6 +375,13 @@ function stockOf(tenantId: string, drug: Drug, locationId: string | null, days: 
 }
 
 const ALERTS = ['low', 'expiring', 'expired'] as const;
+
+/** Whether a value is a YYYY-MM-DD day of the calendar, as the API's `realDay`. */
+function realDay(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const day = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === value;
+}
 const matches = (item: StockItem, alert: string | null) =>
   alert === null ||
   (alert === 'low' && item.low) ||
@@ -595,7 +602,11 @@ export const inventoryHandlers = [
         (each) =>
           each.id === body.batchId && each.drugId === drug.id && each.tenantId === access.tenantId,
       );
-      if (!batch || body.batchNumber !== undefined) return invalid();
+      // A batch named, or one described: never both, as the API.
+      const describes = ['batchNumber', 'expiryDate', 'mrpMinor', 'costMinor'].some(
+        (field) => body[field] !== undefined,
+      );
+      if (!batch || describes) return invalid();
       if (quantity < 0 && onHandAt(batch.id, location.id) < -quantity) {
         return error(409, 'insufficient_stock', 'The batch has fewer units at the place than that');
       }
@@ -606,8 +617,7 @@ export const inventoryHandlers = [
       };
     } else {
       const batchNumber = typeof body.batchNumber === 'string' ? body.batchNumber.trim() : '';
-      if (reason !== 'opening' || !batchNumber || typeof body.expiryDate !== 'string')
-        return invalid();
+      if (reason !== 'opening' || !batchNumber || !realDay(body.expiryDate)) return invalid();
       const exists = state.batches.some(
         (each) =>
           each.drugId === drug.id && each.batchNumber.toUpperCase() === batchNumber.toUpperCase(),
@@ -656,7 +666,20 @@ export const inventoryHandlers = [
           if (!location || location.archived) {
             return error(409, 'location_archived', 'The place was archived');
           }
-          let batch = state.batches.find((each) => each.id === adjustment.batchId);
+          const item = mockDrug(access.tenantId, adjustment.item.drugId);
+          if (!item || item.archived) return error(409, 'item_archived', 'The item was archived');
+          // A batch of that number made meanwhile is taken when its expiry is the same, as the API.
+          let batch =
+            state.batches.find((each) => each.id === adjustment.batchId) ??
+            state.batches.find(
+              (each) =>
+                each.tenantId === access.tenantId &&
+                each.drugId === adjustment.item.drugId &&
+                each.batchNumber.toUpperCase() === adjustment.batchNumber.toUpperCase(),
+            );
+          if (batch && batch.expiryDate !== adjustment.expiryDate) {
+            return error(409, 'batch_exists', 'A batch of that number has another expiry');
+          }
           if (!batch) {
             state.counter += 1;
             batch = {

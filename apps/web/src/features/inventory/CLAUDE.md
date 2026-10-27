@@ -18,7 +18,9 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 - **Two people for every adjustment, opening stock included:** asked for by one, approved or rejected by someone else. Nothing moves while it waits. The API refuses one's own (409 `own_adjustment`, and a check constraint); the screen offers Approve and Reject `aria-disabled` on one's own. A store with one store keeper needs the admin to approve.
 - **Stock moves only through the ledger,** which the database keeps append-only; a correction is a new adjustment. An approval checks the stock again (409 `insufficient_stock`), so two approvals of the last units move them once.
 - **A new batch comes in as opening stock only,** with its number, expiry date and maximum retail price (optional, typed as an amount and sent in minor units through `toMinor` from `features/services`: "12,50" is refused). The batch is made when the adjustment is approved. Goods receipts (#103) will bring batches in too.
-- **The batch list of the form** offers the item's batches with stock somewhere, each once, soonest expiry first, and **A new batch** for opening stock. A batch with no stock left anywhere is not offered (a gap, below).
+- **The batch list of the form** offers the item's batches with stock somewhere, each once, soonest expiry first, each with its units at the place chosen ("SB001A, expires 1 Jan 2027: 15 units here"), and **A new batch** for opening stock. A batch with no stock left anywhere is not offered (a gap, below). The expiry date of a new batch must be a real day (checked on the form and by the API).
+- **Approving refuses an item archived since** it was asked for (409 `item_archived`), as it does a place (`location_archived`); both are said in the status line.
+- **Adjust stock from the stock list** opens the panel with the item through the router's state, which the screen clears once read, so Back to it does not open the panel again.
 - **The reason fixes the way** for opening (in), damaged and expired (out); a count correction and other are chosen in or out. Other needs a note. Quantities are whole units of the item.
 - **Expiry:** a batch is usable through its expiry date and expired the day after, at the hospital. Expiring is within the window chosen, 90 days unless another is chosen. A per-hospital setting is the change when settings exist (no per-hospital settings mechanism yet).
 - **Low is the whole hospital's stock** against the item's reorder level, whatever the place shown: the reorder level is the hospital's, in the drug master.
@@ -33,6 +35,7 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 - `stock.expiring` is not emitted yet: it needs a daily job (BE-21, #107). `stock.low` is emitted when an approval brings the hospital to its reorder level.
 - No transfer between places yet (store indents, #105), no goods receipt (#103), no dispensing (#100).
 - The adjustments list has no filter by item or place.
+- The item is chosen with the drug search, which needs the `drugs` switch and `drug:read` (the store keeper and the pharmacist hold it by default). With the drugs module off, an adjustment can only be started from a row of the stock list.
 
 ## Mock
 

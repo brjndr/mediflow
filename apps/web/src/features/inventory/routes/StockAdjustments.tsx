@@ -1,6 +1,6 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Can } from '@/access';
 import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
@@ -25,6 +25,7 @@ const REFUSED: Record<string, string> = {
   adjustment_decided: 'decide.refused.decided',
   own_adjustment: 'decide.refused.own',
   insufficient_stock: 'decide.refused.insufficient',
+  item_archived: 'decide.refused.itemArchived',
   location_archived: 'decide.refused.locationArchived',
   batch_exists: 'decide.refused.batchExists',
   adjustment_not_found: 'decide.refused.gone',
@@ -46,6 +47,11 @@ export default function StockAdjustments() {
   const statusFieldId = useId();
   // From the stock list's Adjust: the item, in memory only.
   const routed = (useLocation().state as { adjust?: PickedItem } | null)?.adjust ?? null;
+  const navigate = useNavigate();
+  // Read once: Back to this entry must not open the panel again after it was sent.
+  useEffect(() => {
+    if (routed) void navigate('.', { replace: true, state: null });
+  }, [routed, navigate]);
   const [status, setStatus] = useState<StockAdjustmentStatus>('pending');
   const [panel, setPanel] = useState<
     | { kind: 'new'; item: PickedItem | null }
