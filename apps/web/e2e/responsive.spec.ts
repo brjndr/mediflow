@@ -254,6 +254,18 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('textbox', { name: /^Batch PCM24A/ })).toBeVisible();
   await expectNoSidewaysScroll(page);
   await page.getByRole('button', { name: 'Close' }).click();
+  // Counter sales and the drug register (#101): the form one column on a phone.
+  await goTo(page, 'Pharmacy');
+  await page.getByRole('link', { name: 'Counter sales' }).click();
+  await expect(page.getByRole('heading', { name: 'Counter sales', level: 1 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'New sale' }).click();
+  await expect(page.getByRole('heading', { name: 'New counter sale', level: 1 })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Add an item' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'Drug register' }).click();
+  await expect(page.getByRole('heading', { name: 'Drug register', level: 1 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
 
   // Inventory (#102): the stock as cards on a phone with its batches, the filters one column,
   // and an adjustment asked for in place.

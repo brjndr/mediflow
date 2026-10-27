@@ -160,9 +160,13 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'stock:adjust' },
   { permission: 'stock:approve' },
   { permission: 'stockLocation:manage' },
-  // The pharmacy (#100): the queue and dispensing.
+  // The pharmacy (#100): the queue and dispensing; counter sales and the drug register (#101).
   { permission: 'dispense:read' },
   { permission: 'dispense:create' },
+  { permission: 'sale:read' },
+  { permission: 'sale:create' },
+  { permission: 'sale:return' },
+  { permission: 'drugRegister:read' },
   { permission: 'billing:read' },
   { permission: 'billing:create' },
   { permission: 'billing:refund' },
@@ -261,13 +265,19 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
       { permission: 'stock:adjust' },
       { permission: 'stock:approve' },
     ],
-    // Dispenses prescriptions (#100), reading the stock, the drugs and the patient's allergies.
+    // Dispenses prescriptions (#100), reading the stock, the drugs and the patient's allergies;
+    // sells at the counter, to a patient found by search, and keeps the drug register (#101).
     pharmacist: [
+      { permission: 'patient:read' },
       { permission: 'drug:read' },
       { permission: 'stock:read' },
       { permission: 'allergy:read' },
       { permission: 'dispense:read' },
       { permission: 'dispense:create' },
+      { permission: 'sale:read' },
+      { permission: 'sale:create' },
+      { permission: 'sale:return' },
+      { permission: 'drugRegister:read' },
     ],
   },
   [TENANT_IDS.clinic]: {

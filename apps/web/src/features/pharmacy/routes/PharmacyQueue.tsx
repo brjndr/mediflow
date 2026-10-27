@@ -5,6 +5,7 @@ import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
+import { PharmacyLinks } from '../components/PharmacyLinks';
 import { useQueue } from '../hooks/use-pharmacy';
 import { QUEUE_DAYS_DEFAULT, QUEUE_WINDOWS } from '../schemas';
 import type { PharmacyQueueItem, QueueState } from '../types';
@@ -82,6 +83,7 @@ export default function PharmacyQueue() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
+      <PharmacyLinks />
       <h1 className="text-2xl font-semibold tracking-tight">{t('queue.heading')}</h1>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:max-w-xl">
         <div className="flex flex-col gap-1.5">

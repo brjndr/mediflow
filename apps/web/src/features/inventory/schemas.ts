@@ -112,10 +112,11 @@ const ledgerEntrySchema: z.ZodType<StockLedgerEntry> = z.object({
   locationName: z.string(),
   quantity: z.number().int(),
   balanceAfter: z.number().int(),
-  source: z.enum(['adjustment', 'dispense']),
+  source: z.enum(['adjustment', 'dispense', 'sale', 'sale_return']),
   sourceId: z.string(),
-  // A dispense (#100) takes units out with the reason `dispense`, which no adjustment has.
-  reason: z.enum([...REASONS, 'dispense']),
+  // A dispense (#100), a counter sale and its return (#101) move stock with reasons of their own,
+  // which no adjustment has.
+  reason: z.enum([...REASONS, 'dispense', 'sale', 'sale_return']),
   actorName: z.string(),
 });
 export const ledgerPageSchema: z.ZodType<StockLedgerPage> = page(ledgerEntrySchema);

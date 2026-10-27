@@ -40,6 +40,8 @@ import {
   type PharmacyLine,
   type PharmacyQueueItem,
 } from './schemas.js';
+import { saleRoutes } from './sales-routes.js';
+import { SALE_SCHEMAS } from './sales-schemas.js';
 
 export const FEATURE = 'pharmacy';
 
@@ -117,6 +119,8 @@ const DispenseParams = Type.Object({ dispenseId: Type.String() });
 
 export const pharmacyRoutes: FastifyPluginAsyncTypebox = async (app) => {
   for (const schema of PHARMACY_SCHEMAS) app.addSchema(schema);
+  for (const schema of SALE_SCHEMAS) app.addSchema(schema);
+  await app.register(saleRoutes);
 
   /**
    * The pharmacy dispenses the whole hospital's prescriptions, so only the scope `all` reaches

@@ -34,7 +34,7 @@ export const QUEUE_PAGE_SIZE = 25;
  * The hospital, while the session is still the one the request was made in: an answer that
  * arrives after a sign-out, a time-out or a switch is never written.
  */
-function useStillHere() {
+export function useStillHere() {
   const queryClient = useQueryClient();
   const tenantId = useTenant()?.id;
   const userId = useSession()?.user.id;
@@ -53,7 +53,7 @@ function useStillHere() {
  * A key per request body: an identical resubmit (a double click, a retry after a lost answer)
  * reuses it and is done once, so stock leaves once; another body gets a new key.
  */
-function useIdempotencyKey() {
+export function useIdempotencyKey() {
   const attempt = useRef<{ body: string; key: string }>(undefined);
   return useMemo(
     () => ({

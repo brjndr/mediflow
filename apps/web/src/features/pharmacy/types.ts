@@ -18,3 +18,14 @@ export type DispensableItem = Schemas['DispensableItem'];
 export type DispensableBatch = Schemas['DispensableBatch'];
 export type DispenseCreate = Schemas['DispenseCreate'];
 export type QueueState = 'open' | 'done';
+
+/** Counter sales, their returns and the drug register (#101). */
+export type SaleItemOptions = Schemas['SaleItemOptions'];
+export type SaleCreate = Schemas['SaleCreate'];
+export type PharmacySale = Schemas['PharmacySale'];
+export type SaleLine = Schemas['SaleLine'];
+export type SaleListItem = Schemas['SaleListItem'];
+export type SalePage = Schemas['SalePage'];
+export type SaleReturnCreate = Schemas['SaleReturnCreate'];
+export type DrugRegisterEntry = Schemas['DrugRegisterEntry'];
+export type DrugRegisterPage = Schemas['DrugRegisterPage'];

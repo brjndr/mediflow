@@ -143,3 +143,64 @@ export async function stockOut(
   }
   return posted;
 }
+
+/**
+ * Puts units of an item back into stock at a place, batch by batch, through the ledger, in the
+ * request's transaction, for another module's record: the return of a counter sale (#101).
+ *
+ * Refuses a place that is not in use (422 `unknown_location`), a batch that is not the item's
+ * (422 `unknown_batch`) and a batch expired at the hospital today (409 `batch_expired`): an
+ * expired unit brought back is wastage (#104), never stock. Locks as `stockOut` does. Gives the
+ * ledger entry of each line.
+ */
+export async function stockIn(
+  request: FastifyRequest,
+  movement: {
+    locationId: string;
+    drugId: string;
+    /** Only a return of a sale puts stock back this way: an adjustment is approved by another. */
+    source: 'sale_return';
+    sourceId: string;
+    reason: 'sale_return';
+    actorId: string;
+    lines: { batchId: string; quantity: number }[];
+  },
+): Promise<{ batchId: string; quantity: number; ledgerEntryId: string }[]> {
+  const client = request.txClient;
+  if (movement.lines.some((line) => !Number.isInteger(line.quantity) || line.quantity < 1)) {
+    throw new HttpError(400, 'validation_failed', 'Units brought back are a whole number above 0');
+  }
+  const location = await lockLocation(client, movement.locationId, 'share');
+  if (!location || location.archived) {
+    throw new HttpError(422, 'unknown_location', 'No such place in use');
+  }
+  const { rows } = await client.query<{ today: string }>(
+    `select to_char(${TODAY}, 'YYYY-MM-DD') as today`,
+  );
+  const today = rows[0]?.today ?? '';
+  for (const line of movement.lines) {
+    const batch = await findBatch(client, line.batchId);
+    if (!batch || batch.drug_id !== movement.drugId) {
+      throw new HttpError(422, 'unknown_batch', 'No such batch of the item');
+    }
+    if (batch.expiry_date < today) {
+      throw new HttpError(409, 'batch_expired', 'The batch is past its expiry date');
+    }
+  }
+  await lockItemStock(client, movement.drugId);
+  const posted: { batchId: string; quantity: number; ledgerEntryId: string }[] = [];
+  for (const line of movement.lines) {
+    const entry = await postEntry(client, {
+      batchId: line.batchId,
+      drugId: movement.drugId,
+      locationId: movement.locationId,
+      quantity: line.quantity,
+      source: movement.source,
+      sourceId: movement.sourceId,
+      reason: movement.reason,
+      actorId: movement.actorId,
+    });
+    posted.push({ batchId: line.batchId, quantity: line.quantity, ledgerEntryId: entry.id });
+  }
+  return posted;
+}

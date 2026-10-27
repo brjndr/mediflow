@@ -2842,6 +2842,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pharmacy/sale-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description An item that may be sold at a place (medicine or consumable, in use): whether it needs a prescription and is in the drug register, and its batches in date with stock there, nearest expiry first. Holds stock, no patient. Requires sale:create with the scope `all` and the pharmacy feature flag. */
+        get: operations["getSaleItemOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital’s counter sales sold within `days` at the hospital (default 7, at most 90), the newest first, each with the patient when one was named (name and MRN), its total and what was returned. `total` with the first page. Every sale with a patient listed is audited as read. Requires sale:read with the scope `all` (a narrower one sees nothing) and the pharmacy feature flag. Holds no patient term: a GET. */
+        get: operations["listSales"];
+        put?: never;
+        /** @description Sells items at the counter (#101) from batches at a place, each at its batch’s maximum retail price: the units leave stock through the ledger (reason `sale`). An item of schedule H, H1, X, narcotic or controlled is sold only to a registered patient (`patientId`, one the caller may read: 422 `unknown_patient`) against an outside prescription recorded on the sale (prescriber’s name, registration number and date; 422 `prescription_required`). Every movement of an H1, X, narcotic or controlled item is in the drug register (`GET /pharmacy/register`). Refused: an item not in use (422 `unknown_item`) or given twice, a batch with no price (409 `no_price`), a place not in use (422 `unknown_location`), a batch not of the item (422 `unknown_batch`) or given twice, an expired batch (409 `batch_expired`), more than a batch holds (409 `insufficient_stock`). Emits `pharmacy.sold`, and `stock.low` when an item reaches its reorder level. The Idempotency-Key header is required: a repeat moves no stock and answers with the sale as it is now. Requires sale:create and sale:read with the scope `all` and the pharmacy feature flag. Audited. */
+        post: operations["createSale"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/sales/{saleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A counter sale with its lines (each with the units returned so far) and its returns, oldest first. Audited. Requires sale:read with the scope `all` and the pharmacy feature flag. */
+        get: operations["getSale"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/sales/{saleId}/returns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings units of a sale back into stock at the sale’s place, through the ledger (reason `sale_return`), with a reason. Each line of the sale once (422 `unknown_line` for one not of the sale or given twice), never more than was sold less what was returned before (409 `over_return`). Refused for a batch expired at the hospital today (409 `batch_expired`: it is wastage, never stock) and a place no longer in use (422 `unknown_location`). Emits `pharmacy.sale_returned`. The Idempotency-Key header is required: a repeat moves no stock and answers with the sale as it is now. Requires sale:return and sale:read with the scope `all` and the pharmacy feature flag. Audited. */
+        post: operations["createSaleReturn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/sales/{saleId}/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records that a sale’s receipt is printed (the audit entry `print` of the sale) and answers 204: the web app makes the page from what it read. A new key per press; a repeat records nothing more. Requires sale:read with the scope `all` and the pharmacy feature flag. */
+        post: operations["printSaleReceipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The drug register of an item of schedule H1, X, narcotic or controlled (422 `not_a_register_item` for another, 404 `item_not_found` for none): every movement of its stock from the ledger, from the first day to the last at the hospital (at most 366 days), the oldest first: dispenses, counter sales, their returns and adjustments, each with its batch, place, quantity, the batch’s balance after it, who made it, and for a dispense or sale who it was for and who prescribed it. Read from the ledger, so no movement can be left out. `total` with the first page. Every dispense and sale named is audited as read. Requires drugRegister:read with the scope `all` and the pharmacy feature flag. The item is an id: a GET. */
+        get: operations["listDrugRegister"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pharmacy/queue": {
         parameters: {
             query?: never;
@@ -5252,15 +5355,15 @@ export interface components {
          */
         StockExpiryState: "ok" | "expiring" | "expired";
         /**
-         * @description What made a ledger entry: an approved adjustment, or a dispense of the pharmacy (#100). Goods receipts and transfers come with their modules.
+         * @description What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101). Goods receipts and transfers come with their modules.
          * @enum {string}
          */
-        StockLedgerSource: "adjustment" | "dispense";
+        StockLedgerSource: "adjustment" | "dispense" | "sale" | "sale_return";
         /**
-         * @description Why stock moved: the reason of its adjustment, or `dispense` for units given against a prescription.
+         * @description Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back.
          * @enum {string}
          */
-        StockLedgerReason: "opening" | "count_correction" | "damaged" | "expired" | "other" | "dispense";
+        StockLedgerReason: "opening" | "count_correction" | "damaged" | "expired" | "other" | "dispense" | "sale" | "sale_return";
         /** @description A place of the hospital that keeps stock. */
         StockLocation: {
             id: string;
@@ -5585,6 +5688,160 @@ export interface components {
         PharmacyLineComplete: {
             /** @description The order’s version. */
             expectedVersion: number;
+        };
+        /** @description An item that may be sold at a place, with its batches. */
+        SaleItemOptions: {
+            drugId: string;
+            name: string;
+            schedule: string;
+            controlled: boolean;
+            /** @description Schedule H, H1, X, narcotic or controlled: sold only to a registered patient against an outside prescription recorded on the sale. */
+            needsPrescription: boolean;
+            /** @description Schedule H1, X, narcotic or controlled: every movement is in the drug register. */
+            inRegister: boolean;
+            /** @description In date with stock at the place, nearest expiry first. One with no price cannot be sold. */
+            batches: components["schemas"]["DispensableBatch"][];
+        };
+        SaleCreate: {
+            locationId: string;
+            /** @description The registered patient the sale is for: one the caller may read. Required when an item needs a prescription; absent sells to anyone. */
+            patientId?: string;
+            prescriberName?: string;
+            /** @description The prescriber’s medical council registration number. */
+            prescriberRegistration?: string;
+            /** @description The outside prescription’s date, `YYYY-MM-DD`, not after today at the hospital. The three prescription fields come together or not at all, and are required when an item needs a prescription. */
+            prescribedOn?: string;
+            /** @description Each item once. */
+            lines: {
+                drugId: string;
+                /** @description Each batch once. */
+                batches: {
+                    batchId: string;
+                    quantity: number;
+                }[];
+            }[];
+        };
+        /** @description Units of one batch of an item sold. */
+        SaleLine: {
+            id: string;
+            lineNumber: number;
+            drugId: string;
+            /** @description The item as it read when sold. */
+            itemName: string;
+            schedule: string;
+            controlled: boolean;
+            batchId: string;
+            batchNumber: string;
+            /** @description A calendar date, `YYYY-MM-DD`. */
+            expiryDate: string;
+            quantity: number;
+            /** @description Units of the line brought back so far. */
+            returnedQuantity: number;
+            /** @description The batch’s price of a unit when sold, in minor units, as text. */
+            unitPriceMinor: string;
+        };
+        /** @description Units of a sale brought back into stock. Never changed. */
+        SaleReturn: {
+            id: string;
+            reason: string;
+            /** @description What the units brought back were sold for, in minor units, as text. */
+            totalMinor: string;
+            /** Format: date-time */
+            returnedAt: string;
+            returnedByName: string;
+            lines: {
+                saleLineId: string;
+                quantity: number;
+            }[];
+        };
+        /** @description A counter sale, with its lines and returns. Never changed or removed. */
+        PharmacySale: {
+            id: string;
+            locationId: string;
+            locationName: string;
+            patientId?: string;
+            patientName?: string;
+            patientMrn?: string;
+            prescriberName?: string;
+            prescriberRegistration?: string;
+            /** @description A calendar date, `YYYY-MM-DD`. */
+            prescribedOn?: string;
+            /** @description The sum of its lines, in minor units, as text. */
+            totalMinor: string;
+            /** @description The sum of its returns, in minor units, as text. */
+            returnedMinor: string;
+            /** Format: date-time */
+            soldAt: string;
+            soldByName: string;
+            lines: components["schemas"]["SaleLine"][];
+            /** @description Oldest first. */
+            returns: components["schemas"]["SaleReturn"][];
+        };
+        /** @description A counter sale in the list. */
+        SaleListItem: {
+            id: string;
+            /** Format: date-time */
+            soldAt: string;
+            soldByName: string;
+            locationName: string;
+            patientId?: string;
+            patientName?: string;
+            patientMrn?: string;
+            lineCount: number;
+            /** @description The sum of its lines, in minor units, as text. */
+            totalMinor: string;
+            /** @description The sum of its returns, in minor units, as text. */
+            returnedMinor: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        SalePage: {
+            items: components["schemas"]["SaleListItem"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        SaleReturnCreate: {
+            reason: string;
+            /** @description Each line once. */
+            lines: {
+                saleLineId: string;
+                quantity: number;
+            }[];
+        };
+        /** @description A movement of a register item, from the stock ledger. */
+        DrugRegisterEntry: {
+            /** @description The ledger entry. */
+            id: string;
+            /** Format: date-time */
+            at: string;
+            locationName: string;
+            batchNumber: string;
+            /** @description A calendar date, `YYYY-MM-DD`. */
+            expiryDate: string;
+            /** @description Positive in, negative out. */
+            quantity: number;
+            /** @description The batch’s stock at the place after it. */
+            balanceAfter: number;
+            /** @description `adjustment`, `dispense`, `sale` or `sale_return` (the ledger’s source). */
+            source: string;
+            sourceId: string;
+            /** @description The ledger’s reason. */
+            reason: string;
+            actorName: string;
+            patientId?: string;
+            patientName?: string;
+            patientMrn?: string;
+            /** @description The in-hospital prescription of a dispense. */
+            prescriptionId?: string;
+            /** @description Who prescribed it: the hospital’s doctor, or an outside one. */
+            prescriberName?: string;
+            /** @description An outside prescriber’s registration number. */
+            prescriberRegistration?: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        DrugRegisterPage: {
+            items: components["schemas"]["DrugRegisterEntry"][];
+            nextCursor: string | null;
+            total?: number;
         };
         Notice: {
             id: string;
@@ -20519,6 +20776,584 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StockAdjustment"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSaleItemOptions: {
+        parameters: {
+            query: {
+                /** @description The item to sell. */
+                drugId: string;
+                /** @description The place to sell from. */
+                locationId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description An item that may be sold at a place, with its batches. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleItemOptions"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listSales: {
+        parameters: {
+            query?: {
+                /** @description Sold within this many days at the hospital, today included. Default 7. */
+                days?: number;
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createSale: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaleCreate"];
+            };
+        };
+        responses: {
+            /** @description A counter sale, with its lines and returns. Never changed or removed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PharmacySale"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSale: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A counter sale, with its lines and returns. Never changed or removed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PharmacySale"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createSaleReturn: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                saleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaleReturnCreate"];
+            };
+        };
+        responses: {
+            /** @description A counter sale, with its lines and returns. Never changed or removed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PharmacySale"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    printSaleReceipt: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                saleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listDrugRegister: {
+        parameters: {
+            query: {
+                /** @description An item of the register: H1, X, narcotic or controlled. */
+                drugId: string;
+                /** @description The first day, `YYYY-MM-DD`, at the hospital. */
+                from: string;
+                /** @description The last day, `YYYY-MM-DD`, at most 366 days after the first. */
+                to: string;
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrugRegisterPage"];
                 };
             };
             /** @description Standard error body. */

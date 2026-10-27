@@ -62,3 +62,49 @@ test('dispense a line with the keyboard alone', async ({ page }) => {
   await expect(page.getByRole('button', { name: /^Print slip of Paracetamol/ })).toBeVisible();
   await expectNoAxeViolations(page);
 });
+
+test('sell an item at the counter with the keyboard alone', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await goTo(page, 'Pharmacy');
+  const sales = page.getByRole('link', { name: 'Counter sales' });
+  await reach(page, sales);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Counter sales', level: 1 })).toBeVisible();
+  const create = page.getByRole('link', { name: 'New sale' });
+  await reach(page, create);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'New counter sale', level: 1 })).toBeVisible();
+  await expectNoAxeViolations(page);
+
+  // An item is found with its search and chosen with the arrows and Enter.
+  const search = page.getByRole('combobox', { name: 'Add an item' });
+  await reach(page, search);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.type('CetiCare');
+  const wanted = page.getByRole('option', { name: 'Cetirizine 10 mg Tablet (CetiCare)' });
+  await expect(wanted).toBeVisible();
+  for (
+    let step = 0;
+    step < 30 && (await wanted.getAttribute('aria-selected')) !== 'true';
+    step += 1
+  ) {
+    await page.keyboard.press('ArrowDown');
+  }
+  await expect(wanted).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Enter');
+  const units = page.getByRole('textbox', { name: /^Units of Cetirizine/ });
+  await expect(units).toBeFocused();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('2');
+  await expectNoSidewaysScroll(page);
+
+  const submit = page.getByRole('button', { name: 'Record sale' });
+  await reach(page, submit);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Counter sale', level: 1 })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Sale recorded.' })).toBeVisible();
+  await expectNoAxeViolations(page);
+});
