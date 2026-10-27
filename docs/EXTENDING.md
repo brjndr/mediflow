@@ -52,7 +52,7 @@ Core modules publish events through a transactional outbox (written in the same 
 - `order.placed`, `order.cancelled`, `order.completed`
 - `referral.created`, `referral.cancelled`, `followup.created`, `followup.booked`, `followup.cancelled`
 - `lab.sample_collected`, `lab.sample_rejected` (#90), `lab.result_verified`, `lab.critical_value`, `lab.critical_acknowledged` (#92), `imaging.scheduled`, `imaging.unscheduled`, `imaging.performed` (#96), `imaging.reported`, `imaging.addendum_added` (#97)
-- `pharmacy.dispensed`, `pharmacy.sold` and `pharmacy.sale_returned` (#101: the sale, its place, the patient when named, the return; ids only), `stock.adjusted`, `stock.low` (#102), `stock.expiring`
+- `pharmacy.dispensed`, `pharmacy.sold` and `pharmacy.sale_returned` (#101: the sale, its place, the patient when named, the return; ids only), `stock.adjusted`, `stock.low` (#102), `stock.expiring`, `purchase.order_approved`, `stock.received` and `stock.returned` (#103: the order, the receipt or the return, its supplier and place; ids only)
 - `charge.posted`, `invoice.issued`, `invoice.paid`, `payment.refunded`
 - `admission.created`, `bed.assigned`, `bed.released`, `medication.administered`, `discharge.completed`
 - `er.triaged`, `surgery.completed`, `claim.submitted`, `claim.settled`

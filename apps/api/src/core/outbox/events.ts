@@ -51,6 +51,11 @@ export const DOMAIN_EVENTS = [
   'stock.adjusted',
   'stock.low',
   'stock.expiring',
+  // Purchasing (#103): an order approved, goods received against it and goods sent back to the
+  // supplier: ids and the reason, never an item, a quantity or a cost.
+  'purchase.order_approved',
+  'stock.received',
+  'stock.returned',
   'charge.posted',
   'invoice.issued',
   'invoice.paid',

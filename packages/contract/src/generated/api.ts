@@ -3047,6 +3047,265 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/purchasing/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The suppliers of the active tenant in use (or archived), by name, of a name with `q` in it. `total` comes with the first page. A GET: a supplier says nothing about a patient. */
+        get: operations["listSuppliers"];
+        put?: never;
+        /** @description Adds a supplier. A name the hospital already has, archived or not, whatever the capitals, is 409 supplier_name_taken. Audited. */
+        post: operations["createSupplier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/suppliers/{supplierId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One supplier. Another hospital’s answers 404, as one that does not exist. */
+        get: operations["getSupplier"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes the fields sent; null clears an optional one. 409 conflict when it changed since the version sent; 409 supplier_name_taken as on adding. Sending what it has changes nothing. Audited. */
+        patch: operations["updateSupplier"];
+        trace?: never;
+    };
+    "/purchasing/suppliers/{supplierId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Archives a supplier: nothing more is ordered from it. Refused with 409 supplier_has_open_orders while an order of it may still bring goods. Doing it twice changes nothing. Audited. Another hospital’s answers 404. */
+        post: operations["archiveSupplier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/suppliers/{supplierId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings an archived supplier back. Doing it twice changes nothing. Audited. Another hospital’s answers 404. */
+        post: operations["restoreSupplier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The purchase orders, newest first, of a status and a supplier when sent, without their lines. `total` comes with the first page. */
+        get: operations["listPurchaseOrders"];
+        put?: never;
+        /** @description Drafts a purchase order: a supplier in use, a place in use to deliver to, and lines of items in use, each item once (400 otherwise). It is changed freely until submitted. Numbered PO-000001 on, per hospital. Audited. */
+        post: operations["createPurchaseOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/orders/{orderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One purchase order with its lines, each with what has been received of it. Another hospital’s answers 404. */
+        get: operations["getPurchaseOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes a draft: the supplier, the place, the note (null clears it) or all its lines. 409 order_status once submitted, 409 conflict when it changed since the version sent. The same checks as drafting. Audited. */
+        patch: operations["updatePurchaseOrder"];
+        trace?: never;
+    };
+    "/purchasing/orders/{orderId}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Submits a draft for approval by someone else: it is not changed from then on. 409 order_status when it is not a draft, 409 conflict when it changed since the version sent. Audited. */
+        post: operations["submitPurchaseOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/orders/{orderId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Approves a submitted order that someone else drafted, last changed and submitted (409 own_order): goods may then be received against it. Nothing moves in stock. 409 supplier_archived when its supplier was archived since, 409 order_status when it is not submitted, 409 conflict when it changed since the version sent. Emits `purchase.order_approved`. Audited. */
+        post: operations["approvePurchaseOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/orders/{orderId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cancels an order nothing was received against (a draft, submitted or approved), with a note saying why. 409 order_status otherwise, 409 conflict when it changed since the version sent. Audited. */
+        post: operations["cancelPurchaseOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/orders/{orderId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Closes an order partly received when the rest will not come, with a note saying why: nothing more is received against it. 409 order_status otherwise, 409 conflict when it changed since the version sent. Audited. */
+        post: operations["closePurchaseOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The goods receipts, newest first, of an order and a supplier when sent, without their lines. `total` comes with the first page. */
+        get: operations["listGoodsReceipts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/receipts/{receiptId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One goods receipt with its lines, each with what has been sent back of it. Another hospital’s answers 404. */
+        get: operations["getGoodsReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/orders/{orderId}/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Receives goods against an approved order (409 order_status otherwise) at a place in use (the order’s when not sent; 400 otherwise). Each line is a batch of an order line’s item as printed on the pack, with its expiry date, units and cost: a batch the item does not have is made, one it has of the same expiry date is added to (409 batch_exists for another expiry date), one already expired is 409 batch_expired. Each batch once (400). More than an order line still waits for is 409 over_receipt, a cost above the order line’s agreed price is 409 cost_above_order (the approval covered that price; a dearer delivery needs a new order), and an item archived since is 409 item_archived. Each line comes into stock through the ledger at once; the order becomes partly received or received. Numbered GRN-000001 on. Emits `stock.received`. Audited. */
+        post: operations["receiveGoods"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/returns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The returns to suppliers, newest first, of a receipt and a supplier when sent, with their lines. `total` comes with the first page. */
+        get: operations["listPurchaseReturns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/receipts/{receiptId}/returns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Sends units of a goods receipt back to its supplier, from a place in use (the receipt’s when not sent; 400 otherwise), with a reason (a note for other, 400). Each receipt line once (400), no more than it brought in less what has gone back already (409 over_return), and no more than its batch has at the place (409 insufficient_stock). Expired units may go back. They leave stock through the ledger at once. Numbered PRN-000001 on. Emits `stock.returned`, and `stock.low` when it brings the hospital’s stock of an item to its reorder level. Audited. */
+        post: operations["returnToSupplier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -5355,15 +5614,15 @@ export interface components {
          */
         StockExpiryState: "ok" | "expiring" | "expired";
         /**
-         * @description What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101). Goods receipts and transfers come with their modules.
+         * @description What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103). Transfers come with their module.
          * @enum {string}
          */
-        StockLedgerSource: "adjustment" | "dispense" | "sale" | "sale_return";
+        StockLedgerSource: "adjustment" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return";
         /**
-         * @description Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back.
+         * @description Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one.
          * @enum {string}
          */
-        StockLedgerReason: "opening" | "count_correction" | "damaged" | "expired" | "other" | "dispense" | "sale" | "sale_return";
+        StockLedgerReason: "opening" | "count_correction" | "damaged" | "expired" | "other" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return";
         /** @description A place of the hospital that keeps stock. */
         StockLocation: {
             id: string;
@@ -5842,6 +6101,320 @@ export interface components {
             items: components["schemas"]["DrugRegisterEntry"][];
             nextCursor: string | null;
             total?: number;
+        };
+        /**
+         * @description A draft is changed freely; submitted, it waits for someone else to approve it; approved, goods are received against it, partly then in full. One partly received may be closed when the rest will not come; one with nothing received may be cancelled.
+         * @enum {string}
+         */
+        PurchaseOrderStatus: "draft" | "submitted" | "approved" | "partly_received" | "received" | "closed" | "cancelled";
+        /**
+         * @description Why goods go back to the supplier: expired, damaged, not what was ordered, or another reason given in the note.
+         * @enum {string}
+         */
+        PurchaseReturnReason: "expired" | "damaged" | "wrong_item" | "other";
+        /** @description A business the hospital buys drugs and consumables from. */
+        Supplier: {
+            id: string;
+            tenantId: string;
+            name: string;
+            gstin?: string;
+            drugLicence?: string;
+            phone?: string;
+            email?: string;
+            address?: string;
+            archived: boolean;
+            /** @description Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        SupplierPage: {
+            items: components["schemas"]["Supplier"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        SupplierCreate: {
+            name: string;
+            /** @description The GST number: 15 capital letters and digits. */
+            gstin?: string;
+            drugLicence?: string;
+            phone?: string;
+            email?: string;
+            address?: string;
+        };
+        /** @description Only the fields sent change; null clears an optional one. */
+        SupplierUpdate: {
+            /** @description The version the change was made from. */
+            expectedVersion: number;
+            name?: string;
+            gstin?: string | null;
+            drugLicence?: string | null;
+            phone?: string | null;
+            email?: string | null;
+            address?: string | null;
+        };
+        PurchaseOrderLine: {
+            id: string;
+            lineNumber: number;
+            drugId: string;
+            /** @description Generic name, strength and brand, as it reads now. */
+            itemName: string;
+            /** @description What one unit is. */
+            unit?: string;
+            /** @description Units ordered. */
+            quantity: number;
+            /** @description The agreed price of a unit before tax. */
+            unitCostMinor: number;
+            /** @description Units received against the line so far. */
+            receivedQuantity: number;
+        };
+        /** @description A purchase order as a list shows it. */
+        PurchaseOrderSummary: {
+            id: string;
+            tenantId: string;
+            /** @description The order’s number as printed: PO-000123. */
+            reference: string;
+            supplierId: string;
+            supplierName: string;
+            locationId: string;
+            /** @description Where the goods are to be delivered. */
+            locationName: string;
+            status: components["schemas"]["PurchaseOrderStatus"];
+            /** @description The lines’ quantities at their unit costs, before tax. */
+            totalMinor: number;
+            createdById: string;
+            createdByName: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Who submitted it: someone else approves it. */
+            submittedById?: string;
+            /** @description Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`. */
+            version: number;
+            lineCount: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        PurchaseOrderPage: {
+            items: components["schemas"]["PurchaseOrderSummary"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description What the hospital asks a supplier for, approved by a second person before goods are received against it. */
+        PurchaseOrder: {
+            id: string;
+            tenantId: string;
+            /** @description The order’s number as printed: PO-000123. */
+            reference: string;
+            supplierId: string;
+            supplierName: string;
+            locationId: string;
+            /** @description Where the goods are to be delivered. */
+            locationName: string;
+            status: components["schemas"]["PurchaseOrderStatus"];
+            /** @description The lines’ quantities at their unit costs, before tax. */
+            totalMinor: number;
+            createdById: string;
+            createdByName: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Who submitted it: someone else approves it. */
+            submittedById?: string;
+            /** @description Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`. */
+            version: number;
+            note?: string;
+            lines: components["schemas"]["PurchaseOrderLine"][];
+            /** @description Who last changed what is ordered. Neither they, the creator nor the submitter approves it. */
+            editedById: string;
+            submittedByName?: string;
+            /** Format: date-time */
+            submittedAt?: string;
+            approvedByName?: string;
+            /** Format: date-time */
+            approvedAt?: string;
+            /** @description Who cancelled it, or closed it with goods still to come. */
+            endedByName?: string;
+            /** Format: date-time */
+            endedAt?: string;
+            endNote?: string;
+        };
+        PurchaseOrderLineInput: {
+            drugId: string;
+            quantity: number;
+            unitCostMinor: number;
+        };
+        PurchaseOrderCreate: {
+            supplierId: string;
+            /** @description Where the goods are to be delivered. */
+            locationId: string;
+            note?: string;
+            /** @description Each item once. */
+            lines: components["schemas"]["PurchaseOrderLineInput"][];
+        };
+        /** @description A draft only. Only the fields sent change; lines sent replace them all. */
+        PurchaseOrderUpdate: {
+            /** @description The version the change was made from. */
+            expectedVersion: number;
+            supplierId?: string;
+            locationId?: string;
+            note?: string | null;
+            /** @description Each item once. */
+            lines?: components["schemas"]["PurchaseOrderLineInput"][];
+        };
+        PurchaseOrderStep: {
+            /** @description The version the change was made from. */
+            expectedVersion: number;
+        };
+        PurchaseOrderEnd: {
+            /** @description The version the change was made from. */
+            expectedVersion: number;
+            note: string;
+        };
+        GoodsReceiptLine: {
+            id: string;
+            lineNumber: number;
+            orderLineId: string;
+            drugId: string;
+            itemName: string;
+            unit?: string;
+            batchId: string;
+            batchNumber: string;
+            /**
+             * Format: date
+             * @description A calendar date, not an instant: YYYY-MM-DD.
+             */
+            expiryDate: string;
+            /** @description The batch’s maximum retail price. */
+            mrpMinor?: number;
+            quantity: number;
+            /** @description What a unit of this delivery cost, before tax. */
+            unitCostMinor: number;
+            /** @description Units of the line sent back so far. */
+            returnedQuantity: number;
+        };
+        /** @description A goods receipt as a list shows it. */
+        GoodsReceiptSummary: {
+            id: string;
+            tenantId: string;
+            /** @description The receipt’s number as printed: GRN-000123. */
+            reference: string;
+            orderId: string;
+            orderReference: string;
+            supplierId: string;
+            supplierName: string;
+            locationId: string;
+            locationName: string;
+            /** @description The supplier’s invoice or delivery note. */
+            supplierInvoice?: string;
+            /** @description The lines at their unit costs, before tax. */
+            totalMinor: number;
+            receivedByName: string;
+            /** Format: date-time */
+            receivedAt: string;
+            lineCount: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        GoodsReceiptPage: {
+            items: components["schemas"]["GoodsReceiptSummary"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description Goods that came in against an approved order: each line a batch brought into stock through the ledger. Never changed: a correction is a return or an adjustment. */
+        GoodsReceipt: {
+            id: string;
+            tenantId: string;
+            /** @description The receipt’s number as printed: GRN-000123. */
+            reference: string;
+            orderId: string;
+            orderReference: string;
+            supplierId: string;
+            supplierName: string;
+            locationId: string;
+            locationName: string;
+            /** @description The supplier’s invoice or delivery note. */
+            supplierInvoice?: string;
+            /** @description The lines at their unit costs, before tax. */
+            totalMinor: number;
+            receivedByName: string;
+            /** Format: date-time */
+            receivedAt: string;
+            note?: string;
+            lines: components["schemas"]["GoodsReceiptLine"][];
+        };
+        GoodsReceiptLineInput: {
+            orderLineId: string;
+            /** @description As printed on the pack. */
+            batchNumber: string;
+            /**
+             * Format: date
+             * @description A calendar date, not an instant: YYYY-MM-DD.
+             */
+            expiryDate: string;
+            quantity: number;
+            unitCostMinor: number;
+            mrpMinor?: number;
+        };
+        GoodsReceiptCreate: {
+            /** @description Where the goods came in: the order’s place when not sent. */
+            locationId?: string;
+            supplierInvoice?: string;
+            note?: string;
+            /** @description Each batch once; an order line may come in several batches. */
+            lines: components["schemas"]["GoodsReceiptLineInput"][];
+        };
+        PurchaseReturnLine: {
+            id: string;
+            receiptLineId: string;
+            drugId: string;
+            itemName: string;
+            batchId: string;
+            batchNumber: string;
+            /**
+             * Format: date
+             * @description A calendar date, not an instant: YYYY-MM-DD.
+             */
+            expiryDate: string;
+            quantity: number;
+            /** @description What a unit cost when received. */
+            unitCostMinor: number;
+        };
+        /** @description Units of a goods receipt sent back to the supplier, taken out of stock through the ledger. Never changed. */
+        PurchaseReturn: {
+            id: string;
+            tenantId: string;
+            /** @description The return’s number as printed: PRN-000123. */
+            reference: string;
+            receiptId: string;
+            receiptReference: string;
+            supplierId: string;
+            supplierName: string;
+            locationId: string;
+            /** @description Where the units were taken from. */
+            locationName: string;
+            reason: components["schemas"]["PurchaseReturnReason"];
+            note?: string;
+            lines: components["schemas"]["PurchaseReturnLine"][];
+            /** @description The lines at their received costs. */
+            totalMinor: number;
+            returnedByName: string;
+            /** Format: date-time */
+            returnedAt: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        PurchaseReturnPage: {
+            items: components["schemas"]["PurchaseReturn"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        PurchaseReturnLineInput: {
+            receiptLineId: string;
+            quantity: number;
+        };
+        PurchaseReturnCreate: {
+            /** @description Where the units are taken from: the receipt’s place when not sent. */
+            locationId?: string;
+            reason: components["schemas"]["PurchaseReturnReason"];
+            /** @description Needed when the reason is other. */
+            note?: string;
+            /** @description Each receipt line once. */
+            lines: components["schemas"]["PurchaseReturnLineInput"][];
         };
         Notice: {
             id: string;
@@ -21844,6 +22417,1497 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listSuppliers: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                /** @description The archived suppliers instead of those in use. */
+                archived?: boolean;
+                /** @description Only suppliers whose name has this in it. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupplierPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createSupplier: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierCreate"];
+            };
+        };
+        responses: {
+            /** @description A business the hospital buys drugs and consumables from. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSupplier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A business the hospital buys drugs and consumables from. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateSupplier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierUpdate"];
+            };
+        };
+        responses: {
+            /** @description A business the hospital buys drugs and consumables from. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    archiveSupplier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A business the hospital buys drugs and consumables from. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restoreSupplier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A business the hospital buys drugs and consumables from. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listPurchaseOrders: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                status?: components["schemas"]["PurchaseOrderStatus"];
+                supplierId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createPurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderCreate"];
+            };
+        };
+        responses: {
+            /** @description What the hospital asks a supplier for, approved by a second person before goods are received against it. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the hospital asks a supplier for, approved by a second person before goods are received against it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updatePurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderUpdate"];
+            };
+        };
+        responses: {
+            /** @description What the hospital asks a supplier for, approved by a second person before goods are received against it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    submitPurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderStep"];
+            };
+        };
+        responses: {
+            /** @description What the hospital asks a supplier for, approved by a second person before goods are received against it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    approvePurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderStep"];
+            };
+        };
+        responses: {
+            /** @description What the hospital asks a supplier for, approved by a second person before goods are received against it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelPurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderEnd"];
+            };
+        };
+        responses: {
+            /** @description What the hospital asks a supplier for, approved by a second person before goods are received against it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    closePurchaseOrder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderEnd"];
+            };
+        };
+        responses: {
+            /** @description What the hospital asks a supplier for, approved by a second person before goods are received against it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrder"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listGoodsReceipts: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                orderId?: string;
+                supplierId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoodsReceiptPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getGoodsReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                receiptId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Goods that came in against an approved order: each line a batch brought into stock through the ledger. Never changed: a correction is a return or an adjustment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoodsReceipt"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    receiveGoods: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoodsReceiptCreate"];
+            };
+        };
+        responses: {
+            /** @description Goods that came in against an approved order: each line a batch brought into stock through the ledger. Never changed: a correction is a return or an adjustment. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoodsReceipt"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listPurchaseReturns: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                receiptId?: string;
+                supplierId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseReturnPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    returnToSupplier: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                receiptId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseReturnCreate"];
+            };
+        };
+        responses: {
+            /** @description Units of a goods receipt sent back to the supplier, taken out of stock through the ledger. Never changed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseReturn"];
+                };
             };
             /** @description Standard error body. */
             400: {

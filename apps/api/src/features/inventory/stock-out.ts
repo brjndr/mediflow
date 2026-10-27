@@ -2,8 +2,10 @@ import type { FastifyRequest } from 'fastify';
 import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
 import {
+  batchByNumber,
   findBatch,
   hospitalOnHand,
+  insertBatch,
   isUuid,
   isViolation,
   lockItemStock,
@@ -70,10 +72,12 @@ export async function usableBatches(
  * request's transaction, for another module's record (`source` and `sourceId`): a dispense.
  *
  * Refuses a place that is not in use (422 `unknown_location`), a batch that is not the item's
- * (422 `unknown_batch`), a batch expired at the hospital today (409 `batch_expired`) and more
- * than a batch holds at the place (409 `insufficient_stock`). Locks in inventory's order (the
+ * (422 `unknown_batch`), a batch expired at the hospital today (409 `batch_expired`) unless
+ * `expiredAllowed` (goods sent back to their supplier, #103) and more than a batch holds at the
+ * place (409 `insufficient_stock`). Locks in inventory's order (the
  * place `for share`, the item's stock, then each balance), so the caller locks its own record
- * first. Emits `stock.low` when it brings the hospital's stock of the item from above its reorder
+ * first; a caller moving several items takes them in id order, so two movements never wait for
+ * each other. Emits `stock.low` when it brings the hospital's stock of the item from above its reorder
  * level to at or below it, as an approved adjustment does. Gives the ledger entry of each line.
  */
 export async function stockOut(
@@ -87,6 +91,8 @@ export async function stockOut(
     reason: LedgerReason;
     actorId: string;
     lines: { batchId: string; quantity: number }[];
+    /** Expired units may go: only when they go back to the supplier. */
+    expiredAllowed?: boolean;
   },
 ): Promise<{ batchId: string; quantity: number; ledgerEntryId: string }[]> {
   const client = request.txClient;
@@ -103,7 +109,7 @@ export async function stockOut(
     if (!batch || batch.drug_id !== movement.drugId) {
       throw new HttpError(422, 'unknown_batch', 'No such batch of the item');
     }
-    if (batch.expiry_date < today) {
+    if (batch.expiry_date < today && !movement.expiredAllowed) {
       throw new HttpError(409, 'batch_expired', 'The batch is past its expiry date');
     }
   }
@@ -203,4 +209,91 @@ export async function stockIn(
     posted.push({ batchId: line.batchId, quantity: line.quantity, ledgerEntryId: entry.id });
   }
   return posted;
+}
+
+/**
+ * Brings goods received from a supplier into stock at a place (#103), in the request's
+ * transaction: each line is a batch as printed on the pack, made when the item has no batch of
+ * that number (whatever the capitals) and found when it has one of the same expiry date. Refuses
+ * a place that is not in use (422 `unknown_location`), a number the item has with another expiry
+ * (409 `batch_exists`) and a batch already expired at the hospital today (409 `batch_expired`).
+ * A batch made here keeps the line's cost and maximum retail price; one found keeps its own, and
+ * the receipt records what this delivery cost. Locks as `stockOut` does. Gives the batch and the
+ * ledger entry of each line.
+ */
+export async function stockReceive(
+  request: FastifyRequest,
+  movement: {
+    locationId: string;
+    drugId: string;
+    sourceId: string;
+    actorId: string;
+    lines: {
+      batchNumber: string;
+      expiryDate: string;
+      mrpMinor: number | null;
+      costMinor: number;
+      quantity: number;
+    }[];
+  },
+): Promise<{ batchId: string; quantity: number; ledgerEntryId: string }[]> {
+  const client = request.txClient;
+  const location = await lockLocation(client, movement.locationId, 'share');
+  if (!location || location.archived) {
+    throw new HttpError(422, 'unknown_location', 'No such place in use');
+  }
+  const { rows } = await client.query<{ today: string }>(
+    `select to_char(${TODAY}, 'YYYY-MM-DD') as today`,
+  );
+  const today = rows[0]?.today ?? '';
+  await lockItemStock(client, movement.drugId);
+  const posted: { batchId: string; quantity: number; ledgerEntryId: string }[] = [];
+  for (const line of movement.lines) {
+    if (line.expiryDate < today) {
+      throw new HttpError(409, 'batch_expired', 'The batch is past its expiry date');
+    }
+    const found = await batchByNumber(client, movement.drugId, line.batchNumber);
+    const batch =
+      found ??
+      (await insertBatch(client, {
+        drugId: movement.drugId,
+        batchNumber: line.batchNumber,
+        expiryDate: line.expiryDate,
+        mrpMinor: line.mrpMinor === null ? null : String(line.mrpMinor),
+        costMinor: String(line.costMinor),
+        createdBy: movement.actorId,
+      }));
+    if (batch.expiry_date !== line.expiryDate) {
+      throw new HttpError(
+        409,
+        'batch_exists',
+        'The item has a batch of that number with another expiry',
+      );
+    }
+    const entry = await postEntry(client, {
+      batchId: batch.id,
+      drugId: movement.drugId,
+      locationId: movement.locationId,
+      quantity: line.quantity,
+      source: 'receipt',
+      sourceId: movement.sourceId,
+      reason: 'receipt',
+      actorId: movement.actorId,
+    });
+    posted.push({ batchId: batch.id, quantity: line.quantity, ledgerEntryId: entry.id });
+  }
+  return posted;
+}
+
+/**
+ * A place of the hospital that is in use, held (`for share`) until the transaction ends so it is
+ * not archived meanwhile: for another module's record of where stock is to go (#103). Null for
+ * one archived, of another hospital or none.
+ */
+export async function placeInUse(
+  client: pg.ClientBase,
+  locationId: string,
+): Promise<{ id: string; name: string } | null> {
+  const location = await lockLocation(client, locationId, 'share');
+  return location && !location.archived ? { id: location.id, name: location.name } : null;
 }

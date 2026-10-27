@@ -36,6 +36,7 @@ const initialTenants: Record<string, TenantDto> = {
       radiology: true,
       pharmacy: true,
       inventory: true,
+      purchasing: true,
       billing: true,
       reports: true,
       notices: true,
@@ -76,6 +77,7 @@ const initialTenants: Record<string, TenantDto> = {
       radiology: false,
       pharmacy: false,
       inventory: false,
+      purchasing: false,
       billing: true,
       reports: false,
       notices: false,
@@ -160,6 +162,14 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'stock:adjust' },
   { permission: 'stock:approve' },
   { permission: 'stockLocation:manage' },
+  // Purchasing (#103): suppliers, orders approved by a second person, goods received and returned.
+  { permission: 'supplier:read' },
+  { permission: 'supplier:manage' },
+  { permission: 'purchaseOrder:read' },
+  { permission: 'purchaseOrder:create' },
+  { permission: 'purchaseOrder:approve' },
+  { permission: 'goodsReceipt:create' },
+  { permission: 'purchaseReturn:create' },
   // The pharmacy (#100): the queue and dispensing; counter sales and the drug register (#101).
   { permission: 'dispense:read' },
   { permission: 'dispense:create' },
@@ -258,12 +268,20 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
   [TENANT_IDS.hospital]: {
     admin: ADMIN,
     doctor: DOCTOR,
-    // Keeps the stock and asks for adjustments, which someone else approves (#102).
+    // Keeps the stock and asks for adjustments, which someone else approves (#102); buys from
+    // suppliers, receives goods and sends them back (#103).
     store_keeper: [
       { permission: 'drug:read' },
       { permission: 'stock:read' },
       { permission: 'stock:adjust' },
       { permission: 'stock:approve' },
+      { permission: 'supplier:read' },
+      { permission: 'supplier:manage' },
+      { permission: 'purchaseOrder:read' },
+      { permission: 'purchaseOrder:create' },
+      { permission: 'purchaseOrder:approve' },
+      { permission: 'goodsReceipt:create' },
+      { permission: 'purchaseReturn:create' },
     ],
     // Dispenses prescriptions (#100), reading the stock, the drugs and the patient's allergies;
     // sells at the counter, to a patient found by search, and keeps the drug register (#101).

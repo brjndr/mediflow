@@ -407,6 +407,7 @@ const HOSPITALS = [
       radiology: true,
       pharmacy: true,
       inventory: true,
+      purchasing: true,
       billing: true,
       reports: true,
     },
@@ -443,6 +444,7 @@ const HOSPITALS = [
       radiology: false,
       pharmacy: false,
       inventory: false,
+      purchasing: false,
       billing: true,
       reports: false,
     },
@@ -1085,6 +1087,123 @@ try {
           );
         }
       }
+    }
+  }
+
+  // Purchasing (#103): two suppliers and an order at each step, made by the store keeper and
+  // approved by the admin; the partly received one brought a batch in through the ledger. Only
+  // for a hospital with no suppliers yet, so running again adds nothing.
+  {
+    const tenantId = tenantIds.get('sample-hospital');
+    const { rowCount } = await client.query(
+      'select 1 from suppliers where tenant_id = $1 limit 1',
+      [tenantId],
+    );
+    if (rowCount === 0) {
+      const userId = async (email: string) =>
+        (await client.query<{ id: string }>('select id from users where email = $1', [email]))
+          .rows[0]?.id;
+      const keeper = await userId('stores@sample-hospital.test');
+      const admin = await userId('admin@sample-hospital.test');
+      const suppliers: (string | undefined)[] = [];
+      for (const [name, gstin, licence, phone] of [
+        ['Sunrise Pharma Distributors', '27AABCS1234F1Z5', 'MH-MZ1-123456', '+91 22 4000 1000'],
+        ['Medline Surgical Supplies', '27AACCM5678G1Z2', null, '+91 22 4000 2000'],
+      ]) {
+        const { rows } = await client.query<{ id: string }>(
+          `insert into suppliers (tenant_id, name, gstin, drug_licence, phone) values ($1, $2, $3, $4, $5)
+           returning id`,
+          [tenantId, name, gstin, licence, phone],
+        );
+        suppliers.push(rows[0]?.id);
+      }
+      const { rows: store } = await client.query<{ id: string }>(
+        `select id from stock_locations where tenant_id = $1 and kind = 'store' order by name limit 1`,
+        [tenantId],
+      );
+      const { rows: drugs } = await client.query<{ id: string }>(
+        'select id from drugs where tenant_id = $1 and not archived order by generic_name, strength nulls first, id limit 6',
+        [tenantId],
+      );
+      const steps = ['draft', 'submitted', 'approved', 'partly_received', 'cancelled'] as const;
+      for (const [index, status] of steps.entries()) {
+        const number = index + 1;
+        const submitted = status !== 'draft';
+        const approved = status === 'approved' || status === 'partly_received';
+        const { rows: order } = await client.query<{ id: string }>(
+          `insert into purchase_orders (tenant_id, number, supplier_id, location_id, created_by, edited_by)
+           values ($1, $2, $3, $4, $5, $5) returning id`,
+          [tenantId, number, suppliers[index % 2], store[0]?.id, keeper],
+        );
+        const orderId = order[0]?.id;
+        // Lines go in while it is a draft, as the API writes them; then it moves on.
+        const lineDrugs = [drugs[index], drugs[index + 1]];
+        for (const [position, drug] of lineDrugs.entries()) {
+          await client.query(
+            `insert into purchase_order_lines (tenant_id, order_id, line_number, drug_id, quantity, unit_cost_minor)
+             values ($1, $2, $3, $4, $5, $6)`,
+            [tenantId, orderId, position + 1, drug?.id, 200, 2800 + position * 500],
+          );
+        }
+        if (submitted) {
+          await client.query(
+            `update purchase_orders set status = 'submitted', submitted_by = $2, submitted_at = now()
+             where id = $1`,
+            [orderId, keeper],
+          );
+        }
+        if (approved) {
+          await client.query(
+            `update purchase_orders set status = 'approved', approved_by = $2, approved_at = now()
+             where id = $1`,
+            [orderId, admin],
+          );
+        }
+        if (status === 'cancelled') {
+          await client.query(
+            `update purchase_orders set status = 'cancelled', ended_by = $2, ended_at = now(),
+               end_note = 'Supplier could not deliver this month' where id = $1`,
+            [orderId, admin],
+          );
+        }
+        if (status === 'partly_received') {
+          const drug = lineDrugs[0];
+          const { rows: line } = await client.query<{ id: string }>(
+            'select id from purchase_order_lines where order_id = $1 and line_number = 1',
+            [orderId],
+          );
+          const { rows: batch } = await client.query<{ id: string }>(
+            `insert into stock_batches (tenant_id, drug_id, batch_number, expiry_date, mrp_minor, cost_minor, created_by)
+             values ($1, $2, 'GRN001A', current_date + 540, 4500, 2800, $3) returning id`,
+            [tenantId, drug?.id, keeper],
+          );
+          const { rows: receipt } = await client.query<{ id: string }>(
+            `insert into goods_receipts (tenant_id, number, order_id, supplier_id, location_id, supplier_invoice, received_by)
+             values ($1, 1, $2, $3, $4, 'SPD/2026/0412', $5) returning id`,
+            [tenantId, orderId, suppliers[index % 2], store[0]?.id, keeper],
+          );
+          const { rows: entry } = await client.query<{ id: string }>(
+            `insert into stock_ledger (tenant_id, batch_id, drug_id, location_id, quantity, source, source_id, reason, actor_id)
+             values ($1, $2, $3, $4, 120, 'receipt', $5, 'receipt', $6) returning id`,
+            [tenantId, batch[0]?.id, drug?.id, store[0]?.id, receipt[0]?.id, keeper],
+          );
+          await client.query(
+            `insert into goods_receipt_lines (tenant_id, receipt_id, order_id, order_line_id, line_number, drug_id,
+               batch_id, quantity, unit_cost_minor, ledger_entry_id)
+             values ($1, $2, $3, $4, 1, $5, $6, 120, 2800, $7)`,
+            [tenantId, receipt[0]?.id, orderId, line[0]?.id, drug?.id, batch[0]?.id, entry[0]?.id],
+          );
+          await client.query(
+            `update purchase_orders set status = 'partly_received' where id = $1`,
+            [orderId],
+          );
+        }
+      }
+      await client.query(
+        `insert into purchasing_counters (tenant_id, kind, last_number)
+         values ($1, 'order', $2), ($1, 'receipt', 1)`,
+        [tenantId, steps.length],
+      );
     }
   }
 

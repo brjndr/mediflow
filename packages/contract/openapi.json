@@ -6429,8 +6429,8 @@
       },
       "StockLedgerSource": {
         "type": "string",
-        "enum": ["adjustment", "dispense", "sale", "sale_return"],
-        "description": "What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101). Goods receipts and transfers come with their modules."
+        "enum": ["adjustment", "dispense", "sale", "sale_return", "receipt", "purchase_return"],
+        "description": "What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103). Transfers come with their module."
       },
       "StockLedgerReason": {
         "type": "string",
@@ -6442,9 +6442,11 @@
           "other",
           "dispense",
           "sale",
-          "sale_return"
+          "sale_return",
+          "receipt",
+          "purchase_return"
         ],
-        "description": "Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back."
+        "description": "Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one."
       },
       "StockLocation": {
         "description": "A place of the hospital that keeps stock.",
@@ -7964,6 +7966,1037 @@
           "total": {
             "minimum": 0,
             "type": "integer"
+          }
+        }
+      },
+      "PurchaseOrderStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "submitted",
+          "approved",
+          "partly_received",
+          "received",
+          "closed",
+          "cancelled"
+        ],
+        "description": "A draft is changed freely; submitted, it waits for someone else to approve it; approved, goods are received against it, partly then in full. One partly received may be closed when the rest will not come; one with nothing received may be cancelled."
+      },
+      "PurchaseReturnReason": {
+        "type": "string",
+        "enum": ["expired", "damaged", "wrong_item", "other"],
+        "description": "Why goods go back to the supplier: expired, damaged, not what was ordered, or another reason given in the note."
+      },
+      "Supplier": {
+        "description": "A business the hospital buys drugs and consumables from.",
+        "type": "object",
+        "required": ["id", "tenantId", "name", "archived", "version"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "gstin": {
+            "type": "string"
+          },
+          "drugLicence": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`.",
+            "type": "integer"
+          }
+        }
+      },
+      "SupplierPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Supplier"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "SupplierCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "gstin": {
+            "pattern": "^[0-9]{2}[A-Z0-9]{13}$",
+            "description": "The GST number: 15 capital letters and digits.",
+            "type": "string"
+          },
+          "drugLicence": {
+            "minLength": 1,
+            "maxLength": 60,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "phone": {
+            "minLength": 5,
+            "maxLength": 20,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "email": {
+            "minLength": 3,
+            "maxLength": 254,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "address": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "SupplierUpdate": {
+        "additionalProperties": false,
+        "description": "Only the fields sent change; null clears an optional one.",
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The version the change was made from.",
+            "type": "integer"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "gstin": {
+            "type": ["string", "null"],
+            "maxLength": 15,
+            "pattern": "^[0-9]{2}[A-Z0-9]{13}$"
+          },
+          "drugLicence": {
+            "type": ["string", "null"],
+            "maxLength": 60,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+          },
+          "phone": {
+            "type": ["string", "null"],
+            "maxLength": 20,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+          },
+          "email": {
+            "type": ["string", "null"],
+            "maxLength": 254,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+          },
+          "address": {
+            "type": ["string", "null"],
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+          }
+        }
+      },
+      "PurchaseOrderLine": {
+        "type": "object",
+        "required": [
+          "id",
+          "lineNumber",
+          "drugId",
+          "itemName",
+          "quantity",
+          "unitCostMinor",
+          "receivedQuantity"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lineNumber": {
+            "type": "integer"
+          },
+          "drugId": {
+            "type": "string"
+          },
+          "itemName": {
+            "description": "Generic name, strength and brand, as it reads now.",
+            "type": "string"
+          },
+          "unit": {
+            "description": "What one unit is.",
+            "type": "string"
+          },
+          "quantity": {
+            "description": "Units ordered.",
+            "type": "integer"
+          },
+          "unitCostMinor": {
+            "description": "The agreed price of a unit before tax.",
+            "type": "integer"
+          },
+          "receivedQuantity": {
+            "description": "Units received against the line so far.",
+            "type": "integer"
+          }
+        }
+      },
+      "PurchaseOrderSummary": {
+        "description": "A purchase order as a list shows it.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "reference",
+          "supplierId",
+          "supplierName",
+          "locationId",
+          "locationName",
+          "status",
+          "totalMinor",
+          "createdById",
+          "createdByName",
+          "createdAt",
+          "version",
+          "lineCount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "reference": {
+            "description": "The order’s number as printed: PO-000123.",
+            "type": "string"
+          },
+          "supplierId": {
+            "type": "string"
+          },
+          "supplierName": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "locationName": {
+            "description": "Where the goods are to be delivered.",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PurchaseOrderStatus"
+          },
+          "totalMinor": {
+            "description": "The lines’ quantities at their unit costs, before tax.",
+            "type": "integer"
+          },
+          "createdById": {
+            "type": "string"
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "submittedById": {
+            "description": "Who submitted it: someone else approves it.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "lineCount": {
+            "type": "integer"
+          }
+        }
+      },
+      "PurchaseOrderPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderSummary"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "PurchaseOrder": {
+        "description": "What the hospital asks a supplier for, approved by a second person before goods are received against it.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "reference",
+          "supplierId",
+          "supplierName",
+          "locationId",
+          "locationName",
+          "status",
+          "totalMinor",
+          "createdById",
+          "createdByName",
+          "createdAt",
+          "version",
+          "lines",
+          "editedById"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "reference": {
+            "description": "The order’s number as printed: PO-000123.",
+            "type": "string"
+          },
+          "supplierId": {
+            "type": "string"
+          },
+          "supplierName": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "locationName": {
+            "description": "Where the goods are to be delivered.",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PurchaseOrderStatus"
+          },
+          "totalMinor": {
+            "description": "The lines’ quantities at their unit costs, before tax.",
+            "type": "integer"
+          },
+          "createdById": {
+            "type": "string"
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "submittedById": {
+            "description": "Who submitted it: someone else approves it.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "note": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderLine"
+            }
+          },
+          "editedById": {
+            "description": "Who last changed what is ordered. Neither they, the creator nor the submitter approves it.",
+            "type": "string"
+          },
+          "submittedByName": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "approvedByName": {
+            "type": "string"
+          },
+          "approvedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endedByName": {
+            "description": "Who cancelled it, or closed it with goods still to come.",
+            "type": "string"
+          },
+          "endedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endNote": {
+            "type": "string"
+          }
+        }
+      },
+      "PurchaseOrderLineInput": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["drugId", "quantity", "unitCostMinor"],
+        "properties": {
+          "drugId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "quantity": {
+            "minimum": 1,
+            "maximum": 1000000,
+            "type": "integer"
+          },
+          "unitCostMinor": {
+            "minimum": 0,
+            "maximum": 100000000000,
+            "type": "integer"
+          }
+        }
+      },
+      "PurchaseOrderCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["supplierId", "locationId", "lines"],
+        "properties": {
+          "supplierId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "locationId": {
+            "maxLength": 64,
+            "description": "Where the goods are to be delivered.",
+            "type": "string"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 200,
+            "description": "Each item once.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderLineInput"
+            }
+          }
+        }
+      },
+      "PurchaseOrderUpdate": {
+        "additionalProperties": false,
+        "description": "A draft only. Only the fields sent change; lines sent replace them all.",
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The version the change was made from.",
+            "type": "integer"
+          },
+          "supplierId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "locationId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "note": {
+            "type": ["string", "null"],
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 200,
+            "description": "Each item once.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseOrderLineInput"
+            }
+          }
+        }
+      },
+      "PurchaseOrderStep": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The version the change was made from.",
+            "type": "integer"
+          }
+        }
+      },
+      "PurchaseOrderEnd": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion", "note"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The version the change was made from.",
+            "type": "integer"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "GoodsReceiptLine": {
+        "type": "object",
+        "required": [
+          "id",
+          "lineNumber",
+          "orderLineId",
+          "drugId",
+          "itemName",
+          "batchId",
+          "batchNumber",
+          "expiryDate",
+          "quantity",
+          "unitCostMinor",
+          "returnedQuantity"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lineNumber": {
+            "type": "integer"
+          },
+          "orderLineId": {
+            "type": "string"
+          },
+          "drugId": {
+            "type": "string"
+          },
+          "itemName": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "batchId": {
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, not an instant: YYYY-MM-DD.",
+            "type": "string"
+          },
+          "mrpMinor": {
+            "description": "The batch’s maximum retail price.",
+            "type": "integer"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "unitCostMinor": {
+            "description": "What a unit of this delivery cost, before tax.",
+            "type": "integer"
+          },
+          "returnedQuantity": {
+            "description": "Units of the line sent back so far.",
+            "type": "integer"
+          }
+        }
+      },
+      "GoodsReceiptSummary": {
+        "description": "A goods receipt as a list shows it.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "reference",
+          "orderId",
+          "orderReference",
+          "supplierId",
+          "supplierName",
+          "locationId",
+          "locationName",
+          "totalMinor",
+          "receivedByName",
+          "receivedAt",
+          "lineCount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "reference": {
+            "description": "The receipt’s number as printed: GRN-000123.",
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "orderReference": {
+            "type": "string"
+          },
+          "supplierId": {
+            "type": "string"
+          },
+          "supplierName": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "locationName": {
+            "type": "string"
+          },
+          "supplierInvoice": {
+            "description": "The supplier’s invoice or delivery note.",
+            "type": "string"
+          },
+          "totalMinor": {
+            "description": "The lines at their unit costs, before tax.",
+            "type": "integer"
+          },
+          "receivedByName": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lineCount": {
+            "type": "integer"
+          }
+        }
+      },
+      "GoodsReceiptPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoodsReceiptSummary"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "GoodsReceipt": {
+        "description": "Goods that came in against an approved order: each line a batch brought into stock through the ledger. Never changed: a correction is a return or an adjustment.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "reference",
+          "orderId",
+          "orderReference",
+          "supplierId",
+          "supplierName",
+          "locationId",
+          "locationName",
+          "totalMinor",
+          "receivedByName",
+          "receivedAt",
+          "lines"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "reference": {
+            "description": "The receipt’s number as printed: GRN-000123.",
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "orderReference": {
+            "type": "string"
+          },
+          "supplierId": {
+            "type": "string"
+          },
+          "supplierName": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "locationName": {
+            "type": "string"
+          },
+          "supplierInvoice": {
+            "description": "The supplier’s invoice or delivery note.",
+            "type": "string"
+          },
+          "totalMinor": {
+            "description": "The lines at their unit costs, before tax.",
+            "type": "integer"
+          },
+          "receivedByName": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoodsReceiptLine"
+            }
+          }
+        }
+      },
+      "GoodsReceiptLineInput": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["orderLineId", "batchNumber", "expiryDate", "quantity", "unitCostMinor"],
+        "properties": {
+          "orderLineId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "batchNumber": {
+            "minLength": 1,
+            "maxLength": 40,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "As printed on the pack.",
+            "type": "string"
+          },
+          "expiryDate": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, not an instant: YYYY-MM-DD.",
+            "type": "string"
+          },
+          "quantity": {
+            "minimum": 1,
+            "maximum": 1000000,
+            "type": "integer"
+          },
+          "unitCostMinor": {
+            "minimum": 0,
+            "maximum": 100000000000,
+            "type": "integer"
+          },
+          "mrpMinor": {
+            "minimum": 0,
+            "maximum": 100000000000,
+            "type": "integer"
+          }
+        }
+      },
+      "GoodsReceiptCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["lines"],
+        "properties": {
+          "locationId": {
+            "maxLength": 64,
+            "description": "Where the goods came in: the order’s place when not sent.",
+            "type": "string"
+          },
+          "supplierInvoice": {
+            "minLength": 1,
+            "maxLength": 60,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 400,
+            "description": "Each batch once; an order line may come in several batches.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoodsReceiptLineInput"
+            }
+          }
+        }
+      },
+      "PurchaseReturnLine": {
+        "type": "object",
+        "required": [
+          "id",
+          "receiptLineId",
+          "drugId",
+          "itemName",
+          "batchId",
+          "batchNumber",
+          "expiryDate",
+          "quantity",
+          "unitCostMinor"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "receiptLineId": {
+            "type": "string"
+          },
+          "drugId": {
+            "type": "string"
+          },
+          "itemName": {
+            "type": "string"
+          },
+          "batchId": {
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, not an instant: YYYY-MM-DD.",
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "unitCostMinor": {
+            "description": "What a unit cost when received.",
+            "type": "integer"
+          }
+        }
+      },
+      "PurchaseReturn": {
+        "description": "Units of a goods receipt sent back to the supplier, taken out of stock through the ledger. Never changed.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "reference",
+          "receiptId",
+          "receiptReference",
+          "supplierId",
+          "supplierName",
+          "locationId",
+          "locationName",
+          "reason",
+          "lines",
+          "totalMinor",
+          "returnedByName",
+          "returnedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "reference": {
+            "description": "The return’s number as printed: PRN-000123.",
+            "type": "string"
+          },
+          "receiptId": {
+            "type": "string"
+          },
+          "receiptReference": {
+            "type": "string"
+          },
+          "supplierId": {
+            "type": "string"
+          },
+          "supplierName": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "locationName": {
+            "description": "Where the units were taken from.",
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/PurchaseReturnReason"
+          },
+          "note": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseReturnLine"
+            }
+          },
+          "totalMinor": {
+            "description": "The lines at their received costs.",
+            "type": "integer"
+          },
+          "returnedByName": {
+            "type": "string"
+          },
+          "returnedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "PurchaseReturnPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseReturn"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "PurchaseReturnLineInput": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["receiptLineId", "quantity"],
+        "properties": {
+          "receiptLineId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "quantity": {
+            "minimum": 1,
+            "maximum": 1000000,
+            "type": "integer"
+          }
+        }
+      },
+      "PurchaseReturnCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason", "lines"],
+        "properties": {
+          "locationId": {
+            "maxLength": 64,
+            "description": "Where the units are taken from: the receipt’s place when not sent.",
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/PurchaseReturnReason"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string",
+            "description": "Needed when the reason is other."
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 400,
+            "description": "Each receipt line once.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurchaseReturnLineInput"
+            }
           }
         }
       },
@@ -28608,6 +29641,1956 @@
         "responses": {
           "204": {
             "description": "Default Response"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/suppliers": {
+      "get": {
+        "operationId": "listSuppliers",
+        "tags": ["purchasing"],
+        "description": "The suppliers of the active tenant in use (or archived), by name, of a name with `q` in it. `total` comes with the first page. A GET: a supplier says nothing about a patient.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "archived",
+            "required": false,
+            "description": "The archived suppliers instead of those in use."
+          },
+          {
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "description": "Only suppliers whose name has this in it."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSupplier",
+        "tags": ["purchasing"],
+        "description": "Adds a supplier. A name the hospital already has, archived or not, whatever the capitals, is 409 supplier_name_taken. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupplierCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A business the hospital buys drugs and consumables from.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Supplier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/suppliers/{supplierId}": {
+      "get": {
+        "operationId": "getSupplier",
+        "tags": ["purchasing"],
+        "description": "One supplier. Another hospital’s answers 404, as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "supplierId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A business the hospital buys drugs and consumables from.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Supplier"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateSupplier",
+        "tags": ["purchasing"],
+        "description": "Changes the fields sent; null clears an optional one. 409 conflict when it changed since the version sent; 409 supplier_name_taken as on adding. Sending what it has changes nothing. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupplierUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "supplierId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A business the hospital buys drugs and consumables from.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Supplier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/suppliers/{supplierId}/archive": {
+      "post": {
+        "operationId": "archiveSupplier",
+        "tags": ["purchasing"],
+        "description": "Archives a supplier: nothing more is ordered from it. Refused with 409 supplier_has_open_orders while an order of it may still bring goods. Doing it twice changes nothing. Audited. Another hospital’s answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "supplierId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A business the hospital buys drugs and consumables from.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Supplier"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/suppliers/{supplierId}/restore": {
+      "post": {
+        "operationId": "restoreSupplier",
+        "tags": ["purchasing"],
+        "description": "Brings an archived supplier back. Doing it twice changes nothing. Audited. Another hospital’s answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "supplierId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A business the hospital buys drugs and consumables from.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Supplier"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/orders": {
+      "get": {
+        "operationId": "listPurchaseOrders",
+        "tags": ["purchasing"],
+        "description": "The purchase orders, newest first, of a status and a supplier when sent, without their lines. `total` comes with the first page.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/PurchaseOrderStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "supplierId",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrderPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPurchaseOrder",
+        "tags": ["purchasing"],
+        "description": "Drafts a purchase order: a supplier in use, a place in use to deliver to, and lines of items in use, each item once (400 otherwise). It is changed freely until submitted. Numbered PO-000001 on, per hospital. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseOrderCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "What the hospital asks a supplier for, approved by a second person before goods are received against it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/orders/{orderId}": {
+      "get": {
+        "operationId": "getPurchaseOrder",
+        "tags": ["purchasing"],
+        "description": "One purchase order with its lines, each with what has been received of it. Another hospital’s answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the hospital asks a supplier for, approved by a second person before goods are received against it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrder"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updatePurchaseOrder",
+        "tags": ["purchasing"],
+        "description": "Changes a draft: the supplier, the place, the note (null clears it) or all its lines. 409 order_status once submitted, 409 conflict when it changed since the version sent. The same checks as drafting. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseOrderUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the hospital asks a supplier for, approved by a second person before goods are received against it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/orders/{orderId}/submit": {
+      "post": {
+        "operationId": "submitPurchaseOrder",
+        "tags": ["purchasing"],
+        "description": "Submits a draft for approval by someone else: it is not changed from then on. 409 order_status when it is not a draft, 409 conflict when it changed since the version sent. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseOrderStep"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the hospital asks a supplier for, approved by a second person before goods are received against it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/orders/{orderId}/approve": {
+      "post": {
+        "operationId": "approvePurchaseOrder",
+        "tags": ["purchasing"],
+        "description": "Approves a submitted order that someone else drafted, last changed and submitted (409 own_order): goods may then be received against it. Nothing moves in stock. 409 supplier_archived when its supplier was archived since, 409 order_status when it is not submitted, 409 conflict when it changed since the version sent. Emits `purchase.order_approved`. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseOrderStep"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the hospital asks a supplier for, approved by a second person before goods are received against it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/orders/{orderId}/cancel": {
+      "post": {
+        "operationId": "cancelPurchaseOrder",
+        "tags": ["purchasing"],
+        "description": "Cancels an order nothing was received against (a draft, submitted or approved), with a note saying why. 409 order_status otherwise, 409 conflict when it changed since the version sent. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseOrderEnd"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the hospital asks a supplier for, approved by a second person before goods are received against it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/orders/{orderId}/close": {
+      "post": {
+        "operationId": "closePurchaseOrder",
+        "tags": ["purchasing"],
+        "description": "Closes an order partly received when the rest will not come, with a note saying why: nothing more is received against it. 409 order_status otherwise, 409 conflict when it changed since the version sent. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseOrderEnd"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the hospital asks a supplier for, approved by a second person before goods are received against it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/receipts": {
+      "get": {
+        "operationId": "listGoodsReceipts",
+        "tags": ["purchasing"],
+        "description": "The goods receipts, newest first, of an order and a supplier when sent, without their lines. `total` comes with the first page.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "orderId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "supplierId",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoodsReceiptPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/receipts/{receiptId}": {
+      "get": {
+        "operationId": "getGoodsReceipt",
+        "tags": ["purchasing"],
+        "description": "One goods receipt with its lines, each with what has been sent back of it. Another hospital’s answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "receiptId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Goods that came in against an approved order: each line a batch brought into stock through the ledger. Never changed: a correction is a return or an adjustment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoodsReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/orders/{orderId}/receipts": {
+      "post": {
+        "operationId": "receiveGoods",
+        "tags": ["purchasing"],
+        "description": "Receives goods against an approved order (409 order_status otherwise) at a place in use (the order’s when not sent; 400 otherwise). Each line is a batch of an order line’s item as printed on the pack, with its expiry date, units and cost: a batch the item does not have is made, one it has of the same expiry date is added to (409 batch_exists for another expiry date), one already expired is 409 batch_expired. Each batch once (400). More than an order line still waits for is 409 over_receipt, a cost above the order line’s agreed price is 409 cost_above_order (the approval covered that price; a dearer delivery needs a new order), and an item archived since is 409 item_archived. Each line comes into stock through the ledger at once; the order becomes partly received or received. Numbered GRN-000001 on. Emits `stock.received`. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoodsReceiptCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Goods that came in against an approved order: each line a batch brought into stock through the ledger. Never changed: a correction is a return or an adjustment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoodsReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/returns": {
+      "get": {
+        "operationId": "listPurchaseReturns",
+        "tags": ["purchasing"],
+        "description": "The returns to suppliers, newest first, of a receipt and a supplier when sent, with their lines. `total` comes with the first page.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "receiptId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "supplierId",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseReturnPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchasing/receipts/{receiptId}/returns": {
+      "post": {
+        "operationId": "returnToSupplier",
+        "tags": ["purchasing"],
+        "description": "Sends units of a goods receipt back to its supplier, from a place in use (the receipt’s when not sent; 400 otherwise), with a reason (a note for other, 400). Each receipt line once (400), no more than it brought in less what has gone back already (409 over_return), and no more than its batch has at the place (409 insufficient_stock). Expired units may go back. They leave stock through the ledger at once. Numbered PRN-000001 on. Emits `stock.returned`, and `stock.low` when it brings the hospital’s stock of an item to its reorder level. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseReturnCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "receiptId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Units of a goods receipt sent back to the supplier, taken out of stock through the ledger. Never changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseReturn"
+                }
+              }
+            }
           },
           "400": {
             "description": "Standard error body.",

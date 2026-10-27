@@ -23,7 +23,9 @@
     "other": "Other",
     "dispense": "Dispensed",
     "sale": "Sold at the counter",
-    "sale_return": "Returned from a sale"
+    "sale_return": "Returned from a sale",
+    "receipt": "Received from a supplier",
+    "purchase_return": "Returned to the supplier"
   },
   "change": {
     "in_one": "{{count}} unit in",

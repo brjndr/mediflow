@@ -283,6 +283,24 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Stock ledger', level: 1 })).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // Purchasing (#103): the orders as cards on a phone, an order with its lines, goods received in
+  // place with a row per batch, and the suppliers.
+  await goTo(page, 'Purchasing');
+  await expect(page.getByRole('heading', { name: 'Purchase orders', level: 1 })).toBeVisible();
+  await expect(page.getByText('PO-000003').first()).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: /^Open: PO-000003/ }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Purchase order PO-000003', level: 1 }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Receive goods' }).click();
+  await expect(page.getByLabel(/^Batch number of/).first()).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('link', { name: 'Suppliers' }).click();
+  await expect(page.getByRole('heading', { name: 'Suppliers', level: 1 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   await page.getByRole('link', { name: /^Your account:/ }).click();
   await expect(page.getByRole('heading', { name: 'Your account' })).toBeVisible();
   await expectNoSidewaysScroll(page);
