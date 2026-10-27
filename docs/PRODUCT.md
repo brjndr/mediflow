@@ -6,9 +6,9 @@ The journeys, the release plan, the default role matrix and the shapes of the en
 
 The root `CLAUDE.md` lists these in short; this is the full statement of each.
 
-- **Encounter is the spine.** Every clinical, ordering and billing record attaches to an `Encounter` (type `opd`, `ipd`, `er` or `daycare`), which belongs to one patient. Modules never invent their own visit concept.
+- **Encounter is the spine.** Every clinical, ordering and billing record attaches to an `Encounter` (type `opd`, `ipd`, `er` or `daycare`), which belongs to one patient. Modules never invent their own visit concept. One exception, decided for #101: a pharmacy counter sale may be to an unnamed walk-in and has no encounter; billing (M11) charges it on its own, from `pharmacy.sold`.
 - **Unified orders (CPOE).** Lab, imaging, procedure, medication and diet requests are all `Order` records with a type, status and `order.placed` event. Lab, radiology, pharmacy and nursing modules consume orders by event. Ordering never calls those modules directly.
-- **Charge ledger.** Services performed, tests, imaging, dispenses, bed days and procedures post **charges** to the encounter's charge ledger (priced from the active price list at that time). Invoices are assembled from charges. No module writes invoices directly.
+- **Charge ledger.** Services performed, tests, imaging, dispenses, bed days and procedures post **charges** to the encounter's charge ledger (priced from the active price list at that time; a pharmacy counter sale is priced at each batch's maximum retail price, recorded on the sale, #101). Invoices are assembled from charges. No module writes invoices directly.
 - **Master data first.** Services and tariffs, drugs, lab tests, ICD codes, wards and beds are catalogs owned by the master data module and referenced by ID everywhere else. Prices are effective-dated so old bills never change.
 - **Append-only where it matters:** stock ledger, medication administration record, audit log, results and signed documents. Corrections are new entries or addenda with the reason and the author.
 - **State machines** for orders, samples, admissions, bed status, claims and discharge, enforced on the backend. The UI only offers valid transitions.

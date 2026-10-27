@@ -6429,13 +6429,22 @@
       },
       "StockLedgerSource": {
         "type": "string",
-        "enum": ["adjustment", "dispense"],
-        "description": "What made a ledger entry: an approved adjustment, or a dispense of the pharmacy (#100). Goods receipts and transfers come with their modules."
+        "enum": ["adjustment", "dispense", "sale", "sale_return"],
+        "description": "What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101). Goods receipts and transfers come with their modules."
       },
       "StockLedgerReason": {
         "type": "string",
-        "enum": ["opening", "count_correction", "damaged", "expired", "other", "dispense"],
-        "description": "Why stock moved: the reason of its adjustment, or `dispense` for units given against a prescription."
+        "enum": [
+          "opening",
+          "count_correction",
+          "damaged",
+          "expired",
+          "other",
+          "dispense",
+          "sale",
+          "sale_return"
+        ],
+        "description": "Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back."
       },
       "StockLocation": {
         "description": "A place of the hospital that keeps stock.",
@@ -7441,6 +7450,519 @@
         "properties": {
           "expectedVersion": {
             "description": "The order’s version.",
+            "type": "integer"
+          }
+        }
+      },
+      "SaleItemOptions": {
+        "description": "An item that may be sold at a place, with its batches.",
+        "type": "object",
+        "required": [
+          "drugId",
+          "name",
+          "schedule",
+          "controlled",
+          "needsPrescription",
+          "inRegister",
+          "batches"
+        ],
+        "properties": {
+          "drugId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "schedule": {
+            "type": "string"
+          },
+          "controlled": {
+            "type": "boolean"
+          },
+          "needsPrescription": {
+            "description": "Schedule H, H1, X, narcotic or controlled: sold only to a registered patient against an outside prescription recorded on the sale.",
+            "type": "boolean"
+          },
+          "inRegister": {
+            "description": "Schedule H1, X, narcotic or controlled: every movement is in the drug register.",
+            "type": "boolean"
+          },
+          "batches": {
+            "description": "In date with stock at the place, nearest expiry first. One with no price cannot be sold.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DispensableBatch"
+            }
+          }
+        }
+      },
+      "SaleCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["locationId", "lines"],
+        "properties": {
+          "locationId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "patientId": {
+            "maxLength": 64,
+            "description": "The registered patient the sale is for: one the caller may read. Required when an item needs a prescription; absent sells to anyone.",
+            "type": "string"
+          },
+          "prescriberName": {
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "prescriberRegistration": {
+            "minLength": 1,
+            "maxLength": 40,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "The prescriber’s medical council registration number.",
+            "type": "string"
+          },
+          "prescribedOn": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "The outside prescription’s date, `YYYY-MM-DD`, not after today at the hospital. The three prescription fields come together or not at all, and are required when an item needs a prescription.",
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 20,
+            "description": "Each item once.",
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["drugId", "batches"],
+              "properties": {
+                "drugId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "batches": {
+                  "minItems": 1,
+                  "maxItems": 10,
+                  "description": "Each batch once.",
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": ["batchId", "quantity"],
+                    "properties": {
+                      "batchId": {
+                        "maxLength": 64,
+                        "type": "string"
+                      },
+                      "quantity": {
+                        "minimum": 1,
+                        "maximum": 10000,
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "SaleLine": {
+        "description": "Units of one batch of an item sold.",
+        "type": "object",
+        "required": [
+          "id",
+          "lineNumber",
+          "drugId",
+          "itemName",
+          "schedule",
+          "controlled",
+          "batchId",
+          "batchNumber",
+          "expiryDate",
+          "quantity",
+          "returnedQuantity",
+          "unitPriceMinor"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lineNumber": {
+            "type": "integer"
+          },
+          "drugId": {
+            "type": "string"
+          },
+          "itemName": {
+            "description": "The item as it read when sold.",
+            "type": "string"
+          },
+          "schedule": {
+            "type": "string"
+          },
+          "controlled": {
+            "type": "boolean"
+          },
+          "batchId": {
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, `YYYY-MM-DD`.",
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "returnedQuantity": {
+            "description": "Units of the line brought back so far.",
+            "type": "integer"
+          },
+          "unitPriceMinor": {
+            "pattern": "^\\d+$",
+            "description": "The batch’s price of a unit when sold, in minor units, as text.",
+            "type": "string"
+          }
+        }
+      },
+      "SaleReturn": {
+        "description": "Units of a sale brought back into stock. Never changed.",
+        "type": "object",
+        "required": ["id", "reason", "totalMinor", "returnedAt", "returnedByName", "lines"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "totalMinor": {
+            "pattern": "^\\d+$",
+            "description": "What the units brought back were sold for, in minor units, as text.",
+            "type": "string"
+          },
+          "returnedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "returnedByName": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["saleLineId", "quantity"],
+              "properties": {
+                "saleLineId": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PharmacySale": {
+        "description": "A counter sale, with its lines and returns. Never changed or removed.",
+        "type": "object",
+        "required": [
+          "id",
+          "locationId",
+          "locationName",
+          "totalMinor",
+          "returnedMinor",
+          "soldAt",
+          "soldByName",
+          "lines",
+          "returns"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "locationName": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "prescriberName": {
+            "type": "string"
+          },
+          "prescriberRegistration": {
+            "type": "string"
+          },
+          "prescribedOn": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, `YYYY-MM-DD`.",
+            "type": "string"
+          },
+          "totalMinor": {
+            "pattern": "^\\d+$",
+            "description": "The sum of its lines, in minor units, as text.",
+            "type": "string"
+          },
+          "returnedMinor": {
+            "pattern": "^\\d+$",
+            "description": "The sum of its returns, in minor units, as text.",
+            "type": "string"
+          },
+          "soldAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "soldByName": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleLine"
+            }
+          },
+          "returns": {
+            "description": "Oldest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleReturn"
+            }
+          }
+        }
+      },
+      "SaleListItem": {
+        "description": "A counter sale in the list.",
+        "type": "object",
+        "required": [
+          "id",
+          "soldAt",
+          "soldByName",
+          "locationName",
+          "lineCount",
+          "totalMinor",
+          "returnedMinor"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "soldAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "soldByName": {
+            "type": "string"
+          },
+          "locationName": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "lineCount": {
+            "type": "integer"
+          },
+          "totalMinor": {
+            "pattern": "^\\d+$",
+            "description": "The sum of its lines, in minor units, as text.",
+            "type": "string"
+          },
+          "returnedMinor": {
+            "pattern": "^\\d+$",
+            "description": "The sum of its returns, in minor units, as text.",
+            "type": "string"
+          }
+        }
+      },
+      "SalePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleListItem"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "SaleReturnCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason", "lines"],
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 200,
+            "description": "Each line once.",
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["saleLineId", "quantity"],
+              "properties": {
+                "saleLineId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "quantity": {
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DrugRegisterEntry": {
+        "description": "A movement of a register item, from the stock ledger.",
+        "type": "object",
+        "required": [
+          "id",
+          "at",
+          "locationName",
+          "batchNumber",
+          "expiryDate",
+          "quantity",
+          "balanceAfter",
+          "source",
+          "sourceId",
+          "reason",
+          "actorName"
+        ],
+        "properties": {
+          "id": {
+            "description": "The ledger entry.",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "locationName": {
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, `YYYY-MM-DD`.",
+            "type": "string"
+          },
+          "quantity": {
+            "description": "Positive in, negative out.",
+            "type": "integer"
+          },
+          "balanceAfter": {
+            "description": "The batch’s stock at the place after it.",
+            "type": "integer"
+          },
+          "source": {
+            "description": "`adjustment`, `dispense`, `sale` or `sale_return` (the ledger’s source).",
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "reason": {
+            "description": "The ledger’s reason.",
+            "type": "string"
+          },
+          "actorName": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "prescriptionId": {
+            "description": "The in-hospital prescription of a dispense.",
+            "type": "string"
+          },
+          "prescriberName": {
+            "description": "Who prescribed it: the hospital’s doctor, or an outside one.",
+            "type": "string"
+          },
+          "prescriberRegistration": {
+            "description": "An outside prescriber’s registration number.",
+            "type": "string"
+          }
+        }
+      },
+      "DrugRegisterPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DrugRegisterEntry"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
             "type": "integer"
           }
         }
@@ -26700,6 +27222,757 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StockAdjustment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/sale-options": {
+      "get": {
+        "operationId": "getSaleItemOptions",
+        "tags": ["pharmacy"],
+        "description": "An item that may be sold at a place (medicine or consumable, in use): whether it needs a prescription and is in the drug register, and its batches in date with stock there, nearest expiry first. Holds stock, no patient. Requires sale:create with the scope `all` and the pharmacy feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "drugId",
+            "required": true,
+            "description": "The item to sell."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "locationId",
+            "required": true,
+            "description": "The place to sell from."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An item that may be sold at a place, with its batches.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleItemOptions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/sales": {
+      "post": {
+        "operationId": "createSale",
+        "tags": ["pharmacy"],
+        "description": "Sells items at the counter (#101) from batches at a place, each at its batch’s maximum retail price: the units leave stock through the ledger (reason `sale`). An item of schedule H, H1, X, narcotic or controlled is sold only to a registered patient (`patientId`, one the caller may read: 422 `unknown_patient`) against an outside prescription recorded on the sale (prescriber’s name, registration number and date; 422 `prescription_required`). Every movement of an H1, X, narcotic or controlled item is in the drug register (`GET /pharmacy/register`). Refused: an item not in use (422 `unknown_item`) or given twice, a batch with no price (409 `no_price`), a place not in use (422 `unknown_location`), a batch not of the item (422 `unknown_batch`) or given twice, an expired batch (409 `batch_expired`), more than a batch holds (409 `insufficient_stock`). Emits `pharmacy.sold`, and `stock.low` when an item reaches its reorder level. The Idempotency-Key header is required: a repeat moves no stock and answers with the sale as it is now. Requires sale:create and sale:read with the scope `all` and the pharmacy feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaleCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A counter sale, with its lines and returns. Never changed or removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PharmacySale"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listSales",
+        "tags": ["pharmacy"],
+        "description": "The hospital’s counter sales sold within `days` at the hospital (default 7, at most 90), the newest first, each with the patient when one was named (name and MRN), its total and what was returned. `total` with the first page. Every sale with a patient listed is audited as read. Requires sale:read with the scope `all` (a narrower one sees nothing) and the pharmacy feature flag. Holds no patient term: a GET.",
+        "parameters": [
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 90,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "description": "Sold within this many days at the hospital, today included. Default 7."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/sales/{saleId}": {
+      "get": {
+        "operationId": "getSale",
+        "tags": ["pharmacy"],
+        "description": "A counter sale with its lines (each with the units returned so far) and its returns, oldest first. Audited. Requires sale:read with the scope `all` and the pharmacy feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "saleId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A counter sale, with its lines and returns. Never changed or removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PharmacySale"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/sales/{saleId}/returns": {
+      "post": {
+        "operationId": "createSaleReturn",
+        "tags": ["pharmacy"],
+        "description": "Brings units of a sale back into stock at the sale’s place, through the ledger (reason `sale_return`), with a reason. Each line of the sale once (422 `unknown_line` for one not of the sale or given twice), never more than was sold less what was returned before (409 `over_return`). Refused for a batch expired at the hospital today (409 `batch_expired`: it is wastage, never stock) and a place no longer in use (422 `unknown_location`). Emits `pharmacy.sale_returned`. The Idempotency-Key header is required: a repeat moves no stock and answers with the sale as it is now. Requires sale:return and sale:read with the scope `all` and the pharmacy feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaleReturnCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "saleId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A counter sale, with its lines and returns. Never changed or removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PharmacySale"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/sales/{saleId}/print": {
+      "post": {
+        "operationId": "printSaleReceipt",
+        "tags": ["pharmacy"],
+        "description": "Records that a sale’s receipt is printed (the audit entry `print` of the sale) and answers 204: the web app makes the page from what it read. A new key per press; a repeat records nothing more. Requires sale:read with the scope `all` and the pharmacy feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "saleId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/register": {
+      "get": {
+        "operationId": "listDrugRegister",
+        "tags": ["pharmacy"],
+        "description": "The drug register of an item of schedule H1, X, narcotic or controlled (422 `not_a_register_item` for another, 404 `item_not_found` for none): every movement of its stock from the ledger, from the first day to the last at the hospital (at most 366 days), the oldest first: dispenses, counter sales, their returns and adjustments, each with its batch, place, quantity, the batch’s balance after it, who made it, and for a dispense or sale who it was for and who prescribed it. Read from the ledger, so no movement can be left out. `total` with the first page. Every dispense and sale named is audited as read. Requires drugRegister:read with the scope `all` and the pharmacy feature flag. The item is an id: a GET.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "drugId",
+            "required": true,
+            "description": "An item of the register: H1, X, narcotic or controlled."
+          },
+          {
+            "schema": {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "description": "The first day, `YYYY-MM-DD`, at the hospital."
+          },
+          {
+            "schema": {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "description": "The last day, `YYYY-MM-DD`, at most 366 days after the first."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrugRegisterPage"
                 }
               }
             }

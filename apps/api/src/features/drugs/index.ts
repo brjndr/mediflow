@@ -25,3 +25,9 @@ export { stockableDrug } from './repository.js';
  * name, form and strength, any brand).
  */
 export { dispensableDrug, substitutesOf, type DispensableDrug } from './repository.js';
+
+/**
+ * For a counter sale: an item in use, medicine or consumable, as a sale records it; and for the
+ * drug register, an item archived or not.
+ */
+export { registerDrug, saleableDrug } from './repository.js';

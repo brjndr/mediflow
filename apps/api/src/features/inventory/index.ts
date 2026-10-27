@@ -15,7 +15,8 @@ export const inventoryFeature: FastifyPluginAsync = async (app) => {
 };
 
 /**
- * For the pharmacy (#100): the batches that may be given from a place, nearest expiry first, and
- * taking units out of stock through the ledger, so no other module writes stock.
+ * For the pharmacy (#100, #101): the batches that may be given from a place, nearest expiry
+ * first, taking units out of stock and putting returned units back through the ledger, so no
+ * other module writes stock.
  */
-export { stockOut, usableBatches, type UsableBatch } from './stock-out.js';
+export { stockIn, stockOut, usableBatches, type UsableBatch } from './stock-out.js';

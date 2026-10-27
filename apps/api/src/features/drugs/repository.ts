@@ -380,6 +380,40 @@ export async function dispensableDrug(
 }
 
 /**
+ * For a counter sale (#101): an item of the hospital, medicine or consumable, that is not
+ * archived, as a sale records it, or null.
+ */
+export async function saleableDrug(
+  client: pg.ClientBase,
+  id: string,
+): Promise<DispensableDrug | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<Parameters<typeof dispensableView>[0]>(
+    `${DISPENSABLE} where id = $1 and not archived`,
+    [id],
+  );
+  const row = rows[0];
+  return row ? dispensableView(row) : null;
+}
+
+/**
+ * For the drug register (#101): an item of the hospital, archived or not, as a sale records it,
+ * or null: an archived item keeps its register.
+ */
+export async function registerDrug(
+  client: pg.ClientBase,
+  id: string,
+): Promise<DispensableDrug | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<Parameters<typeof dispensableView>[0]>(
+    `${DISPENSABLE} where id = $1`,
+    [id],
+  );
+  const row = rows[0];
+  return row ? dispensableView(row) : null;
+}
+
+/**
  * For generic substitution: the other medicines in use with the same generic name, form and
  * strength as this one (any brand), by brand. Compared on the stored keys, as the duplicate checks
  * are (#322). Empty for an item that is not a medicine of the hospital.
