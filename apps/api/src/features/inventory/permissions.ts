@@ -30,4 +30,28 @@ export const INVENTORY_PERMISSIONS = [
     description: 'Add, rename, archive and restore the places that keep stock',
     defaults: { admin: 'all' },
   },
+  // Indents (#105): the nurse indents for a ward ("indent" and "request/indent" in the matrix),
+  // the pharmacist for the counter, and the store keeper approves and issues. Asking needs no
+  // `stock:read`: a nurse sees an indent, not the hospital's stock.
+  {
+    id: 'indent:read',
+    description: 'See the indents of every place, what was approved and issued, and their vouchers',
+    defaults: { admin: 'all', nurse: 'all', pharmacist: 'all', store_keeper: 'all' },
+  },
+  {
+    id: 'indent:create',
+    description: 'Ask a store for items for a place (an indent), and cancel one you asked for',
+    defaults: { admin: 'all', nurse: 'all', pharmacist: 'all', store_keeper: 'all' },
+  },
+  {
+    id: 'indent:approve',
+    description: 'Approve an indent someone else asked for, for up to what was asked, or reject it',
+    defaults: { admin: 'all', store_keeper: 'all' },
+  },
+  {
+    id: 'indent:issue',
+    description:
+      'Issue an approved indent on vouchers, moving stock from the store to the place that asked, and close one short',
+    defaults: { admin: 'all', store_keeper: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];

@@ -314,6 +314,91 @@ export async function stockReceive(
 }
 
 /**
+ * Moves units of an item from one place to another (an issue voucher against an indent, #105),
+ * batch by batch, in the request's transaction: an entry out of the batch at `fromLocationId`
+ * (reason `issue_out`) and one into the same batch at `toLocationId` (`issue_in`), both of the
+ * source `issue`. Refuses a place that is not in use (422 `unknown_location`), a batch that is not
+ * the item's (422 `unknown_batch`), a batch expired at the hospital today (409 `batch_expired`)
+ * and more than a batch holds at the place it leaves (409 `insufficient_stock`). Locks as
+ * `stockOut` does, both places `for share`. The hospital's stock does not change, so it emits no
+ * `stock.low`. Gives the two entries of each line.
+ */
+export async function transferStock(
+  request: FastifyRequest,
+  movement: {
+    fromLocationId: string;
+    toLocationId: string;
+    drugId: string;
+    sourceId: string;
+    actorId: string;
+    lines: { batchId: string; quantity: number }[];
+  },
+): Promise<{ batchId: string; quantity: number; outEntryId: string; inEntryId: string }[]> {
+  const client = request.txClient;
+  for (const locationId of [movement.fromLocationId, movement.toLocationId]) {
+    const location = await lockLocation(client, locationId, 'share');
+    if (!location || location.archived) {
+      throw new HttpError(422, 'unknown_location', 'No such place in use');
+    }
+  }
+  const { rows } = await client.query<{ today: string }>(
+    `select to_char(${TODAY}, 'YYYY-MM-DD') as today`,
+  );
+  const today = rows[0]?.today ?? '';
+  for (const line of movement.lines) {
+    const batch = await findBatch(client, line.batchId);
+    if (!batch || batch.drug_id !== movement.drugId) {
+      throw new HttpError(422, 'unknown_batch', 'No such batch of the item');
+    }
+    if (batch.expiry_date < today) {
+      throw new HttpError(409, 'batch_expired', 'The batch is past its expiry date');
+    }
+  }
+  await lockItemStock(client, movement.drugId);
+  const posted: { batchId: string; quantity: number; outEntryId: string; inEntryId: string }[] = [];
+  for (const line of movement.lines) {
+    const entry = {
+      batchId: line.batchId,
+      drugId: movement.drugId,
+      source: 'issue' as const,
+      sourceId: movement.sourceId,
+      actorId: movement.actorId,
+    };
+    let out: { id: string };
+    try {
+      out = await postEntry(client, {
+        ...entry,
+        locationId: movement.fromLocationId,
+        quantity: -line.quantity,
+        reason: 'issue_out',
+      });
+    } catch (error) {
+      if (isViolation(error, 'stock_balances_not_negative')) {
+        throw new HttpError(
+          409,
+          'insufficient_stock',
+          'The batch has fewer units at the place than that',
+        );
+      }
+      throw error;
+    }
+    const into = await postEntry(client, {
+      ...entry,
+      locationId: movement.toLocationId,
+      quantity: line.quantity,
+      reason: 'issue_in',
+    });
+    posted.push({
+      batchId: line.batchId,
+      quantity: line.quantity,
+      outEntryId: out.id,
+      inEntryId: into.id,
+    });
+  }
+  return posted;
+}
+
+/**
  * A place of the hospital that is in use, held (`for share`) until the transaction ends so it is
  * not archived meanwhile: for another module's record of where stock is to go (#103). Null for
  * one archived, of another hospital or none.

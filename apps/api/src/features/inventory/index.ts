@@ -5,10 +5,10 @@ import { inventoryRoutes } from './routes.js';
 /**
  * Inventory: the places that keep stock, the batches of the drug and consumable master's items,
  * their stock at each place, the append-only ledger of every change, and adjustments that a
- * second person approves. Behind the `inventory` module flag. Checks an item through
- * `stockableDrug` from `features/drugs`. Publishes `stock.adjusted` and `stock.low`.
- * Dispensing, counter sales, goods receipts and indents (#100, #101, #103, #105) post to the same
- * ledger.
+ * second person approves, and indents that a store issues on vouchers (#105). Behind the
+ * `inventory` module flag. Checks an item through `stockableDrug` from `features/drugs`.
+ * Publishes `stock.adjusted`, `stock.low` and `stock.issued`. Dispensing, counter sales and goods
+ * receipts (#100, #101, #103) post to the same ledger.
  */
 export const inventoryFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('inventory', INVENTORY_PERMISSIONS);

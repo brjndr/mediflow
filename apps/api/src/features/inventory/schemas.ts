@@ -20,12 +20,12 @@ const named = <const Values extends readonly string[]>(
   description: string,
 ) => Type.Unsafe<Values[number]>({ $id, type: 'string', enum: [...values], description });
 
-export const LOCATION_KINDS = ['store', 'pharmacy', 'ward'] as const;
+export const LOCATION_KINDS = ['store', 'pharmacy', 'ward', 'department'] as const;
 export type LocationKind = (typeof LOCATION_KINDS)[number];
 export const StockLocationKind = named(
   'StockLocationKind',
   LOCATION_KINDS,
-  'What a place that keeps stock is: a store, a pharmacy counter, or a ward’s own stock.',
+  'What a place that keeps stock is: a store, a pharmacy counter, a ward’s own stock, or a department’s (a theatre, the laboratory).',
 );
 
 export const ADJUSTMENT_REASONS = [
@@ -68,12 +68,13 @@ export const LEDGER_SOURCES = [
   'receipt',
   'purchase_return',
   'dispense_return',
+  'issue',
 ] as const;
 export type LedgerSource = (typeof LEDGER_SOURCES)[number];
 export const StockLedgerSource = named(
   'StockLedgerSource',
   LEDGER_SOURCES,
-  'What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104). Transfers come with their module.',
+  'What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104), an issue voucher against an indent (#105).',
 );
 
 export const LEDGER_REASONS = [
@@ -85,12 +86,14 @@ export const LEDGER_REASONS = [
   'purchase_return',
   'dispense_return',
   'wastage',
+  'issue_out',
+  'issue_in',
 ] as const;
 export type LedgerReason = (typeof LEDGER_REASONS)[number];
 export const StockLedgerReason = named(
   'StockLedgerReason',
   LEDGER_REASONS,
-  'Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104).',
+  'Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104), `issue_out` for units issued from a store against an indent and `issue_in` for the same units coming in at the place that asked (#105).',
 );
 
 const Id = Type.String({ maxLength: 64 });
@@ -371,6 +374,220 @@ export const StockAdjustmentReject = Type.Object(
 );
 export type StockAdjustmentReject = Static<typeof StockAdjustmentReject>;
 
+// --- indents and issue vouchers (#105) -----------------------------------------------------------
+
+/** The most lines one indent asks for. */
+export const INDENT_LINES_MAX = 100;
+
+export const INDENT_STATUSES = [
+  'requested',
+  'approved',
+  'rejected',
+  'cancelled',
+  'partly_issued',
+  'issued',
+  'closed',
+] as const;
+export type IndentStatus = (typeof INDENT_STATUSES)[number];
+export const StockIndentStatus = named(
+  'StockIndentStatus',
+  INDENT_STATUSES,
+  'An indent is requested, then approved (for up to what was asked) or rejected by someone who did not ask, or cancelled by whoever asked before that; an approved one is issued on vouchers, partly then wholly, or closed with units still to issue.',
+);
+
+export const StockIssueBatch = Type.Object(
+  {
+    batchId: Type.String(),
+    batchNumber: Type.String(),
+    expiryDate: CalendarDate,
+    onHand: Type.Integer({ minimum: 1, description: 'Units of the batch at the store now.' }),
+  },
+  {
+    $id: 'StockIssueBatch',
+    description: 'A batch the store may issue: in date at the hospital today, with stock there.',
+  },
+);
+export type StockIssueBatch = Static<typeof StockIssueBatch>;
+
+export const StockIndentLine = Type.Object(
+  {
+    id: Type.String(),
+    lineNumber: Type.Integer({ minimum: 1 }),
+    item: ref(StockItemName),
+    requestedQuantity: Type.Integer({ minimum: 1 }),
+    approvedQuantity: Type.Optional(
+      Type.Integer({ minimum: 0, description: 'Set on approval: up to what was asked.' }),
+    ),
+    issuedQuantity: Type.Integer({
+      minimum: 0,
+      description: 'The units of the line on the indent’s vouchers: never more than approved.',
+    }),
+    storeOnHand: Type.Optional(
+      Type.Integer({
+        description:
+          'Units of the item at the store asked, now, in date or not: for a caller who approves or issues.',
+      }),
+    ),
+    batches: Type.Optional(
+      Type.Array(ref(StockIssueBatch), {
+        description:
+          'The batches the store may issue, nearest expiry first: only while the indent waits to be issued and for a caller who issues.',
+      }),
+    ),
+  },
+  { $id: 'StockIndentLine' },
+);
+export type StockIndentLine = Static<typeof StockIndentLine>;
+
+export const StockIssueLine = Type.Object(
+  {
+    indentLineId: Type.String(),
+    drugId: Type.String(),
+    batchId: Type.String(),
+    batchNumber: Type.String(),
+    expiryDate: CalendarDate,
+    quantity: Type.Integer({ minimum: 1 }),
+  },
+  { $id: 'StockIssueLine', description: 'Units of one batch sent on a voucher.' },
+);
+
+export const StockIssue = Type.Object(
+  {
+    id: Type.String(),
+    reference: Type.String({ description: 'The voucher’s number as printed: IV-000123.' }),
+    note: Type.Optional(Type.String()),
+    issuedByName: Type.String(),
+    issuedAt: Type.String({ format: 'date-time' }),
+    lines: Type.Array(ref(StockIssueLine)),
+  },
+  {
+    $id: 'StockIssue',
+    description:
+      'An issue voucher: units sent from the store to the place that asked, out and in through the ledger in one step. Never changed.',
+  },
+);
+export type StockIssue = Static<typeof StockIssue>;
+
+const indentHead = {
+  id: Type.String(),
+  tenantId: Type.String(),
+  reference: Type.String({ description: 'The indent’s number as printed: IND-000123.' }),
+  fromLocationId: Type.String({ description: 'The place that asks.' }),
+  fromLocationName: Type.String(),
+  toLocationId: Type.String({ description: 'The place asked: the store that issues.' }),
+  toLocationName: Type.String(),
+  status: ref(StockIndentStatus),
+  requestedById: Type.String(),
+  requestedByName: Type.String(),
+  requestedAt: Type.String({ format: 'date-time' }),
+  version: Version,
+};
+
+export const StockIndentSummary = Type.Object(
+  { ...indentHead, lineCount: Type.Integer({ minimum: 1 }) },
+  { $id: 'StockIndentSummary', description: 'An indent as the list shows it.' },
+);
+export type StockIndentSummary = Static<typeof StockIndentSummary>;
+
+export const StockIndentPage = CursorPage(ref(StockIndentSummary), { $id: 'StockIndentPage' });
+
+export const StockIndent = Type.Object(
+  {
+    ...indentHead,
+    note: Type.Optional(Type.String()),
+    decidedByName: Type.Optional(Type.String()),
+    decidedAt: Type.Optional(Type.String({ format: 'date-time' })),
+    rejectionNote: Type.Optional(Type.String()),
+    endedByName: Type.Optional(Type.String()),
+    endedAt: Type.Optional(Type.String({ format: 'date-time' })),
+    endNote: Type.Optional(Type.String()),
+    lines: Type.Array(ref(StockIndentLine)),
+    issues: Type.Array(ref(StockIssue), { description: 'Its vouchers, oldest first.' }),
+  },
+  {
+    $id: 'StockIndent',
+    description:
+      'A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it.',
+  },
+);
+export type StockIndent = Static<typeof StockIndent>;
+
+export const StockIndentListQuery = Type.Object({
+  cursor: Type.Optional(Type.String()),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE })),
+  status: Type.Optional(ref(StockIndentStatus)),
+  locationId: Type.Optional(
+    Type.String({ maxLength: 64, description: 'Indents that this place asked, or was asked.' }),
+  ),
+});
+
+const Quantity = Type.Integer({ minimum: 1, maximum: QUANTITY_MAX });
+
+export const StockIndentCreate = Type.Object(
+  {
+    fromLocationId: Id,
+    toLocationId: Id,
+    note: Type.Optional(Note),
+    lines: Type.Array(
+      Type.Object({ drugId: Id, quantity: Quantity }, { additionalProperties: false }),
+      { minItems: 1, maxItems: INDENT_LINES_MAX },
+    ),
+  },
+  { $id: 'StockIndentCreate', additionalProperties: false },
+);
+export type StockIndentCreate = Static<typeof StockIndentCreate>;
+
+export const StockIndentApprove = Type.Object(
+  {
+    expectedVersion: ExpectedVersion,
+    lines: Type.Array(
+      Type.Object(
+        { lineId: Id, quantity: Type.Integer({ minimum: 0, maximum: QUANTITY_MAX }) },
+        { additionalProperties: false },
+      ),
+      {
+        minItems: 1,
+        maxItems: INDENT_LINES_MAX,
+        description: 'Every line, each with up to what it asked; at least one above 0.',
+      },
+    ),
+  },
+  { $id: 'StockIndentApprove', additionalProperties: false },
+);
+export type StockIndentApprove = Static<typeof StockIndentApprove>;
+
+export const StockIndentEnd = Type.Object(
+  { expectedVersion: ExpectedVersion, note: Note },
+  {
+    $id: 'StockIndentEnd',
+    additionalProperties: false,
+    description: 'Rejecting or closing an indent, with why.',
+  },
+);
+export type StockIndentEnd = Static<typeof StockIndentEnd>;
+
+export const StockIndentCancel = Type.Object(
+  { expectedVersion: ExpectedVersion },
+  { $id: 'StockIndentCancel', additionalProperties: false },
+);
+export type StockIndentCancel = Static<typeof StockIndentCancel>;
+
+export const StockIssueCreate = Type.Object(
+  {
+    expectedVersion: ExpectedVersion,
+    note: Type.Optional(Note),
+    lines: Type.Array(
+      Type.Object(
+        { indentLineId: Id, batchId: Id, quantity: Quantity },
+        { additionalProperties: false },
+      ),
+      { minItems: 1, maxItems: 400 },
+    ),
+  },
+  { $id: 'StockIssueCreate', additionalProperties: false },
+);
+export type StockIssueCreate = Static<typeof StockIssueCreate>;
+
 export const INVENTORY_SCHEMAS = [
   StockLocationKind,
   StockAdjustmentReason,
@@ -394,4 +611,17 @@ export const INVENTORY_SCHEMAS = [
   StockAdjustmentCreate,
   StockAdjustmentApprove,
   StockAdjustmentReject,
+  StockIndentStatus,
+  StockIssueBatch,
+  StockIndentLine,
+  StockIssueLine,
+  StockIssue,
+  StockIndentSummary,
+  StockIndentPage,
+  StockIndent,
+  StockIndentCreate,
+  StockIndentApprove,
+  StockIndentEnd,
+  StockIndentCancel,
+  StockIssueCreate,
 ] as const;

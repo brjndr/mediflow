@@ -58,6 +58,9 @@ export const DOMAIN_EVENTS = [
   'purchase.order_approved',
   'stock.received',
   'stock.returned',
+  // An issue voucher against an indent moved stock from a store to the place that asked (#105):
+  // the indent, the voucher and the two places, never an item or a quantity.
+  'stock.issued',
   'charge.posted',
   'invoice.issued',
   'invoice.paid',

@@ -41,7 +41,7 @@ const PART = {
   uuid: (value: string) => UUID.test(value),
 };
 
-function decodeCursor(cursor: string, kinds: (keyof typeof PART)[]): string[] | null {
+export function decodeCursor(cursor: string, kinds: (keyof typeof PART)[]): string[] | null {
   try {
     const value: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
     if (!Array.isArray(value) || value.length !== kinds.length) return null;
@@ -62,7 +62,11 @@ export interface Page<Row> {
   total?: number;
 }
 
-function paged<Row>(rows: Row[], limit: number, cursorOf: (row: Row) => string[]): Page<Row> {
+export function paged<Row>(
+  rows: Row[],
+  limit: number,
+  cursorOf: (row: Row) => string[],
+): Page<Row> {
   const page = rows.slice(0, limit);
   const last = page.at(-1);
   return {
@@ -72,7 +76,7 @@ function paged<Row>(rows: Row[], limit: number, cursorOf: (row: Row) => string[]
 }
 
 /** Today at the hospital, as the database's calendar date. */
-const TODAY = `(select (now() at time zone timezone)::date from tenants where id = app_tenant_id())`;
+export const TODAY = `(select (now() at time zone timezone)::date from tenants where id = app_tenant_id())`;
 
 // --- the item's name ---------------------------------------------------------------------------
 
@@ -86,7 +90,7 @@ export interface ItemColumns {
   unit: string | null;
 }
 
-const ITEM_COLUMNS = `d.id as drug_id, d.type as drug_type, d.generic_name, d.brand_name, d.form,
+export const ITEM_COLUMNS = `d.id as drug_id, d.type as drug_type, d.generic_name, d.brand_name, d.form,
   d.strength, d.unit`;
 
 // --- places ------------------------------------------------------------------------------------

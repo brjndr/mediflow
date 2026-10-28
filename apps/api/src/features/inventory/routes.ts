@@ -6,6 +6,7 @@ import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { stockableDrug } from '../drugs/index.js';
+import { indentRoutes } from './indent-routes.js';
 import {
   alertCounts,
   batchBalances,
@@ -713,4 +714,7 @@ export const inventoryRoutes: FastifyPluginAsyncTypebox = async (app) => {
       return adjustmentView(row);
     },
   );
+
+  // Indents and issue vouchers (#105), inside this plugin so they share its schemas.
+  await app.register(indentRoutes);
 };
