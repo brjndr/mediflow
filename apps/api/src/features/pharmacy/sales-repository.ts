@@ -325,6 +325,8 @@ export interface RegisterRow {
   prescriber_registration: string | null;
   /** The sale a sale's or a return's entry belongs to. */
   sale_id: string | null;
+  /** The dispense a dispense's or its return's entry belongs to. */
+  dispense_id: string | null;
   at_exact: string;
   total: number;
 }
@@ -353,14 +355,17 @@ export async function listRegister(
        pt.id as patient_id, pt.first_name || ' ' || pt.last_name as patient_name, pt.mrn as patient_mrn,
        d.prescription_id,
        coalesce(pu.name, s.prescriber_name) as prescriber_name, s.prescriber_registration,
-       s.id as sale_id,
+       s.id as sale_id, d.id as dispense_id,
        ${EXACT('e.at')} as at_exact,
        count(*) over ()::int as total
      from stock_ledger e
      join stock_batches b on b.tenant_id = e.tenant_id and b.id = e.batch_id
      join stock_locations l on l.tenant_id = e.tenant_id and l.id = e.location_id
      left join users u on u.id = e.actor_id
-     left join dispenses d on e.source = 'dispense' and d.tenant_id = e.tenant_id and d.id = e.source_id
+     left join dispense_returns dr
+       on e.source = 'dispense_return' and dr.tenant_id = e.tenant_id and dr.id = e.source_id
+     left join dispenses d on d.tenant_id = e.tenant_id
+       and d.id = case e.source when 'dispense' then e.source_id when 'dispense_return' then dr.dispense_id end
      left join prescriptions rx on rx.tenant_id = d.tenant_id and rx.id = d.prescription_id
      left join users pu on pu.id = rx.prescribed_by
      left join pharmacy_sale_returns r

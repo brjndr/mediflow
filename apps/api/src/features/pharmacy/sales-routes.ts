@@ -546,7 +546,7 @@ export const saleRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listDrugRegister',
         tags: ['pharmacy'],
         description:
-          'The drug register of an item of schedule H1, X, narcotic or controlled (422 `not_a_register_item` for another, 404 `item_not_found` for none): every movement of its stock from the ledger, from the first day to the last at the hospital (at most 366 days), the oldest first: dispenses, counter sales, their returns and adjustments, each with its batch, place, quantity, the batch’s balance after it, who made it, and for a dispense or sale who it was for and who prescribed it. Read from the ledger, so no movement can be left out. `total` with the first page. Every dispense and sale named is audited as read. Requires drugRegister:read with the scope `all` and the pharmacy feature flag. The item is an id: a GET.',
+          'The drug register of an item of schedule H1, X, narcotic or controlled (422 `not_a_register_item` for another, 404 `item_not_found` for none): every movement of its stock from the ledger, from the first day to the last at the hospital (at most 366 days), the oldest first: dispenses, counter sales, their returns (a dispense’s wasted units in and out again, reason `wastage`) and adjustments, each with its batch, place, quantity, the batch’s balance after it, who made it, and for a dispense or sale who it was for and who prescribed it. Read from the ledger, so no movement can be left out. `total` with the first page. Every dispense and sale named is audited as read. Requires drugRegister:read with the scope `all` and the pharmacy feature flag. The item is an id: a GET.',
         querystring: RegisterQuery,
         response: { 200: ref(RegisterPage), ...errors(400, 401, 403, 404, 409, 422, 429) },
       },
@@ -582,7 +582,7 @@ export const saleRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       if (!page) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
       for (const row of page.rows) {
-        if (row.source === 'dispense') request.audit('read', 'dispense', row.source_id);
+        if (row.dispense_id) request.audit('read', 'dispense', row.dispense_id);
         else if (row.sale_id && row.patient_id) request.audit('read', 'pharmacy_sale', row.sale_id);
       }
       return {

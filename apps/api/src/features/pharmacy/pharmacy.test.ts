@@ -20,7 +20,8 @@ import {
 /**
  * The pharmacy API through the real app and database (#100): the queue, dispensing in full and in
  * part from batches nearest expiry first, generic substitution, stock moving exactly once on a
- * retry and never oversold, the hospital boundary, permissions, audit and events.
+ * retry and never oversold, the hospital boundary, permissions, audit and events; and returns of
+ * dispenses to stock or as wastage (#104).
  */
 
 let app: FastifyInstance;
@@ -34,7 +35,14 @@ let doctor: TestUser;
 let pharmacist: TestUser;
 let clinicPharmacist: TestUser;
 const patients = { asha: '', clinic: '' };
-const drugs = { para: '', paraBrand: '', paraStrong: '', cetirizine: '', clinicPara: '' };
+const drugs = {
+  para: '',
+  paraBrand: '',
+  paraStrong: '',
+  cetirizine: '',
+  clinicPara: '',
+  tramadol: '',
+};
 const places = { pharmacy: '', store: '', clinic: '' };
 
 interface Line {
@@ -58,7 +66,13 @@ interface Dispense {
   itemName: string;
   quantity: number;
   substitutionReason?: string;
-  batches: { batchId: string; batchNumber: string; quantity: number }[];
+  batches: { batchId: string; batchNumber: string; quantity: number; returnedQuantity: number }[];
+  returns: {
+    id: string;
+    reason: string;
+    returnedByName: string;
+    lines: { batchId: string; quantity: number; wasted: boolean }[];
+  }[];
   dispensedByName: string;
 }
 interface QueueItem {
@@ -144,16 +158,18 @@ async function addDrug(
     brand = null,
     strength = '500 mg',
     reorderLevel = null,
+    schedule = 'none',
   }: {
     brand?: string | null;
     strength?: string;
     reorderLevel?: number | null;
+    schedule?: string;
   } = {},
 ) {
   const { rows } = await pool.query<{ id: string }>(
     `insert into drugs (tenant_id, type, generic_name, brand_name, form, strength, unit, schedule, tax_class, reorder_level)
-     values ($1, 'medicine', $2, $3, 'tablet', $4, 'tablet', 'none', 'standard', $5) returning id`,
-    [tenant.id, generic, brand, strength, reorderLevel],
+     values ($1, 'medicine', $2, $3, 'tablet', $4, 'tablet', $6, 'standard', $5) returning id`,
+    [tenant.id, generic, brand, strength, reorderLevel, schedule],
   );
   return rows[0]?.id ?? '';
 }
@@ -297,6 +313,7 @@ beforeAll(async () => {
   drugs.paraStrong = await addDrug(hospital, 'Paracetamol', { strength: '650 mg' });
   drugs.cetirizine = await addDrug(hospital, 'Cetirizine', { strength: '10 mg' });
   drugs.clinicPara = await addDrug(clinic, 'Paracetamol');
+  drugs.tramadol = await addDrug(hospital, 'Tramadol', { strength: '50 mg', schedule: 'h1' });
   places.pharmacy = await addPlace(hospital, 'Pharmacy counter', 'pharmacy');
   places.store = await addPlace(hospital, 'Main store', 'store');
   places.clinic = await addPlace(clinic, 'Clinic counter', 'pharmacy');
@@ -309,6 +326,8 @@ afterAll(async () => {
     // Dispenses, the ledger and the balances refuse removal to everyone: the triggers are off.
     await client.query('set local session_replication_role = replica');
     for (const table of [
+      'dispense_return_lines',
+      'dispense_returns',
       'dispense_lines',
       'dispenses',
       'stock_ledger',
@@ -687,6 +706,193 @@ describe('the order', () => {
         ),
       ),
     ).toEqual([409, 'medication_order']);
+  });
+});
+
+describe('returns of a dispense', () => {
+  const giveFrom = async (drugId: string, units: number, batches: number[] = [units]) => {
+    const rx = await prescribe([{ drugId, quantity: units }]);
+    const ids: string[] = [];
+    for (const [index, each] of batches.entries()) {
+      ids.push(await stockIn(drugId, each, { expiryDays: 200 + index * 100 }));
+    }
+    const given = await ok<Dispense>(
+      dispense(
+        await lineOf(rx.id),
+        ids.map((batchId, index) => ({ batchId, quantity: batches[index] ?? 0 })),
+      ),
+      201,
+    );
+    return { rx, given, batches: ids };
+  };
+  const giveBack = (
+    dispenseId: string,
+    lines: { batchId: string; restockQuantity: number; wasteQuantity: number }[],
+    options: Options = {},
+    reason = 'Patient stopped the medicine',
+  ) => post(`/pharmacy/dispenses/${dispenseId}/returns`, { reason, lines }, options);
+
+  it('puts units back to stock and wastes others, once, without reopening the line', async () => {
+    const { given, batches } = await giveFrom(drugs.para, 10, [6, 4]);
+    const [first, second] = batches as [string, string];
+    const key = randomUUID();
+    const body = [
+      { batchId: first, restockQuantity: 2, wasteQuantity: 1 },
+      { batchId: second, restockQuantity: 0, wasteQuantity: 3 },
+    ];
+    const answer = await ok<Prescription>(giveBack(given.id, body, { key }), 201);
+    const back = answer.dispenses.find((each) => each.id === given.id);
+    expect(back?.batches.map((each) => each.returnedQuantity)).toEqual([3, 3]);
+    expect(back?.returns).toHaveLength(1);
+    expect(back?.returns[0]).toMatchObject({
+      reason: 'Patient stopped the medicine',
+      returnedByName: 'Pharmacist',
+      lines: [
+        { batchId: first, quantity: 2, wasted: false },
+        { batchId: first, quantity: 1, wasted: true },
+        { batchId: second, quantity: 3, wasted: true },
+      ],
+    });
+    // Two back to stock; the wasted units in and out again.
+    expect(await onHand(first)).toBe(2);
+    expect(await onHand(second)).toBe(0);
+    const returnId = back?.returns[0]?.id ?? '';
+    const ledger = await pool.query<{ quantity: number; reason: string }>(
+      'select quantity, reason from stock_ledger where source_id = $1 order by quantity',
+      [returnId],
+    );
+    expect(ledger.rows).toEqual([
+      { quantity: -3, reason: 'wastage' },
+      { quantity: -1, reason: 'wastage' },
+      { quantity: 1, reason: 'dispense_return' },
+      { quantity: 2, reason: 'dispense_return' },
+      { quantity: 3, reason: 'dispense_return' },
+    ]);
+    // The line stays completed: the medicine was dispensed.
+    expect(answer.lines[0]).toMatchObject({ status: 'completed', dispensedQuantity: 10 });
+
+    // The same key again: the same return, nothing moved.
+    const again = await ok<Prescription>(giveBack(given.id, body, { key }), 201);
+    expect(again.dispenses.find((each) => each.id === given.id)?.returns).toHaveLength(1);
+    expect(await onHand(first)).toBe(2);
+    expect(await audited('dispense_return', returnId)).toEqual(['create']);
+    const sent = await events(returnId);
+    expect(sent.map((each) => each.event)).toEqual(['pharmacy.dispense_returned']);
+    expect(sent[0]?.payload).toMatchObject({
+      returnId,
+      dispenseId: given.id,
+      patientId: patients.asha,
+    });
+  });
+
+  it('never returns more than was dispensed less what came back, two at once included', async () => {
+    const { given, batches } = await giveFrom(drugs.para, 4);
+    const [batch] = batches as [string];
+    expect(
+      errorOf(await giveBack(given.id, [{ batchId: batch, restockQuantity: 5, wasteQuantity: 0 }])),
+    ).toEqual([409, 'over_return']);
+    const replies = await Promise.all(
+      [0, 1].map(() =>
+        giveBack(given.id, [{ batchId: batch, restockQuantity: 3, wasteQuantity: 0 }]),
+      ),
+    );
+    expect(replies.map((reply) => reply.statusCode).sort()).toEqual([201, 409]);
+    expect(await onHand(batch)).toBe(3);
+    expect(
+      errorOf(await giveBack(given.id, [{ batchId: batch, restockQuantity: 1, wasteQuantity: 1 }])),
+    ).toEqual([409, 'over_return']);
+    await ok(giveBack(given.id, [{ batchId: batch, restockQuantity: 0, wasteQuantity: 1 }]), 201);
+  });
+
+  it('refuses a batch not of the dispense, a batch twice, nothing at all and no reason', async () => {
+    const { given, batches } = await giveFrom(drugs.para, 2);
+    const [batch] = batches as [string];
+    const other = await stockIn(drugs.para, 1);
+    expect(
+      errorOf(await giveBack(given.id, [{ batchId: other, restockQuantity: 1, wasteQuantity: 0 }])),
+    ).toEqual([422, 'unknown_batch']);
+    const twice = { batchId: batch, restockQuantity: 1, wasteQuantity: 0 };
+    expect(errorOf(await giveBack(given.id, [twice, twice]))).toEqual([422, 'unknown_batch']);
+    expect(
+      errorOf(await giveBack(given.id, [{ batchId: batch, restockQuantity: 0, wasteQuantity: 0 }])),
+    ).toEqual([400, 'validation_failed']);
+    expect(errorOf(await giveBack(given.id, [twice], {}, ''))).toEqual([400, 'validation_failed']);
+    expect(errorOf(await giveBack(randomUUID(), [twice]))).toEqual([404, 'dispense_not_found']);
+  });
+
+  it('wastes an expired batch, never puts it back to stock', async () => {
+    const { given, batches } = await giveFrom(drugs.cetirizine, 3);
+    const [batch] = batches as [string];
+    // The batch has expired since it was dispensed: a batch never changes, so the triggers are off.
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('set local session_replication_role = replica');
+      await client.query('update stock_batches set expiry_date = $2 where id = $1', [
+        batch,
+        day(-2),
+      ]);
+      await client.query('commit');
+    } finally {
+      client.release();
+    }
+    expect(
+      errorOf(await giveBack(given.id, [{ batchId: batch, restockQuantity: 1, wasteQuantity: 0 }])),
+    ).toEqual([409, 'batch_expired']);
+    await ok(giveBack(given.id, [{ batchId: batch, restockQuantity: 0, wasteQuantity: 3 }]), 201);
+    expect(await onHand(batch)).toBe(0);
+  });
+
+  it('keeps a wasted controlled medicine in the drug register', async () => {
+    const { given, batches } = await giveFrom(drugs.tramadol, 2);
+    const [batch] = batches as [string];
+    await ok(giveBack(given.id, [{ batchId: batch, restockQuantity: 0, wasteQuantity: 2 }]), 201);
+    const register = await ok<{
+      items: { reason: string; quantity: number; patientId?: string }[];
+    }>(get(`/pharmacy/register?drugId=${drugs.tramadol}&from=${day(-1)}&to=${day(1)}`));
+    expect(register.items.map((each) => [each.reason, each.quantity])).toEqual([
+      ['opening', 2],
+      ['dispense', -2],
+      ['dispense_return', 2],
+      ['wastage', -2],
+    ]);
+    expect(register.items.slice(1).every((each) => each.patientId === patients.asha)).toBe(true);
+  });
+
+  it('needs dispense:return, and keeps each hospital to its own dispenses', async () => {
+    const { given, batches } = await giveFrom(drugs.para, 2);
+    const line = [{ batchId: batches[0] ?? '', restockQuantity: 1, wasteQuantity: 0 }];
+    expect(errorOf(await giveBack(given.id, line, { user: doctor }))).toEqual([
+      403,
+      'permission_denied',
+    ]);
+    expect(
+      errorOf(await giveBack(given.id, line, { tenant: clinic, user: clinicPharmacist })),
+    ).toEqual([404, 'dispense_not_found']);
+    expect(errorOf(await giveBack(given.id, line, { tenant: closed }))).toEqual([
+      403,
+      'feature_disabled',
+    ]);
+    const answer = await ok<Prescription>(giveBack(given.id, line), 201);
+    const returnId = answer.dispenses.find((each) => each.id === given.id)?.returns[0]?.id ?? '';
+    const seen = await asTenantSql(pool, clinic.id, async (client) => [
+      (await client.query('select id from dispense_returns where id = $1', [returnId])).rowCount,
+      (await client.query('select id from dispense_return_lines where return_id = $1', [returnId]))
+        .rowCount,
+    ]);
+    expect(seen).toEqual([0, 0]);
+    await expect(
+      asTenantSql(pool, clinic.id, (client) =>
+        client.query(
+          `insert into dispense_returns (tenant_id, dispense_id, reason, returned_by)
+           values ($1, $2, 'x', $3)`,
+          [hospital.id, given.id, pharmacist.id],
+        ),
+      ),
+    ).rejects.toThrow(/row-level security/);
+    await expect(
+      pool.query("update dispense_returns set reason = 'y' where id = $1", [returnId]),
+    ).rejects.toThrow(/never changed/);
   });
 });
 

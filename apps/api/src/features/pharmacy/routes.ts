@@ -5,11 +5,11 @@ import { Type } from '@sinclair/typebox';
 import type { Permission } from '../../core/access/registry.js';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidyOptional } from '../../core/http/text.js';
+import { tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { medicationOrder, moveMedicationOrder, type MedicationOrder } from '../clinical/index.js';
 import { dispensableDrug, substitutesOf, type DispensableDrug } from '../drugs/index.js';
-import { stockOut, usableBatches } from '../inventory/index.js';
+import { stockIn, stockOut, usableBatches } from '../inventory/index.js';
 import {
   dispensedOf,
   dispensesOf,
@@ -17,9 +17,13 @@ import {
   findPrescription,
   insertDispense,
   insertDispenseLine,
+  insertDispenseReturn,
+  insertDispenseReturnLine,
   isUuid,
   linesOf,
   listQueue,
+  lockDispense,
+  prescriptionOfReturn,
   type DispenseRow,
   type LineRow,
   type QueueRow,
@@ -29,6 +33,7 @@ import {
   DispenseCreate,
   DispenseOptions,
   DispenseOptionsQuery,
+  DispenseReturnCreate,
   LineComplete,
   PHARMACY_SCHEMAS,
   PharmacyPrescription,
@@ -47,6 +52,7 @@ export const FEATURE = 'pharmacy';
 
 const READ = 'dispense:read';
 const CREATE = 'dispense:create';
+const RETURN = 'dispense:return';
 
 const conflict = () => new HttpError(409, 'conflict', 'It has changed since it was read');
 const orderNotFound = () => new HttpError(404, 'order_not_found', 'No such order');
@@ -109,6 +115,7 @@ const dispenseView = (row: DispenseRow): Dispense => ({
   ...optional('substitutionReason', row.substitution_reason),
   quantity: row.quantity,
   batches: row.batches,
+  returns: row.returns,
   dispensedAt: row.dispensed_at.toISOString(),
   dispensedByName: row.dispensed_by_name,
 });
@@ -483,6 +490,102 @@ export const pharmacyRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!dispense) throw dispenseNotFound();
       if (request.replayOf === null) request.audit('print', 'dispense', dispense.id);
       return reply.status(204).send(null);
+    },
+  );
+  app.post(
+    '/pharmacy/dispenses/:dispenseId/returns',
+    {
+      config: {
+        permissions: [RETURN, READ],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'createDispenseReturn',
+        tags: ['pharmacy'],
+        description:
+          'Brings units of a dispense back, with a reason (#104): each batch of the dispense once (422 `unknown_batch` for one not of it or given twice), its units back into stock at the dispense’s place (`restockQuantity`, the ledger’s reason `dispense_return`) or wasted (`wasteQuantity`: an entry in and one out with the reason `wastage`, so stock does not change and the drug register holds them), at least one unit in all (400), never more than was dispensed of the batch less what was returned before (409 `over_return`). An expired batch at the hospital today is never stock again (409 `batch_expired`: waste it); a place no longer in use is 422 `unknown_location`. The prescription line is not reopened. Emits `pharmacy.dispense_returned`. Answers the prescription as it is now. The Idempotency-Key header is required: a repeat moves no stock. Requires dispense:return and dispense:read with the scope `all` and the pharmacy feature flag. Audited.',
+        headers: RequiredIdempotencyHeaders,
+        params: DispenseParams,
+        body: ref(DispenseReturnCreate),
+        response: { 201: ref(PharmacyPrescription), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request, reply) => {
+      if (!reaches(request, RETURN) || !reaches(request, READ)) throw dispenseNotFound();
+      if (request.replayOf !== null) {
+        const prescriptionId = request.idempotentId
+          ? await prescriptionOfReturn(request.txClient, request.idempotentId)
+          : null;
+        if (!prescriptionId) throw dispenseNotFound();
+        return reply.status(201).send(await prescriptionAnswer(request, prescriptionId));
+      }
+      const body = request.body as DispenseReturnCreate;
+      const client = request.txClient;
+      const actorId = userIdOf(request);
+      const dispenseId = request.params.dispenseId.toLowerCase();
+      if (!isUuid(dispenseId)) throw dispenseNotFound();
+      const reason = tidyWithin(body.reason, REASON_MAX);
+      // Held against another return of the dispense, so two together never return a unit twice.
+      await lockDispense(client, dispenseId);
+      const dispense = await findDispense(client, dispenseId);
+      if (!dispense) throw dispenseNotFound();
+      const wanted = body.lines.map((line) => line.batchId.toLowerCase());
+      if (new Set(wanted).size !== wanted.length) {
+        throw new HttpError(422, 'unknown_batch', 'A batch is given once in a return');
+      }
+      const lines: { batchId: string; quantity: number; wasted: boolean }[] = [];
+      for (const line of body.lines) {
+        const given = dispense.batches.find((each) => each.batchId === line.batchId.toLowerCase());
+        if (!given) throw new HttpError(422, 'unknown_batch', 'No such batch of the dispense');
+        const units = line.restockQuantity + line.wasteQuantity;
+        if (units > given.quantity - given.returnedQuantity) {
+          throw new HttpError(409, 'over_return', 'More than was dispensed and not yet returned');
+        }
+        if (line.restockQuantity > 0) {
+          lines.push({ batchId: given.batchId, quantity: line.restockQuantity, wasted: false });
+        }
+        if (line.wasteQuantity > 0) {
+          lines.push({ batchId: given.batchId, quantity: line.wasteQuantity, wasted: true });
+        }
+      }
+      if (lines.length === 0) {
+        throw new HttpError(400, 'validation_failed', 'A return brings back at least one unit');
+      }
+      const returnId = randomUUID();
+      const entries = await stockIn(request, {
+        locationId: dispense.location_id,
+        drugId: dispense.drug_id,
+        source: 'dispense_return',
+        sourceId: returnId,
+        reason: 'dispense_return',
+        actorId,
+        lines,
+      });
+      await insertDispenseReturn(client, { id: returnId, dispenseId, reason, returnedBy: actorId });
+      for (const [index, entry] of entries.entries()) {
+        await insertDispenseReturnLine(client, {
+          returnId,
+          dispenseId,
+          batchId: entry.batchId,
+          quantity: entry.quantity,
+          wasted: lines[index]?.wasted ?? false,
+          ledgerEntryId: entry.ledgerEntryId,
+          wasteEntryId: entry.wasteEntryId,
+        });
+      }
+      request.idempotentId = returnId;
+      request.audit('create', 'dispense_return', returnId);
+      await request.emit('pharmacy.dispense_returned', returnId, {
+        returnId,
+        dispenseId,
+        orderId: dispense.order_id,
+        encounterId: dispense.encounter_id,
+        patientId: dispense.patient_id,
+        drugId: dispense.drug_id,
+        locationId: dispense.location_id,
+      });
+      return reply.status(201).send(await prescriptionAnswer(request, dispense.prescription_id));
     },
   );
 };
