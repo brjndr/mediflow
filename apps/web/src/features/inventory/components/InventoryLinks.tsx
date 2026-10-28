@@ -1,12 +1,14 @@
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
+import { Can } from '@/access';
 
 const link =
   'inline-flex items-center rounded-sm text-sm font-medium text-muted-foreground underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-[current=page]:text-foreground aria-[current=page]:no-underline pointer-coarse:min-h-11';
 
 /**
  * The screens of inventory, one link each, the current one marked (`aria-current`). Each screen
- * needs `stock:read`, as its route does, so every link shows to whoever sees one.
+ * needs `stock:read`, as its route does, so every link shows to whoever sees one; the indents
+ * (#105, their own module) show for `indent:read`.
  */
 export function InventoryLinks() {
   const { t } = useTranslation('inventory');
@@ -24,6 +26,11 @@ export function InventoryLinks() {
       <NavLink to="/inventory/locations" className={link}>
         {t('links.locations')}
       </NavLink>
+      <Can permission="indent:read">
+        <NavLink to="/inventory/indents" className={link}>
+          {t('links.indents')}
+        </NavLink>
+      </Can>
     </nav>
   );
 }

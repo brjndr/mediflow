@@ -21,7 +21,7 @@ const ADJUST = 'stock:adjust';
 const APPROVE = 'stock:approve';
 const MANAGE = 'stockLocation:manage';
 const REASONS: readonly Reason[] = ['opening', 'count_correction', 'damaged', 'expired', 'other'];
-const KINDS: readonly StockLocation['kind'][] = ['store', 'pharmacy', 'ward'];
+const KINDS: readonly StockLocation['kind'][] = ['store', 'pharmacy', 'ward', 'department'];
 const EXPIRING_DAYS = 90;
 const DAY_MS = 86_400_000;
 
@@ -67,6 +67,8 @@ function seed() {
     state.locations.push({ id, tenantId, name, kind, archived: false, version: 1 });
   place('loc_h_store', TENANT_IDS.hospital, 'Main store', 'store');
   place('loc_h_pharmacy', TENANT_IDS.hospital, 'Pharmacy counter', 'pharmacy');
+  // A ward's own stock, which asks the main store for more (#105).
+  place('loc_h_ward', TENANT_IDS.hospital, 'Ward 2 stock', 'ward');
   place('loc_c_store', TENANT_IDS.clinic, 'Clinic store', 'store');
 
   const stocked = [...mockDrugsOf(TENANT_IDS.hospital)].sort(byName).slice(0, 30);
@@ -478,6 +480,91 @@ export function mockStockIn(
   });
   return null;
 }
+
+/**
+ * For the indents' mock, as `transferStock` of the API (#105): moves units of an item's batches
+ * from one place to another, an entry out and one in for each, all or nothing. Gives the refusal's
+ * code, or each line's batch.
+ */
+export function mockTransfer(
+  tenantId: string,
+  movement: {
+    fromLocationId: string;
+    toLocationId: string;
+    drugId: string;
+    sourceId: string;
+    actorName: string;
+    lines: { batchId: string; quantity: number }[];
+    /** Checks only, moving nothing: for a voucher of several items, all or nothing. */
+    dryRun?: boolean;
+  },
+):
+  | { refused: string }
+  | { batches: { batchId: string; batchNumber: string; expiryDate: string }[] } {
+  if (
+    !mockPlaceInUse(tenantId, movement.fromLocationId) ||
+    !mockPlaceInUse(tenantId, movement.toLocationId)
+  ) {
+    return { refused: 'unknown_location' };
+  }
+  const today = todayIn(mockTenantTimezone(tenantId));
+  const batches: Batch[] = [];
+  for (const line of movement.lines) {
+    const batch = state.batches.find(
+      (each) =>
+        each.id === line.batchId && each.tenantId === tenantId && each.drugId === movement.drugId,
+    );
+    if (!batch) return { refused: 'unknown_batch' };
+    if (batch.expiryDate < today) return { refused: 'batch_expired' };
+    if (onHandAt(batch.id, movement.fromLocationId) < line.quantity) {
+      return { refused: 'insufficient_stock' };
+    }
+    batches.push(batch);
+  }
+  if (movement.dryRun) return { batches: [] };
+  return {
+    batches: movement.lines.map((line, index) => {
+      const batch = batches[index] as Batch;
+      const change = {
+        tenantId,
+        batch,
+        source: 'issue' as const,
+        sourceId: movement.sourceId,
+        actorName: movement.actorName,
+      };
+      post(state, {
+        ...change,
+        locationId: movement.fromLocationId,
+        quantity: -line.quantity,
+        reason: 'issue_out',
+      });
+      post(state, {
+        ...change,
+        locationId: movement.toLocationId,
+        quantity: line.quantity,
+        reason: 'issue_in',
+      });
+      return { batchId: batch.id, batchNumber: batch.batchNumber, expiryDate: batch.expiryDate };
+    }),
+  };
+}
+
+/** For the indents' mock (#105): an item's units at a place, in date or not. */
+export const mockOnHandOf = (tenantId: string, drugId: string, locationId: string) =>
+  state.balances
+    .filter(
+      (each) =>
+        each.tenantId === tenantId &&
+        each.locationId === locationId &&
+        state.batches.some((batch) => batch.id === each.batchId && batch.drugId === drugId),
+    )
+    .reduce((sum, each) => sum + each.onHand, 0);
+
+/** For the indents' mock (#105): the places in use, by name. */
+export const mockPlacesInUse = (tenantId: string) =>
+  state.locations
+    .filter((each) => each.tenantId === tenantId && !each.archived)
+    .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
 /** For purchasing's mock (#103): a place of the hospital in use, or null. */
 export function mockPlaceInUse(tenantId: string, locationId: string) {
@@ -1028,3 +1115,6 @@ export const inventoryHandlers = [
     ),
   ),
 ];
+
+/** For the indents' mock (#105): a batch of the mock, for seeding records against it. */
+export const mockBatch = (batchId: string) => state.batches.find((each) => each.id === batchId);

@@ -116,6 +116,8 @@ const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
   // Purchase orders are opened from a list row action (#103): the mock's draft, which its edit
   // screen can also open.
   'purchasing/orders': () => Promise.resolve('po_h_draft'),
+  // Indents are opened from a list row action (#105): the mock's approved one, which offers Issue.
+  'inventory/indents': () => Promise.resolve('ind_h_approved'),
   // The mock keeps no goods receipt until one is made: a batch of the approved order.
   'purchasing/receipts': (page) =>
     page.evaluate(async () => {

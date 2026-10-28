@@ -162,6 +162,11 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'stock:adjust' },
   { permission: 'stock:approve' },
   { permission: 'stockLocation:manage' },
+  // Indents (#105): a place asks a store, someone else approves, the store issues.
+  { permission: 'indent:read' },
+  { permission: 'indent:create' },
+  { permission: 'indent:approve' },
+  { permission: 'indent:issue' },
   // Purchasing (#103): suppliers, orders approved by a second person, goods received and returned.
   { permission: 'supplier:read' },
   { permission: 'supplier:manage' },
@@ -277,6 +282,10 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
       { permission: 'stock:read' },
       { permission: 'stock:adjust' },
       { permission: 'stock:approve' },
+      { permission: 'indent:read' },
+      { permission: 'indent:create' },
+      { permission: 'indent:approve' },
+      { permission: 'indent:issue' },
       { permission: 'supplier:read' },
       { permission: 'supplier:manage' },
       { permission: 'purchaseOrder:read' },
@@ -299,6 +308,9 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
       { permission: 'sale:create' },
       { permission: 'sale:return' },
       { permission: 'drugRegister:read' },
+      // Asks the main store for the counter's stock (#105).
+      { permission: 'indent:read' },
+      { permission: 'indent:create' },
     ],
   },
   [TENANT_IDS.clinic]: {
