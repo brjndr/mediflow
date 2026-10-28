@@ -5,7 +5,8 @@
     "stock": "Stock",
     "adjustments": "Adjustments",
     "ledger": "Ledger",
-    "locations": "Places"
+    "locations": "Places",
+    "indents": "Indents"
   },
   "item": {
     "change": "Change"
@@ -13,7 +14,8 @@
   "kind": {
     "store": "Store",
     "pharmacy": "Pharmacy counter",
-    "ward": "Ward stock"
+    "ward": "Ward stock",
+    "department": "Department stock"
   },
   "reason": {
     "opening": "Opening stock",
@@ -27,7 +29,9 @@
     "receipt": "Received from a supplier",
     "purchase_return": "Returned to the supplier",
     "dispense_return": "Returned from a dispense",
-    "wastage": "Brought back and wasted"
+    "wastage": "Brought back and wasted",
+    "issue_out": "Issued against an indent",
+    "issue_in": "Received against an indent"
   },
   "change": {
     "in_one": "{{count}} unit in",

@@ -283,6 +283,24 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Stock ledger', level: 1 })).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // Indents (#105): the list as cards on a phone, an indent with its lines, issued in place, and
+  // a new indent's form one column.
+  await goTo(page, 'Indents');
+  await expect(page.getByRole('heading', { name: 'Indents', level: 1 })).toBeVisible();
+  await expect(page.getByText('IND-000002').first()).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: /^Open: IND-000002/ }).click();
+  await expect(page.getByRole('heading', { name: 'Indent IND-000002', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Issue', exact: true }).click();
+  await expect(page.getByLabel(/^Units of .*, batch/).first()).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'Close' }).click();
+  await goTo(page, 'Indents');
+  await page.getByRole('link', { name: 'New indent' }).click();
+  await expect(page.getByRole('heading', { name: 'New indent', level: 1 })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Add an item' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   // Purchasing (#103): the orders as cards on a phone, an order with its lines, goods received in
   // place with a row per batch, and the suppliers.
   await goTo(page, 'Purchasing');

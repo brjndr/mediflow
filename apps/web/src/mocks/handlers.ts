@@ -21,6 +21,7 @@ import { codesHandlers } from './handlers/codes';
 import { drugsHandlers } from './handlers/drugs';
 import { labHandlers } from './handlers/lab';
 import { radiologyHandlers } from './handlers/radiology';
+import { indentHandlers } from './handlers/indents';
 import { inventoryHandlers } from './handlers/inventory';
 import { pharmacyHandlers } from './handlers/pharmacy';
 import { pharmacySaleHandlers } from './handlers/pharmacy-sales';
@@ -135,6 +136,7 @@ export const handlers = [
   ...labHandlers,
   ...radiologyHandlers,
   ...inventoryHandlers,
+  ...indentHandlers,
   ...purchasingHandlers,
   ...pharmacyHandlers,
   ...pharmacySaleHandlers,

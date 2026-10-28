@@ -35,6 +35,7 @@ describe('shell', () => {
       'Radiology',
       'Pharmacy',
       'Inventory',
+      'Indents',
       'Purchasing',
       'Departments',
       'Doctors',
@@ -84,6 +85,7 @@ describe('shell', () => {
       'Radiology',
       'Pharmacy',
       'Inventory',
+      'Indents',
       'Purchasing',
       'Departments',
       'Doctors',
@@ -143,6 +145,8 @@ describe('keyboard', () => {
     expect(within(sidebar()).getByRole('link', { name: 'Pharmacy' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Inventory' })).toHaveFocus();
+    await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Indents' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Purchasing' })).toHaveFocus();
     await userEvent.tab();
@@ -215,6 +219,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Radiology',
       'Pharmacy',
       'Inventory',
+      'Indents',
       'Purchasing',
       'Departments',
       'Doctors',
@@ -273,6 +278,7 @@ describe('system pages', () => {
       'Radiology',
       'Pharmacy',
       'Inventory',
+      'Indents',
       'Purchasing',
       'Departments',
       'Doctors',

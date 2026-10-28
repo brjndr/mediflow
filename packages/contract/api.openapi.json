@@ -6409,8 +6409,8 @@
       },
       "StockLocationKind": {
         "type": "string",
-        "enum": ["store", "pharmacy", "ward"],
-        "description": "What a place that keeps stock is: a store, a pharmacy counter, or a ward’s own stock."
+        "enum": ["store", "pharmacy", "ward", "department"],
+        "description": "What a place that keeps stock is: a store, a pharmacy counter, a ward’s own stock, or a department’s (a theatre, the laboratory)."
       },
       "StockAdjustmentReason": {
         "type": "string",
@@ -6436,9 +6436,10 @@
           "sale_return",
           "receipt",
           "purchase_return",
-          "dispense_return"
+          "dispense_return",
+          "issue"
         ],
-        "description": "What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104). Transfers come with their module."
+        "description": "What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104), an issue voucher against an indent (#105)."
       },
       "StockLedgerReason": {
         "type": "string",
@@ -6454,9 +6455,11 @@
           "receipt",
           "purchase_return",
           "dispense_return",
-          "wastage"
+          "wastage",
+          "issue_out",
+          "issue_in"
         ],
-        "description": "Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104)."
+        "description": "Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104), `issue_out` for units issued from a store against an indent and `issue_in` for the same units coming in at the place that asked (#105)."
       },
       "StockLocation": {
         "description": "A place of the hospital that keeps stock.",
@@ -7011,6 +7014,481 @@
             "maxLength": 200,
             "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
             "type": "string"
+          }
+        }
+      },
+      "StockIndentStatus": {
+        "type": "string",
+        "enum": [
+          "requested",
+          "approved",
+          "rejected",
+          "cancelled",
+          "partly_issued",
+          "issued",
+          "closed"
+        ],
+        "description": "An indent is requested, then approved (for up to what was asked) or rejected by someone who did not ask, or cancelled by whoever asked before that; an approved one is issued on vouchers, partly then wholly, or closed with units still to issue."
+      },
+      "StockIssueBatch": {
+        "description": "A batch the store may issue: in date at the hospital today, with stock there.",
+        "type": "object",
+        "required": ["batchId", "batchNumber", "expiryDate", "onHand"],
+        "properties": {
+          "batchId": {
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, not an instant: YYYY-MM-DD.",
+            "type": "string"
+          },
+          "onHand": {
+            "minimum": 1,
+            "description": "Units of the batch at the store now.",
+            "type": "integer"
+          }
+        }
+      },
+      "StockIndentLine": {
+        "type": "object",
+        "required": ["id", "lineNumber", "item", "requestedQuantity", "issuedQuantity"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lineNumber": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "item": {
+            "$ref": "#/components/schemas/StockItemName"
+          },
+          "requestedQuantity": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "approvedQuantity": {
+            "minimum": 0,
+            "description": "Set on approval: up to what was asked.",
+            "type": "integer"
+          },
+          "issuedQuantity": {
+            "minimum": 0,
+            "description": "The units of the line on the indent’s vouchers: never more than approved.",
+            "type": "integer"
+          },
+          "storeOnHand": {
+            "description": "Units of the item at the store asked, now, in date or not: for a caller who approves or issues.",
+            "type": "integer"
+          },
+          "batches": {
+            "description": "The batches the store may issue, nearest expiry first: only while the indent waits to be issued and for a caller who issues.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockIssueBatch"
+            }
+          }
+        }
+      },
+      "StockIssueLine": {
+        "description": "Units of one batch sent on a voucher.",
+        "type": "object",
+        "required": ["indentLineId", "drugId", "batchId", "batchNumber", "expiryDate", "quantity"],
+        "properties": {
+          "indentLineId": {
+            "type": "string"
+          },
+          "drugId": {
+            "type": "string"
+          },
+          "batchId": {
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "A calendar date, not an instant: YYYY-MM-DD.",
+            "type": "string"
+          },
+          "quantity": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "StockIssue": {
+        "description": "An issue voucher: units sent from the store to the place that asked, out and in through the ledger in one step. Never changed.",
+        "type": "object",
+        "required": ["id", "reference", "issuedByName", "issuedAt", "lines"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reference": {
+            "description": "The voucher’s number as printed: IV-000123.",
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "issuedByName": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockIssueLine"
+            }
+          }
+        }
+      },
+      "StockIndentSummary": {
+        "description": "An indent as the list shows it.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "reference",
+          "fromLocationId",
+          "fromLocationName",
+          "toLocationId",
+          "toLocationName",
+          "status",
+          "requestedById",
+          "requestedByName",
+          "requestedAt",
+          "version",
+          "lineCount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "reference": {
+            "description": "The indent’s number as printed: IND-000123.",
+            "type": "string"
+          },
+          "fromLocationId": {
+            "description": "The place that asks.",
+            "type": "string"
+          },
+          "fromLocationName": {
+            "type": "string"
+          },
+          "toLocationId": {
+            "description": "The place asked: the store that issues.",
+            "type": "string"
+          },
+          "toLocationName": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StockIndentStatus"
+          },
+          "requestedById": {
+            "type": "string"
+          },
+          "requestedByName": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "lineCount": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "StockIndentPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockIndentSummary"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "StockIndent": {
+        "description": "A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "reference",
+          "fromLocationId",
+          "fromLocationName",
+          "toLocationId",
+          "toLocationName",
+          "status",
+          "requestedById",
+          "requestedByName",
+          "requestedAt",
+          "version",
+          "lines",
+          "issues"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "reference": {
+            "description": "The indent’s number as printed: IND-000123.",
+            "type": "string"
+          },
+          "fromLocationId": {
+            "description": "The place that asks.",
+            "type": "string"
+          },
+          "fromLocationName": {
+            "type": "string"
+          },
+          "toLocationId": {
+            "description": "The place asked: the store that issues.",
+            "type": "string"
+          },
+          "toLocationName": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StockIndentStatus"
+          },
+          "requestedById": {
+            "type": "string"
+          },
+          "requestedByName": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "note": {
+            "type": "string"
+          },
+          "decidedByName": {
+            "type": "string"
+          },
+          "decidedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "rejectionNote": {
+            "type": "string"
+          },
+          "endedByName": {
+            "type": "string"
+          },
+          "endedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endNote": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockIndentLine"
+            }
+          },
+          "issues": {
+            "description": "Its vouchers, oldest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockIssue"
+            }
+          }
+        }
+      },
+      "StockIndentCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["fromLocationId", "toLocationId", "lines"],
+        "properties": {
+          "fromLocationId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "toLocationId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["drugId", "quantity"],
+              "properties": {
+                "drugId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "quantity": {
+                  "minimum": 1,
+                  "maximum": 1000000,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "StockIndentApprove": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion", "lines"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The version the change was made from.",
+            "type": "integer"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 100,
+            "description": "Every line, each with up to what it asked; at least one above 0.",
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["lineId", "quantity"],
+              "properties": {
+                "lineId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "quantity": {
+                  "minimum": 0,
+                  "maximum": 1000000,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "StockIndentEnd": {
+        "additionalProperties": false,
+        "description": "Rejecting or closing an indent, with why.",
+        "type": "object",
+        "required": ["expectedVersion", "note"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The version the change was made from.",
+            "type": "integer"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "StockIndentCancel": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The version the change was made from.",
+            "type": "integer"
+          }
+        }
+      },
+      "StockIssueCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion", "lines"],
+        "properties": {
+          "expectedVersion": {
+            "description": "The version the change was made from.",
+            "type": "integer"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 400,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["indentLineId", "batchId", "quantity"],
+              "properties": {
+                "indentLineId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "batchId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "quantity": {
+                  "minimum": 1,
+                  "maximum": 1000000,
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       },
@@ -28266,6 +28744,996 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StockAdjustment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/indent-places": {
+      "get": {
+        "operationId": "listIndentPlaces",
+        "tags": ["inventory"],
+        "description": "The places in use, by name, for asking and filtering indents: what `GET /inventory/locations` gives, to a caller who indents without seeing the stock. `total` comes with the first page.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "archived",
+            "required": false,
+            "description": "The archived places instead of those in use."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockLocationPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/indents": {
+      "get": {
+        "operationId": "listStockIndents",
+        "tags": ["inventory"],
+        "description": "The indents, newest asked first, of a status and of a place (the one that asked or the one asked), or all. `total` comes with the first page. No patient data: a GET.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/StockIndentStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "locationId",
+            "required": false,
+            "description": "Indents that this place asked, or was asked."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockIndentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createStockIndent",
+        "tags": ["inventory"],
+        "description": "Asks a store for items for a place: two different places in use, the one asked a store (400), each item in use and once (400), whole units. It waits for someone who did not ask to approve it. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockIndentCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockIndent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/indents/{indentId}": {
+      "get": {
+        "operationId": "getStockIndent",
+        "tags": ["inventory"],
+        "description": "An indent with each line’s units asked, approved and issued, and its vouchers. A caller who approves or issues also gets the store’s stock of each item; while it waits to be issued, a caller who issues gets the batches the store may issue of each line, nearest expiry first. Another hospital’s answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "indentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockIndent"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/indents/{indentId}/approve": {
+      "post": {
+        "operationId": "approveStockIndent",
+        "tags": ["inventory"],
+        "description": "Approves a requested indent someone else asked for (409 own_indent), at its version (409 conflict), with the units approved of every line, each up to what it asked and at least one above 0 (400). Nothing moves until it is issued. 409 indent_decided once decided or cancelled. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockIndentApprove"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "indentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockIndent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/indents/{indentId}/reject": {
+      "post": {
+        "operationId": "rejectStockIndent",
+        "tags": ["inventory"],
+        "description": "Rejects a requested indent someone else asked for, with a note saying why. The same refusals as approving. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockIndentEnd"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "indentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockIndent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/indents/{indentId}/cancel": {
+      "post": {
+        "operationId": "cancelStockIndent",
+        "tags": ["inventory"],
+        "description": "Withdraws an indent before it is decided: only whoever asked for it (409 not_requester), at its version. 409 indent_decided once decided. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockIndentCancel"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "indentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockIndent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/indents/{indentId}/close": {
+      "post": {
+        "operationId": "closeStockIndent",
+        "tags": ["inventory"],
+        "description": "Closes an approved or partly issued indent with units still to issue, with a note saying why: nothing more is issued on it. 409 indent_not_open otherwise. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockIndentEnd"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "indentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockIndent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/indents/{indentId}/issues": {
+      "post": {
+        "operationId": "issueStockIndent",
+        "tags": ["inventory"],
+        "description": "Issues units of an approved or partly issued indent (409 indent_not_open) at its version, on a new voucher: each row a batch of a line’s item, once per voucher (400), taken out of the store and brought in at the place that asked through the ledger. Never more of a line than approved less what was issued (409 over_issue), nor more than the batch has at the store (409 insufficient_stock); an expired batch is 409 batch_expired, a place archived since 422 unknown_location. The indent is issued once every line has its approved units, partly issued until then. Emits `stock.issued`. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockIssueCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "indentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockIndent"
                 }
               }
             }

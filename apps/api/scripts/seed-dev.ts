@@ -1207,6 +1207,78 @@ try {
     }
   }
 
+  // Indents (#105): a ward's own stock, and two indents the nurse sent it to the main store, one
+  // waiting and one the store keeper approved, nothing issued. Only for a hospital with no
+  // indents yet, so running again adds nothing.
+  {
+    const tenantId = tenantIds.get('sample-hospital');
+    const { rowCount } = await client.query(
+      'select 1 from stock_indents where tenant_id = $1 limit 1',
+      [tenantId],
+    );
+    if (rowCount === 0) {
+      const userId = async (email: string) =>
+        (await client.query<{ id: string }>('select id from users where email = $1', [email]))
+          .rows[0]?.id;
+      const nurse = await userId('nurse@sample-hospital.test');
+      const keeper = await userId('stores@sample-hospital.test');
+      // A place of that name made by hand is left as it is, and used only while in use.
+      await client.query(
+        `insert into stock_locations (tenant_id, name, kind) values ($1, 'Ward 2 stock', 'ward')
+         on conflict on constraint stock_locations_name_taken do nothing`,
+        [tenantId],
+      );
+      const { rows: ward } = await client.query<{ id: string }>(
+        `select id from stock_locations where tenant_id = $1 and name_lower = 'ward 2 stock' and not archived`,
+        [tenantId],
+      );
+      const { rows: store } = await client.query<{ id: string }>(
+        `select id from stock_locations where tenant_id = $1 and kind = 'store' and not archived
+         order by name limit 1`,
+        [tenantId],
+      );
+      const { rows: drugs } = await client.query<{ id: string }>(
+        'select id from drugs where tenant_id = $1 and not archived order by generic_name, strength nulls first, id limit 3',
+        [tenantId],
+      );
+      const ready = nurse && keeper && ward[0] && store[0] && drugs.length === 3;
+      if (!ready) {
+        process.stdout.write(
+          'Indents not seeded: the sample staff, places or items are missing.\n',
+        );
+      }
+      for (const [index, approved] of (ready ? [false, true] : []).entries()) {
+        const { rows: indent } = await client.query<{ id: string }>(
+          `insert into stock_indents (tenant_id, number, from_location_id, to_location_id, requested_by)
+           values ($1, $2, $3, $4, $5) returning id`,
+          [tenantId, index + 1, ward[0]?.id, store[0]?.id, nurse],
+        );
+        const lineDrugs = approved ? [drugs[2]] : [drugs[0], drugs[1]];
+        for (const [position, drug] of lineDrugs.entries()) {
+          await client.query(
+            `insert into stock_indent_lines (tenant_id, indent_id, line_number, drug_id, requested_quantity,
+               approved_quantity)
+             values ($1, $2, $3, $4, 40, $5)`,
+            [tenantId, indent[0]?.id, position + 1, drug?.id, approved ? 30 : null],
+          );
+        }
+        if (approved) {
+          await client.query(
+            `update stock_indents set status = 'approved', decided_by = $2, decided_at = now()
+             where id = $1`,
+            [indent[0]?.id, keeper],
+          );
+        }
+      }
+      if (ready) {
+        await client.query(
+          `insert into inventory_counters (tenant_id, kind, last_number) values ($1, 'indent', 2)`,
+          [tenantId],
+        );
+      }
+    }
+  }
+
   // The clinic's own normal ranges: it marks a temperature high a little sooner. The hospital has
   // none, so it uses the API's built-in ones.
   await client.query(

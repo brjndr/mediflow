@@ -2842,6 +2842,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/inventory/indent-places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The places in use, by name, for asking and filtering indents: what `GET /inventory/locations` gives, to a caller who indents without seeing the stock. `total` comes with the first page. */
+        get: operations["listIndentPlaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/indents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The indents, newest asked first, of a status and of a place (the one that asked or the one asked), or all. `total` comes with the first page. No patient data: a GET. */
+        get: operations["listStockIndents"];
+        put?: never;
+        /** @description Asks a store for items for a place: two different places in use, the one asked a store (400), each item in use and once (400), whole units. It waits for someone who did not ask to approve it. Audited. */
+        post: operations["createStockIndent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/indents/{indentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description An indent with each line’s units asked, approved and issued, and its vouchers. A caller who approves or issues also gets the store’s stock of each item; while it waits to be issued, a caller who issues gets the batches the store may issue of each line, nearest expiry first. Another hospital’s answers 404. */
+        get: operations["getStockIndent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/indents/{indentId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Approves a requested indent someone else asked for (409 own_indent), at its version (409 conflict), with the units approved of every line, each up to what it asked and at least one above 0 (400). Nothing moves until it is issued. 409 indent_decided once decided or cancelled. Audited. */
+        post: operations["approveStockIndent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/indents/{indentId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Rejects a requested indent someone else asked for, with a note saying why. The same refusals as approving. Audited. */
+        post: operations["rejectStockIndent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/indents/{indentId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Withdraws an indent before it is decided: only whoever asked for it (409 not_requester), at its version. 409 indent_decided once decided. Audited. */
+        post: operations["cancelStockIndent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/indents/{indentId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Closes an approved or partly issued indent with units still to issue, with a note saying why: nothing more is issued on it. 409 indent_not_open otherwise. Audited. */
+        post: operations["closeStockIndent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/indents/{indentId}/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Issues units of an approved or partly issued indent (409 indent_not_open) at its version, on a new voucher: each row a batch of a line’s item, once per voucher (400), taken out of the store and brought in at the place that asked through the ledger. Never more of a line than approved less what was issued (409 over_issue), nor more than the batch has at the store (409 insufficient_stock); an expired batch is 409 batch_expired, a place archived since 422 unknown_location. The indent is issued once every line has its approved units, partly issued until then. Emits `stock.issued`. Audited. */
+        post: operations["issueStockIndent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pharmacy/sale-options": {
         parameters: {
             query?: never;
@@ -5611,10 +5748,10 @@ export interface components {
             version: number;
         };
         /**
-         * @description What a place that keeps stock is: a store, a pharmacy counter, or a ward’s own stock.
+         * @description What a place that keeps stock is: a store, a pharmacy counter, a ward’s own stock, or a department’s (a theatre, the laboratory).
          * @enum {string}
          */
-        StockLocationKind: "store" | "pharmacy" | "ward";
+        StockLocationKind: "store" | "pharmacy" | "ward" | "department";
         /**
          * @description Why stock is adjusted: opening stock (brought in, the only reason that may describe a new batch), a correction after a count (either way), damaged or expired stock (taken out), or another reason given in the note.
          * @enum {string}
@@ -5631,15 +5768,15 @@ export interface components {
          */
         StockExpiryState: "ok" | "expiring" | "expired";
         /**
-         * @description What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104). Transfers come with their module.
+         * @description What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104), an issue voucher against an indent (#105).
          * @enum {string}
          */
-        StockLedgerSource: "adjustment" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return" | "dispense_return";
+        StockLedgerSource: "adjustment" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return" | "dispense_return" | "issue";
         /**
-         * @description Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104).
+         * @description Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104), `issue_out` for units issued from a store against an indent and `issue_in` for the same units coming in at the place that asked (#105).
          * @enum {string}
          */
-        StockLedgerReason: "opening" | "count_correction" | "damaged" | "expired" | "other" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return" | "dispense_return" | "wastage";
+        StockLedgerReason: "opening" | "count_correction" | "damaged" | "expired" | "other" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return" | "dispense_return" | "wastage" | "issue_out" | "issue_in";
         /** @description A place of the hospital that keeps stock. */
         StockLocation: {
             id: string;
@@ -5821,6 +5958,158 @@ export interface components {
             /** @description The version the change was made from. */
             expectedVersion: number;
             note: string;
+        };
+        /**
+         * @description An indent is requested, then approved (for up to what was asked) or rejected by someone who did not ask, or cancelled by whoever asked before that; an approved one is issued on vouchers, partly then wholly, or closed with units still to issue.
+         * @enum {string}
+         */
+        StockIndentStatus: "requested" | "approved" | "rejected" | "cancelled" | "partly_issued" | "issued" | "closed";
+        /** @description A batch the store may issue: in date at the hospital today, with stock there. */
+        StockIssueBatch: {
+            batchId: string;
+            batchNumber: string;
+            /**
+             * Format: date
+             * @description A calendar date, not an instant: YYYY-MM-DD.
+             */
+            expiryDate: string;
+            /** @description Units of the batch at the store now. */
+            onHand: number;
+        };
+        StockIndentLine: {
+            id: string;
+            lineNumber: number;
+            item: components["schemas"]["StockItemName"];
+            requestedQuantity: number;
+            /** @description Set on approval: up to what was asked. */
+            approvedQuantity?: number;
+            /** @description The units of the line on the indent’s vouchers: never more than approved. */
+            issuedQuantity: number;
+            /** @description Units of the item at the store asked, now, in date or not: for a caller who approves or issues. */
+            storeOnHand?: number;
+            /** @description The batches the store may issue, nearest expiry first: only while the indent waits to be issued and for a caller who issues. */
+            batches?: components["schemas"]["StockIssueBatch"][];
+        };
+        /** @description Units of one batch sent on a voucher. */
+        StockIssueLine: {
+            indentLineId: string;
+            drugId: string;
+            batchId: string;
+            batchNumber: string;
+            /**
+             * Format: date
+             * @description A calendar date, not an instant: YYYY-MM-DD.
+             */
+            expiryDate: string;
+            quantity: number;
+        };
+        /** @description An issue voucher: units sent from the store to the place that asked, out and in through the ledger in one step. Never changed. */
+        StockIssue: {
+            id: string;
+            /** @description The voucher’s number as printed: IV-000123. */
+            reference: string;
+            note?: string;
+            issuedByName: string;
+            /** Format: date-time */
+            issuedAt: string;
+            lines: components["schemas"]["StockIssueLine"][];
+        };
+        /** @description An indent as the list shows it. */
+        StockIndentSummary: {
+            id: string;
+            tenantId: string;
+            /** @description The indent’s number as printed: IND-000123. */
+            reference: string;
+            /** @description The place that asks. */
+            fromLocationId: string;
+            fromLocationName: string;
+            /** @description The place asked: the store that issues. */
+            toLocationId: string;
+            toLocationName: string;
+            status: components["schemas"]["StockIndentStatus"];
+            requestedById: string;
+            requestedByName: string;
+            /** Format: date-time */
+            requestedAt: string;
+            /** @description Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`. */
+            version: number;
+            lineCount: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        StockIndentPage: {
+            items: components["schemas"]["StockIndentSummary"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it. */
+        StockIndent: {
+            id: string;
+            tenantId: string;
+            /** @description The indent’s number as printed: IND-000123. */
+            reference: string;
+            /** @description The place that asks. */
+            fromLocationId: string;
+            fromLocationName: string;
+            /** @description The place asked: the store that issues. */
+            toLocationId: string;
+            toLocationName: string;
+            status: components["schemas"]["StockIndentStatus"];
+            requestedById: string;
+            requestedByName: string;
+            /** Format: date-time */
+            requestedAt: string;
+            /** @description Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`. */
+            version: number;
+            note?: string;
+            decidedByName?: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            rejectionNote?: string;
+            endedByName?: string;
+            /** Format: date-time */
+            endedAt?: string;
+            endNote?: string;
+            lines: components["schemas"]["StockIndentLine"][];
+            /** @description Its vouchers, oldest first. */
+            issues: components["schemas"]["StockIssue"][];
+        };
+        StockIndentCreate: {
+            fromLocationId: string;
+            toLocationId: string;
+            note?: string;
+            lines: {
+                drugId: string;
+                quantity: number;
+            }[];
+        };
+        StockIndentApprove: {
+            /** @description The version the change was made from. */
+            expectedVersion: number;
+            /** @description Every line, each with up to what it asked; at least one above 0. */
+            lines: {
+                lineId: string;
+                quantity: number;
+            }[];
+        };
+        /** @description Rejecting or closing an indent, with why. */
+        StockIndentEnd: {
+            /** @description The version the change was made from. */
+            expectedVersion: number;
+            note: string;
+        };
+        StockIndentCancel: {
+            /** @description The version the change was made from. */
+            expectedVersion: number;
+        };
+        StockIssueCreate: {
+            /** @description The version the change was made from. */
+            expectedVersion: number;
+            note?: string;
+            lines: {
+                indentLineId: string;
+                batchId: string;
+                quantity: number;
+            }[];
         };
         /** @description A prescription in the pharmacy’s queue, with who it is for. */
         PharmacyQueueItem: {
@@ -21398,6 +21687,755 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StockAdjustment"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listIndentPlaces: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                /** @description The archived places instead of those in use. */
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockLocationPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listStockIndents: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                status?: components["schemas"]["StockIndentStatus"];
+                /** @description Indents that this place asked, or was asked. */
+                locationId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockIndentPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createStockIndent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockIndentCreate"];
+            };
+        };
+        responses: {
+            /** @description A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockIndent"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getStockIndent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                indentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockIndent"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    approveStockIndent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                indentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockIndentApprove"];
+            };
+        };
+        responses: {
+            /** @description A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockIndent"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    rejectStockIndent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                indentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockIndentEnd"];
+            };
+        };
+        responses: {
+            /** @description A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockIndent"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelStockIndent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                indentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockIndentCancel"];
+            };
+        };
+        responses: {
+            /** @description A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockIndent"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    closeStockIndent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                indentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockIndentEnd"];
+            };
+        };
+        responses: {
+            /** @description A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockIndent"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    issueStockIndent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                indentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockIssueCreate"];
+            };
+        };
+        responses: {
+            /** @description A request of one place for items from a store, with what was approved and issued of each and the vouchers that issued it. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockIndent"];
                 };
             };
             /** @description Standard error body. */

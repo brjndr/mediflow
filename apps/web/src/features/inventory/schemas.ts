@@ -22,6 +22,7 @@ export const LOCATION_KINDS = [
   'store',
   'pharmacy',
   'ward',
+  'department',
 ] as const satisfies readonly StockLocationKind[];
 export const REASONS = [
   'opening',
@@ -120,11 +121,12 @@ const ledgerEntrySchema: z.ZodType<StockLedgerEntry> = z.object({
     'receipt',
     'purchase_return',
     'dispense_return',
+    'issue',
   ]),
   sourceId: z.string(),
   // A dispense (#100), a counter sale and its return (#101), a goods receipt and a return to the
-  // supplier (#103), a return of a dispense and its wastage (#104) move stock with reasons of their
-  // own, which no adjustment has.
+  // supplier (#103), a return of a dispense and its wastage (#104), and an issue voucher against an
+  // indent (#105) move stock with reasons of their own, which no adjustment has.
   reason: z.enum([
     ...REASONS,
     'dispense',
@@ -134,6 +136,8 @@ const ledgerEntrySchema: z.ZodType<StockLedgerEntry> = z.object({
     'purchase_return',
     'dispense_return',
     'wastage',
+    'issue_out',
+    'issue_in',
   ]),
   actorName: z.string(),
 });
