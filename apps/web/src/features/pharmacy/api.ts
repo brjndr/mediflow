@@ -4,6 +4,7 @@ import type {
   Dispense,
   DispenseCreate,
   DispenseOptions,
+  DispenseReturnCreate,
   PharmacyPrescription,
   PharmacyQueuePage,
   QueueState,
@@ -58,6 +59,19 @@ export async function fetchOptions(
 export async function createDispense(body: DispenseCreate, key: string): Promise<Dispense> {
   const result = await api.POST('/pharmacy/dispenses', { body, params: idempotent(key) });
   return dispenseSchema.parse(requireData(result));
+}
+
+/** Brings units of a dispense back, to stock or wasted: answers the prescription as it is now. */
+export async function createDispenseReturn(
+  dispenseId: string,
+  body: DispenseReturnCreate,
+  key: string,
+): Promise<PharmacyPrescription> {
+  const result = await api.POST('/pharmacy/dispenses/{dispenseId}/returns', {
+    params: { path: { dispenseId }, ...idempotent(key) },
+    body,
+  });
+  return prescriptionSchema.parse(requireData(result));
 }
 
 /** Completes a line in progress when nothing more will be given. */

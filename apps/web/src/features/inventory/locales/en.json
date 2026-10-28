@@ -25,7 +25,9 @@
     "sale": "Sold at the counter",
     "sale_return": "Returned from a sale",
     "receipt": "Received from a supplier",
-    "purchase_return": "Returned to the supplier"
+    "purchase_return": "Returned to the supplier",
+    "dispense_return": "Returned from a dispense",
+    "wastage": "Brought back and wasted"
   },
   "change": {
     "in_one": "{{count}} unit in",
@@ -82,6 +84,7 @@
     "noBatches": "No stock",
     "ledger": "Ledger",
     "adjust": "Adjust stock",
+    "writeOff": "Write off expired",
     "empty": {
       "all": "No items in use.",
       "low": "No item is low.",

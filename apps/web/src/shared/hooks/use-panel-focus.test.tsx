@@ -89,3 +89,47 @@ describe('usePanelFocus, when the form took the button’s place', () => {
     expect(screen.getByRole('button', { name: 'Add a room' })).toHaveFocus();
   });
 });
+
+/** A screen that draws its container only once its record is read, after the hook mounts. */
+function Late() {
+  const [ready, setReady] = useState(false);
+  const [panel, setPanel] = useState(false);
+  const box = useRef<HTMLElement>(null);
+  usePanelFocus(panel || null, box);
+  if (!ready) {
+    return (
+      <button type="button" onClick={() => setReady(true)}>
+        Read
+      </button>
+    );
+  }
+  return (
+    <section ref={box}>
+      {panel ? (
+        <div>
+          <h3 data-panel-heading tabIndex={-1}>
+            Return items
+          </h3>
+          <button type="button" onClick={() => setPanel(false)}>
+            Close
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setPanel(true)}>
+          Return items
+        </button>
+      )}
+    </section>
+  );
+}
+
+describe('usePanelFocus with a container drawn later', () => {
+  it('still takes focus back to the button that opened the panel', async () => {
+    render(<Late />);
+    await userEvent.click(screen.getByRole('button', { name: 'Read' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Return items' }));
+    expect(screen.getByRole('heading', { name: 'Return items' })).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.getByRole('button', { name: 'Return items' })).toHaveFocus();
+  });
+});

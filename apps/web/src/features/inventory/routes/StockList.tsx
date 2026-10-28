@@ -145,6 +145,31 @@ export default function StockList() {
           state: { adjust: { id: row.item.drugId, name: nameOf(row.item) } },
         }),
     },
+    {
+      // An expired batch is written off by an adjustment another person approves (#104): the
+      // panel starts with the soonest expired batch shown, all its units at its place.
+      id: 'writeOff',
+      label: t('stock.writeOff'),
+      requires: 'stock:adjust',
+      disabled: (row) => !row.batches.some((batch) => batch.expiry === 'expired'),
+      onSelect: (row) => {
+        const batch = row.batches.find((each) => each.expiry === 'expired');
+        if (!batch) return;
+        navigate('/inventory/adjustments', {
+          state: {
+            adjust: {
+              id: row.item.drugId,
+              name: nameOf(row.item),
+              writeOff: {
+                batchId: batch.batchId,
+                locationId: batch.locationId,
+                quantity: batch.onHand,
+              },
+            },
+          },
+        });
+      },
+    },
   ];
 
   const alertCount = (each: StockAlert) => counts.data?.[each];

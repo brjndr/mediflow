@@ -20,16 +20,18 @@ export function usePanelFocus(
   fallback?: RefObject<HTMLElement | null>,
 ): void {
   // What last had focus inside the container. The button that opens a form may already be gone
-  // when the form is drawn (the form takes its place), so it is known from before.
+  // when the form is drawn (the form takes its place), so it is known from before. Heard on the
+  // document: a screen may draw the container only once its record is read, after this mounts.
   const lastFocused = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    const box = container.current;
-    if (!box) return;
     const remember = (event: FocusEvent) => {
-      if (event.target instanceof HTMLElement) lastFocused.current = event.target;
+      const box = container.current;
+      if (box && event.target instanceof HTMLElement && box.contains(event.target)) {
+        lastFocused.current = event.target;
+      }
     };
-    box.addEventListener('focusin', remember);
-    return () => box.removeEventListener('focusin', remember);
+    document.addEventListener('focusin', remember);
+    return () => document.removeEventListener('focusin', remember);
   }, [container]);
 
   const opener = useRef<HTMLElement | null>(null);

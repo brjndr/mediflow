@@ -6,7 +6,8 @@ import type { FeatureManifest } from '@/registry';
  * batches at a place, nearest expiry first, in full or in part, with a generic substitute and a
  * warning of the patient's allergies, and the dispense slip printed. Stock leaves through the
  * inventory ledger. Counter sales with their returns and receipts, and the drug register of every
- * movement of a Schedule H1, X, narcotic or controlled item (#101). Works at every width.
+ * movement of a Schedule H1, X, narcotic or controlled item (#101). Returns of dispensed medicines
+ * to stock or as wastage (#104). Works at every width.
  */
 export const pharmacyFeature: FeatureManifest = {
   id: 'pharmacy',
@@ -63,6 +64,7 @@ export const pharmacyFeature: FeatureManifest = {
   permissions: [
     'dispense:read',
     'dispense:create',
+    'dispense:return',
     'sale:read',
     'sale:create',
     'sale:return',
