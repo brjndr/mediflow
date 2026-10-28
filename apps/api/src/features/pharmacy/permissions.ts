@@ -20,6 +20,12 @@ export const PHARMACY_PERMISSIONS = [
     defaults: { admin: 'all', pharmacist: 'all' },
   },
   {
+    id: 'dispense:return',
+    description:
+      'Bring units of a dispense back, with a reason, into stock or as wastage when they cannot be given again',
+    defaults: { admin: 'all', pharmacist: 'all' },
+  },
+  {
     id: 'sale:read',
     description:
       'See the pharmacy’s counter sales, with the name and MRN of the patient when one was named, their lines, prices and returns, and print a receipt',

@@ -151,7 +151,41 @@
     "substitute": "Generic substitute: {{reason}}",
     "by": "{{time}} by {{name}}, from {{place}}",
     "print": "Print slip",
-    "printLabel": "Print slip of {{item}}"
+    "printLabel": "Print slip of {{item}}",
+    "returned_one": " ({{count}} returned)",
+    "returned_other": " ({{count}} returned)",
+    "return": "Returned {{time}} by {{name}}: {{lines}}. Why: {{reason}}",
+    "returnStock_one": "{{count}} unit of {{number}} back to stock",
+    "returnStock_other": "{{count}} units of {{number}} back to stock",
+    "returnWasted_one": "{{count}} unit of {{number}} wasted",
+    "returnWasted_other": "{{count}} units of {{number}} wasted",
+    "returnItems": "Return items",
+    "returnLabel": "Return items of {{item}}"
+  },
+  "dispenseReturn": {
+    "heading": "Return items of {{item}}",
+    "batch_one": "Batch {{number}}, expires {{expiry}}: {{count}} unit can be returned",
+    "batch_other": "Batch {{number}}, expires {{expiry}}: {{count}} units can be returned",
+    "expired": "This batch has expired: its units can only be wasted.",
+    "restock": "Units of {{number}} back to stock",
+    "waste": "Units of {{number}} wasted",
+    "wasteHint": "Brought back but not fit to give again: recorded and destroyed.",
+    "reason": "Why they are returned",
+    "submit": "Record return",
+    "submitting": "Recording…",
+    "done_one": "{{count}} unit of {{item}} was returned.",
+    "done_other": "{{count}} units of {{item}} were returned.",
+    "reasonRequired": "Say why the items are returned.",
+    "wholeUnits": "Enter a whole number of units.",
+    "tooMany": "More than can be returned of this batch.",
+    "nothing": "Enter the units of at least one batch.",
+    "refused": {
+      "over": "Some of these units were returned meanwhile. The prescription has been read again.",
+      "batch": "A batch is not of this dispense.",
+      "expired": "A batch has expired since: record its units as wasted.",
+      "place": "The place this was dispensed from is no longer in use.",
+      "gone": "This dispense is not available."
+    }
   },
   "slip": {
     "title": "Dispense slip",
@@ -351,6 +385,8 @@
       "dispense": "Dispensed on prescription",
       "sale": "Counter sale",
       "sale_return": "Returned from a sale",
+      "dispense_return": "Returned from a dispense",
+      "wastage": "Brought back from a dispense and wasted",
       "other": "Other"
     },
     "columns": {

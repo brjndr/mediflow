@@ -121,6 +121,34 @@ describe('adjustments', () => {
   });
 
   it(
+    'writes off an expired batch: all its units out, waiting for approval',
+    { timeout: 20_000 },
+    async () => {
+      // The pharmacy counter holds 20 units of an expired paracetamol batch, PCM23X.
+      await open('/inventory', 'Stock');
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Show' }), 'Expired');
+      const writeOff = await within(grid('Stock')).findByRole('button', {
+        name: /^Write off expired: Paracetamol 500 mg.*ParaCare/,
+      });
+      await userEvent.click(writeOff);
+      const panel = await screen.findByRole('region', { name: 'New stock adjustment' });
+      expect(within(panel).getByRole('combobox', { name: /^Place/ })).toHaveValue('loc_h_pharmacy');
+      expect(within(panel).getByRole('combobox', { name: /^Reason/ })).toHaveValue('expired');
+      await waitFor(() =>
+        expect(within(panel).getByRole('combobox', { name: /^Batch/ })).toHaveValue('bat_h_rx3'),
+      );
+      expect(within(panel).getByLabelText(/^Units/)).toHaveValue('20');
+      await userEvent.click(within(panel).getByRole('button', { name: 'Ask for approval' }));
+      await waitFor(() => expect(mockStock().adjustments.at(-1)?.status).toBe('pending'));
+      expect(mockStock().adjustments.at(-1)).toMatchObject({
+        batchId: 'bat_h_rx3',
+        quantity: -20,
+        reason: 'expired',
+      });
+    },
+  );
+
+  it(
     'asks for opening stock of a new batch, which waits for approval',
     { timeout: 20_000 },
     async () => {

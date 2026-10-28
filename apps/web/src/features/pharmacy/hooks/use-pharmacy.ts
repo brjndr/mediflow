@@ -12,13 +12,20 @@ import { useTenant } from '@/tenancy';
 import {
   completeLine,
   createDispense,
+  createDispenseReturn,
   fetchOptions,
   fetchPrescription,
   fetchQueue,
   recordSlipPrint,
   type QueueFilters,
 } from '../api';
-import type { Dispense, DispenseCreate, PharmacyLine, PharmacyPrescription } from '../types';
+import type {
+  Dispense,
+  DispenseCreate,
+  DispenseReturnCreate,
+  PharmacyLine,
+  PharmacyPrescription,
+} from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's queue never shows in another. */
 export const pharmacyKeys = createTenantKeys('pharmacy');
@@ -136,6 +143,26 @@ export function useDispense(prescriptionId: string) {
     mutationFn: (body: DispenseCreate): Promise<Dispense> =>
       createDispense(body, keys.keyFor(body)),
     onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+/** Brings units of a dispense back (#104): one key per body, so a retry returns them once. */
+export function useDispenseReturn(prescriptionId: string, dispenseId: string) {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const refresh = useRefresh(prescriptionId);
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: DispenseReturnCreate) =>
+      createDispenseReturn(dispenseId, body, keys.keyFor(body)),
+    onSuccess: (prescription: PharmacyPrescription) => {
+      keys.clear();
+      const tenantId = stillHere();
+      if (tenantId)
+        queryClient.setQueryData(pharmacyKeys.detail(tenantId, prescriptionId), prescription);
+    },
     onSettled: refresh,
   });
 }

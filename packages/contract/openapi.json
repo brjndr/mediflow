@@ -6429,8 +6429,16 @@
       },
       "StockLedgerSource": {
         "type": "string",
-        "enum": ["adjustment", "dispense", "sale", "sale_return", "receipt", "purchase_return"],
-        "description": "What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103). Transfers come with their module."
+        "enum": [
+          "adjustment",
+          "dispense",
+          "sale",
+          "sale_return",
+          "receipt",
+          "purchase_return",
+          "dispense_return"
+        ],
+        "description": "What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104). Transfers come with their module."
       },
       "StockLedgerReason": {
         "type": "string",
@@ -6444,9 +6452,11 @@
           "sale",
           "sale_return",
           "receipt",
-          "purchase_return"
+          "purchase_return",
+          "dispense_return",
+          "wastage"
         ],
-        "description": "Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one."
+        "description": "Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104)."
       },
       "StockLocation": {
         "description": "A place of the hospital that keeps stock.",
@@ -7086,7 +7096,7 @@
       "DispenseBatch": {
         "description": "Units of one batch given in a dispense.",
         "type": "object",
-        "required": ["batchId", "batchNumber", "expiryDate", "quantity"],
+        "required": ["batchId", "batchNumber", "expiryDate", "quantity", "returnedQuantity"],
         "properties": {
           "batchId": {
             "type": "string"
@@ -7101,6 +7111,56 @@
           },
           "quantity": {
             "type": "integer"
+          },
+          "returnedQuantity": {
+            "description": "Units of it brought back since, to stock or wasted, every return.",
+            "type": "integer"
+          }
+        }
+      },
+      "DispenseReturnLine": {
+        "description": "Units of one batch brought back in a return.",
+        "type": "object",
+        "required": ["batchId", "batchNumber", "quantity", "wasted"],
+        "properties": {
+          "batchId": {
+            "type": "string"
+          },
+          "batchNumber": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "wasted": {
+            "description": "Destroyed rather than put back into stock (an expired batch always is).",
+            "type": "boolean"
+          }
+        }
+      },
+      "DispenseReturn": {
+        "description": "Units of a dispense brought back, with why. Never changed or removed.",
+        "type": "object",
+        "required": ["id", "reason", "returnedAt", "returnedByName", "lines"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "returnedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "returnedByName": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DispenseReturnLine"
+            }
           }
         }
       },
@@ -7122,6 +7182,7 @@
           "controlled",
           "quantity",
           "batches",
+          "returns",
           "dispensedAt",
           "dispensedByName"
         ],
@@ -7175,6 +7236,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DispenseBatch"
+            }
+          },
+          "returns": {
+            "description": "Oldest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DispenseReturn"
             }
           },
           "dispensedAt": {
@@ -7438,6 +7506,48 @@
                 "quantity": {
                   "minimum": 1,
                   "maximum": 10000,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DispenseReturnCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason", "lines"],
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 10,
+            "description": "Each batch of the dispense once, with at least one unit in all.",
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["batchId", "restockQuantity", "wasteQuantity"],
+              "properties": {
+                "batchId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "restockQuantity": {
+                  "minimum": 0,
+                  "maximum": 10000,
+                  "description": "Units of the batch back into stock at the dispense’s place.",
+                  "type": "integer"
+                },
+                "wasteQuantity": {
+                  "minimum": 0,
+                  "maximum": 10000,
+                  "description": "Units of the batch brought back and destroyed.",
                   "type": "integer"
                 }
               }
@@ -7906,7 +8016,7 @@
             "type": "integer"
           },
           "source": {
-            "description": "`adjustment`, `dispense`, `sale` or `sale_return` (the ledger’s source).",
+            "description": "`adjustment`, `dispense`, `dispense_return`, `sale` or `sale_return` (the ledger’s source).",
             "type": "string"
           },
           "sourceId": {
@@ -28948,7 +29058,7 @@
       "get": {
         "operationId": "listDrugRegister",
         "tags": ["pharmacy"],
-        "description": "The drug register of an item of schedule H1, X, narcotic or controlled (422 `not_a_register_item` for another, 404 `item_not_found` for none): every movement of its stock from the ledger, from the first day to the last at the hospital (at most 366 days), the oldest first: dispenses, counter sales, their returns and adjustments, each with its batch, place, quantity, the batch’s balance after it, who made it, and for a dispense or sale who it was for and who prescribed it. Read from the ledger, so no movement can be left out. `total` with the first page. Every dispense and sale named is audited as read. Requires drugRegister:read with the scope `all` and the pharmacy feature flag. The item is an id: a GET.",
+        "description": "The drug register of an item of schedule H1, X, narcotic or controlled (422 `not_a_register_item` for another, 404 `item_not_found` for none): every movement of its stock from the ledger, from the first day to the last at the hospital (at most 366 days), the oldest first: dispenses, counter sales, their returns (a dispense’s wasted units in and out again, reason `wastage`) and adjustments, each with its batch, place, quantity, the batch’s balance after it, who made it, and for a dispense or sale who it was for and who prescribed it. Read from the ledger, so no movement can be left out. `total` with the first page. Every dispense and sale named is audited as read. Requires drugRegister:read with the scope `all` and the pharmacy feature flag. The item is an id: a GET.",
         "parameters": [
           {
             "schema": {
@@ -29641,6 +29751,126 @@
         "responses": {
           "204": {
             "description": "Default Response"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pharmacy/dispenses/{dispenseId}/returns": {
+      "post": {
+        "operationId": "createDispenseReturn",
+        "tags": ["pharmacy"],
+        "description": "Brings units of a dispense back, with a reason (#104): each batch of the dispense once (422 `unknown_batch` for one not of it or given twice), its units back into stock at the dispense’s place (`restockQuantity`, the ledger’s reason `dispense_return`) or wasted (`wasteQuantity`: an entry in and one out with the reason `wastage`, so stock does not change and the drug register holds them), at least one unit in all (400), never more than was dispensed of the batch less what was returned before (409 `over_return`). An expired batch at the hospital today is never stock again (409 `batch_expired`: waste it); a place no longer in use is 422 `unknown_location`. The prescription line is not reopened. Emits `pharmacy.dispense_returned`. Answers the prescription as it is now. The Idempotency-Key header is required: a repeat moves no stock. Requires dispense:return and dispense:read with the scope `all` and the pharmacy feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispenseReturnCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "dispenseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A prescription as the pharmacy dispenses it: its lines and its dispenses.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PharmacyPrescription"
+                }
+              }
+            }
           },
           "400": {
             "description": "Standard error body.",

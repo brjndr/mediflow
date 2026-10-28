@@ -6,6 +6,11 @@ import { Button } from '@/shared/ui/button';
 export interface PickedItem {
   id: string;
   name: string;
+  /**
+   * An expired batch to write off (#104): the adjustment starts as all its units at its place out,
+   * for the reason "Expired". It still waits for someone else to approve it.
+   */
+  writeOff?: { batchId: string; locationId: string; quantity: number };
 }
 
 /**

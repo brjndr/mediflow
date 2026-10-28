@@ -207,7 +207,20 @@ export interface DispenseRow {
   quantity: number;
   dispensed_at: Date;
   dispensed_by_name: string;
-  batches: { batchId: string; batchNumber: string; expiryDate: string; quantity: number }[];
+  batches: {
+    batchId: string;
+    batchNumber: string;
+    expiryDate: string;
+    quantity: number;
+    returnedQuantity: number;
+  }[];
+  returns: {
+    id: string;
+    reason: string;
+    returnedAt: string;
+    returnedByName: string;
+    lines: { batchId: string; batchNumber: string; quantity: number; wasted: boolean }[];
+  }[];
 }
 
 const DISPENSES = `select d.id, d.order_id, d.prescription_id, d.encounter_id, d.patient_id,
@@ -217,12 +230,36 @@ const DISPENSES = `select d.id, d.order_id, d.prescription_id, d.encounter_id, d
     coalesce((
       select json_agg(json_build_object(
           'batchId', dl.batch_id, 'batchNumber', b.batch_number,
-          'expiryDate', to_char(b.expiry_date, 'YYYY-MM-DD'), 'quantity', dl.quantity)
+          'expiryDate', to_char(b.expiry_date, 'YYYY-MM-DD'), 'quantity', dl.quantity,
+          'returnedQuantity', coalesce((
+            select sum(rl.quantity) from dispense_return_lines rl
+            where rl.tenant_id = dl.tenant_id and rl.dispense_id = dl.dispense_id
+              and rl.batch_id = dl.batch_id
+          ), 0))
         order by b.expiry_date, b.batch_key)
       from dispense_lines dl
       join stock_batches b on b.tenant_id = dl.tenant_id and b.id = dl.batch_id
       where dl.tenant_id = d.tenant_id and dl.dispense_id = d.id
-    ), '[]'::json) as batches
+    ), '[]'::json) as batches,
+    coalesce((
+      select json_agg(json_build_object(
+          'id', r.id, 'reason', r.reason,
+          'returnedAt', to_char(r.returned_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+          'returnedByName', coalesce(ru.name, ''),
+          'lines', (
+            select json_agg(json_build_object(
+                'batchId', rl.batch_id, 'batchNumber', rb.batch_number,
+                'quantity', rl.quantity, 'wasted', rl.wasted)
+              order by rb.expiry_date, rb.batch_key, rl.wasted)
+            from dispense_return_lines rl
+            join stock_batches rb on rb.tenant_id = rl.tenant_id and rb.id = rl.batch_id
+            where rl.tenant_id = r.tenant_id and rl.return_id = r.id
+          ))
+        order by r.returned_at, r.id)
+      from dispense_returns r
+      left join users ru on ru.id = r.returned_by
+      where r.tenant_id = d.tenant_id and r.dispense_id = d.id
+    ), '[]'::json) as returns
   from dispenses d
   join stock_locations l on l.tenant_id = d.tenant_id and l.id = d.location_id
   left join users u on u.id = d.dispensed_by`;
@@ -303,5 +340,67 @@ export async function insertDispenseLine(
     `insert into dispense_lines (tenant_id, dispense_id, drug_id, batch_id, quantity, ledger_entry_id)
      values (app_tenant_id(), $1, $2, $3, $4, $5)`,
     [line.dispenseId, line.drugId, line.batchId, line.quantity, line.ledgerEntryId],
+  );
+}
+
+/** Holds the dispense against another return of it until the transaction ends. */
+export async function lockDispense(client: pg.ClientBase, dispenseId: string): Promise<void> {
+  await client.query(`select pg_advisory_xact_lock(hashtextextended('dispense:' || $1, 0))`, [
+    dispenseId,
+  ]);
+}
+
+/** The prescription a return of a dispense belongs to: a repeat's answer. */
+export async function prescriptionOfReturn(
+  client: pg.ClientBase,
+  returnId: string,
+): Promise<string | null> {
+  if (!UUID.test(returnId)) return null;
+  const { rows } = await client.query<{ prescription_id: string }>(
+    `select d.prescription_id from dispense_returns r
+     join dispenses d on d.tenant_id = r.tenant_id and d.id = r.dispense_id
+     where r.id = $1`,
+    [returnId],
+  );
+  return rows[0]?.prescription_id ?? null;
+}
+
+/** Writes a return of a dispense, once its stock is moved; its lines follow. */
+export async function insertDispenseReturn(
+  client: pg.ClientBase,
+  value: { id: string; dispenseId: string; reason: string; returnedBy: string },
+): Promise<void> {
+  await client.query(
+    `insert into dispense_returns (id, tenant_id, dispense_id, reason, returned_by)
+     values ($1, app_tenant_id(), $2, $3, $4)`,
+    [value.id, value.dispenseId, value.reason, value.returnedBy],
+  );
+}
+
+export async function insertDispenseReturnLine(
+  client: pg.ClientBase,
+  line: {
+    returnId: string;
+    dispenseId: string;
+    batchId: string;
+    quantity: number;
+    wasted: boolean;
+    ledgerEntryId: string;
+    wasteEntryId: string | null;
+  },
+): Promise<void> {
+  await client.query(
+    `insert into dispense_return_lines (tenant_id, return_id, dispense_id, batch_id, quantity,
+       wasted, ledger_entry_id, waste_entry_id)
+     values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7)`,
+    [
+      line.returnId,
+      line.dispenseId,
+      line.batchId,
+      line.quantity,
+      line.wasted,
+      line.ledgerEntryId,
+      line.wasteEntryId,
+    ],
   );
 }

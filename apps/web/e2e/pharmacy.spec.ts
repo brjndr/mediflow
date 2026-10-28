@@ -108,3 +108,48 @@ test('sell an item at the counter with the keyboard alone', async ({ page }) => 
   await expect(page.getByRole('status').filter({ hasText: 'Sale recorded.' })).toBeVisible();
   await expectNoAxeViolations(page);
 });
+
+test('return units of a dispense with the keyboard alone', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await goTo(page, 'Pharmacy');
+  await page
+    .getByRole('button', { name: /^Dispense: / })
+    .first()
+    .click();
+  const dispense = page.getByRole('button', { name: /^Dispense: Cetirizine/ });
+  await dispense.click();
+  const given = page.getByRole('region', { name: /^Dispense Cetirizine/ });
+  await expect(given.getByRole('textbox', { name: /^Batch CTZ25A/ })).toHaveValue('5');
+  await given.getByRole('button', { name: 'Dispense', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: '5 units of Cetirizine' })).toBeVisible();
+
+  // #104: some back to stock, some wasted, with a reason.
+  const open = page.getByRole('button', { name: /^Return items of Cetirizine/ });
+  await reach(page, open);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  const panel = page.getByRole('region', { name: /^Return items of Cetirizine/ });
+  await expect(panel.getByRole('heading', { level: 2 })).toBeFocused();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  await page.keyboard.press('Tab');
+  await expect(panel.getByRole('textbox', { name: 'Units of CTZ25A back to stock' })).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.type('2');
+  await page.keyboard.press('Tab');
+  await expect(panel.getByRole('textbox', { name: /^Units of CTZ25A wasted/ })).toBeFocused();
+  await page.keyboard.type('1');
+  await page.keyboard.press('Tab');
+  await expect(panel.getByRole('textbox', { name: /^Why they are returned/ })).toBeFocused();
+  await page.keyboard.type('Rash after the first dose');
+  await page.keyboard.press('Tab');
+  await expect(panel.getByRole('button', { name: 'Record return' })).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  // The panel closes, so focus goes to the status line that says what was done.
+  await expect(page.getByRole('status').filter({ hasText: '3 units of Cetirizine' })).toBeFocused();
+  await expect(page.getByText(/1 unit of CTZ25A wasted/)).toBeVisible();
+  await expectNoAxeViolations(page);
+});

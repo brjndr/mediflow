@@ -152,26 +152,32 @@ export async function stockOut(
 
 /**
  * Puts units of an item back into stock at a place, batch by batch, through the ledger, in the
- * request's transaction, for another module's record: the return of a counter sale (#101).
+ * request's transaction, for another module's record: the return of a counter sale (#101) or of a
+ * dispense (#104).
  *
- * Refuses a place that is not in use (422 `unknown_location`), a batch that is not the item's
- * (422 `unknown_batch`) and a batch expired at the hospital today (409 `batch_expired`): an
- * expired unit brought back is wastage (#104), never stock. Locks as `stockOut` does. Gives the
- * ledger entry of each line.
+ * A wasted line (a dispense's return only) is brought back and destroyed: an entry in, then one
+ * out with the reason `wastage`, so its stock does not change and the ledger (and the drug
+ * register read from it) still holds the units. Refuses a place that is not in use (422
+ * `unknown_location`), a batch that is not the item's (422 `unknown_batch`) and a batch expired
+ * at the hospital today going back to stock (409 `batch_expired`): an expired unit brought back
+ * is wastage, never stock. Locks as `stockOut` does. Gives the ledger entry of each line, and the
+ * entry that took wasted units out.
  */
 export async function stockIn(
   request: FastifyRequest,
   movement: {
     locationId: string;
     drugId: string;
-    /** Only a return of a sale puts stock back this way: an adjustment is approved by another. */
-    source: 'sale_return';
+    /** Only returns put stock back this way: an adjustment is approved by another. */
+    source: 'sale_return' | 'dispense_return';
     sourceId: string;
-    reason: 'sale_return';
+    reason: 'sale_return' | 'dispense_return';
     actorId: string;
-    lines: { batchId: string; quantity: number }[];
+    lines: { batchId: string; quantity: number; wasted?: boolean }[];
   },
-): Promise<{ batchId: string; quantity: number; ledgerEntryId: string }[]> {
+): Promise<
+  { batchId: string; quantity: number; ledgerEntryId: string; wasteEntryId: string | null }[]
+> {
   const client = request.txClient;
   if (movement.lines.some((line) => !Number.isInteger(line.quantity) || line.quantity < 1)) {
     throw new HttpError(400, 'validation_failed', 'Units brought back are a whole number above 0');
@@ -189,12 +195,17 @@ export async function stockIn(
     if (!batch || batch.drug_id !== movement.drugId) {
       throw new HttpError(422, 'unknown_batch', 'No such batch of the item');
     }
-    if (batch.expiry_date < today) {
+    if (batch.expiry_date < today && !line.wasted) {
       throw new HttpError(409, 'batch_expired', 'The batch is past its expiry date');
     }
   }
   await lockItemStock(client, movement.drugId);
-  const posted: { batchId: string; quantity: number; ledgerEntryId: string }[] = [];
+  const posted: {
+    batchId: string;
+    quantity: number;
+    ledgerEntryId: string;
+    wasteEntryId: string | null;
+  }[] = [];
   for (const line of movement.lines) {
     const entry = await postEntry(client, {
       batchId: line.batchId,
@@ -206,7 +217,24 @@ export async function stockIn(
       reason: movement.reason,
       actorId: movement.actorId,
     });
-    posted.push({ batchId: line.batchId, quantity: line.quantity, ledgerEntryId: entry.id });
+    const waste = line.wasted
+      ? await postEntry(client, {
+          batchId: line.batchId,
+          drugId: movement.drugId,
+          locationId: movement.locationId,
+          quantity: -line.quantity,
+          source: movement.source,
+          sourceId: movement.sourceId,
+          reason: 'wastage',
+          actorId: movement.actorId,
+        })
+      : null;
+    posted.push({
+      batchId: line.batchId,
+      quantity: line.quantity,
+      ledgerEntryId: entry.id,
+      wasteEntryId: waste?.id ?? null,
+    });
   }
   return posted;
 }

@@ -5,7 +5,7 @@ import { currentSession, mockTenantTimezone, onMockReset } from '../db';
 import { authorize, error } from '../respond';
 import { mockMedicationPrescriptions, moveMockOrder } from './clinical';
 import { mockDrug, mockDrugsOf } from './drugs';
-import { mockStockOut, mockUsableBatches } from './inventory';
+import { mockStockIn, mockStockOut, mockUsableBatches } from './inventory';
 import { mockPatient } from './patients';
 
 type Drug = components['schemas']['Drug'];
@@ -20,13 +20,15 @@ type DispensableItem = components['schemas']['DispensableItem'];
 const FEATURE_FLAG = 'pharmacy';
 const READ = 'dispense:read';
 const CREATE = 'dispense:create';
+const RETURN = 'dispense:return';
 const DAY_MS = 86_400_000;
 const OPEN: readonly Order['status'][] = ['placed', 'accepted', 'in_progress'];
 
 /**
  * The pharmacy (#100), as the API: the queue of the clinical mock's prescriptions, dispensing a
  * line from batches at a place through the inventory mock (`mockStockOut`), generic substitutes
- * from the drugs mock, and moving the order on with `moveMockOrder`. Nothing dispensed at first.
+ * from the drugs mock, and moving the order on with `moveMockOrder`; returns of a dispense to
+ * stock or as wastage through `mockStockIn` (#104). Nothing dispensed at first.
  */
 function seed() {
   return {
@@ -381,7 +383,8 @@ export const pharmacyHandlers = [
       controlled: item.controlled,
       ...(reason ? { substitutionReason: reason } : {}),
       quantity,
-      batches: taken.batches,
+      batches: taken.batches.map((batch) => ({ ...batch, returnedQuantity: 0 })),
+      returns: [],
       dispensedAt: new Date(Date.now() + state.counter).toISOString(),
       dispensedByName: caller.name,
     };
@@ -415,6 +418,95 @@ export const pharmacyHandlers = [
     moveMockOrder(order.id, 'completed');
     const now = prescriptionsOf(access.tenantId).find((each) => each.id === rx.id) ?? rx;
     return sent.answer(prescriptionView(access.tenantId, now));
+  }),
+
+  http.post('*/api/pharmacy/dispenses/:dispenseId/returns', async ({ request, params }) => {
+    const read = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
+    if ('denied' in read) return read.denied;
+    const access = authorize(request, { permission: RETURN, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    if (!request.headers.get('Idempotency-Key')) return invalid('An idempotency key is required');
+    const sent = await idempotent(request, access.tenantId);
+    if ('refused' in sent) return sent.refused;
+    if (sent.replay) return sent.replay;
+    const body = sent.body;
+    if (
+      !isObject(body) ||
+      typeof body.reason !== 'string' ||
+      body.reason.trim() === '' ||
+      !Array.isArray(body.lines) ||
+      body.lines.length === 0
+    ) {
+      return invalid();
+    }
+    const rx = prescriptionsOf(access.tenantId).find((each) =>
+      state.dispenses.some(
+        (dispense) => dispense.id === params.dispenseId && dispense.prescriptionId === each.id,
+      ),
+    );
+    // Of the hospital's own prescription only, as the API's row-level security holds it.
+    const dispense = rx
+      ? state.dispenses.find(
+          (each) => each.id === params.dispenseId && each.prescriptionId === rx.id,
+        )
+      : undefined;
+    if (!rx || !dispense) return error(404, 'dispense_not_found', 'No such dispense');
+    const lines: { batchId: string; quantity: number; wasted: boolean }[] = [];
+    const seen = new Set<string>();
+    for (const line of body.lines as unknown[]) {
+      if (
+        !isObject(line) ||
+        typeof line.batchId !== 'string' ||
+        typeof line.restockQuantity !== 'number' ||
+        typeof line.wasteQuantity !== 'number'
+      ) {
+        return invalid();
+      }
+      const given = dispense.batches.find((each) => each.batchId === line.batchId);
+      if (!given || seen.has(line.batchId)) {
+        return error(422, 'unknown_batch', 'No such batch of the dispense');
+      }
+      seen.add(line.batchId);
+      if (line.restockQuantity + line.wasteQuantity > given.quantity - given.returnedQuantity) {
+        return error(409, 'over_return', 'More than was dispensed and not yet returned');
+      }
+      if (line.restockQuantity > 0) {
+        lines.push({ batchId: line.batchId, quantity: line.restockQuantity, wasted: false });
+      }
+      if (line.wasteQuantity > 0) {
+        lines.push({ batchId: line.batchId, quantity: line.wasteQuantity, wasted: true });
+      }
+    }
+    if (lines.length === 0) return invalid('A return brings back at least one unit');
+    state.counter += 1;
+    const id = `dret_${state.counter}`;
+    const caller = callerOf();
+    const refused = mockStockIn(access.tenantId, {
+      locationId: dispense.locationId,
+      source: 'dispense_return',
+      sourceId: id,
+      actorName: caller.name,
+      lines,
+    });
+    if (refused) {
+      return error(refused.refused === 'batch_expired' ? 409 : 422, refused.refused, 'Refused');
+    }
+    for (const line of lines) {
+      const given = dispense.batches.find((each) => each.batchId === line.batchId);
+      if (given) given.returnedQuantity += line.quantity;
+    }
+    dispense.returns.push({
+      id,
+      reason: body.reason.trim(),
+      returnedAt: new Date(Date.now() + state.counter).toISOString(),
+      returnedByName: caller.name,
+      lines: lines.map((line) => ({
+        ...line,
+        batchNumber:
+          dispense.batches.find((each) => each.batchId === line.batchId)?.batchNumber ?? '',
+      })),
+    });
+    return sent.answer(prescriptionView(access.tenantId, rx), 201);
   }),
 
   http.post('*/api/pharmacy/dispenses/:dispenseId/print', async ({ request, params }) => {

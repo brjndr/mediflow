@@ -170,9 +170,11 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'purchaseOrder:approve' },
   { permission: 'goodsReceipt:create' },
   { permission: 'purchaseReturn:create' },
-  // The pharmacy (#100): the queue and dispensing; counter sales and the drug register (#101).
+  // The pharmacy (#100): the queue and dispensing; counter sales and the drug register (#101);
+  // returns of dispenses (#104).
   { permission: 'dispense:read' },
   { permission: 'dispense:create' },
+  { permission: 'dispense:return' },
   { permission: 'sale:read' },
   { permission: 'sale:create' },
   { permission: 'sale:return' },
@@ -292,6 +294,7 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
       { permission: 'allergy:read' },
       { permission: 'dispense:read' },
       { permission: 'dispense:create' },
+      { permission: 'dispense:return' },
       { permission: 'sale:read' },
       { permission: 'sale:create' },
       { permission: 'sale:return' },

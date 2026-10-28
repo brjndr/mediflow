@@ -59,16 +59,17 @@ export function AdjustmentForm({
     () => createAdjustmentFormSchema((text) => toMinor(text, digits)),
     [digits],
   );
+  const writeOff = initialItem?.writeOff;
   const form = useZodForm<AdjustmentFormInput, AdjustmentFormValues>(schema, {
-    locationId: '',
+    locationId: writeOff?.locationId ?? '',
     drugId: initialItem?.id ?? '',
-    reason: 'count_correction',
-    batch: '',
+    reason: writeOff ? 'expired' : 'count_correction',
+    batch: writeOff?.batchId ?? '',
     batchNumber: '',
     expiryDate: '',
     mrp: '',
-    direction: 'in',
-    quantity: '',
+    direction: writeOff ? 'out' : 'in',
+    quantity: writeOff ? String(writeOff.quantity) : '',
     note: '',
   });
   const create = useCreateAdjustment();
@@ -186,6 +187,17 @@ function AdjustmentFields({ initialItem }: { initialItem: PickedItem | null }) {
       }),
     }));
   }, [stock.data, stock.isPlaceholderData, locationId, t, format]);
+
+  // A write-off's batch is chosen again once the item's batches are read: the list had no such
+  // option when the form opened.
+  const writeOffBatch = initialItem?.writeOff?.batchId;
+  const chosenOnce = useRef(false);
+  useEffect(() => {
+    if (chosenOnce.current || !writeOffBatch) return;
+    if (!batches.some((each) => each.id === writeOffBatch)) return;
+    chosenOnce.current = true;
+    set('batch', writeOffBatch);
+  }, [batches, writeOffBatch, set]);
 
   // The reason decides the way for opening, damaged and expired stock; a new batch is opening.
   const fixed = FIXED_DIRECTION[reason];

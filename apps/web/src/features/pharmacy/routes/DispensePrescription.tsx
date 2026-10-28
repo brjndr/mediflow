@@ -1,7 +1,7 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { useFeatureFlag, usePermission } from '@/access';
+import { Can, useFeatureFlag, usePermission } from '@/access';
 import { useLocations } from '@/features/inventory';
 import { useAllergies } from '@/features/triage';
 import { errorMessageKey, isApiError } from '@/shared/api';
@@ -13,6 +13,7 @@ import { PrintSheet } from '@/shared/ui/print-sheet';
 import { maskMrn } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
 import { DispensePanel, type AllergyCheck } from '../components/DispensePanel';
+import { DispenseReturnPanel } from '../components/DispenseReturnPanel';
 import { DispenseSlip } from '../components/DispenseSlip';
 import { useCompleteLine, usePrescription, usePrintSlip } from '../hooks/use-pharmacy';
 import { isOpen, remainingOf } from '../schemas';
@@ -42,8 +43,10 @@ function useDispensingAllergies(patientId: string): AllergyCheck {
 /**
  * A prescription at the pharmacy (`pharmacy/prescriptions/:id`, #100), for `dispense:read`: who it
  * is for and their allergies, the place to dispense from, its lines with what is left to give,
- * and its dispenses, each with its slip to print. `dispense:create` dispenses a line (a panel in
- * place) and completes one in progress when nothing more will be given. Works at every width.
+ * and its dispenses, each with its slip to print and its returns. `dispense:create` dispenses a
+ * line (a panel in place) and completes one in progress when nothing more will be given;
+ * `dispense:return` brings units of a dispense back, to stock or wasted (a panel in place, #104).
+ * Works at every width.
  */
 export default function DispensePrescription() {
   const { prescriptionId = '' } = useParams();
@@ -75,7 +78,10 @@ export default function DispensePrescription() {
     if (message.count > 0) focusIfLost(status.current);
   }, [message]);
   const [panel, setPanel] = useState<PharmacyLine | null>(null);
-  usePanelFocus(panel ? panel.orderId : null, box, status);
+  // The dispense whose units are being brought back; one panel is open at a time.
+  const [returning, setReturning] = useState<string | null>(null);
+  const mayReturn = usePermission('dispense:return');
+  usePanelFocus(panel ? panel.orderId : returning ? `return:${returning}` : null, box, status);
   const complete = useCompleteLine(prescriptionId);
   const printing = usePrintSlip();
   const printErrorId = useId();
@@ -135,7 +141,10 @@ export default function DispensePrescription() {
       requires: 'dispense:create',
       disabled: (row) => !isOpen(row) || remainingOf(row) === 0 || locationId === '',
       onSelect: (row) => {
-        if (isOpen(row) && remainingOf(row) !== 0 && locationId !== '') setPanel(row);
+        if (isOpen(row) && remainingOf(row) !== 0 && locationId !== '') {
+          setReturning(null);
+          setPanel(row);
+        }
       },
     },
     {
@@ -308,48 +317,101 @@ export default function DispensePrescription() {
           <p className="text-sm text-muted-foreground">{t('dispenses.none')}</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {rx.dispenses.map((dispense) => (
-              <li key={dispense.id} className="flex flex-col gap-1 rounded-md border p-3 text-sm">
-                <p className="font-medium">
-                  {t('slip.item', { item: dispense.itemName, count: dispense.quantity })}
-                </p>
-                {dispense.substitutionReason && (
-                  <p>{t('dispenses.substitute', { reason: dispense.substitutionReason })}</p>
-                )}
-                <p>
-                  {dispense.batches
-                    .map((batch) =>
-                      t('slip.batch', {
-                        number: batch.batchNumber,
-                        expiry: format.calendarDate(batch.expiryDate),
-                        count: batch.quantity,
-                      }),
-                    )
-                    .join('; ')}
-                </p>
-                <p className="text-muted-foreground">
-                  {t('dispenses.by', {
-                    name: dispense.dispensedByName,
-                    time: format.dateTime(dispense.dispensedAt),
-                    place: dispense.locationName,
-                  })}
-                </p>
-                <div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-label={t('dispenses.printLabel', { item: dispense.itemName })}
-                    aria-disabled={printing.busy || undefined}
-                    aria-describedby={printing.error ? printErrorId : undefined}
-                    onClick={() => {
-                      if (!printing.busy) printing.print(dispense);
-                    }}
-                  >
-                    {t('dispenses.print')}
-                  </Button>
-                </div>
-              </li>
-            ))}
+            {rx.dispenses.map((dispense) => {
+              const out = dispense.batches.some((batch) => batch.quantity > batch.returnedQuantity);
+              return (
+                <li key={dispense.id} className="flex flex-col gap-1 rounded-md border p-3 text-sm">
+                  <p className="font-medium">
+                    {t('slip.item', { item: dispense.itemName, count: dispense.quantity })}
+                  </p>
+                  {dispense.substitutionReason && (
+                    <p>{t('dispenses.substitute', { reason: dispense.substitutionReason })}</p>
+                  )}
+                  <p>
+                    {dispense.batches
+                      .map((batch) =>
+                        [
+                          t('slip.batch', {
+                            number: batch.batchNumber,
+                            expiry: format.calendarDate(batch.expiryDate),
+                            count: batch.quantity,
+                          }),
+                          batch.returnedQuantity > 0
+                            ? t('dispenses.returned', { count: batch.returnedQuantity })
+                            : '',
+                        ].join(''),
+                      )
+                      .join('; ')}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {t('dispenses.by', {
+                      name: dispense.dispensedByName,
+                      time: format.dateTime(dispense.dispensedAt),
+                      place: dispense.locationName,
+                    })}
+                  </p>
+                  {dispense.returns.map((back) => (
+                    <p key={back.id}>
+                      {t('dispenses.return', {
+                        lines: back.lines
+                          .map((line) =>
+                            t(line.wasted ? 'dispenses.returnWasted' : 'dispenses.returnStock', {
+                              number: line.batchNumber,
+                              count: line.quantity,
+                            }),
+                          )
+                          .join('; '),
+                        reason: back.reason,
+                        name: back.returnedByName,
+                        time: format.dateTime(back.returnedAt),
+                      })}
+                    </p>
+                  ))}
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      aria-label={t('dispenses.printLabel', { item: dispense.itemName })}
+                      aria-disabled={printing.busy || undefined}
+                      aria-describedby={printing.error ? printErrorId : undefined}
+                      onClick={() => {
+                        if (!printing.busy) printing.print(dispense);
+                      }}
+                    >
+                      {t('dispenses.print')}
+                    </Button>
+                    <Can permission="dispense:return">
+                      {returning !== dispense.id && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          aria-label={t('dispenses.returnLabel', { item: dispense.itemName })}
+                          aria-disabled={!out || undefined}
+                          onClick={() => {
+                            if (!out) return;
+                            setPanel(null);
+                            setReturning(dispense.id);
+                          }}
+                        >
+                          {t('dispenses.returnItems')}
+                        </Button>
+                      )}
+                    </Can>
+                  </div>
+                  {returning === dispense.id && mayReturn && (
+                    <DispenseReturnPanel
+                      prescriptionId={rx.prescriptionId}
+                      dispense={dispense}
+                      onClose={() => setReturning(null)}
+                      onReturned={(units) => {
+                        setReturning(null);
+                        say(t('dispenseReturn.done', { item: dispense.itemName, count: units }));
+                      }}
+                    />
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

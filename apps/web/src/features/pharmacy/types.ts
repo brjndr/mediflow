@@ -17,6 +17,9 @@ export type DispenseOptions = Schemas['DispenseOptions'];
 export type DispensableItem = Schemas['DispensableItem'];
 export type DispensableBatch = Schemas['DispensableBatch'];
 export type DispenseCreate = Schemas['DispenseCreate'];
+/** Units of a dispense brought back, to stock or wasted (#104). */
+export type DispenseReturn = Schemas['DispenseReturn'];
+export type DispenseReturnCreate = Schemas['DispenseReturnCreate'];
 export type QueueState = 'open' | 'done';
 
 /** Counter sales, their returns and the drug register (#101). */

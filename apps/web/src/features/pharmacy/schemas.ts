@@ -80,6 +80,23 @@ export const dispenseSchema: z.ZodType<Dispense> = z.object({
       batchNumber: z.string(),
       expiryDate: z.string(),
       quantity: z.number().int(),
+      returnedQuantity: z.number().int(),
+    }),
+  ),
+  returns: z.array(
+    z.object({
+      id: z.string(),
+      reason: z.string(),
+      returnedAt: z.string(),
+      returnedByName: z.string(),
+      lines: z.array(
+        z.object({
+          batchId: z.string(),
+          batchNumber: z.string(),
+          quantity: z.number().int(),
+          wasted: z.boolean(),
+        }),
+      ),
     }),
   ),
   dispensedAt: z.string(),
@@ -241,3 +258,68 @@ export function createDispenseFormSchema(
     });
 }
 export type DispenseFormValues = z.infer<ReturnType<typeof createDispenseFormSchema>>;
+
+const WHOLE_UNITS = /^\d{1,5}$/;
+
+/**
+ * The form returning units of a dispense (#104): for each batch with units still out (`left`),
+ * the units back to stock and the units wasted, and why. An expired batch (`expired`) is never
+ * stock again, so only its wasted units are typed.
+ */
+export function createDispenseReturnFormSchema(
+  batches: readonly { left: number; expired: boolean }[],
+) {
+  return z
+    .object({
+      reason: z
+        .string()
+        .trim()
+        .min(1, 'pharmacy:dispenseReturn.reasonRequired')
+        .max(REASON_MAX, 'validation.too_big')
+        .regex(PLAIN_TEXT, 'validation.plain_text'),
+      restock: z.array(z.string().trim()),
+      waste: z.array(z.string().trim()),
+    })
+    .superRefine((values, context) => {
+      const unitsOf = (typed: string | undefined) =>
+        !typed ? 0 : WHOLE_UNITS.test(typed) ? Number(typed) : Number.NaN;
+      let total = 0;
+      batches.forEach((batch, index) => {
+        const restock = unitsOf(values.restock[index]);
+        const waste = unitsOf(values.waste[index]);
+        let valid = true;
+        for (const [field, units] of [
+          ['restock', restock],
+          ['waste', waste],
+        ] as const) {
+          if (Number.isNaN(units)) {
+            valid = false;
+            context.addIssue({
+              code: 'custom',
+              path: [field, index],
+              message: 'pharmacy:dispenseReturn.wholeUnits',
+            });
+          }
+        }
+        if (!valid) return;
+        if (restock + waste > batch.left) {
+          context.addIssue({
+            code: 'custom',
+            path: [restock > 0 ? 'restock' : 'waste', index],
+            message: 'pharmacy:dispenseReturn.tooMany',
+          });
+          return;
+        }
+        total += restock + waste;
+      });
+      if (total === 0) {
+        const first = batches[0]?.expired ? 'waste' : 'restock';
+        context.addIssue({
+          code: 'custom',
+          path: [first, 0],
+          message: 'pharmacy:dispenseReturn.nothing',
+        });
+      }
+    });
+}
+export type DispenseReturnFormValues = z.infer<ReturnType<typeof createDispenseReturnFormSchema>>;

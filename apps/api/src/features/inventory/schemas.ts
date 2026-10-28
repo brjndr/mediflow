@@ -67,12 +67,13 @@ export const LEDGER_SOURCES = [
   'sale_return',
   'receipt',
   'purchase_return',
+  'dispense_return',
 ] as const;
 export type LedgerSource = (typeof LEDGER_SOURCES)[number];
 export const StockLedgerSource = named(
   'StockLedgerSource',
   LEDGER_SOURCES,
-  'What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103). Transfers come with their module.',
+  'What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104). Transfers come with their module.',
 );
 
 export const LEDGER_REASONS = [
@@ -82,12 +83,14 @@ export const LEDGER_REASONS = [
   'sale_return',
   'receipt',
   'purchase_return',
+  'dispense_return',
+  'wastage',
 ] as const;
 export type LedgerReason = (typeof LEDGER_REASONS)[number];
 export const StockLedgerReason = named(
   'StockLedgerReason',
   LEDGER_REASONS,
-  'Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one.',
+  'Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104).',
 );
 
 const Id = Type.String({ maxLength: 64 });

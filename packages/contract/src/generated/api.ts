@@ -2935,7 +2935,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The drug register of an item of schedule H1, X, narcotic or controlled (422 `not_a_register_item` for another, 404 `item_not_found` for none): every movement of its stock from the ledger, from the first day to the last at the hospital (at most 366 days), the oldest first: dispenses, counter sales, their returns and adjustments, each with its batch, place, quantity, the batch’s balance after it, who made it, and for a dispense or sale who it was for and who prescribed it. Read from the ledger, so no movement can be left out. `total` with the first page. Every dispense and sale named is audited as read. Requires drugRegister:read with the scope `all` and the pharmacy feature flag. The item is an id: a GET. */
+        /** @description The drug register of an item of schedule H1, X, narcotic or controlled (422 `not_a_register_item` for another, 404 `item_not_found` for none): every movement of its stock from the ledger, from the first day to the last at the hospital (at most 366 days), the oldest first: dispenses, counter sales, their returns (a dispense’s wasted units in and out again, reason `wastage`) and adjustments, each with its batch, place, quantity, the batch’s balance after it, who made it, and for a dispense or sale who it was for and who prescribed it. Read from the ledger, so no movement can be left out. `total` with the first page. Every dispense and sale named is audited as read. Requires drugRegister:read with the scope `all` and the pharmacy feature flag. The item is an id: a GET. */
         get: operations["listDrugRegister"];
         put?: never;
         post?: never;
@@ -3041,6 +3041,23 @@ export interface paths {
         put?: never;
         /** @description Records that a dispense slip is printed (the audit entry `print` of the dispense) and answers 204: the web app makes the page from what it read. A new key per press; a repeat records nothing more. Requires dispense:read with the scope `all` and the pharmacy feature flag. */
         post: operations["printDispenseSlip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pharmacy/dispenses/{dispenseId}/returns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings units of a dispense back, with a reason (#104): each batch of the dispense once (422 `unknown_batch` for one not of it or given twice), its units back into stock at the dispense’s place (`restockQuantity`, the ledger’s reason `dispense_return`) or wasted (`wasteQuantity`: an entry in and one out with the reason `wastage`, so stock does not change and the drug register holds them), at least one unit in all (400), never more than was dispensed of the batch less what was returned before (409 `over_return`). An expired batch at the hospital today is never stock again (409 `batch_expired`: waste it); a place no longer in use is 422 `unknown_location`. The prescription line is not reopened. Emits `pharmacy.dispense_returned`. Answers the prescription as it is now. The Idempotency-Key header is required: a repeat moves no stock. Requires dispense:return and dispense:read with the scope `all` and the pharmacy feature flag. Audited. */
+        post: operations["createDispenseReturn"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5614,15 +5631,15 @@ export interface components {
          */
         StockExpiryState: "ok" | "expiring" | "expired";
         /**
-         * @description What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103). Transfers come with their module.
+         * @description What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104). Transfers come with their module.
          * @enum {string}
          */
-        StockLedgerSource: "adjustment" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return";
+        StockLedgerSource: "adjustment" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return" | "dispense_return";
         /**
-         * @description Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one.
+         * @description Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104).
          * @enum {string}
          */
-        StockLedgerReason: "opening" | "count_correction" | "damaged" | "expired" | "other" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return";
+        StockLedgerReason: "opening" | "count_correction" | "damaged" | "expired" | "other" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return" | "dispense_return" | "wastage";
         /** @description A place of the hospital that keeps stock. */
         StockLocation: {
             id: string;
@@ -5835,6 +5852,25 @@ export interface components {
             /** @description A calendar date, `YYYY-MM-DD`. */
             expiryDate: string;
             quantity: number;
+            /** @description Units of it brought back since, to stock or wasted, every return. */
+            returnedQuantity: number;
+        };
+        /** @description Units of one batch brought back in a return. */
+        DispenseReturnLine: {
+            batchId: string;
+            batchNumber: string;
+            quantity: number;
+            /** @description Destroyed rather than put back into stock (an expired batch always is). */
+            wasted: boolean;
+        };
+        /** @description Units of a dispense brought back, with why. Never changed or removed. */
+        DispenseReturn: {
+            id: string;
+            reason: string;
+            /** Format: date-time */
+            returnedAt: string;
+            returnedByName: string;
+            lines: components["schemas"]["DispenseReturnLine"][];
         };
         /** @description Units given against a prescription line. Never changed or removed. */
         Dispense: {
@@ -5856,6 +5892,8 @@ export interface components {
             substitutionReason?: string;
             quantity: number;
             batches: components["schemas"]["DispenseBatch"][];
+            /** @description Oldest first. */
+            returns: components["schemas"]["DispenseReturn"][];
             /** Format: date-time */
             dispensedAt: string;
             dispensedByName: string;
@@ -5942,6 +5980,17 @@ export interface components {
             batches: {
                 batchId: string;
                 quantity: number;
+            }[];
+        };
+        DispenseReturnCreate: {
+            reason: string;
+            /** @description Each batch of the dispense once, with at least one unit in all. */
+            lines: {
+                batchId: string;
+                /** @description Units of the batch back into stock at the dispense’s place. */
+                restockQuantity: number;
+                /** @description Units of the batch brought back and destroyed. */
+                wasteQuantity: number;
             }[];
         };
         PharmacyLineComplete: {
@@ -6080,7 +6129,7 @@ export interface components {
             quantity: number;
             /** @description The batch’s stock at the place after it. */
             balanceAfter: number;
-            /** @description `adjustment`, `dispense`, `sale` or `sale_return` (the ledger’s source). */
+            /** @description `adjustment`, `dispense`, `dispense_return`, `sale` or `sale_return` (the ledger’s source). */
             source: string;
             sourceId: string;
             /** @description The ledger’s reason. */
@@ -22417,6 +22466,98 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createDispenseReturn: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                dispenseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DispenseReturnCreate"];
+            };
+        };
+        responses: {
+            /** @description A prescription as the pharmacy dispenses it: its lines and its dispenses. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PharmacyPrescription"];
+                };
             };
             /** @description Standard error body. */
             400: {

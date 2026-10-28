@@ -422,7 +422,9 @@ export const pharmacySaleHandlers = [
       const dispense =
         entry.source === 'dispense'
           ? dispenses.find((each) => each.id === entry.sourceId)
-          : undefined;
+          : entry.source === 'dispense_return'
+            ? dispenses.find((each) => each.returns.some((back) => back.id === entry.sourceId))
+            : undefined;
       const patientId = dispense?.patientId ?? sale?.patientId;
       const patient = patientId ? mockPatient(tenantId, patientId) : undefined;
       const rx = dispense

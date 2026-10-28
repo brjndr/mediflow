@@ -47,6 +47,8 @@ export const DOMAIN_EVENTS = [
   // A counter sale and the return of some of it (#101): ids only, never an item or a price.
   'pharmacy.sold',
   'pharmacy.sale_returned',
+  // Units of a dispense brought back, to stock or wasted (#104): ids only, never a quantity.
+  'pharmacy.dispense_returned',
   // An approved stock adjustment moved stock (#102): ids and the reason, never a quantity.
   'stock.adjusted',
   'stock.low',

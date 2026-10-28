@@ -78,8 +78,37 @@ export const DispenseBatch = Type.Object(
     batchNumber: Type.String(),
     expiryDate: CalendarDate,
     quantity: Type.Integer(),
+    returnedQuantity: Type.Integer({
+      description: 'Units of it brought back since, to stock or wasted, every return.',
+    }),
   },
   { $id: 'DispenseBatch', description: 'Units of one batch given in a dispense.' },
+);
+
+export const DispenseReturnLine = Type.Object(
+  {
+    batchId: Type.String(),
+    batchNumber: Type.String(),
+    quantity: Type.Integer(),
+    wasted: Type.Boolean({
+      description: 'Destroyed rather than put back into stock (an expired batch always is).',
+    }),
+  },
+  { $id: 'DispenseReturnLine', description: 'Units of one batch brought back in a return.' },
+);
+
+export const DispenseReturn = Type.Object(
+  {
+    id: Type.String(),
+    reason: Type.String(),
+    returnedAt: Type.String({ format: 'date-time' }),
+    returnedByName: Type.String(),
+    lines: Type.Array(ref(DispenseReturnLine)),
+  },
+  {
+    $id: 'DispenseReturn',
+    description: 'Units of a dispense brought back, with why. Never changed or removed.',
+  },
 );
 
 export const Dispense = Type.Object(
@@ -101,6 +130,7 @@ export const Dispense = Type.Object(
     ),
     quantity: Type.Integer(),
     batches: Type.Array(ref(DispenseBatch)),
+    returns: Type.Array(ref(DispenseReturn), { description: 'Oldest first.' }),
     dispensedAt: Type.String({ format: 'date-time' }),
     dispensedByName: Type.String(),
   },
@@ -239,6 +269,37 @@ export const DispenseCreate = Type.Object(
 );
 export type DispenseCreate = Static<typeof DispenseCreate>;
 
+export const DispenseReturnCreate = Type.Object(
+  {
+    reason: Type.String({ minLength: 1, maxLength: REASON_MAX, pattern: PLAIN_TEXT }),
+    lines: Type.Array(
+      Type.Object(
+        {
+          batchId: Id,
+          restockQuantity: Type.Integer({
+            minimum: 0,
+            maximum: QUANTITY_MAX,
+            description: 'Units of the batch back into stock at the dispense’s place.',
+          }),
+          wasteQuantity: Type.Integer({
+            minimum: 0,
+            maximum: QUANTITY_MAX,
+            description: 'Units of the batch brought back and destroyed.',
+          }),
+        },
+        { additionalProperties: false },
+      ),
+      {
+        minItems: 1,
+        maxItems: BATCHES_MAX,
+        description: 'Each batch of the dispense once, with at least one unit in all.',
+      },
+    ),
+  },
+  { $id: 'DispenseReturnCreate', additionalProperties: false },
+);
+export type DispenseReturnCreate = Static<typeof DispenseReturnCreate>;
+
 export const LineComplete = Type.Object(
   { expectedVersion: Type.Integer({ description: 'The order’s version.' }) },
   { $id: 'PharmacyLineComplete', additionalProperties: false },
@@ -249,6 +310,8 @@ export const PHARMACY_SCHEMAS = [
   PharmacyQueueItem,
   PharmacyQueuePage,
   DispenseBatch,
+  DispenseReturnLine,
+  DispenseReturn,
   Dispense,
   PharmacyLine,
   PharmacyPrescription,
@@ -256,5 +319,6 @@ export const PHARMACY_SCHEMAS = [
   DispensableItem,
   DispenseOptions,
   DispenseCreate,
+  DispenseReturnCreate,
   LineComplete,
 ] as const;

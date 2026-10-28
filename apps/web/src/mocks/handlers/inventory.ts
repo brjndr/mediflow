@@ -441,9 +441,11 @@ export function mockStockIn(
   tenantId: string,
   movement: {
     locationId: string;
+    /** A sale's return (the default) or a dispense's (#104), whose wasted lines go out again. */
+    source?: 'sale_return' | 'dispense_return';
     sourceId: string;
     actorName: string;
-    lines: { batchId: string; quantity: number }[];
+    lines: { batchId: string; quantity: number; wasted?: boolean }[];
   },
 ): { refused: string } | null {
   const location = state.locations.find(
@@ -457,20 +459,22 @@ export function mockStockIn(
       (each) => each.id === line.batchId && each.tenantId === tenantId,
     );
     if (!batch) return { refused: 'unknown_batch' };
-    if (batch.expiryDate < today) return { refused: 'batch_expired' };
+    if (batch.expiryDate < today && !line.wasted) return { refused: 'batch_expired' };
     batches.push(batch);
   }
+  const source = movement.source ?? 'sale_return';
   movement.lines.forEach((line, index) => {
-    post(state, {
+    const change = {
       tenantId,
       batch: batches[index] as Batch,
       locationId: movement.locationId,
-      quantity: line.quantity,
-      reason: 'sale_return',
-      source: 'sale_return',
+      source,
       sourceId: movement.sourceId,
       actorName: movement.actorName,
-    });
+    };
+    post(state, { ...change, quantity: line.quantity, reason: source });
+    // Wasted units are brought back and destroyed: in, then out again.
+    if (line.wasted) post(state, { ...change, quantity: -line.quantity, reason: 'wastage' });
   });
   return null;
 }

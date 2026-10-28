@@ -19,7 +19,14 @@ const field =
 const daysBefore = (day: string, days: number) =>
   new Date(Date.parse(`${day}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
 
-const SOURCES = new Set(['adjustment', 'dispense', 'sale', 'sale_return']);
+const SOURCES = new Set(['adjustment', 'dispense', 'sale', 'sale_return', 'dispense_return']);
+/** What moved the stock, in words: wasted units of a dispense's return say so (#104). */
+const movementOf = (entry: { source: string; reason: string }) =>
+  entry.reason === 'wastage'
+    ? 'register.sources.wastage'
+    : SOURCES.has(entry.source)
+      ? `register.sources.${entry.source}`
+      : 'register.sources.other';
 
 /**
  * The drug register (`pharmacy/register`, #101), for `drugRegister:read`: every movement of an
@@ -70,8 +77,7 @@ export default function DrugRegister() {
       {
         id: 'movement',
         header: t('register.columns.movement'),
-        value: (row) =>
-          t(SOURCES.has(row.source) ? `register.sources.${row.source}` : 'register.sources.other'),
+        value: (row) => t(movementOf(row)),
       },
       {
         id: 'units',

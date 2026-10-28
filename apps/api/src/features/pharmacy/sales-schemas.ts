@@ -251,7 +251,8 @@ export const RegisterEntry = Type.Object(
     quantity: Type.Integer({ description: 'Positive in, negative out.' }),
     balanceAfter: Type.Integer({ description: 'The batch’s stock at the place after it.' }),
     source: Type.String({
-      description: '`adjustment`, `dispense`, `sale` or `sale_return` (the ledger’s source).',
+      description:
+        '`adjustment`, `dispense`, `dispense_return`, `sale` or `sale_return` (the ledger’s source).',
     }),
     sourceId: Type.String(),
     reason: Type.String({ description: 'The ledger’s reason.' }),
