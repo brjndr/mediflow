@@ -16,6 +16,7 @@ import {
   type TestTenant,
   type TestUser,
 } from '../../../test/helpers.js';
+import { announceExpiring, announceExpiringEverywhere } from './expiry.js';
 
 /**
  * The inventory API through the real app and database: places, adjustments asked for by one
@@ -242,6 +243,7 @@ afterAll(async () => {
     // The ledger and the balances refuse removal to everyone: the triggers are off here.
     await client.query('set local session_replication_role = replica');
     for (const table of [
+      'stock_expiry_notices',
       'stock_ledger',
       'stock_balances',
       'stock_adjustments',
@@ -614,6 +616,84 @@ describe('adjustments', () => {
     );
     await ok(approve(more));
     expect((await events(drugId)).map((each) => each.event)).toEqual(['stock.low']);
+  });
+
+  it('emits stock.expiring once for a batch with stock that is near its last day', async () => {
+    const drugId = await addDrug(hospital, 'Cefixime', 'medicine', null);
+    const soon = await opening(10, { drugId, expiryDays: 30 });
+    const later = await opening(10, { drugId, expiryDays: 400 });
+    const empty = await opening(5, { drugId, expiryDays: 20 });
+    const take = await ok<Adjustment>(
+      ask({
+        locationId: places.store,
+        drugId,
+        batchId: empty.batchId,
+        quantity: -5,
+        reason: 'damaged',
+      }),
+      201,
+    );
+    await ok(approve(take));
+    await announceExpiring(pool, hospital.id);
+    expect(await events(soon.batchId ?? '')).toEqual([
+      { event: 'stock.expiring', payload: { drugId } },
+    ]);
+    // Not near, and no stock left: nothing.
+    expect(await events(later.batchId ?? '')).toEqual([]);
+    expect(await events(empty.batchId ?? '')).toEqual([]);
+    // A repeat of the job, one hospital or all, tells nothing again.
+    expect(await announceExpiring(pool, hospital.id)).toBe(0);
+    await announceExpiringEverywhere(pool);
+    expect(await events(soon.batchId ?? '')).toHaveLength(1);
+  });
+
+  it('runs for the hospitals that have the module on, and each tells only of its own batches', async () => {
+    await pool.query(
+      "update tenant_features set enabled = true where tenant_id = $1 and feature = 'inventory'",
+      [clinic.id],
+    );
+    const before = (
+      await pool.query('select count(*)::int as n from stock_expiry_notices where tenant_id = $1', [
+        closed.id,
+      ])
+    ).rows[0];
+    await announceExpiringEverywhere(pool);
+    const after = (
+      await pool.query('select count(*)::int as n from stock_expiry_notices where tenant_id = $1', [
+        closed.id,
+      ])
+    ).rows[0];
+    // The hospital with the module off was not visited.
+    expect(after).toEqual(before);
+    // The job may read which hospitals there are, never their settings.
+    const { rows } = await pool.query<{ ok: boolean }>(
+      "select has_column_privilege('mediflow_worker', 'tenants', 'timezone', 'SELECT') as ok",
+    );
+    expect(rows[0]?.ok).toBe(false);
+  });
+
+  it('keeps the notices of one hospital from another, and from being changed', async () => {
+    const batch = await opening(3, { expiryDays: 10 });
+    await announceExpiring(pool, hospital.id);
+    const seen = await asTenantSql(pool, clinic.id, (client) =>
+      client.query('select 1 from stock_expiry_notices'),
+    );
+    expect(seen.rowCount).toBe(0);
+    const own = await asTenantSql(pool, hospital.id, (client) =>
+      client.query('select 1 from stock_expiry_notices where batch_id = $1', [batch.batchId]),
+    );
+    expect(own.rowCount).toBe(1);
+    await expect(
+      asTenantSql(pool, clinic.id, (client) =>
+        client.query(
+          'insert into stock_expiry_notices (tenant_id, batch_id, drug_id) values ($1, $2, $3)',
+          [hospital.id, batch.batchId, items.amox],
+        ),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      asTenantSql(pool, hospital.id, (client) => client.query('delete from stock_expiry_notices')),
+    ).rejects.toThrow();
   });
 
   it('needs stock:adjust to ask and stock:approve to decide', async () => {
