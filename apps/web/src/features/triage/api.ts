@@ -3,6 +3,7 @@ import { allergyListSchema, vitalRangesSchema, vitalsPageSchema, vitalsSchema } 
 import type {
   AllergyList,
   AllergyListUpdate,
+  PrintableTriage,
   Vitals,
   VitalsCreate,
   VitalsPage,
@@ -86,4 +87,23 @@ export async function saveAllergies(
     body,
   });
   return allergyListSchema.parse(requireData(result));
+}
+
+/**
+ * The parts of triage a printed document carries, read afresh and only those asked for (#398):
+ * the allergies, and the newest reading with its chief complaint.
+ */
+export async function readTriageForPrint(
+  patientId: string,
+  parts: { allergies: boolean; vitals: boolean },
+  signal?: AbortSignal,
+): Promise<PrintableTriage> {
+  const [allergies, vitals] = await Promise.all([
+    parts.allergies ? fetchAllergies(patientId, signal) : undefined,
+    parts.vitals ? fetchVitals({ patientId, limit: 1 }, signal) : undefined,
+  ]);
+  return {
+    ...(allergies ? { allergies } : {}),
+    ...(vitals ? { vitals: vitals.items[0] ?? null } : {}),
+  };
 }

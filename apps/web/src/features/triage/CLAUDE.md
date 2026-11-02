@@ -12,6 +12,8 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 **`TriageSummary`** (from `index.ts`): the allergies and the newest reading of a patient, shown on the consultation (#80, beside the notes). Renders nothing with the switch off, and each part only for its permission. A reading takes two columns by the width of its container, not the window's (`@container`), so it fits that side column.
 
+**Printing (#398):** `TriagePrintout`, `useTriagePrintParts` and `readTriageForPrint` (from `index.ts`) give the clinical prints plain text for paper: allergies, and the newest reading with the chief complaint. Nothing is marked high or low on paper.
+
 ## Decided
 
 - **A reading belongs to the patient, and to the queue token it was taken for.** No encounter exists before M7, and triage does not invent a visit: `queueTokenId` says which token. `encounterId` is set once, from empty to the encounter, by the triage module itself (no other module changes its rows) when it hears `encounter.opened` for the reading's token, idempotently; nothing else of a reading ever changes. A reading taken outside the queue (from the patient's tab) has no token: from M7 the API attaches it to the patient's open encounter, and nursing vitals (NR-01) reuse this record rather than add a second one.

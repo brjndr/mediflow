@@ -3,6 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import {
+  readTriageForPrint,
+  TriagePrintout,
+  useTriagePrintParts,
+  type PrintableTriage,
+} from '@/features/triage';
 import { Button } from '@/shared/ui/button';
 import { PrintSheet } from '@/shared/ui/print-sheet';
 import { RichTextView } from '@/shared/ui/rich-text';
@@ -36,17 +42,30 @@ export function PrintPrescriptionButton({
   const format = useFormatters();
   // Read afresh: one revised or cancelled since the screen loaded is printed as it is now, and
   // the server refuses one no longer to be given (409 `not_printable`).
+  const triage = useTriagePrintParts();
   const printing = usePrinting(async (key, signal) => {
     const now = await fetchPrescription(prescription.id, signal);
+    // The allergies only: a pharmacist reads them from the paper. Read afresh, like the lines.
+    const found = await readTriageForPrint(
+      encounter.patientId,
+      { allergies: triage.allergies, vitals: false },
+      signal,
+    );
     await recordPrescriptionPrint(prescription.id, key);
-    return now;
+    return { prescription: now, triage: found };
   });
   return (
     <PrintControl
       label={t('print.prescription')}
       name={t('print.prescriptionLabel', { time: format.dateTime(prescription.prescribedAt) })}
       printing={printing}
-      sheet={(written) => <PrescriptionDocument encounter={encounter} prescription={written} />}
+      sheet={(job) => (
+        <PrescriptionDocument
+          encounter={encounter}
+          prescription={job.prescription}
+          triage={job.triage}
+        />
+      )}
     />
   );
 }
@@ -59,16 +78,22 @@ export function PrintSummaryButton({ encounter }: { encounter: Encounter }) {
     diagnoses: usePermission('diagnosis:read'),
     prescriptions: usePermission('prescription:read'),
   };
+  const triage = useTriagePrintParts();
   const printing = usePrinting(async (key, signal) => {
-    const summary = await fetchVisitSummary(encounter.id, parts, signal);
+    const [summary, found] = await Promise.all([
+      fetchVisitSummary(encounter.id, parts, signal),
+      readTriageForPrint(encounter.patientId, triage, signal),
+    ]);
     await recordSummaryPrint(encounter.id, key);
-    return summary;
+    return { summary, triage: found };
   });
   return (
     <PrintControl
       label={t('print.summary')}
       printing={printing}
-      sheet={(summary) => <SummaryDocument encounter={encounter} summary={summary} />}
+      sheet={(job) => (
+        <SummaryDocument encounter={encounter} summary={job.summary} triage={job.triage} />
+      )}
     />
   );
 }
@@ -235,9 +260,11 @@ function PrescriptionBody({ prescription }: { prescription: Prescription }) {
 function PrescriptionDocument({
   encounter,
   prescription,
+  triage,
 }: {
   encounter: Encounter;
   prescription: Prescription;
+  triage: PrintableTriage;
 }) {
   const { t } = useTranslation('clinical');
   const format = useFormatters();
@@ -245,6 +272,7 @@ function PrescriptionDocument({
   return (
     <article>
       <VisitHead encounter={encounter} title={t('print.prescriptionTitle')} />
+      <TriagePrintout triage={triage} />
       <PrescriptionBody prescription={prescription} />
       {/* The name is under the signature line, with what follows it. */}
       <p className="mt-6">
@@ -265,7 +293,15 @@ function PrescriptionDocument({
  * amendment says so), and the prescriptions not replaced. A part the caller may not read is left
  * out with no trace, as on the screen.
  */
-function SummaryDocument({ encounter, summary }: { encounter: Encounter; summary: VisitSummary }) {
+function SummaryDocument({
+  encounter,
+  summary,
+  triage,
+}: {
+  encounter: Encounter;
+  summary: VisitSummary;
+  triage: PrintableTriage;
+}) {
   const { t } = useTranslation('clinical');
   const format = useFormatters();
   const diagnoses = summary.diagnoses?.filter((each) => !each.retractedAt);
@@ -277,6 +313,7 @@ function SummaryDocument({ encounter, summary }: { encounter: Encounter; summary
   return (
     <article>
       <VisitHead encounter={encounter} title={t('print.summaryTitle')} />
+      <TriagePrintout triage={triage} />
       {diagnoses && (
         <Part title={t('diagnoses.heading')}>
           {diagnoses.length === 0 ? (
