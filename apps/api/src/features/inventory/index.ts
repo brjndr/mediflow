@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { EXPIRY_JOB, announceExpiringEverywhere } from './expiry.js';
 import { INVENTORY_PERMISSIONS } from './permissions.js';
 import { inventoryRoutes } from './routes.js';
 
@@ -7,12 +8,14 @@ import { inventoryRoutes } from './routes.js';
  * their stock at each place, the append-only ledger of every change, and adjustments that a
  * second person approves, and indents that a store issues on vouchers (#105). Behind the
  * `inventory` module flag. Checks an item through `stockableDrug` from `features/drugs`.
- * Publishes `stock.adjusted`, `stock.low` and `stock.issued`. Dispensing, counter sales and goods
+ * Publishes `stock.adjusted`, `stock.low`, `stock.issued` and, from a daily job, `stock.expiring`. Dispensing, counter sales and goods
  * receipts (#100, #101, #103) post to the same ledger.
  */
 export const inventoryFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('inventory', INVENTORY_PERMISSIONS);
   await app.register(inventoryRoutes);
+  app.jobs.work(EXPIRY_JOB, () => announceExpiringEverywhere(app.database.pool));
+  app.jobs.schedule(EXPIRY_JOB, '15 2 * * *');
 };
 
 /**
