@@ -15,3 +15,10 @@ export type AllergyListUpdate = Schemas['AllergyListUpdate'];
 export type Allergy = Schemas['Allergy'];
 export type AllergySeverity = Schemas['AllergySeverity'];
 export type AllergyStatus = Schemas['AllergyStatus'];
+
+/** What triage puts on paper (#398): a part is absent when the caller may not read it. */
+export interface PrintableTriage {
+  allergies?: AllergyList;
+  /** The newest reading, or null when none was recorded. */
+  vitals?: Vitals | null;
+}

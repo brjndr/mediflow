@@ -142,5 +142,10 @@
       "pressurePair": "Enter both the systolic and the diastolic pressure.",
       "pressureOrder": "The diastolic pressure must be below the systolic."
     }
+  },
+  "print": {
+    "allergiesNotAsked": "Allergies not asked.",
+    "measure": "{{measure}}: {{value}}",
+    "complaint": "Chief complaint: {{complaint}}"
   }
 }

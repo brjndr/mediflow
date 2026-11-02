@@ -217,3 +217,49 @@ describe('access to printing', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe('what triage found, on paper (#398)', () => {
+  it('prints the allergies on the prescription, and the allergies, vitals and complaint on the summary', async () => {
+    await openConsultation();
+    await userEvent.click(
+      await screen.findByRole('button', { name: /^Print the prescription written/ }),
+    );
+    let sheet = await printedSheet();
+    expect(within(sheet).getByRole('heading', { name: 'Allergies' })).toBeInTheDocument();
+    expect(within(sheet).getByText('Penicillin')).toBeInTheDocument();
+    expect(within(sheet).queryByRole('heading', { name: 'Latest vitals' })).not.toBeInTheDocument();
+    closeDialog();
+    await waitFor(() => expect(document.querySelector('[data-print-sheet]')).toBeNull());
+
+    print.mockClear();
+    await userEvent.click(await screen.findByRole('button', { name: 'Print summary' }));
+    sheet = await printedSheet();
+    expect(within(sheet).getByText('Penicillin')).toBeInTheDocument();
+    expect(within(sheet).getByRole('heading', { name: 'Latest vitals' })).toBeInTheDocument();
+    expect(within(sheet).getByText(/Chief complaint: Headache for two days\./)).toBeInTheDocument();
+  });
+
+  it('says the allergies were not asked when they never were', async () => {
+    await openConsultation('enc_h_2');
+    await userEvent.click(await screen.findByRole('button', { name: 'Print summary' }));
+    const sheet = await printedSheet();
+    expect(within(sheet).getByText('Allergies not asked.')).toBeInTheDocument();
+  });
+
+  it('prints no trace of a part the caller may not read', async () => {
+    revokePermission(HOSPITAL, 'admin', 'allergy:read');
+    revokePermission(HOSPITAL, 'admin', 'vitals:read');
+    await openConsultation();
+    await screen.findByText(/ParaCare/);
+    let reads = 0;
+    server.events.on('request:start', ({ request }) => {
+      if (/\/(allergies|vitals)/.test(request.url)) reads += 1;
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Print summary' }));
+    const sheet = await printedSheet();
+    expect(within(sheet).queryByRole('heading', { name: 'Allergies' })).not.toBeInTheDocument();
+    expect(within(sheet).queryByRole('heading', { name: 'Latest vitals' })).not.toBeInTheDocument();
+    expect(within(sheet).queryByText(/Penicillin|Chief complaint/)).not.toBeInTheDocument();
+    expect(reads).toBe(0);
+  });
+});
