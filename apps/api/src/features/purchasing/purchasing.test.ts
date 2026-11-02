@@ -878,3 +878,195 @@ describe('the database’s own rules', () => {
     }
   });
 });
+
+describe('GST on the lines (#427)', () => {
+  interface Taxed {
+    id: string;
+    version: number;
+    totalMinor: number;
+    taxMinor: number;
+    totalWithTaxMinor: number;
+    supply: string;
+    cgstMinor?: number;
+    sgstMinor?: number;
+    igstMinor?: number;
+    lines: (OrderLine & { gstRateBp: number; taxMinor: number })[];
+  }
+  let inState = '';
+  let otherState = '';
+
+  beforeAll(async () => {
+    // The hospital is in state 27; the platform sets this, as the app may not change a hospital.
+    await pool.query('update tenants set gstin = $2 where id = $1', [
+      hospital.id,
+      '27AAAAA0000A1Z5',
+    ]);
+    const supplier = (gstin: string, name: string) =>
+      ok<Supplier>(post('/purchasing/suppliers', { name, gstin }), 201).then((each) => each.id);
+    inState = await supplier('27BBBBB1111B1Z6', 'In-state Distributors');
+    otherState = await supplier('29CCCCC2222C1Z7', 'Other-state Distributors');
+  });
+
+  const orderFrom = (supplier: string, lines: object[]) =>
+    ok<Taxed>(
+      post('/purchasing/orders', { supplierId: supplier, locationId: places.store, lines }),
+      201,
+    );
+
+  it('takes the rate from the item’s tax class and splits it CGST and SGST for an in-state supplier', async () => {
+    // 10 units at 100.00 and 12% (the class of the test items): 1,000.00 + 120.00 = 1,120.00.
+    const order = await orderFrom(inState, [
+      { drugId: items.amox, quantity: 10, unitCostMinor: 10_000 },
+    ]);
+    expect(order).toMatchObject({
+      totalMinor: 100_000,
+      taxMinor: 12_000,
+      totalWithTaxMinor: 112_000,
+      supply: 'intra_state',
+      cgstMinor: 6_000,
+      sgstMinor: 6_000,
+    });
+    expect(order.igstMinor).toBeUndefined();
+    expect(order.lines[0]).toMatchObject({ gstRateBp: 1200, taxMinor: 12_000 });
+    const listed = await ok<Page<Taxed & { id: string }>>(get('/purchasing/orders'));
+    expect(listed.items.find((each) => each.id === order.id)).toMatchObject({
+      totalMinor: 100_000,
+      taxMinor: 12_000,
+      totalWithTaxMinor: 112_000,
+    });
+  });
+
+  it('shows IGST from another state, and no split without a GSTIN on both sides', async () => {
+    const lines = [{ drugId: items.amox, quantity: 10, unitCostMinor: 10_000 }];
+    const other = await orderFrom(otherState, lines);
+    expect(other).toMatchObject({ supply: 'inter_state', igstMinor: 12_000, taxMinor: 12_000 });
+    expect(other.cgstMinor).toBeUndefined();
+    // The first supplier has no GSTIN: the tax is shown, not split.
+    const unknown = await orderFrom(supplierId, lines);
+    expect(unknown).toMatchObject({ supply: 'unknown', taxMinor: 12_000 });
+    expect(unknown.cgstMinor).toBeUndefined();
+    expect(unknown.igstMinor).toBeUndefined();
+  });
+
+  it('keeps a rate typed on a line, rounds half up, and gives an odd minor unit to SGST', async () => {
+    const order = await orderFrom(inState, [
+      // 3 × 333 at 5% = 49.95, rounded up to 50.
+      { drugId: items.amox, quantity: 3, unitCostMinor: 333, gstRateBp: 500 },
+      // 1 × 1,050 at 10% = 105: odd, CGST 52 and SGST 53.
+      { drugId: items.gloves, quantity: 1, unitCostMinor: 1_050, gstRateBp: 1000 },
+    ]);
+    expect(order.lines.map((each) => [each.gstRateBp, each.taxMinor])).toEqual([
+      [500, 50],
+      [1000, 105],
+    ]);
+    expect(order).toMatchObject({ taxMinor: 155, cgstMinor: 77, sgstMinor: 78 });
+    // The list adds the lines' taxes in SQL: it agrees with the detail across fractional lines.
+    const listed = await ok<Page<Taxed>>(get('/purchasing/orders'));
+    expect(listed.items.find((each) => each.id === order.id)).toMatchObject({
+      taxMinor: 155,
+      totalWithTaxMinor: order.totalMinor + 155,
+    });
+    // A draft edited without the rates keeps the ones typed, not the class default.
+    const resent = await ok<Taxed>(
+      send('PATCH', `/purchasing/orders/${order.id}`, {
+        expectedVersion: order.version,
+        lines: [
+          { drugId: items.amox, quantity: 4, unitCostMinor: 333 },
+          { drugId: items.gloves, quantity: 1, unitCostMinor: 1_050 },
+        ],
+      }),
+    );
+    expect(resent.lines.map((each) => each.gstRateBp)).toEqual([500, 1000]);
+    const free = await orderFrom(inState, [
+      { drugId: items.amox, quantity: 2, unitCostMinor: 100, gstRateBp: 0 },
+    ]);
+    expect(free).toMatchObject({ taxMinor: 0, totalWithTaxMinor: 200, cgstMinor: 0, sgstMinor: 0 });
+  });
+
+  it('refuses a rate below 0 or above 100%, and counts a changed rate as a change of the draft', async () => {
+    const lines = (gstRateBp: number) => [
+      { drugId: items.amox, quantity: 2, unitCostMinor: 100, gstRateBp },
+    ];
+    for (const bad of [-1, 10_001, 12.5]) {
+      expect(errorOf(await draft(lines(bad)))).toEqual([400, 'validation_failed']);
+    }
+    const drafted = await orderFrom(inState, lines(500));
+    const edited = await ok<Taxed>(
+      send('PATCH', `/purchasing/orders/${drafted.id}`, {
+        expectedVersion: drafted.version,
+        lines: lines(1800),
+      }),
+    );
+    expect(edited.version).toBe(drafted.version + 1);
+    expect(edited.taxMinor).toBe(36);
+  });
+
+  it('carries the order line’s rate to the receipt, taxed on what a unit cost', async () => {
+    const order = await approvedOrder([
+      { drugId: items.amox, quantity: 10, unitCostMinor: 10_000 },
+    ]);
+    const receipt = await ok<Taxed>(
+      receive(order, [line(order.lines[0], 10, { unitCostMinor: 9_000 })]),
+      201,
+    );
+    expect(receipt.lines[0]).toMatchObject({ gstRateBp: 1200, taxMinor: 10_800 });
+    expect(receipt).toMatchObject({
+      totalMinor: 90_000,
+      taxMinor: 10_800,
+      totalWithTaxMinor: 100_800,
+    });
+    // The supplier of the default order has no GSTIN.
+    expect(receipt.supply).toBe('unknown');
+    const listedReceipts = await ok<Page<Taxed>>(get(`/purchasing/receipts?orderId=${order.id}`));
+    expect(listedReceipts.items[0]).toMatchObject({ taxMinor: 10_800, totalWithTaxMinor: 100_800 });
+    const got = await ok<Taxed>(get(`/purchasing/receipts/${receipt.id}`));
+    expect(got.taxMinor).toBe(10_800);
+    // The batch keeps its cost before tax.
+    const { rows } = await pool.query<{ cost_minor: string }>(
+      'select cost_minor::text from stock_batches where id = $1',
+      [(receipt.lines[0] as unknown as { batchId: string }).batchId],
+    );
+    expect(rows[0]?.cost_minor).toBe('9000');
+  });
+
+  it('splits a receipt from an in-state supplier, and tells in-state by the hospital’s own GSTIN', async () => {
+    const drafted = await orderFrom(inState, [
+      { drugId: items.amox, quantity: 10, unitCostMinor: 10_000 },
+    ]);
+    const submitted = await ok<Order>(step(drafted as unknown as Order, 'submit'));
+    const approved = await ok<Order>(step(submitted, 'approve', { user: admin }));
+    const receipt = await ok<Taxed>(receive(approved, [line(approved.lines[0], 10)]), 201);
+    expect(receipt).toMatchObject({ supply: 'intra_state', cgstMinor: 6_000, sgstMinor: 6_000 });
+    // The clinic has no GSTIN of its own: the same supplier's GSTIN tells it nothing.
+    const clinicSupplier = await ok<Supplier>(
+      post(
+        '/purchasing/suppliers',
+        { name: 'Clinic Distributors', gstin: '27BBBBB1111B1Z6' },
+        { tenant: clinic, user: clinicKeeper },
+      ),
+      201,
+    );
+    const clinicOrder = await ok<Taxed>(
+      post(
+        '/purchasing/orders',
+        {
+          supplierId: clinicSupplier.id,
+          locationId: places.clinicStore,
+          lines: [{ drugId: items.clinicAmox, quantity: 10, unitCostMinor: 10_000 }],
+        },
+        { tenant: clinic, user: clinicKeeper },
+      ),
+      201,
+    );
+    expect(clinicOrder).toMatchObject({ supply: 'unknown', taxMinor: 12_000 });
+    expect(clinicOrder.cgstMinor).toBeUndefined();
+  });
+
+  it('keeps the tax unit sums exact for a line beyond what a number holds', async () => {
+    const order = await orderFrom(inState, [
+      { drugId: items.amox, quantity: 1_000_000, unitCostMinor: 100_000_000_000, gstRateBp: 1800 },
+    ]);
+    // The line’s tax passes what a product of numbers holds exactly; it is worked in bigint.
+    expect(order.lines[0]?.taxMinor).toBe(18_000_000_000_000_000);
+  });
+});

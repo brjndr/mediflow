@@ -382,6 +382,9 @@ const HOSPITALS = [
     address: '12 Sample Road, Indiranagar\nBengaluru 560038, Karnataka',
     phone: '+91 80 4000 0000',
     registrationNumber: 'KA-CE-0000',
+    // The hospital's own GSTIN (Karnataka, state 29): not a real number. It tells in-state supply
+    // (CGST and SGST) from another state's (IGST) on purchases.
+    gstin: '29AAAAA0000A1Z5',
     // Given to the sample doctors' profiles, for the printed prescription.
     doctorCredentials: {
       qualifications: 'MBBS, MD (General Medicine)',
@@ -525,13 +528,13 @@ try {
   for (const hospital of HOSPITALS) {
     const { rows } = await client.query<{ id: string }>(
       `insert into tenants (slug, name, locale, timezone, currency, theme_primary, address, phone,
-                            registration_number)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                            registration_number, gstin)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        on conflict (slug) do update
          set name = excluded.name, locale = excluded.locale, timezone = excluded.timezone,
              currency = excluded.currency, theme_primary = excluded.theme_primary,
              address = excluded.address, phone = excluded.phone,
-             registration_number = excluded.registration_number
+             registration_number = excluded.registration_number, gstin = excluded.gstin
        returning id`,
       [
         hospital.slug,
@@ -543,6 +546,7 @@ try {
         hospital.address,
         hospital.phone,
         hospital.registrationNumber,
+        'gstin' in hospital ? hospital.gstin : null,
       ],
     );
     const id = rows[0]?.id;
@@ -1108,7 +1112,7 @@ try {
       const suppliers: (string | undefined)[] = [];
       for (const [name, gstin, licence, phone] of [
         ['Sunrise Pharma Distributors', '27AABCS1234F1Z5', 'MH-MZ1-123456', '+91 22 4000 1000'],
-        ['Medline Surgical Supplies', '27AACCM5678G1Z2', null, '+91 22 4000 2000'],
+        ['Medline Surgical Supplies', '29AACCM5678G1Z2', null, '+91 22 4000 2000'],
       ]) {
         const { rows } = await client.query<{ id: string }>(
           `insert into suppliers (tenant_id, name, gstin, drug_licence, phone) values ($1, $2, $3, $4, $5)

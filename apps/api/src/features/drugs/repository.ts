@@ -323,14 +323,15 @@ export async function prescribableDrug(
 export async function stockableDrug(
   client: pg.ClientBase,
   id: string,
-): Promise<{ id: string; reorderLevel: number | null } | null> {
+): Promise<{ id: string; reorderLevel: number | null; taxClass: TaxClass } | null> {
   if (!UUID.test(id)) return null;
-  const { rows } = await client.query<{ id: string; reorder_level: number | null }>(
-    'select id, reorder_level from drugs where id = $1 and not archived',
-    [id],
-  );
+  const { rows } = await client.query<{
+    id: string;
+    reorder_level: number | null;
+    tax_class: TaxClass;
+  }>('select id, reorder_level, tax_class from drugs where id = $1 and not archived', [id]);
   const row = rows[0];
-  return row ? { id: row.id, reorderLevel: row.reorder_level } : null;
+  return row ? { id: row.id, reorderLevel: row.reorder_level, taxClass: row.tax_class } : null;
 }
 
 /** A medicine as a dispense records it. */

@@ -53,6 +53,12 @@ export default function PurchaseOrders() {
         value: (row) => format.money(row.totalMinor),
         align: 'end',
       },
+      {
+        id: 'withTax',
+        header: t('orders.columns.withTax'),
+        value: (row) => format.money(row.totalWithTaxMinor),
+        align: 'end',
+      },
       { id: 'place', header: t('orders.columns.place'), value: (row) => row.locationName },
       {
         id: 'created',

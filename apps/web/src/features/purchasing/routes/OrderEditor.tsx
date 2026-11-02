@@ -16,13 +16,18 @@ import {
   useFieldRows,
   useZodForm,
 } from '@/shared/ui/form';
-import { useFormatters, useTenant } from '@/tenancy';
+import { useTenant } from '@/tenancy';
 import { PurchasingLinks } from '../components/PurchasingLinks';
+import { TaxTotals } from '../components/TaxTotals';
 import { useOrder, useSaveOrder, useSuppliers } from '../hooks/use-purchasing';
 import {
+  bpToPercent,
   createOrderFormSchema,
+  DEFAULT_GST_BP,
+  lineTaxMinor,
   ORDER_LINES_MAX,
   ORDER_NOTE_MAX,
+  percentToBp,
   type OrderFormValues,
 } from '../schemas';
 import type { PurchaseOrder } from '../types';
@@ -52,6 +57,7 @@ const valuesOf = (order: PurchaseOrder | null, digits: number): OrderFormValues 
       name: line.itemName,
       quantity: String(line.quantity),
       unitCost: typed(line.unitCostMinor, digits),
+      gstRate: bpToPercent(line.gstRateBp),
     })) ?? [],
 });
 
@@ -192,6 +198,7 @@ function OrderFormScreen({ order }: { order: PurchaseOrder | null }) {
             drugId: line.drugId,
             quantity: Number(line.quantity),
             unitCostMinor: toMinor(line.unitCost, digits) ?? 0,
+            gstRateBp: percentToBp(line.gstRate) ?? 0,
           })),
         },
       });
@@ -301,7 +308,6 @@ function OrderFormScreen({ order }: { order: PurchaseOrder | null }) {
  */
 function OrderLines({ form }: { form: OrderForm }) {
   const { t } = useTranslation('purchasing');
-  const format = useFormatters();
   const nameOf = useMedicineName();
   const digits = currencyDigits(useTenant()?.currency);
   const rows = useFieldRows('lines');
@@ -323,9 +329,13 @@ function OrderLines({ form }: { form: OrderForm }) {
   }, [linesError]);
 
   let total = 0;
+  let tax = 0;
   for (const line of lines) {
     const cost = toMinor(line.unitCost, digits);
-    if (cost !== null && /^\d+$/.test(line.quantity)) total += cost * Number(line.quantity);
+    if (cost !== null && /^\d+$/.test(line.quantity)) {
+      total += cost * Number(line.quantity);
+      tax += lineTaxMinor(Number(line.quantity), cost, percentToBp(line.gstRate) ?? 0);
+    }
   }
 
   return (
@@ -354,7 +364,7 @@ function OrderLines({ form }: { form: OrderForm }) {
                   {t('order.removeShort')}
                 </Button>
               </div>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
                 <TextField
                   name={`lines.${index}.quantity`}
                   label={t('order.units', { name: line?.name })}
@@ -366,6 +376,14 @@ function OrderLines({ form }: { form: OrderForm }) {
                   name={`lines.${index}.unitCost`}
                   label={t('order.unitCost', { name: line?.name })}
                   hint={t('order.unitCostHint')}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  required
+                />
+                <TextField
+                  name={`lines.${index}.gstRate`}
+                  label={t('order.gstRate', { name: line?.name })}
+                  hint={t('order.gstRateHint')}
                   inputMode="decimal"
                   autoComplete="off"
                   required
@@ -399,7 +417,13 @@ function OrderLines({ form }: { form: OrderForm }) {
               }
               setNotice('');
               focusNext.current = lines.length;
-              rows.add({ drugId: drug.id, name: nameOf(drug), quantity: '', unitCost: '' });
+              rows.add({
+                drugId: drug.id,
+                name: nameOf(drug),
+                quantity: '',
+                unitCost: '',
+                gstRate: bpToPercent(DEFAULT_GST_BP[drug.taxClass]),
+              });
               form.clearErrors('lines');
             }}
           />
@@ -407,7 +431,7 @@ function OrderLines({ form }: { form: OrderForm }) {
       ) : (
         <p className="text-sm">{t('order.full', { count: ORDER_LINES_MAX })}</p>
       )}
-      <p className="font-semibold">{t('order.total', { total: format.money(total) })}</p>
+      <TaxTotals totalMinor={total} taxMinor={tax} />
     </section>
   );
 }

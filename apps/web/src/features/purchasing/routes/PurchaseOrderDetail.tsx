@@ -11,9 +11,11 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import { useFormatters } from '@/tenancy';
 import { EndOrderPanel } from '../components/EndOrderPanel';
 import { PurchasingLinks } from '../components/PurchasingLinks';
+import { TaxTotals } from '../components/TaxTotals';
 import { ReceivePanel } from '../components/ReceivePanel';
 import { ORDER_REFUSED } from '../components/refusals';
 import { useOrder, useReceipts, useStepOrder } from '../hooks/use-purchasing';
+import { bpToPercent } from '../schemas';
 import type { GoodsReceiptSummary, PurchaseOrderLine } from '../types';
 
 type Panel = 'receive' | 'cancel' | 'close';
@@ -92,6 +94,13 @@ export default function PurchaseOrderDetail() {
         id: 'amount',
         header: t('order.columns.amount'),
         value: (row) => format.money(row.unitCostMinor * row.quantity),
+        align: 'end',
+      },
+      {
+        id: 'gst',
+        header: t('order.columns.gst'),
+        value: (row) =>
+          t('gst.line', { rate: bpToPercent(row.gstRateBp), tax: format.money(row.taxMinor) }),
         align: 'end',
       },
       {
@@ -263,7 +272,7 @@ export default function PurchaseOrderDetail() {
           </>
         )}
       </dl>
-      <p className="font-semibold">{t('order.total', { total: format.money(data.totalMinor) })}</p>
+      <TaxTotals totalMinor={data.totalMinor} taxMinor={data.taxMinor} split={data} />
       {!panel && (
         <div className="flex flex-wrap gap-2">
           {data.status === 'draft' && canCreate && (

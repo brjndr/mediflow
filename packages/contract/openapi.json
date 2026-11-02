@@ -8557,6 +8557,11 @@
           }
         }
       },
+      "GstSupply": {
+        "type": "string",
+        "enum": ["intra_state", "inter_state", "unknown"],
+        "description": "In the hospital’s state (CGST and SGST), from another state (IGST), or not known: a GSTIN is missing."
+      },
       "PurchaseOrderStatus": {
         "type": "string",
         "enum": [
@@ -8734,6 +8739,8 @@
           "itemName",
           "quantity",
           "unitCostMinor",
+          "gstRateBp",
+          "taxMinor",
           "receivedQuantity"
         ],
         "properties": {
@@ -8762,6 +8769,14 @@
             "description": "The agreed price of a unit before tax.",
             "type": "integer"
           },
+          "gstRateBp": {
+            "description": "GST on the line in basis points: 1200 is 12%.",
+            "type": "integer"
+          },
+          "taxMinor": {
+            "description": "The line’s GST, rounded half up.",
+            "type": "integer"
+          },
           "receivedQuantity": {
             "description": "Units received against the line so far.",
             "type": "integer"
@@ -8781,6 +8796,8 @@
           "locationName",
           "status",
           "totalMinor",
+          "taxMinor",
+          "totalWithTaxMinor",
           "createdById",
           "createdByName",
           "createdAt",
@@ -8816,6 +8833,14 @@
           },
           "totalMinor": {
             "description": "The lines’ quantities at their unit costs, before tax.",
+            "type": "integer"
+          },
+          "taxMinor": {
+            "description": "The GST of all the lines.",
+            "type": "integer"
+          },
+          "totalWithTaxMinor": {
+            "description": "The total before tax plus the tax.",
             "type": "integer"
           },
           "createdById": {
@@ -8881,10 +8906,13 @@
           "locationName",
           "status",
           "totalMinor",
+          "taxMinor",
+          "totalWithTaxMinor",
           "createdById",
           "createdByName",
           "createdAt",
           "version",
+          "supply",
           "lines",
           "editedById"
         ],
@@ -8919,6 +8947,14 @@
             "description": "The lines’ quantities at their unit costs, before tax.",
             "type": "integer"
           },
+          "taxMinor": {
+            "description": "The GST of all the lines.",
+            "type": "integer"
+          },
+          "totalWithTaxMinor": {
+            "description": "The total before tax plus the tax.",
+            "type": "integer"
+          },
           "createdById": {
             "type": "string"
           },
@@ -8939,6 +8975,18 @@
           },
           "note": {
             "type": "string"
+          },
+          "supply": {
+            "$ref": "#/components/schemas/GstSupply"
+          },
+          "cgstMinor": {
+            "type": "integer"
+          },
+          "sgstMinor": {
+            "type": "integer"
+          },
+          "igstMinor": {
+            "type": "integer"
           },
           "lines": {
             "type": "array",
@@ -8994,6 +9042,12 @@
           "unitCostMinor": {
             "minimum": 0,
             "maximum": 100000000000,
+            "type": "integer"
+          },
+          "gstRateBp": {
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "GST in basis points (1200 is 12%). Left out, it comes from the item’s tax class: 0, 5%, 12% or 18%.",
             "type": "integer"
           }
         }
@@ -9104,6 +9158,8 @@
           "expiryDate",
           "quantity",
           "unitCostMinor",
+          "gstRateBp",
+          "taxMinor",
           "returnedQuantity"
         ],
         "properties": {
@@ -9148,6 +9204,14 @@
             "description": "What a unit of this delivery cost, before tax.",
             "type": "integer"
           },
+          "gstRateBp": {
+            "description": "GST in basis points, as the order line had it.",
+            "type": "integer"
+          },
+          "taxMinor": {
+            "description": "The line’s GST, rounded half up.",
+            "type": "integer"
+          },
           "returnedQuantity": {
             "description": "Units of the line sent back so far.",
             "type": "integer"
@@ -9168,6 +9232,8 @@
           "locationId",
           "locationName",
           "totalMinor",
+          "taxMinor",
+          "totalWithTaxMinor",
           "receivedByName",
           "receivedAt",
           "lineCount"
@@ -9207,6 +9273,14 @@
           },
           "totalMinor": {
             "description": "The lines at their unit costs, before tax.",
+            "type": "integer"
+          },
+          "taxMinor": {
+            "description": "The GST of all the lines.",
+            "type": "integer"
+          },
+          "totalWithTaxMinor": {
+            "description": "The total before tax plus the tax.",
             "type": "integer"
           },
           "receivedByName": {
@@ -9262,8 +9336,11 @@
           "locationId",
           "locationName",
           "totalMinor",
+          "taxMinor",
+          "totalWithTaxMinor",
           "receivedByName",
           "receivedAt",
+          "supply",
           "lines"
         ],
         "properties": {
@@ -9303,6 +9380,14 @@
             "description": "The lines at their unit costs, before tax.",
             "type": "integer"
           },
+          "taxMinor": {
+            "description": "The GST of all the lines.",
+            "type": "integer"
+          },
+          "totalWithTaxMinor": {
+            "description": "The total before tax plus the tax.",
+            "type": "integer"
+          },
           "receivedByName": {
             "type": "string"
           },
@@ -9312,6 +9397,18 @@
           },
           "note": {
             "type": "string"
+          },
+          "supply": {
+            "$ref": "#/components/schemas/GstSupply"
+          },
+          "cgstMinor": {
+            "type": "integer"
+          },
+          "sgstMinor": {
+            "type": "integer"
+          },
+          "igstMinor": {
+            "type": "integer"
           },
           "lines": {
             "type": "array",

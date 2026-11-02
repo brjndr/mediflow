@@ -13,6 +13,7 @@ import { mockDrug } from '@/mocks/handlers/drugs';
 import { mockStock } from '@/mocks/handlers/inventory';
 import { mockPurchasing } from '@/mocks/handlers/purchasing';
 import { expectNoAxeViolations } from '@/test/axe';
+import { bpToPercent, lineTaxMinor, percentToBp } from './schemas';
 import { renderApp } from '@/test/render';
 
 // Purchasing (#103). The mock's hospital has two suppliers (Sunrise Pharma Distributors and
@@ -83,14 +84,32 @@ describe('purchase orders', () => {
     const price = screen.getByLabelText(/^Price of one unit of Examination gloves/);
     await userEvent.clear(price);
     await userEvent.type(price, '12.50');
-    expect(screen.getByText(/Total before tax: .*6,250/)).toBeInTheDocument();
+    // The rate starts from the item's tax class; a typed one is the supplier's invoice.
+    const rate = screen.getByLabelText(/^GST on Examination gloves/);
+    expect(rate).not.toHaveValue('');
+    await userEvent.clear(rate);
+    await userEvent.type(rate, '12,5');
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    expect(await screen.findByText(/^Enter a percentage from 0 to 100/)).toBeInTheDocument();
+    await userEvent.clear(rate);
+    await userEvent.type(rate, '5');
+    // 500 at 12.50 is 6,250.00; 5% of it is 312.50.
+    expect(screen.getByText('Total before tax').nextSibling).toHaveTextContent('6,250.00');
+    expect(screen.getByText('GST').nextSibling).toHaveTextContent('312.50');
+    expect(screen.getByText('Total with tax').nextSibling).toHaveTextContent('6,562.50');
     await userEvent.click(screen.getByRole('button', { name: 'Save draft' }));
 
     await screen.findByRole('heading', { name: 'Purchase order PO-000005', level: 1 });
     expect(screen.getByRole('status')).toHaveTextContent('Draft saved.');
     const drafted = mockPurchasing().orders.at(-1);
     expect(drafted).toMatchObject({ status: 'draft', totalMinor: 625_000 });
-    expect(drafted?.lines).toMatchObject([{ quantity: 500, unitCostMinor: 1250 }]);
+    expect(drafted?.lines).toMatchObject([
+      { quantity: 500, unitCostMinor: 1250, gstRateBp: 500, taxMinor: 31_250 },
+    ]);
+    expect(drafted).toMatchObject({ taxMinor: 31_250, totalWithTaxMinor: 656_250 });
+    // The supplier's GSTIN is of the hospital's state: the tax divides into CGST and SGST.
+    expect(screen.getByText('CGST').nextSibling).toHaveTextContent('156.25');
+    expect(screen.getByText('SGST').nextSibling).toHaveTextContent('156.25');
 
     await userEvent.click(screen.getByRole('button', { name: 'Submit for approval' }));
     await waitFor(() =>
@@ -191,6 +210,16 @@ describe('goods receipts', () => {
         await within(grid('Goods received')).findByRole('button', { name: /^Open/ }),
       );
       await screen.findByRole('heading', { name: 'Goods receipt GRN-000001', level: 1 });
+      // The supplier is in the hospital's state: the receipt's tax divides into CGST and SGST.
+      const receipt = mockPurchasing().receipts[0];
+      expect(receipt).toMatchObject({ supply: 'intra_state' });
+      expect((receipt?.cgstMinor ?? 0) + (receipt?.sgstMinor ?? 0)).toBe(receipt?.taxMinor);
+      expect(receipt?.totalWithTaxMinor).toBe(
+        (receipt?.totalMinor ?? 0) + (receipt?.taxMinor ?? 0),
+      );
+      expect(screen.getByText('CGST')).toBeInTheDocument();
+      expect(screen.getByText('SGST')).toBeInTheDocument();
+      expect(screen.queryByText('IGST')).not.toBeInTheDocument();
       await userEvent.click(screen.getByRole('button', { name: 'Return to supplier' }));
       const back = await screen.findByRole('region', {
         name: 'Return to Sunrise Pharma Distributors',
@@ -426,5 +455,35 @@ describe('access', () => {
     expect(await screen.findByText('No purchase orders.')).toBeInTheDocument();
     renderApp({ entry: '/purchasing/orders/po_h_approved' });
     expect(await screen.findByText('This purchase order does not exist.')).toBeInTheDocument();
+  });
+});
+
+describe('GST rates', () => {
+  it('reads a typed percent into basis points, without a float, and refuses what is not one', () => {
+    expect(percentToBp('12')).toBe(1200);
+    expect(percentToBp('2.5')).toBe(250);
+    expect(percentToBp('0.1')).toBe(10);
+    expect(percentToBp('0.05')).toBe(5);
+    expect(percentToBp('100')).toBe(10_000);
+    for (const bad of ['', '12,5', '100.01', '101', '-1', '1.234', 'x']) {
+      expect(percentToBp(bad)).toBeNull();
+    }
+  });
+
+  it('writes basis points back as typed', () => {
+    expect([0, 500, 1200, 1250, 1805, 10_000].map(bpToPercent)).toEqual([
+      '0',
+      '5',
+      '12',
+      '12.5',
+      '18.05',
+      '100',
+    ]);
+  });
+
+  it('works a line’s tax half up: 10 units at 100.00 and 12% is 120.00', () => {
+    expect(lineTaxMinor(10, 10_000, 1200)).toBe(12_000);
+    expect(lineTaxMinor(3, 333, 500)).toBe(50);
+    expect(lineTaxMinor(1_000_000, 100_000_000_000, 1800)).toBe(18_000_000_000_000_000);
   });
 });
