@@ -152,11 +152,31 @@ export const PurchaseOrderLine = Type.Object(
     unit: Type.Optional(Type.String({ description: 'What one unit is.' })),
     quantity: Type.Integer({ description: 'Units ordered.' }),
     unitCostMinor: Type.Integer({ description: 'The agreed price of a unit before tax.' }),
+    gstRateBp: Type.Integer({ description: 'GST on the line in basis points: 1200 is 12%.' }),
+    taxMinor: Type.Integer({ description: 'The line’s GST, rounded half up.' }),
     receivedQuantity: Type.Integer({ description: 'Units received against the line so far.' }),
   },
   { $id: 'PurchaseOrderLine' },
 );
 export type PurchaseOrderLine = Static<typeof PurchaseOrderLine>;
+
+const taxTotals = {
+  taxMinor: Type.Integer({ description: 'The GST of all the lines.' }),
+  totalWithTaxMinor: Type.Integer({ description: 'The total before tax plus the tax.' }),
+};
+
+/** How a document’s tax divides, from the supplier’s GSTIN and the hospital’s. */
+export const GstSupply = named(
+  'GstSupply',
+  ['intra_state', 'inter_state', 'unknown'],
+  'In the hospital’s state (CGST and SGST), from another state (IGST), or not known: a GSTIN is missing.',
+);
+const taxSplit = {
+  supply: ref(GstSupply),
+  cgstMinor: Type.Optional(Type.Integer()),
+  sgstMinor: Type.Optional(Type.Integer()),
+  igstMinor: Type.Optional(Type.Integer()),
+};
 
 const orderFields = {
   id: Type.String(),
@@ -170,6 +190,7 @@ const orderFields = {
   totalMinor: Type.Integer({
     description: 'The lines’ quantities at their unit costs, before tax.',
   }),
+  ...taxTotals,
   createdById: Type.String(),
   createdByName: Type.String(),
   createdAt: Type.String({ format: 'date-time' }),
@@ -193,6 +214,7 @@ export const PurchaseOrder = Type.Object(
   {
     ...orderFields,
     note: Type.Optional(Type.String()),
+    ...taxSplit,
     lines: Type.Array(ref(PurchaseOrderLine)),
     editedById: Type.String({
       description:
@@ -225,7 +247,19 @@ export const PurchaseOrderListQuery = Type.Object({
 export type PurchaseOrderListQuery = Static<typeof PurchaseOrderListQuery>;
 
 export const PurchaseOrderLineInput = Type.Object(
-  { drugId: Id, quantity: Quantity, unitCostMinor: Money },
+  {
+    drugId: Id,
+    quantity: Quantity,
+    unitCostMinor: Money,
+    gstRateBp: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        maximum: 10000,
+        description:
+          'GST in basis points (1200 is 12%). Left out, it comes from the item’s tax class: 0, 5%, 12% or 18%.',
+      }),
+    ),
+  },
   { $id: 'PurchaseOrderLineInput', additionalProperties: false },
 );
 export type PurchaseOrderLineInput = Static<typeof PurchaseOrderLineInput>;
@@ -291,6 +325,8 @@ export const GoodsReceiptLine = Type.Object(
     mrpMinor: Type.Optional(Type.Integer({ description: 'The batch’s maximum retail price.' })),
     quantity: Type.Integer(),
     unitCostMinor: Type.Integer({ description: 'What a unit of this delivery cost, before tax.' }),
+    gstRateBp: Type.Integer({ description: 'GST in basis points, as the order line had it.' }),
+    taxMinor: Type.Integer({ description: 'The line’s GST, rounded half up.' }),
     returnedQuantity: Type.Integer({ description: 'Units of the line sent back so far.' }),
   },
   { $id: 'GoodsReceiptLine' },
@@ -311,6 +347,7 @@ const receiptFields = {
     Type.String({ description: 'The supplier’s invoice or delivery note.' }),
   ),
   totalMinor: Type.Integer({ description: 'The lines at their unit costs, before tax.' }),
+  ...taxTotals,
   receivedByName: Type.String(),
   receivedAt: Type.String({ format: 'date-time' }),
 };
@@ -327,6 +364,7 @@ export const GoodsReceipt = Type.Object(
   {
     ...receiptFields,
     note: Type.Optional(Type.String()),
+    ...taxSplit,
     lines: Type.Array(ref(GoodsReceiptLine)),
   },
   {
@@ -462,6 +500,7 @@ export const PurchaseReturnCreate = Type.Object(
 export type PurchaseReturnCreate = Static<typeof PurchaseReturnCreate>;
 
 export const PURCHASING_SCHEMAS = [
+  GstSupply,
   PurchaseOrderStatus,
   PurchaseReturnReason,
   Supplier,

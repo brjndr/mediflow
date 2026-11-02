@@ -6441,6 +6441,11 @@ export interface components {
             total?: number;
         };
         /**
+         * @description In the hospital’s state (CGST and SGST), from another state (IGST), or not known: a GSTIN is missing.
+         * @enum {string}
+         */
+        GstSupply: "intra_state" | "inter_state" | "unknown";
+        /**
          * @description A draft is changed freely; submitted, it waits for someone else to approve it; approved, goods are received against it, partly then in full. One partly received may be closed when the rest will not come; one with nothing received may be cancelled.
          * @enum {string}
          */
@@ -6502,6 +6507,10 @@ export interface components {
             quantity: number;
             /** @description The agreed price of a unit before tax. */
             unitCostMinor: number;
+            /** @description GST on the line in basis points: 1200 is 12%. */
+            gstRateBp: number;
+            /** @description The line’s GST, rounded half up. */
+            taxMinor: number;
             /** @description Units received against the line so far. */
             receivedQuantity: number;
         };
@@ -6519,6 +6528,10 @@ export interface components {
             status: components["schemas"]["PurchaseOrderStatus"];
             /** @description The lines’ quantities at their unit costs, before tax. */
             totalMinor: number;
+            /** @description The GST of all the lines. */
+            taxMinor: number;
+            /** @description The total before tax plus the tax. */
+            totalWithTaxMinor: number;
             createdById: string;
             createdByName: string;
             /** Format: date-time */
@@ -6549,6 +6562,10 @@ export interface components {
             status: components["schemas"]["PurchaseOrderStatus"];
             /** @description The lines’ quantities at their unit costs, before tax. */
             totalMinor: number;
+            /** @description The GST of all the lines. */
+            taxMinor: number;
+            /** @description The total before tax plus the tax. */
+            totalWithTaxMinor: number;
             createdById: string;
             createdByName: string;
             /** Format: date-time */
@@ -6558,6 +6575,10 @@ export interface components {
             /** @description Counts the changes. Sent back as expectedVersion; another one gives 409 `conflict`. */
             version: number;
             note?: string;
+            supply: components["schemas"]["GstSupply"];
+            cgstMinor?: number;
+            sgstMinor?: number;
+            igstMinor?: number;
             lines: components["schemas"]["PurchaseOrderLine"][];
             /** @description Who last changed what is ordered. Neither they, the creator nor the submitter approves it. */
             editedById: string;
@@ -6577,6 +6598,8 @@ export interface components {
             drugId: string;
             quantity: number;
             unitCostMinor: number;
+            /** @description GST in basis points (1200 is 12%). Left out, it comes from the item’s tax class: 0, 5%, 12% or 18%. */
+            gstRateBp?: number;
         };
         PurchaseOrderCreate: {
             supplierId: string;
@@ -6624,6 +6647,10 @@ export interface components {
             quantity: number;
             /** @description What a unit of this delivery cost, before tax. */
             unitCostMinor: number;
+            /** @description GST in basis points, as the order line had it. */
+            gstRateBp: number;
+            /** @description The line’s GST, rounded half up. */
+            taxMinor: number;
             /** @description Units of the line sent back so far. */
             returnedQuantity: number;
         };
@@ -6643,6 +6670,10 @@ export interface components {
             supplierInvoice?: string;
             /** @description The lines at their unit costs, before tax. */
             totalMinor: number;
+            /** @description The GST of all the lines. */
+            taxMinor: number;
+            /** @description The total before tax plus the tax. */
+            totalWithTaxMinor: number;
             receivedByName: string;
             /** Format: date-time */
             receivedAt: string;
@@ -6670,10 +6701,18 @@ export interface components {
             supplierInvoice?: string;
             /** @description The lines at their unit costs, before tax. */
             totalMinor: number;
+            /** @description The GST of all the lines. */
+            taxMinor: number;
+            /** @description The total before tax plus the tax. */
+            totalWithTaxMinor: number;
             receivedByName: string;
             /** Format: date-time */
             receivedAt: string;
             note?: string;
+            supply: components["schemas"]["GstSupply"];
+            cgstMinor?: number;
+            sgstMinor?: number;
+            igstMinor?: number;
             lines: components["schemas"]["GoodsReceiptLine"][];
         };
         GoodsReceiptLineInput: {

@@ -14,6 +14,52 @@ type PurchaseReturn = components['schemas']['PurchaseReturn'];
 
 const FEATURE_FLAG = 'purchasing';
 const GSTIN = /^[0-9]{2}[A-Z0-9]{13}$/;
+
+/** The hospital's own GSTIN (state 27), as the API reads it from the hospital; the clinic has none. */
+const HOSPITAL_GSTIN: Record<string, string> = { [TENANT_IDS.hospital]: '27AAAAA0000A1Z5' };
+
+/** The rate a line starts with, by the item's tax class, in basis points. */
+const DEFAULT_GST_BP: Record<Drug['taxClass'], number> = {
+  exempt: 0,
+  reduced: 500,
+  standard: 1200,
+  higher: 1800,
+};
+
+/** Units × cost × rate / 10,000, rounded half up, as the API's `lineTax`. */
+const lineTax = (quantity: number, unitCostMinor: number, rateBp: number) =>
+  Number((BigInt(quantity) * BigInt(unitCostMinor) * BigInt(rateBp) + 5000n) / 10000n);
+
+/**
+ * The tax fields of an order or a receipt, worked out from its lines as the API does: each
+ * line's tax, the totals, and the split by the supplier's GSTIN against the hospital's.
+ */
+function stamp(
+  document: PurchaseOrder | GoodsReceipt,
+  lines: { quantity: number; unitCostMinor: number; gstRateBp: number; taxMinor: number }[],
+  supplierGstin: string | undefined,
+) {
+  for (const line of lines) {
+    line.taxMinor = lineTax(line.quantity, line.unitCostMinor, line.gstRateBp);
+  }
+  const tax = lines.reduce((sum, line) => sum + line.taxMinor, 0);
+  document.taxMinor = tax;
+  document.totalWithTaxMinor = document.totalMinor + tax;
+  delete document.cgstMinor;
+  delete document.sgstMinor;
+  delete document.igstMinor;
+  const hospital = HOSPITAL_GSTIN[document.tenantId];
+  if (!supplierGstin || !hospital) {
+    document.supply = 'unknown';
+  } else if (supplierGstin.slice(0, 2) !== hospital.slice(0, 2)) {
+    document.supply = 'inter_state';
+    document.igstMinor = tax;
+  } else {
+    document.supply = 'intra_state';
+    document.cgstMinor = Math.floor(tax / 2);
+    document.sgstMinor = tax - Math.floor(tax / 2);
+  }
+}
 const RETURN_REASONS = ['expired', 'damaged', 'wrong_item', 'other'];
 const ORDER_STATUSES: readonly PurchaseOrderStatus[] = [
   'draft',
@@ -88,6 +134,8 @@ function seed() {
       ...(drug.unit ? { unit: drug.unit } : {}),
       quantity: 200,
       unitCostMinor: 2800 + position * 500,
+      gstRateBp: DEFAULT_GST_BP[drug.taxClass],
+      taxMinor: 0,
       receivedQuantity: 0,
     }));
     const submitted = status !== 'draft';
@@ -101,6 +149,9 @@ function seed() {
       locationName: 'Main store',
       status,
       totalMinor: lines.reduce((sum, line) => sum + line.quantity * line.unitCostMinor, 0),
+      taxMinor: 0,
+      totalWithTaxMinor: 0,
+      supply: 'unknown',
       createdById: USER_IDS.storeKeeper,
       createdByName: 'Sample Store Keeper',
       createdAt: at(48 - index),
@@ -123,6 +174,14 @@ function seed() {
       lines,
       version: 1,
     });
+    const placed = state.orders.at(-1);
+    if (placed) {
+      stamp(
+        placed,
+        placed.lines,
+        state.suppliers.find((each) => each.id === placed.supplierId)?.gstin,
+      );
+    }
   });
   state.numbers.set(`${tenantId}:order`, steps.length);
   return state;
@@ -237,6 +296,8 @@ const summaryOf = ({ lines, note: _note, ...order }: PurchaseOrder) => ({
   locationName: order.locationName,
   status: order.status,
   totalMinor: order.totalMinor,
+  taxMinor: order.taxMinor,
+  totalWithTaxMinor: order.totalWithTaxMinor,
   createdById: order.createdById,
   createdByName: order.createdByName,
   createdAt: order.createdAt,
@@ -260,6 +321,17 @@ function linesOf(tenantId: string, value: unknown) {
     const drug = mockDrug(tenantId, line.drugId);
     if (!drug || drug.archived || seen.has(drug.id)) return null;
     if (!whole(line.quantity) || !money(line.unitCostMinor)) return null;
+    if (
+      line.gstRateBp !== undefined &&
+      !(
+        typeof line.gstRateBp === 'number' &&
+        Number.isInteger(line.gstRateBp) &&
+        line.gstRateBp >= 0 &&
+        line.gstRateBp <= 10_000
+      )
+    ) {
+      return null;
+    }
     seen.add(drug.id);
     lines.push({
       id: `pol_${(state.counter += 1)}`,
@@ -269,6 +341,8 @@ function linesOf(tenantId: string, value: unknown) {
       ...(drug.unit ? { unit: drug.unit } : {}),
       quantity: line.quantity,
       unitCostMinor: line.unitCostMinor,
+      gstRateBp: (line.gstRateBp as number | undefined) ?? DEFAULT_GST_BP[drug.taxClass],
+      taxMinor: 0,
       receivedQuantity: 0,
     });
   }
@@ -462,6 +536,9 @@ export const purchasingHandlers = [
       locationName: place.name,
       status: 'draft',
       totalMinor: totalOf(lines),
+      taxMinor: 0,
+      totalWithTaxMinor: 0,
+      supply: 'unknown',
       createdById: caller.id,
       createdByName: caller.name,
       editedById: caller.id,
@@ -470,6 +547,7 @@ export const purchasingHandlers = [
       lines,
       version: 1,
     };
+    stamp(order, lines, supplier.gstin);
     state.orders.push(order);
     return keyed.answer(order, 201);
   }),
@@ -507,6 +585,7 @@ export const purchasingHandlers = [
       order.lines = lines;
       order.totalMinor = totalOf(lines);
     }
+    stamp(order, order.lines, supplierOf(access.tenantId, order.supplierId)?.gstin);
     order.editedById = callerOf().id;
     order.version += 1;
     return HttpResponse.json(order);
@@ -684,6 +763,8 @@ export const purchasingHandlers = [
             ...(batch?.mrpMinor === undefined ? {} : { mrpMinor: batch.mrpMinor }),
             quantity: line.quantity,
             unitCostMinor: line.unitCostMinor,
+            gstRateBp: line.orderLine.gstRateBp,
+            taxMinor: 0,
             returnedQuantity: 0,
           });
         });
@@ -707,10 +788,14 @@ export const purchasingHandlers = [
       ...(invoice ? { supplierInvoice: invoice } : {}),
       ...(note ? { note } : {}),
       totalMinor: totalOf(received),
+      taxMinor: 0,
+      totalWithTaxMinor: 0,
+      supply: 'unknown',
       receivedByName: caller.name,
       receivedAt: new Date(Date.now() + state.counter).toISOString(),
       lines: received,
     };
+    stamp(receipt, received, supplierOf(access.tenantId, order.supplierId)?.gstin);
     state.receipts.push(receipt);
     return keyed.answer(receipt, 201);
   }),

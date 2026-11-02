@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { taxSql } from './gst.js';
 import type { OrderStatus, ReturnReason } from './schemas.js';
 
 /**
@@ -238,6 +239,8 @@ export interface OrderRow {
   note: string | null;
   status: OrderStatus;
   total_minor: string;
+  tax_minor: string;
+  supplier_gstin: string | null;
   line_count: number;
   created_by: string;
   created_by_name: string | null;
@@ -258,7 +261,8 @@ export interface OrderRow {
 const ORDERS = `
   select o.id, o.tenant_id, o.number, o.supplier_id, s.name as supplier_name, o.location_id,
     l.name as location_name, o.note, o.status,
-    coalesce(t.total, 0)::text as total_minor, coalesce(t.lines, 0)::int as line_count,
+    coalesce(t.total, 0)::text as total_minor, coalesce(t.tax, 0)::text as tax_minor,
+    s.gstin as supplier_gstin, coalesce(t.lines, 0)::int as line_count,
     o.created_by, cu.name as created_by_name, o.created_at, ${exact('o.created_at')} as created_at_exact,
     o.edited_by, o.submitted_by, su.name as submitted_by_name, o.submitted_at,
     au.name as approved_by_name, o.approved_at,
@@ -267,7 +271,8 @@ const ORDERS = `
   join suppliers s on s.tenant_id = o.tenant_id and s.id = o.supplier_id
   join stock_locations l on l.tenant_id = o.tenant_id and l.id = o.location_id
   left join lateral (
-    select sum(ol.quantity::bigint * ol.unit_cost_minor) as total, count(*) as lines
+    select sum(ol.quantity::bigint * ol.unit_cost_minor) as total, sum(${taxSql('ol')}) as tax,
+      count(*) as lines
     from purchase_order_lines ol where ol.tenant_id = o.tenant_id and ol.order_id = o.id
   ) t on true
   left join users cu on cu.id = o.created_by
@@ -326,13 +331,14 @@ export interface OrderLineRow {
   unit: string | null;
   quantity: number;
   unit_cost_minor: string;
+  gst_rate_bp: number;
   received_quantity: number;
 }
 
 export async function orderLines(client: pg.ClientBase, orderId: string): Promise<OrderLineRow[]> {
   const { rows } = await client.query<OrderLineRow>(
     `select ol.id, ol.line_number, ol.drug_id, ${ITEM_NAME} as item_name, d.unit, ol.quantity,
-       ol.unit_cost_minor::text as unit_cost_minor,
+       ol.unit_cost_minor::text as unit_cost_minor, ol.gst_rate_bp,
        coalesce((select sum(rl.quantity) from goods_receipt_lines rl
                  where rl.tenant_id = ol.tenant_id and rl.order_line_id = ol.id), 0)::int as received_quantity
      from purchase_order_lines ol
@@ -380,18 +386,20 @@ export async function updateOrderFields(
 export async function replaceOrderLines(
   client: pg.ClientBase,
   orderId: string,
-  lines: { drugId: string; quantity: number; unitCostMinor: number }[],
+  lines: { drugId: string; quantity: number; unitCostMinor: number; gstRateBp: number }[],
 ): Promise<void> {
   await client.query('delete from purchase_order_lines where order_id = $1', [orderId]);
   await client.query(
-    `insert into purchase_order_lines (tenant_id, order_id, line_number, drug_id, quantity, unit_cost_minor)
-     select app_tenant_id(), $1, n, drug_id, quantity, unit_cost_minor
-     from unnest($2::uuid[], $3::int[], $4::bigint[]) with ordinality as l(drug_id, quantity, unit_cost_minor, n)`,
+    `insert into purchase_order_lines (tenant_id, order_id, line_number, drug_id, quantity, unit_cost_minor, gst_rate_bp)
+     select app_tenant_id(), $1, n, drug_id, quantity, unit_cost_minor, gst_rate_bp
+     from unnest($2::uuid[], $3::int[], $4::bigint[], $5::int[])
+       with ordinality as l(drug_id, quantity, unit_cost_minor, gst_rate_bp, n)`,
     [
       orderId,
       lines.map((line) => line.drugId),
       lines.map((line) => line.quantity),
       lines.map((line) => line.unitCostMinor),
+      lines.map((line) => line.gstRateBp),
     ],
   );
 }
@@ -448,6 +456,8 @@ export interface ReceiptRow {
   supplier_invoice: string | null;
   note: string | null;
   total_minor: string;
+  tax_minor: string;
+  supplier_gstin: string | null;
   line_count: number;
   received_by_name: string | null;
   received_at: Date;
@@ -457,14 +467,16 @@ export interface ReceiptRow {
 const RECEIPTS = `
   select r.id, r.tenant_id, r.number, r.order_id, o.number as order_number, r.supplier_id,
     s.name as supplier_name, r.location_id, l.name as location_name, r.supplier_invoice, r.note,
-    coalesce(t.total, 0)::text as total_minor, coalesce(t.lines, 0)::int as line_count,
+    coalesce(t.total, 0)::text as total_minor, coalesce(t.tax, 0)::text as tax_minor,
+    s.gstin as supplier_gstin, coalesce(t.lines, 0)::int as line_count,
     ru.name as received_by_name, r.received_at, ${exact('r.received_at')} as received_at_exact
   from goods_receipts r
   join purchase_orders o on o.tenant_id = r.tenant_id and o.id = r.order_id
   join suppliers s on s.tenant_id = r.tenant_id and s.id = r.supplier_id
   join stock_locations l on l.tenant_id = r.tenant_id and l.id = r.location_id
   left join lateral (
-    select sum(rl.quantity::bigint * rl.unit_cost_minor) as total, count(*) as lines
+    select sum(rl.quantity::bigint * rl.unit_cost_minor) as total, sum(${taxSql('rl')}) as tax,
+      count(*) as lines
     from goods_receipt_lines rl where rl.tenant_id = r.tenant_id and rl.receipt_id = r.id
   ) t on true
   left join users ru on ru.id = r.received_by`;
@@ -531,6 +543,7 @@ export interface ReceiptLineRow {
   mrp_minor: string | null;
   quantity: number;
   unit_cost_minor: string;
+  gst_rate_bp: number;
   returned_quantity: number;
 }
 
@@ -542,6 +555,7 @@ export async function receiptLines(
     `select rl.id, rl.line_number, rl.order_line_id, rl.drug_id, ${ITEM_NAME} as item_name, d.unit,
        rl.batch_id, b.batch_number, to_char(b.expiry_date, 'YYYY-MM-DD') as expiry_date,
        b.mrp_minor::text as mrp_minor, rl.quantity, rl.unit_cost_minor::text as unit_cost_minor,
+       rl.gst_rate_bp,
        coalesce((select sum(pl.quantity) from purchase_return_lines pl
                  where pl.tenant_id = rl.tenant_id and pl.receipt_line_id = rl.id), 0)::int as returned_quantity
      from goods_receipt_lines rl
@@ -595,13 +609,14 @@ export async function insertReceiptLine(
     batchId: string;
     quantity: number;
     unitCostMinor: number;
+    gstRateBp: number;
     ledgerEntryId: string;
   },
 ): Promise<void> {
   await client.query(
     `insert into goods_receipt_lines (tenant_id, receipt_id, order_id, order_line_id, line_number, drug_id,
-       batch_id, quantity, unit_cost_minor, ledger_entry_id)
-     values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+       batch_id, quantity, unit_cost_minor, gst_rate_bp, ledger_entry_id)
+     values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
     [
       line.receiptId,
       line.orderId,
@@ -611,6 +626,7 @@ export async function insertReceiptLine(
       line.batchId,
       line.quantity,
       line.unitCostMinor,
+      line.gstRateBp,
       line.ledgerEntryId,
     ],
   );
@@ -768,4 +784,12 @@ export async function insertReturnLine(
       line.ledgerEntryId,
     ],
   );
+}
+
+/** The hospital's own GSTIN, when it has one: the other side of the in-state test. */
+export async function hospitalGstin(client: pg.ClientBase): Promise<string | null> {
+  const { rows } = await client.query<{ gstin: string | null }>(
+    'select gstin from tenants where id = app_tenant_id()',
+  );
+  return rows[0]?.gstin ?? null;
 }

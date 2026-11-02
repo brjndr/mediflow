@@ -7,11 +7,13 @@ import { searchTerm, tidyLinesOptional, tidyOptional, tidyWithin } from '../../c
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { stockableDrug } from '../drugs/index.js';
 import { placeInUse, stockOut, stockReceive } from '../inventory/index.js';
+import { DEFAULT_GST_BP, lineTax, splitTax } from './gst.js';
 import {
   findOrder,
   findReceipt,
   findReturn,
   findSupplier,
+  hospitalGstin,
   insertOrder,
   insertReceipt,
   insertReceiptLine,
@@ -152,6 +154,8 @@ const orderSummaryView = (row: OrderRow): PurchaseOrderSummary => ({
   locationName: row.location_name,
   status: row.status,
   totalMinor: Number(row.total_minor),
+  taxMinor: Number(row.tax_minor),
+  totalWithTaxMinor: Number(row.total_minor) + Number(row.tax_minor),
   lineCount: row.line_count,
   createdById: row.created_by,
   createdByName: row.created_by_name ?? '',
@@ -168,14 +172,21 @@ const orderLineView = (row: OrderLineRow): PurchaseOrderLine => ({
   ...optional('unit', row.unit),
   quantity: row.quantity,
   unitCostMinor: Number(row.unit_cost_minor),
+  gstRateBp: row.gst_rate_bp,
+  taxMinor: lineTax(row.quantity, Number(row.unit_cost_minor), row.gst_rate_bp),
   receivedQuantity: row.received_quantity,
 });
 
-const orderView = (row: OrderRow, lines: OrderLineRow[]): PurchaseOrder => {
+const orderView = (
+  row: OrderRow,
+  lines: OrderLineRow[],
+  hospitalGstin: string | null,
+): PurchaseOrder => {
   const { lineCount: _lineCount, ...summary } = orderSummaryView(row);
   return {
     ...summary,
     ...optional('note', row.note),
+    ...splitTax(Number(row.tax_minor), row.supplier_gstin, hospitalGstin),
     lines: lines.map(orderLineView),
     editedById: row.edited_by,
     ...optional('submittedByName', row.submitted_by_name),
@@ -200,6 +211,8 @@ const receiptSummaryView = (row: ReceiptRow): GoodsReceiptSummary => ({
   locationName: row.location_name,
   ...optional('supplierInvoice', row.supplier_invoice),
   totalMinor: Number(row.total_minor),
+  taxMinor: Number(row.tax_minor),
+  totalWithTaxMinor: Number(row.total_minor) + Number(row.tax_minor),
   lineCount: row.line_count,
   receivedByName: row.received_by_name ?? '',
   receivedAt: row.received_at.toISOString(),
@@ -218,12 +231,23 @@ const receiptLineView = (row: ReceiptLineRow): GoodsReceiptLine => ({
   ...optional('mrpMinor', row.mrp_minor === null ? null : Number(row.mrp_minor)),
   quantity: row.quantity,
   unitCostMinor: Number(row.unit_cost_minor),
+  gstRateBp: row.gst_rate_bp,
+  taxMinor: lineTax(row.quantity, Number(row.unit_cost_minor), row.gst_rate_bp),
   returnedQuantity: row.returned_quantity,
 });
 
-const receiptView = (row: ReceiptRow, lines: ReceiptLineRow[]): GoodsReceipt => {
+const receiptView = (
+  row: ReceiptRow,
+  lines: ReceiptLineRow[],
+  hospitalGstin: string | null,
+): GoodsReceipt => {
   const { lineCount: _lineCount, ...summary } = receiptSummaryView(row);
-  return { ...summary, ...optional('note', row.note), lines: lines.map(receiptLineView) };
+  return {
+    ...summary,
+    ...optional('note', row.note),
+    ...splitTax(Number(row.tax_minor), row.supplier_gstin, hospitalGstin),
+    lines: lines.map(receiptLineView),
+  };
 };
 
 const returnView = (row: ReturnRow, lines: ReturnLineRow[]): PurchaseReturn => {
@@ -501,19 +525,28 @@ export const purchasingRoutes: FastifyPluginAsyncTypebox = async (app) => {
     return found;
   }
 
-  /** The lines of an order: each item in use, and once. */
+  /**
+   * The lines of an order: each item in use, and once. A rate left out is the one the draft's
+   * line for the item already has (`kept`, by item), else the item's tax class default.
+   */
   async function cleanLines(
     request: FastifyRequest,
     lines: PurchaseOrderLineInput[],
-  ): Promise<PurchaseOrderLineInput[]> {
+    kept: Map<string, number> = new Map(),
+  ): Promise<(PurchaseOrderLineInput & { gstRateBp: number })[]> {
     const seen = new Set<string>();
-    const clean: PurchaseOrderLineInput[] = [];
+    const clean: (PurchaseOrderLineInput & { gstRateBp: number })[] = [];
     for (const [index, line] of lines.entries()) {
       const drug = await stockableDrug(request.txClient, line.drugId);
       if (!drug) throw invalid(`lines[${index}].drugId is not an item of this hospital in use`);
       if (seen.has(drug.id)) throw invalid(`lines[${index}] repeats an item: one line each`);
       seen.add(drug.id);
-      clean.push({ ...line, drugId: drug.id });
+      // One typed is the supplier's invoice and stays as it is.
+      clean.push({
+        ...line,
+        drugId: drug.id,
+        gstRateBp: line.gstRateBp ?? kept.get(drug.id) ?? DEFAULT_GST_BP[drug.taxClass],
+      });
     }
     return clean;
   }
@@ -521,7 +554,11 @@ export const purchasingRoutes: FastifyPluginAsyncTypebox = async (app) => {
   async function answerOrder(request: FastifyRequest, id: string): Promise<PurchaseOrder> {
     const row = await findOrder(request.txClient, id);
     if (!row) throw orderGone();
-    return orderView(row, await orderLines(request.txClient, id));
+    return orderView(
+      row,
+      await orderLines(request.txClient, id),
+      await hospitalGstin(request.txClient),
+    );
   }
 
   /** The order, locked, at the version sent. */
@@ -657,8 +694,12 @@ export const purchasingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         changed = true;
       }
       if (body.lines !== undefined) {
-        const lines = await cleanLines(request, body.lines);
         const before = await orderLines(request.txClient, current.id);
+        const lines = await cleanLines(
+          request,
+          body.lines,
+          new Map(before.map((row) => [row.drug_id, row.gst_rate_bp])),
+        );
         const same =
           before.length === lines.length &&
           before.every((row, index) => {
@@ -667,7 +708,8 @@ export const purchasingRoutes: FastifyPluginAsyncTypebox = async (app) => {
               line !== undefined &&
               row.drug_id === line.drugId &&
               row.quantity === line.quantity &&
-              Number(row.unit_cost_minor) === line.unitCostMinor
+              Number(row.unit_cost_minor) === line.unitCostMinor &&
+              row.gst_rate_bp === line.gstRateBp
             );
           });
         if (!same) {
@@ -832,7 +874,11 @@ export const purchasingRoutes: FastifyPluginAsyncTypebox = async (app) => {
   async function answerReceipt(request: FastifyRequest, id: string): Promise<GoodsReceipt> {
     const row = await findReceipt(request.txClient, id);
     if (!row) throw receiptGone();
-    return receiptView(row, await receiptLines(request.txClient, id));
+    return receiptView(
+      row,
+      await receiptLines(request.txClient, id),
+      await hospitalGstin(request.txClient),
+    );
   }
 
   app.get(
@@ -957,6 +1003,8 @@ export const purchasingRoutes: FastifyPluginAsyncTypebox = async (app) => {
             batchId: entry.batchId,
             quantity: line.quantity,
             unitCostMinor: line.unitCostMinor,
+            // The rate the order was approved at; the invoice's tax follows the order.
+            gstRateBp: line.orderLine.gst_rate_bp,
             ledgerEntryId: entry.ledgerEntryId,
           });
         }

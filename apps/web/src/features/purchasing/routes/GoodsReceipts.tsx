@@ -48,6 +48,12 @@ export default function GoodsReceipts() {
         align: 'end',
       },
       {
+        id: 'withTax',
+        header: t('receipts.columns.withTax'),
+        value: (row) => format.money(row.totalWithTaxMinor),
+        align: 'end',
+      },
+      {
         id: 'received',
         header: t('receipts.columns.received'),
         value: (row) =>

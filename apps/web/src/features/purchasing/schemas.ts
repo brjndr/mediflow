@@ -70,6 +70,42 @@ export const supplierSchema: z.ZodType<Supplier> = z.object({
 });
 export const supplierPageSchema: z.ZodType<SupplierPage> = page(supplierSchema);
 
+/** A percent as typed ("12", "12.5", "0.1"), in basis points; null when it is not one or passes 100. */
+export function percentToBp(text: string): number | null {
+  const found = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(text.trim());
+  if (!found) return null;
+  const bp = Number(found[1]) * 100 + Number((found[2] ?? '').padEnd(2, '0'));
+  return bp <= 10_000 ? bp : null;
+}
+
+/** Basis points as a percent is typed: 1200 is "12", 1250 is "12.5". */
+export function bpToPercent(bp: number): string {
+  const fraction = String(bp % 100)
+    .padStart(2, '0')
+    .replace(/0$/, '');
+  const whole = Math.floor(bp / 100);
+  return fraction === '0' ? String(whole) : whole + '.' + fraction;
+}
+
+/** The rate a line starts with, by the item's tax class: a copy of the API's (`gst.ts`), which decides. */
+export const DEFAULT_GST_BP = { exempt: 0, reduced: 500, standard: 1200, higher: 1800 } as const;
+
+/** The tax on a line in minor units, rounded half up, as the API works it. */
+export const lineTaxMinor = (quantity: number, unitCostMinor: number, rateBp: number): number =>
+  Number((BigInt(quantity) * BigInt(unitCostMinor) * BigInt(rateBp) + 5000n) / 10000n);
+
+const taxTotals = {
+  taxMinor: z.number().int(),
+  totalWithTaxMinor: z.number().int(),
+};
+
+const taxSplit = {
+  supply: z.enum(['intra_state', 'inter_state', 'unknown']),
+  cgstMinor: z.number().int().optional(),
+  sgstMinor: z.number().int().optional(),
+  igstMinor: z.number().int().optional(),
+};
+
 const orderFields = {
   id: z.string(),
   tenantId: z.string(),
@@ -80,6 +116,7 @@ const orderFields = {
   locationName: z.string(),
   status: z.enum(ORDER_STATUSES),
   totalMinor: z.number().int(),
+  ...taxTotals,
   createdById: z.string(),
   createdByName: z.string(),
   createdAt: z.string(),
@@ -101,11 +138,14 @@ const orderLineSchema: z.ZodType<PurchaseOrderLine> = z.object({
   unit: z.string().optional(),
   quantity: z.number().int(),
   unitCostMinor: z.number().int(),
+  gstRateBp: z.number().int(),
+  taxMinor: z.number().int(),
   receivedQuantity: z.number().int(),
 });
 
 export const orderSchema: z.ZodType<PurchaseOrder> = z.object({
   ...orderFields,
+  ...taxSplit,
   note: z.string().optional(),
   lines: z.array(orderLineSchema),
   editedById: z.string(),
@@ -130,6 +170,7 @@ const receiptFields = {
   locationName: z.string(),
   supplierInvoice: z.string().optional(),
   totalMinor: z.number().int(),
+  ...taxTotals,
   receivedByName: z.string(),
   receivedAt: z.string(),
 };
@@ -153,11 +194,14 @@ const receiptLineSchema: z.ZodType<GoodsReceiptLine> = z.object({
   mrpMinor: z.number().int().optional(),
   quantity: z.number().int(),
   unitCostMinor: z.number().int(),
+  gstRateBp: z.number().int(),
+  taxMinor: z.number().int(),
   returnedQuantity: z.number().int(),
 });
 
 export const receiptSchema: z.ZodType<GoodsReceipt> = z.object({
   ...receiptFields,
+  ...taxSplit,
   note: z.string().optional(),
   lines: z.array(receiptLineSchema),
 });
@@ -262,6 +306,11 @@ export function createOrderFormSchema(checkMoney: (text: string) => number | nul
             .trim()
             .min(1, 'validation.required')
             .refine((text) => checkMoney(text) !== null, 'purchasing:form.amountInvalid'),
+          gstRate: z
+            .string()
+            .trim()
+            .min(1, 'validation.required')
+            .refine((text) => percentToBp(text) !== null, 'purchasing:form.gstInvalid'),
         }),
       )
       .min(1, 'purchasing:order.form.noLines')

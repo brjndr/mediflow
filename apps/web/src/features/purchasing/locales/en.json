@@ -26,7 +26,18 @@
   "form": {
     "wholeUnits": "Enter a whole number of units.",
     "unitsRange": "Enter between 1 and 1,000,000 units.",
-    "amountInvalid": "Enter an amount, such as 12.50."
+    "amountInvalid": "Enter an amount, such as 12.50.",
+    "gstInvalid": "Enter a percentage from 0 to 100, such as 12 or 2.5."
+  },
+  "gst": {
+    "beforeTax": "Total before tax",
+    "tax": "GST",
+    "cgst": "CGST",
+    "sgst": "SGST",
+    "igst": "IGST",
+    "totalWithTax": "Total with tax",
+    "line": "{{rate}}%: {{tax}}",
+    "unknownSplit": "The GST is not split into CGST and SGST or IGST: the supplier or the hospital has no GSTIN recorded."
   },
   "suppliers": {
     "heading": "Suppliers",
@@ -85,7 +96,8 @@
       "supplier": "Supplier",
       "status": "Status",
       "lines": "Items",
-      "total": "Total",
+      "total": "Before tax",
+      "withTax": "With tax",
       "place": "Deliver to",
       "created": "Drafted"
     },
@@ -125,11 +137,12 @@
     "units": "Units of {{name}}",
     "unitCost": "Price of one unit of {{name}}",
     "unitCostHint": "Agreed with the supplier, before tax.",
+    "gstRate": "GST on {{name}} (%)",
+    "gstRateHint": "From the item’s tax class. Change it to match the supplier’s invoice.",
     "add": "Add an item",
     "alreadyThere": "{{name}} is already on the order.",
     "full_one": "An order holds at most {{count}} item.",
     "full_other": "An order holds at most {{count}} items.",
-    "total": "Total before tax: {{total}}",
     "form": {
       "noLines": "Add at least one item."
     },
@@ -157,6 +170,7 @@
       "ordered": "Ordered",
       "unitCost": "Unit price",
       "amount": "Amount",
+      "gst": "GST",
       "received": "Received"
     },
     "unitsOf_one": "{{count}} unit",
@@ -238,7 +252,8 @@
       "supplier": "Supplier",
       "invoice": "Supplier’s invoice",
       "place": "Received at",
-      "total": "Total",
+      "total": "Before tax",
+      "withTax": "With tax",
       "received": "Received"
     },
     "receivedBy": "{{name}}, {{time}}",
@@ -257,7 +272,6 @@
     "received": "Received",
     "receivedAt": "By {{name}} at {{place}}, {{time}}",
     "note": "Note",
-    "total": "Total before tax: {{total}}",
     "returnItems": "Return to supplier",
     "lines": "Batches received",
     "noLines": "No batches.",
@@ -268,6 +282,7 @@
       "batch": "Batch",
       "units": "Units",
       "amount": "Amount",
+      "gst": "GST",
       "mrp": "MRP",
       "returned": "Returned"
     },

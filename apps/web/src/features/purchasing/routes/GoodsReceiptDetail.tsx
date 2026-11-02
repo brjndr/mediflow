@@ -9,8 +9,10 @@ import { Button, buttonVariants } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { PurchasingLinks } from '../components/PurchasingLinks';
+import { TaxTotals } from '../components/TaxTotals';
 import { ReturnPanel } from '../components/ReturnPanel';
 import { useReceipt, useReturns } from '../hooks/use-purchasing';
+import { bpToPercent } from '../schemas';
 import type { GoodsReceiptLine, PurchaseReturn } from '../types';
 
 /**
@@ -72,6 +74,13 @@ export default function GoodsReceiptDetail() {
         id: 'amount',
         header: t('receipt.columns.amount'),
         value: (row) => format.money(row.unitCostMinor * row.quantity),
+        align: 'end',
+      },
+      {
+        id: 'gst',
+        header: t('receipt.columns.gst'),
+        value: (row) =>
+          t('gst.line', { rate: bpToPercent(row.gstRateBp), tax: format.money(row.taxMinor) }),
         align: 'end',
       },
       {
@@ -208,9 +217,7 @@ export default function GoodsReceiptDetail() {
           </>
         )}
       </dl>
-      <p className="font-semibold">
-        {t('receipt.total', { total: format.money(data.totalMinor) })}
-      </p>
+      <TaxTotals totalMinor={data.totalMinor} taxMinor={data.taxMinor} split={data} />
       <Can permission="purchaseReturn:create">
         {!returning && (
           <div>
