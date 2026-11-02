@@ -153,3 +153,81 @@ test('return units of a dispense with the keyboard alone', async ({ page }) => {
   await expect(page.getByText(/1 unit of CTZ25A wasted/)).toBeVisible();
   await expectNoAxeViolations(page);
 });
+
+test('a medicine from the doctor’s prescription, through purchase and receipt, to the dispense (#106)', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+
+  // The doctor prescribes a medicine.
+  await goTo(page, 'Consultations');
+  await page.getByRole('main').getByRole('link').first().click();
+  await page.getByRole('button', { name: 'Write a prescription' }).click();
+  await page.getByRole('combobox', { name: 'Medicine' }).fill('aceclofenac');
+  await page.getByRole('option', { name: /^Aceclofenac 5 mg Tablet \(AcecCare\)/ }).click();
+  await page.getByRole('textbox', { name: /^Dose/ }).fill('1 tablet');
+  await page.getByRole('textbox', { name: /^Frequency/ }).fill('1-0-1');
+  await page.getByRole('textbox', { name: /^Days/ }).fill('3');
+  await page.getByRole('button', { name: 'Write the prescription' }).click();
+  await expect(page.getByText('Prescription written.')).toBeVisible();
+
+  // It waits in the pharmacy queue, and only the counter's one batch is there to give it from.
+  await goTo(page, 'Pharmacy');
+  await expect(page.getByText('1 of 1 to dispense')).toBeVisible();
+  // The queue is oldest first: the new prescription is the last row.
+  await page
+    .getByRole('button', { name: /^Dispense: / })
+    .last()
+    .click();
+  await page.getByRole('button', { name: /^Dispense: Aceclofenac/ }).click();
+  const panel = page.getByRole('region', { name: /^Dispense Aceclofenac/ });
+  await expect(panel.getByRole('textbox', { name: /^Batch SB001B/ })).toBeVisible();
+  await expect(panel.getByRole('textbox', { name: /^Batch AC-1/ })).toHaveCount(0);
+
+  // The store buys it: the approved order is received into stock.
+  await goTo(page, 'Purchasing');
+  await page.getByRole('button', { name: /^Open: PO-000003/ }).click();
+  await page.getByRole('button', { name: 'Receive goods' }).click();
+  const receive = page.getByRole('region', { name: 'Receive goods against PO-000003' });
+  await receive
+    .getByLabel(/^Batch number of/)
+    .first()
+    .fill('AC-1');
+  await receive
+    .getByLabel(/^Expiry date of/)
+    .first()
+    .fill('2030-06-30');
+  await receive
+    .getByLabel(/^Units of/)
+    .nth(1)
+    .fill('');
+  await receive.getByRole('button', { name: 'Receive goods' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'GRN-000001 received.' })).toBeVisible();
+
+  // The stock list shows the batch.
+  await goTo(page, 'Inventory');
+  await expect(page.getByRole('heading', { name: 'Stock', level: 1 })).toBeVisible();
+  await expect(page.getByText(/AC-1, expires/).first()).toBeVisible();
+
+  // The pharmacy now dispenses the prescription from that batch.
+  await goTo(page, 'Pharmacy');
+  await page
+    .getByRole('button', { name: /^Dispense: / })
+    .last()
+    .click();
+  // The goods came into the main store, so that is where this dispense reads its stock from.
+  await page
+    .getByRole('combobox', { name: /^Dispense from/ })
+    .selectOption({ label: 'Main store' });
+  await page.getByRole('button', { name: /^Dispense: Aceclofenac/ }).click();
+  const dispense = page.getByRole('region', { name: /^Dispense Aceclofenac/ });
+  // The new batch is offered, and the units come from it.
+  await dispense.getByRole('textbox', { name: /^Batch AC-1/ }).fill('3');
+  await dispense.getByRole('button', { name: 'Dispense', exact: true }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: '3 units of Aceclofenac' }),
+  ).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});
