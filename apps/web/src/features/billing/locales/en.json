@@ -1,0 +1,82 @@
+{
+  "action": { "create": "Create invoice" },
+  "status": {
+    "draft": "Draft",
+    "issued": "Issued",
+    "paid": "Paid",
+    "void": "Void"
+  },
+  "new": {
+    "heading": "New invoice",
+    "unavailable": "This visit is not available.",
+    "back": "Back to consultations",
+    "patient": "{{name}} (MRN {{mrn}})",
+    "hasDraft_one": "This visit has a draft invoice. Continue it instead of making a second bill of the same work.",
+    "hasDraft_other": "This visit has {{count}} draft invoices. Continue one instead of making another bill of the same work.",
+    "continueDraft": "Continue draft"
+  },
+  "detail": {
+    "heading": "Invoice",
+    "unavailable": "This invoice is not available.",
+    "status": "Status",
+    "number": "Invoice number",
+    "created": "Started",
+    "issued": "Issued",
+    "openVisit": "Open consultation",
+    "lines": "Lines",
+    "noLines": "This invoice has no lines.",
+    "locked": "Invoice {{number}} was issued on {{time}} and can no longer be changed.",
+    "draftReadOnly": "This draft can be changed by someone who may create invoices."
+  },
+  "charges": {
+    "heading": "Pending charges",
+    "description": "Work posted to this visit that is not on a bill yet. Leave off what should not be billed now.",
+    "empty": "No pending charges on this visit.",
+    "tooMany": "Only the first {{count}} charges can go on one bill. Issue this one, then bill the rest.",
+    "add": "Add to the bill",
+    "leave": "Leave off the bill",
+    "yes": "Yes",
+    "no": "No",
+    "columns": {
+      "description": "Description",
+      "quantity": "Quantity",
+      "unitPrice": "Unit price",
+      "amount": "Amount",
+      "onBill": "On this bill"
+    }
+  },
+  "line": {
+    "heading": "Other lines",
+    "description_hint": "Something not in the price catalog. It is priced here, by hand.",
+    "none": "No other lines.",
+    "tooMany": "A bill holds at most {{count}} typed lines.",
+    "description": "What it is for",
+    "descriptionHint": "For example, a copy of the records.",
+    "quantity": "Quantity",
+    "unitPrice": "Price of one",
+    "unitPriceHint": "In the hospital's currency, with a point for the decimals: 12.50",
+    "add": "Add line",
+    "remove": "Remove line",
+    "quantityWhole": "Type a whole number.",
+    "quantityRange": "Type a number from 1 to 9999.",
+    "priceInvalid": "Type an amount with a point for the decimals, such as 12.50."
+  },
+  "builder": {
+    "totalHeading": "Total",
+    "total": "Total",
+    "lineCount_one": "{{count}} line on this bill",
+    "lineCount_other": "{{count}} lines on this bill",
+    "saveDraft": "Save draft",
+    "saving": "Saving…",
+    "issue": "Issue invoice",
+    "issuing": "Issuing…",
+    "saved": "Draft saved.",
+    "refused": {
+      "chargeUnavailable": "A charge on this bill was billed or taken by another draft meanwhile. The list has been read again: check it and try again.",
+      "notDraft": "This invoice was issued meanwhile and can no longer be changed.",
+      "conflict": "Someone else changed this draft. It has been read again; your choices are kept, so check them and try again.",
+      "empty": "Put at least one line on the bill.",
+      "cancelled": "This visit was cancelled and has nothing to bill."
+    }
+  }
+}

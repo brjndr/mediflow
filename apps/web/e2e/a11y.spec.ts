@@ -138,6 +138,17 @@ const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
       });
       return ((await answer.json()) as { id?: string }).id ?? '';
     }),
+  // The mock keeps no invoice until one is made (#109): a draft of the open consultation's
+  // consultation fee.
+  'billing/invoices': (page) =>
+    page.evaluate(async () => {
+      const answer = await fetch('/api/encounters/enc_h_1/invoices', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+        body: JSON.stringify({ chargeIds: ['chg_h_1'], manualLines: [] }),
+      });
+      return ((await answer.json()) as { id?: string }).id ?? '';
+    }),
   // The mock keeps no import until one is started.
   imports: (page) =>
     page.evaluate(async () => {
@@ -235,6 +246,9 @@ const addsARecord = (route: string) => /(^|\/)(new|invite)$/.test(route);
 const NO_FORM_AT_FIRST = new Set([
   // The import centre starts from choosing a file.
   'imports/new',
+  // A new invoice opens on a visit's id in the address (the consultation's link); without one it
+  // says the visit is not available. The builder's own form is checked in billing.spec.ts.
+  'billing/new',
 ]);
 
 test('the exceptions name routes that exist', () => {

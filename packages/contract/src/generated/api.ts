@@ -3562,6 +3562,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/encounters/{encounterId}/charges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The charges posted to a visit, oldest first. Requires charge:read and the billing feature flag. A visit of another hospital is 404. */
+        get: operations["listEncounterCharges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The invoices of a visit, newest first, drafts included. Requires invoice:read and the billing feature flag. */
+        get: operations["listEncounterInvoices"];
+        put?: never;
+        /** @description Makes a draft invoice of a visit from some of its pending charges (409 `charge_unavailable` for one already invoiced, void or in another draft) and lines typed in. A draft needs at least one line (422 `empty_invoice`). Requires invoice:create. The Idempotency-Key header is required. The server works out every line and the invoice total itself; a total sent by a client is never read. A visit that was cancelled has nothing to bill (409 `encounter_cancelled`). Typed lines (`manualLines`) need invoice:adjust as well, since they skip the price list (403 otherwise). Audited. Emits no event until the invoice is issued. */
+        post: operations["createInvoiceDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invoices/{invoiceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One invoice. Requires invoice:read and the billing feature flag. */
+        get: operations["getInvoice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Replaces the content of a draft. 409 `invoice_not_draft` once issued, 409 `version_conflict` when it changed since it was read. Requires invoice:create. The server works out every line and the invoice total itself; a total sent by a client is never read. A visit that was cancelled has nothing to bill (409 `encounter_cancelled`). Typed lines (`manualLines`) need invoice:adjust as well, since they skip the price list (403 otherwise). Audited. */
+        patch: operations["updateInvoiceDraft"];
+        trace?: never;
+    };
+    "/invoices/{invoiceId}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Issues a draft: it gets its number, its charges become invoiced, and it can no longer be changed. Requires invoice:issue. The Idempotency-Key header is required: a repeat answers with the issued invoice. A cancelled visit is 409 `encounter_cancelled`. Audited, and emits `invoice.issued` through the outbox with the tenant, the invoice id, the actor and the time, never the lines. */
+        post: operations["issueInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6827,6 +6897,87 @@ export interface components {
         AccountSessionList: {
             items: components["schemas"]["AccountSession"][];
             nextCursor: string | null;
+        };
+        /** @description Billable work posted to a visit. Priced when it was posted; never changes afterwards. */
+        Charge: {
+            id: string;
+            tenantId: string;
+            encounterId: string;
+            /** @enum {string} */
+            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual";
+            description: string;
+            quantity: number;
+            unitPriceMinor: number;
+            totalMinor: number;
+            /** @enum {string} */
+            status: "pending" | "invoiced" | "void";
+            /** @description The draft invoice holding the charge, when one does. */
+            invoiceId?: string;
+            /** Format: date-time */
+            postedAt: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ChargePage: {
+            items: components["schemas"]["Charge"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description A line the billing desk types in: something not in the price catalog. */
+        ManualLine: {
+            description: string;
+            quantity: number;
+            unitPriceMinor: number;
+        };
+        InvoiceLine: {
+            id: string;
+            /** @description The charge the line was made from; absent for a manual line. */
+            chargeId?: string;
+            /** @enum {string} */
+            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual";
+            description: string;
+            quantity: number;
+            unitPriceMinor: number;
+            totalMinor: number;
+        };
+        /** @description A bill of one visit. A draft can be changed; once issued it never is. */
+        Invoice: {
+            id: string;
+            tenantId: string;
+            encounterId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            /** @description Given when the invoice is issued. */
+            number?: string;
+            /** @enum {string} */
+            status: "draft" | "issued" | "paid" | "void";
+            lines: components["schemas"]["InvoiceLine"][];
+            totalMinor: number;
+            currency: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            issuedAt?: string;
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        InvoicePage: {
+            items: components["schemas"]["Invoice"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description What a draft is made of: pending charges of the visit, and lines typed in. */
+        InvoiceContent: {
+            chargeIds: string[];
+            manualLines: components["schemas"]["ManualLine"][];
+        };
+        InvoiceUpdate: {
+            chargeIds: string[];
+            manualLines: components["schemas"]["ManualLine"][];
+            version: number;
+        };
+        InvoiceIssue: {
+            version: number;
         };
     };
     responses: {
@@ -25353,6 +25504,205 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listEncounterCharges: {
+        parameters: {
+            query?: {
+                status?: "pending" | "invoiced" | "void";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of charges */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChargePage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listEncounterInvoices: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of invoices */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicePage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createInvoiceDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client. Repeating the request with the same key returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceContent"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The invoice */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateInvoiceDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceUpdate"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    issueInvoice: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client. Repeating the request with the same key returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceIssue"];
+            };
+        };
+        responses: {
+            /** @description The issued invoice */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

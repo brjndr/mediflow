@@ -6,6 +6,8 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 **The OPD consultation (web; the API is #86, notes in `apps/api/src/features/clinical/CLAUDE.md`):** the encounter, its notes and its diagnoses (#80). Behind the `clinical` switch and `encounter:read`, `encounter:create`, `encounter:update`, `clinicalNote:read`, `clinicalNote:write`, `diagnosis:read`, `diagnosis:write`, for prescriptions (#81) `prescription:read` and `prescription:create`, for printing (#89) `encounter:print`, for lab, imaging and procedure orders (#82, #87) `order:read`, `order:create` and `order:cancel`, and for referrals (#88) `referral:read` and `referral:create`. Works at every width.
 
+**Slot (#109):** the consultation renders `encounter.detail.actions` (ids and the status only) below its parts; billing contributes "Create invoice" to it.
+
 **Starting (#80):** "Start consultation" on the token being served on the queue board (`queue.row.actions`) and on today's scheduled appointment, in the list and on its screen (`appointment.row.actions`, `appointment.detail.actions`), for `encounter:create` and `encounter:read`, and `patient:read`, which the component checks. One press opens the encounter (`POST /encounters` with the token or the appointment) and goes to it.
 
 **The consultation (#80):** `encounters/:encounterId`, behind `encounter:read`. Who the visit is for (name and MRN, which `encounter:read` gives), with whom, its status, then `TriageSummary` from `@/features/triage` (allergies and the newest vitals; before the notes on a narrow screen, beside them from 1024 px), the notes for `clinicalNote:read`, the diagnoses for `diagnosis:read`, the prescriptions for `prescription:read` (#81), and closing or cancelling for `encounter:update`.

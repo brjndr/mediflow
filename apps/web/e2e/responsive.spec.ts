@@ -161,6 +161,14 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: /^Book the follow-up of / })).toBeVisible();
   await expect(page.getByRole('group', { name: /^Time/ })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // The invoice builder (#109): charges as cards on a phone, the line form in one column.
+  await goTo(page, 'Consultations');
+  await page.getByRole('main').getByRole('link').first().click();
+  await page.getByRole('link', { name: 'Create invoice' }).click();
+  await expect(page.getByRole('heading', { name: 'New invoice', level: 1 })).toBeVisible();
+  await expect(page.getByText('General consultation')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: /^What it is for/ })).toBeVisible();
+  await expectNoSidewaysScroll(page);
   // The laboratory worklist (#90): cards on a phone, and collecting a sample in place.
   await goTo(page, 'Laboratory');
   await expect(page.getByRole('heading', { name: 'Laboratory worklist' })).toBeVisible();

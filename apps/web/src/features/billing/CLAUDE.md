@@ -1,0 +1,29 @@
+# Billing: module notes
+
+What this module is and what was decided for it. The root `CLAUDE.md` holds the rules every module follows, and it wins where the two disagree. Keep this file current with the module.
+
+## What exists
+
+**The invoice builder (#109), web only, against the mock.** The billing API (#114) does not exist yet: the endpoints are in `packages/contract/planned.openapi.json` (`GET /encounters/{id}/charges`, `GET` and `POST /encounters/{id}/invoices`, `GET` and `PATCH /invoices/{id}`, `POST /invoices/{id}/issue`) and `mocks/handlers/billing.ts` answers them. When the API implements one, delete it from the planned file.
+
+Behind the `billing` switch, `charge:read`, `invoice:read`, `invoice:create` and `invoice:issue` (the mock's admin holds all four). Works at every width.
+
+- **Entry:** "Create invoice" on the consultation, a contribution to the new slot `encounter.detail.actions` (given `encounterId`, `patientId` and `status`), for `invoice:create` and `charge:read`; none on a cancelled visit. It opens `billing/new?encounterId=`: the address holds the visit's id and nothing about the patient.
+- **The builder (`InvoiceBuilder`):** the visit's pending charges, each put on the bill or left off it by a row action (never a checkbox: the grid's actions stay focusable and say when they do not apply), lines typed in (what it is for, a quantity, the price of one) and the total, worked out on minor units and shown in the hospital's currency. A new bill holds every pending charge; a draft holds what it held. "Save draft" keeps it; "Issue invoice" (for `invoice:issue`) saves it and gives it its number.
+- **A draft is `billing/invoices/:invoiceId`** (for `invoice:read`): the builder again, to change and issue. An issued invoice is read-only there: number, lines and total. A visit's unfinished drafts are offered on `billing/new` to continue.
+- **No navigation entry yet:** the bill is reached from a consultation. The invoice list is #110.
+
+## Decided
+
+- **A slot of core, added for it:** `encounter.detail.actions` on the consultation, because the desk's way into billing is a visit. The clinical module renders it and knows nothing of billing. `useEncounter` is exported from the clinical `index.ts` for the builder's header.
+- **An invoice is made of charges and typed lines only.** A module never writes an invoice; charges are posted by the API from events (#114). The typed line (`source: manual`) has a description and a price typed by hand, in the hospital's currency, turned into minor units on its digits (`toMinor`: "12,50" is refused). A line from the price catalog is #115's, with discounts (#116) and tax (#119).
+- **A charge sits in at most one draft.** The server marks it (`invoiceId`) and refuses a second draft with `charge_unavailable`; the screen then reads the list again and keeps what was chosen. Issuing makes the charges `invoiced` and the invoice read-only forever; a version conflict (`version_conflict`) keeps the person's choices and sends the newer version on the next press.
+- **Every POST carries an idempotency key,** one per body; a double press makes one draft. The first save of a new bill moves to the draft's own page with a fixed-word notice in the navigation state (`saved: true`), never the record.
+- **Typed lines need `invoice:adjust`,** since they skip the price list and the charge ledger: without it the form is not offered (a draft that already has some keeps them). The server (#114) works out every line and the total itself, and the client's total is display only; it audits create, update and issue and emits `invoice.issued` through the outbox on issue (ids, never the lines). A cancelled visit has nothing to bill (409 `encounter_cancelled`).
+- **Issuing a new bill is two calls** (save, then issue). The draft made by the first is kept: if the issue fails the screen goes to the draft's page, never making a second one. Whoever holds `invoice:issue` without `invoice:create` sees a draft read-only; issuing needs both until the API says otherwise.
+- **The route also needs `encounter:read`** (the visit's name in its header). The patient's name and MRN are shown whole on an invoice, as on the consultation: a bill must name who it is for.
+- **No appointment entry yet.** The issue says "from a visit or appointment"; an appointment has no encounter until it is started, and `GET /encounters` has no `appointmentId` filter, so the appointment's screen cannot find its visit. Billing an appointment goes through its consultation until that filter exists (proposed as a follow-up).
+
+## Mock
+
+`mocks/handlers/billing.ts`: three pending charges on the hospital's open consultation `enc_h_1` (a consultation 500.00, a blood count 350.00, two strips of paracetamol at 25.50) and one on the clinic's `enc_c_1` (150.00 AED); invoices numbered INV-0001 in order of issue. Tests read them with `mockCharges` and `mockInvoices`.
