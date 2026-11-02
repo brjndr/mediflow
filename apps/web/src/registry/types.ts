@@ -11,6 +11,7 @@ export type SlotId =
   | 'appointment.row.actions'
   | 'appointment.detail.actions'
   | 'queue.row.actions'
+  | 'encounter.detail.actions'
   | 'dashboard.widgets'
   | 'settings.sections'
   | 'nav.items';

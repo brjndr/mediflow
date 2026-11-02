@@ -4,6 +4,7 @@ import { usePermission } from '@/access';
 import { FollowUpPanel } from '@/features/follow-ups';
 import { LabResultsPanel } from '@/features/lab';
 import { TriageSummary } from '@/features/triage';
+import { Slot } from '@/registry';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { useFormatters } from '@/tenancy';
@@ -158,6 +159,19 @@ function Consultation({ encounter }: { encounter: Encounter }) {
             cancelled={encounter.status === 'cancelled'}
           />
         </div>
+      </div>
+
+      {/* Other features' actions for the visit (billing's "Create invoice"), given ids and
+          values only. */}
+      <div className="flex flex-wrap gap-2">
+        <Slot
+          id="encounter.detail.actions"
+          context={{
+            encounterId: encounter.id,
+            patientId: encounter.patientId,
+            status: encounter.status,
+          }}
+        />
       </div>
 
       {canUpdate && <EncounterActions encounter={encounter} />}

@@ -187,6 +187,12 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'billing:read' },
   { permission: 'billing:create' },
   { permission: 'billing:refund' },
+  // The invoice builder (#109): the admin holds all of it, as the billing API's defaults will.
+  { permission: 'charge:read' },
+  { permission: 'invoice:read' },
+  { permission: 'invoice:create' },
+  { permission: 'invoice:issue' },
+  { permission: 'invoice:adjust' },
   { permission: 'report:read' },
   { permission: 'user:manage' },
   { permission: 'role:manage' },
@@ -490,6 +496,11 @@ const resetListeners: (() => void)[] = [];
 /** A hospital's timezone, as its config says: for a mock that counts in the hospital's days. */
 export function mockTenantTimezone(tenantId: string): string {
   return tenants[tenantId]?.timezone ?? 'UTC';
+}
+
+/** A hospital's currency, as its config says. */
+export function mockTenantCurrency(tenantId: string): string {
+  return tenants[tenantId]?.currency ?? 'INR';
 }
 
 /** Lets a feature's mock handlers restore their own data when the mock backend is reset. */
