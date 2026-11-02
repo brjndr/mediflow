@@ -173,6 +173,8 @@
       "gst": "GST",
       "received": "Received"
     },
+    "receivedWithReturns": "{{received}}, of which {{returned}} sent back and awaited again",
+    "reopened": "Units sent back to the supplier as damaged or the wrong item are awaited again: the replacements are received against this order.",
     "unitsOf_one": "{{count}} unit",
     "unitsOf_other": "{{count}} units",
     "noLines": "No items.",

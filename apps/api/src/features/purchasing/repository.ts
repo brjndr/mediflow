@@ -333,19 +333,33 @@ export interface OrderLineRow {
   unit_cost_minor: string;
   gst_rate_bp: number;
   received_quantity: number;
+  /** Units sent back as damaged or the wrong item, which the line waits for again. */
+  awaited_again_quantity: number;
 }
+
+/** The reasons for a return that bring its units back into what an order line waits for. */
+export const REPLACED_REASONS = ['damaged', 'wrong_item'] as const;
+
+/** What counts against an order line when a receipt is checked: received, less what is awaited again. */
+export const stillReceived = (line: OrderLineRow): number =>
+  line.received_quantity - line.awaited_again_quantity;
 
 export async function orderLines(client: pg.ClientBase, orderId: string): Promise<OrderLineRow[]> {
   const { rows } = await client.query<OrderLineRow>(
     `select ol.id, ol.line_number, ol.drug_id, ${ITEM_NAME} as item_name, d.unit, ol.quantity,
        ol.unit_cost_minor::text as unit_cost_minor, ol.gst_rate_bp,
        coalesce((select sum(rl.quantity) from goods_receipt_lines rl
-                 where rl.tenant_id = ol.tenant_id and rl.order_line_id = ol.id), 0)::int as received_quantity
+                 where rl.tenant_id = ol.tenant_id and rl.order_line_id = ol.id), 0)::int as received_quantity,
+       coalesce((select sum(pl.quantity) from purchase_return_lines pl
+                 join goods_receipt_lines rl on rl.tenant_id = pl.tenant_id and rl.id = pl.receipt_line_id
+                 join purchase_returns pr on pr.tenant_id = pl.tenant_id and pr.id = pl.return_id
+                 where rl.tenant_id = ol.tenant_id and rl.order_line_id = ol.id
+                   and pr.reason = any($2::text[])), 0)::int as awaited_again_quantity
      from purchase_order_lines ol
      join drugs d on d.tenant_id = ol.tenant_id and d.id = ol.drug_id
      where ol.order_id = $1
      order by ol.line_number`,
-    [orderId],
+    [orderId, [...REPLACED_REASONS]],
   );
   return rows;
 }

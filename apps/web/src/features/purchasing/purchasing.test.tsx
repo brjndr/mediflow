@@ -369,6 +369,27 @@ describe('receiving, checked', () => {
   });
 });
 
+describe('replacements of goods sent back', () => {
+  it('says the order waits again, and offers just the units sent back', async () => {
+    const order = orderOf('po_h_approved');
+    if (!order) throw new Error('no order');
+    // Both lines came in full, then 20 of the first went back as damaged: the order is reopened.
+    order.status = 'partly_received';
+    for (const line of order.lines) line.receivedQuantity = line.quantity;
+    const first = order.lines[0];
+    if (first) first.awaitedAgainQuantity = 20;
+    await open('/purchasing/orders/po_h_approved', 'Purchase order PO-000003');
+    expect(screen.getByText(/are awaited again/)).toBeInTheDocument();
+    expect(screen.getByText(/200 units, of which 20 units sent back/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Receive goods' }));
+    const panel = await screen.findByRole('region', { name: 'Receive goods against PO-000003' });
+    const units = within(panel).getAllByLabelText(/^Units of/);
+    expect(units).toHaveLength(1);
+    expect(units[0]).toHaveValue('20');
+    await expectNoAxeViolations(document.body);
+  });
+});
+
 describe('suppliers', () => {
   it('adds a supplier, checking its GSTIN', async () => {
     await open('/purchasing/suppliers', 'Suppliers');

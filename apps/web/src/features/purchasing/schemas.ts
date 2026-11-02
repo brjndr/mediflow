@@ -141,6 +141,7 @@ const orderLineSchema: z.ZodType<PurchaseOrderLine> = z.object({
   gstRateBp: z.number().int(),
   taxMinor: z.number().int(),
   receivedQuantity: z.number().int(),
+  awaitedAgainQuantity: z.number().int(),
 });
 
 export const orderSchema: z.ZodType<PurchaseOrder> = z.object({

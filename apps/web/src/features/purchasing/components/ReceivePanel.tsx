@@ -65,10 +65,16 @@ export function ReceivePanel({
   const placeFieldId = useId();
   // Taken when the panel opens, so the rows stay with their lines while the order is read again.
   const [open] = useState(() =>
-    order.lines.filter((line) => line.receivedQuantity < line.quantity),
+    order.lines.filter((line) => line.receivedQuantity - line.awaitedAgainQuantity < line.quantity),
   );
   const left = useMemo(
-    () => Object.fromEntries(open.map((line) => [line.id, line.quantity - line.receivedQuantity])),
+    () =>
+      Object.fromEntries(
+        open.map((line) => [
+          line.id,
+          line.quantity - line.receivedQuantity + line.awaitedAgainQuantity,
+        ]),
+      ),
     [open],
   );
   const agreed = useMemo(
@@ -86,7 +92,7 @@ export function ReceivePanel({
       orderLineId: line.id,
       batchNumber: '',
       expiryDate: '',
-      quantity: String(line.quantity - line.receivedQuantity),
+      quantity: String(line.quantity - line.receivedQuantity + line.awaitedAgainQuantity),
       unitCost: typed(line.unitCostMinor, digits),
       mrp: '',
     })),
@@ -226,7 +232,7 @@ function ReceiveRows({ form, order }: { form: ReceiveForm; order: PurchaseOrder 
                   {line && (
                     <p className="text-xs text-muted-foreground">
                       {t('receive.waiting', {
-                        count: line.quantity - line.receivedQuantity,
+                        count: line.quantity - line.receivedQuantity + line.awaitedAgainQuantity,
                         price: format.money(line.unitCostMinor),
                       })}
                     </p>

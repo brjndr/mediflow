@@ -54,6 +54,7 @@ interface OrderLine {
   quantity: number;
   unitCostMinor: number;
   receivedQuantity: number;
+  awaitedAgainQuantity: number;
 }
 interface Order {
   id: string;
@@ -634,6 +635,90 @@ describe('returns to the supplier', () => {
     expect(await audited('purchase_return', sent.id)).toEqual(['create']);
     const listed = await ok<Page<Return>>(get(`/purchasing/returns?receiptId=${receipt.id}`));
     expect(listed.items.map((each) => each.lines.length)).toEqual([1]);
+  });
+});
+
+describe('replacements of goods sent back', () => {
+  const sendBack = (receipt: Receipt, quantity: number, reason: string, more: object = {}) =>
+    post(`/purchasing/receipts/${receipt.id}/returns`, {
+      reason,
+      lines: [{ receiptLineId: receipt.lines[0]?.id, quantity }],
+      ...more,
+    });
+  const reread = (order: Order) => ok<Order>(get(`/purchasing/orders/${order.id}`));
+
+  it('waits again for units returned as damaged, and takes the replacement on the same order', async () => {
+    const order = await approvedOrder();
+    const receipt = await ok<Receipt>(receive(order, [line(order.lines[0], 100)]), 201);
+    expect((await reread(order)).status).toBe('received');
+    const sent = await ok<Return>(sendBack(receipt, 20, 'damaged'), 201);
+    const reopened = await reread(order);
+    expect(reopened.status).toBe('partly_received');
+    expect(reopened.version).toBeGreaterThan(order.version);
+    expect(reopened.lines[0]).toMatchObject({ receivedQuantity: 100, awaitedAgainQuantity: 20 });
+    expect(await audited('purchase_order', order.id)).toContain('update');
+    expect((await events(sent.id)).map((each) => each.event)).toEqual(['stock.returned']);
+    // 21 is one too many, 20 are accepted and the order is received again.
+    expect(errorOf(await receive(reopened, [line(reopened.lines[0], 21)]))).toEqual([
+      409,
+      'over_receipt',
+    ]);
+    const before = await onHand(items.amox);
+    await ok(receive(reopened, [line(reopened.lines[0], 20)]), 201);
+    expect(await onHand(items.amox)).toBe(before + 20);
+    const done = await reread(order);
+    expect(done.status).toBe('received');
+    expect(done.lines[0]).toMatchObject({ receivedQuantity: 120, awaitedAgainQuantity: 20 });
+    // Nothing more is awaited.
+    expect(errorOf(await receive(done, [line(done.lines[0], 1)]))).toEqual([409, 'order_status']);
+  });
+
+  it('reopens for the wrong item too, but not for expired units or another reason', async () => {
+    const order = await approvedOrder([{ drugId: items.gloves, quantity: 10, unitCostMinor: 80 }]);
+    const receipt = await ok<Receipt>(receive(order, [line(order.lines[0], 10)]), 201);
+    await ok(sendBack(receipt, 2, 'expired'), 201);
+    await ok(sendBack(receipt, 2, 'other', { note: 'Wrong strength on the pack' }), 201);
+    const kept = await reread(order);
+    expect(kept.status).toBe('received');
+    expect(kept.lines[0]?.awaitedAgainQuantity).toBe(0);
+    await ok(sendBack(receipt, 3, 'wrong_item'), 201);
+    const reopened = await reread(order);
+    expect(reopened.status).toBe('partly_received');
+    expect(reopened.lines[0]?.awaitedAgainQuantity).toBe(3);
+    // Only the 3 come back: the 4 sent back as expired or another reason are not waited for.
+    expect(errorOf(await receive(reopened, [line(reopened.lines[0], 4)]))).toEqual([
+      409,
+      'over_receipt',
+    ]);
+    await ok(receive(reopened, [line(reopened.lines[0], 3)]), 201);
+    expect((await reread(order)).status).toBe('received');
+  });
+
+  it('ends the same whichever of a receipt and a return of damaged units comes first', async () => {
+    const order = await approvedOrder();
+    const first = await ok<Receipt>(receive(order, [line(order.lines[0], 50)]), 201);
+    const both = await Promise.all([
+      receive(order, [line(order.lines[0], 50)]),
+      sendBack(first, 10, 'damaged'),
+    ]);
+    expect(both.map((reply) => reply.statusCode)).toEqual([201, 201]);
+    // 100 came in, 10 went back and are awaited again: whichever came first, the order waits for 10.
+    const after = await reread(order);
+    expect(after.status).toBe('partly_received');
+    expect(after.lines[0]).toMatchObject({ receivedQuantity: 100, awaitedAgainQuantity: 10 });
+  });
+
+  it('keeps a closed order closed, and counts a return against an order still partly received', async () => {
+    const partly = await approvedOrder();
+    const first = await ok<Receipt>(receive(partly, [line(partly.lines[0], 40)]), 201);
+    await ok(sendBack(first, 10, 'damaged'), 201);
+    const open = await reread(partly);
+    expect(open.status).toBe('partly_received');
+    // 60 never came, 10 are awaited again: 70 may still come, not 71.
+    expect(errorOf(await receive(open, [line(open.lines[0], 71)]))).toEqual([409, 'over_receipt']);
+    const closed = await ok<Order>(step(open, 'close', {}, { note: 'The rest will not come' }));
+    await ok(sendBack(first, 5, 'damaged'), 201);
+    expect((await reread(closed)).status).toBe('closed');
   });
 });
 
