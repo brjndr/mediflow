@@ -106,7 +106,13 @@ export default function PurchaseOrderDetail() {
       {
         id: 'received',
         header: t('order.columns.received'),
-        value: (row) => t('order.unitsOf', { count: row.receivedQuantity }),
+        value: (row) =>
+          row.awaitedAgainQuantity > 0
+            ? t('order.receivedWithReturns', {
+                received: t('order.unitsOf', { count: row.receivedQuantity }),
+                returned: t('order.unitsOf', { count: row.awaitedAgainQuantity }),
+              })
+            : t('order.unitsOf', { count: row.receivedQuantity }),
       },
     ],
     [t, format],
@@ -273,6 +279,10 @@ export default function PurchaseOrderDetail() {
         )}
       </dl>
       <TaxTotals totalMinor={data.totalMinor} taxMinor={data.taxMinor} split={data} />
+      {data.status === 'partly_received' &&
+        data.lines.some((line) => line.awaitedAgainQuantity > 0) && (
+          <p className="text-sm">{t('order.reopened')}</p>
+        )}
       {!panel && (
         <div className="flex flex-wrap gap-2">
           {data.status === 'draft' && canCreate && (

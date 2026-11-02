@@ -32,6 +32,8 @@ import {
   moveOrder,
   nextNumber,
   orderLines,
+  REPLACED_REASONS,
+  stillReceived,
   receiptLines,
   replaceOrderLines,
   returnLines,
@@ -175,6 +177,7 @@ const orderLineView = (row: OrderLineRow): PurchaseOrderLine => ({
   gstRateBp: row.gst_rate_bp,
   taxMinor: lineTax(row.quantity, Number(row.unit_cost_minor), row.gst_rate_bp),
   receivedQuantity: row.received_quantity,
+  awaitedAgainQuantity: row.awaited_again_quantity,
 });
 
 const orderView = (
@@ -911,7 +914,7 @@ export const purchasingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['purchasing'],
         headers: IdempotencyHeaders,
         description:
-          'Receives goods against an approved order (409 order_status otherwise) at a place in use (the order’s when not sent; 400 otherwise). Each line is a batch of an order line’s item as printed on the pack, with its expiry date, units and cost: a batch the item does not have is made, one it has of the same expiry date is added to (409 batch_exists for another expiry date), one already expired is 409 batch_expired. Each batch once (400). More than an order line still waits for is 409 over_receipt, a cost above the order line’s agreed price is 409 cost_above_order (the approval covered that price; a dearer delivery needs a new order), and an item archived since is 409 item_archived. Each line comes into stock through the ledger at once; the order becomes partly received or received. Numbered GRN-000001 on. Emits `stock.received`. Audited.',
+          'Receives goods against an approved order (409 order_status otherwise) at a place in use (the order’s when not sent; 400 otherwise). Each line is a batch of an order line’s item as printed on the pack, with its expiry date, units and cost: a batch the item does not have is made, one it has of the same expiry date is added to (409 batch_exists for another expiry date), one already expired is 409 batch_expired. Each batch once (400). More than an order line still waits for (ordered, less received, plus units sent back as damaged or the wrong item) is 409 over_receipt, a cost above the order line’s agreed price is 409 cost_above_order (the approval covered that price; a dearer delivery needs a new order), and an item archived since is 409 item_archived. Each line comes into stock through the ledger at once; the order becomes partly received or received. Numbered GRN-000001 on. Emits `stock.received`. Audited.',
         params: OrderParams,
         body: ref(GoodsReceiptCreate),
         response: { 201: ref(GoodsReceipt), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -951,7 +954,7 @@ export const purchasingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       for (const [orderLineId, quantity] of coming) {
         const orderLine = ordered.get(orderLineId);
-        if (orderLine && orderLine.received_quantity + quantity > orderLine.quantity) {
+        if (orderLine && stillReceived(orderLine) + quantity > orderLine.quantity) {
           throw new HttpError(
             409,
             'over_receipt',
@@ -1010,7 +1013,7 @@ export const purchasingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         }
       }
       const full = [...ordered.values()].every(
-        (line) => line.received_quantity + (coming.get(line.id) ?? 0) >= line.quantity,
+        (line) => stillReceived(line) + (coming.get(line.id) ?? 0) >= line.quantity,
       );
       const status = full ? 'received' : 'partly_received';
       // Always, so the order's version moves with what it has received.
@@ -1084,8 +1087,14 @@ export const purchasingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const returnedBy = userIdOf(request);
       const note = tidyOptional(body.note, NOTE_MAX);
       if (body.reason === 'other' && note === null) throw invalid('Say why, for another reason');
+      // The order first, as a receipt takes it, then the receipt: units sent back as damaged or the
+      // wrong item may reopen the order, and a receipt of it must not interleave.
+      const found = await findReceipt(request.txClient, request.params.receiptId);
+      if (!found) throw receiptGone();
+      const order = await lockOrder(request.txClient, found.order_id);
+      if (!order) throw orderGone();
       // Held so two returns of the receipt take their turn and neither sends back too much.
-      const receipt = await lockReceipt(request.txClient, request.params.receiptId);
+      const receipt = await lockReceipt(request.txClient, found.id);
       if (!receipt) throw receiptGone();
       const location = await place(request, body.locationId ?? receipt.location_id);
       const received = new Map(
@@ -1144,6 +1153,18 @@ export const purchasingRoutes: FastifyPluginAsyncTypebox = async (app) => {
             ledgerEntryId: entry.ledgerEntryId,
           });
         }
+      }
+      // Units owed again by the supplier: an order that was complete waits for them, so the
+      // replacement is received against it.
+      if (
+        order.status === 'received' &&
+        (REPLACED_REASONS as readonly string[]).includes(body.reason) &&
+        (await orderLines(request.txClient, order.id)).some(
+          (line) => stillReceived(line) < line.quantity,
+        )
+      ) {
+        await moveOrder(request.txClient, order.id, { status: 'partly_received' });
+        request.audit('update', 'purchase_order', order.id);
       }
       request.audit('create', 'purchase_return', returnId);
       await request.emit('stock.returned', returnId, {

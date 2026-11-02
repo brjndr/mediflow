@@ -155,6 +155,10 @@ export const PurchaseOrderLine = Type.Object(
     gstRateBp: Type.Integer({ description: 'GST on the line in basis points: 1200 is 12%.' }),
     taxMinor: Type.Integer({ description: 'The line’s GST, rounded half up.' }),
     receivedQuantity: Type.Integer({ description: 'Units received against the line so far.' }),
+    awaitedAgainQuantity: Type.Integer({
+      description:
+        'Of the received units, those sent back as damaged or the wrong item: the line waits for them again, so it still waits for the units ordered less the received plus these.',
+    }),
   },
   { $id: 'PurchaseOrderLine' },
 );

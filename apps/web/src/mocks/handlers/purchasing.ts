@@ -137,6 +137,7 @@ function seed() {
       gstRateBp: DEFAULT_GST_BP[drug.taxClass],
       taxMinor: 0,
       receivedQuantity: 0,
+      awaitedAgainQuantity: 0,
     }));
     const submitted = status !== 'draft';
     state.orders.push({
@@ -344,6 +345,7 @@ function linesOf(tenantId: string, value: unknown) {
       gstRateBp: (line.gstRateBp as number | undefined) ?? DEFAULT_GST_BP[drug.taxClass],
       taxMinor: 0,
       receivedQuantity: 0,
+      awaitedAgainQuantity: 0,
     });
   }
   return lines;
@@ -716,7 +718,10 @@ export const purchasingHandlers = [
     }
     for (const [orderLineId, quantity] of coming) {
       const orderLine = order.lines.find((each) => each.id === orderLineId);
-      if (orderLine && orderLine.receivedQuantity + quantity > orderLine.quantity) {
+      if (
+        orderLine &&
+        orderLine.receivedQuantity - orderLine.awaitedAgainQuantity + quantity > orderLine.quantity
+      ) {
         return error(409, 'over_receipt', 'More units than the order line still waits for');
       }
     }
@@ -771,7 +776,9 @@ export const purchasingHandlers = [
       }
     received.sort((a, b) => a.lineNumber - b.lineNumber);
     for (const line of order.lines) line.receivedQuantity += coming.get(line.id) ?? 0;
-    order.status = order.lines.every((line) => line.receivedQuantity >= line.quantity)
+    order.status = order.lines.every(
+      (line) => line.receivedQuantity - line.awaitedAgainQuantity >= line.quantity,
+    )
       ? 'received'
       : 'partly_received';
     order.version += 1;
@@ -864,6 +871,23 @@ export const purchasingHandlers = [
         if ('refused' in moved) return error(409, moved.refused, 'Refused by stock');
       }
     for (const line of lines) line.receiptLine.returnedQuantity += line.quantity;
+    // Units sent back as damaged or the wrong item are awaited again, and reopen a received order.
+    const order = orderOf(access.tenantId, receipt.orderId);
+    if (order && (body.reason === 'damaged' || body.reason === 'wrong_item')) {
+      for (const line of lines) {
+        const orderLine = order.lines.find((each) => each.id === line.receiptLine.orderLineId);
+        if (orderLine) orderLine.awaitedAgainQuantity += line.quantity;
+      }
+      if (
+        order.status === 'received' &&
+        order.lines.some(
+          (line) => line.receivedQuantity - line.awaitedAgainQuantity < line.quantity,
+        )
+      ) {
+        order.status = 'partly_received';
+        order.version += 1;
+      }
+    }
     const back: PurchaseReturn = {
       id: returnId,
       tenantId: access.tenantId,

@@ -3418,7 +3418,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Receives goods against an approved order (409 order_status otherwise) at a place in use (the order’s when not sent; 400 otherwise). Each line is a batch of an order line’s item as printed on the pack, with its expiry date, units and cost: a batch the item does not have is made, one it has of the same expiry date is added to (409 batch_exists for another expiry date), one already expired is 409 batch_expired. Each batch once (400). More than an order line still waits for is 409 over_receipt, a cost above the order line’s agreed price is 409 cost_above_order (the approval covered that price; a dearer delivery needs a new order), and an item archived since is 409 item_archived. Each line comes into stock through the ledger at once; the order becomes partly received or received. Numbered GRN-000001 on. Emits `stock.received`. Audited. */
+        /** @description Receives goods against an approved order (409 order_status otherwise) at a place in use (the order’s when not sent; 400 otherwise). Each line is a batch of an order line’s item as printed on the pack, with its expiry date, units and cost: a batch the item does not have is made, one it has of the same expiry date is added to (409 batch_exists for another expiry date), one already expired is 409 batch_expired. Each batch once (400). More than an order line still waits for (ordered, less received, plus units sent back as damaged or the wrong item) is 409 over_receipt, a cost above the order line’s agreed price is 409 cost_above_order (the approval covered that price; a dearer delivery needs a new order), and an item archived since is 409 item_archived. Each line comes into stock through the ledger at once; the order becomes partly received or received. Numbered GRN-000001 on. Emits `stock.received`. Audited. */
         post: operations["receiveGoods"];
         delete?: never;
         options?: never;
@@ -6513,6 +6513,8 @@ export interface components {
             taxMinor: number;
             /** @description Units received against the line so far. */
             receivedQuantity: number;
+            /** @description Of the received units, those sent back as damaged or the wrong item: the line waits for them again, so it still waits for the units ordered less the received plus these. */
+            awaitedAgainQuantity: number;
         };
         /** @description A purchase order as a list shows it. */
         PurchaseOrderSummary: {
