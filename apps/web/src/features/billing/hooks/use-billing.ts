@@ -5,7 +5,12 @@ import { createTenantKeys, isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
   createCharge,
+  closeRegister,
   createInvoiceDraft,
+  fetchCurrentRegister,
+  fetchRegisterSession,
+  fetchRegisterSessions,
+  openRegister,
   fetchEncounterInvoices,
   fetchCreditNotes,
   fetchInvoice,
@@ -27,6 +32,9 @@ import type {
   InvoiceContent,
   PaymentCreate,
   RefundCreate,
+  RegisterClose,
+  RegisterOpen,
+  RegisterSession,
 } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's bills never show in another. */
@@ -342,6 +350,84 @@ export function useIssueCreditNote(invoiceId: string) {
     // The reason is free text about a patient's bill: it does not stay in the mutation cache.
     gcTime: 0,
     mutationFn: (body: CreditNoteCreate) => issueCreditNote(invoiceId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+export const REGISTER_PAGE_SIZES = [25, 50, 100] as const;
+
+const registerKey = (tenantId: string, ...rest: unknown[]) =>
+  [...billingKeys.all(tenantId), 'register', ...rest] as const;
+
+/** The caller's own open drawer, or null when they have none (for `cashRegister:manage`). */
+export function useCurrentRegister({ enabled = true } = {}) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: registerKey(tenantId ?? '', 'current'),
+    queryFn: ({ signal }) => fetchCurrentRegister(signal),
+    enabled: enabled && tenantId !== undefined,
+    // Cash payments change what the drawer holds, so it is read again when the screen returns.
+    staleTime: 0,
+  });
+}
+
+/** Every session of the hospital, newest first, one server page at a time. */
+export function useRegisterSessions(limit: number, { enabled = true } = {}) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: registerKey(tenantId ?? '', 'list', limit),
+    queryFn: ({ pageParam, signal }) => fetchRegisterSessions({ cursor: pageParam, limit }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: enabled && tenantId !== undefined,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useRegisterSession(sessionId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: registerKey(tenantId ?? '', 'detail', sessionId),
+    queryFn: ({ signal }) => fetchRegisterSession(sessionId, signal),
+    enabled: tenantId !== undefined && sessionId !== '',
+  });
+}
+
+/**
+ * Whatever the answer, billing's reads are made again: a refusal such as `register_open` or
+ * `register_closed` means the drawer changed, and a closed one changes what a cash payment needs.
+ */
+function useRefreshRegister() {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  return () => {
+    const tenantId = stillHere();
+    if (tenantId) return queryClient.invalidateQueries({ queryKey: billingKeys.all(tenantId) });
+  };
+}
+
+/** Opens the drawer. One key per body until it is open, so a double press opens one. */
+export function useOpenRegister() {
+  const refresh = useRefreshRegister();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: RegisterOpen): Promise<RegisterSession> =>
+      openRegister(body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+/** Settles the drawer. The note is free text and does not stay in the mutation cache. */
+export function useCloseRegister(sessionId: string) {
+  const refresh = useRefreshRegister();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: RegisterClose): Promise<RegisterSession> =>
+      closeRegister(sessionId, body, keys.keyFor(body)),
     onSuccess: () => keys.clear(),
     onSettled: refresh,
   });

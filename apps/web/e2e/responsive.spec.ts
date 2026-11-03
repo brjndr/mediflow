@@ -249,6 +249,21 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expectNoSidewaysScroll(page);
   await page.getByRole('button', { name: 'Close' }).click();
 
+  // The cash register (#118): opening and settling forms one column, the totals and the day-end
+  // list as cards on a phone.
+  await goTo(page, 'Billing');
+  await page.getByRole('link', { name: 'Cash register', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Open the register' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('textbox', { name: /^Cash in the drawer/ }).fill('100');
+  await page.getByRole('button', { name: 'Open register' }).click();
+  await expect(page.getByRole('heading', { name: 'Collections by payment mode' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close and settle' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'All sessions and day-end' }).click();
+  await expect(page.getByRole('heading', { name: 'Cash register sessions' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   // The pharmacy (#100): the queue as cards on a phone, a prescription's lines, and dispensing a
   // line in place.
   await goTo(page, 'Pharmacy');

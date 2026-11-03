@@ -17,6 +17,21 @@ type Payment = components['schemas']['Payment'];
 type PaymentList = components['schemas']['PaymentList'];
 type CreditNote = components['schemas']['CreditNote'];
 type CreditNoteList = components['schemas']['CreditNoteList'];
+type RegisterSession = components['schemas']['RegisterSession'];
+type RegisterSessionPage = components['schemas']['RegisterSessionPage'];
+
+/** A drawer as the mock keeps it: whose it is and the hospital it belongs to. */
+interface StoredSession {
+  id: string;
+  tenantId: string;
+  userId: string;
+  openedByName: string;
+  openedAt: string;
+  openingMinor: number;
+  closedAt?: string;
+  countedMinor?: number;
+  note?: string;
+}
 
 const METHODS = ['cash', 'card', 'upi', 'bank', 'other'];
 
@@ -89,8 +104,11 @@ function seed() {
     printed: [] as { tenantId: string; invoiceId: string }[],
     payments: [] as (Payment & { tenantId: string })[],
     creditNotes: [] as (CreditNote & { tenantId: string })[],
-    // Cash goes into the caller's open register session; the register's screens come later.
-    registerOpen: true,
+    // Cash goes into the caller's open register session (#118).
+    sessions: [] as StoredSession[],
+    // Until a test says otherwise, a caller with no drawer open has one opened (with no cash in
+    // it) by their first cash payment, as the mock's payments always took cash before the register.
+    autoOpen: true,
   };
 }
 
@@ -283,6 +301,59 @@ const mayAdjust = () =>
 
 const invoiceFor = (tenantId: string, id: string) =>
   state.invoices.find((each) => each.id === id && each.tenantId === tenantId);
+
+/** The caller's open drawer; with `autoOpen`, one is opened for them when they have none. */
+function drawerFor(tenantId: string, userId: string): StoredSession | undefined {
+  const open = state.sessions.find(
+    (each) => each.tenantId === tenantId && each.userId === userId && !each.closedAt,
+  );
+  if (open || !state.autoOpen) return open;
+  const made: StoredSession = {
+    id: `reg_mock_${state.sessions.length + 1}`,
+    tenantId,
+    userId,
+    openedByName: currentSession()?.user.name ?? '',
+    openedAt: new Date().toISOString(),
+    openingMinor: 0,
+  };
+  state.sessions.push(made);
+  return made;
+}
+
+/** A drawer as the API shows it: what it took by payment mode and the cash it should hold. */
+function sessionView(stored: StoredSession): RegisterSession {
+  const mine = state.payments.filter((each) => each.sessionId === stored.id);
+  const totals = METHODS.flatMap((method): RegisterSession['totals'] => {
+    const rows = mine.filter((each) => each.method === method);
+    if (rows.length === 0) return [];
+    const sum = (kind: 'payment' | 'refund') =>
+      rows
+        .filter((each) => each.kind === kind)
+        .reduce((total, each) => total + each.amountMinor, 0);
+    return [
+      {
+        method: method as RegisterSession['totals'][number]['method'],
+        paidMinor: sum('payment'),
+        refundedMinor: sum('refund'),
+      },
+    ];
+  });
+  const cash = totals.find((each) => each.method === 'cash');
+  const expectedMinor = stored.openingMinor + (cash?.paidMinor ?? 0) - (cash?.refundedMinor ?? 0);
+  return {
+    id: stored.id,
+    openedByName: stored.openedByName,
+    openedAt: stored.openedAt,
+    openingMinor: stored.openingMinor,
+    ...(stored.closedAt ? { closedAt: stored.closedAt } : {}),
+    expectedMinor,
+    ...(stored.countedMinor !== undefined
+      ? { countedMinor: stored.countedMinor, differenceMinor: stored.countedMinor - expectedMinor }
+      : {}),
+    ...(stored.note ? { note: stored.note } : {}),
+    totals,
+  };
+}
 
 export const billingHandlers = [
   http.get('*/api/encounters/:encounterId/charges', ({ request, params }) => {
@@ -515,7 +586,8 @@ export const billingHandlers = [
     if ((body.amountMinor as number) > view.totalMinor - view.paidMinor - view.creditedMinor) {
       return error(409, 'overpayment', 'More than is still due');
     }
-    if (body.method === 'cash' && !state.registerOpen) {
+    const drawer = body.method === 'cash' ? drawerFor(tenantId, caller()) : undefined;
+    if (body.method === 'cash' && !drawer) {
       return error(409, 'no_open_register', 'Open a cash register session first');
     }
     const payment: Payment & { tenantId: string } = {
@@ -526,6 +598,7 @@ export const billingHandlers = [
       amountMinor: body.amountMinor as number,
       method: body.method as Payment['method'],
       ...(typeof body.reference === 'string' ? { reference: body.reference } : {}),
+      ...(drawer ? { sessionId: drawer.id } : {}),
       recordedByName: currentSession()?.user.name ?? '',
       at: new Date().toISOString(),
     };
@@ -586,7 +659,8 @@ export const billingHandlers = [
     if ((body.amountMinor as number) > held) {
       return error(409, 'refund_exceeds', 'More than the payment still holds');
     }
-    if (original.method === 'cash' && !state.registerOpen) {
+    const drawer = original.method === 'cash' ? drawerFor(tenantId, caller()) : undefined;
+    if (original.method === 'cash' && !drawer) {
       return error(409, 'no_open_register', 'Open a cash register session first');
     }
     const refund: Payment & { tenantId: string } = {
@@ -598,6 +672,7 @@ export const billingHandlers = [
       method: original.method,
       refundOf: original.id,
       reason: body.reason,
+      ...(drawer ? { sessionId: drawer.id } : {}),
       recordedByName: currentSession()?.user.name ?? '',
       at: new Date().toISOString(),
     };
@@ -763,6 +838,131 @@ export const billingHandlers = [
     answered.set(sent.keyOf, { body: JSON.stringify(body), id: found.id });
     return HttpResponse.json<Invoice>(invoiceView(found));
   }),
+
+  // The cash register (#118): one drawer open a person; cash payments go into it.
+  http.get('*/api/cash-registers/sessions/current', ({ request }) => {
+    const access = authorize(request, {
+      permission: 'cashRegister:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const open = state.sessions.find(
+      (each) => each.tenantId === access.tenantId && each.userId === caller() && !each.closedAt,
+    );
+    return open
+      ? HttpResponse.json<RegisterSession>(sessionView(open))
+      : error(404, 'session_not_found', 'No register session is open');
+  }),
+
+  http.get('*/api/cash-registers/sessions', ({ request }) => {
+    const access = authorize(request, {
+      permission: 'cashRegister:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const mine = state.sessions
+      .filter((each) => each.tenantId === access.tenantId)
+      .map(sessionView)
+      .reverse();
+    const result = paged(mine, request);
+    return 'refused' in result
+      ? result.refused
+      : HttpResponse.json<RegisterSessionPage>(result.page);
+  }),
+
+  http.get('*/api/cash-registers/sessions/:sessionId', ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'cashRegister:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const found = state.sessions.find(
+      (each) => each.tenantId === access.tenantId && each.id === String(params.sessionId),
+    );
+    return found ? HttpResponse.json<RegisterSession>(sessionView(found)) : notFound();
+  }),
+
+  http.post('*/api/cash-registers/sessions', async ({ request }) => {
+    const access = authorize(request, {
+      permission: 'cashRegister:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    if (sent.replay) {
+      const again = state.sessions.find((each) => each.id === sent.replay?.id);
+      if (again) return HttpResponse.json<RegisterSession>(sessionView(again), { status: 201 });
+    }
+    const body = sent.body;
+    if (
+      !isObject(body) ||
+      !Number.isInteger(body.openingMinor) ||
+      (body.openingMinor as number) < 0 ||
+      (body.openingMinor as number) > 1_000_000_000_000
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (
+      state.sessions.some(
+        (each) => each.tenantId === tenantId && each.userId === caller() && !each.closedAt,
+      )
+    ) {
+      return error(409, 'register_open', 'You already have a register open');
+    }
+    const made: StoredSession = {
+      id: `reg_mock_${state.sessions.length + 1}`,
+      tenantId,
+      userId: caller(),
+      openedByName: currentSession()?.user.name ?? '',
+      openedAt: new Date().toISOString(),
+      openingMinor: body.openingMinor as number,
+    };
+    state.sessions.push(made);
+    answered.set(sent.keyOf, { body: JSON.stringify(body), id: made.id });
+    return HttpResponse.json<RegisterSession>(sessionView(made), { status: 201 });
+  }),
+
+  http.post('*/api/cash-registers/sessions/:sessionId/close', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'cashRegister:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    // Only the opener closes it; another person's drawer is not found.
+    const found = state.sessions.find(
+      (each) =>
+        each.tenantId === tenantId &&
+        each.id === String(params.sessionId) &&
+        each.userId === caller(),
+    );
+    if (!found) return notFound();
+    if (sent.replay) return HttpResponse.json<RegisterSession>(sessionView(found));
+    const body = sent.body;
+    if (
+      !isObject(body) ||
+      !Number.isInteger(body.countedMinor) ||
+      (body.countedMinor as number) < 0 ||
+      (body.countedMinor as number) > 1_000_000_000_000 ||
+      (body.note !== undefined &&
+        (typeof body.note !== 'string' ||
+          body.note.length < 1 ||
+          body.note.length > 300 ||
+          !PLAIN_TEXT.test(body.note)))
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (found.closedAt) return error(409, 'register_closed', 'This register was already settled');
+    found.closedAt = new Date().toISOString();
+    found.countedMinor = body.countedMinor as number;
+    if (typeof body.note === 'string') found.note = body.note;
+    answered.set(sent.keyOf, { body: JSON.stringify(body), id: found.id });
+    return HttpResponse.json<RegisterSession>(sessionView(found));
+  }),
 ];
 
 /** The charges as the mock holds them now, for tests. */
@@ -780,7 +980,23 @@ export const mockPayments = (): readonly Payment[] => state.payments;
 /** The credit notes issued so far, for tests. */
 export const mockCreditNotes = (): readonly CreditNote[] => state.creditNotes;
 
-/** Whether the caller has an open cash register session, for tests of cash payments. */
-export function setMockRegisterOpen(open: boolean): void {
-  state.registerOpen = open;
+/**
+ * Whether a caller with no drawer gets one opened by their first cash payment (the default, as
+ * before the register had screens), or is refused with `no_open_register` until they open one.
+ * Turning it off also settles every drawer that is open now, so nobody has one: for tests of cash
+ * payments and refunds without a register, and of the register itself.
+ */
+export function setMockRegisterOpen(autoOpen: boolean): void {
+  state.autoOpen = autoOpen;
+  if (!autoOpen) {
+    for (const each of state.sessions) {
+      if (!each.closedAt) {
+        each.closedAt = new Date().toISOString();
+        each.countedMinor = sessionView(each).expectedMinor;
+      }
+    }
+  }
 }
+
+/** The register sessions as the mock holds them, oldest first, for tests. */
+export const mockRegisterSessions = (): RegisterSession[] => state.sessions.map(sessionView);

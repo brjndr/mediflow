@@ -1,5 +1,7 @@
 {
-  "action": { "create": "Create invoice" },
+  "action": {
+    "create": "Create invoice"
+  },
   "status": {
     "draft": "Draft",
     "issued": "Issued",
@@ -92,7 +94,10 @@
     "pageSize": "Rows per page",
     "statusFilter": "Status",
     "allStatuses": "All",
-    "search": { "label": "Find an invoice", "placeholder": "Number, name or MRN" },
+    "search": {
+      "label": "Find an invoice",
+      "placeholder": "Number, name or MRN"
+    },
     "columns": {
       "number": "Invoice",
       "patient": "Patient",
@@ -165,7 +170,7 @@
     },
     "refused": {
       "overpayment": "That is more than is still due. The balance has been updated.",
-      "no_open_register": "Cash goes into a cash register session, and you have none open.",
+      "no_open_register": "Cash goes into a cash register session, and you have none open. Open one under Cash register.",
       "invoice_not_payable": "This invoice cannot take a payment."
     }
   },
@@ -184,7 +189,7 @@
     "amountTooMuch": "More than that payment still holds.",
     "refused": {
       "refund_exceeds": "That is more than the payment still holds. The payments have been read again.",
-      "no_open_register": "A cash refund comes out of a cash register session, and you have none open."
+      "no_open_register": "A cash refund comes out of a cash register session, and you have none open. Open one under Cash register."
     }
   },
   "credit": {
@@ -230,6 +235,100 @@
       "no_price": "This service has no price in effect. Set its price in the price catalog first.",
       "service_not_found": "This service no longer exists. Choose another.",
       "encounter_cancelled": "This visit was cancelled and has nothing to bill."
+    }
+  },
+  "register": {
+    "heading": "Cash register",
+    "description": "Your cash drawer for this shift: open it with the cash in it, take cash payments, and settle it at the end of the day.",
+    "sessionsLink": "All sessions and day-end",
+    "closed": "No register is open",
+    "noneOpen": "You have no cash register open. Cash payments and cash refunds need one.",
+    "open": {
+      "heading": "Open the register",
+      "opening": "Cash in the drawer",
+      "openingHint": "What is in the drawer now, counted. It may be nothing.",
+      "submit": "Open register",
+      "saving": "Opening…",
+      "done": "Register opened with {{amount}}."
+    },
+    "current": {
+      "heading": "Open since {{time}}",
+      "openedBy": "Opened by {{name}}",
+      "opening": "Opening cash",
+      "expected": "Cash expected in the drawer"
+    },
+    "totals": {
+      "heading": "Collections by payment mode",
+      "method": "Payment mode",
+      "taken": "Taken",
+      "refunded": "Refunded",
+      "net": "Net",
+      "all": "All modes",
+      "none": "Nothing has been collected yet."
+    },
+    "working": {
+      "heading": "How the expected cash is worked out",
+      "cashOnly": "Only cash is held in the drawer: other payment modes are not part of the expected cash.",
+      "line": "Opening {{opening}} + cash taken {{taken}} − cash refunded {{refunded}} = {{expected}}"
+    },
+    "close": {
+      "heading": "Close and settle",
+      "counted": "Cash counted",
+      "countedHint": "Count the drawer and type the total. The difference is worked out for you.",
+      "note": "Note for the handover",
+      "noteHint": "Optional. Anything the next person or the accounts should know. Kept with the settlement.",
+      "submit": "Close and settle",
+      "saving": "Settling…",
+      "done": "Register settled. {{difference}}"
+    },
+    "difference": {
+      "exact": "The count matches: no difference.",
+      "short": "Short by {{amount}}.",
+      "over": "Over by {{amount}}."
+    },
+    "sessions": {
+      "heading": "Cash register sessions",
+      "description": "Every shift of the hospital, newest first, with what it took and how the count settled.",
+      "gridLabel": "Register sessions",
+      "empty": "No register session has been opened yet.",
+      "pageSize": "Rows per page",
+      "count_one": "{{count}} session",
+      "count_other": "{{count}} sessions",
+      "loaded": "Showing {{count}} sessions so far",
+      "open": "Open",
+      "columns": {
+        "cashier": "Cashier",
+        "opened": "Opened",
+        "closed": "Closed",
+        "expected": "Expected",
+        "counted": "Counted",
+        "difference": "Difference"
+      }
+    },
+    "detail": {
+      "heading": "Register session",
+      "unavailable": "This register session is not available.",
+      "back": "Back to all sessions",
+      "status": "Status",
+      "open": "Still open: the figures are as of now.",
+      "settled": "Settled on {{time}}.",
+      "note": "Handover note",
+      "noNote": "No note.",
+      "print": "Print settlement"
+    },
+    "sheet": {
+      "title": "Day-end settlement",
+      "cashier": "Cashier",
+      "opened": "Opened",
+      "closed": "Closed",
+      "counted": "Cash counted",
+      "signature": "Signed by the cashier",
+      "signatureReceiver": "Received by"
+    },
+    "refused": {
+      "register_open": "You already have a register open. It has been read again.",
+      "register_closed": "This register was already settled.",
+      "session_not_found": "This register session is not available."
     }
   }
 }
