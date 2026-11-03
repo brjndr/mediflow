@@ -104,6 +104,20 @@ export function createManualLineSchema(checkMoney: (text: string) => number | nu
       .refine((text) => checkMoney(text) !== null, 'billing:line.priceInvalid'),
   });
 }
+/** The form for a service charged by hand: how many. The service is chosen from the catalog. */
+export const chargeQuantitySchema = z.object({
+  quantity: z
+    .string()
+    .trim()
+    .regex(/^\d+$/, 'billing:line.quantityWhole')
+    .refine(
+      (text) => Number(text) >= 1 && Number(text) <= QUANTITY_MAX,
+      'billing:line.quantityRange',
+    ),
+});
+export type ChargeQuantityInput = z.input<typeof chargeQuantitySchema>;
+export type ChargeQuantityValues = z.output<typeof chargeQuantitySchema>;
+
 export type ManualLineInput = z.input<ReturnType<typeof createManualLineSchema>>;
 export type ManualLineValues = z.output<ReturnType<typeof createManualLineSchema>>;
 

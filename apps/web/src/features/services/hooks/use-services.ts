@@ -70,13 +70,20 @@ export const ORDER_SUGGESTIONS = 10;
  * Services of one category that can be ordered (not archived), by words of the code or name.
  * Only the id, code and name leave this feature: a price is the price catalog's to show.
  */
-export function useOrderableServices(search: string, category: ServiceCategory, enabled: boolean) {
+export function useOrderableServices(
+  search: string,
+  category: ServiceCategory | undefined,
+  enabled: boolean,
+) {
   const tenantId = useTenant()?.id;
   const q = search.trim();
   return useQuery({
     queryKey: serviceKeys.list(tenantId ?? '', { as: 'orderable', category, q }),
     queryFn: ({ signal }) =>
-      fetchServices({ q, category, archived: false, limit: ORDER_SUGGESTIONS }, signal),
+      fetchServices(
+        { q, category: category ?? '', archived: false, limit: ORDER_SUGGESTIONS },
+        signal,
+      ),
     enabled: enabled && tenantId !== undefined && q !== '',
     staleTime: STALE_TIME_MS,
     select: (page): ServiceOption[] => page.items.map(({ id, code, name }) => ({ id, code, name })),

@@ -15,6 +15,7 @@ import {
 } from '../hooks/use-billing';
 import { CHARGES_MAX, MANUAL_LINES_MAX } from '../schemas';
 import type { Charge, Invoice, InvoiceContent, ManualLine } from '../types';
+import { AddChargePanel } from './AddChargePanel';
 import { ManualLineForm } from './ManualLineForm';
 
 /** A typed line while it is being built: the API's, with an id for the row. */
@@ -188,6 +189,11 @@ export function InvoiceBuilder({
         value: (row) => row.description,
       },
       {
+        id: 'source',
+        header: t('charges.columns.source'),
+        value: (row) => t(`charges.source.${row.source}`),
+      },
+      {
         id: 'quantity',
         header: t('charges.columns.quantity'),
         value: (row) => row.quantity,
@@ -204,6 +210,11 @@ export function InvoiceBuilder({
         header: t('charges.columns.amount'),
         value: (row) => format.money(row.totalMinor),
         align: 'end',
+      },
+      {
+        id: 'note',
+        header: t('charges.columns.note'),
+        value: (row) => (row.flag ? t(`charges.flag.${row.flag}`) : t('charges.noFlag')),
       },
       {
         id: 'onBill',
@@ -301,6 +312,15 @@ export function InvoiceBuilder({
           </p>
         )}
       </section>
+
+      <AddChargePanel
+        encounterId={encounterId}
+        onAdded={(chargeId) => {
+          // The new charge goes on this bill; what was chosen before stays as it was.
+          setPicked(new Set([...included, chargeId]));
+          setSaid('');
+        }}
+      />
 
       {(canAdjust || manual.length > 0) && (
         <section aria-labelledby="manual-heading" className="flex flex-col gap-3">

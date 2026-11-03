@@ -43,8 +43,24 @@
       "quantity": "Quantity",
       "unitPrice": "Unit price",
       "amount": "Amount",
-      "onBill": "On this bill"
-    }
+      "onBill": "On this bill",
+      "source": "From",
+      "note": "Note"
+    },
+    "source": {
+      "service": "Service",
+      "order": "Order",
+      "dispense": "Dispensed medicine",
+      "bed": "Bed",
+      "procedure": "Procedure",
+      "manual": "Typed in"
+    },
+    "flag": {
+      "service_archived": "Service no longer offered: last price",
+      "no_price": "No price set: check it",
+      "return_review": "Medicine brought back: credit it"
+    },
+    "noFlag": "None"
   },
   "line": {
     "heading": "Other lines",
@@ -197,6 +213,23 @@
       "credit_exceeds": "That is more than is left of the invoice. It has been read again.",
       "refund_first": "Money has been paid on this invoice. Refund it first.",
       "invoice_not_creditable": "This invoice cannot take a credit note."
+    }
+  },
+  "addCharge": {
+    "heading": "Charge a service",
+    "description": "A service of the price catalog, at the price list price in effect. It is posted to this visit as a pending charge.",
+    "service": "Service",
+    "chosen": "Chosen: {{name}}",
+    "chooseService": "Choose a service first.",
+    "quantity": "How many",
+    "submit": "Add charge",
+    "saving": "Adding…",
+    "added": "{{name}} added to the pending charges.",
+    "refused": {
+      "service_archived": "This service is no longer offered. Choose another.",
+      "no_price": "This service has no price in effect. Set its price in the price catalog first.",
+      "service_not_found": "This service no longer exists. Choose another.",
+      "encounter_cancelled": "This visit was cancelled and has nothing to bill."
     }
   }
 }

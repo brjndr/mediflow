@@ -48,6 +48,20 @@ export const Charge = Type.Object(
 export type Charge = Static<typeof Charge>;
 export const ChargePage = CursorPage(ref(Charge), { $id: 'ChargePage' });
 
+export const ChargeCreate = Type.Object(
+  {
+    serviceId: Type.String({ maxLength: 64, description: 'A service of the price catalog.' }),
+    quantity: Type.Integer({ minimum: 1, maximum: 9999 }),
+  },
+  {
+    $id: 'ChargeCreate',
+    additionalProperties: false,
+    description:
+      'A service to charge to a visit by hand. The price is the standard price list price in effect today, never typed.',
+  },
+);
+export type ChargeCreate = Static<typeof ChargeCreate>;
+
 export const ChargeQuery = Type.Object({
   status: Type.Optional(StringEnum(['pending', 'invoiced', 'void'])),
   cursor: Type.Optional(Type.String()),
@@ -280,6 +294,7 @@ export type RegisterClose = Static<typeof RegisterClose>;
 export const BILLING_SCHEMAS = [
   Charge,
   ChargePage,
+  ChargeCreate,
   ManualLine,
   InvoiceLine,
   Invoice,

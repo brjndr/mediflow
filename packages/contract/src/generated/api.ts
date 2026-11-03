@@ -3211,7 +3211,8 @@ export interface paths {
         /** @description The charges posted to a visit (#114), newest first, optionally of one status. Posted by the API from completed orders and dispenses, priced when posted. Requires charge:read with the scope `all` and the billing feature flag. Audited. */
         get: operations["listEncounterCharges"];
         put?: never;
-        post?: never;
+        /** @description Charges a service of the price catalog to a visit by hand (#115): it is posted to the ledger as a pending charge, source `service`, at the standard price list price in effect today, which the client never sends. An unknown service is 404 `service_not_found`; an archived one is 409 `service_archived` and one with no price in effect 409 `no_price` (work already done is posted at the last price by the events, but a charge typed in is a choice and is refused); a cancelled visit 409 `encounter_cancelled`. The Idempotency-Key header is required: a repeat posts nothing more and answers with the charge as it is now. Emits `charge.posted`. Requires charge:create and charge:read with the scope `all` and the billing feature flag. Audited. */
+        post: operations["createEncounterCharge"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6696,6 +6697,12 @@ export interface components {
             items: components["schemas"]["Charge"][];
             nextCursor: string | null;
             total?: number;
+        };
+        /** @description A service to charge to a visit by hand. The price is the standard price list price in effect today, never typed. */
+        ChargeCreate: {
+            /** @description A service of the price catalog. */
+            serviceId: string;
+            quantity: number;
         };
         /** @description A line the billing desk types in: something not in the price catalog. */
         ManualLine: {
@@ -24151,6 +24158,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChargePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createEncounterCharge: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChargeCreate"];
+            };
+        };
+        responses: {
+            /** @description Billable work posted to a visit. Priced when it was posted; never changes afterwards. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Charge"];
                 };
             };
             /** @description Standard error body. */

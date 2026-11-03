@@ -72,6 +72,18 @@ export interface ChargeRow {
   total: number;
 }
 
+export async function findCharge(client: pg.ClientBase, id: string): Promise<ChargeRow | null> {
+  if (!isUuid(id)) return null;
+  const { rows } = await client.query<ChargeRow>(
+    `select c.id, c.tenant_id, c.encounter_id, c.source, c.description, c.quantity,
+       c.unit_price_minor::text, c.total_minor::text, c.status, c.invoice_id, c.flag, c.posted_at,
+       ${EXACT('c.posted_at')} as at_exact, 1 as total
+     from charges c where c.id = $1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
 export async function listCharges(
   client: pg.ClientBase,
   options: { encounterId: string; status?: string; cursor?: string; limit: number },
