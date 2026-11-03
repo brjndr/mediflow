@@ -17,6 +17,7 @@
   },
   "detail": {
     "heading": "Invoice",
+    "paidSummary": "Paid {{paid}} of {{total}}; credited {{credited}}.",
     "unavailable": "This invoice is not available.",
     "status": "Status",
     "number": "Invoice number",
@@ -60,6 +61,40 @@
     "quantityWhole": "Type a whole number.",
     "quantityRange": "Type a number from 1 to 9999.",
     "priceInvalid": "Type an amount with a point for the decimals, such as 12.50."
+  },
+  "list": {
+    "heading": "Invoices",
+    "description": "Every invoice of the hospital, newest first. Find one by its number, the patient's name or MRN.",
+    "gridLabel": "Invoices",
+    "draftNumber": "Draft",
+    "empty": "No invoices yet.",
+    "emptySearch": "No invoice matches.",
+    "count_one": "{{count}} invoice",
+    "count_other": "{{count}} invoices",
+    "loaded_one": "{{count}} invoice loaded",
+    "loaded_other": "{{count}} invoices loaded",
+    "pageSize": "Rows per page",
+    "statusFilter": "Status",
+    "allStatuses": "All",
+    "search": { "label": "Find an invoice", "placeholder": "Number, name or MRN" },
+    "columns": {
+      "number": "Invoice",
+      "patient": "Patient",
+      "date": "Date",
+      "total": "Total",
+      "paid": "Paid",
+      "status": "Status"
+    }
+  },
+  "print": {
+    "action": "Print invoice",
+    "title": "Invoice {{number}}",
+    "patient": "Patient",
+    "paid": "Paid",
+    "credited": "Credited",
+    "due": "Balance due",
+    "printedBy": "Printed on {{time}} by {{name}}",
+    "notPrintable": "Only an issued invoice can be printed."
   },
   "builder": {
     "totalHeading": "Total",

@@ -1,13 +1,14 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { usePermission } from '@/access';
+import { Can, usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { InvoiceBuilder } from '../components/InvoiceBuilder';
+import { PrintInvoiceButton } from '../components/PrintInvoiceButton';
 import { useInvoice } from '../hooks/use-billing';
 import type { Invoice, InvoiceLine } from '../types';
 
@@ -89,13 +90,18 @@ function Body({ invoice }: { invoice: Invoice }) {
             </>
           )}
         </dl>
-        {canReadEncounter && (
-          <div className="mt-1">
+        <div className="mt-1 flex flex-wrap items-start gap-2">
+          {(invoice.status === 'issued' || invoice.status === 'paid') && (
+            <Can permission="invoice:print">
+              <PrintInvoiceButton invoiceId={invoice.id} />
+            </Can>
+          )}
+          {canReadEncounter && (
             <Button asChild variant="outline" size="sm">
               <Link to={`/encounters/${invoice.encounterId}`}>{t('detail.openVisit')}</Link>
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       {draft && canCreate ? (
         <InvoiceBuilder
@@ -178,6 +184,15 @@ function Issued({ invoice }: { invoice: Invoice }) {
         <span className="sr-only">{t('builder.total')}: </span>
         {format.money(invoice.totalMinor)}
       </p>
+      {invoice.status !== 'draft' && (
+        <p className="text-sm text-muted-foreground">
+          {t('detail.paidSummary', {
+            paid: format.money(invoice.paidMinor),
+            total: format.money(invoice.totalMinor),
+            credited: format.money(invoice.creditedMinor),
+          })}
+        </p>
+      )}
     </section>
   );
 }

@@ -192,6 +192,7 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'invoice:read' },
   { permission: 'invoice:create' },
   { permission: 'invoice:issue' },
+  { permission: 'invoice:print' },
   { permission: 'invoice:adjust' },
   { permission: 'report:read' },
   { permission: 'user:manage' },

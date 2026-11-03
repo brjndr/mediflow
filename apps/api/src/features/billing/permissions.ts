@@ -28,6 +28,11 @@ export const BILLING_PERMISSIONS = [
     defaults: { admin: 'all', receptionist: 'all' },
   },
   {
+    id: 'invoice:print',
+    description: 'Print an issued invoice (each print is recorded in the audit log)',
+    defaults: { admin: 'all', receptionist: 'all' },
+  },
+  {
     id: 'invoice:adjust',
     description: 'Type in an invoice line that is not in the price list or the charge ledger',
     defaults: { admin: 'all' },

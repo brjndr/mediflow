@@ -59,6 +59,24 @@ export const InvoiceListQuery = Type.Object({
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
 });
 
+export const InvoiceSearch = Type.Object(
+  {
+    q: Type.Optional(
+      Type.String({
+        maxLength: 100,
+        description:
+          'Invoice number, patient name or MRN. Every word must match; only the first six words are used.',
+      }),
+    ),
+    status: Type.Optional(StringEnum(['draft', 'issued', 'paid', 'void'])),
+    from: Type.Optional(Type.String({ format: 'date-time' })),
+    to: Type.Optional(Type.String({ format: 'date-time' })),
+    cursor: Type.Optional(Type.String()),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+  },
+  { $id: 'InvoiceSearch', additionalProperties: false },
+);
+
 export const ManualLine = Type.Object(
   {
     description: Type.String({ minLength: 1, maxLength: DESCRIPTION_MAX, pattern: PLAIN_TEXT }),
@@ -266,6 +284,7 @@ export const BILLING_SCHEMAS = [
   InvoiceLine,
   Invoice,
   InvoicePage,
+  InvoiceSearch,
   InvoiceContent,
   InvoiceUpdate,
   InvoiceIssue,
