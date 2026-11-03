@@ -14,6 +14,8 @@ type InvoicePage = components['schemas']['InvoicePage'];
 type ManualLine = components['schemas']['ManualLine'];
 type Payment = components['schemas']['Payment'];
 type PaymentList = components['schemas']['PaymentList'];
+type CreditNote = components['schemas']['CreditNote'];
+type CreditNoteList = components['schemas']['CreditNoteList'];
 
 const METHODS = ['cash', 'card', 'upi', 'bank', 'other'];
 
@@ -85,6 +87,7 @@ function seed() {
     invoices: [] as StoredInvoice[],
     printed: [] as { tenantId: string; invoiceId: string }[],
     payments: [] as (Payment & { tenantId: string })[],
+    creditNotes: [] as (CreditNote & { tenantId: string })[],
     // Cash goes into the caller's open register session; the register's screens come later.
     registerOpen: true,
   };
@@ -160,7 +163,9 @@ function invoiceView(stored: StoredInvoice): Invoice {
         (sum, each) => sum + (each.kind === 'refund' ? -each.amountMinor : each.amountMinor),
         0,
       ),
-    creditedMinor: 0,
+    creditedMinor: state.creditNotes
+      .filter((each) => each.invoiceId === stored.id)
+      .reduce((sum, each) => sum + each.amountMinor, 0),
     currency: mockTenantCurrency(stored.tenantId),
     createdAt: stored.createdAt,
     ...(stored.issuedAt ? { issuedAt: stored.issuedAt } : {}),
@@ -482,6 +487,86 @@ export const billingHandlers = [
     return HttpResponse.json<Payment>(shown, { status: 201 });
   }),
 
+  http.get('*/api/invoices/:invoiceId/credit-notes', ({ request, params }) => {
+    const access = authorize(request, { permission: 'invoice:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const found = invoiceFor(access.tenantId, String(params.invoiceId));
+    if (!found) return notFound();
+    return HttpResponse.json<CreditNoteList>({
+      items: state.creditNotes
+        .filter((each) => each.invoiceId === found.id)
+        .map(({ tenantId: _tenant, ...note }) => note),
+    });
+  }),
+
+  http.post('*/api/invoices/:invoiceId/credit-notes', async ({ request, params }) => {
+    for (const permission of ['creditNote:create', 'invoice:read']) {
+      const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+    }
+    const tenantId = currentPolicy()?.tenantId ?? '';
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const found = invoiceFor(tenantId, String(params.invoiceId));
+    if (!found) return notFound();
+    // A repeat issues nothing more and answers with the credit note.
+    if (sent.replay) {
+      const again = state.creditNotes.find((each) => each.id === sent.replay?.id);
+      if (again) {
+        const { tenantId: _tenant, ...note } = again;
+        return HttpResponse.json<CreditNote>(note, { status: 201 });
+      }
+    }
+    const body = sent.body;
+    if (
+      !isObject(body) ||
+      !Number.isInteger(body.amountMinor) ||
+      (body.amountMinor as number) < 1 ||
+      typeof body.reason !== 'string' ||
+      body.reason.trim().length < 1 ||
+      body.reason.length > 200 ||
+      !PLAIN_TEXT.test(body.reason)
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (found.status !== 'issued' && found.status !== 'paid') {
+      return error(409, 'invoice_not_creditable', 'Only an issued invoice takes a credit note');
+    }
+    const view = invoiceView(found);
+    const amount = body.amountMinor as number;
+    if (amount > view.totalMinor - view.creditedMinor) {
+      return error(409, 'credit_exceeds', 'More than is left of the invoice');
+    }
+    if (view.paidMinor > view.totalMinor - view.creditedMinor - amount) {
+      return error(409, 'refund_first', 'Refund the money paid first');
+    }
+    const note: CreditNote & { tenantId: string } = {
+      id: `cn_mock_${state.creditNotes.length + 1}`,
+      tenantId,
+      invoiceId: found.id,
+      number: `CN-${String(state.creditNotes.length + 1).padStart(4, '0')}`,
+      amountMinor: amount,
+      reason: body.reason.trim(),
+      createdByName: currentSession()?.user.name ?? '',
+      createdAt: new Date().toISOString(),
+    };
+    state.creditNotes.push(note);
+    // Credited in full: the invoice is void and its charges are to be billed again.
+    if (amount === view.totalMinor - view.creditedMinor) {
+      found.status = 'void';
+      found.version += 1;
+      for (const each of state.charges) {
+        if (each.invoiceId === found.id) {
+          each.status = 'pending';
+          delete each.invoiceId;
+        }
+      }
+    }
+    answered.set(sent.keyOf, { body: JSON.stringify(body), id: note.id });
+    const { tenantId: _tenant, ...shown } = note;
+    return HttpResponse.json<CreditNote>(shown, { status: 201 });
+  }),
+
   http.get('*/api/invoices/:invoiceId', ({ request, params }) => {
     const access = authorize(request, { permission: 'invoice:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
@@ -566,6 +651,9 @@ export const mockInvoices = (): Invoice[] => state.invoices.map(invoiceView);
 
 /** The payments recorded so far, for tests. */
 export const mockPayments = (): readonly Payment[] => state.payments;
+
+/** The credit notes issued so far, for tests. */
+export const mockCreditNotes = (): readonly CreditNote[] => state.creditNotes;
 
 /** Whether the caller has an open cash register session, for tests of cash payments. */
 export function setMockRegisterOpen(open: boolean): void {

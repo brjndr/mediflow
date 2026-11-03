@@ -152,5 +152,33 @@
       "no_open_register": "Cash goes into a cash register session, and you have none open.",
       "invoice_not_payable": "This invoice cannot take a payment."
     }
+  },
+  "credit": {
+    "heading": "Credit notes",
+    "none": "No credit note has been issued.",
+    "void": "This invoice is void: it was credited in full ({{credited}}).",
+    "refundFirst": "Money has been paid on this invoice. Refund it before a credit note can be issued.",
+    "issued": "Credit note {{number}} issued.",
+    "amount": "Credit amount",
+    "amountHint": "Up to {{left}}, what is not yet paid.",
+    "amountHintWhole": "Up to {{left}}, what is not yet paid. The whole invoice makes it void.",
+    "reason": "Reason",
+    "reasonHint": "Why the invoice is credited. Shown on the credit note.",
+    "submit": "Issue credit note",
+    "saving": "Issuing…",
+    "amountPositive": "Enter more than nothing.",
+    "amountTooMuch": "More than can be credited.",
+    "columns": {
+      "number": "Credit note",
+      "at": "Date",
+      "reason": "Reason",
+      "by": "Issued by",
+      "amount": "Amount"
+    },
+    "refused": {
+      "credit_exceeds": "That is more than is left of the invoice. It has been read again.",
+      "refund_first": "Money has been paid on this invoice. Refund it first.",
+      "invoice_not_creditable": "This invoice cannot take a credit note."
+    }
   }
 }

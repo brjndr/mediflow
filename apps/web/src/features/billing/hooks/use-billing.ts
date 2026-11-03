@@ -6,16 +6,18 @@ import { useTenant } from '@/tenancy';
 import {
   createInvoiceDraft,
   fetchEncounterInvoices,
+  fetchCreditNotes,
   fetchInvoice,
   fetchPayments,
   fetchPendingCharges,
+  issueCreditNote,
   issueInvoice,
   recordPayment,
   recordInvoicePrint,
   searchInvoices,
   updateInvoiceDraft,
 } from '../api';
-import type { Invoice, InvoiceContent, PaymentCreate } from '../types';
+import type { CreditNoteCreate, Invoice, InvoiceContent, PaymentCreate } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's bills never show in another. */
 export const billingKeys = createTenantKeys('billing');
@@ -272,4 +274,31 @@ export function useDebouncedValue<T>(value: T, delayMs: number): T {
     return () => clearTimeout(timer);
   }, [value, delayMs]);
   return debounced;
+}
+
+/** The invoice's credit notes, for `invoice:read`. */
+export function useCreditNotes(invoiceId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: [...billingKeys.all(tenantId ?? ''), 'credit-notes', invoiceId],
+    queryFn: ({ signal }) => fetchCreditNotes(invoiceId, signal),
+    enabled: tenantId !== undefined && invoiceId !== '',
+  });
+}
+
+/**
+ * Issues a credit note. As a payment: one key per body until it is issued, so a double press or
+ * a retry makes one note. Whatever the answer, the invoice (it may now be void), its payments,
+ * notes and the lists are read again.
+ */
+export function useIssueCreditNote(invoiceId: string) {
+  const refresh = useRefreshBilling();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    // The reason is free text about a patient's bill: it does not stay in the mutation cache.
+    gcTime: 0,
+    mutationFn: (body: CreditNoteCreate) => issueCreditNote(invoiceId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
 }

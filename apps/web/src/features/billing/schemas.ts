@@ -1,6 +1,14 @@
 import { z } from 'zod';
 import { PLAIN_TEXT } from '@/shared/utils/text';
-import type { Charge, ChargePage, Invoice, InvoicePage, Payment, PaymentMethod } from './types';
+import type {
+  Charge,
+  ChargePage,
+  CreditNote,
+  Invoice,
+  InvoicePage,
+  Payment,
+  PaymentMethod,
+} from './types';
 
 /** The API's limits (`planned.openapi.json`, until the billing API has them). */
 export const DESCRIPTION_MAX = 200;
@@ -148,3 +156,44 @@ export function createPaymentSchema(toAmount: (text: string) => number | null, d
 }
 export type PaymentInput = z.input<ReturnType<typeof createPaymentSchema>>;
 export type PaymentValues = z.output<ReturnType<typeof createPaymentSchema>>;
+
+export const REASON_MAX = 200;
+
+export const creditNoteSchema: z.ZodType<CreditNote> = z.object({
+  id: z.string(),
+  invoiceId: z.string(),
+  number: z.string(),
+  amountMinor: z.number().int(),
+  reason: z.string(),
+  createdByName: z.string(),
+  createdAt: z.string(),
+});
+
+export const creditNoteListSchema = z.object({ items: z.array(creditNoteSchema) });
+
+/**
+ * The form to issue a credit note (#112): an amount, more than nothing and at most `leftMinor`
+ * (what can be credited without refunding money first), and a reason, which is required.
+ */
+export function createCreditNoteSchema(
+  toAmount: (text: string) => number | null,
+  leftMinor: number,
+) {
+  return z.object({
+    amount: z
+      .string()
+      .trim()
+      .min(1, 'validation.required')
+      .refine((text) => toAmount(text) !== null, 'validation.invalid_format')
+      .refine((text) => (toAmount(text) ?? 1) > 0, 'billing:credit.amountPositive')
+      .refine((text) => (toAmount(text) ?? 0) <= leftMinor, 'billing:credit.amountTooMuch'),
+    reason: z
+      .string()
+      .trim()
+      .min(1, 'validation.required')
+      .max(REASON_MAX, 'validation.too_big')
+      .regex(PLAIN_TEXT, 'validation.plain_text'),
+  });
+}
+export type CreditNoteInput = z.input<ReturnType<typeof createCreditNoteSchema>>;
+export type CreditNoteValues = z.output<ReturnType<typeof createCreditNoteSchema>>;

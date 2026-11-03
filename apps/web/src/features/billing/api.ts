@@ -1,6 +1,8 @@
 import { api, requireData } from '@/shared/api';
 import {
   chargePageSchema,
+  creditNoteListSchema,
+  creditNoteSchema,
   invoicePageSchema,
   invoiceSchema,
   paymentListSchema,
@@ -8,6 +10,8 @@ import {
 } from './schemas';
 import type {
   ChargePage,
+  CreditNote,
+  CreditNoteCreate,
   Invoice,
   InvoiceContent,
   InvoicePage,
@@ -124,6 +128,31 @@ export async function fetchPayments(invoiceId: string, signal?: AbortSignal): Pr
     signal,
   });
   return paymentListSchema.parse(requireData(result)).items;
+}
+
+/** Every credit note of an invoice, oldest first (#112). */
+export async function fetchCreditNotes(
+  invoiceId: string,
+  signal?: AbortSignal,
+): Promise<CreditNote[]> {
+  const result = await api.GET('/invoices/{invoiceId}/credit-notes', {
+    params: { path: { invoiceId } },
+    signal,
+  });
+  return creditNoteListSchema.parse(requireData(result)).items;
+}
+
+/** One credit note; a repeat with the same key issues nothing more (#112). */
+export async function issueCreditNote(
+  invoiceId: string,
+  body: CreditNoteCreate,
+  idempotencyKey: string,
+): Promise<CreditNote> {
+  const result = await api.POST('/invoices/{invoiceId}/credit-notes', {
+    params: { path: { invoiceId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return creditNoteSchema.parse(requireData(result));
 }
 
 /** One payment; a repeat with the same key records nothing more (#111). */

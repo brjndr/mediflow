@@ -60,6 +60,7 @@ export const billingFeature: FeatureManifest = {
     'invoice:adjust',
     'payment:read',
     'payment:create',
+    'creditNote:create',
     'encounter:read',
   ],
 };
