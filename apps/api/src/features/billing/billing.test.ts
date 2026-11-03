@@ -1273,3 +1273,94 @@ describe('the hospital boundary', () => {
     ).toEqual([404, 'invoice_not_found']);
   });
 });
+
+describe('the invoice list and printing (#110)', () => {
+  const search = (body: object, options: Options = {}) =>
+    app.inject({
+      method: 'POST',
+      url: '/invoices/search',
+      headers: as((options.tenant ?? hospital).id, (options.user ?? desk).id),
+      payload: body,
+    });
+  const printed = async (invoiceId: string) =>
+    (
+      await pool.query<{ action: string }>(
+        `select action from audit_log where entity = 'invoice' and entity_id = $1 and action = 'print'`,
+        [invoiceId],
+      )
+    ).rows.length;
+
+  it('pages the hospital’s invoices newest first with a total, and finds them by number or patient', async () => {
+    const first = await issued();
+    const second = await issued();
+    const page = await ok<Page<Invoice>>(search({ limit: 1 }));
+    expect(page.items.map((each) => each.id)).toEqual([second.id]);
+    expect(page.total).toBeGreaterThanOrEqual(2);
+    const next = await ok<Page<Invoice>>(search({ limit: 1, cursor: page.nextCursor }));
+    expect(next.items[0]?.id).toBe(first.id);
+    expect(next.total).toBeUndefined();
+    const byNumber = await ok<Page<Invoice>>(search({ q: first.number }));
+    expect(byNumber.items.map((each) => each.id)).toEqual([first.id]);
+    const byPatient = await ok<Page<Invoice>>(search({ q: 'asha test', status: 'issued' }));
+    expect(byPatient.items.length).toBeGreaterThanOrEqual(2);
+    expect(byPatient.items.every((each) => each.status === 'issued')).toBe(true);
+    expect((await ok<Page<Invoice>>(search({ q: 'zzz-nobody' }))).items).toEqual([]);
+    expect((await ok<Page<Invoice>>(search({ q: '50%_' }))).items).toEqual([]);
+    expect(errorOf(await search({ cursor: 'junk' }))).toEqual([400, 'invalid_cursor']);
+    // A term with a pasted tab and a zero-width space finds what the clean term finds.
+    const messy = await ok<Page<Invoice>>(search({ q: `asha	\u200Btest ${first.number}` }));
+    expect(messy.items.map((each) => each.id)).toEqual([first.id]);
+  });
+
+  it('limits the list to a range of creation dates', async () => {
+    const invoice = await issued();
+    const day = 24 * 60 * 60 * 1000;
+    const around = (offset: number) => new Date(Date.now() + offset).toISOString();
+    const inside = await ok<Page<Invoice>>(
+      search({ q: invoice.number, from: around(-day), to: around(day) }),
+    );
+    expect(inside.items.map((each) => each.id)).toEqual([invoice.id]);
+    const before = await ok<Page<Invoice>>(
+      search({ q: invoice.number, from: around(-3 * day), to: around(-2 * day) }),
+    );
+    expect(before.items).toEqual([]);
+    const after = await ok<Page<Invoice>>(search({ q: invoice.number, from: around(day) }));
+    expect(after.items).toEqual([]);
+  });
+
+  it('shows another hospital nothing and needs the permission and the flag', async () => {
+    const mine = await issued();
+    const theirs = await ok<Page<Invoice>>(search({}, { tenant: clinic, user: clinicAdmin }));
+    expect(theirs.items.map((each) => each.id)).not.toContain(mine.id);
+    expect(errorOf(await search({}, { tenant: closed, user: admin }))).toEqual([
+      403,
+      'feature_disabled',
+    ]);
+  });
+
+  it('records a print once per press, for whoever may print', async () => {
+    const invoice = await issued();
+    const key = randomUUID();
+    expect((await post(`/invoices/${invoice.id}/print`, {}, { key })).statusCode).toBe(204);
+    expect((await post(`/invoices/${invoice.id}/print`, {}, { key })).statusCode).toBe(204);
+    expect(await printed(invoice.id)).toBe(1);
+    expect((await post(`/invoices/${invoice.id}/print`, {})).statusCode).toBe(204);
+    expect(await printed(invoice.id)).toBe(2);
+  });
+
+  it('refuses a print without the permission, of a draft, a void invoice or another hospital’s', async () => {
+    const invoice = await issued();
+    expect(errorOf(await post(`/invoices/${invoice.id}/print`, {}, { user: doctor }))).toEqual([
+      403,
+      'permission_denied',
+    ]);
+    const draft = await draftOf([await addCharge(encounters.main)]);
+    expect(errorOf(await post(`/invoices/${draft.id}/print`, {}))).toEqual([409, 'not_printable']);
+    expect(
+      errorOf(
+        await post(`/invoices/${invoice.id}/print`, {}, { tenant: clinic, user: clinicAdmin }),
+      ),
+    ).toEqual([404, 'invoice_not_found']);
+    expect(await printed(invoice.id)).toBe(0);
+  });
+});

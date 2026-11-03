@@ -77,3 +77,53 @@ test('bill a visit from the consultation and issue it with the keyboard alone', 
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 });
+
+test('find an issued invoice in the list and print it with the keyboard alone', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
+  // The mock keeps no invoice until one is made: issue the visit's pending charges inside the app.
+  await page.evaluate(async () => {
+    const made = await fetch('/api/encounters/enc_h_1/invoices', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ chargeIds: ['chg_h_1', 'chg_h_2'], manualLines: [] }),
+    });
+    const draft = (await made.json()) as { id: string; version: number };
+    await fetch(`/api/invoices/${draft.id}/issue`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ version: draft.version }),
+    });
+    (window as unknown as { printed: number }).printed = 0;
+    window.print = () => {
+      (window as unknown as { printed: number }).printed += 1;
+    };
+  });
+
+  await goTo(page, 'Billing');
+  await expect(page.getByRole('heading', { name: 'Invoices', level: 1 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  const search = page.getByRole('searchbox', { name: 'Find an invoice' });
+  await search.fill('INV-0001');
+  const open = page.getByRole('link', { name: 'INV-0001' });
+  await expect(open).toBeVisible();
+  await expectNoAxeViolations(page);
+  await reach(page, open);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByText(/^Invoice INV-0001 was issued on /)).toBeVisible();
+  const print = page.getByRole('button', { name: 'Print invoice' });
+  await reach(page, print);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { printed: number }).printed))
+    .toBe(1);
+  expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});

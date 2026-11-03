@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { Type } from '@sinclair/typebox';
+import { Type, type Static } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders, RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   claimCharges,
+  findInvoice,
   findEncounter,
   holdCharges,
   insertDraft,
@@ -19,6 +20,7 @@ import {
   manualLinesOf,
   nextNumber,
   replaceLines,
+  searchInvoices,
   setDraftTotal,
   num,
 } from './repository.js';
@@ -31,6 +33,7 @@ import {
   InvoiceContent,
   InvoiceIssue,
   InvoiceListQuery,
+  InvoiceSearch,
   InvoicePage,
   InvoiceUpdate,
   type ManualLine,
@@ -182,6 +185,67 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         nextCursor: page.nextCursor,
         ...(page.total === undefined ? {} : { total: page.total }),
       };
+    },
+  );
+
+  app.post(
+    '/invoices/search',
+    {
+      config: { permissions: ['invoice:read'], feature: FEATURE },
+      schema: {
+        operationId: 'searchInvoices',
+        tags: ['billing'],
+        description:
+          'Invoices of the hospital, newest first, drafts included; the invoice list. The term (number, patient name or MRN), the status and a range of creation dates travel in the body, never in a query string, because a term can name a patient. It reads data only; `total` is given on the first page. Requires invoice:read with the scope `all` and the billing feature flag. Audited as one search.',
+        body: ref(InvoiceSearch),
+        response: { 200: ref(InvoicePage), ...errors(400, 401, 403, 409, 422, 429) },
+      },
+    },
+    async (request) => {
+      requireAll(request, 'invoice:read');
+      const body = request.body as Static<typeof InvoiceSearch>;
+      const page = await searchInvoices(request.txClient, { ...body, limit: body.limit ?? 25 });
+      if (!page) throw new HttpError(400, 'invalid_cursor', 'The cursor is not valid');
+      request.audit('search', 'invoice');
+      return {
+        items: page.rows.map(invoiceView),
+        nextCursor: page.nextCursor,
+        ...(page.total === undefined ? {} : { total: page.total }),
+      };
+    },
+  );
+
+  app.post(
+    '/invoices/:invoiceId/print',
+    {
+      config: {
+        permissions: ['invoice:read', 'invoice:print'],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'printInvoice',
+        tags: ['billing'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Records that an invoice is printed (audit action `print`, entity `invoice`) and nothing else: the web app makes the page from what it has read and opens the print dialog once this answers. A draft or a void invoice is not printed (409 `not_printable`). The Idempotency-Key header is required, one per press: a repeat records nothing more. Requires invoice:read, invoice:print with the scope `all` and the billing feature flag.',
+        params: InvoiceParams,
+        response: {
+          204: Type.Null({ description: 'Recorded' }),
+          ...errors(401, 403, 404, 409, 429),
+        },
+      },
+    },
+    async (request, reply) => {
+      requireAll(request, 'invoice:read', 'invoice:print');
+      const { invoiceId } = request.params as { invoiceId: string };
+      const row = await findInvoice(request.txClient, invoiceId);
+      if (!row) throw invoiceNotFound();
+      if (row.status === 'draft' || row.status === 'void') {
+        throw new HttpError(409, 'not_printable', 'Only an issued invoice is printed');
+      }
+      if (request.replayOf === null) request.audit('print', 'invoice', row.id);
+      return reply.status(204).send(null);
     },
   );
 

@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { searchTerm } from '../../core/http/text.js';
 
 /**
  * The SQL of billing (#114). Every statement runs on the request's own transaction, so row-level
@@ -166,6 +167,62 @@ export async function listInvoices(
      order by i.created_at desc, i.id desc
      limit $4`,
     [options.encounterId, after?.[0] ?? null, after?.[1] ?? null, options.limit + 1],
+  );
+  const page = rows.slice(0, options.limit);
+  const last = page.at(-1);
+  return {
+    rows: page,
+    nextCursor:
+      rows.length > options.limit && last ? encodeCursor('invoices', last.at_exact, last.id) : null,
+    ...(after === undefined ? { total: rows[0]?.total ?? 0 } : {}),
+  };
+}
+
+export interface InvoiceSearch {
+  q?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  cursor?: string;
+  limit: number;
+}
+
+const likePattern = (word: string): string => `%${word.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+
+/**
+ * Invoices of the hospital, newest first. Every word of the term must be in the invoice number,
+ * the patient's name or the MRN, in any order.
+ */
+export async function searchInvoices(
+  client: pg.ClientBase,
+  options: InvoiceSearch,
+): Promise<Page<InvoiceRow> | null> {
+  const after = options.cursor ? decodeCursor(options.cursor, 'invoices') : undefined;
+  if (after === null) return null;
+  const words = (searchTerm(options.q) ?? '').split(' ').filter(Boolean).slice(0, 6);
+  const params: unknown[] = [
+    after?.[0] ?? null,
+    after?.[1] ?? null,
+    options.status ?? null,
+    options.from ?? null,
+    options.to ?? null,
+  ];
+  const matches = words.map((word) => {
+    params.push(likePattern(word));
+    const at = `$${params.length}`;
+    return `(i.number ilike ${at} or pt.first_name || ' ' || pt.last_name ilike ${at} or pt.mrn ilike ${at})`;
+  });
+  params.push(options.limit + 1);
+  const { rows } = await client.query<InvoiceRow>(
+    `${INVOICE_SELECT}
+     where ($1::timestamptz is null or (i.created_at, i.id) < ($1::timestamptz, $2::uuid))
+       and ($3::text is null or i.status = $3)
+       and ($4::timestamptz is null or i.created_at >= $4)
+       and ($5::timestamptz is null or i.created_at < $5)
+       ${matches.map((match) => `and ${match}`).join(' ')}
+     order by i.created_at desc, i.id desc
+     limit $${params.length}`,
+    params,
   );
   const page = rows.slice(0, options.limit);
   const last = page.at(-1);

@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sessionKey, useSession, type Session } from '@/app/session';
-import { createTenantKeys } from '@/shared/api';
+import { createTenantKeys, isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
   createInvoiceDraft,
@@ -9,6 +9,8 @@ import {
   fetchInvoice,
   fetchPendingCharges,
   issueInvoice,
+  recordInvoicePrint,
+  searchInvoices,
   updateInvoiceDraft,
 } from '../api';
 import type { Invoice, InvoiceContent } from '../types';
@@ -165,4 +167,79 @@ export function useIssueInvoice() {
     },
     onSettled: refresh,
   });
+}
+
+export const INVOICE_PAGE_SIZES = [25, 50, 100] as const;
+export const SEARCH_DEBOUNCE_MS = 300;
+
+/** Failures worth a second try: the request may not have reached a working server at all. */
+const RETRYABLE = new Set(['network', 'timeout', 'server']);
+
+export interface InvoiceListFilters {
+  q: string;
+  status: Invoice['status'] | null;
+  limit: number;
+}
+
+/**
+ * The invoice list, one server page at a time. The term and the status are the server's job: any
+ * change is a new query from the first page, and the previous request is aborted.
+ */
+export function useInvoices({ q, status, limit }: InvoiceListFilters) {
+  const tenantId = useTenant()?.id;
+  const term = q.trim();
+  return useInfiniteQuery({
+    queryKey: billingKeys.list(tenantId ?? '', { q: term, status, limit }),
+    queryFn: ({ pageParam, signal }) =>
+      searchInvoices({ q: term, status: status ?? undefined, cursor: pageParam, limit }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: tenantId !== undefined,
+    staleTime: 15_000,
+    placeholderData: (previous) => previous,
+    // A POST is not retried by the fetch wrapper; it only reads, so a passing failure is.
+    retry: (failures, error) => failures < 2 && isApiError(error) && RETRYABLE.has(error.code),
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
+  });
+}
+
+/**
+ * A print of an issued invoice: the invoice read afresh, then the print recorded on the server
+ * with a new idempotency key per press; the page is shown (`job`) only once both succeeded, and
+ * only for the session it was asked in. `done` drops it when the print dialog closes. Leaving the
+ * page aborts the read.
+ */
+export function useInvoicePrinting(invoiceId: string) {
+  const stillHere = useStillHere();
+  const abort = useRef<AbortController>(undefined);
+  useEffect(() => () => abort.current?.abort(), []);
+  const [job, setJob] = useState<{ id: number; value: Invoice } | null>(null);
+  const mutation = useMutation({
+    gcTime: 0,
+    mutationFn: async () => {
+      abort.current = new AbortController();
+      const invoice = await fetchInvoice(invoiceId, abort.current.signal);
+      await recordInvoicePrint(invoiceId, crypto.randomUUID(), abort.current.signal);
+      return invoice;
+    },
+    onSuccess: (value) => {
+      if (stillHere() && !abort.current?.signal.aborted)
+        setJob((now) => ({ id: (now?.id ?? 0) + 1, value }));
+    },
+  });
+  const { isPending, mutate } = mutation;
+  const print = useCallback(() => {
+    if (!isPending) mutate();
+  }, [isPending, mutate]);
+  const done = useCallback(() => setJob(null), []);
+  return { print, busy: isPending, error: mutation.error, job, done };
+}
+
+export function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
 }

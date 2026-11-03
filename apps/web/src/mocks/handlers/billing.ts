@@ -79,6 +79,7 @@ function seed() {
       charge('chg_c_1', clinic, 'enc_c_1', 'service', 'General consultation', 1, 15000, 30),
     ] as Charge[],
     invoices: [] as StoredInvoice[],
+    printed: [] as { tenantId: string; invoiceId: string }[],
   };
 }
 
@@ -344,6 +345,54 @@ export const billingHandlers = [
     return HttpResponse.json<Invoice>(invoiceView(stored), { status: 201 });
   }),
 
+  http.post('*/api/invoices/search', async ({ request }) => {
+    const access = authorize(request, { permission: 'invoice:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const body: unknown = await request.json().catch(() => null);
+    const q =
+      isObject(body) && typeof body.q === 'string'
+        ? body.q.toLowerCase().split(/\s+/).filter(Boolean)
+        : [];
+    const status = isObject(body) && typeof body.status === 'string' ? body.status : null;
+    const found = state.invoices
+      .filter((each) => each.tenantId === access.tenantId)
+      .map(invoiceView)
+      .filter((each) => status === null || each.status === status)
+      .filter((each) => {
+        const hay = `${each.number ?? ''} ${each.patientName} ${each.patientMrn}`.toLowerCase();
+        return q.every((word) => hay.includes(word));
+      })
+      .reverse();
+    const url = new URL(request.url);
+    if (isObject(body)) {
+      if (typeof body.cursor === 'string') url.searchParams.set('cursor', body.cursor);
+      if (typeof body.limit === 'number') url.searchParams.set('limit', String(body.limit));
+    }
+    const result = paged(found, new Request(url));
+    return 'refused' in result ? result.refused : HttpResponse.json<InvoicePage>(result.page);
+  }),
+
+  http.post('*/api/invoices/:invoiceId/print', async ({ request, params }) => {
+    for (const permission of ['invoice:read', 'invoice:print']) {
+      const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+    }
+    const tenantId = currentPolicy()?.tenantId ?? '';
+    const key = request.headers.get('Idempotency-Key');
+    if (!key) return error(400, 'validation_failed', 'Idempotency-Key is required');
+    const found = invoiceFor(tenantId, String(params.invoiceId));
+    if (!found) return notFound();
+    if (found.status === 'draft' || found.status === 'void') {
+      return error(409, 'not_printable', 'Only an issued invoice is printed');
+    }
+    const keyOf = `${tenantId}:${caller()}:print:${key}`;
+    if (!answered.has(keyOf)) {
+      answered.set(keyOf, { body: '', id: found.id });
+      state.printed.push({ tenantId, invoiceId: found.id });
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   http.get('*/api/invoices/:invoiceId', ({ request, params }) => {
     const access = authorize(request, { permission: 'invoice:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
@@ -419,6 +468,9 @@ export const billingHandlers = [
 
 /** The charges as the mock holds them now, for tests. */
 export const mockCharges = (): readonly Charge[] => state.charges;
+
+/** The prints recorded so far (the audit log's), for tests. */
+export const mockPrints = (): readonly { tenantId: string; invoiceId: string }[] => state.printed;
 
 /** The invoices as the mock holds them now, for tests. */
 export const mockInvoices = (): Invoice[] => state.invoices.map(invoiceView);

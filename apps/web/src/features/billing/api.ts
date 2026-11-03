@@ -68,3 +68,37 @@ export async function issueInvoice(
   });
   return invoiceSchema.parse(requireData(result));
 }
+
+export interface InvoiceFilters {
+  q?: string;
+  status?: Invoice['status'];
+  cursor?: string;
+  limit: number;
+}
+
+/**
+ * The hospital's invoices, newest first. A POST so that the term, which can name a patient, stays
+ * out of the address and the logs in front of the API.
+ */
+export async function searchInvoices(
+  { q, status, cursor, limit }: InvoiceFilters,
+  signal?: AbortSignal,
+): Promise<InvoicePage> {
+  const result = await api.POST('/invoices/search', {
+    body: { q: q || undefined, status, cursor, limit },
+    signal,
+  });
+  return invoicePageSchema.parse(requireData(result));
+}
+
+/** Records a print of the invoice in the audit log; nothing prints until it is answered. */
+export async function recordInvoicePrint(
+  invoiceId: string,
+  idempotencyKey: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await api.POST('/invoices/{invoiceId}/print', {
+    params: { path: { invoiceId }, header: { 'idempotency-key': idempotencyKey } },
+    signal,
+  });
+}
