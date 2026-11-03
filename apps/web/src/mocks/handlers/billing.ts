@@ -146,6 +146,8 @@ function invoiceView(stored: StoredInvoice): Invoice {
     status: stored.status,
     lines,
     totalMinor: lines.reduce((sum, line) => sum + line.totalMinor, 0),
+    paidMinor: 0,
+    creditedMinor: 0,
     currency: mockTenantCurrency(stored.tenantId),
     createdAt: stored.createdAt,
     ...(stored.issuedAt ? { issuedAt: stored.issuedAt } : {}),

@@ -65,6 +65,9 @@ export const DOMAIN_EVENTS = [
   'invoice.issued',
   'invoice.paid',
   'payment.refunded',
+  // A credit note against an issued invoice, and a cash register session settled (#114): ids only.
+  'invoice.credited',
+  'register.closed',
   'admission.created',
   'bed.assigned',
   'bed.released',

@@ -4,7 +4,7 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 ## What exists
 
-**The invoice builder (#109), web only, against the mock.** The billing API (#114) does not exist yet: the endpoints are in `packages/contract/planned.openapi.json` (`GET /encounters/{id}/charges`, `GET` and `POST /encounters/{id}/invoices`, `GET` and `PATCH /invoices/{id}`, `POST /invoices/{id}/issue`) and `mocks/handlers/billing.ts` answers them. When the API implements one, delete it from the planned file.
+**The invoice builder (#109), web only, against the mock.** The billing API (#114) implements these endpoints (`GET /encounters/{id}/charges`, `GET` and `POST /encounters/{id}/invoices`, `GET` and `PATCH /invoices/{id}`, `POST /invoices/{id}/issue`) and more (payments, refunds, credit notes, the cash register: no screen yet); its decisions are in `apps/api/src/features/billing/CLAUDE.md`. `mocks/handlers/billing.ts` still answers them for the default mock run; keep it matching the API (an invoice also carries `paidMinor` and `creditedMinor`, a charge may carry a `flag`).
 
 Behind the `billing` switch, `charge:read`, `invoice:read`, `invoice:create` and `invoice:issue` (the mock's admin holds all four). Works at every width.
 
