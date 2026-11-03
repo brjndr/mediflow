@@ -43,8 +43,8 @@ export function differenceText(
   t: (key: string, options?: Record<string, unknown>) => string,
   money: (minor: number) => string,
 ): string {
-  const kind = differenceKind(differenceMinor);
-  return kind === 'exact'
-    ? t('register.difference.exact')
-    : t(`register.difference.${kind}`, { amount: money(Math.abs(differenceMinor)) });
+  // The key is built, not written out: this file has no namespace of its own for the i18n scan.
+  return t(`register.difference.${differenceKind(differenceMinor)}`, {
+    amount: money(Math.abs(differenceMinor)),
+  });
 }
