@@ -30,6 +30,7 @@ import {
   Invoice,
   InvoiceContent,
   InvoiceIssue,
+  InvoiceListQuery,
   InvoicePage,
   InvoiceUpdate,
   type ManualLine,
@@ -43,13 +44,11 @@ import {
   requireAll,
   userIdOf,
 } from './views.js';
-import { CursorQuery } from '../../core/http/schemas.js';
 import { paymentRoutes } from './payment-routes.js';
 import { registerRoutes } from './register-routes.js';
 
 const EncounterParams = Type.Object({ encounterId: Type.String({ maxLength: 64 }) });
 const InvoiceParams = Type.Object({ invoiceId: Type.String({ maxLength: 64 }) });
-const INVOICE_PAGE_QUERY = CursorQuery;
 
 const encounterNotFound = () => new HttpError(404, 'encounter_not_found', 'No such visit');
 const versionConflict = () =>
@@ -135,9 +134,13 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       requireAll(request, 'charge:read');
       const { encounterId } = request.params as { encounterId: string };
-      const query = request.query as { status?: string; cursor?: string; limit: number };
+      const query = request.query as { status?: string; cursor?: string; limit?: number };
       if (!(await findEncounter(request.txClient, encounterId))) throw encounterNotFound();
-      const page = await listCharges(request.txClient, { encounterId, ...query });
+      const page = await listCharges(request.txClient, {
+        encounterId,
+        ...query,
+        limit: query.limit ?? 25,
+      });
       if (!page) throw new HttpError(400, 'invalid_cursor', 'The cursor is not valid');
       request.audit('read', 'charge', encounterId);
       return {
@@ -158,16 +161,20 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         description:
           'The invoices of a visit (#114), newest first, drafts included. Requires invoice:read with the scope `all` and the billing feature flag. Audited.',
         params: EncounterParams,
-        querystring: INVOICE_PAGE_QUERY,
+        querystring: InvoiceListQuery,
         response: { 200: ref(InvoicePage), ...errors(400, 401, 403, 404, 409, 422, 429) },
       },
     },
     async (request) => {
       requireAll(request, 'invoice:read');
       const { encounterId } = request.params as { encounterId: string };
-      const query = request.query as { cursor?: string; limit: number };
+      const query = request.query as { cursor?: string; limit?: number };
       if (!(await findEncounter(request.txClient, encounterId))) throw encounterNotFound();
-      const page = await listInvoices(request.txClient, { encounterId, ...query });
+      const page = await listInvoices(request.txClient, {
+        encounterId,
+        ...query,
+        limit: query.limit ?? 25,
+      });
       if (!page) throw new HttpError(400, 'invalid_cursor', 'The cursor is not valid');
       request.audit('read', 'invoice', encounterId);
       return {

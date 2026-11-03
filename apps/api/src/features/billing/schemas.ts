@@ -51,7 +51,12 @@ export const ChargePage = CursorPage(ref(Charge), { $id: 'ChargePage' });
 export const ChargeQuery = Type.Object({
   status: Type.Optional(StringEnum(['pending', 'invoiced', 'void'])),
   cursor: Type.Optional(Type.String()),
-  limit: Type.Integer({ minimum: 1, maximum: 100, default: 25 }),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+});
+
+export const InvoiceListQuery = Type.Object({
+  cursor: Type.Optional(Type.String()),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
 });
 
 export const ManualLine = Type.Object(

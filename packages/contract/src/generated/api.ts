@@ -24085,10 +24085,10 @@ export interface operations {
     };
     listEncounterCharges: {
         parameters: {
-            query: {
+            query?: {
                 status?: "pending" | "invoiced" | "void";
                 cursor?: string;
-                limit: number;
+                limit?: number;
             };
             header?: never;
             path: {
@@ -24174,10 +24174,9 @@ export interface operations {
     };
     listEncounterInvoices: {
         parameters: {
-            query: {
-                /** @description Opaque. Pass the nextCursor of the previous page. */
+            query?: {
                 cursor?: string;
-                limit: number;
+                limit?: number;
             };
             header?: never;
             path: {

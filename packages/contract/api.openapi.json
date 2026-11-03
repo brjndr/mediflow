@@ -32070,12 +32070,11 @@
             "schema": {
               "minimum": 1,
               "maximum": 100,
-              "default": 25,
               "type": "integer"
             },
             "in": "query",
             "name": "limit",
-            "required": true
+            "required": false
           },
           {
             "schema": {
@@ -32183,19 +32182,17 @@
             },
             "in": "query",
             "name": "cursor",
-            "required": false,
-            "description": "Opaque. Pass the nextCursor of the previous page."
+            "required": false
           },
           {
             "schema": {
               "minimum": 1,
               "maximum": 100,
-              "default": 25,
               "type": "integer"
             },
             "in": "query",
             "name": "limit",
-            "required": true
+            "required": false
           },
           {
             "schema": {
