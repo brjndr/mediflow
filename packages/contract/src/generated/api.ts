@@ -3201,6 +3201,198 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/encounters/{encounterId}/charges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The charges posted to a visit (#114), newest first, optionally of one status. Posted by the API from completed orders and dispenses, priced when posted. Requires charge:read with the scope `all` and the billing feature flag. Audited. */
+        get: operations["listEncounterCharges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The invoices of a visit (#114), newest first, drafts included. Requires invoice:read with the scope `all` and the billing feature flag. Audited. */
+        get: operations["listEncounterInvoices"];
+        put?: never;
+        /** @description Makes a draft invoice of a visit from some of its pending charges and lines typed in (#114). The server works out every line and the total; a client total is never read. A charge sits in one draft at a time (409 `charge_unavailable`, also for one that is not pending or not of this visit). Typed lines need invoice:adjust (403). A cancelled visit has nothing to bill (409 `encounter_cancelled`). The Idempotency-Key header is required: a repeat makes no second draft and answers with the draft as it is now. Requires invoice:create, invoice:read and charge:read with the scope `all` and the billing feature flag. Audited. */
+        post: operations["createInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invoices/{invoiceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description An invoice with its lines (#114). Requires invoice:read with the scope `all` and the billing feature flag. Audited. */
+        get: operations["getInvoice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes what a draft is made of (#114): the charges and typed lines it now holds, with the version the edit started from (409 `version_conflict`). The charges left out go back to pending. An issued invoice is never changed (409 `invoice_not_draft`). Typed lines need invoice:adjust unless they are the lines the draft already has. Accepts an Idempotency-Key. Requires invoice:create, invoice:read and charge:read with the scope `all` and the billing feature flag. Audited. */
+        patch: operations["updateInvoice"];
+        trace?: never;
+    };
+    "/invoices/{invoiceId}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Issues a draft (#114): it gets the next number of the fiscal year (April to March, gapless), its charges become invoiced, and it is never changed again. The version must be the one the person saw (409 `version_conflict`); an invoice with no lines is refused (409 `invoice_empty`); one holding a charge flagged as brought back is refused until it is taken off (409 `charge_returned`); one already issued is refused (409 `invoice_not_draft`). Emits `invoice.issued`, and `invoice.paid` for an invoice of nothing to pay. The Idempotency-Key header is required: a repeat issues nothing more and answers with the invoice as it is now. Requires invoice:issue and invoice:read with the scope `all` and the billing feature flag. Audited. */
+        post: operations["issueInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invoices/{invoiceId}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every payment and refund of an invoice, oldest first (#114). Requires payment:read with the scope `all` and the billing feature flag. Audited. */
+        get: operations["listInvoicePayments"];
+        put?: never;
+        /** @description Records a payment against an issued invoice (#114). Never more than is still due (409 `overpayment`); an invoice that is a draft, void or already paid is refused (409 `invoice_not_payable`). Cash goes into the caller’s open cash register session (409 `no_open_register` without one). The invoice becomes paid when nothing is due, and `invoice.paid` is emitted. The Idempotency-Key header is required: a repeat records nothing more and answers with the payment. Requires payment:create and payment:read with the scope `all` and the billing feature flag. Audited. */
+        post: operations["recordPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments/{paymentId}/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Refunds some or all of a payment, with a reason (#114): a new entry on the invoice, the payment itself never changes. Never more than the payment still holds (409 `refund_exceeds`). A paid invoice becomes issued again. A cash refund comes out of the caller’s open cash register session (409 `no_open_register`). Emits `payment.refunded`. The Idempotency-Key header is required. Requires payment:refund and payment:read with the scope `all` and the billing feature flag. Audited. */
+        post: operations["refundPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invoices/{invoiceId}/credit-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The credit notes against an invoice, oldest first (#114). Requires invoice:read with the scope `all` and the billing feature flag. Audited. */
+        get: operations["listInvoiceCreditNotes"];
+        put?: never;
+        /** @description Issues a credit note against an issued invoice, with a reason (#114): it gets the next number of its own series, and the invoice itself never changes. Never more than is left after earlier credit notes (409 `credit_exceeds`), and not while the money paid would then exceed what remains owed (409 `refund_first`). A credit note for the whole invoice makes it void and lets its charges go back to pending, to be billed again. Emits `invoice.credited`. The Idempotency-Key header is required. Requires creditNote:create and invoice:read with the scope `all` and the billing feature flag. Audited. */
+        post: operations["createCreditNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cash-registers/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Cash register sessions, newest first, with what each took by method and, once settled, the difference (#114). Requires cashRegister:read with the scope `all` and the billing feature flag. Audited. */
+        get: operations["listRegisterSessions"];
+        put?: never;
+        /** @description Opens the caller’s cash register session with the cash in the drawer (#114). A person has one open at a time (409 `register_open`). The Idempotency-Key header is required. Requires cashRegister:manage with the scope `all` and the billing feature flag. Audited. */
+        post: operations["openRegisterSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cash-registers/sessions/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The cash register session the caller has open, with what it holds so far (#114); 404 `session_not_found` when none. Requires cashRegister:manage with the scope `all` and the billing feature flag. Audited. */
+        get: operations["getOpenRegisterSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cash-registers/sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One cash register session (#114). Requires cashRegister:read with the scope `all` and the billing feature flag. Audited. */
+        get: operations["getRegisterSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cash-registers/sessions/{sessionId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Settles the caller’s own session at the end of the day (#114): the cash counted is kept with what the server expected (the opening cash and the cash taken, less cash refunded), and the session is final. Another person’s session is not found (404); one already closed is refused (409 `register_closed`). Emits `register.closed`. The Idempotency-Key header is required. Requires cashRegister:manage with the scope `all` and the billing feature flag. Audited. */
+        post: operations["closeRegisterSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/purchasing/suppliers": {
         parameters: {
             query?: never;
@@ -3556,76 +3748,6 @@ export interface paths {
         put?: never;
         /** @description Archives a notice so it no longer appears in the list. Requires notice:manage. */
         post: operations["archiveNotice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/encounters/{encounterId}/charges": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The charges posted to a visit, oldest first. Requires charge:read and the billing feature flag. A visit of another hospital is 404. */
-        get: operations["listEncounterCharges"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/encounters/{encounterId}/invoices": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The invoices of a visit, newest first, drafts included. Requires invoice:read and the billing feature flag. */
-        get: operations["listEncounterInvoices"];
-        put?: never;
-        /** @description Makes a draft invoice of a visit from some of its pending charges (409 `charge_unavailable` for one already invoiced, void or in another draft) and lines typed in. A draft needs at least one line (422 `empty_invoice`). Requires invoice:create. The Idempotency-Key header is required. The server works out every line and the invoice total itself; a total sent by a client is never read. A visit that was cancelled has nothing to bill (409 `encounter_cancelled`). Typed lines (`manualLines`) need invoice:adjust as well, since they skip the price list (403 otherwise). Audited. Emits no event until the invoice is issued. */
-        post: operations["createInvoiceDraft"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/invoices/{invoiceId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description One invoice. Requires invoice:read and the billing feature flag. */
-        get: operations["getInvoice"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** @description Replaces the content of a draft. 409 `invoice_not_draft` once issued, 409 `version_conflict` when it changed since it was read. Requires invoice:create. The server works out every line and the invoice total itself; a total sent by a client is never read. A visit that was cancelled has nothing to bill (409 `encounter_cancelled`). Typed lines (`manualLines`) need invoice:adjust as well, since they skip the price list (403 otherwise). Audited. */
-        patch: operations["updateInvoiceDraft"];
-        trace?: never;
-    };
-    "/invoices/{invoiceId}/issue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Issues a draft: it gets its number, its charges become invoiced, and it can no longer be changed. Requires invoice:issue. The Idempotency-Key header is required: a repeat answers with the issued invoice. A cancelled visit is 409 `encounter_cancelled`. Audited, and emits `invoice.issued` through the outbox with the tenant, the invoice id, the actor and the time, never the lines. */
-        post: operations["issueInvoice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6510,6 +6632,194 @@ export interface components {
             nextCursor: string | null;
             total?: number;
         };
+        /** @description Billable work posted to a visit. Priced when it was posted; never changes afterwards. */
+        Charge: {
+            id: string;
+            tenantId: string;
+            encounterId: string;
+            /** @enum {string} */
+            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual";
+            description: string;
+            quantity: number;
+            /** @description Priced when posted; never changes. */
+            unitPriceMinor: number;
+            /** @description Quantity times the price of one. */
+            totalMinor: number;
+            /** @enum {string} */
+            status: "pending" | "invoiced" | "void";
+            /** @description The draft invoice holding the charge, when one does. */
+            invoiceId?: string;
+            /**
+             * @description For the billing desk: priced at the last price of an archived service, posted with no price, or brought back after dispensing.
+             * @enum {string}
+             */
+            flag?: "service_archived" | "no_price" | "return_review";
+            /** Format: date-time */
+            postedAt: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ChargePage: {
+            items: components["schemas"]["Charge"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description A line the billing desk types in: something not in the price catalog. */
+        ManualLine: {
+            description: string;
+            quantity: number;
+            unitPriceMinor: number;
+        };
+        InvoiceLine: {
+            id: string;
+            chargeId?: string;
+            /** @enum {string} */
+            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual";
+            description: string;
+            quantity: number;
+            /** @description In minor units. */
+            unitPriceMinor: number;
+            /** @description In minor units. */
+            totalMinor: number;
+        };
+        /** @description A bill of one visit. A draft can be changed; once issued it never is. */
+        Invoice: {
+            id: string;
+            tenantId: string;
+            encounterId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            /** @description Given when the invoice is issued. */
+            number?: string;
+            /** @enum {string} */
+            status: "draft" | "issued" | "paid" | "void";
+            lines: components["schemas"]["InvoiceLine"][];
+            /** @description Of the lines, worked out by the server. */
+            totalMinor: number;
+            /** @description Payments less refunds. */
+            paidMinor: number;
+            /** @description The credit notes against the invoice. */
+            creditedMinor: number;
+            currency: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            issuedAt?: string;
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        InvoicePage: {
+            items: components["schemas"]["Invoice"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description What a draft is made of: pending charges of the visit, and lines typed in (these need invoice:adjust). */
+        InvoiceContent: {
+            chargeIds: string[];
+            manualLines: components["schemas"]["ManualLine"][];
+        };
+        InvoiceUpdate: {
+            chargeIds: string[];
+            manualLines: components["schemas"]["ManualLine"][];
+            version: number;
+        };
+        InvoiceIssue: {
+            version: number;
+        };
+        Payment: {
+            id: string;
+            invoiceId: string;
+            /** @enum {string} */
+            kind: "payment" | "refund";
+            /** @description In minor units. */
+            amountMinor: number;
+            /** @enum {string} */
+            method: "cash" | "card" | "upi" | "bank" | "other";
+            reference?: string;
+            /** @description The payment a refund is of. */
+            refundOf?: string;
+            reason?: string;
+            /** @description The register session of a cash payment. */
+            sessionId?: string;
+            recordedByName: string;
+            /** Format: date-time */
+            at: string;
+        };
+        /** @description Every payment and refund of an invoice, oldest first. */
+        PaymentList: {
+            items: components["schemas"]["Payment"][];
+        };
+        PaymentCreate: {
+            /** @description At most what is still due. */
+            amountMinor: number;
+            /** @enum {string} */
+            method: "cash" | "card" | "upi" | "bank" | "other";
+            reference?: string;
+        };
+        RefundCreate: {
+            /** @description At most what the payment still holds. */
+            amountMinor: number;
+            reason: string;
+        };
+        CreditNote: {
+            id: string;
+            invoiceId: string;
+            number: string;
+            /** @description In minor units. */
+            amountMinor: number;
+            reason: string;
+            createdByName: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CreditNoteList: {
+            items: components["schemas"]["CreditNote"][];
+        };
+        CreditNoteCreate: {
+            /** @description At most what is left of the invoice after earlier credit notes. */
+            amountMinor: number;
+            reason: string;
+        };
+        RegisterTotal: {
+            /** @enum {string} */
+            method: "cash" | "card" | "upi" | "bank" | "other";
+            /** @description Taken. */
+            paidMinor: number;
+            /** @description Refunded. */
+            refundedMinor: number;
+        };
+        RegisterSession: {
+            id: string;
+            openedByName: string;
+            /** Format: date-time */
+            openedAt: string;
+            /** @description Cash in the drawer at the start. */
+            openingMinor: number;
+            /** Format: date-time */
+            closedAt?: string;
+            /** @description Opening cash plus cash taken, less cash refunded: so far while open. */
+            expectedMinor: number;
+            /** @description Counted at settlement. */
+            countedMinor?: number;
+            /** @description Counted less expected: negative when cash is short. */
+            differenceMinor?: number;
+            note?: string;
+            /** @description By method. */
+            totals: components["schemas"]["RegisterTotal"][];
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        RegisterSessionPage: {
+            items: components["schemas"]["RegisterSession"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        RegisterOpen: {
+            openingMinor: number;
+        };
+        RegisterClose: {
+            countedMinor: number;
+            note?: string;
+        };
         /**
          * @description In the hospital’s state (CGST and SGST), from another state (IGST), or not known: a GSTIN is missing.
          * @enum {string}
@@ -6897,87 +7207,6 @@ export interface components {
         AccountSessionList: {
             items: components["schemas"]["AccountSession"][];
             nextCursor: string | null;
-        };
-        /** @description Billable work posted to a visit. Priced when it was posted; never changes afterwards. */
-        Charge: {
-            id: string;
-            tenantId: string;
-            encounterId: string;
-            /** @enum {string} */
-            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual";
-            description: string;
-            quantity: number;
-            unitPriceMinor: number;
-            totalMinor: number;
-            /** @enum {string} */
-            status: "pending" | "invoiced" | "void";
-            /** @description The draft invoice holding the charge, when one does. */
-            invoiceId?: string;
-            /** Format: date-time */
-            postedAt: string;
-        };
-        /** @description Cursor envelope used by every list endpoint. */
-        ChargePage: {
-            items: components["schemas"]["Charge"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        /** @description A line the billing desk types in: something not in the price catalog. */
-        ManualLine: {
-            description: string;
-            quantity: number;
-            unitPriceMinor: number;
-        };
-        InvoiceLine: {
-            id: string;
-            /** @description The charge the line was made from; absent for a manual line. */
-            chargeId?: string;
-            /** @enum {string} */
-            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual";
-            description: string;
-            quantity: number;
-            unitPriceMinor: number;
-            totalMinor: number;
-        };
-        /** @description A bill of one visit. A draft can be changed; once issued it never is. */
-        Invoice: {
-            id: string;
-            tenantId: string;
-            encounterId: string;
-            patientId: string;
-            patientName: string;
-            patientMrn: string;
-            /** @description Given when the invoice is issued. */
-            number?: string;
-            /** @enum {string} */
-            status: "draft" | "issued" | "paid" | "void";
-            lines: components["schemas"]["InvoiceLine"][];
-            totalMinor: number;
-            currency: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            issuedAt?: string;
-            version: number;
-        };
-        /** @description Cursor envelope used by every list endpoint. */
-        InvoicePage: {
-            items: components["schemas"]["Invoice"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        /** @description What a draft is made of: pending charges of the visit, and lines typed in. */
-        InvoiceContent: {
-            chargeIds: string[];
-            manualLines: components["schemas"]["ManualLine"][];
-        };
-        InvoiceUpdate: {
-            chargeIds: string[];
-            manualLines: components["schemas"]["ManualLine"][];
-            version: number;
-        };
-        InvoiceIssue: {
-            version: number;
         };
     };
     responses: {
@@ -23854,6 +24083,1427 @@ export interface operations {
             };
         };
     };
+    listEncounterCharges: {
+        parameters: {
+            query?: {
+                status?: "pending" | "invoiced" | "void";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChargePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listEncounterInvoices: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createInvoice: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceContent"];
+            };
+        };
+        responses: {
+            /** @description A bill of one visit. A draft can be changed; once issued it never is. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A bill of one visit. A draft can be changed; once issued it never is. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateInvoice: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceUpdate"];
+            };
+        };
+        responses: {
+            /** @description A bill of one visit. A draft can be changed; once issued it never is. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    issueInvoice: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceIssue"];
+            };
+        };
+        responses: {
+            /** @description A bill of one visit. A draft can be changed; once issued it never is. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listInvoicePayments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every payment and refund of an invoice, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentList"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recordPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    refundPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listInvoiceCreditNotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNoteList"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCreditNote: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreditNoteCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNote"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listRegisterSessions: {
+        parameters: {
+            query: {
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterSessionPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    openRegisterSession: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterOpen"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterSession"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOpenRegisterSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterSession"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getRegisterSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterSession"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    closeRegisterSession: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterClose"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterSession"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listSuppliers: {
         parameters: {
             query?: {
@@ -25504,205 +27154,6 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listEncounterCharges: {
-        parameters: {
-            query?: {
-                status?: "pending" | "invoiced" | "void";
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                encounterId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of charges */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChargePage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listEncounterInvoices: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                encounterId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of invoices */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InvoicePage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createInvoiceDraft: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client. Repeating the request with the same key returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                encounterId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InvoiceContent"];
-            };
-        };
-        responses: {
-            /** @description The draft */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Invoice"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getInvoice: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                invoiceId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The invoice */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Invoice"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    updateInvoiceDraft: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                invoiceId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InvoiceUpdate"];
-            };
-        };
-        responses: {
-            /** @description The draft */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Invoice"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    issueInvoice: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client. Repeating the request with the same key returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                invoiceId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InvoiceIssue"];
-            };
-        };
-        responses: {
-            /** @description The issued invoice */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Invoice"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

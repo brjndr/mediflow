@@ -8557,6 +8557,633 @@
           }
         }
       },
+      "Charge": {
+        "additionalProperties": false,
+        "description": "Billable work posted to a visit. Priced when it was posted; never changes afterwards.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "encounterId",
+          "source",
+          "description",
+          "quantity",
+          "unitPriceMinor",
+          "totalMinor",
+          "status",
+          "postedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["service", "order", "dispense", "bed", "procedure", "manual"]
+          },
+          "description": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "quantity": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "unitPriceMinor": {
+            "minimum": 0,
+            "description": "Priced when posted; never changes.",
+            "type": "integer"
+          },
+          "totalMinor": {
+            "minimum": 0,
+            "description": "Quantity times the price of one.",
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "invoiced", "void"]
+          },
+          "invoiceId": {
+            "description": "The draft invoice holding the charge, when one does.",
+            "type": "string"
+          },
+          "flag": {
+            "type": "string",
+            "enum": ["service_archived", "no_price", "return_review"],
+            "description": "For the billing desk: priced at the last price of an archived service, posted with no price, or brought back after dispensing."
+          },
+          "postedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "ChargePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Charge"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "ManualLine": {
+        "additionalProperties": false,
+        "description": "A line the billing desk types in: something not in the price catalog.",
+        "type": "object",
+        "required": ["description", "quantity", "unitPriceMinor"],
+        "properties": {
+          "description": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "quantity": {
+            "minimum": 1,
+            "maximum": 9999,
+            "type": "integer"
+          },
+          "unitPriceMinor": {
+            "minimum": 0,
+            "maximum": 100000000000,
+            "type": "integer"
+          }
+        }
+      },
+      "InvoiceLine": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "source", "description", "quantity", "unitPriceMinor", "totalMinor"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "chargeId": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["service", "order", "dispense", "bed", "procedure", "manual"]
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "unitPriceMinor": {
+            "minimum": 0,
+            "description": "In minor units.",
+            "type": "integer"
+          },
+          "totalMinor": {
+            "minimum": 0,
+            "description": "In minor units.",
+            "type": "integer"
+          }
+        }
+      },
+      "Invoice": {
+        "additionalProperties": false,
+        "description": "A bill of one visit. A draft can be changed; once issued it never is.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "encounterId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "status",
+          "lines",
+          "totalMinor",
+          "paidMinor",
+          "creditedMinor",
+          "currency",
+          "createdAt",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "number": {
+            "description": "Given when the invoice is issued.",
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "issued", "paid", "void"]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceLine"
+            }
+          },
+          "totalMinor": {
+            "minimum": 0,
+            "description": "Of the lines, worked out by the server.",
+            "type": "integer"
+          },
+          "paidMinor": {
+            "minimum": 0,
+            "description": "Payments less refunds.",
+            "type": "integer"
+          },
+          "creditedMinor": {
+            "minimum": 0,
+            "description": "The credit notes against the invoice.",
+            "type": "integer"
+          },
+          "currency": {
+            "minLength": 3,
+            "maxLength": 3,
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "issuedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "InvoicePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Invoice"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "InvoiceContent": {
+        "additionalProperties": false,
+        "description": "What a draft is made of: pending charges of the visit, and lines typed in (these need invoice:adjust).",
+        "type": "object",
+        "required": ["chargeIds", "manualLines"],
+        "properties": {
+          "chargeIds": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          "manualLines": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManualLine"
+            }
+          }
+        }
+      },
+      "InvoiceUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["chargeIds", "manualLines", "version"],
+        "properties": {
+          "chargeIds": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          "manualLines": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManualLine"
+            }
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "InvoiceIssue": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "Payment": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "invoiceId", "kind", "amountMinor", "method", "recordedByName", "at"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "invoiceId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["payment", "refund"]
+          },
+          "amountMinor": {
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "In minor units.",
+            "type": "integer"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["cash", "card", "upi", "bank", "other"]
+          },
+          "reference": {
+            "type": "string"
+          },
+          "refundOf": {
+            "description": "The payment a refund is of.",
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "sessionId": {
+            "description": "The register session of a cash payment.",
+            "type": "string"
+          },
+          "recordedByName": {
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "PaymentList": {
+        "description": "Every payment and refund of an invoice, oldest first.",
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Payment"
+            }
+          }
+        }
+      },
+      "PaymentCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["amountMinor", "method"],
+        "properties": {
+          "amountMinor": {
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "At most what is still due.",
+            "type": "integer"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["cash", "card", "upi", "bank", "other"]
+          },
+          "reference": {
+            "minLength": 1,
+            "maxLength": 60,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "RefundCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["amountMinor", "reason"],
+        "properties": {
+          "amountMinor": {
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "At most what the payment still holds.",
+            "type": "integer"
+          },
+          "reason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "CreditNote": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "invoiceId",
+          "number",
+          "amountMinor",
+          "reason",
+          "createdByName",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "invoiceId": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "In minor units.",
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "CreditNoteList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditNote"
+            }
+          }
+        }
+      },
+      "CreditNoteCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["amountMinor", "reason"],
+        "properties": {
+          "amountMinor": {
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "At most what is left of the invoice after earlier credit notes.",
+            "type": "integer"
+          },
+          "reason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "RegisterTotal": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["method", "paidMinor", "refundedMinor"],
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["cash", "card", "upi", "bank", "other"]
+          },
+          "paidMinor": {
+            "minimum": 0,
+            "description": "Taken.",
+            "type": "integer"
+          },
+          "refundedMinor": {
+            "minimum": 0,
+            "description": "Refunded.",
+            "type": "integer"
+          }
+        }
+      },
+      "RegisterSession": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "openedByName", "openedAt", "openingMinor", "expectedMinor", "totals"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "openedByName": {
+            "type": "string"
+          },
+          "openedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "openingMinor": {
+            "minimum": 0,
+            "description": "Cash in the drawer at the start.",
+            "type": "integer"
+          },
+          "closedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expectedMinor": {
+            "description": "Opening cash plus cash taken, less cash refunded: so far while open.",
+            "type": "integer"
+          },
+          "countedMinor": {
+            "minimum": 0,
+            "description": "Counted at settlement.",
+            "type": "integer"
+          },
+          "differenceMinor": {
+            "description": "Counted less expected: negative when cash is short.",
+            "type": "integer"
+          },
+          "note": {
+            "type": "string"
+          },
+          "totals": {
+            "description": "By method.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegisterTotal"
+            }
+          }
+        }
+      },
+      "RegisterSessionPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegisterSession"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "RegisterOpen": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["openingMinor"],
+        "properties": {
+          "openingMinor": {
+            "minimum": 0,
+            "maximum": 1000000000000,
+            "type": "integer"
+          }
+        }
+      },
+      "RegisterClose": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["countedMinor"],
+        "properties": {
+          "countedMinor": {
+            "minimum": 0,
+            "maximum": 1000000000000,
+            "type": "integer"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
       "GstSupply": {
         "type": "string",
         "enum": ["intra_state", "inter_state", "unknown"],
@@ -9774,293 +10401,6 @@
           },
           "nextCursor": {
             "type": ["string", "null"]
-          }
-        }
-      },
-      "Charge": {
-        "type": "object",
-        "additionalProperties": false,
-        "description": "Billable work posted to a visit. Priced when it was posted; never changes afterwards.",
-        "required": [
-          "id",
-          "tenantId",
-          "encounterId",
-          "source",
-          "description",
-          "quantity",
-          "unitPriceMinor",
-          "totalMinor",
-          "status",
-          "postedAt"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "encounterId": {
-            "type": "string"
-          },
-          "source": {
-            "type": "string",
-            "enum": ["service", "order", "dispense", "bed", "procedure", "manual"]
-          },
-          "description": {
-            "type": "string",
-            "maxLength": 200
-          },
-          "quantity": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "unitPriceMinor": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "totalMinor": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "status": {
-            "type": "string",
-            "enum": ["pending", "invoiced", "void"]
-          },
-          "invoiceId": {
-            "type": "string",
-            "description": "The draft invoice holding the charge, when one does."
-          },
-          "postedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "ChargePage": {
-        "type": "object",
-        "description": "Cursor envelope used by every list endpoint.",
-        "required": ["items", "nextCursor"],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Charge"
-            }
-          },
-          "nextCursor": {
-            "type": ["string", "null"]
-          },
-          "total": {
-            "type": "integer"
-          }
-        }
-      },
-      "ManualLine": {
-        "type": "object",
-        "additionalProperties": false,
-        "description": "A line the billing desk types in: something not in the price catalog.",
-        "required": ["description", "quantity", "unitPriceMinor"],
-        "properties": {
-          "description": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "quantity": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 9999
-          },
-          "unitPriceMinor": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
-      },
-      "InvoiceLine": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "source", "description", "quantity", "unitPriceMinor", "totalMinor"],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "chargeId": {
-            "type": "string",
-            "description": "The charge the line was made from; absent for a manual line."
-          },
-          "source": {
-            "type": "string",
-            "enum": ["service", "order", "dispense", "bed", "procedure", "manual"]
-          },
-          "description": {
-            "type": "string"
-          },
-          "quantity": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "unitPriceMinor": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "totalMinor": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
-      },
-      "Invoice": {
-        "type": "object",
-        "additionalProperties": false,
-        "description": "A bill of one visit. A draft can be changed; once issued it never is.",
-        "required": [
-          "id",
-          "tenantId",
-          "encounterId",
-          "patientId",
-          "patientName",
-          "patientMrn",
-          "status",
-          "lines",
-          "totalMinor",
-          "currency",
-          "createdAt",
-          "version"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "encounterId": {
-            "type": "string"
-          },
-          "patientId": {
-            "type": "string"
-          },
-          "patientName": {
-            "type": "string"
-          },
-          "patientMrn": {
-            "type": "string"
-          },
-          "number": {
-            "type": "string",
-            "description": "Given when the invoice is issued."
-          },
-          "status": {
-            "type": "string",
-            "enum": ["draft", "issued", "paid", "void"]
-          },
-          "lines": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/InvoiceLine"
-            }
-          },
-          "totalMinor": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "currency": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 3
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "issuedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "InvoicePage": {
-        "type": "object",
-        "description": "Cursor envelope used by every list endpoint.",
-        "required": ["items", "nextCursor"],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Invoice"
-            }
-          },
-          "nextCursor": {
-            "type": ["string", "null"]
-          },
-          "total": {
-            "type": "integer"
-          }
-        }
-      },
-      "InvoiceContent": {
-        "type": "object",
-        "additionalProperties": false,
-        "description": "What a draft is made of: pending charges of the visit, and lines typed in.",
-        "required": ["chargeIds", "manualLines"],
-        "properties": {
-          "chargeIds": {
-            "type": "array",
-            "maxItems": 200,
-            "items": {
-              "type": "string",
-              "maxLength": 64
-            }
-          },
-          "manualLines": {
-            "type": "array",
-            "maxItems": 50,
-            "items": {
-              "$ref": "#/components/schemas/ManualLine"
-            }
-          }
-        }
-      },
-      "InvoiceUpdate": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["chargeIds", "manualLines", "version"],
-        "properties": {
-          "chargeIds": {
-            "type": "array",
-            "maxItems": 200,
-            "items": {
-              "type": "string",
-              "maxLength": 64
-            }
-          },
-          "manualLines": {
-            "type": "array",
-            "maxItems": 50,
-            "items": {
-              "$ref": "#/components/schemas/ManualLine"
-            }
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "InvoiceIssue": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["version"],
-        "properties": {
-          "version": {
-            "type": "integer",
-            "minimum": 1
           }
         }
       }
@@ -31802,6 +32142,1800 @@
         }
       }
     },
+    "/encounters/{encounterId}/charges": {
+      "get": {
+        "operationId": "listEncounterCharges",
+        "tags": ["billing"],
+        "description": "The charges posted to a visit (#114), newest first, optionally of one status. Posted by the API from completed orders and dispenses, priced when posted. Requires charge:read with the scope `all` and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["pending", "invoiced", "void"]
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChargePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/encounters/{encounterId}/invoices": {
+      "get": {
+        "operationId": "listEncounterInvoices",
+        "tags": ["billing"],
+        "description": "The invoices of a visit (#114), newest first, drafts included. Requires invoice:read with the scope `all` and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoicePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createInvoice",
+        "tags": ["billing"],
+        "description": "Makes a draft invoice of a visit from some of its pending charges and lines typed in (#114). The server works out every line and the total; a client total is never read. A charge sits in one draft at a time (409 `charge_unavailable`, also for one that is not pending or not of this visit). Typed lines need invoice:adjust (403). A cancelled visit has nothing to bill (409 `encounter_cancelled`). The Idempotency-Key header is required: a repeat makes no second draft and answers with the draft as it is now. Requires invoice:create, invoice:read and charge:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceContent"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A bill of one visit. A draft can be changed; once issued it never is.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/{invoiceId}": {
+      "get": {
+        "operationId": "getInvoice",
+        "tags": ["billing"],
+        "description": "An invoice with its lines (#114). Requires invoice:read with the scope `all` and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bill of one visit. A draft can be changed; once issued it never is.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateInvoice",
+        "tags": ["billing"],
+        "description": "Changes what a draft is made of (#114): the charges and typed lines it now holds, with the version the edit started from (409 `version_conflict`). The charges left out go back to pending. An issued invoice is never changed (409 `invoice_not_draft`). Typed lines need invoice:adjust unless they are the lines the draft already has. Accepts an Idempotency-Key. Requires invoice:create, invoice:read and charge:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bill of one visit. A draft can be changed; once issued it never is.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/{invoiceId}/issue": {
+      "post": {
+        "operationId": "issueInvoice",
+        "tags": ["billing"],
+        "description": "Issues a draft (#114): it gets the next number of the fiscal year (April to March, gapless), its charges become invoiced, and it is never changed again. The version must be the one the person saw (409 `version_conflict`); an invoice with no lines is refused (409 `invoice_empty`); one holding a charge flagged as brought back is refused until it is taken off (409 `charge_returned`); one already issued is refused (409 `invoice_not_draft`). Emits `invoice.issued`, and `invoice.paid` for an invoice of nothing to pay. The Idempotency-Key header is required: a repeat issues nothing more and answers with the invoice as it is now. Requires invoice:issue and invoice:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceIssue"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bill of one visit. A draft can be changed; once issued it never is.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/{invoiceId}/payments": {
+      "get": {
+        "operationId": "listInvoicePayments",
+        "tags": ["billing"],
+        "description": "Every payment and refund of an invoice, oldest first (#114). Requires payment:read with the scope `all` and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every payment and refund of an invoice, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "recordPayment",
+        "tags": ["billing"],
+        "description": "Records a payment against an issued invoice (#114). Never more than is still due (409 `overpayment`); an invoice that is a draft, void or already paid is refused (409 `invoice_not_payable`). Cash goes into the caller’s open cash register session (409 `no_open_register` without one). The invoice becomes paid when nothing is due, and `invoice.paid` is emitted. The Idempotency-Key header is required: a repeat records nothing more and answers with the payment. Requires payment:create and payment:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/{paymentId}/refunds": {
+      "post": {
+        "operationId": "refundPayment",
+        "tags": ["billing"],
+        "description": "Refunds some or all of a payment, with a reason (#114): a new entry on the invoice, the payment itself never changes. Never more than the payment still holds (409 `refund_exceeds`). A paid invoice becomes issued again. A cash refund comes out of the caller’s open cash register session (409 `no_open_register`). Emits `payment.refunded`. The Idempotency-Key header is required. Requires payment:refund and payment:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "paymentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/{invoiceId}/credit-notes": {
+      "get": {
+        "operationId": "listInvoiceCreditNotes",
+        "tags": ["billing"],
+        "description": "The credit notes against an invoice, oldest first (#114). Requires invoice:read with the scope `all` and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditNoteList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCreditNote",
+        "tags": ["billing"],
+        "description": "Issues a credit note against an issued invoice, with a reason (#114): it gets the next number of its own series, and the invoice itself never changes. Never more than is left after earlier credit notes (409 `credit_exceeds`), and not while the money paid would then exceed what remains owed (409 `refund_first`). A credit note for the whole invoice makes it void and lets its charges go back to pending, to be billed again. Emits `invoice.credited`. The Idempotency-Key header is required. Requires creditNote:create and invoice:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreditNoteCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cash-registers/sessions": {
+      "post": {
+        "operationId": "openRegisterSession",
+        "tags": ["billing"],
+        "description": "Opens the caller’s cash register session with the cash in the drawer (#114). A person has one open at a time (409 `register_open`). The Idempotency-Key header is required. Requires cashRegister:manage with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterOpen"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listRegisterSessions",
+        "tags": ["billing"],
+        "description": "Cash register sessions, newest first, with what each took by method and, once settled, the difference (#114). Requires cashRegister:read with the scope `all` and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterSessionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cash-registers/sessions/current": {
+      "get": {
+        "operationId": "getOpenRegisterSession",
+        "tags": ["billing"],
+        "description": "The cash register session the caller has open, with what it holds so far (#114); 404 `session_not_found` when none. Requires cashRegister:manage with the scope `all` and the billing feature flag. Audited.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cash-registers/sessions/{sessionId}": {
+      "get": {
+        "operationId": "getRegisterSession",
+        "tags": ["billing"],
+        "description": "One cash register session (#114). Requires cashRegister:read with the scope `all` and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sessionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cash-registers/sessions/{sessionId}/close": {
+      "post": {
+        "operationId": "closeRegisterSession",
+        "tags": ["billing"],
+        "description": "Settles the caller’s own session at the end of the day (#114): the cash counted is kept with what the server expected (the opening cash and the cash taken, less cash refunded), and the session is final. Another person’s session is not found (404); one already closed is refused (409 `register_closed`). Emits `register.closed`. The Idempotency-Key header is required. Requires cashRegister:manage with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterClose"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sessionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/purchasing/suppliers": {
       "get": {
         "operationId": "listSuppliers",
@@ -34000,405 +36134,6 @@
             "$ref": "#/components/responses/Error"
           },
           "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/encounters/{encounterId}/charges": {
-      "get": {
-        "operationId": "listEncounterCharges",
-        "description": "The charges posted to a visit, oldest first. Requires charge:read and the billing feature flag. A visit of another hospital is 404.",
-        "parameters": [
-          {
-            "name": "encounterId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64
-            }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": ["pending", "invoiced", "void"]
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "One page of charges",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChargePage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/encounters/{encounterId}/invoices": {
-      "get": {
-        "operationId": "listEncounterInvoices",
-        "description": "The invoices of a visit, newest first, drafts included. Requires invoice:read and the billing feature flag.",
-        "parameters": [
-          {
-            "name": "encounterId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "One page of invoices",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InvoicePage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      },
-      "post": {
-        "operationId": "createInvoiceDraft",
-        "description": "Makes a draft invoice of a visit from some of its pending charges (409 `charge_unavailable` for one already invoiced, void or in another draft) and lines typed in. A draft needs at least one line (422 `empty_invoice`). Requires invoice:create. The Idempotency-Key header is required. The server works out every line and the invoice total itself; a total sent by a client is never read. A visit that was cancelled has nothing to bill (409 `encounter_cancelled`). Typed lines (`manualLines`) need invoice:adjust as well, since they skip the price list (403 otherwise). Audited. Emits no event until the invoice is issued.",
-        "parameters": [
-          {
-            "name": "encounterId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "description": "A unique value chosen by the client. Repeating the request with the same key returns the first result.",
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InvoiceContent"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The draft",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Invoice"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/invoices/{invoiceId}": {
-      "get": {
-        "operationId": "getInvoice",
-        "description": "One invoice. Requires invoice:read and the billing feature flag.",
-        "parameters": [
-          {
-            "name": "invoiceId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The invoice",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Invoice"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      },
-      "patch": {
-        "operationId": "updateInvoiceDraft",
-        "description": "Replaces the content of a draft. 409 `invoice_not_draft` once issued, 409 `version_conflict` when it changed since it was read. Requires invoice:create. The server works out every line and the invoice total itself; a total sent by a client is never read. A visit that was cancelled has nothing to bill (409 `encounter_cancelled`). Typed lines (`manualLines`) need invoice:adjust as well, since they skip the price list (403 otherwise). Audited.",
-        "parameters": [
-          {
-            "name": "invoiceId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InvoiceUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The draft",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Invoice"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/invoices/{invoiceId}/issue": {
-      "post": {
-        "operationId": "issueInvoice",
-        "description": "Issues a draft: it gets its number, its charges become invoiced, and it can no longer be changed. Requires invoice:issue. The Idempotency-Key header is required: a repeat answers with the issued invoice. A cancelled visit is 409 `encounter_cancelled`. Audited, and emits `invoice.issued` through the outbox with the tenant, the invoice id, the actor and the time, never the lines.",
-        "parameters": [
-          {
-            "name": "invoiceId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "description": "A unique value chosen by the client. Repeating the request with the same key returns the first result.",
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InvoiceIssue"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The issued invoice",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Invoice"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
             "$ref": "#/components/responses/Error"
           },
           "default": {

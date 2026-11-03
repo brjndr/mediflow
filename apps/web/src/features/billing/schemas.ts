@@ -23,6 +23,7 @@ export const chargeSchema: z.ZodType<Charge> = z.object({
   totalMinor: z.number().int(),
   status: z.enum(['pending', 'invoiced', 'void']),
   invoiceId: z.string().optional(),
+  flag: z.enum(['service_archived', 'no_price', 'return_review']).optional(),
   postedAt: z.string(),
 });
 
@@ -53,6 +54,8 @@ export const invoiceSchema: z.ZodType<Invoice> = z.object({
     }),
   ),
   totalMinor: z.number().int(),
+  paidMinor: z.number().int(),
+  creditedMinor: z.number().int(),
   currency: z.string(),
   createdAt: z.string(),
   issuedAt: z.string().optional(),
