@@ -187,3 +187,25 @@ test('find an issued invoice in the list and print it with the keyboard alone', 
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 });
+
+test('a receptionist without billing permissions has no way into billing', async ({ page }) => {
+  // The clinic's receptionist holds none of the billing permissions (src/mocks/db.ts).
+  const paths: string[] = [];
+  page.on('request', (request) => {
+    const { pathname } = new URL(request.url());
+    if (pathname.startsWith('/api/')) paths.push(pathname);
+  });
+  await page.goto('/?mockUser=user_receptionist');
+  await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
+  // By address, so a link in the closed drawer of a phone counts too.
+  await expect(page.locator('a[href="/billing/invoices"]')).toHaveCount(0);
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/billing/invoices');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await expect(
+    page.getByRole('heading', { name: 'You do not have access to this page' }),
+  ).toBeVisible();
+  expect(paths.filter((path) => /invoices|charges/.test(path))).toEqual([]);
+  await expectNoAxeViolations(page);
+});
