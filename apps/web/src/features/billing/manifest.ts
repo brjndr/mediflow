@@ -17,6 +17,9 @@ export const billingFeature: FeatureManifest = {
         list: 'Invoices',
         new: 'New invoice',
         detail: 'Invoice',
+        register: 'Cash register',
+        sessions: 'Register sessions',
+        session: 'Register session',
       },
     },
     load: (language) => import(`./locales/${language}.json`),
@@ -42,6 +45,24 @@ export const billingFeature: FeatureManifest = {
       requires: ['invoice:read'],
       titleKey: 'detail',
     },
+    {
+      path: 'billing/register',
+      lazy: () => import('./routes/Register'),
+      requires: ['cashRegister:manage'],
+      titleKey: 'register',
+    },
+    {
+      path: 'billing/register/sessions',
+      lazy: () => import('./routes/RegisterSessions'),
+      requires: ['cashRegister:read'],
+      titleKey: 'sessions',
+    },
+    {
+      path: 'billing/register/sessions/:sessionId',
+      lazy: () => import('./routes/RegisterSessionDetail'),
+      requires: ['cashRegister:read'],
+      titleKey: 'session',
+    },
   ],
   extensions: [
     {
@@ -62,6 +83,8 @@ export const billingFeature: FeatureManifest = {
     'payment:read',
     'payment:create',
     'creditNote:create',
+    'cashRegister:read',
+    'cashRegister:manage',
     'encounter:read',
   ],
 };

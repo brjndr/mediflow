@@ -24,3 +24,9 @@ export type RefundCreate = Schemas['RefundCreate'];
 /** A credit note against an issued invoice, with its reason (#112). */
 export type CreditNote = Schemas['CreditNote'];
 export type CreditNoteCreate = Schemas['CreditNoteCreate'];
+/** A cashier's drawer for a shift: opened with cash, settled with the cash counted (#118). */
+export type RegisterSession = Schemas['RegisterSession'];
+export type RegisterSessionPage = Schemas['RegisterSessionPage'];
+export type RegisterTotal = Schemas['RegisterTotal'];
+export type RegisterOpen = Schemas['RegisterOpen'];
+export type RegisterClose = Schemas['RegisterClose'];

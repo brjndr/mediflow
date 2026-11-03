@@ -209,3 +209,64 @@ test('a receptionist without billing permissions has no way into billing', async
   expect(paths.filter((path) => /invoices|charges/.test(path))).toEqual([]);
   await expectNoAxeViolations(page);
 });
+
+test('open the cash register and settle it with the keyboard alone', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await goTo(page, 'Billing');
+  const link = page.getByRole('link', { name: 'Cash register', exact: true });
+  await expect(link).toBeVisible();
+  await reach(page, link);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByRole('heading', { name: 'Cash register', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Open the register' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  // Opening: the cash in the drawer, then the button, both reached by Tab.
+  const opening = page.getByRole('textbox', { name: /^Cash in the drawer/ });
+  await reach(page, opening);
+  expect(await focusVisible(page)).toBe(true);
+  await opening.fill('100');
+  const open = page.getByRole('button', { name: 'Open register' });
+  await reach(page, open);
+  await page.keyboard.press('Enter');
+  // The form goes; focus moves on to the status line that says what happened.
+  await expect(page.getByRole('heading', { name: /^Open since/ })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Register opened' })).toBeFocused();
+  await expect(page.getByTestId('expected')).toContainText('100.00');
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  // Settling: the count, a note for the handover, and the button.
+  const counted = page.getByRole('textbox', { name: /^Cash counted/ });
+  await reach(page, counted);
+  expect(await focusVisible(page)).toBe(true);
+  await counted.fill('95');
+  await page.getByRole('textbox', { name: /^Note for the handover/ }).fill('Five short');
+  const close = page.getByRole('button', { name: 'Close and settle' });
+  await reach(page, close);
+  await page.keyboard.press('Enter');
+  const status = page.getByRole('status').filter({ hasText: 'Register settled' });
+  await expect(status).toContainText('Short by');
+  await expect(status).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Print settlement' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  // The day-end list shows the settled session, and its page opens from the keyboard.
+  await reach(page, page.getByRole('link', { name: 'All sessions and day-end' }));
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Cash register sessions' })).toBeVisible();
+  const session = page.getByRole('main').getByRole('link', { name: 'Sample Admin' }).first();
+  await expect(session).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+  await reach(page, session);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Register session', level: 1 })).toBeVisible();
+  await expect(page.getByTestId('difference')).toContainText('Short by');
+  await expectNoSidewaysScroll(page);
+});

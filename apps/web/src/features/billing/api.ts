@@ -1,4 +1,4 @@
-import { api, requireData } from '@/shared/api';
+import { api, isApiError, requireData } from '@/shared/api';
 import {
   chargePageSchema,
   chargeSchema,
@@ -8,6 +8,8 @@ import {
   invoiceSchema,
   paymentListSchema,
   paymentSchema,
+  registerSessionPageSchema,
+  registerSessionSchema,
 } from './schemas';
 import type {
   ChargePage,
@@ -22,6 +24,10 @@ import type {
   Payment,
   PaymentCreate,
   RefundCreate,
+  RegisterClose,
+  RegisterOpen,
+  RegisterSession,
+  RegisterSessionPage,
 } from './types';
 
 // Every address holds ids only: nothing about the patient is in a URL. Every POST carries an
@@ -199,4 +205,63 @@ export async function refundPayment(
     body,
   });
   return paymentSchema.parse(requireData(result));
+}
+
+/** The caller's open register session, or null when they have none (404 `session_not_found`). */
+export async function fetchCurrentRegister(signal?: AbortSignal): Promise<RegisterSession | null> {
+  try {
+    const result = await api.GET('/cash-registers/sessions/current', { signal });
+    return registerSessionSchema.parse(requireData(result));
+  } catch (error) {
+    if (isApiError(error) && error.serverCode === 'session_not_found') return null;
+    throw error;
+  }
+}
+
+/** The hospital's register sessions, newest first (`cashRegister:read`). */
+export async function fetchRegisterSessions(
+  { cursor, limit }: { cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<RegisterSessionPage> {
+  const result = await api.GET('/cash-registers/sessions', {
+    params: { query: { cursor, limit } },
+    signal,
+  });
+  return registerSessionPageSchema.parse(requireData(result));
+}
+
+export async function fetchRegisterSession(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<RegisterSession> {
+  const result = await api.GET('/cash-registers/sessions/{sessionId}', {
+    params: { path: { sessionId } },
+    signal,
+  });
+  return registerSessionSchema.parse(requireData(result));
+}
+
+/** Opens the caller's drawer; a repeat with the same key opens nothing more. */
+export async function openRegister(
+  body: RegisterOpen,
+  idempotencyKey: string,
+): Promise<RegisterSession> {
+  const result = await api.POST('/cash-registers/sessions', {
+    params: { header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return registerSessionSchema.parse(requireData(result));
+}
+
+/** Settles the caller's drawer with the cash counted; the session is final after it. */
+export async function closeRegister(
+  sessionId: string,
+  body: RegisterClose,
+  idempotencyKey: string,
+): Promise<RegisterSession> {
+  const result = await api.POST('/cash-registers/sessions/{sessionId}/close', {
+    params: { path: { sessionId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return registerSessionSchema.parse(requireData(result));
 }

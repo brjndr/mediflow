@@ -8,6 +8,8 @@ import type {
   InvoicePage,
   Payment,
   PaymentMethod,
+  RegisterSession,
+  RegisterSessionPage,
 } from './types';
 
 /** The API's limits (`planned.openapi.json`, until the billing API has them). */
@@ -243,3 +245,61 @@ export function createCreditNoteSchema(
 }
 export type CreditNoteInput = z.input<ReturnType<typeof createCreditNoteSchema>>;
 export type CreditNoteValues = z.output<ReturnType<typeof createCreditNoteSchema>>;
+
+export const NOTE_MAX = 300;
+
+const registerTotalSchema = z.object({
+  method: z.enum(PAYMENT_METHODS),
+  paidMinor: z.number().int(),
+  refundedMinor: z.number().int(),
+});
+
+export const registerSessionSchema: z.ZodType<RegisterSession> = z.object({
+  id: z.string(),
+  openedByName: z.string(),
+  openedAt: z.string(),
+  openingMinor: z.number().int(),
+  closedAt: z.string().optional(),
+  expectedMinor: z.number().int(),
+  countedMinor: z.number().int().optional(),
+  differenceMinor: z.number().int().optional(),
+  note: z.string().optional(),
+  totals: z.array(registerTotalSchema),
+});
+
+export const registerSessionPageSchema: z.ZodType<RegisterSessionPage> = z.object({
+  items: z.array(registerSessionSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+/** The form to open the drawer: the cash in it, which may be nothing. */
+export function createOpenRegisterSchema(toAmount: (text: string) => number | null) {
+  return z.object({
+    opening: z
+      .string()
+      .trim()
+      .min(1, 'validation.required')
+      .refine((text) => toAmount(text) !== null, 'validation.invalid_format'),
+  });
+}
+export type OpenRegisterInput = z.input<ReturnType<typeof createOpenRegisterSchema>>;
+export type OpenRegisterValues = z.output<ReturnType<typeof createOpenRegisterSchema>>;
+
+/** The form to settle the drawer: the cash counted (nothing is allowed) and an optional note. */
+export function createCloseRegisterSchema(toAmount: (text: string) => number | null) {
+  return z.object({
+    counted: z
+      .string()
+      .trim()
+      .min(1, 'validation.required')
+      .refine((text) => toAmount(text) !== null, 'validation.invalid_format'),
+    note: z
+      .string()
+      .trim()
+      .max(NOTE_MAX, 'validation.too_big')
+      .regex(PLAIN_TEXT, 'validation.plain_text'),
+  });
+}
+export type CloseRegisterInput = z.input<ReturnType<typeof createCloseRegisterSchema>>;
+export type CloseRegisterValues = z.output<ReturnType<typeof createCloseRegisterSchema>>;

@@ -2,6 +2,7 @@ import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { Can } from '@/access';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
@@ -12,6 +13,9 @@ import {
   useInvoices,
 } from '../hooks/use-billing';
 import type { Invoice } from '../types';
+
+const LINK =
+  'inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 
 const STATUSES: Invoice['status'][] = ['draft', 'issued', 'paid', 'void'];
 
@@ -83,6 +87,18 @@ export default function InvoiceList() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('list.heading')}</h1>
         <p className="text-muted-foreground">{t('list.description')}</p>
+        <div className="flex flex-wrap gap-x-4">
+          <Can permission="cashRegister:manage">
+            <Link to="/billing/register" className={LINK}>
+              {t('register.heading')}
+            </Link>
+          </Can>
+          <Can permission="cashRegister:read">
+            <Link to="/billing/register/sessions" className={LINK}>
+              {t('register.sessionsLink')}
+            </Link>
+          </Can>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">

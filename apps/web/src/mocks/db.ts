@@ -201,6 +201,9 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'payment:refund' },
   // Credit notes (#112).
   { permission: 'creditNote:create' },
+  // The cash register (#118): the admin sees every session and works a drawer too.
+  { permission: 'cashRegister:read' },
+  { permission: 'cashRegister:manage' },
   { permission: 'report:read' },
   { permission: 'user:manage' },
   { permission: 'role:manage' },

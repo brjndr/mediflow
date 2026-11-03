@@ -98,6 +98,17 @@ const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
       });
       return 'ord_h_lab_1';
     }),
+  // A register session (#118) is opened from the day-end list, which starts empty: one drawer
+  // is opened first.
+  'billing/register/sessions': (page) =>
+    page.evaluate(async () => {
+      const answer = await fetch('/api/cash-registers/sessions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+        body: JSON.stringify({ openingMinor: 10000 }),
+      });
+      return ((await answer.json()) as { id: string }).id;
+    }),
   // The pharmacy's prescriptions are opened from a queue row action (#100): the mock's one.
   'pharmacy/prescriptions': () => Promise.resolve('rx_h_1'),
   // The mock keeps no counter sale until one is made (#101): two units of cetirizine.
