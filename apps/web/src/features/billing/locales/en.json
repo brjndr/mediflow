@@ -113,5 +113,44 @@
       "empty": "Put at least one line on the bill.",
       "cancelled": "This visit was cancelled and has nothing to bill."
     }
+  },
+  "payment": {
+    "heading": "Payments",
+    "due": "Balance due: {{due}}",
+    "none": "No payment has been taken.",
+    "recorded": "Payment of {{amount}} recorded.",
+    "amount": "Amount",
+    "amountHint": "Up to {{due}}, what is still due. Less is a part payment.",
+    "method": "Paid by",
+    "reference": "Reference",
+    "referenceHint": "A card slip, UPI or bank reference. Optional. Never a full card number.",
+    "submit": "Record payment",
+    "saving": "Recording…",
+    "amountPositive": "Enter more than nothing.",
+    "amountTooMuch": "More than is still due.",
+    "columns": {
+      "at": "Date",
+      "kind": "Type",
+      "method": "Mode",
+      "reference": "Reference",
+      "by": "Recorded by",
+      "amount": "Amount"
+    },
+    "kind": {
+      "payment": "Payment",
+      "refund": "Refund"
+    },
+    "methods": {
+      "cash": "Cash",
+      "card": "Card",
+      "upi": "UPI",
+      "bank": "Bank transfer",
+      "other": "Other"
+    },
+    "refused": {
+      "overpayment": "That is more than is still due. The balance has been updated.",
+      "no_open_register": "Cash goes into a cash register session, and you have none open.",
+      "invoice_not_payable": "This invoice cannot take a payment."
+    }
   }
 }

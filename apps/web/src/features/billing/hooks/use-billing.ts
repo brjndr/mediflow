@@ -7,13 +7,15 @@ import {
   createInvoiceDraft,
   fetchEncounterInvoices,
   fetchInvoice,
+  fetchPayments,
   fetchPendingCharges,
   issueInvoice,
+  recordPayment,
   recordInvoicePrint,
   searchInvoices,
   updateInvoiceDraft,
 } from '../api';
-import type { Invoice, InvoiceContent } from '../types';
+import type { Invoice, InvoiceContent, PaymentCreate } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's bills never show in another. */
 export const billingKeys = createTenantKeys('billing');
@@ -165,6 +167,34 @@ export function useIssueInvoice() {
       const tenantId = stillHere();
       if (tenantId) queryClient.setQueryData(billingKeys.detail(tenantId, invoice.id), invoice);
     },
+    onSettled: refresh,
+  });
+}
+
+/** The invoice's payments and refunds, for `payment:read` (`enabled` is false without it). */
+export function usePayments(invoiceId: string, { enabled = true } = {}) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: [...billingKeys.all(tenantId ?? ''), 'payments', invoiceId],
+    queryFn: ({ signal }) => fetchPayments(invoiceId, signal),
+    enabled: enabled && tenantId !== undefined && invoiceId !== '',
+  });
+}
+
+/**
+ * Takes a payment. The key is made when the form first sends a body and kept until it is
+ * recorded, so a double press, or a retry after a lost answer, records one payment; another
+ * amount or mode is another body and another key. Whatever the answer, the invoice, its
+ * payments and the lists are read again (a refusal such as `overpayment` means they changed).
+ */
+export function useRecordPayment(invoiceId: string) {
+  const refresh = useRefreshBilling();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    // Nothing about the payment stays in the mutation cache once the form is gone.
+    gcTime: 0,
+    mutationFn: (body: PaymentCreate) => recordPayment(invoiceId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
     onSettled: refresh,
   });
 }

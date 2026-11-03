@@ -1,6 +1,20 @@
 import { api, requireData } from '@/shared/api';
-import { chargePageSchema, invoicePageSchema, invoiceSchema } from './schemas';
-import type { ChargePage, Invoice, InvoiceContent, InvoicePage, InvoiceUpdate } from './types';
+import {
+  chargePageSchema,
+  invoicePageSchema,
+  invoiceSchema,
+  paymentListSchema,
+  paymentSchema,
+} from './schemas';
+import type {
+  ChargePage,
+  Invoice,
+  InvoiceContent,
+  InvoicePage,
+  InvoiceUpdate,
+  Payment,
+  PaymentCreate,
+} from './types';
 
 // Every address holds ids only: nothing about the patient is in a URL. Every POST carries an
 // idempotency key, which the API requires.
@@ -101,4 +115,26 @@ export async function recordInvoicePrint(
     params: { path: { invoiceId }, header: { 'idempotency-key': idempotencyKey } },
     signal,
   });
+}
+
+/** Every payment and refund of an invoice, oldest first (#111). */
+export async function fetchPayments(invoiceId: string, signal?: AbortSignal): Promise<Payment[]> {
+  const result = await api.GET('/invoices/{invoiceId}/payments', {
+    params: { path: { invoiceId } },
+    signal,
+  });
+  return paymentListSchema.parse(requireData(result)).items;
+}
+
+/** One payment; a repeat with the same key records nothing more (#111). */
+export async function recordPayment(
+  invoiceId: string,
+  body: PaymentCreate,
+  idempotencyKey: string,
+): Promise<Payment> {
+  const result = await api.POST('/invoices/{invoiceId}/payments', {
+    params: { path: { invoiceId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return paymentSchema.parse(requireData(result));
 }

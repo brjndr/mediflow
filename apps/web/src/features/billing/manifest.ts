@@ -58,6 +58,8 @@ export const billingFeature: FeatureManifest = {
     'invoice:issue',
     'invoice:print',
     'invoice:adjust',
+    'payment:read',
+    'payment:create',
     'encounter:read',
   ],
 };

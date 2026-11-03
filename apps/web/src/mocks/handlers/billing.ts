@@ -12,6 +12,10 @@ type Invoice = components['schemas']['Invoice'];
 type InvoiceLine = components['schemas']['InvoiceLine'];
 type InvoicePage = components['schemas']['InvoicePage'];
 type ManualLine = components['schemas']['ManualLine'];
+type Payment = components['schemas']['Payment'];
+type PaymentList = components['schemas']['PaymentList'];
+
+const METHODS = ['cash', 'card', 'upi', 'bank', 'other'];
 
 // The billing API's charges and invoices (#109, planned as #114). Charges are posted by other
 // modules' events in the real API; the mock seeds a few for the sample visits.
@@ -80,6 +84,9 @@ function seed() {
     ] as Charge[],
     invoices: [] as StoredInvoice[],
     printed: [] as { tenantId: string; invoiceId: string }[],
+    payments: [] as (Payment & { tenantId: string })[],
+    // Cash goes into the caller's open register session; the register's screens come later.
+    registerOpen: true,
   };
 }
 
@@ -147,7 +154,12 @@ function invoiceView(stored: StoredInvoice): Invoice {
     status: stored.status,
     lines,
     totalMinor: lines.reduce((sum, line) => sum + line.totalMinor, 0),
-    paidMinor: 0,
+    paidMinor: state.payments
+      .filter((each) => each.invoiceId === stored.id)
+      .reduce(
+        (sum, each) => sum + (each.kind === 'refund' ? -each.amountMinor : each.amountMinor),
+        0,
+      ),
     creditedMinor: 0,
     currency: mockTenantCurrency(stored.tenantId),
     createdAt: stored.createdAt,
@@ -393,6 +405,83 @@ export const billingHandlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  http.get('*/api/invoices/:invoiceId/payments', ({ request, params }) => {
+    const access = authorize(request, { permission: 'payment:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const tenantId = currentPolicy()?.tenantId ?? '';
+    const found = invoiceFor(tenantId, String(params.invoiceId));
+    if (!found) return notFound();
+    return HttpResponse.json<PaymentList>({
+      items: state.payments
+        .filter((each) => each.invoiceId === found.id)
+        .map(({ tenantId: _tenant, ...payment }) => payment),
+    });
+  }),
+
+  http.post('*/api/invoices/:invoiceId/payments', async ({ request, params }) => {
+    for (const permission of ['payment:create', 'payment:read']) {
+      const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+    }
+    const tenantId = currentPolicy()?.tenantId ?? '';
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const found = invoiceFor(tenantId, String(params.invoiceId));
+    if (!found) return notFound();
+    // A repeat records nothing more and answers with the payment.
+    if (sent.replay) {
+      const again = state.payments.find((each) => each.id === sent.replay?.id);
+      if (again) {
+        const { tenantId: _tenant, ...payment } = again;
+        return HttpResponse.json<Payment>(payment, { status: 201 });
+      }
+    }
+    const body = sent.body;
+    if (
+      !isObject(body) ||
+      !Number.isInteger(body.amountMinor) ||
+      (body.amountMinor as number) < 1 ||
+      typeof body.method !== 'string' ||
+      !METHODS.includes(body.method) ||
+      (body.reference !== undefined &&
+        (typeof body.reference !== 'string' ||
+          body.reference.length < 1 ||
+          body.reference.length > 100 ||
+          !PLAIN_TEXT.test(body.reference)))
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (found.status !== 'issued') {
+      return error(409, 'invoice_not_payable', 'Only an issued invoice takes a payment');
+    }
+    const view = invoiceView(found);
+    if ((body.amountMinor as number) > view.totalMinor - view.paidMinor - view.creditedMinor) {
+      return error(409, 'overpayment', 'More than is still due');
+    }
+    if (body.method === 'cash' && !state.registerOpen) {
+      return error(409, 'no_open_register', 'Open a cash register session first');
+    }
+    const payment: Payment & { tenantId: string } = {
+      id: `pay_mock_${state.payments.length + 1}`,
+      tenantId,
+      invoiceId: found.id,
+      kind: 'payment',
+      amountMinor: body.amountMinor as number,
+      method: body.method as Payment['method'],
+      ...(typeof body.reference === 'string' ? { reference: body.reference } : {}),
+      recordedByName: currentSession()?.user.name ?? '',
+      at: new Date().toISOString(),
+    };
+    state.payments.push(payment);
+    if (view.totalMinor - view.paidMinor - view.creditedMinor === payment.amountMinor) {
+      found.status = 'paid';
+      found.version += 1;
+    }
+    answered.set(sent.keyOf, { body: JSON.stringify(body), id: payment.id });
+    const { tenantId: _tenant, ...shown } = payment;
+    return HttpResponse.json<Payment>(shown, { status: 201 });
+  }),
+
   http.get('*/api/invoices/:invoiceId', ({ request, params }) => {
     const access = authorize(request, { permission: 'invoice:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
@@ -474,3 +563,11 @@ export const mockPrints = (): readonly { tenantId: string; invoiceId: string }[]
 
 /** The invoices as the mock holds them now, for tests. */
 export const mockInvoices = (): Invoice[] => state.invoices.map(invoiceView);
+
+/** The payments recorded so far, for tests. */
+export const mockPayments = (): readonly Payment[] => state.payments;
+
+/** Whether the caller has an open cash register session, for tests of cash payments. */
+export function setMockRegisterOpen(open: boolean): void {
+  state.registerOpen = open;
+}

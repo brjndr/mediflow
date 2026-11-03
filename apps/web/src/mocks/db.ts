@@ -194,6 +194,9 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'invoice:issue' },
   { permission: 'invoice:print' },
   { permission: 'invoice:adjust' },
+  // Payments (#111).
+  { permission: 'payment:read' },
+  { permission: 'payment:create' },
   { permission: 'report:read' },
   { permission: 'user:manage' },
   { permission: 'role:manage' },

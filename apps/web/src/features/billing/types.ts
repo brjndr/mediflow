@@ -13,3 +13,7 @@ export type InvoicePage = Schemas['InvoicePage'];
 /** What a draft is made of: pending charges of the visit and the lines typed in. */
 export type InvoiceContent = Schemas['InvoiceContent'];
 export type InvoiceUpdate = Schemas['InvoiceUpdate'];
+/** A payment taken against an issued invoice, or a refund of one (#111). */
+export type Payment = Schemas['Payment'];
+export type PaymentMethod = Payment['method'];
+export type PaymentCreate = Schemas['PaymentCreate'];
