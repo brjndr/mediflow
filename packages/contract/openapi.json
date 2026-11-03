@@ -8651,6 +8651,24 @@
           }
         }
       },
+      "ChargeCreate": {
+        "additionalProperties": false,
+        "description": "A service to charge to a visit by hand. The price is the standard price list price in effect today, never typed.",
+        "type": "object",
+        "required": ["serviceId", "quantity"],
+        "properties": {
+          "serviceId": {
+            "maxLength": 64,
+            "description": "A service of the price catalog.",
+            "type": "string"
+          },
+          "quantity": {
+            "minimum": 1,
+            "maximum": 9999,
+            "type": "integer"
+          }
+        }
+      },
       "ManualLine": {
         "additionalProperties": false,
         "description": "A line the billing desk types in: something not in the price catalog.",
@@ -32223,6 +32241,125 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ChargePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createEncounterCharge",
+        "tags": ["billing"],
+        "description": "Charges a service of the price catalog to a visit by hand (#115): it is posted to the ledger as a pending charge, source `service`, at the standard price list price in effect today, which the client never sends. An unknown service is 404 `service_not_found`; an archived one is 409 `service_archived` and one with no price in effect 409 `no_price` (work already done is posted at the last price by the events, but a charge typed in is a choice and is refused); a cancelled visit 409 `encounter_cancelled`. The Idempotency-Key header is required: a repeat posts nothing more and answers with the charge as it is now. Emits `charge.posted`. Requires charge:create and charge:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChargeCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Billable work posted to a visit. Priced when it was posted; never changes afterwards.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Charge"
                 }
               }
             }

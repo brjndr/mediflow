@@ -178,6 +178,23 @@ export function mockServiceNamed(tenantId: string, name?: string, id?: string) {
     : undefined;
 }
 
+/**
+ * A hospital's service with the price in force today on its standard list, for billing (#115), as
+ * the API's `priceOf` answers. A service of another hospital does not exist.
+ */
+export function mockServicePrice(tenantId: string, id: string) {
+  const service = state.services.find(
+    (candidate) => candidate.id === id && candidate.tenantId === tenantId,
+  );
+  if (!service) return undefined;
+  const price = view(service).currentPrice;
+  return {
+    name: service.name,
+    archived: service.archived,
+    amountMinor: price?.amountMinor ?? null,
+  };
+}
+
 /** The modality of a hospital's imaging service, `other` when it has none (#96), for radiology. */
 export const mockServiceModality = (tenantId: string, id: string): Modality =>
   state.services.find((each) => each.tenantId === tenantId && each.id === id)?.modality ?? 'other';

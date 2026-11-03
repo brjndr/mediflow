@@ -1,6 +1,7 @@
 import { api, requireData } from '@/shared/api';
 import {
   chargePageSchema,
+  chargeSchema,
   creditNoteListSchema,
   creditNoteSchema,
   invoicePageSchema,
@@ -10,6 +11,8 @@ import {
 } from './schemas';
 import type {
   ChargePage,
+  Charge,
+  ChargeCreate,
   CreditNote,
   CreditNoteCreate,
   Invoice,
@@ -34,6 +37,22 @@ export async function fetchPendingCharges(
     signal,
   });
   return chargePageSchema.parse(requireData(result));
+}
+
+/**
+ * Charges a service of the price catalog to the visit. The server prices it from the price list
+ * in effect; only the service and how many are sent. The key makes a repeat post one charge.
+ */
+export async function createCharge(
+  encounterId: string,
+  body: ChargeCreate,
+  idempotencyKey: string,
+): Promise<Charge> {
+  const result = await api.POST('/encounters/{encounterId}/charges', {
+    params: { path: { encounterId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return chargeSchema.parse(requireData(result));
 }
 
 /** The visit's invoices, newest first, drafts included. */

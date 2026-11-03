@@ -8,6 +8,7 @@ import { tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders, RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   claimCharges,
+  findCharge,
   findInvoice,
   findEncounter,
   holdCharges,
@@ -26,6 +27,8 @@ import {
 } from './repository.js';
 import {
   BILLING_SCHEMAS,
+  Charge,
+  ChargeCreate,
   ChargePage,
   ChargeQuery,
   DESCRIPTION_MAX,
@@ -47,6 +50,7 @@ import {
   requireAll,
   userIdOf,
 } from './views.js';
+import { postCharge, priceOf } from './posting.js';
 import { paymentRoutes } from './payment-routes.js';
 import { registerRoutes } from './register-routes.js';
 
@@ -151,6 +155,73 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         nextCursor: page.nextCursor,
         ...(page.total === undefined ? {} : { total: page.total }),
       };
+    },
+  );
+
+  app.post(
+    '/encounters/:encounterId/charges',
+    {
+      config: {
+        permissions: ['charge:create', 'charge:read'],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'createEncounterCharge',
+        tags: ['billing'],
+        description:
+          'Charges a service of the price catalog to a visit by hand (#115): it is posted to the ledger as a pending charge, source `service`, at the standard price list price in effect today, which the client never sends. An unknown service is 404 `service_not_found`; an archived one is 409 `service_archived` and one with no price in effect 409 `no_price` (work already done is posted at the last price by the events, but a charge typed in is a choice and is refused); a cancelled visit 409 `encounter_cancelled`. The Idempotency-Key header is required: a repeat posts nothing more and answers with the charge as it is now. Emits `charge.posted`. Requires charge:create and charge:read with the scope `all` and the billing feature flag. Audited.',
+        params: EncounterParams,
+        headers: RequiredIdempotencyHeaders,
+        body: ref(ChargeCreate),
+        response: { 201: ref(Charge), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request, reply: FastifyReply) => {
+      requireAll(request, 'charge:create', 'charge:read');
+      const answer = async (id: string) => {
+        const row = await findCharge(request.txClient, id);
+        if (!row || row.encounter_id !== (request.params as { encounterId: string }).encounterId) {
+          throw new HttpError(404, 'charge_not_found', 'No such charge');
+        }
+        return reply.status(201).send(chargeView(row));
+      };
+      if (request.replayOf !== null) {
+        if (!request.idempotentId) throw new HttpError(404, 'charge_not_found', 'No such charge');
+        return answer(request.idempotentId);
+      }
+      const { encounterId } = request.params as { encounterId: string };
+      const body = request.body as ChargeCreate;
+      const encounter = await findEncounter(request.txClient, encounterId);
+      if (!encounter) throw encounterNotFound();
+      if (encounter.status === 'cancelled') {
+        throw new HttpError(409, 'encounter_cancelled', 'A cancelled visit has nothing to bill');
+      }
+      const service = isUuid(body.serviceId) ? await priceOf(request.tx, body.serviceId) : null;
+      if (!service) throw new HttpError(404, 'service_not_found', 'No such service');
+      if (service.archived) {
+        throw new HttpError(409, 'service_archived', 'This service is no longer offered');
+      }
+      if (service.amountMinor === null) {
+        throw new HttpError(409, 'no_price', 'This service has no price in effect');
+      }
+      const id = randomUUID();
+      const posted = await postCharge(request.tx, {
+        encounterId: encounter.id,
+        patientId: encounter.patient_id,
+        serviceId: body.serviceId.toLowerCase(),
+        source: 'service',
+        sourceRef: `manual:${id}`,
+        description: '',
+        quantity: body.quantity,
+        unitPriceMinor: 0,
+        flag: null,
+        actorId: userIdOf(request),
+      });
+      if (!posted) throw new HttpError(404, 'service_not_found', 'No such service');
+      request.idempotentId = posted;
+      request.audit('create', 'charge', posted);
+      return answer(posted);
     },
   );
 

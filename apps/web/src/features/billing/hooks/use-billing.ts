@@ -4,6 +4,7 @@ import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys, isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
+  createCharge,
   createInvoiceDraft,
   fetchEncounterInvoices,
   fetchCreditNotes,
@@ -19,6 +20,8 @@ import {
   updateInvoiceDraft,
 } from '../api';
 import type {
+  Charge,
+  ChargeCreate,
   CreditNoteCreate,
   Invoice,
   InvoiceContent,
@@ -125,6 +128,23 @@ function useRefreshBilling() {
     const tenantId = stillHere();
     if (tenantId) return queryClient.invalidateQueries({ queryKey: billingKeys.all(tenantId) });
   };
+}
+
+/**
+ * Charges a service to the visit. One key per body until it is posted, so a double press or a
+ * retry after a lost answer posts one charge; another service or number is another key. Whatever
+ * the answer, the visit's charges are read again.
+ */
+export function useAddCharge(encounterId: string) {
+  const refresh = useRefreshBilling();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: ChargeCreate): Promise<Charge> =>
+      createCharge(encounterId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
 }
 
 export function useCreateDraft(encounterId: string) {

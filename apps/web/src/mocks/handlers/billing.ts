@@ -5,6 +5,7 @@ import { currentPolicy, currentSession, mockTenantCurrency, onMockReset, TENANT_
 import { authorize, error } from '../respond';
 import { mockEncounter } from './clinical';
 import { mockPatient } from './patients';
+import { mockServicePrice } from './services';
 
 type Charge = components['schemas']['Charge'];
 type ChargePage = components['schemas']['ChargePage'];
@@ -299,6 +300,57 @@ export const billingHandlers = [
     );
     const result = paged(charges, request);
     return 'refused' in result ? result.refused : HttpResponse.json<ChargePage>(result.page);
+  }),
+
+  // Charges a service of the price catalog to a visit by hand (#115): priced by the server from
+  // the price list in effect, never by the client.
+  http.post('*/api/encounters/:encounterId/charges', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'charge:create', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const visit = visitOf(tenantId, String(params.encounterId));
+    if (!visit) return notFound();
+    if (sent.replay) {
+      const again = state.charges.find((each) => each.id === sent.replay?.id);
+      return again ? HttpResponse.json<Charge>(again, { status: 201 }) : notFound();
+    }
+    const body = sent.body;
+    const serviceId = isObject(body) ? body.serviceId : undefined;
+    const quantity = isObject(body) ? body.quantity : undefined;
+    if (
+      typeof serviceId !== 'string' ||
+      typeof quantity !== 'number' ||
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > 9999
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (visit.status === 'cancelled') {
+      return error(409, 'encounter_cancelled', 'The visit was cancelled');
+    }
+    const service = mockServicePrice(tenantId, serviceId);
+    if (!service) return error(404, 'service_not_found', 'No such service');
+    if (service.archived) return error(409, 'service_archived', 'The service is archived');
+    if (service.amountMinor === null) return error(409, 'no_price', 'The service has no price');
+    counter += 1;
+    const made: Charge = {
+      id: `chg_new_${counter}`,
+      tenantId,
+      encounterId: visit.id,
+      source: 'service',
+      description: service.name,
+      quantity,
+      unitPriceMinor: service.amountMinor,
+      totalMinor: quantity * service.amountMinor,
+      status: 'pending',
+      postedAt: new Date().toISOString(),
+    };
+    state.charges.push(made);
+    answered.set(sent.keyOf, { body: JSON.stringify(sent.body), id: made.id });
+    return HttpResponse.json<Charge>(made, { status: 201 });
   }),
 
   http.get('*/api/encounters/:encounterId/invoices', ({ request, params }) => {

@@ -53,6 +53,7 @@ export const billingFeature: FeatureManifest = {
   ],
   permissions: [
     'charge:read',
+    'charge:create',
     'invoice:read',
     'invoice:create',
     'invoice:issue',

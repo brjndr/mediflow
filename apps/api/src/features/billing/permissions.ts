@@ -13,6 +13,12 @@ export const BILLING_PERMISSIONS = [
     defaults: { admin: 'all', doctor: 'all', receptionist: 'all' },
   },
   {
+    id: 'charge:create',
+    description:
+      'Charge a service of the price catalog to a visit by hand, at the price list’s price',
+    defaults: { admin: 'all', receptionist: 'all' },
+  },
+  {
     id: 'invoice:read',
     description: 'See invoices, with the name and MRN of the patient, their lines and payments',
     defaults: { admin: 'all', doctor: 'all', receptionist: 'all' },

@@ -189,6 +189,7 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'billing:refund' },
   // The invoice builder (#109): the admin holds all of it, as the billing API's defaults will.
   { permission: 'charge:read' },
+  { permission: 'charge:create' },
   { permission: 'invoice:read' },
   { permission: 'invoice:create' },
   { permission: 'invoice:issue' },

@@ -16,11 +16,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const idOf = (value: unknown): string | null =>
   typeof value === 'string' && UUID.test(value) ? value.toLowerCase() : null;
 
-interface Posting {
+export interface Posting {
   encounterId: string;
   patientId: string;
   serviceId: string | null;
-  source: 'order' | 'procedure' | 'dispense';
+  source: 'order' | 'procedure' | 'dispense' | 'service';
+  /** Who asked for it, when a person did; null for a charge posted from an event. */
+  actorId?: string;
   sourceRef: string;
   description: string;
   quantity: number;
@@ -29,32 +31,53 @@ interface Posting {
   flag: 'no_price' | null;
 }
 
-/** Posts one charge unless one was posted for the same cause; emits `charge.posted`. */
-async function post(tx: Database, posting: Posting): Promise<void> {
+export interface ServicePrice {
+  name: string;
+  archived: boolean;
+  /** The standard price list's price in effect today; null when none is in effect. */
+  amountMinor: number | null;
+}
+
+/** A service and its price today on the hospital's standard price list; null if no such service. */
+export async function priceOf(tx: Database, serviceId: string): Promise<ServicePrice | null> {
+  const { rows } = await tx.execute<{ name: string; archived: boolean; amount: string | null }>(
+    sql`select s.name, s.archived,
+          (select sp.amount_minor::text from service_prices sp
+            join price_lists pl on pl.tenant_id = sp.tenant_id and pl.id = sp.price_list_id
+              and pl.standard
+            where sp.service_id = s.id and sp.withdrawn_at is null
+              and sp.effective_from <= d.today
+            order by (sp.effective_to is null or sp.effective_to >= d.today) desc,
+              sp.effective_from desc
+            limit 1) as amount
+        from services s,
+          (select (now() at time zone timezone)::date as today
+           from tenants where id = app_tenant_id()) d
+        where s.id = ${serviceId}`,
+  );
+  const service = rows[0];
+  if (!service) return null;
+  return {
+    name: service.name,
+    archived: service.archived,
+    amountMinor: service.amount === null ? null : Number(service.amount),
+  };
+}
+
+/**
+ * Posts one charge unless one was posted for the same cause; emits `charge.posted`. Answers the
+ * charge's id, or null when nothing was posted.
+ */
+export async function postCharge(tx: Database, posting: Posting): Promise<string | null> {
   let unit = posting.unitPriceMinor;
   let flag: string | null = posting.flag;
   let description = posting.description;
   if (posting.serviceId !== null) {
-    const { rows } = await tx.execute<{ name: string; archived: boolean; amount: string | null }>(
-      sql`select s.name, s.archived,
-            (select sp.amount_minor::text from service_prices sp
-              join price_lists pl on pl.tenant_id = sp.tenant_id and pl.id = sp.price_list_id
-                and pl.standard
-              where sp.service_id = s.id and sp.withdrawn_at is null
-                and sp.effective_from <= d.today
-              order by (sp.effective_to is null or sp.effective_to >= d.today) desc,
-                sp.effective_from desc
-              limit 1) as amount
-          from services s,
-            (select (now() at time zone timezone)::date as today
-             from tenants where id = app_tenant_id()) d
-          where s.id = ${posting.serviceId}`,
-    );
-    const service = rows[0];
-    if (!service) return;
+    const service = await priceOf(tx, posting.serviceId);
+    if (!service) return null;
     description = service.name;
-    unit = service.amount === null ? 0 : Number(service.amount);
-    flag = service.amount === null ? 'no_price' : service.archived ? 'service_archived' : null;
+    unit = service.amountMinor ?? 0;
+    flag = service.amountMinor === null ? 'no_price' : service.archived ? 'service_archived' : null;
   }
   const { rows } = await tx.execute<{ id: string }>(
     sql`insert into charges (tenant_id, encounter_id, patient_id, service_id, source, source_ref,
@@ -66,7 +89,7 @@ async function post(tx: Database, posting: Posting): Promise<void> {
         returning id`,
   );
   const id = rows[0]?.id;
-  if (!id) return;
+  if (!id) return null;
   const payload = JSON.stringify({
     chargeId: id,
     encounterId: posting.encounterId,
@@ -74,8 +97,9 @@ async function post(tx: Database, posting: Posting): Promise<void> {
   });
   await tx.execute(
     sql`insert into outbox (tenant_id, event, entity_id, actor_id, payload)
-        values (app_tenant_id(), 'charge.posted', ${id}, null, ${payload})`,
+        values (app_tenant_id(), 'charge.posted', ${id}, ${posting.actorId ?? null}, ${payload})`,
   );
+  return id;
 }
 
 export function subscribeToPostings(app: FastifyInstance): void {
@@ -100,7 +124,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
     }
     // A test with no service to charge it as has nothing to post.
     if (!serviceId) return;
-    await post(tx, {
+    await postCharge(tx, {
       encounterId,
       patientId,
       serviceId,
@@ -134,7 +158,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
           order by dl.id`,
     );
     for (const line of rows) {
-      await post(tx, {
+      await postCharge(tx, {
         encounterId: line.encounter_id,
         patientId: line.patient_id,
         serviceId: null,

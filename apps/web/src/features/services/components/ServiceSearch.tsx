@@ -6,7 +6,7 @@ import { SEARCH_DEBOUNCE_MS, useDebouncedValue, useOrderableServices } from '../
 import type { ServiceCategory } from '../types';
 
 /**
- * A search box for a service of one category to order (an imaging study, a procedure): type words
+ * A search box for a service, of one category when given, to order (an imaging study, a procedure): type words
  * of its code or name, and choose from what the server finds. Archived services are not offered,
  * and only the id, code and name are given: a price is the price catalog's to show. The catalog
  * is searched on the server, with the term in the body of the request, and never loaded whole.
@@ -22,8 +22,8 @@ export function ServiceSearch({
   invalid,
   describedBy,
 }: {
-  /** Only services of this category are found. */
-  category: ServiceCategory;
+  /** Only services of this category are found; without one, every category is searched. */
+  category?: ServiceCategory;
   /** Already translated: what the service is for on this screen. */
   label: string;
   onSelect: (service: ServiceOption) => void;

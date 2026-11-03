@@ -1236,6 +1236,150 @@ describe('posting charges from events', () => {
   });
 });
 
+describe('charging a service by hand (#115)', () => {
+  let consult: string;
+  let archived: string;
+  let unpriced: string;
+  let foreign: string;
+
+  async function addService(
+    tenant: TestTenant,
+    code: string,
+    price: number | null,
+    archive = false,
+  ) {
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into services (tenant_id, code, name, category, tax_class)
+       values ($1, $2, $3, 'consultation', 'exempt') returning id`,
+      [tenant.id, code, `Service ${code}`],
+    );
+    const id = rows[0]?.id ?? '';
+    if (price !== null) {
+      await pool.query(
+        `insert into service_prices (tenant_id, service_id, price_list_id, amount_minor, effective_from)
+         select $1, $2, id, $3, current_date - 10 from price_lists where tenant_id = $1 and standard`,
+        [tenant.id, id, price],
+      );
+    }
+    if (archive) await pool.query('update services set archived = true where id = $1', [id]);
+    return id;
+  }
+
+  beforeAll(async () => {
+    consult = await addService(hospital, 'HAND-1', 45_000);
+    archived = await addService(hospital, 'HAND-2', 1_000, true);
+    unpriced = await addService(hospital, 'HAND-3', null);
+    foreign = await addService(clinic, 'HAND-4', 2_000);
+  });
+
+  const charge = (body: object, options: Options = {}, encounter = encounters.main) =>
+    post(`/encounters/${encounter}/charges`, body, options);
+
+  it('posts a pending charge at the price list’s price, whatever the client sends', async () => {
+    const before = await pool.query(
+      "select count(*)::int as n from outbox where event = 'charge.posted' and tenant_id = $1",
+      [hospital.id],
+    );
+    const posted = await ok<Charge & { source: string; quantity: number }>(
+      charge({ serviceId: consult, quantity: 2 }),
+      201,
+    );
+    expect(posted).toMatchObject({
+      source: 'service',
+      description: 'Service HAND-1',
+      quantity: 2,
+      unitPriceMinor: 45_000,
+      totalMinor: 90_000,
+      status: 'pending',
+    });
+    expect(posted.flag).toBeUndefined();
+    const listed = await ok<Page<Charge>>(
+      get(`/encounters/${encounters.main}/charges?status=pending&limit=100`),
+    );
+    expect(listed.items.some((item) => item.id === posted.id)).toBe(true);
+    const after = await pool.query(
+      "select count(*)::int as n from outbox where event = 'charge.posted' and tenant_id = $1",
+      [hospital.id],
+    );
+    expect(after.rows[0].n).toBe(before.rows[0].n + 1);
+    const draft = await draftOf([posted.id]);
+    expect(draft.totalMinor).toBe(90_000);
+  });
+
+  it('posts once for one key, and again for another', async () => {
+    const key = randomUUID();
+    const first = await ok<Charge>(charge({ serviceId: consult, quantity: 1 }, { key }), 201);
+    const again = await ok<Charge>(charge({ serviceId: consult, quantity: 1 }, { key }), 201);
+    expect(again.id).toBe(first.id);
+    const other = await ok<Charge>(charge({ serviceId: consult, quantity: 1 }), 201);
+    expect(other.id).not.toBe(first.id);
+  });
+
+  it('refuses what cannot be charged', async () => {
+    expect(errorOf(await charge({ serviceId: randomUUID(), quantity: 1 }))).toEqual([
+      404,
+      'service_not_found',
+    ]);
+    expect(errorOf(await charge({ serviceId: 'nope', quantity: 1 }))).toEqual([
+      404,
+      'service_not_found',
+    ]);
+    expect(errorOf(await charge({ serviceId: archived, quantity: 1 }))).toEqual([
+      409,
+      'service_archived',
+    ]);
+    expect(errorOf(await charge({ serviceId: unpriced, quantity: 1 }))).toEqual([409, 'no_price']);
+    expect((await charge({ serviceId: consult, quantity: 0 })).statusCode).toBe(400);
+    expect((await charge({ serviceId: consult, quantity: 10_000 })).statusCode).toBe(400);
+    expect(errorOf(await charge({ serviceId: consult, quantity: 1 }, {}, randomUUID()))).toEqual([
+      404,
+      'encounter_not_found',
+    ]);
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into encounters (tenant_id, patient_id, type, opened_by, status, cancel_reason, ended_at, ended_by)
+       values ($1, $2, 'opd', $3, 'cancelled', 'Entered in error', now(), $3) returning id`,
+      [hospital.id, patients.asha, admin.id],
+    );
+    const cancelled = rows[0]?.id ?? '';
+    expect(errorOf(await charge({ serviceId: consult, quantity: 1 }, {}, cancelled))).toEqual([
+      409,
+      'encounter_cancelled',
+    ]);
+  });
+
+  it('needs charge:create, and the billing switch', async () => {
+    expect(errorOf(await charge({ serviceId: consult, quantity: 1 }, { user: doctor }))[1]).toBe(
+      'permission_denied',
+    );
+    expect(
+      errorOf(
+        await charge({ serviceId: consult, quantity: 1 }, { tenant: closed, user: admin }),
+      )[1],
+    ).toBe('feature_disabled');
+  });
+
+  it('keeps the hospitals apart', async () => {
+    expect(
+      errorOf(
+        await charge({ serviceId: consult, quantity: 1 }, { tenant: clinic, user: clinicAdmin }),
+      ),
+    ).toEqual([404, 'encounter_not_found']);
+    expect(errorOf(await charge({ serviceId: foreign, quantity: 1 }))).toEqual([
+      404,
+      'service_not_found',
+    ]);
+    const own = await ok<Charge>(
+      charge(
+        { serviceId: foreign, quantity: 1 },
+        { tenant: clinic, user: clinicAdmin },
+        encounters.clinic,
+      ),
+      201,
+    );
+    expect(own.unitPriceMinor).toBe(2_000);
+  });
+});
+
 describe('the hospital boundary', () => {
   it('shows another hospital nothing, in SQL under the app role too', async () => {
     const invoice = await issued();
