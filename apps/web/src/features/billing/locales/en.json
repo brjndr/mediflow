@@ -153,6 +153,24 @@
       "invoice_not_payable": "This invoice cannot take a payment."
     }
   },
+  "refund": {
+    "heading": "Refund a payment",
+    "payment": "Payment to refund",
+    "paymentOption": "{{kind}} {{method}}, {{date}}: {{held}} left to refund",
+    "amount": "Refund amount",
+    "amountHint": "Up to {{held}}, what that payment still holds.",
+    "reason": "Refund reason",
+    "reasonHint": "Why the money is returned. Kept with the refund.",
+    "submit": "Refund payment",
+    "saving": "Refunding…",
+    "done": "Refund of {{amount}} recorded.",
+    "amountPositive": "Enter more than nothing.",
+    "amountTooMuch": "More than that payment still holds.",
+    "refused": {
+      "refund_exceeds": "That is more than the payment still holds. The payments have been read again.",
+      "no_open_register": "A cash refund comes out of a cash register session, and you have none open."
+    }
+  },
   "credit": {
     "heading": "Credit notes",
     "none": "No credit note has been issued.",

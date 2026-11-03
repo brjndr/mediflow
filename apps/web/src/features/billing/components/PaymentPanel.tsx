@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
 import { currencyDigits, toMinor } from '@/features/services';
-import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { Form, SelectField, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { cn } from '@/shared/lib/utils';
 import { useFormatters, useTenant } from '@/tenancy';
 import { usePayments, useRecordPayment } from '../hooks/use-billing';
+import { amountText, refusalText, useFocusWhenFormGoes } from '../lib/panel-helpers';
+import { refundable } from '../lib/refundable';
+import { RefundForm, type RefundDraft } from './RefundForm';
 import {
   createPaymentSchema,
   PAYMENT_METHODS,
@@ -20,12 +22,6 @@ import type { Invoice, Payment } from '../types';
 
 /** Refusals of the API that have words of their own; any other failure gets the generic ones. */
 const REFUSALS = new Set(['overpayment', 'no_open_register', 'invoice_not_payable']);
-
-/** An amount in minor units as the digits a person types: 12550 is "125.50" in two decimals. */
-function amountText(minor: number, digits: number): string {
-  const text = String(minor).padStart(digits + 1, '0');
-  return digits === 0 ? text : `${text.slice(0, -digits)}.${text.slice(-digits)}`;
-}
 
 /**
  * The payments of an issued invoice (#111): what was taken and what is still due, and, for
@@ -47,20 +43,29 @@ export function PaymentPanel({ invoice }: { invoice: Invoice }) {
   const dueMinor = invoice.totalMinor - invoice.paidMinor - invoice.creditedMinor;
   const payable = canCreate && invoice.status === 'issued' && dueMinor > 0;
 
-  // When the form goes (the last payment, or a refusal that says the invoice can take none) focus
-  // moves to the status line, once it holds what happened: it is hidden while empty.
-  const formWas = useRef(payable);
-  const formLeft = useRef(false);
+  // A refund is of money a payment still holds; the list of payments says which.
+  const canRefund = usePermission('payment:refund');
+  const refundables = refundable(payments.data ?? []);
+  const refunding =
+    canRefund &&
+    canRead &&
+    (invoice.status === 'issued' || invoice.status === 'paid') &&
+    refundables.length > 0;
+
+  useFocusWhenFormGoes(payable, message !== null, status);
+  useFocusWhenFormGoes(refunding, message !== null, status);
+
+  // A part refund changes what the payment holds, so the form is made again and the button that
+  // had focus is gone: focus moves to the status line, which says what was refunded.
+  const refundKey = refundables.map((each) => `${each.payment.id}:${each.heldMinor}`).join();
+  const refocus = useRef(false);
+  const [draft, setDraft] = useState<RefundDraft>({ paymentId: '', reason: '' });
   useEffect(() => {
-    if (formWas.current && !payable) formLeft.current = true;
-    formWas.current = payable;
-  }, [payable]);
-  useEffect(() => {
-    if (formLeft.current && message && !payable) {
-      formLeft.current = false;
-      focusIfLost(status.current);
-    }
-  }, [message, payable]);
+    // Whichever comes first, the new form or the message, focus moves once the button is gone.
+    if (!refocus.current || !message || refundKey === '') return;
+    focusIfLost(status.current);
+    if (document.activeElement === status.current) refocus.current = false;
+  }, [refundKey, message]);
 
   const columns = useMemo<GridColumn<Payment>[]>(
     () => [
@@ -127,6 +132,24 @@ export function PaymentPanel({ invoice }: { invoice: Invoice }) {
           onRefused={(text) => setMessage({ text, failed: true })}
         />
       )}
+      {refunding && (
+        <RefundForm
+          // A new set of payments is a new form: its limits and first amount follow what is held.
+          key={refundKey}
+          options={refundables}
+          draft={draft}
+          onDraft={setDraft}
+          onRefunded={(amountMinor) => {
+            refocus.current = true;
+            setDraft({ paymentId: '', reason: '' });
+            setMessage({
+              text: t('refund.done', { amount: format.money(amountMinor) }),
+              failed: false,
+            });
+          }}
+          onRefused={(text) => setMessage({ text, failed: true })}
+        />
+      )}
       {canRead && (
         <DataGrid
           label={t('payment.heading')}
@@ -179,10 +202,7 @@ function PaymentForm({
       });
       onRecorded(amountMinor);
     } catch (error) {
-      const code = isApiError(error) ? error.serverCode : undefined;
-      onRefused(
-        code && REFUSALS.has(code) ? t(`payment.refused.${code}`) : tCommon(errorMessageKey(error)),
-      );
+      onRefused(refusalText(error, REFUSALS, 'payment', t, tCommon));
     }
   }
 

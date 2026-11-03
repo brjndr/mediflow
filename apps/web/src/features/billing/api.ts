@@ -18,6 +18,7 @@ import type {
   InvoiceUpdate,
   Payment,
   PaymentCreate,
+  RefundCreate,
 } from './types';
 
 // Every address holds ids only: nothing about the patient is in a URL. Every POST carries an
@@ -163,6 +164,19 @@ export async function recordPayment(
 ): Promise<Payment> {
   const result = await api.POST('/invoices/{invoiceId}/payments', {
     params: { path: { invoiceId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return paymentSchema.parse(requireData(result));
+}
+
+/** One refund of part or all of a payment; a repeat with the same key refunds nothing more (#444). */
+export async function refundPayment(
+  paymentId: string,
+  body: RefundCreate,
+  idempotencyKey: string,
+): Promise<Payment> {
+  const result = await api.POST('/payments/{paymentId}/refunds', {
+    params: { path: { paymentId }, header: { 'idempotency-key': idempotencyKey } },
     body,
   });
   return paymentSchema.parse(requireData(result));

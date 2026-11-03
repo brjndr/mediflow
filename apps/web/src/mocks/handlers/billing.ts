@@ -487,6 +487,79 @@ export const billingHandlers = [
     return HttpResponse.json<Payment>(shown, { status: 201 });
   }),
 
+  http.post('*/api/payments/:paymentId/refunds', async ({ request, params }) => {
+    for (const permission of ['payment:refund', 'payment:read']) {
+      const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+      if ('denied' in access) return access.denied;
+    }
+    const tenantId = currentPolicy()?.tenantId ?? '';
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    // A repeat refunds nothing more and answers with the refund.
+    if (sent.replay) {
+      const again = state.payments.find((each) => each.id === sent.replay?.id);
+      if (again) {
+        const { tenantId: _tenant, ...refund } = again;
+        return HttpResponse.json<Payment>(refund, { status: 201 });
+      }
+    }
+    const original = state.payments.find(
+      (each) =>
+        each.tenantId === tenantId &&
+        each.id === String(params.paymentId) &&
+        each.kind === 'payment',
+    );
+    const found = original ? invoiceFor(tenantId, original.invoiceId) : undefined;
+    if (!original || !found) return notFound();
+    const body = sent.body;
+    if (
+      !isObject(body) ||
+      !Number.isInteger(body.amountMinor) ||
+      (body.amountMinor as number) < 1 ||
+      typeof body.reason !== 'string' ||
+      body.reason.trim().length < 1 ||
+      body.reason.length > 200 ||
+      !PLAIN_TEXT.test(body.reason)
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (found.status !== 'issued' && found.status !== 'paid') {
+      return error(409, 'invoice_not_payable', 'Only an issued or paid invoice takes a refund');
+    }
+    const held =
+      original.amountMinor -
+      state.payments
+        .filter((each) => each.kind === 'refund' && each.refundOf === original.id)
+        .reduce((sum, each) => sum + each.amountMinor, 0);
+    if ((body.amountMinor as number) > held) {
+      return error(409, 'refund_exceeds', 'More than the payment still holds');
+    }
+    if (original.method === 'cash' && !state.registerOpen) {
+      return error(409, 'no_open_register', 'Open a cash register session first');
+    }
+    const refund: Payment & { tenantId: string } = {
+      id: `pay_mock_${state.payments.length + 1}`,
+      tenantId,
+      invoiceId: found.id,
+      kind: 'refund',
+      amountMinor: body.amountMinor as number,
+      method: original.method,
+      refundOf: original.id,
+      reason: body.reason,
+      recordedByName: currentSession()?.user.name ?? '',
+      at: new Date().toISOString(),
+    };
+    state.payments.push(refund);
+    // A paid invoice that gives money back is issued again, with something due.
+    if (found.status === 'paid') {
+      found.status = 'issued';
+      found.version += 1;
+    }
+    answered.set(sent.keyOf, { body: JSON.stringify(body), id: refund.id });
+    const { tenantId: _tenant, ...shown } = refund;
+    return HttpResponse.json<Payment>(shown, { status: 201 });
+  }),
+
   http.get('*/api/invoices/:invoiceId/credit-notes', ({ request, params }) => {
     const access = authorize(request, { permission: 'invoice:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
