@@ -197,6 +197,8 @@ const ADMIN: PermissionGrantDto[] = [
   // Payments (#111).
   { permission: 'payment:read' },
   { permission: 'payment:create' },
+  // Credit notes (#112).
+  { permission: 'creditNote:create' },
   { permission: 'report:read' },
   { permission: 'user:manage' },
   { permission: 'role:manage' },

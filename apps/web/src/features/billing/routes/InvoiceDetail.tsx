@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { InvoiceBuilder } from '../components/InvoiceBuilder';
+import { CreditNotePanel } from '../components/CreditNotePanel';
 import { PaymentPanel } from '../components/PaymentPanel';
 import { PrintInvoiceButton } from '../components/PrintInvoiceButton';
 import { useInvoice } from '../hooks/use-billing';
@@ -114,6 +115,7 @@ function Body({ invoice }: { invoice: Invoice }) {
         <>
           <Issued invoice={invoice} />
           {invoice.status !== 'draft' && <PaymentPanel invoice={invoice} />}
+          {invoice.status !== 'draft' && <CreditNotePanel invoice={invoice} />}
         </>
       )}
     </>

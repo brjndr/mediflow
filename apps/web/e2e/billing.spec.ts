@@ -95,6 +95,23 @@ test('bill a visit from the consultation and issue it with the keyboard alone', 
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 
+  // A credit note (#112) with a reason, with the keyboard alone: 11.50 off what is unpaid.
+  await expect(page.getByRole('heading', { name: 'Credit notes', level: 2 })).toBeVisible();
+  const credit = page.getByRole('textbox', { name: /^Credit amount/ });
+  await credit.fill('11.50');
+  await page.getByRole('textbox', { name: /^Reason/ }).fill('Consultation fee waived');
+  const issueCredit = page.getByRole('button', { name: 'Issue credit note' });
+  await reach(page, issueCredit);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Credit note CN-0001 issued.' }),
+  ).toBeVisible();
+  await expect(page.getByTestId('balance-due')).toContainText('450.00');
+  await expect(amount).toHaveValue('450.00');
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
   await reach(page, record);
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('balance-due')).toContainText('0.00');
