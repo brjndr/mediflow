@@ -159,6 +159,38 @@ export type PaymentValues = z.output<ReturnType<typeof createPaymentSchema>>;
 
 export const REASON_MAX = 200;
 
+/**
+ * The form to refund a payment (#444): which payment, an amount of more than nothing and at most
+ * what that payment still holds (`heldOf` says, by the payment's id), and a required reason.
+ */
+export function createRefundSchema(
+  toAmount: (text: string) => number | null,
+  heldOf: (paymentId: string) => number,
+) {
+  return z
+    .object({
+      paymentId: z.string().min(1, 'validation.required'),
+      amount: z
+        .string()
+        .trim()
+        .min(1, 'validation.required')
+        .refine((text) => toAmount(text) !== null, 'validation.invalid_format')
+        .refine((text) => (toAmount(text) ?? 1) > 0, 'billing:refund.amountPositive'),
+      reason: z
+        .string()
+        .trim()
+        .min(1, 'validation.required')
+        .max(REASON_MAX, 'validation.too_big')
+        .regex(PLAIN_TEXT, 'validation.plain_text'),
+    })
+    .refine((values) => (toAmount(values.amount) ?? 0) <= heldOf(values.paymentId), {
+      path: ['amount'],
+      message: 'billing:refund.amountTooMuch',
+    });
+}
+export type RefundInput = z.input<ReturnType<typeof createRefundSchema>>;
+export type RefundValues = z.output<ReturnType<typeof createRefundSchema>>;
+
 export const creditNoteSchema: z.ZodType<CreditNote> = z.object({
   id: z.string(),
   invoiceId: z.string(),

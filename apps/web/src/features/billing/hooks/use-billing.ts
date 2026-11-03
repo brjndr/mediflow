@@ -12,12 +12,19 @@ import {
   fetchPendingCharges,
   issueCreditNote,
   issueInvoice,
-  recordPayment,
   recordInvoicePrint,
+  recordPayment,
+  refundPayment,
   searchInvoices,
   updateInvoiceDraft,
 } from '../api';
-import type { CreditNoteCreate, Invoice, InvoiceContent, PaymentCreate } from '../types';
+import type {
+  CreditNoteCreate,
+  Invoice,
+  InvoiceContent,
+  PaymentCreate,
+  RefundCreate,
+} from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's bills never show in another. */
 export const billingKeys = createTenantKeys('billing');
@@ -196,6 +203,23 @@ export function useRecordPayment(invoiceId: string) {
     // Nothing about the payment stays in the mutation cache once the form is gone.
     gcTime: 0,
     mutationFn: (body: PaymentCreate) => recordPayment(invoiceId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+/**
+ * Refunds part or all of a payment (#444). As a payment: one key per payment and body until it is
+ * refunded, so a double press or a retry refunds once. Whatever the answer, the invoice, its
+ * payments and the lists are read again. The reason is not kept in the mutation cache.
+ */
+export function useRefundPayment() {
+  const refresh = useRefreshBilling();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ paymentId, ...body }: RefundCreate & { paymentId: string }) =>
+      refundPayment(paymentId, body, keys.keyFor({ paymentId, ...body })),
     onSuccess: () => keys.clear(),
     onSettled: refresh,
   });

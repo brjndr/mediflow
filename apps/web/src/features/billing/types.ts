@@ -17,6 +17,8 @@ export type InvoiceUpdate = Schemas['InvoiceUpdate'];
 export type Payment = Schemas['Payment'];
 export type PaymentMethod = Payment['method'];
 export type PaymentCreate = Schemas['PaymentCreate'];
+/** A refund of some or all of one payment, with its reason (#444). */
+export type RefundCreate = Schemas['RefundCreate'];
 /** A credit note against an issued invoice, with its reason (#112). */
 export type CreditNote = Schemas['CreditNote'];
 export type CreditNoteCreate = Schemas['CreditNoteCreate'];

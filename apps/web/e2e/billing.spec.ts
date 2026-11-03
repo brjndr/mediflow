@@ -119,6 +119,23 @@ test('bill a visit from the consultation and issue it with the keyboard alone', 
   expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
+
+  // A refund (#444) of 50.00 from the last cash payment, with a reason, with the keyboard alone.
+  await expect(page.getByRole('heading', { name: 'Refund a payment' })).toBeVisible();
+  await page.getByRole('textbox', { name: /^Refund amount/ }).fill('50');
+  await page.getByRole('textbox', { name: /^Refund reason/ }).fill('Charged twice');
+  const refund = page.getByRole('button', { name: 'Refund payment' });
+  await reach(page, refund);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('status').filter({ hasText: /Refund of .*50.00.* recorded./ }),
+  ).toBeVisible();
+  await expect(page.getByTestId('balance-due')).toContainText('50.00');
+  await expect(amount).toHaveValue('50.00');
+  expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
 });
 
 test('find an issued invoice in the list and print it with the keyboard alone', async ({

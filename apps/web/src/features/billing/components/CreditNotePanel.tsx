@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
 import { currencyDigits, toMinor } from '@/features/services';
-import { errorMessageKey, isApiError } from '@/shared/api';
-import { focusIfLost } from '@/shared/lib/focus';
 import { cn } from '@/shared/lib/utils';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { Form, SubmitButton, TextAreaField, TextField, useZodForm } from '@/shared/ui/form';
 import { useFormatters, useTenant } from '@/tenancy';
 import { useCreditNotes, useIssueCreditNote } from '../hooks/use-billing';
+import { amountText, refusalText, useFocusWhenFormGoes } from '../lib/panel-helpers';
 import {
   createCreditNoteSchema,
   REASON_MAX,
@@ -19,12 +18,6 @@ import type { CreditNote, Invoice } from '../types';
 
 /** Refusals of the API that have words of their own; any other failure gets the generic ones. */
 const REFUSALS = new Set(['credit_exceeds', 'refund_first', 'invoice_not_creditable']);
-
-/** An amount in minor units as the digits a person types: 12550 is "125.50" in two decimals. */
-function amountText(minor: number, digits: number): string {
-  const text = String(minor).padStart(digits + 1, '0');
-  return digits === 0 ? text : `${text.slice(0, -digits)}.${text.slice(-digits)}`;
-}
 
 /**
  * The credit notes of an issued invoice (#112): the way to correct one that is issued, since it
@@ -46,19 +39,7 @@ export function CreditNotePanel({ invoice }: { invoice: Invoice }) {
   const creditable = canCreate && open && unpaidMinor > 0;
   const refundFirst = canCreate && open && leftMinor > 0 && unpaidMinor <= 0;
 
-  // When the form goes (the last credit, or a refusal) focus moves to the status line.
-  const formWas = useRef(creditable);
-  const formLeft = useRef(false);
-  useEffect(() => {
-    if (formWas.current && !creditable) formLeft.current = true;
-    formWas.current = creditable;
-  }, [creditable]);
-  useEffect(() => {
-    if (formLeft.current && message && !creditable) {
-      formLeft.current = false;
-      focusIfLost(status.current);
-    }
-  }, [message, creditable]);
+  useFocusWhenFormGoes(creditable, message !== null, status);
 
   const columns = useMemo<GridColumn<CreditNote>[]>(
     () => [
@@ -162,10 +143,7 @@ function CreditForm({
       });
       onIssued(note.number);
     } catch (error) {
-      const code = isApiError(error) ? error.serverCode : undefined;
-      onRefused(
-        code && REFUSALS.has(code) ? t(`credit.refused.${code}`) : tCommon(errorMessageKey(error)),
-      );
+      onRefused(refusalText(error, REFUSALS, 'credit', t, tCommon));
     }
   }
 
