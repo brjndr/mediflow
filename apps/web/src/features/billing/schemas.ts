@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { PLAIN_TEXT } from '@/shared/utils/text';
-import type { Charge, ChargePage, Invoice, InvoicePage } from './types';
+import type { Charge, ChargePage, Invoice, InvoicePage, Payment, PaymentMethod } from './types';
 
 /** The API's limits (`planned.openapi.json`, until the billing API has them). */
 export const DESCRIPTION_MAX = 200;
@@ -98,3 +98,53 @@ export function createManualLineSchema(checkMoney: (text: string) => number | nu
 }
 export type ManualLineInput = z.input<ReturnType<typeof createManualLineSchema>>;
 export type ManualLineValues = z.output<ReturnType<typeof createManualLineSchema>>;
+
+export const PAYMENT_METHODS = [
+  'cash',
+  'card',
+  'upi',
+  'bank',
+  'other',
+] as const satisfies readonly PaymentMethod[];
+export const REFERENCE_MAX = 100;
+
+export const paymentSchema: z.ZodType<Payment> = z.object({
+  id: z.string(),
+  invoiceId: z.string(),
+  kind: z.enum(['payment', 'refund']),
+  amountMinor: z.number().int(),
+  method: z.enum(PAYMENT_METHODS),
+  reference: z.string().optional(),
+  refundOf: z.string().optional(),
+  reason: z.string().optional(),
+  sessionId: z.string().optional(),
+  recordedByName: z.string(),
+  at: z.string(),
+});
+
+export const paymentListSchema = z.object({ items: z.array(paymentSchema) });
+
+/**
+ * The form to take a payment. The amount stays text until the screen turns it into minor units on
+ * its digits; `toAmount` says what the text is in minor units, or null when it is not an amount.
+ * It is more than nothing and at most `dueMinor`, what is still to pay (the server decides too).
+ */
+export function createPaymentSchema(toAmount: (text: string) => number | null, dueMinor: number) {
+  return z.object({
+    amount: z
+      .string()
+      .trim()
+      .min(1, 'validation.required')
+      .refine((text) => toAmount(text) !== null, 'validation.invalid_format')
+      .refine((text) => (toAmount(text) ?? 1) > 0, 'billing:payment.amountPositive')
+      .refine((text) => (toAmount(text) ?? 0) <= dueMinor, 'billing:payment.amountTooMuch'),
+    method: z.enum(PAYMENT_METHODS),
+    reference: z
+      .string()
+      .trim()
+      .max(REFERENCE_MAX, 'validation.too_big')
+      .regex(PLAIN_TEXT, 'validation.plain_text'),
+  });
+}
+export type PaymentInput = z.input<ReturnType<typeof createPaymentSchema>>;
+export type PaymentValues = z.output<ReturnType<typeof createPaymentSchema>>;

@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { InvoiceBuilder } from '../components/InvoiceBuilder';
+import { PaymentPanel } from '../components/PaymentPanel';
 import { PrintInvoiceButton } from '../components/PrintInvoiceButton';
 import { useInvoice } from '../hooks/use-billing';
 import type { Invoice, InvoiceLine } from '../types';
@@ -110,7 +111,10 @@ function Body({ invoice }: { invoice: Invoice }) {
           notice={justSaved ? t('builder.saved') : ''}
         />
       ) : (
-        <Issued invoice={invoice} />
+        <>
+          <Issued invoice={invoice} />
+          {invoice.status !== 'draft' && <PaymentPanel invoice={invoice} />}
+        </>
       )}
     </>
   );

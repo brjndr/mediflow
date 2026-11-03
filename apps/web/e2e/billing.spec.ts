@@ -76,6 +76,32 @@ test('bill a visit from the consultation and issue it with the keyboard alone', 
   expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
+
+  // Payments (#111): a part payment by card, then the rest, with the keyboard alone.
+  await expect(page.getByRole('heading', { name: 'Payments', level: 2 })).toBeVisible();
+  await expect(page.getByTestId('balance-due')).toContainText('561.50');
+  const amount = page.getByRole('textbox', { name: /^Amount/ });
+  await amount.fill('100');
+  await page.getByLabel(/^Paid by/).selectOption('card');
+  const record = page.getByRole('button', { name: 'Record payment' });
+  await reach(page, record);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('status').filter({ hasText: /Payment of .*100.00.* recorded./ }),
+  ).toBeVisible();
+  await expect(page.getByTestId('balance-due')).toContainText('461.50');
+  await expect(amount).toHaveValue('461.50');
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  await reach(page, record);
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('balance-due')).toContainText('0.00');
+  await expect(record).toHaveCount(0);
+  expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
 });
 
 test('find an issued invoice in the list and print it with the keyboard alone', async ({
