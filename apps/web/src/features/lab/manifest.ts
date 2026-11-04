@@ -41,6 +41,13 @@ export const labFeature: FeatureManifest = {
     'labResult:acknowledge',
     'labReport:print',
   ],
+  dashboardWidgets: [
+    {
+      id: 'pending',
+      component: () => import('./components/PendingWidget'),
+      requires: ['labSample:read'],
+    },
+  ],
   extensions: [
     // The patient's released results, with each test's trend (#92).
     {

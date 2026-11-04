@@ -7,7 +7,10 @@ import type { SlotId, SlotProps } from './types';
  * Keeps one broken contribution from taking down the screen that hosts it: it renders nothing in
  * its place. The error goes to the scrubbing reporter and is never shown or logged.
  */
-class ContributionBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+class ContributionBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  { failed: boolean }
+> {
   override state = { failed: false };
 
   static getDerivedStateFromError() {
@@ -19,7 +22,7 @@ class ContributionBoundary extends Component<{ children: ReactNode }, { failed: 
   }
 
   override render() {
-    return this.state.failed ? null : this.props.children;
+    return this.state.failed ? (this.props.fallback ?? null) : this.props.children;
   }
 }
 
@@ -27,6 +30,8 @@ interface SlotComponentProps extends SlotProps {
   id: SlotId;
   /** Shown while a contribution's chunk loads. Nothing by default. */
   fallback?: ReactNode;
+  /** Shown in place of a contribution that failed. Nothing by default. */
+  errorFallback?: ReactNode;
 }
 
 /**
@@ -37,10 +42,10 @@ interface SlotComponentProps extends SlotProps {
  *
  * The slot adds no markup of its own, so the host decides the layout.
  */
-export function Slot({ id, context, fallback = null }: SlotComponentProps) {
+export function Slot({ id, context, fallback = null, errorFallback }: SlotComponentProps) {
   const contributions = useSlotContributions(id);
   return contributions.map(({ key, Component: Contribution }) => (
-    <ContributionBoundary key={key}>
+    <ContributionBoundary key={key} fallback={errorFallback}>
       <Suspense fallback={fallback}>
         <Contribution context={context} />
       </Suspense>

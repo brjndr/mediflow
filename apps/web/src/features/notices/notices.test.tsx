@@ -55,7 +55,11 @@ describe('notices page', () => {
     await waitFor(() => expect(noticeTitles()).toHaveLength(30));
     expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
     // Two server pages, never the whole list in one request.
-    expect(requests).toEqual(['?limit=25', '?cursor=ntc_h_26&limit=25']);
+    // (The dashboard's own panel asked for three, on the way.)
+    expect(requests.filter((search) => search !== '?limit=3')).toEqual([
+      '?limit=25',
+      '?cursor=ntc_h_26&limit=25',
+    ]);
   });
 
   it('shows dates in the hospital’s locale and timezone', async () => {
@@ -156,7 +160,12 @@ describe('feature flag off', () => {
     expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
     expect(screen.queryByRole('heading', HEADING)).not.toBeInTheDocument();
     expect(navLink()).not.toBeInTheDocument();
-    expect(appRegistry.contributions('dashboard.widgets', clinicPolicy)).toEqual([]);
+    // The clinic's other panels (its queue) are not this module's.
+    expect(
+      appRegistry
+        .contributions('dashboard.widgets', clinicPolicy)
+        .filter((widget) => widget.key.startsWith('notices:')),
+    ).toEqual([]);
     expect(appRegistry.settingsSections(clinicPolicy)).toEqual([]);
     expect(requests).toEqual([]);
   });

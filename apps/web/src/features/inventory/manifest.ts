@@ -46,4 +46,11 @@ export const inventoryFeature: FeatureManifest = {
   ],
   nav: { icon: Boxes, order: 29.8, requires: ['stock:read'] },
   permissions: ['stock:read', 'stock:adjust', 'stock:approve', 'stockLocation:manage'],
+  dashboardWidgets: [
+    {
+      id: 'alerts',
+      component: () => import('./components/AlertsWidget'),
+      requires: ['stock:read'],
+    },
+  ],
 };

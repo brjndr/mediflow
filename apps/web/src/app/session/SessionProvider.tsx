@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { configureApi, errorMessageKey } from '@/shared/api';
+import { configureApi, errorMessageKey, TENANT_SCOPE } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { useAppDispatch } from '../store-hooks';
 import { IdleTimeout } from './IdleTimeout';
@@ -78,6 +78,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (signedOut) dropSessionData(queryClient, dispatch);
   }, [signedOut, queryClient, dispatch]);
+
+  // The same after a switch of hospital: a panel that was on the page (the dashboard's) renders
+  // once more under the old key before it takes the new one, and that leaves an empty query for
+  // the hospital that was left. Nothing keyed to another hospital is kept.
+  const activeTenantId = session.data?.activeTenant?.id;
+  useEffect(() => {
+    if (activeTenantId === undefined) return;
+    queryClient.removeQueries({
+      predicate: ({ queryKey }) =>
+        queryKey[0] === TENANT_SCOPE &&
+        typeof queryKey[1] === 'string' &&
+        queryKey[1] !== activeTenantId,
+    });
+  }, [activeTenantId, queryClient]);
 
   // Signing in or out in one tab applies to every tab of this browser at once.
   useEffect(

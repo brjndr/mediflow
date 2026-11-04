@@ -24,8 +24,8 @@ const tenantDataKeys = (queryClient: QueryClient) =>
     .getQueryCache()
     .getAll()
     .map((query) => query.queryKey)
-    .filter((key) => key[0] === 'tenant')
-    .filter((key) => !(key[1] === TENANT_IDS.clinic && key[2] === 'mfa'));
+    // The new hospital's own queries (its dashboard loads at once) are not leftovers.
+    .filter((key) => key[0] === 'tenant' && key[1] === TENANT_IDS.hospital);
 
 const switcher = () => screen.getByRole('combobox', { name: 'Hospital' });
 

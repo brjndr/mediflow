@@ -33,6 +33,13 @@ export const queueFeature: FeatureManifest = {
   ],
   nav: { icon: ListOrdered, order: 27, requires: ['queue:read'] },
   permissions: ['queue:read', 'queue:create', 'queue:call'],
+  dashboardWidgets: [
+    {
+      id: 'waiting',
+      component: () => import('./components/WaitingWidget'),
+      requires: ['queue:read'],
+    },
+  ],
   extensions: [
     {
       slot: 'patient.detail.actions',
