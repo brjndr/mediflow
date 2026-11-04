@@ -204,6 +204,8 @@ const ADMIN: PermissionGrantDto[] = [
   // The cash register (#118): the admin sees every session and works a drawer too.
   { permission: 'cashRegister:read' },
   { permission: 'cashRegister:manage' },
+  // Tax rates (#119).
+  { permission: 'taxRate:manage' },
   { permission: 'report:read' },
   { permission: 'user:manage' },
   { permission: 'role:manage' },

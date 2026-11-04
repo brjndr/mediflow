@@ -19,6 +19,7 @@ import {
   listInvoices,
   lockInvoice,
   manualLinesOf,
+  type ManualLineInput,
   nextNumber,
   replaceLines,
   searchInvoices,
@@ -53,6 +54,7 @@ import {
 import { postCharge, priceOf } from './posting.js';
 import { paymentRoutes } from './payment-routes.js';
 import { registerRoutes } from './register-routes.js';
+import { taxRoutes } from './tax-routes.js';
 
 const EncounterParams = Type.Object({ encounterId: Type.String({ maxLength: 64 }) });
 const InvoiceParams = Type.Object({ invoiceId: Type.String({ maxLength: 64 }) });
@@ -74,7 +76,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
     request: FastifyRequest,
     invoice: { id: string; encounterId: string },
     content: { chargeIds: string[]; manualLines: ManualLine[] },
-    typedBefore: ManualLine[],
+    typedBefore: ManualLineInput[],
     bump: boolean,
   ): Promise<void> {
     const client = request.txClient;
@@ -89,6 +91,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       description: tidyWithin(line.description, DESCRIPTION_MAX),
       quantity: line.quantity,
       unitPriceMinor: line.unitPriceMinor,
+      taxClass: line.taxClass ?? null,
     }));
     if (manual.some((line) => line.description === '')) {
       throw new HttpError(400, 'validation_failed', 'A line says what it is for');
@@ -117,11 +120,11 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       return charge ? [charge] : [];
     });
     await holdCharges(client, invoice.id, chargeIds);
-    const total = await replaceLines(client, invoice.id, ordered, manual);
-    if (!Number.isSafeInteger(total)) {
+    const amounts = await replaceLines(client, invoice.id, ordered, manual);
+    if (!Number.isSafeInteger(amounts.totalMinor)) {
       throw new HttpError(422, 'amount_too_large', 'The invoice is too large');
     }
-    await setDraftTotal(client, invoice.id, total, bump);
+    await setDraftTotal(client, invoice.id, amounts, bump);
   }
 
   app.get(
@@ -498,4 +501,5 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
 
   await app.register(paymentRoutes);
   await app.register(registerRoutes);
+  await app.register(taxRoutes);
 };

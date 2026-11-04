@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import { searchTerm } from '../../core/http/text.js';
+import { taxRatesOf, type TaxClass } from './tax.js';
 
 /**
  * The SQL of billing (#114). Every statement runs on the request's own transaction, so row-level
@@ -67,6 +68,7 @@ export interface ChargeRow {
   status: string;
   invoice_id: string | null;
   flag: string | null;
+  tax_class: string | null;
   posted_at: Date;
   at_exact: string;
   total: number;
@@ -76,7 +78,8 @@ export async function findCharge(client: pg.ClientBase, id: string): Promise<Cha
   if (!isUuid(id)) return null;
   const { rows } = await client.query<ChargeRow>(
     `select c.id, c.tenant_id, c.encounter_id, c.source, c.description, c.quantity,
-       c.unit_price_minor::text, c.total_minor::text, c.status, c.invoice_id, c.flag, c.posted_at,
+       c.unit_price_minor::text, c.total_minor::text, c.status, c.invoice_id, c.flag, c.tax_class,
+       c.posted_at,
        ${EXACT('c.posted_at')} as at_exact, 1 as total
      from charges c where c.id = $1`,
     [id],
@@ -92,7 +95,8 @@ export async function listCharges(
   if (after === null) return null;
   const { rows } = await client.query<ChargeRow>(
     `select c.id, c.tenant_id, c.encounter_id, c.source, c.description, c.quantity,
-       c.unit_price_minor::text, c.total_minor::text, c.status, c.invoice_id, c.flag, c.posted_at,
+       c.unit_price_minor::text, c.total_minor::text, c.status, c.invoice_id, c.flag, c.tax_class,
+       c.posted_at,
        ${EXACT('c.posted_at')} as at_exact, count(*) over ()::int as total
      from charges c
      where c.encounter_id = $1 and ($2::text is null or c.status = $2)
@@ -127,6 +131,7 @@ export interface InvoiceRow {
   number: string | null;
   status: string;
   total_minor: string;
+  tax_minor: string;
   paid_minor: string;
   credited_minor: string;
   currency: string;
@@ -141,6 +146,9 @@ export interface InvoiceRow {
     quantity: number;
     unitPriceMinor: number;
     totalMinor: number;
+    taxClass: string | null;
+    taxRateBp: number;
+    taxMinor: number;
   }[];
   at_exact: string;
   total: number;
@@ -149,11 +157,13 @@ export interface InvoiceRow {
 const INVOICE_SELECT = `
   select i.id, i.tenant_id, i.encounter_id, i.patient_id,
     pt.first_name || ' ' || pt.last_name as patient_name, pt.mrn as patient_mrn,
-    i.number, i.status, i.total_minor::text, i.paid_minor::text, i.credited_minor::text,
+    i.number, i.status, i.total_minor::text, i.tax_minor::text, i.paid_minor::text,
+    i.credited_minor::text,
     i.currency, i.version, i.created_at, i.issued_at,
     coalesce((select json_agg(json_build_object('id', l.id, 'chargeId', l.charge_id,
         'source', l.source, 'description', l.description, 'quantity', l.quantity,
-        'unitPriceMinor', l.unit_price_minor, 'totalMinor', l.total_minor)
+        'unitPriceMinor', l.unit_price_minor, 'totalMinor', l.total_minor,
+        'taxClass', l.tax_class, 'taxRateBp', l.tax_rate_bp, 'taxMinor', l.tax_minor)
         order by l.line_number)
       from invoice_lines l where l.tenant_id = i.tenant_id and l.invoice_id = i.id), '[]') as lines,
     ${EXACT('i.created_at')} as at_exact, count(*) over ()::int as total
@@ -287,6 +297,8 @@ export interface ManualLineInput {
   description: string;
   quantity: number;
   unitPriceMinor: number;
+  /** The class the line is taxed as; null means no tax. */
+  taxClass: TaxClass | null;
 }
 
 /** The lines a draft holds that were typed in, as they are now. */
@@ -298,8 +310,9 @@ export async function manualLinesOf(
     description: string;
     quantity: number;
     unit_price_minor: string;
+    tax_class: TaxClass | null;
   }>(
-    `select description, quantity, unit_price_minor::text from invoice_lines
+    `select description, quantity, unit_price_minor::text, tax_class from invoice_lines
      where invoice_id = $1 and charge_id is null order by line_number`,
     [invoiceId],
   );
@@ -307,6 +320,7 @@ export async function manualLinesOf(
     description: row.description,
     quantity: row.quantity,
     unitPriceMinor: num(row.unit_price_minor),
+    taxClass: row.tax_class,
   }));
 }
 
@@ -316,6 +330,7 @@ export interface HeldCharge {
   description: string;
   quantity: number;
   unit_price_minor: string;
+  tax_class: TaxClass | null;
 }
 
 /**
@@ -329,7 +344,7 @@ export async function claimCharges(
   chargeIds: string[],
 ): Promise<HeldCharge[]> {
   const { rows } = await client.query<HeldCharge & { status: string; invoice_id: string | null }>(
-    `select id, source, description, quantity, unit_price_minor::text, status, invoice_id
+    `select id, source, description, quantity, unit_price_minor::text, tax_class, status, invoice_id
      from charges where encounter_id = $1 and id = any($2::uuid[])
      order by id for update`,
     [encounterId, chargeIds],
@@ -362,15 +377,18 @@ export async function replaceLines(
   invoiceId: string,
   charges: HeldCharge[],
   manual: ManualLineInput[],
-): Promise<number> {
+): Promise<{ totalMinor: number; taxMinor: number }> {
   await client.query('delete from invoice_lines where invoice_id = $1', [invoiceId]);
+  // The rates in effect now: a draft is priced when it is saved, an issued invoice keeps them.
+  const rates = await taxRatesOf(client);
+  const rateOf = (taxClass: TaxClass | null) => (taxClass === null ? 0 : rates[taxClass]);
   let number = 0;
   for (const charge of charges) {
     number += 1;
     await client.query(
       `insert into invoice_lines (tenant_id, invoice_id, line_number, charge_id, source,
-         description, quantity, unit_price_minor)
-       values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7)`,
+         description, quantity, unit_price_minor, tax_class, tax_rate_bp)
+       values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         invoiceId,
         number,
@@ -379,6 +397,8 @@ export async function replaceLines(
         charge.description,
         charge.quantity,
         charge.unit_price_minor,
+        charge.tax_class,
+        rateOf(charge.tax_class),
       ],
     );
   }
@@ -386,29 +406,38 @@ export async function replaceLines(
     number += 1;
     await client.query(
       `insert into invoice_lines (tenant_id, invoice_id, line_number, source, description,
-         quantity, unit_price_minor)
-       values (app_tenant_id(), $1, $2, 'manual', $3, $4, $5)`,
-      [invoiceId, number, line.description, line.quantity, line.unitPriceMinor],
+         quantity, unit_price_minor, tax_class, tax_rate_bp)
+       values (app_tenant_id(), $1, $2, 'manual', $3, $4, $5, $6, $7)`,
+      [
+        invoiceId,
+        number,
+        line.description,
+        line.quantity,
+        line.unitPriceMinor,
+        line.taxClass,
+        rateOf(line.taxClass),
+      ],
     );
   }
-  const { rows } = await client.query<{ total: string }>(
-    'select coalesce(sum(total_minor), 0)::text as total from invoice_lines where invoice_id = $1',
+  const { rows } = await client.query<{ total: string; tax: string }>(
+    `select coalesce(sum(total_minor), 0)::text as total, coalesce(sum(tax_minor), 0)::text as tax
+     from invoice_lines where invoice_id = $1`,
     [invoiceId],
   );
-  return num(rows[0]?.total);
+  const taxMinor = num(rows[0]?.tax);
+  return { totalMinor: num(rows[0]?.total) + taxMinor, taxMinor };
 }
 
 export async function setDraftTotal(
   client: pg.ClientBase,
   invoiceId: string,
-  totalMinor: number,
+  amounts: { totalMinor: number; taxMinor: number },
   bumpVersion: boolean,
 ): Promise<void> {
-  await client.query('update invoices set total_minor = $2, version = version + $3 where id = $1', [
-    invoiceId,
-    totalMinor,
-    bumpVersion ? 1 : 0,
-  ]);
+  await client.query(
+    'update invoices set total_minor = $2, tax_minor = $3, version = version + $4 where id = $1',
+    [invoiceId, amounts.totalMinor, amounts.taxMinor, bumpVersion ? 1 : 0],
+  );
 }
 
 /** Today at the hospital's clock gives the fiscal year, April to March: `2026-27`. */

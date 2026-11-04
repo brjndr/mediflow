@@ -3428,6 +3428,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/billing/tax-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The tax rate of every tax class at the hospital, in basis points (#119): the hospital’s own where it has set one, else the default (exempt 0, reduced 5%, standard 12%, higher 18%). Requires invoice:read with the scope `all` and the billing feature flag. */
+        get: operations["getTaxRates"];
+        /** @description Sets the tax rate of the classes named (#119), each once; a class left out keeps its rate. A draft takes the new rates when it is next saved; an issued invoice keeps the rates it was made with. The Idempotency-Key header is required. Requires taxRate:manage and invoice:read with the scope `all` and the billing feature flag. Audited. */
+        put: operations["setTaxRates"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/purchasing/suppliers": {
         parameters: {
             query?: never;
@@ -6689,6 +6707,11 @@ export interface components {
              * @enum {string}
              */
             flag?: "service_archived" | "no_price" | "return_review";
+            /**
+             * @description The tax class the work was posted with; none for a dispensed medicine, whose price holds the tax.
+             * @enum {string}
+             */
+            taxClass?: "exempt" | "reduced" | "standard" | "higher";
             /** Format: date-time */
             postedAt: string;
         };
@@ -6709,6 +6732,11 @@ export interface components {
             description: string;
             quantity: number;
             unitPriceMinor: number;
+            /**
+             * @description The class the line is taxed as, at the hospital’s rate for it when the draft is saved. Left out: no tax.
+             * @enum {string}
+             */
+            taxClass?: "exempt" | "reduced" | "standard" | "higher";
         };
         InvoiceLine: {
             id: string;
@@ -6719,8 +6747,14 @@ export interface components {
             quantity: number;
             /** @description In minor units. */
             unitPriceMinor: number;
-            /** @description In minor units. */
+            /** @description Quantity times the price of one, before tax. */
             totalMinor: number;
+            /** @enum {string} */
+            taxClass?: "exempt" | "reduced" | "standard" | "higher";
+            /** @description The rate the line was made with, in basis points (1200 is 12%). */
+            taxRateBp: number;
+            /** @description The tax on the line, rounded half up; worked out by the server. */
+            taxMinor: number;
         };
         /** @description A bill of one visit. A draft can be changed; once issued it never is. */
         Invoice: {
@@ -6735,8 +6769,10 @@ export interface components {
             /** @enum {string} */
             status: "draft" | "issued" | "paid" | "void";
             lines: components["schemas"]["InvoiceLine"][];
-            /** @description Of the lines, worked out by the server. */
+            /** @description What is owed: the lines and their tax, worked out by the server. */
             totalMinor: number;
+            /** @description The part of the total that is tax; never changes once issued. */
+            taxMinor: number;
             /** @description Payments less refunds. */
             paidMinor: number;
             /** @description The credit notes against the invoice. */
@@ -6872,6 +6908,20 @@ export interface components {
         RegisterClose: {
             countedMinor: number;
             note?: string;
+        };
+        TaxRate: {
+            /** @enum {string} */
+            taxClass: "exempt" | "reduced" | "standard" | "higher";
+            /** @description In basis points: 1200 is 12%. */
+            rateBp: number;
+        };
+        TaxRates: {
+            /** @description The rate of every tax class: the hospital’s own where set, else the default. */
+            items: components["schemas"]["TaxRate"][];
+        };
+        /** @description The rates to set, each class once. A class left out keeps its rate. Drafts take the new rates when next saved; issued invoices never change. */
+        TaxRatesUpdate: {
+            items: components["schemas"]["TaxRate"][];
         };
         /**
          * @description In the hospital’s state (CGST and SGST), from another state (IGST), or not known: a GSTIN is missing.
@@ -25768,6 +25818,125 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTaxRates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxRates"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setTaxRates: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaxRatesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxRates"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

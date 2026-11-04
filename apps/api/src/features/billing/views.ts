@@ -48,6 +48,7 @@ export const chargeView = (row: ChargeRow): Charge => ({
   status: row.status as Charge['status'],
   ...optional('invoiceId', row.invoice_id),
   ...optional('flag', row.flag as Charge['flag'] | null),
+  ...optional('taxClass', row.tax_class as Charge['taxClass'] | null),
   postedAt: row.posted_at.toISOString(),
 });
 
@@ -68,8 +69,12 @@ export const invoiceView = (row: InvoiceRow): Invoice => ({
     quantity: line.quantity,
     unitPriceMinor: line.unitPriceMinor,
     totalMinor: line.totalMinor,
+    ...optional('taxClass', line.taxClass as Invoice['lines'][number]['taxClass'] | null),
+    taxRateBp: line.taxRateBp,
+    taxMinor: line.taxMinor,
   })),
   totalMinor: num(row.total_minor),
+  taxMinor: num(row.tax_minor),
   paidMinor: num(row.paid_minor),
   creditedMinor: num(row.credited_minor),
   currency: row.currency,

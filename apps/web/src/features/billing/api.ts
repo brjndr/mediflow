@@ -10,6 +10,7 @@ import {
   paymentSchema,
   registerSessionPageSchema,
   registerSessionSchema,
+  taxRatesSchema,
 } from './schemas';
 import type {
   ChargePage,
@@ -28,6 +29,8 @@ import type {
   RegisterOpen,
   RegisterSession,
   RegisterSessionPage,
+  TaxRate,
+  TaxRates,
 } from './types';
 
 // Every address holds ids only: nothing about the patient is in a URL. Every POST carries an
@@ -264,4 +267,19 @@ export async function closeRegister(
     body,
   });
   return registerSessionSchema.parse(requireData(result));
+}
+
+/** The tax rate of every class at the hospital. */
+export async function fetchTaxRates(signal?: AbortSignal): Promise<TaxRates> {
+  const result = await api.GET('/billing/tax-rates', { signal });
+  return taxRatesSchema.parse(requireData(result));
+}
+
+/** Sets the rates of the classes named; drafts take them when next saved, issued bills never change. */
+export async function setTaxRates(items: TaxRate[], idempotencyKey: string): Promise<TaxRates> {
+  const result = await api.PUT('/billing/tax-rates', {
+    params: { header: { 'idempotency-key': idempotencyKey } },
+    body: { items },
+  });
+  return taxRatesSchema.parse(requireData(result));
 }

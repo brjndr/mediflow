@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PLAIN_TEXT } from '@/shared/utils/text';
 import type {
+  TaxRates,
   Charge,
   ChargePage,
   CreditNote,
@@ -19,6 +20,9 @@ export const MANUAL_LINES_MAX = 50;
 export const CHARGES_MAX = 200;
 
 const SOURCES = ['service', 'order', 'dispense', 'bed', 'procedure', 'manual'] as const;
+/** The tax classes a service or a drug has; the hospital sets a rate for each. */
+export const TAX_CLASSES = ['exempt', 'reduced', 'standard', 'higher'] as const;
+export const RATE_MAX_BP = 10000;
 
 // Responses are validated where they enter the app, so screens can trust their shape.
 
@@ -34,6 +38,7 @@ export const chargeSchema: z.ZodType<Charge> = z.object({
   status: z.enum(['pending', 'invoiced', 'void']),
   invoiceId: z.string().optional(),
   flag: z.enum(['service_archived', 'no_price', 'return_review']).optional(),
+  taxClass: z.enum(TAX_CLASSES).optional(),
   postedAt: z.string(),
 });
 
@@ -61,9 +66,13 @@ export const invoiceSchema: z.ZodType<Invoice> = z.object({
       quantity: z.number().int(),
       unitPriceMinor: z.number().int(),
       totalMinor: z.number().int(),
+      taxClass: z.enum(TAX_CLASSES).optional(),
+      taxRateBp: z.number().int(),
+      taxMinor: z.number().int(),
     }),
   ),
   totalMinor: z.number().int(),
+  taxMinor: z.number().int(),
   paidMinor: z.number().int(),
   creditedMinor: z.number().int(),
   currency: z.string(),
@@ -104,6 +113,8 @@ export function createManualLineSchema(checkMoney: (text: string) => number | nu
       .trim()
       .min(1, 'validation.required')
       .refine((text) => checkMoney(text) !== null, 'billing:line.priceInvalid'),
+    // 'none' is no tax: the API takes the class left out.
+    taxClass: z.enum(['none', ...TAX_CLASSES]),
   });
 }
 /** The form for a service charged by hand: how many. The service is chosen from the catalog. */
@@ -303,3 +314,23 @@ export function createCloseRegisterSchema(toAmount: (text: string) => number | n
 }
 export type CloseRegisterInput = z.input<ReturnType<typeof createCloseRegisterSchema>>;
 export type CloseRegisterValues = z.output<ReturnType<typeof createCloseRegisterSchema>>;
+
+/** The hospital's tax rates (#119). */
+export const taxRatesSchema: z.ZodType<TaxRates> = z.object({
+  items: z.array(z.object({ taxClass: z.enum(TAX_CLASSES), rateBp: z.number().int() })),
+});
+
+/**
+ * The form for the tax rates: one percentage a class, kept as text until the screen reads it on
+ * its digits (`percentToBp`): 0 to 100 with up to two decimals.
+ */
+export function createTaxRatesSchema(check: (text: string) => number | null) {
+  const rate = z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .refine((text) => check(text) !== null, 'billing:tax.rateInvalid');
+  return z.object({ exempt: rate, reduced: rate, standard: rate, higher: rate });
+}
+export type TaxRatesInput = z.input<ReturnType<typeof createTaxRatesSchema>>;
+export type TaxRatesValues = z.output<ReturnType<typeof createTaxRatesSchema>>;

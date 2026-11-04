@@ -22,6 +22,8 @@ import {
   recordPayment,
   refundPayment,
   searchInvoices,
+  setTaxRates,
+  fetchTaxRates,
   updateInvoiceDraft,
 } from '../api';
 import type {
@@ -35,6 +37,8 @@ import type {
   RegisterClose,
   RegisterOpen,
   RegisterSession,
+  TaxRate,
+  TaxRates,
 } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's bills never show in another. */
@@ -428,6 +432,28 @@ export function useCloseRegister(sessionId: string) {
     gcTime: 0,
     mutationFn: (body: RegisterClose): Promise<RegisterSession> =>
       closeRegister(sessionId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+/** The hospital's tax rate for each class (any reader of invoices). */
+export function useTaxRates({ enabled = true } = {}) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: [...billingKeys.all(tenantId ?? ''), 'tax-rates'] as const,
+    queryFn: ({ signal }) => fetchTaxRates(signal),
+    enabled: enabled && tenantId !== undefined,
+  });
+}
+
+/** Sets the rates. One key per body until saved; read again whatever the answer. */
+export function useSetTaxRates() {
+  const refresh = useRefreshRegister();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (items: TaxRate[]): Promise<TaxRates> => setTaxRates(items, keys.keyFor(items)),
     onSuccess: () => keys.clear(),
     onSettled: refresh,
   });

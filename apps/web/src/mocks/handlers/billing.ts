@@ -19,6 +19,17 @@ type CreditNote = components['schemas']['CreditNote'];
 type CreditNoteList = components['schemas']['CreditNoteList'];
 type RegisterSession = components['schemas']['RegisterSession'];
 type RegisterSessionPage = components['schemas']['RegisterSessionPage'];
+type TaxRates = components['schemas']['TaxRates'];
+type TaxClass = components['schemas']['TaxRate']['taxClass'];
+
+const TAX_CLASSES: readonly TaxClass[] = ['exempt', 'reduced', 'standard', 'higher'];
+/** The default rate of each class in basis points, as the API's. */
+const DEFAULT_RATES: Record<TaxClass, number> = {
+  exempt: 0,
+  reduced: 500,
+  standard: 1200,
+  higher: 1800,
+};
 
 /** A drawer as the mock keeps it: whose it is and the hospital it belongs to. */
 interface StoredSession {
@@ -53,6 +64,8 @@ interface StoredInvoice {
   number?: string;
   createdAt: string;
   issuedAt?: string;
+  /** The rates an issued invoice was made with; a draft takes the rates of the moment. */
+  rates?: Record<TaxClass, number>;
   version: number;
 }
 
@@ -101,6 +114,8 @@ function seed() {
       charge('chg_c_1', clinic, 'enc_c_1', 'service', 'General consultation', 1, 15000, 30),
     ] as Charge[],
     invoices: [] as StoredInvoice[],
+    // A hospital's own rates; a class it has not set takes the default.
+    rates: {} as Record<string, Partial<Record<TaxClass, number>>>,
     printed: [] as { tenantId: string; invoiceId: string }[],
     payments: [] as (Payment & { tenantId: string })[],
     creditNotes: [] as (CreditNote & { tenantId: string })[],
@@ -137,14 +152,32 @@ function visitOf(tenantId: string, encounterId: string) {
 
 const notFound = () => error(404, 'not_found', 'Not found');
 
+const ratesOf = (tenantId: string): Record<TaxClass, number> => ({
+  ...DEFAULT_RATES,
+  ...state.rates[tenantId],
+});
+
+/** The tax on a line in minor units, rounded half up, as the API's database works it. */
+const lineTax = (quantity: number, unitPriceMinor: number, rateBp: number) =>
+  Math.floor((quantity * unitPriceMinor * rateBp + 5000) / 10000);
+
 function invoiceView(stored: StoredInvoice): Invoice {
   const patient = mockPatient(stored.tenantId, stored.patientId);
+  const rates = stored.rates ?? ratesOf(stored.tenantId);
+  const taxed = (line: Omit<InvoiceLine, 'taxRateBp' | 'taxMinor'>): InvoiceLine => {
+    const taxRateBp = line.taxClass ? rates[line.taxClass] : 0;
+    return {
+      ...line,
+      taxRateBp,
+      taxMinor: lineTax(line.quantity, line.unitPriceMinor, taxRateBp),
+    };
+  };
   const lines: InvoiceLine[] = [
     ...stored.chargeIds.flatMap((id): InvoiceLine[] => {
       const found = state.charges.find((each) => each.id === id);
       return found
         ? [
-            {
+            taxed({
               id: `ln_${found.id}`,
               chargeId: found.id,
               source: found.source,
@@ -152,19 +185,24 @@ function invoiceView(stored: StoredInvoice): Invoice {
               quantity: found.quantity,
               unitPriceMinor: found.unitPriceMinor,
               totalMinor: found.totalMinor,
-            },
+              ...(found.taxClass ? { taxClass: found.taxClass } : {}),
+            }),
           ]
         : [];
     }),
-    ...stored.manualLines.map((line, index): InvoiceLine => ({
-      id: `ln_${stored.id}_m${index}`,
-      source: 'manual',
-      description: line.description,
-      quantity: line.quantity,
-      unitPriceMinor: line.unitPriceMinor,
-      totalMinor: line.quantity * line.unitPriceMinor,
-    })),
+    ...stored.manualLines.map((line, index): InvoiceLine =>
+      taxed({
+        id: `ln_${stored.id}_m${index}`,
+        source: 'manual',
+        description: line.description,
+        quantity: line.quantity,
+        unitPriceMinor: line.unitPriceMinor,
+        totalMinor: line.quantity * line.unitPriceMinor,
+        ...(line.taxClass ? { taxClass: line.taxClass } : {}),
+      }),
+    ),
   ];
+  const taxMinor = lines.reduce((sum, line) => sum + line.taxMinor, 0);
   return {
     id: stored.id,
     tenantId: stored.tenantId,
@@ -175,7 +213,8 @@ function invoiceView(stored: StoredInvoice): Invoice {
     ...(stored.number ? { number: stored.number } : {}),
     status: stored.status,
     lines,
-    totalMinor: lines.reduce((sum, line) => sum + line.totalMinor, 0),
+    totalMinor: lines.reduce((sum, line) => sum + line.totalMinor, 0) + taxMinor,
+    taxMinor,
     paidMinor: state.payments
       .filter((each) => each.invoiceId === stored.id)
       .reduce(
@@ -236,7 +275,8 @@ function contentOf(
       (line.quantity as number) < 1 ||
       (line.quantity as number) > 9999 ||
       !Number.isInteger(line.unitPriceMinor) ||
-      (line.unitPriceMinor as number) < 0
+      (line.unitPriceMinor as number) < 0 ||
+      (line.taxClass !== undefined && !TAX_CLASSES.includes(line.taxClass as TaxClass))
     ) {
       return invalid;
     }
@@ -244,6 +284,7 @@ function contentOf(
       description: line.description.trim(),
       quantity: line.quantity as number,
       unitPriceMinor: line.unitPriceMinor as number,
+      ...(line.taxClass ? { taxClass: line.taxClass as TaxClass } : {}),
     });
   }
   return { chargeIds: [...new Set(body.chargeIds)], manualLines };
@@ -371,6 +412,46 @@ export const billingHandlers = [
     );
     const result = paged(charges, request);
     return 'refused' in result ? result.refused : HttpResponse.json<ChargePage>(result.page);
+  }),
+
+  // The hospital's tax rates (#119): a class with none of its own takes the default.
+  http.get('*/api/billing/tax-rates', ({ request }) => {
+    const access = authorize(request, { permission: 'invoice:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const rates = ratesOf(access.tenantId);
+    return HttpResponse.json<TaxRates>({
+      items: TAX_CLASSES.map((taxClass) => ({ taxClass, rateBp: rates[taxClass] })),
+    });
+  }),
+
+  http.put('*/api/billing/tax-rates', async ({ request }) => {
+    const access = authorize(request, { permission: 'taxRate:manage', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const body: unknown = await request.json().catch(() => null);
+    const items = isObject(body) && Array.isArray(body.items) ? (body.items as unknown[]) : [];
+    const seen = new Set<unknown>();
+    const valid =
+      items.length >= 1 &&
+      items.length <= 4 &&
+      items.every(
+        (item) =>
+          isObject(item) &&
+          TAX_CLASSES.includes(item.taxClass as TaxClass) &&
+          !seen.has(item.taxClass) &&
+          !!seen.add(item.taxClass) &&
+          Number.isInteger(item.rateBp) &&
+          (item.rateBp as number) >= 0 &&
+          (item.rateBp as number) <= 10000,
+      );
+    if (!valid) return error(400, 'validation_failed', 'The request is not valid');
+    const own = (state.rates[access.tenantId] ??= {});
+    for (const item of items as { taxClass: TaxClass; rateBp: number }[]) {
+      own[item.taxClass] = item.rateBp;
+    }
+    const rates = ratesOf(access.tenantId);
+    return HttpResponse.json<TaxRates>({
+      items: TAX_CLASSES.map((taxClass) => ({ taxClass, rateBp: rates[taxClass] })),
+    });
   }),
 
   // Charges a service of the price catalog to a visit by hand (#115): priced by the server from
@@ -829,6 +910,7 @@ export const billingHandlers = [
       return error(409, 'encounter_cancelled', 'The visit was cancelled');
     }
     found.status = 'issued';
+    found.rates = ratesOf(tenantId);
     found.number = `INV-${String(++issuedCount).padStart(4, '0')}`;
     found.issuedAt = new Date().toISOString();
     found.version += 1;

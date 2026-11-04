@@ -30,3 +30,7 @@ export type RegisterSessionPage = Schemas['RegisterSessionPage'];
 export type RegisterTotal = Schemas['RegisterTotal'];
 export type RegisterOpen = Schemas['RegisterOpen'];
 export type RegisterClose = Schemas['RegisterClose'];
+/** The hospital's tax rate for each tax class, in basis points (#119). */
+export type TaxRates = Schemas['TaxRates'];
+export type TaxRate = Schemas['TaxRate'];
+export type TaxClass = TaxRate['taxClass'];

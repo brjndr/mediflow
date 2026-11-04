@@ -11,8 +11,10 @@ import {
   useCreateDraft,
   useIssueInvoice,
   usePendingCharges,
+  useTaxRates,
   useUpdateDraft,
 } from '../hooks/use-billing';
+import { lineTaxMinor } from '../lib/tax';
 import { CHARGES_MAX, MANUAL_LINES_MAX } from '../schemas';
 import type { Charge, Invoice, InvoiceContent, ManualLine } from '../types';
 import { AddChargePanel } from './AddChargePanel';
@@ -55,6 +57,9 @@ export function InvoiceBuilder({
   const canIssue = usePermission('invoice:issue');
   // Typed lines skip the price list: a permission of their own.
   const canAdjust = usePermission('invoice:adjust');
+  // The rates only estimate the tax before saving; the server works it out.
+  const canSeeRates = usePermission('invoice:read');
+  const rates = useTaxRates({ enabled: canSeeRates });
   const charges = usePendingCharges(encounterId);
   const create = useCreateDraft(encounterId);
   const update = useUpdateDraft(invoice?.id ?? '');
@@ -84,11 +89,12 @@ export function InvoiceBuilder({
   const [manual, setManual] = useState<KeyedLine[]>(() =>
     (invoice?.lines ?? [])
       .filter((line) => !line.chargeId)
-      .map(({ id, description, quantity, unitPriceMinor }) => ({
+      .map(({ id, description, quantity, unitPriceMinor, taxClass }) => ({
         key: id,
         description,
         quantity,
         unitPriceMinor,
+        ...(taxClass ? { taxClass } : {}),
       })),
   );
   // A bill is read whole before it is totalled: the rest of a long list is fetched at once.
@@ -100,16 +106,31 @@ export function InvoiceBuilder({
   const made = useRef<Invoice>(undefined);
 
   const includedCharges = available.filter((charge) => included.has(charge.id));
-  const totalMinor =
+  const subtotalMinor =
     includedCharges.reduce((sum, charge) => sum + charge.totalMinor, 0) +
     manual.reduce((sum, line) => sum + line.quantity * line.unitPriceMinor, 0);
+  // The tax as the server will work it out, line by line, at the rates now in force.
+  const rateBp = (taxClass: string | undefined) =>
+    rates.data?.items.find((item) => item.taxClass === taxClass)?.rateBp ?? 0;
+  const taxMinor =
+    includedCharges.reduce(
+      (sum, charge) =>
+        sum + lineTaxMinor(charge.quantity, charge.unitPriceMinor, rateBp(charge.taxClass)),
+      0,
+    ) +
+    manual.reduce(
+      (sum, line) => sum + lineTaxMinor(line.quantity, line.unitPriceMinor, rateBp(line.taxClass)),
+      0,
+    );
+  const totalMinor = subtotalMinor + taxMinor;
   const lineCount = includedCharges.length + manual.length;
   const content: InvoiceContent = {
     chargeIds: includedCharges.map((c) => c.id),
-    manualLines: manual.map(({ description, quantity, unitPriceMinor }) => ({
+    manualLines: manual.map(({ description, quantity, unitPriceMinor, taxClass }) => ({
       description,
       quantity,
       unitPriceMinor,
+      ...(taxClass ? { taxClass } : {}),
     })),
   };
 
@@ -267,6 +288,11 @@ export function InvoiceBuilder({
         value: (row) => format.money(row.quantity * row.unitPriceMinor),
         align: 'end',
       },
+      {
+        id: 'tax',
+        header: t('line.taxClass'),
+        value: (row) => t(`tax.class.${row.taxClass ?? 'none'}`),
+      },
     ],
     [t, format],
   );
@@ -362,6 +388,18 @@ export function InvoiceBuilder({
         <p className="text-sm text-muted-foreground">
           {t('builder.lineCount', { count: lineCount })}
         </p>
+        {taxMinor > 0 && (
+          <dl className="grid max-w-xs grid-cols-2 gap-x-4 text-sm">
+            <dt className="text-muted-foreground">{t('tax.beforeTax')}</dt>
+            <dd className="text-right" data-testid="invoice-subtotal">
+              {format.money(subtotalMinor)}
+            </dd>
+            <dt className="text-muted-foreground">{t('tax.tax')}</dt>
+            <dd className="text-right" data-testid="invoice-tax">
+              {format.money(taxMinor)}
+            </dd>
+          </dl>
+        )}
         <p className="text-2xl font-semibold" data-testid="invoice-total">
           <span className="sr-only">{t('builder.total')}: </span>
           {format.money(totalMinor)}

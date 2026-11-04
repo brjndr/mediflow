@@ -1,17 +1,18 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { currencyDigits, toMinor } from '@/features/services';
-import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
+import { Form, SelectField, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { useTenant } from '@/tenancy';
 import {
   createManualLineSchema,
   DESCRIPTION_MAX,
+  TAX_CLASSES,
   type ManualLineInput,
   type ManualLineValues,
 } from '../schemas';
 import type { ManualLine } from '../types';
 
-const EMPTY: ManualLineInput = { description: '', quantity: '1', unitPrice: '' };
+const EMPTY: ManualLineInput = { description: '', quantity: '1', unitPrice: '', taxClass: 'none' };
 
 /**
  * A line the billing desk types in: what it is, how many and the price of one, in the hospital's
@@ -32,6 +33,7 @@ export function ManualLineForm({ onAdd }: { onAdd: (line: ManualLine) => void })
           description: values.description,
           quantity: Number(values.quantity),
           unitPriceMinor: toMinor(values.unitPrice, digits) ?? 0,
+          ...(values.taxClass === 'none' ? {} : { taxClass: values.taxClass }),
         });
         form.reset(EMPTY);
         form.setFocus('description');
@@ -62,6 +64,15 @@ export function ManualLineForm({ onAdd }: { onAdd: (line: ManualLine) => void })
           autoComplete="off"
         />
       </div>
+      <SelectField<ManualLineInput>
+        name="taxClass"
+        label={t('line.taxClass')}
+        hint={t('line.taxClassHint')}
+        options={['none', ...TAX_CLASSES].map((value) => ({
+          value,
+          label: t(`tax.class.${value}`),
+        }))}
+      />
       <div>
         <SubmitButton variant="outline">{t('line.add')}</SubmitButton>
       </div>
