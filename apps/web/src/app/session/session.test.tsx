@@ -4,6 +4,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { sessionFor, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { apiFetch, TENANT_HEADER, tenantScope } from '@/shared/api';
+import { createRegistry } from '@/registry';
 import { renderApp } from '@/test/render';
 import { setSidebarCollapsed } from '../ui-slice';
 import { fetchSession } from './api';
@@ -127,7 +128,8 @@ describe('tenant from the session', () => {
   });
 
   it('keeps nothing cached for the hospital that was left, and only that', async () => {
-    const { queryClient } = renderApp();
+    // No features, so no panel asks the mock server for data as a hospital it does not know.
+    const { queryClient } = renderApp({ registry: createRegistry([]) });
     await screen.findByRole('heading', HOME);
     // A screen still on the page can re-create a query of the old hospital as it switches.
     const left = [...tenantScope('tenant_1'), 'left'];
