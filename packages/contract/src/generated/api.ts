@@ -3446,6 +3446,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/services/{serviceId}/package": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What a package service includes and leaves out (#117). A service that is not a package is 409 not_a_package. Requires charge:read with the scope all and the billing feature flag. Audited. */
+        get: operations["getPackageContents"];
+        /** @description Replaces the contents of a package service (#117): the services it includes and those it leaves to be billed separately. A service named twice is 400; the package itself, another package, an archived service or a service of another hospital is 422 invalid_package_item. Changing the contents never changes a package already applied to a visit. The Idempotency-Key header is required. Requires package:manage and charge:read with the scope all and the billing feature flag. Audited. */
+        put: operations["setPackageContents"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Applies a package to a visit (#117): one pending charge of source package at the package’s price in effect today (never sent by the client). The visit’s pending charges for the services it includes, and any posted for them afterwards, are voided with the flag package_covered, so the package replaces them; a charge already on a draft is left for the desk to take off. An unknown service is 404 service_not_found, one that is not a package 409 not_a_package, an archived one 409 service_archived, one with no price in effect 409 no_price, one with nothing included 409 package_empty, one already applied to the visit 409 package_applied, a cancelled visit 409 encounter_cancelled. The Idempotency-Key header is required. Emits charge.posted. Requires charge:create and charge:read with the scope all and the billing feature flag. Audited. */
+        post: operations["applyPackage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/billing/discount-settings": {
         parameters: {
             query?: never;
@@ -6720,6 +6755,33 @@ export interface components {
             nextCursor: string | null;
             total?: number;
         };
+        PackageItem: {
+            serviceId: string;
+            code: string;
+            name: string;
+            /**
+             * @description included: part of the package price, never billed again on the visit; excluded: always billed on its own.
+             * @enum {string}
+             */
+            kind: "included" | "excluded";
+        };
+        /** @description What a package service includes and what it leaves to be billed separately. */
+        PackageContents: {
+            items: components["schemas"]["PackageItem"][];
+        };
+        PackageItemInput: {
+            serviceId: string;
+            /** @enum {string} */
+            kind: "included" | "excluded";
+        };
+        /** @description The whole contents of the package; a service left out is no longer part of it. */
+        PackageContentsUpdate: {
+            items: components["schemas"]["PackageItemInput"][];
+        };
+        /** @description A package service to apply to a visit, at its price in effect today. */
+        PackageApply: {
+            serviceId: string;
+        };
         /** @description A discount the desk gives, with the reason. It comes off before tax; the server works out the amount and refuses one above what it comes off (422 `discount_exceeds`). */
         Discount: {
             /**
@@ -6750,7 +6812,7 @@ export interface components {
             tenantId: string;
             encounterId: string;
             /** @enum {string} */
-            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual";
+            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual" | "package";
             description: string;
             quantity: number;
             /** @description Priced when posted; never changes. */
@@ -6762,10 +6824,10 @@ export interface components {
             /** @description The draft invoice holding the charge, when one does. */
             invoiceId?: string;
             /**
-             * @description For the billing desk: priced at the last price of an archived service, posted with no price, or brought back after dispensing.
+             * @description For the billing desk: priced at the last price of an archived service, posted with no price, brought back after dispensing, or (on a void charge) already paid for by a package on the visit.
              * @enum {string}
              */
-            flag?: "service_archived" | "no_price" | "return_review";
+            flag?: "service_archived" | "no_price" | "return_review" | "package_covered";
             /**
              * @description The tax class the work was posted with; none for a dispensed medicine, whose price holds the tax.
              * @enum {string}
@@ -6802,7 +6864,7 @@ export interface components {
             id: string;
             chargeId?: string;
             /** @enum {string} */
-            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual";
+            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual" | "package";
             description: string;
             quantity: number;
             /** @description In minor units. */
@@ -26019,6 +26081,257 @@ export interface operations {
             };
             /** @description Standard error body. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPackageContents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What a package service includes and what it leaves to be billed separately. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageContents"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setPackageContents: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                serviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackageContentsUpdate"];
+            };
+        };
+        responses: {
+            /** @description What a package service includes and what it leaves to be billed separately. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageContents"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    applyPackage: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackageApply"];
+            };
+        };
+        responses: {
+            /** @description Billable work posted to a visit. Priced when it was posted; never changes afterwards. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Charge"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

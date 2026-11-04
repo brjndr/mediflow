@@ -90,6 +90,11 @@ export const BILLING_PERMISSIONS = [
     defaults: { admin: 'all', receptionist: 'all' },
   },
   {
+    id: 'package:manage',
+    description: 'Set what a package service includes and what it leaves to be billed separately',
+    defaults: { admin: 'all' },
+  },
+  {
     id: 'taxRate:manage',
     description: 'Set the hospital’s tax rate for each tax class',
     defaults: { admin: 'all' },

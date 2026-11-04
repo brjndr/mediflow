@@ -21,7 +21,7 @@ export interface Posting {
   encounterId: string;
   patientId: string;
   serviceId: string | null;
-  source: 'order' | 'procedure' | 'dispense' | 'service';
+  source: 'order' | 'procedure' | 'dispense' | 'service' | 'package';
   /** Who asked for it, when a person did; null for a charge posted from an event. */
   actorId?: string;
   sourceRef: string;
@@ -74,6 +74,26 @@ export async function priceOf(tx: Database, serviceId: string): Promise<ServiceP
 }
 
 /**
+ * The package charge of this visit that includes the service (and does not exclude it), when
+ * there is one that is not void: its work is part of the package price.
+ */
+export async function coveringPackage(
+  tx: Database,
+  encounterId: string,
+  serviceId: string,
+): Promise<string | null> {
+  const { rows } = await tx.execute<{ id: string }>(
+    sql`select c.id from charges c
+        join package_items i on i.tenant_id = c.tenant_id and i.package_service_id = c.service_id
+        where c.encounter_id = ${encounterId} and c.source = 'package' and c.status <> 'void'
+          and i.service_id = ${serviceId} and i.kind = 'included'
+        order by c.posted_at, c.id
+        limit 1`,
+  );
+  return rows[0]?.id ?? null;
+}
+
+/**
  * Posts one charge unless one was posted for the same cause; emits `charge.posted`. Answers the
  * charge's id, or null when nothing was posted.
  */
@@ -91,12 +111,27 @@ export async function postCharge(tx: Database, posting: Posting): Promise<string
     unit = service.amountMinor ?? 0;
     flag = service.amountMinor === null ? 'no_price' : service.archived ? 'service_archived' : null;
   }
+  // Work for a service a package on this visit already includes is not billed again: it is
+  // posted void, pointing at the package charge, so the ledger keeps it.
+  let status = 'pending';
+  let coveredBy: string | null = null;
+  if (posting.serviceId !== null && posting.source !== 'package') {
+    // Serialises with a package being applied to the visit (which locks it for update), so one
+    // of the two always sees the other and the work is never billed on top of the package.
+    await tx.execute(sql`select id from encounters where id = ${posting.encounterId} for share`);
+    coveredBy = await coveringPackage(tx, posting.encounterId, posting.serviceId);
+    if (coveredBy) {
+      status = 'void';
+      flag = 'package_covered';
+    }
+  }
   const { rows } = await tx.execute<{ id: string }>(
     sql`insert into charges (tenant_id, encounter_id, patient_id, service_id, source, source_ref,
-          description, quantity, unit_price_minor, flag, tax_class)
+          description, quantity, unit_price_minor, flag, tax_class, status, package_charge_id)
         values (app_tenant_id(), ${posting.encounterId}, ${posting.patientId},
           ${posting.serviceId}, ${posting.source}, ${posting.sourceRef},
-          left(${description}, 200), ${posting.quantity}, ${unit}, ${flag}, ${taxClass})
+          left(${description}, 200), ${posting.quantity}, ${unit}, ${flag}, ${taxClass},
+          ${status}, ${coveredBy})
         on conflict (tenant_id, source_ref) do nothing
         returning id`,
   );

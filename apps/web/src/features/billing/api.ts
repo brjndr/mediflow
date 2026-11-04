@@ -7,6 +7,7 @@ import {
   discountSettingsSchema,
   invoicePageSchema,
   invoiceSchema,
+  packageContentsSchema,
   paymentListSchema,
   paymentSchema,
   registerSessionPageSchema,
@@ -24,6 +25,9 @@ import type {
   InvoiceContent,
   InvoicePage,
   InvoiceUpdate,
+  PackageApply,
+  PackageContents,
+  PackageItemInput,
   Payment,
   PaymentCreate,
   RefundCreate,
@@ -314,4 +318,42 @@ export async function approveInvoiceDiscount(
     body: { version },
   });
   return invoiceSchema.parse(requireData(result));
+}
+
+/** What a package service includes and leaves out. */
+export async function fetchPackageContents(
+  serviceId: string,
+  signal?: AbortSignal,
+): Promise<PackageContents> {
+  const result = await api.GET('/services/{serviceId}/package', {
+    params: { path: { serviceId } },
+    signal,
+  });
+  return packageContentsSchema.parse(requireData(result));
+}
+
+/** Replaces the whole contents of a package. */
+export async function setPackageContents(
+  serviceId: string,
+  items: PackageItemInput[],
+  idempotencyKey: string,
+): Promise<PackageContents> {
+  const result = await api.PUT('/services/{serviceId}/package', {
+    params: { path: { serviceId }, header: { 'idempotency-key': idempotencyKey } },
+    body: { items },
+  });
+  return packageContentsSchema.parse(requireData(result));
+}
+
+/** Applies a package to the visit: one charge at the package's price, replacing what it includes. */
+export async function applyPackage(
+  encounterId: string,
+  body: PackageApply,
+  idempotencyKey: string,
+): Promise<Charge> {
+  const result = await api.POST('/encounters/{encounterId}/packages', {
+    params: { path: { encounterId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return chargeSchema.parse(requireData(result));
 }

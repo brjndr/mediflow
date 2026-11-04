@@ -4,8 +4,11 @@ import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys, isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
+  applyPackage,
   approveInvoiceDiscount,
   createCharge,
+  fetchPackageContents,
+  setPackageContents,
   closeRegister,
   createInvoiceDraft,
   fetchCurrentRegister,
@@ -36,6 +39,9 @@ import type {
   DiscountSettings,
   Invoice,
   InvoiceContent,
+  PackageApply,
+  PackageContents,
+  PackageItemInput,
   PaymentCreate,
   RefundCreate,
   RegisterClose,
@@ -501,6 +507,48 @@ export function useApproveDiscount() {
       const tenantId = stillHere();
       if (tenantId) queryClient.setQueryData(billingKeys.detail(tenantId, invoice.id), invoice);
     },
+    onSettled: refresh,
+  });
+}
+
+/** The contents of a package service (for `charge:read`). */
+export function usePackageContents(serviceId: string | undefined) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: [...billingKeys.all(tenantId ?? ''), 'package', serviceId ?? ''] as const,
+    queryFn: ({ signal }) => fetchPackageContents(serviceId ?? '', signal),
+    enabled: tenantId !== undefined && serviceId !== undefined,
+  });
+}
+
+/** Replaces the contents. One key per body until saved; read again whatever the answer. */
+export function useSetPackageContents(serviceId: string) {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (items: PackageItemInput[]): Promise<PackageContents> =>
+      setPackageContents(serviceId, items, keys.keyFor(items)),
+    onSuccess: () => keys.clear(),
+    onSettled: () =>
+      tenantId === undefined
+        ? undefined
+        : queryClient.invalidateQueries({
+            queryKey: [...billingKeys.all(tenantId), 'package', serviceId],
+          }),
+  });
+}
+
+/** Applies a package to the visit. One key per body; the visit's charges are read again. */
+export function useApplyPackage(encounterId: string) {
+  const refresh = useRefreshBilling();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: PackageApply): Promise<Charge> =>
+      applyPackage(encounterId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
     onSettled: refresh,
   });
 }

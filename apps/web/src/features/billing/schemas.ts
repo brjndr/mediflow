@@ -9,6 +9,7 @@ import type {
   CreditNote,
   Invoice,
   InvoicePage,
+  PackageContents,
   Payment,
   PaymentMethod,
   RegisterSession,
@@ -21,7 +22,7 @@ export const QUANTITY_MAX = 9999;
 export const MANUAL_LINES_MAX = 50;
 export const CHARGES_MAX = 200;
 
-const SOURCES = ['service', 'order', 'dispense', 'bed', 'procedure', 'manual'] as const;
+const SOURCES = ['service', 'order', 'dispense', 'bed', 'procedure', 'manual', 'package'] as const;
 /** The tax classes a service or a drug has; the hospital sets a rate for each. */
 export const TAX_CLASSES = ['exempt', 'reduced', 'standard', 'higher'] as const;
 export const RATE_MAX_BP = 10000;
@@ -39,7 +40,7 @@ export const chargeSchema: z.ZodType<Charge> = z.object({
   totalMinor: z.number().int(),
   status: z.enum(['pending', 'invoiced', 'void']),
   invoiceId: z.string().optional(),
-  flag: z.enum(['service_archived', 'no_price', 'return_review']).optional(),
+  flag: z.enum(['service_archived', 'no_price', 'return_review', 'package_covered']).optional(),
   taxClass: z.enum(TAX_CLASSES).optional(),
   postedAt: z.string(),
 });
@@ -410,3 +411,14 @@ export function createDiscountLimitSchema(check: (text: string) => number | null
 }
 export type DiscountLimitInput = z.input<ReturnType<typeof createDiscountLimitSchema>>;
 export type DiscountLimitValues = z.output<ReturnType<typeof createDiscountLimitSchema>>;
+
+export const packageContentsSchema: z.ZodType<PackageContents> = z.object({
+  items: z.array(
+    z.object({
+      serviceId: z.string(),
+      code: z.string(),
+      name: z.string(),
+      kind: z.enum(['included', 'excluded']),
+    }),
+  ),
+});

@@ -8557,6 +8557,85 @@
           }
         }
       },
+      "PackageItem": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["serviceId", "code", "name", "kind"],
+        "properties": {
+          "serviceId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["included", "excluded"],
+            "description": "included: part of the package price, never billed again on the visit; excluded: always billed on its own."
+          }
+        }
+      },
+      "PackageContents": {
+        "additionalProperties": false,
+        "description": "What a package service includes and what it leaves to be billed separately.",
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PackageItem"
+            }
+          }
+        }
+      },
+      "PackageItemInput": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["serviceId", "kind"],
+        "properties": {
+          "serviceId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["included", "excluded"]
+          }
+        }
+      },
+      "PackageContentsUpdate": {
+        "additionalProperties": false,
+        "description": "The whole contents of the package; a service left out is no longer part of it.",
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PackageItemInput"
+            }
+          }
+        }
+      },
+      "PackageApply": {
+        "additionalProperties": false,
+        "description": "A package service to apply to a visit, at its price in effect today.",
+        "type": "object",
+        "required": ["serviceId"],
+        "properties": {
+          "serviceId": {
+            "maxLength": 64,
+            "type": "string"
+          }
+        }
+      },
       "Discount": {
         "additionalProperties": false,
         "description": "A discount the desk gives, with the reason. It comes off before tax; the server works out the amount and refuses one above what it comes off (422 `discount_exceeds`).",
@@ -8647,7 +8726,7 @@
           },
           "source": {
             "type": "string",
-            "enum": ["service", "order", "dispense", "bed", "procedure", "manual"]
+            "enum": ["service", "order", "dispense", "bed", "procedure", "manual", "package"]
           },
           "description": {
             "maxLength": 200,
@@ -8677,8 +8756,8 @@
           },
           "flag": {
             "type": "string",
-            "enum": ["service_archived", "no_price", "return_review"],
-            "description": "For the billing desk: priced at the last price of an archived service, posted with no price, or brought back after dispensing."
+            "enum": ["service_archived", "no_price", "return_review", "package_covered"],
+            "description": "For the billing desk: priced at the last price of an archived service, posted with no price, brought back after dispensing, or (on a void charge) already paid for by a package on the visit."
           },
           "taxClass": {
             "type": "string",
@@ -8792,7 +8871,7 @@
           },
           "source": {
             "type": "string",
-            "enum": ["service", "order", "dispense", "bed", "procedure", "manual"]
+            "enum": ["service", "order", "dispense", "bed", "procedure", "manual", "package"]
           },
           "description": {
             "type": "string"
@@ -34495,6 +34574,326 @@
             }
           },
           "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/{serviceId}/package": {
+      "get": {
+        "operationId": "getPackageContents",
+        "tags": ["billing"],
+        "description": "What a package service includes and leaves out (#117). A service that is not a package is 409 not_a_package. Requires charge:read with the scope all and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "serviceId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What a package service includes and what it leaves to be billed separately.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageContents"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setPackageContents",
+        "tags": ["billing"],
+        "description": "Replaces the contents of a package service (#117): the services it includes and those it leaves to be billed separately. A service named twice is 400; the package itself, another package, an archived service or a service of another hospital is 422 invalid_package_item. Changing the contents never changes a package already applied to a visit. The Idempotency-Key header is required. Requires package:manage and charge:read with the scope all and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackageContentsUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "serviceId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What a package service includes and what it leaves to be billed separately.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageContents"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/encounters/{encounterId}/packages": {
+      "post": {
+        "operationId": "applyPackage",
+        "tags": ["billing"],
+        "description": "Applies a package to a visit (#117): one pending charge of source package at the package’s price in effect today (never sent by the client). The visit’s pending charges for the services it includes, and any posted for them afterwards, are voided with the flag package_covered, so the package replaces them; a charge already on a draft is left for the desk to take off. An unknown service is 404 service_not_found, one that is not a package 409 not_a_package, an archived one 409 service_archived, one with no price in effect 409 no_price, one with nothing included 409 package_empty, one already applied to the visit 409 package_applied, a cancelled visit 409 encounter_cancelled. The Idempotency-Key header is required. Emits charge.posted. Requires charge:create and charge:read with the scope all and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackageApply"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Billable work posted to a visit. Priced when it was posted; never changes afterwards.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Charge"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

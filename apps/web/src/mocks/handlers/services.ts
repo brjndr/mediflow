@@ -190,6 +190,8 @@ export function mockServicePrice(tenantId: string, id: string) {
   const price = view(service).currentPrice;
   return {
     name: service.name,
+    code: service.code,
+    category: service.category,
     archived: service.archived,
     amountMinor: price?.amountMinor ?? null,
   };
