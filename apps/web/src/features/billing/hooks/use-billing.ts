@@ -4,6 +4,7 @@ import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys, isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
+  approveInvoiceDiscount,
   createCharge,
   closeRegister,
   createInvoiceDraft,
@@ -24,12 +25,15 @@ import {
   searchInvoices,
   setTaxRates,
   fetchTaxRates,
+  fetchDiscountSettings,
+  setDiscountSettings,
   updateInvoiceDraft,
 } from '../api';
 import type {
   Charge,
   ChargeCreate,
   CreditNoteCreate,
+  DiscountSettings,
   Invoice,
   InvoiceContent,
   PaymentCreate,
@@ -455,6 +459,48 @@ export function useSetTaxRates() {
     gcTime: 0,
     mutationFn: (items: TaxRate[]): Promise<TaxRates> => setTaxRates(items, keys.keyFor(items)),
     onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+/** The share of a bill that may be discounted without approval (any reader of invoices). */
+export function useDiscountSettings({ enabled = true } = {}) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: [...billingKeys.all(tenantId ?? ''), 'discount-settings'] as const,
+    queryFn: ({ signal }) => fetchDiscountSettings(signal),
+    enabled: enabled && tenantId !== undefined,
+  });
+}
+
+/** Sets the limit. One key per value until saved; read again whatever the answer. */
+export function useSetDiscountSettings() {
+  const refresh = useRefreshRegister();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (limitBp: number): Promise<DiscountSettings> =>
+      setDiscountSettings(limitBp, keys.keyFor({ limitBp })),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+/** Approves the discount on a draft. One key per invoice and version until it is approved. */
+export function useApproveDiscount() {
+  const refresh = useRefreshBilling();
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ invoiceId, version }: { invoiceId: string; version: number }) =>
+      approveInvoiceDiscount(invoiceId, version, keys.keyFor({ invoiceId, version })),
+    onSuccess: (invoice: Invoice) => {
+      keys.clear();
+      const tenantId = stillHere();
+      if (tenantId) queryClient.setQueryData(billingKeys.detail(tenantId, invoice.id), invoice);
+    },
     onSettled: refresh,
   });
 }

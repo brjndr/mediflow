@@ -13,6 +13,7 @@ type Invoice = components['schemas']['Invoice'];
 type InvoiceLine = components['schemas']['InvoiceLine'];
 type InvoicePage = components['schemas']['InvoicePage'];
 type ManualLine = components['schemas']['ManualLine'];
+type Discount = components['schemas']['Discount'];
 type Payment = components['schemas']['Payment'];
 type PaymentList = components['schemas']['PaymentList'];
 type CreditNote = components['schemas']['CreditNote'];
@@ -66,8 +67,19 @@ interface StoredInvoice {
   issuedAt?: string;
   /** The rates an issued invoice was made with; a draft takes the rates of the moment. */
   rates?: Record<TaxClass, number>;
+  /** The discount of each charge line, by charge, and of the whole bill (#116). */
+  chargeDiscounts: Record<string, Discount>;
+  billDiscount?: Discount;
+  discountStatus: Invoice['discountStatus'];
+  discountAppliedBy?: string;
+  discountApprovedAt?: string;
+  discountApprovedMinor?: number;
+  discountApprovedGrossMinor?: number;
   version: number;
 }
+
+const DISCOUNT_REASONS = ['staff', 'charity', 'senior_citizen', 'goodwill', 'correction', 'other'];
+const DEFAULT_DISCOUNT_LIMIT_BP = 500;
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
@@ -117,6 +129,8 @@ function seed() {
     // A hospital's own rates; a class it has not set takes the default.
     rates: {} as Record<string, Partial<Record<TaxClass, number>>>,
     printed: [] as { tenantId: string; invoiceId: string }[],
+    // The share of a bill that may be discounted without approval, by hospital (#116).
+    limits: {} as Record<string, number>,
     payments: [] as (Payment & { tenantId: string })[],
     creditNotes: [] as (CreditNote & { tenantId: string })[],
     // Cash goes into the caller's open register session (#118).
@@ -157,52 +171,113 @@ const ratesOf = (tenantId: string): Record<TaxClass, number> => ({
   ...state.rates[tenantId],
 });
 
-/** The tax on a line in minor units, rounded half up, as the API's database works it. */
-const lineTax = (quantity: number, unitPriceMinor: number, rateBp: number) =>
-  Math.floor((quantity * unitPriceMinor * rateBp + 5000) / 10000);
+/** What a discount takes off an amount, half up; null when it would take more than that. */
+const taken = (base: number, discount: Discount | undefined): number | null => {
+  if (!discount) return 0;
+  const value =
+    discount.kind === 'percent'
+      ? Math.floor((base * discount.value * 2 + 10000) / 20000)
+      : discount.value;
+  return value > base ? null : value;
+};
 
-function invoiceView(stored: StoredInvoice): Invoice {
-  const patient = mockPatient(stored.tenantId, stored.patientId);
+/** Spreads a total over the bases in proportion, in whole units, as the API does. */
+function spread(bases: number[], total: number): number[] {
+  const sum = bases.reduce((x, y) => x + y, 0);
+  if (total === 0 || sum === 0) return bases.map(() => 0);
+  const shares = bases.map((base) => Math.floor((base * total) / sum));
+  const order = bases
+    .map((base, index) => ({ index, remainder: (base * total) % sum }))
+    .sort((x, y) => y.remainder - x.remainder || x.index - y.index);
+  let left = total - shares.reduce((x, y) => x + y, 0);
+  for (const { index } of order) {
+    if (left <= 0) break;
+    shares[index] = (shares[index] ?? 0) + 1;
+    left -= 1;
+  }
+  return shares;
+}
+
+/** The lines of an invoice with their discounts worked out; `exceeded` when one takes too much. */
+function priced(stored: StoredInvoice) {
   const rates = stored.rates ?? ratesOf(stored.tenantId);
-  const taxed = (line: Omit<InvoiceLine, 'taxRateBp' | 'taxMinor'>): InvoiceLine => {
-    const taxRateBp = line.taxClass ? rates[line.taxClass] : 0;
-    return {
-      ...line,
-      taxRateBp,
-      taxMinor: lineTax(line.quantity, line.unitPriceMinor, taxRateBp),
-    };
-  };
-  const lines: InvoiceLine[] = [
-    ...stored.chargeIds.flatMap((id): InvoiceLine[] => {
+  const rows = [
+    ...stored.chargeIds.flatMap((id) => {
       const found = state.charges.find((each) => each.id === id);
       return found
         ? [
-            taxed({
-              id: `ln_${found.id}`,
-              chargeId: found.id,
-              source: found.source,
-              description: found.description,
-              quantity: found.quantity,
-              unitPriceMinor: found.unitPriceMinor,
-              totalMinor: found.totalMinor,
-              ...(found.taxClass ? { taxClass: found.taxClass } : {}),
-            }),
+            {
+              line: {
+                id: `ln_${found.id}`,
+                chargeId: found.id,
+                source: found.source,
+                description: found.description,
+                quantity: found.quantity,
+                unitPriceMinor: found.unitPriceMinor,
+                totalMinor: found.totalMinor,
+                ...(found.taxClass ? { taxClass: found.taxClass } : {}),
+              },
+              discount: stored.chargeDiscounts[id],
+            },
           ]
         : [];
     }),
-    ...stored.manualLines.map((line, index): InvoiceLine =>
-      taxed({
+    ...stored.manualLines.map((line, index) => ({
+      line: {
         id: `ln_${stored.id}_m${index}`,
-        source: 'manual',
+        source: 'manual' as const,
         description: line.description,
         quantity: line.quantity,
         unitPriceMinor: line.unitPriceMinor,
         totalMinor: line.quantity * line.unitPriceMinor,
         ...(line.taxClass ? { taxClass: line.taxClass } : {}),
-      }),
-    ),
+      },
+      discount: line.discount,
+    })),
   ];
+  let exceeded = false;
+  const own = rows.map((row) => {
+    const value = taken(row.line.totalMinor, row.discount);
+    if (value === null) exceeded = true;
+    return value ?? 0;
+  });
+  const bases = rows.map((row, index) => row.line.totalMinor - (own[index] ?? 0));
+  const billTotal = taken(
+    bases.reduce((x, y) => x + y, 0),
+    stored.billDiscount,
+  );
+  if (billTotal === null) exceeded = true;
+  const shares = spread(bases, billTotal ?? 0);
+  const lines = rows.map((row, index): InvoiceLine => {
+    const net = (bases[index] ?? 0) - (shares[index] ?? 0);
+    const taxRateBp = row.line.taxClass ? rates[row.line.taxClass] : 0;
+    return {
+      ...row.line,
+      taxRateBp,
+      taxMinor: Math.floor((net * taxRateBp + 5000) / 10000),
+      ...(row.discount ? { discount: row.discount } : {}),
+      discountMinor: own[index] ?? 0,
+      billDiscountMinor: shares[index] ?? 0,
+    };
+  });
+  const gross = rows.reduce((sum, row) => sum + row.line.totalMinor, 0);
+  const discountMinor = lines.reduce(
+    (sum, line) => sum + line.discountMinor + line.billDiscountMinor,
+    0,
+  );
+  return { lines, gross, discountMinor, exceeded };
+}
+
+const limitOf = (tenantId: string) => state.limits[tenantId] ?? DEFAULT_DISCOUNT_LIMIT_BP;
+
+function invoiceView(stored: StoredInvoice): Invoice {
+  const patient = mockPatient(stored.tenantId, stored.patientId);
+  const { lines, discountMinor } = priced(stored);
   const taxMinor = lines.reduce((sum, line) => sum + line.taxMinor, 0);
+  const net = lines.reduce(
+    (sum, line) => sum + line.totalMinor - line.discountMinor - line.billDiscountMinor,
+    0,
+  );
   return {
     id: stored.id,
     tenantId: stored.tenantId,
@@ -213,7 +288,14 @@ function invoiceView(stored: StoredInvoice): Invoice {
     ...(stored.number ? { number: stored.number } : {}),
     status: stored.status,
     lines,
-    totalMinor: lines.reduce((sum, line) => sum + line.totalMinor, 0) + taxMinor,
+    totalMinor: net + taxMinor,
+    discountMinor,
+    ...(stored.billDiscount ? { billDiscount: stored.billDiscount } : {}),
+    discountStatus: stored.discountStatus,
+    ...(stored.discountStatus === 'pending' && stored.discountAppliedBy
+      ? { discountAppliedBy: stored.discountAppliedBy }
+      : {}),
+    ...(stored.discountApprovedAt ? { discountApprovedAt: stored.discountApprovedAt } : {}),
     taxMinor,
     paidMinor: state.payments
       .filter((each) => each.invoiceId === stored.id)
@@ -252,9 +334,27 @@ function paged<T extends { id: string }>(items: T[], request: Request) {
 }
 
 /** What a draft is made of, checked as the API checks it, or the response to refuse it with. */
-function contentOf(
-  body: unknown,
-): { chargeIds: string[]; manualLines: ManualLine[] } | { refused: Response } {
+function discountOf(value: unknown): Discount | null {
+  if (!isObject(value)) return null;
+  if (value.kind !== 'percent' && value.kind !== 'amount') return null;
+  if (!Number.isInteger(value.value) || (value.value as number) < 1) return null;
+  if (value.kind === 'percent' && (value.value as number) > 10000) return null;
+  if (typeof value.reason !== 'string' || !DISCOUNT_REASONS.includes(value.reason)) return null;
+  return {
+    kind: value.kind,
+    value: value.value as number,
+    reason: value.reason as Discount['reason'],
+  };
+}
+
+interface Content {
+  chargeIds: string[];
+  manualLines: ManualLine[];
+  chargeDiscounts: Record<string, Discount>;
+  billDiscount?: Discount;
+}
+
+function contentOf(body: unknown): Content | { refused: Response } {
   const invalid = { refused: error(400, 'validation_failed', 'The request is not valid') };
   if (!isObject(body) || !Array.isArray(body.chargeIds) || !Array.isArray(body.manualLines)) {
     return invalid;
@@ -276,7 +376,8 @@ function contentOf(
       (line.quantity as number) > 9999 ||
       !Number.isInteger(line.unitPriceMinor) ||
       (line.unitPriceMinor as number) < 0 ||
-      (line.taxClass !== undefined && !TAX_CLASSES.includes(line.taxClass as TaxClass))
+      (line.taxClass !== undefined && !TAX_CLASSES.includes(line.taxClass as TaxClass)) ||
+      (line.discount !== undefined && discountOf(line.discount) === null)
     ) {
       return invalid;
     }
@@ -285,9 +386,33 @@ function contentOf(
       quantity: line.quantity as number,
       unitPriceMinor: line.unitPriceMinor as number,
       ...(line.taxClass ? { taxClass: line.taxClass as TaxClass } : {}),
+      ...(line.discount ? { discount: discountOf(line.discount) as Discount } : {}),
     });
   }
-  return { chargeIds: [...new Set(body.chargeIds)], manualLines };
+  const chargeIds = [...new Set(body.chargeIds)];
+  const chargeDiscounts: Record<string, Discount> = {};
+  const given: unknown = body.chargeDiscounts ?? [];
+  if (!Array.isArray(given)) return invalid;
+  for (const entry of given as unknown[]) {
+    const discount = isObject(entry) ? discountOf(entry.discount) : null;
+    if (
+      !isObject(entry) ||
+      typeof entry.chargeId !== 'string' ||
+      !chargeIds.includes(entry.chargeId) ||
+      entry.chargeId in chargeDiscounts ||
+      discount === null
+    ) {
+      return invalid;
+    }
+    chargeDiscounts[entry.chargeId] = discount;
+  }
+  if (body.billDiscount !== undefined && discountOf(body.billDiscount) === null) return invalid;
+  return {
+    chargeIds,
+    manualLines,
+    chargeDiscounts,
+    ...(body.billDiscount ? { billDiscount: discountOf(body.billDiscount) as Discount } : {}),
+  };
 }
 
 /**
@@ -339,6 +464,93 @@ async function idempotent(request: Request, tenantId: string) {
 
 const mayAdjust = () =>
   currentPolicy()?.permissions.some((grant) => grant.permission === 'invoice:adjust') ?? false;
+
+const may = (permission: string) =>
+  currentPolicy()?.permissions.some((grant) => grant.permission === permission) ?? false;
+
+/** The discounts a draft would carry, to tell whether a save changes them. */
+const discountKey = (
+  chargeIds: string[],
+  chargeDiscounts: Record<string, Discount>,
+  manualLines: ManualLine[],
+  bill: Discount | undefined,
+) =>
+  JSON.stringify({
+    charges: chargeIds.map((id) => chargeDiscounts[id] ?? null),
+    manual: manualLines.map((line) => line.discount ?? null),
+    bill: bill ?? null,
+  });
+
+/**
+ * Applies a save to a draft and settles its discount as the API does: above the hospital's limit
+ * it waits for a second person; the same approved amount stays approved. Returns a refusal.
+ */
+function applyContent(found: StoredInvoice, content: Content): Response | undefined {
+  const changed =
+    discountKey(
+      content.chargeIds,
+      content.chargeDiscounts,
+      content.manualLines,
+      content.billDiscount,
+    ) !==
+    discountKey(content.chargeIds, found.chargeDiscounts, found.manualLines, found.billDiscount);
+  if (changed && !may('discount:apply')) {
+    return error(403, 'permission_denied', 'discount:apply is needed for discounts');
+  }
+  const before = {
+    status: found.discountStatus,
+    appliedBy: found.discountAppliedBy,
+    approvedMinor: found.discountApprovedMinor,
+    approvedGrossMinor: found.discountApprovedGrossMinor,
+    approvedAt: found.discountApprovedAt,
+    discountMinor: priced(found).discountMinor,
+  };
+  const trial: StoredInvoice = {
+    ...found,
+    chargeIds: content.chargeIds,
+    manualLines: content.manualLines,
+    chargeDiscounts: content.chargeDiscounts,
+    billDiscount: content.billDiscount,
+  };
+  const result = priced(trial);
+  if (result.exceeded) {
+    return error(422, 'discount_exceeds', 'A discount is more than it comes off');
+  }
+  holdCharges(found, content.chargeIds);
+  found.manualLines = content.manualLines;
+  found.chargeDiscounts = content.chargeDiscounts;
+  if (content.billDiscount) found.billDiscount = content.billDiscount;
+  else delete found.billDiscount;
+  const above = result.discountMinor * 10000 > limitOf(found.tenantId) * result.gross;
+  found.discountStatus = 'none';
+  delete found.discountAppliedBy;
+  delete found.discountApprovedAt;
+  delete found.discountApprovedMinor;
+  delete found.discountApprovedGrossMinor;
+  if (result.discountMinor > 0) {
+    // Whoever last changed the discount stays its maker while there is one, as in the API.
+    const unchanged =
+      !changed && before.discountMinor === result.discountMinor && before.appliedBy !== undefined;
+    found.discountAppliedBy = unchanged ? before.appliedBy : caller();
+    if (above) {
+      // An approval stands only for the discount and the bill it was given on.
+      const stands =
+        before.status === 'approved' &&
+        !changed &&
+        before.approvedMinor === result.discountMinor &&
+        before.approvedGrossMinor === result.gross;
+      if (stands) {
+        found.discountStatus = 'approved';
+        found.discountApprovedMinor = before.approvedMinor;
+        found.discountApprovedGrossMinor = before.approvedGrossMinor;
+        if (before.approvedAt) found.discountApprovedAt = before.approvedAt;
+      } else {
+        found.discountStatus = 'pending';
+      }
+    }
+  }
+  return undefined;
+}
 
 const invoiceFor = (tenantId: string, id: string) =>
   state.invoices.find((each) => each.id === id && each.tenantId === tenantId);
@@ -555,12 +767,15 @@ export const billingHandlers = [
       encounterId: visit.id,
       patientId: visit.patientId,
       chargeIds: [],
-      manualLines: content.manualLines,
+      manualLines: [],
+      chargeDiscounts: {},
+      discountStatus: 'none',
       status: 'draft',
       createdAt: new Date().toISOString(),
       version: 1,
     };
-    holdCharges(stored, content.chargeIds);
+    const refusal = applyContent(stored, content);
+    if (refusal) return refusal;
     state.invoices.push(stored);
     answered.set(sent.keyOf, { body: JSON.stringify(sent.body), id: stored.id });
     return HttpResponse.json<Invoice>(invoiceView(stored), { status: 201 });
@@ -882,8 +1097,8 @@ export const billingHandlers = [
     if (!chargesAvailable(tenantId, found.encounterId, content.chargeIds, found.id)) {
       return error(409, 'charge_unavailable', 'A charge is billed or in another draft');
     }
-    holdCharges(found, content.chargeIds);
-    found.manualLines = content.manualLines;
+    const refusal = applyContent(found, content);
+    if (refusal) return refusal;
     found.version += 1;
     return HttpResponse.json<Invoice>(invoiceView(found));
   }),
@@ -906,6 +1121,9 @@ export const billingHandlers = [
     if (body.version !== found.version) {
       return error(409, 'version_conflict', 'The draft changed since it was read');
     }
+    if (found.discountStatus === 'pending') {
+      return error(409, 'discount_needs_approval', 'The discount waits for approval');
+    }
     if (mockEncounter(found.encounterId)?.status === 'cancelled') {
       return error(409, 'encounter_cancelled', 'The visit was cancelled');
     }
@@ -917,6 +1135,64 @@ export const billingHandlers = [
     for (const each of state.charges) {
       if (each.invoiceId === found.id) each.status = 'invoiced';
     }
+    answered.set(sent.keyOf, { body: JSON.stringify(body), id: found.id });
+    return HttpResponse.json<Invoice>(invoiceView(found));
+  }),
+
+  // Discounts (#116): the limit a bill may be discounted without approval, and the approval.
+  http.get('*/api/billing/discount-settings', ({ request }) => {
+    const access = authorize(request, { permission: 'invoice:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    return HttpResponse.json({ limitBp: limitOf(access.tenantId) });
+  }),
+
+  http.put('*/api/billing/discount-settings', async ({ request }) => {
+    const access = authorize(request, {
+      permission: 'discount:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const body: unknown = await request.json().catch(() => null);
+    const limitBp = isObject(body) ? body.limitBp : undefined;
+    if (!Number.isInteger(limitBp) || (limitBp as number) < 0 || (limitBp as number) > 10000) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    state.limits[access.tenantId] = limitBp as number;
+    return HttpResponse.json({ limitBp: limitBp as number });
+  }),
+
+  http.post('*/api/invoices/:invoiceId/discount-approval', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'discount:approve',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const found = invoiceFor(tenantId, String(params.invoiceId));
+    if (!found) return notFound();
+    if (sent.replay) return HttpResponse.json<Invoice>(invoiceView(found));
+    const body = sent.body;
+    if (!isObject(body) || !Number.isInteger(body.version)) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (found.status !== 'draft') return error(409, 'invoice_not_draft', 'The invoice was issued');
+    if (body.version !== found.version) {
+      return error(409, 'version_conflict', 'The draft changed since it was read');
+    }
+    if (found.discountStatus !== 'pending') {
+      return error(409, 'discount_not_pending', 'No discount waits for approval');
+    }
+    if (found.discountAppliedBy === caller()) {
+      return error(403, 'own_discount', 'A discount is approved by someone else');
+    }
+    found.discountStatus = 'approved';
+    found.discountApprovedAt = new Date().toISOString();
+    const approvedNow = priced(found);
+    found.discountApprovedMinor = approvedNow.discountMinor;
+    found.discountApprovedGrossMinor = approvedNow.gross;
+    found.version += 1;
     answered.set(sent.keyOf, { body: JSON.stringify(body), id: found.id });
     return HttpResponse.json<Invoice>(invoiceView(found));
   }),

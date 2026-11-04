@@ -157,6 +157,19 @@ function Issued({ invoice }: { invoice: Invoice }) {
         value: (row) => format.money(row.totalMinor),
         align: 'end',
       },
+      ...(invoice.discountMinor > 0
+        ? [
+            {
+              id: 'discount',
+              header: t('discount.line'),
+              value: (row: InvoiceLine) =>
+                row.discountMinor + row.billDiscountMinor > 0
+                  ? format.money(row.discountMinor + row.billDiscountMinor)
+                  : t('tax.none'),
+              align: 'end' as const,
+            },
+          ]
+        : []),
       ...(invoice.taxMinor > 0
         ? [
             {
@@ -174,7 +187,7 @@ function Issued({ invoice }: { invoice: Invoice }) {
           ]
         : []),
     ],
-    [t, format, invoice.taxMinor],
+    [t, format, invoice.taxMinor, invoice.discountMinor],
   );
   return (
     <section aria-labelledby="lines-heading" className="flex flex-col gap-3">
@@ -203,17 +216,38 @@ function Issued({ invoice }: { invoice: Invoice }) {
         status="ready"
         emptyMessage={t('detail.noLines')}
       />
-      {invoice.taxMinor > 0 && (
+      {(invoice.taxMinor > 0 || invoice.discountMinor > 0) && (
         <dl className="grid max-w-xs grid-cols-2 gap-x-4 text-sm">
+          {invoice.discountMinor > 0 && (
+            <>
+              <dt className="text-muted-foreground">{t('discount.beforeDiscount')}</dt>
+              <dd className="text-right" data-testid="invoice-gross">
+                {format.money(invoice.totalMinor - invoice.taxMinor + invoice.discountMinor)}
+              </dd>
+              <dt className="text-muted-foreground">{t('discount.discount')}</dt>
+              <dd className="text-right" data-testid="invoice-discount">
+                {format.money(invoice.discountMinor)}
+              </dd>
+            </>
+          )}
           <dt className="text-muted-foreground">{t('tax.beforeTax')}</dt>
           <dd className="text-right" data-testid="invoice-subtotal">
             {format.money(invoice.totalMinor - invoice.taxMinor)}
           </dd>
-          <dt className="text-muted-foreground">{t('tax.tax')}</dt>
-          <dd className="text-right" data-testid="invoice-tax">
-            {format.money(invoice.taxMinor)}
-          </dd>
+          {invoice.taxMinor > 0 && (
+            <>
+              <dt className="text-muted-foreground">{t('tax.tax')}</dt>
+              <dd className="text-right" data-testid="invoice-tax">
+                {format.money(invoice.taxMinor)}
+              </dd>
+            </>
+          )}
         </dl>
+      )}
+      {invoice.discountStatus !== 'none' && (
+        <p className="text-sm text-muted-foreground" data-testid="discount-status">
+          {t(`discount.status.${invoice.discountStatus}`)}
+        </p>
       )}
       <p className="text-2xl font-semibold" data-testid="invoice-total">
         <span className="sr-only">{t('builder.total')}: </span>

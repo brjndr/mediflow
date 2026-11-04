@@ -34,3 +34,9 @@ export type RegisterClose = Schemas['RegisterClose'];
 export type TaxRates = Schemas['TaxRates'];
 export type TaxRate = Schemas['TaxRate'];
 export type TaxClass = TaxRate['taxClass'];
+/** A discount on a line or on the whole bill, with its reason (#116). */
+export type Discount = Schemas['Discount'];
+export type ChargeDiscount = Schemas['ChargeDiscount'];
+export type DiscountReason = Discount['reason'];
+/** The most a bill may be discounted without approval, in basis points. */
+export type DiscountSettings = Schemas['DiscountSettings'];

@@ -1,6 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import type { Permission } from '../../core/access/registry.js';
 import { HttpError } from '../../core/http/errors.js';
+import { inputFrom } from './discount.js';
 import {
   creditNotesOf,
   findInvoice,
@@ -72,8 +73,25 @@ export const invoiceView = (row: InvoiceRow): Invoice => ({
     ...optional('taxClass', line.taxClass as Invoice['lines'][number]['taxClass'] | null),
     taxRateBp: line.taxRateBp,
     taxMinor: line.taxMinor,
+    ...optional(
+      'discount',
+      inputFrom(line.discountBp, line.discountAmountMinor, line.discountReason),
+    ),
+    discountMinor: num(line.discountMinor),
+    billDiscountMinor: num(line.billDiscountMinor),
   })),
   totalMinor: num(row.total_minor),
+  discountMinor: num(row.discount_minor),
+  ...optional(
+    'billDiscount',
+    inputFrom(row.bill_discount_bp, row.bill_discount_amount_minor, row.bill_discount_reason),
+  ),
+  discountStatus: row.discount_status as Invoice['discountStatus'],
+  ...optional(
+    'discountAppliedBy',
+    row.discount_status === 'pending' ? row.discount_applied_by : null,
+  ),
+  ...optional('discountApprovedAt', row.discount_approved_at?.toISOString()),
   taxMinor: num(row.tax_minor),
   paidMinor: num(row.paid_minor),
   creditedMinor: num(row.credited_minor),

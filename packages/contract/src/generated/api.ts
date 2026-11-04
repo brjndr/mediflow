@@ -3446,6 +3446,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/billing/discount-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The most a bill may be discounted without approval, as a share of the bill before tax in basis points (#116); 500 (5%) until the hospital sets another. Requires invoice:read with the scope `all` and the billing feature flag. */
+        get: operations["getDiscountSettings"];
+        /** @description Sets the share of a bill that may be discounted without approval (#116). It applies when a draft is next saved, so a draft already pending stays pending. The Idempotency-Key header is required. Requires discount:manage and invoice:read with the scope `all` and the billing feature flag. Audited. */
+        put: operations["setDiscountSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invoices/{invoiceId}/discount-approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Approves the discount on a draft that is above the hospital’s limit (#116), for the amount it stands at. Not the person who gave or last changed it (403 `own_discount`); the invoice must be a draft (409 `invoice_not_draft`) whose discount is pending (409 `discount_not_pending`), at the version the approver saw (409 `version_conflict`). Any later change to the discount asks again. The Idempotency-Key header is required: a repeat approves nothing more. Requires discount:approve and invoice:read with the scope `all` and the billing feature flag. Audited. */
+        post: operations["approveInvoiceDiscount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/purchasing/suppliers": {
         parameters: {
             query?: never;
@@ -6685,6 +6720,30 @@ export interface components {
             nextCursor: string | null;
             total?: number;
         };
+        /** @description A discount the desk gives, with the reason. It comes off before tax; the server works out the amount and refuses one above what it comes off (422 `discount_exceeds`). */
+        Discount: {
+            /**
+             * @description A share of what it comes off, or a fixed amount.
+             * @enum {string}
+             */
+            kind: "percent" | "amount";
+            /** @description Basis points for a percentage (1000 is 10%, at most 10000), minor units for an amount. */
+            value: number;
+            /** @enum {string} */
+            reason: "staff" | "charity" | "senior_citizen" | "goodwill" | "correction" | "other";
+        };
+        /** @description The discount on the line of one charge. */
+        ChargeDiscount: {
+            chargeId: string;
+            discount: components["schemas"]["Discount"];
+        };
+        DiscountSettings: {
+            /** @description The most a bill may be discounted without approval, as a share of the bill before tax, in basis points (500 is 5%). */
+            limitBp: number;
+        };
+        DiscountApproval: {
+            version: number;
+        };
         /** @description Billable work posted to a visit. Priced when it was posted; never changes afterwards. */
         Charge: {
             id: string;
@@ -6737,6 +6796,7 @@ export interface components {
              * @enum {string}
              */
             taxClass?: "exempt" | "reduced" | "standard" | "higher";
+            discount?: components["schemas"]["Discount"];
         };
         InvoiceLine: {
             id: string;
@@ -6753,8 +6813,13 @@ export interface components {
             taxClass?: "exempt" | "reduced" | "standard" | "higher";
             /** @description The rate the line was made with, in basis points (1200 is 12%). */
             taxRateBp: number;
-            /** @description The tax on the line, rounded half up; worked out by the server. */
+            /** @description The tax on the line, on what is left after the discounts, rounded half up; worked out by the server. */
             taxMinor: number;
+            discount?: components["schemas"]["Discount"];
+            /** @description What the line’s own discount takes off, before tax. */
+            discountMinor: number;
+            /** @description The line’s share of the discount on the whole bill, before tax. */
+            billDiscountMinor: number;
         };
         /** @description A bill of one visit. A draft can be changed; once issued it never is. */
         Invoice: {
@@ -6769,8 +6834,20 @@ export interface components {
             /** @enum {string} */
             status: "draft" | "issued" | "paid" | "void";
             lines: components["schemas"]["InvoiceLine"][];
-            /** @description What is owed: the lines and their tax, worked out by the server. */
+            /** @description What is owed: the lines less their discounts, and the tax, worked out by the server. */
             totalMinor: number;
+            /** @description Line discounts and the bill discount together, before tax. */
+            discountMinor: number;
+            billDiscount?: components["schemas"]["Discount"];
+            /**
+             * @description `pending`: above the hospital’s limit and waiting for a second person (the invoice is not issued until it is approved); `approved`: approved; `none`: no discount, or one within the limit.
+             * @enum {string}
+             */
+            discountStatus: "none" | "pending" | "approved";
+            /** @description The user who last changed the discount, while it is pending. */
+            discountAppliedBy?: string;
+            /** Format: date-time */
+            discountApprovedAt?: string;
             /** @description The part of the total that is tax; never changes once issued. */
             taxMinor: number;
             /** @description Payments less refunds. */
@@ -6806,10 +6883,15 @@ export interface components {
         InvoiceContent: {
             chargeIds: string[];
             manualLines: components["schemas"]["ManualLine"][];
+            /** @description The discounts on the lines of charges, by charge. Needs discount:apply. */
+            chargeDiscounts?: components["schemas"]["ChargeDiscount"][];
+            billDiscount?: components["schemas"]["Discount"];
         };
         InvoiceUpdate: {
             chargeIds: string[];
             manualLines: components["schemas"]["ManualLine"][];
+            chargeDiscounts?: components["schemas"]["ChargeDiscount"][];
+            billDiscount?: components["schemas"]["Discount"];
             version: number;
         };
         InvoiceIssue: {
@@ -25937,6 +26019,217 @@ export interface operations {
             };
             /** @description Standard error body. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDiscountSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscountSettings"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setDiscountSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscountSettings"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscountSettings"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    approveInvoiceDiscount: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscountApproval"];
+            };
+        };
+        responses: {
+            /** @description A bill of one visit. A draft can be changed; once issued it never is. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

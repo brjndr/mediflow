@@ -102,6 +102,16 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
         </tbody>
       </table>
       <dl className="mt-4 ml-auto grid w-72 grid-cols-[1fr_auto] gap-x-6 gap-y-1 tabular-nums">
+        {invoice.discountMinor > 0 && (
+          <>
+            <dt>{t('discount.beforeDiscount')}</dt>
+            <dd className="text-right">
+              {format.money(invoice.totalMinor - invoice.taxMinor + invoice.discountMinor)}
+            </dd>
+            <dt>{t('discount.discount')}</dt>
+            <dd className="text-right">{format.money(invoice.discountMinor)}</dd>
+          </>
+        )}
         {invoice.taxMinor > 0 && (
           <>
             <dt>{t('tax.beforeTax')}</dt>

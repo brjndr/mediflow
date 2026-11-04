@@ -23,9 +23,12 @@ import {
   nextNumber,
   replaceLines,
   searchInvoices,
-  setDraftTotal,
+  setDraftState,
+  type DraftDiscountState,
+  discountsOf,
   num,
 } from './repository.js';
+import type { ChargeDiscount, Discount } from './schemas.js';
 import {
   BILLING_SCHEMAS,
   Charge,
@@ -51,9 +54,11 @@ import {
   requireAll,
   userIdOf,
 } from './views.js';
+import { aboveLimit, discountLimitOf, type DiscountInput } from './discount.js';
 import { postCharge, priceOf } from './posting.js';
 import { paymentRoutes } from './payment-routes.js';
 import { registerRoutes } from './register-routes.js';
+import { discountRoutes } from './discount-routes.js';
 import { taxRoutes } from './tax-routes.js';
 
 const EncounterParams = Type.Object({ encounterId: Type.String({ maxLength: 64 }) });
@@ -71,11 +76,26 @@ const versionConflict = () =>
 export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
   for (const schema of BILLING_SCHEMAS) app.addSchema(schema);
 
+  /** Whether the caller holds a permission at the scope `all`, which is all billing looks at. */
+  async function holds(request: FastifyRequest, permission: string): Promise<boolean> {
+    const policy = await request.access.policy();
+    return (
+      policy?.permissions.some(
+        (grant) => grant.permission === permission && (grant.scope ?? 'all') === 'all',
+      ) ?? false
+    );
+  }
+
   /** What a draft is made of, checked and written: its lines, its charges and its total. */
   async function fillDraft(
     request: FastifyRequest,
     invoice: { id: string; encounterId: string },
-    content: { chargeIds: string[]; manualLines: ManualLine[] },
+    content: {
+      chargeIds: string[];
+      manualLines: ManualLine[];
+      chargeDiscounts?: ChargeDiscount[];
+      billDiscount?: Discount;
+    },
     typedBefore: ManualLineInput[],
     bump: boolean,
   ): Promise<void> {
@@ -87,24 +107,58 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
     if (chargeIds.some((id) => !isUuid(id)) || new Set(chargeIds).size !== chargeIds.length) {
       throw new HttpError(409, 'charge_unavailable', 'A charge is not there to be billed');
     }
-    const manual = content.manualLines.map((line) => ({
+    const manual: ManualLineInput[] = content.manualLines.map((line) => ({
       description: tidyWithin(line.description, DESCRIPTION_MAX),
       quantity: line.quantity,
       unitPriceMinor: line.unitPriceMinor,
       taxClass: line.taxClass ?? null,
+      discount: line.discount ?? null,
     }));
     if (manual.some((line) => line.description === '')) {
       throw new HttpError(400, 'validation_failed', 'A line says what it is for');
     }
+    const chargeDiscount = new Map<string, DiscountInput>();
+    for (const entry of content.chargeDiscounts ?? []) {
+      const id = entry.chargeId.toLowerCase();
+      if (!chargeIds.includes(id) || chargeDiscount.has(id)) {
+        throw new HttpError(
+          400,
+          'validation_failed',
+          'A discount names a charge on the bill, once',
+        );
+      }
+      chargeDiscount.set(id, entry.discount);
+    }
     // A typed line skips the price list and the charge ledger: whoever may not adjust keeps the
-    // lines a draft already has and adds none.
-    const same = JSON.stringify(manual) === JSON.stringify(typedBefore);
-    const policy = await request.access.policy();
-    const mayAdjust = policy?.permissions.some(
-      (grant) => grant.permission === 'invoice:adjust' && (grant.scope ?? 'all') === 'all',
-    );
-    if (manual.length > 0 && !same && !mayAdjust) {
+    // lines a draft already has and adds none. A discount on it is a matter of discount:apply.
+    const plain = (lines: ManualLineInput[]) =>
+      JSON.stringify(lines.map(({ discount: _discount, ...line }) => line));
+    const sameTyped = plain(manual) === plain(typedBefore);
+    if (manual.length > 0 && !sameTyped && !(await holds(request, 'invoice:adjust'))) {
       throw new HttpError(403, 'permission_denied', 'Typed lines need invoice:adjust');
+    }
+    // Giving, changing or taking away a discount needs discount:apply; saving a draft with the
+    // discounts it already has does not.
+    const existing = await discountsOf(client, invoice.id);
+    const bill = content.billDiscount ?? null;
+    // Compared field by field, so the order of keys in the body decides nothing. What a draft
+    // had on a charge now taken off it counts too: it is a discount that goes.
+    const text = (discount: DiscountInput | null | undefined) =>
+      discount ? `${discount.kind}:${discount.value}:${discount.reason}` : '-';
+    const everyCharge = [...new Set([...chargeIds, ...Object.keys(existing.charges)])].sort();
+    const asked = JSON.stringify({
+      charges: everyCharge.map((id) => text(chargeDiscount.get(id))),
+      manual: manual.map((line) => text(line.discount)),
+      bill: text(bill),
+    });
+    const before = JSON.stringify({
+      charges: everyCharge.map((id) => text(existing.charges[id])),
+      manual: typedBefore.map((line) => text(line.discount)),
+      bill: text(existing.bill),
+    });
+    const discountsChanged = asked !== before;
+    if (discountsChanged && !(await holds(request, 'discount:apply'))) {
+      throw new HttpError(403, 'permission_denied', 'Discounts need discount:apply');
     }
     const held =
       chargeIds.length > 0
@@ -117,14 +171,45 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const byId = new Map(held.map((charge) => [charge.id, charge]));
     const ordered = chargeIds.flatMap((id) => {
       const charge = byId.get(id);
-      return charge ? [charge] : [];
+      return charge ? [{ ...charge, discount: chargeDiscount.get(id) ?? null }] : [];
     });
     await holdCharges(client, invoice.id, chargeIds);
-    const amounts = await replaceLines(client, invoice.id, ordered, manual);
-    if (!Number.isSafeInteger(amounts.totalMinor)) {
+    const amounts = await replaceLines(client, invoice.id, ordered, manual, bill);
+    if (!Number.isSafeInteger(amounts.totalMinor) || !Number.isSafeInteger(amounts.grossMinor)) {
       throw new HttpError(422, 'amount_too_large', 'The invoice is too large');
     }
-    await setDraftTotal(client, invoice.id, amounts, bump);
+    // A discount above the hospital's limit waits for a second person. An approval stands only
+    // for the amount that was approved; any other amount above the limit is asked for again.
+    const userId = userIdOf(request);
+    const aboveTheLimit =
+      amounts.discountMinor > 0 &&
+      aboveLimit(
+        BigInt(amounts.discountMinor),
+        BigInt(amounts.grossMinor),
+        await discountLimitOf(client),
+      );
+    let status: DraftDiscountState['status'] = 'none';
+    // Whoever last changed the discount stays its maker for as long as there is one, even
+    // within the limit, so lowering the limit later cannot make the maker the approver.
+    let appliedBy: string | null = null;
+    if (amounts.discountMinor > 0) {
+      const unchanged =
+        !discountsChanged &&
+        existing.discountMinor === amounts.discountMinor &&
+        existing.appliedBy !== null;
+      appliedBy = unchanged ? existing.appliedBy : userId;
+      if (aboveTheLimit) {
+        // An approval stands only for the discount and the bill it was given on.
+        const stands =
+          existing.status === 'approved' &&
+          !discountsChanged &&
+          existing.approvedMinor === amounts.discountMinor &&
+          existing.approvedGrossMinor === amounts.grossMinor;
+        status = stands ? 'approved' : 'pending';
+      }
+    }
+    await setDraftState(client, invoice.id, amounts, { bill, status, appliedBy }, bump);
+    if (discountsChanged) request.audit('discount', 'invoice', invoice.id);
   }
 
   app.get(
@@ -463,6 +548,9 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(409, 'invoice_not_draft', 'The invoice is already issued');
       }
       if (locked.version !== body.version) throw versionConflict();
+      if (locked.discount_status === 'pending') {
+        throw new HttpError(409, 'discount_needs_approval', 'The discount waits for approval');
+      }
       const { rows } = await client.query<{ lines: number }>(
         'select count(*)::int as lines from invoice_lines where invoice_id = $1',
         [locked.id],
@@ -502,4 +590,5 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
   await app.register(paymentRoutes);
   await app.register(registerRoutes);
   await app.register(taxRoutes);
+  await app.register(discountRoutes);
 };

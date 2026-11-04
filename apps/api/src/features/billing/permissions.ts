@@ -44,6 +44,22 @@ export const BILLING_PERMISSIONS = [
     defaults: { admin: 'all' },
   },
   {
+    id: 'discount:apply',
+    description:
+      'Give a discount on an invoice line or on the whole bill; above the hospital’s limit it waits for approval',
+    defaults: { admin: 'all', receptionist: 'all' },
+  },
+  {
+    id: 'discount:approve',
+    description: 'Approve a discount above the limit that someone else gave (never one’s own)',
+    defaults: { admin: 'all' },
+  },
+  {
+    id: 'discount:manage',
+    description: 'Set the share of a bill that may be discounted without approval',
+    defaults: { admin: 'all' },
+  },
+  {
     id: 'payment:read',
     description: 'See the payments and refunds of an invoice',
     defaults: { admin: 'all', receptionist: 'all' },

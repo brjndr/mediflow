@@ -4,6 +4,7 @@ import {
   chargeSchema,
   creditNoteListSchema,
   creditNoteSchema,
+  discountSettingsSchema,
   invoicePageSchema,
   invoiceSchema,
   paymentListSchema,
@@ -18,6 +19,7 @@ import type {
   ChargeCreate,
   CreditNote,
   CreditNoteCreate,
+  DiscountSettings,
   Invoice,
   InvoiceContent,
   InvoicePage,
@@ -282,4 +284,34 @@ export async function setTaxRates(items: TaxRate[], idempotencyKey: string): Pro
     body: { items },
   });
   return taxRatesSchema.parse(requireData(result));
+}
+
+/** The most a bill may be discounted without approval, in basis points. */
+export async function fetchDiscountSettings(signal?: AbortSignal): Promise<DiscountSettings> {
+  const result = await api.GET('/billing/discount-settings', { signal });
+  return discountSettingsSchema.parse(requireData(result));
+}
+
+export async function setDiscountSettings(
+  limitBp: number,
+  idempotencyKey: string,
+): Promise<DiscountSettings> {
+  const result = await api.PUT('/billing/discount-settings', {
+    params: { header: { 'idempotency-key': idempotencyKey } },
+    body: { limitBp },
+  });
+  return discountSettingsSchema.parse(requireData(result));
+}
+
+/** A second person approves the discount on a draft, at the version they saw. */
+export async function approveInvoiceDiscount(
+  invoiceId: string,
+  version: number,
+  idempotencyKey: string,
+): Promise<Invoice> {
+  const result = await api.POST('/invoices/{invoiceId}/discount-approval', {
+    params: { path: { invoiceId }, header: { 'idempotency-key': idempotencyKey } },
+    body: { version },
+  });
+  return invoiceSchema.parse(requireData(result));
 }
