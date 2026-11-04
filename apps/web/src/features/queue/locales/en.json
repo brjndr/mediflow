@@ -127,5 +127,11 @@
       "departments": "Issuing a token needs departments, which you cannot see here. Ask an administrator.",
       "patients": "Issuing a token needs finding a patient, which you cannot do here. Ask an administrator."
     }
+  },
+  "widget": {
+    "title": "OPD queue",
+    "waiting": "Waiting now",
+    "open": "Open the queue",
+    "unknown": "not yet known"
   }
 }

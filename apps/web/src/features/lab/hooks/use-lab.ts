@@ -85,12 +85,12 @@ function useIdempotencyKey() {
 }
 
 /** The worklist at one stage, a page at a time. */
-export function useWorklist(filters: WorklistFilters) {
+export function useWorklist(filters: WorklistFilters, pageSize = WORKLIST_PAGE_SIZE) {
   const tenantId = useTenant()?.id;
   return useInfiniteQuery({
-    queryKey: labKeys.list(tenantId ?? '', { ...filters, limit: WORKLIST_PAGE_SIZE }),
+    queryKey: labKeys.list(tenantId ?? '', { ...filters, limit: pageSize }),
     queryFn: ({ pageParam, signal }) =>
-      fetchWorklist({ ...filters, cursor: pageParam, limit: WORKLIST_PAGE_SIZE }, signal),
+      fetchWorklist({ ...filters, cursor: pageParam, limit: pageSize }, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     placeholderData: keepPreviousData,

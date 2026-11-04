@@ -21,13 +21,17 @@ const EVENT_MAX_WAIT_MS = 1_000;
 /** One group of today's queue (waiting, called, skipped), one server page at a time. */
 export function useQueueTokens(
   filters: QueueFilters,
-  { enabled, live }: { enabled: boolean; live: boolean },
+  {
+    enabled,
+    live,
+    pageSize = QUEUE_PAGE_SIZE,
+  }: { enabled: boolean; live: boolean; pageSize?: number },
 ) {
   const tenantId = useTenant()?.id;
   return useInfiniteQuery({
-    queryKey: queueKeys.list(tenantId ?? '', { ...filters, limit: QUEUE_PAGE_SIZE }),
+    queryKey: queueKeys.list(tenantId ?? '', { ...filters, limit: pageSize }),
     queryFn: ({ pageParam, signal }) =>
-      fetchQueueTokens({ ...filters, cursor: pageParam, limit: QUEUE_PAGE_SIZE }, signal),
+      fetchQueueTokens({ ...filters, cursor: pageParam, limit: pageSize }, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: enabled && tenantId !== undefined,

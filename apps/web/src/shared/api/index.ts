@@ -8,4 +8,4 @@ export {
   type ServerEvent,
 } from './events';
 export { TENANT_HEADER, TENANT_MISMATCH, type ApiFetchOptions } from './http';
-export { createTenantKeys, tenantScope } from './query-keys';
+export { createTenantKeys, TENANT_SCOPE, tenantScope } from './query-keys';

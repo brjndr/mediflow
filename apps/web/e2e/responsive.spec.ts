@@ -14,6 +14,8 @@ const TOUCH_TARGET = 44;
 test('the main screens fit the screen without scrolling sideways', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
+  // The dashboard's panels sit in the grid at every width.
+  await expect(page.getByRole('region', { name: 'OPD queue' })).toBeVisible();
   await expectNoSidewaysScroll(page);
 
   await goTo(page, 'Notices');

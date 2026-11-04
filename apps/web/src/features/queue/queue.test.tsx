@@ -290,6 +290,12 @@ describe('live updates', () => {
     await waitFor(() => expect(tokensIn('Waiting')).toHaveLength(6));
     await router.navigate('/');
     await screen.findByRole('heading', { name: 'Hospital management system' });
+    // The dashboard's own panel reads the queue once as it opens; wait for that to be done.
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('region', { name: 'OPD queue' })).queryByText('–'),
+      ).not.toBeInTheDocument(),
+    );
     const before = reads.length;
     addMockQueueToken(lateToken(TENANT_IDS.hospital, 'dep_h_01'));
     await new Promise((resolve) => setTimeout(resolve, 600));
@@ -350,8 +356,13 @@ describe('two hospitals', () => {
       TENANT_IDS.clinic,
     );
     await screen.findByRole('heading', { name: 'Hospital management system' });
+    // Nothing of the hospital left behind is held. Its dashboard panel may leave an empty shell
+    // of a read the switch cancelled: no data in it.
     expect(
-      queryClient.getQueryCache().findAll({ queryKey: queueKeys.all(TENANT_IDS.hospital) }),
+      queryClient
+        .getQueryCache()
+        .findAll({ queryKey: queueKeys.all(TENANT_IDS.hospital) })
+        .filter((query) => query.state.data !== undefined),
     ).toEqual([]);
 
     await userEvent.click(await screen.findByRole('link', { name: 'OPD queue' }));

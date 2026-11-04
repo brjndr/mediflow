@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
 import { sessionFor, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
-import { apiFetch, TENANT_HEADER } from '@/shared/api';
+import { apiFetch, TENANT_HEADER, tenantScope } from '@/shared/api';
 import { renderApp } from '@/test/render';
 import { setSidebarCollapsed } from '../ui-slice';
 import { fetchSession } from './api';
@@ -117,11 +117,35 @@ describe('tenant from the session', () => {
     expect(screen.getByRole('banner')).toHaveTextContent('Sample Hospital');
     await apiFetch(ECHO_URL);
 
+    // The server has switched too: the dashboard asks for data as the new hospital.
+    server.use(http.get(SESSION_URL, () => HttpResponse.json(secondHospital)));
     queryClient.setQueryData(sessionKey, secondHospital);
     await waitFor(() => expect(screen.getByRole('banner')).toHaveTextContent('Second Hospital'));
     expect(screen.getByRole('banner')).not.toHaveTextContent('Sample Hospital');
     await apiFetch(ECHO_URL);
     expect(seen).toEqual(['tenant_1', 'tenant_2']);
+  });
+
+  it('keeps nothing cached for the hospital that was left, and only that', async () => {
+    const { queryClient } = renderApp();
+    await screen.findByRole('heading', HOME);
+    // A screen still on the page can re-create a query of the old hospital as it switches.
+    const left = [...tenantScope('tenant_1'), 'left'];
+    const kept = [...tenantScope('tenant_2'), 'kept'];
+    const other = ['elsewhere'];
+    // The test client collects a query nobody watches at once; these must outlast the switch.
+    for (const key of [left, kept, other]) queryClient.setQueryDefaults(key, { gcTime: Infinity });
+    queryClient.setQueryData(left, 1);
+    queryClient.setQueryData(kept, 2);
+    queryClient.setQueryData(other, 3);
+
+    server.use(http.get(SESSION_URL, () => HttpResponse.json(secondHospital)));
+    queryClient.setQueryData(sessionKey, secondHospital);
+
+    await waitFor(() => expect(queryClient.getQueryData(left)).toBeUndefined());
+    expect(queryClient.getQueryData(kept)).toBe(2);
+    expect(queryClient.getQueryData(other)).toBe(3);
+    expect(queryClient.getQueryData(sessionKey)).toBeDefined();
   });
 
   it('sends no tenant header and shows the picker while no hospital is active', async () => {
