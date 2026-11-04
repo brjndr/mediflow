@@ -14,6 +14,6 @@ What was decided for the web screen of reports (#121). The API is `apps/api/src/
 ## Known gaps
 
 - English only; a new column key from the API shows as the key until `columns.<key>` is added.
-- No sorting, and no chart: the four reports are tables. Per-report screens and the doctor-wise and pharmacy-sales reports are #124.
+- No sorting, and no chart: the reports are tables. All six reports (#124) share this one screen; a new kind is a locale entry, the schema list and a mock case.
 - A run the person did not wait for is found in the list; nothing tells them it finished while they are elsewhere.
 - The mock's download is the browser's own request to `/api/report-files/…`, which the service worker does not see, so in `pnpm dev` against the mock the file route is unanswered (the unit and Playwright tests stub or ignore it).

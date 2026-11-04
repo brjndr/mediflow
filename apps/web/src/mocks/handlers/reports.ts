@@ -9,7 +9,14 @@ type Run = components['schemas']['ReportRun'];
 type Limits = components['schemas']['ReportLimits'];
 
 const FEATURE_FLAG = 'reports';
-const KINDS: readonly Kind[] = ['opd_census', 'revenue', 'lab_turnaround', 'stock'];
+const KINDS: readonly Kind[] = [
+  'opd_census',
+  'revenue',
+  'doctor_activity',
+  'lab_turnaround',
+  'pharmacy_sales',
+  'stock',
+];
 const SPOT_MAX_DAYS = 31;
 const STORED_MAX_DAYS = 366;
 const DAY_MS = 86_400_000;
@@ -136,6 +143,42 @@ function result(kind: Kind, from: string | null, to: string | null): Result {
           [to ?? '2026-11-02', 480050, 50000, 480050, 10000, 470050],
         ],
         totals: [null, 1730050, 50000, 1480050, 10000, 1470050],
+      };
+    case 'doctor_activity':
+      return {
+        ...base,
+        columns: [
+          { key: 'doctor', type: 'text' },
+          { key: 'department', type: 'text' },
+          { key: 'opened', type: 'integer' },
+          { key: 'closed', type: 'integer' },
+          { key: 'cancelled', type: 'integer' },
+          { key: 'appointmentsCompleted', type: 'integer' },
+          { key: 'noShows', type: 'integer' },
+        ],
+        rows: [
+          ['Dr Asha Rao', 'General Medicine', 52, 50, 1, 40, 4],
+          ['Dr Vikram Shah', 'Paediatrics', 18, 18, 0, 15, 1],
+        ],
+        totals: [null, null, 70, 68, 1, 55, 5],
+      };
+    case 'pharmacy_sales':
+      return {
+        ...base,
+        columns: [
+          { key: 'day', type: 'date' },
+          { key: 'sales', type: 'integer' },
+          { key: 'soldMinor', type: 'money' },
+          { key: 'returnedMinor', type: 'money' },
+          { key: 'netSoldMinor', type: 'money' },
+          { key: 'dispenses', type: 'integer' },
+          { key: 'unitsDispensed', type: 'integer' },
+        ],
+        rows: [
+          [from ?? '2026-11-01', 24, 185000, 5000, 180000, 60, 420],
+          [to ?? '2026-11-02', 19, 96000, 0, 96000, 41, 260],
+        ],
+        totals: [null, 43, 281000, 5000, 276000, 101, 680],
       };
     case 'lab_turnaround':
       return {

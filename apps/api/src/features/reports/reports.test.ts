@@ -92,14 +92,21 @@ async function plantHospitalData(tenant: TestTenant, by: TestUser, scale: number
       tenant.id,
       'Cardiology',
     ]);
+    // One doctor, attending the OPD visits and booked for appointments below.
+    const doctor = randomUUID();
+    await client.query(
+      `insert into doctors (id, tenant_id, user_id, department_id, specialization, consultation_minutes)
+       values ($1, $2, $3, $4, 'Cardiology', 15)`,
+      [doctor, tenant.id, by.id, department],
+    );
     // Three OPD visits on the 10th at the hospital (Asia/Kolkata), the third at 01:30 local,
     // which is still the 9th in UTC. A visit on the 12th and an inpatient stay do not count.
     const encounter = (type: string, openedAt: string, status = 'open') => {
       const ended = status === 'open' ? null : openedAt;
       return client.query(
         `insert into encounters (tenant_id, patient_id, type, status, department_id, opened_at,
-                                 opened_by, ended_at, ended_by, cancel_reason)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                                 opened_by, ended_at, ended_by, cancel_reason, attending_doctor_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           tenant.id,
           randomUUID(),
@@ -111,6 +118,7 @@ async function plantHospitalData(tenant: TestTenant, by: TestUser, scale: number
           ended,
           ended ? by.id : null,
           status === 'cancelled' ? 'entered_in_error' : null,
+          doctor,
         ],
       );
     };
@@ -121,6 +129,86 @@ async function plantHospitalData(tenant: TestTenant, by: TestUser, scale: number
     }
     await encounter('opd', '2026-03-12T10:00:00+05:30');
     await encounter('ipd', '2026-03-10T10:00:00+05:30');
+
+    // Appointments: on the 10th two completed, one no-show and one still scheduled; one on the 12th.
+    const appointment = (startsAt: string, status: string) =>
+      client.query(
+        `insert into appointments (tenant_id, patient_id, doctor_id, starts_at, ends_at, status,
+                                   cancel_reason, created_by)
+         values ($1, $2, $3, $4::timestamptz, $4::timestamptz + interval '15 minutes', $5, null, 'test')`,
+        [tenant.id, randomUUID(), doctor, startsAt, status],
+      );
+    await appointment('2026-03-10T09:00:00+05:30', 'completed');
+    await appointment('2026-03-10T09:30:00+05:30', 'completed');
+    await appointment('2026-03-10T10:00:00+05:30', 'no_show');
+    await appointment('2026-03-10T10:30:00+05:30', 'scheduled');
+    await appointment('2026-03-12T09:00:00+05:30', 'completed');
+    await client.query(
+      `update appointments set status = 'cancelled', cancel_reason = 'hospital'
+       where tenant_id = $1 and starts_at = '2026-03-10T10:30:00+05:30'`,
+      [tenant.id],
+    );
+
+    // Pharmacy: on the 10th sales of 1,000 and 500 and a return of 200, and dispenses of 3 and 4
+    // units; a sale on the 12th does not count.
+    const shop = randomUUID();
+    const sale = async (total: number, at: string) => {
+      const id = randomUUID();
+      await client.query(
+        `insert into pharmacy_sales (id, tenant_id, location_id, total_minor, sold_by, sold_at)
+         values ($1, $2, $3, $4, $5, $6)`,
+        [id, tenant.id, shop, total * scale, by.id, at],
+      );
+      return id;
+    };
+    const first = await sale(1_000, '2026-03-10T10:00:00+05:30');
+    await sale(500, '2026-03-10T15:00:00+05:30');
+    await sale(900, '2026-03-12T10:00:00+05:30');
+    await client.query(
+      `insert into pharmacy_sale_returns (tenant_id, sale_id, reason, total_minor, returned_by,
+                                          returned_at)
+       values ($1, $2, 'Wrong strength', $3, $4, '2026-03-10T16:00:00+05:30')`,
+      [tenant.id, first, 200 * scale, by.id],
+    );
+    const dispensed: string[] = [];
+    for (const quantity of [3, 4]) {
+      const drugId = randomUUID();
+      const dispenseId = randomUUID();
+      dispensed.push(dispenseId);
+      await client.query(
+        `insert into dispenses (id, tenant_id, order_id, prescription_id, encounter_id, patient_id,
+                                location_id, prescribed_drug_id, drug_id, item_name, schedule,
+                                controlled, quantity, dispensed_by, dispensed_at)
+         values ($10, $1, $2, $3, $4, $5, $6, $7, $7, 'Paracetamol', 'none', false, $8, $9,
+                 '2026-03-10T11:00:00+05:30')`,
+        [
+          tenant.id,
+          randomUUID(),
+          randomUUID(),
+          randomUUID(),
+          randomUUID(),
+          shop,
+          drugId,
+          quantity * scale,
+          by.id,
+          dispenseId,
+        ],
+      );
+    }
+
+    // One unit of the first dispense is brought back on the 10th, and nets off the units.
+    const dispenseReturn = randomUUID();
+    await client.query(
+      `insert into dispense_returns (id, tenant_id, dispense_id, reason, returned_by, returned_at)
+       values ($1, $2, $3, 'Not needed', $4, '2026-03-10T17:00:00+05:30')`,
+      [dispenseReturn, tenant.id, dispensed[0], by.id],
+    );
+    await client.query(
+      `insert into dispense_return_lines (tenant_id, return_id, dispense_id, batch_id, quantity,
+                                         wasted, ledger_entry_id)
+       values ($1, $2, $3, $4, $5, false, $6)`,
+      [tenant.id, dispenseReturn, dispensed[0], randomUUID(), scale, randomUUID()],
+    );
 
     // Money on the 10th: two issued invoices, a void one and a draft that do not count.
     const invoice = async (status: string, total: number) => {
@@ -235,6 +323,13 @@ async function removeHospitalData(tenants: TestTenant[]): Promise<void> {
     for (const table of [
       'report_runs',
       'report_settings',
+      'dispense_return_lines',
+      'dispense_returns',
+      'dispenses',
+      'pharmacy_sale_returns',
+      'pharmacy_sales',
+      'appointments',
+      'doctors',
       'stock_balances',
       'stock_batches',
       'stock_locations',
@@ -305,6 +400,30 @@ describe('the reports answered on the spot', () => {
     expect(report.currency).toBe('INR');
   });
 
+  it('counts each doctor’s OPD visits and appointments in the range', async () => {
+    const report = (await runSync('doctor_activity', MARCH_10)).json<ReportResult>();
+
+    expect(report.columns.map((column) => column.key)).toEqual([
+      'doctor',
+      'department',
+      'opened',
+      'closed',
+      'cancelled',
+      'appointmentsCompleted',
+      'noShows',
+    ]);
+    // The visit and appointment on the 12th, and the inpatient stay, are not counted.
+    expect(report.rows).toEqual([['Reports Admin', 'Cardiology', 3, 1, 1, 2, 1]]);
+    expect(report.totals).toEqual([null, null, 3, 1, 1, 2, 1]);
+  });
+
+  it('adds up pharmacy sales, returns and dispenses by day', async () => {
+    const report = (await runSync('pharmacy_sales', MARCH_10)).json<ReportResult>();
+
+    // Sold 1,500, returned 200, net 1,300; two dispenses of 7 units less 1 brought back. Nothing from the 12th.
+    expect(report.rows).toEqual([['2026-03-10', 2, 1_500, 200, 1_300, 2, 6]]);
+  });
+
   it('adds up what was invoiced, credited, collected and refunded', async () => {
     const report = (await runSync('revenue', MARCH_10)).json<ReportResult>();
 
@@ -331,6 +450,10 @@ describe('the reports answered on the spot', () => {
     const hers = (await runSync('opd_census', MARCH_10, clinic, clinicAdmin)).json<ReportResult>();
 
     expect(hers.rows).toEqual([['2026-03-10', 'Cardiology', 6, 2, 2]]);
+    const sales = (
+      await runSync('pharmacy_sales', MARCH_10, clinic, clinicAdmin)
+    ).json<ReportResult>();
+    expect(sales.rows).toEqual([['2026-03-10', 2, 3_000, 400, 2_600, 2, 12]]);
     const stock = (await runSync('stock', {}, clinic, clinicAdmin)).json<ReportResult>();
     expect(stock.rows[0]?.[1]).toBe(30);
   });

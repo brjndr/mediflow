@@ -1,7 +1,14 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { CursorPage, StringEnum, ref } from '../../core/http/schemas.js';
 
-export const REPORT_KINDS = ['opd_census', 'revenue', 'lab_turnaround', 'stock'] as const;
+export const REPORT_KINDS = [
+  'opd_census',
+  'revenue',
+  'doctor_activity',
+  'lab_turnaround',
+  'pharmacy_sales',
+  'stock',
+] as const;
 export type ReportKind = (typeof REPORT_KINDS)[number];
 
 /** Most days a report may cover, and the most one answered on the spot may. */
