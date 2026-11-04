@@ -15,7 +15,7 @@ docker build -f apps/api/Dockerfile -t mediflow-api .   # from the repo root
 
 The seed creates staff who share a known password, so it refuses to run in production and against any database that is not on this machine (`localhost`, `127.0.0.1` or the Compose service `postgres`). For a throwaway database elsewhere, name its host: `pnpm --filter api db:seed --allow-host=<hostname>`.
 
-Development and tests need no configuration: they default to the Docker Compose database. Production must set `DATABASE_URL`, `SMTP_URL`, `MAIL_FROM`, `APP_BASE_URL` and `MFA_ENCRYPTION_KEY` (`openssl rand -base64 32`), and the process refuses to start without them.
+Development and tests need no configuration: they default to the Docker Compose database. Production must set `DATABASE_URL`, `SMTP_URL`, `MAIL_FROM`, `APP_BASE_URL`, `MFA_ENCRYPTION_KEY` and `REPORT_URL_SECRET` (`openssl rand -base64 32` for each key), and the process refuses to start without them. `DATABASE_REPLICA_URL` is optional: reports read from it when set and from the primary when not.
 
 ## Layout
 
@@ -28,7 +28,8 @@ src/
     auth/         # sign-in, sessions, passwords, invites, password reset, the second factor
     config/       # environment, validated once at startup
     audit/        # the audit log writer (request.audit, route config `audit`)
-    db/           # pool, Drizzle client, migration runner
+    db/           # pool (and the report pool: the read replica when there is one), Drizzle client, migration runner
+    files/        # the file store interface and its local-folder adapter, signed download links
     http/         # the error body and the error handlers
     idempotency/  # idempotency keys for create routes
     imports/      # the registry of import kinds (app.importKinds)
@@ -151,7 +152,7 @@ Sign-in, sessions, links, passwords and the second factor live in `core/auth`; i
 
 ## Features
 
-What was decided for each feature's API is in `src/features/<name>/CLAUDE.md`, which Claude Code loads when a file of that folder is read: `patients` (patients), `staff` (staff), `doctors` (doctors), `departments` (departments), `services` (services and prices), `drugs` (drugs and consumables), `lab-tests` (lab tests), `wards` (wards, rooms and beds), `codes` (diagnosis and procedure codes), `templates` (document templates), `imports` (import centre), `appointments` (appointments), `queue` (the OPD token queue and its event stream), `triage` (vitals, ranges and allergies), `clinical` (encounters, notes, diagnoses, orders and prescriptions, referrals and follow-ups), `lab` (the worklist, samples and results), `radiology` (the imaging worklist and its studies), `inventory` (places, batches, stock, the ledger and adjustments), `pharmacy` (the prescription queue and dispensing), `purchasing` (suppliers, purchase orders, goods receipts and returns to suppliers), `billing` (charges, invoices, payments, credit notes and the cash register). **Read it before changing that feature, or before using it from another one** (its routes, its exports such as `app.importKinds`, or its tables).
+What was decided for each feature's API is in `src/features/<name>/CLAUDE.md`, which Claude Code loads when a file of that folder is read: `patients` (patients), `staff` (staff), `doctors` (doctors), `departments` (departments), `services` (services and prices), `drugs` (drugs and consumables), `lab-tests` (lab tests), `wards` (wards, rooms and beds), `codes` (diagnosis and procedure codes), `templates` (document templates), `imports` (import centre), `appointments` (appointments), `queue` (the OPD token queue and its event stream), `triage` (vitals, ranges and allergies), `clinical` (encounters, notes, diagnoses, orders and prescriptions, referrals and follow-ups), `lab` (the worklist, samples and results), `radiology` (the imaging worklist and its studies), `inventory` (places, batches, stock, the ledger and adjustments), `pharmacy` (the prescription queue and dispensing), `purchasing` (suppliers, purchase orders, goods receipts and returns to suppliers), `billing` (charges, invoices, payments, credit notes and the cash register), `reports` (operational reports, stored runs, quotas and signed downloads). **Read it before changing that feature, or before using it from another one** (its routes, its exports such as `app.importKinds`, or its tables).
 
 ## Contract
 

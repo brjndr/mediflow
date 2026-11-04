@@ -7,13 +7,20 @@ export type Database = NodePgDatabase<typeof schema>;
 
 export interface DbHandle {
   pool: pg.Pool;
+  /**
+   * Where reports read: the read replica when `DATABASE_REPLICA_URL` is set (its own small pool,
+   * so a heavy report cannot take connections from requests), otherwise the primary's pool.
+   */
+  reportPool: pg.Pool;
   db: Database;
   /** True when the database answers a trivial query. Used by the readiness check. */
   ping(): Promise<boolean>;
   close(): Promise<void>;
 }
 
-export function createDb(config: Pick<Config, 'DATABASE_URL' | 'DATABASE_POOL_MAX'>): DbHandle {
+export function createDb(
+  config: Pick<Config, 'DATABASE_URL' | 'DATABASE_POOL_MAX'> & { DATABASE_REPLICA_URL?: string },
+): DbHandle {
   const pool = new pg.Pool({
     connectionString: config.DATABASE_URL,
     max: config.DATABASE_POOL_MAX,
@@ -24,8 +31,19 @@ export function createDb(config: Pick<Config, 'DATABASE_URL' | 'DATABASE_POOL_MA
   // An idle client can error (server restart). Without a listener that would crash the process.
   pool.on('error', () => {});
 
+  const replica = config.DATABASE_REPLICA_URL
+    ? new pg.Pool({
+        connectionString: config.DATABASE_REPLICA_URL,
+        max: Math.max(2, Math.ceil(config.DATABASE_POOL_MAX / 2)),
+        connectionTimeoutMillis: 5_000,
+        idleTimeoutMillis: 30_000,
+      })
+    : undefined;
+  replica?.on('error', () => {});
+
   return {
     pool,
+    reportPool: replica ?? pool,
     db: drizzle(pool, { schema }),
     async ping() {
       try {
@@ -35,6 +53,8 @@ export function createDb(config: Pick<Config, 'DATABASE_URL' | 'DATABASE_POOL_MA
         return false;
       }
     },
-    close: () => pool.end(),
+    close: async () => {
+      await Promise.all([pool.end(), replica?.end()]);
+    },
   };
 }
