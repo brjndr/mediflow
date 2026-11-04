@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { CursorPage, ref, StringEnum } from '../../core/http/schemas.js';
 import { PLAIN_TEXT } from '../../core/http/text.js';
+import { DISCOUNT_REASONS } from './discount.js';
 import { TAX_CLASSES } from './tax.js';
 
 export const DESCRIPTION_MAX = 200;
@@ -98,6 +99,42 @@ export const InvoiceSearch = Type.Object(
   { $id: 'InvoiceSearch', additionalProperties: false },
 );
 
+export const Discount = Type.Object(
+  {
+    kind: StringEnum(['percent', 'amount'], {
+      description: 'A share of what it comes off, or a fixed amount.',
+    }),
+    value: Type.Integer({
+      minimum: 1,
+      maximum: Number.MAX_SAFE_INTEGER,
+      description:
+        'Basis points for a percentage (1000 is 10%, at most 10000), minor units for an amount.',
+    }),
+    reason: StringEnum(DISCOUNT_REASONS),
+  },
+  {
+    $id: 'Discount',
+    additionalProperties: false,
+    description:
+      'A discount the desk gives, with the reason. It comes off before tax; the server works out the amount and refuses one above what it comes off (422 `discount_exceeds`).',
+  },
+);
+export type Discount = Static<typeof Discount>;
+
+export const ChargeDiscount = Type.Object(
+  {
+    chargeId: Id,
+    discount: ref(Discount),
+  },
+  {
+    $id: 'ChargeDiscount',
+    additionalProperties: false,
+    description: 'The discount on the line of one charge.',
+  },
+);
+
+export type ChargeDiscount = Static<typeof ChargeDiscount>;
+
 export const ManualLine = Type.Object(
   {
     description: Type.String({ minLength: 1, maxLength: DESCRIPTION_MAX, pattern: PLAIN_TEXT }),
@@ -109,6 +146,7 @@ export const ManualLine = Type.Object(
           'The class the line is taxed as, at the hospital’s rate for it when the draft is saved. Left out: no tax.',
       }),
     ),
+    discount: Type.Optional(ref(Discount)),
   },
   {
     $id: 'ManualLine',
@@ -133,7 +171,12 @@ export const InvoiceLine = Type.Object(
       maximum: 10000,
       description: 'The rate the line was made with, in basis points (1200 is 12%).',
     }),
-    taxMinor: Minor('The tax on the line, rounded half up; worked out by the server.'),
+    taxMinor: Minor(
+      'The tax on the line, on what is left after the discounts, rounded half up; worked out by the server.',
+    ),
+    discount: Type.Optional(ref(Discount)),
+    discountMinor: Minor('What the line’s own discount takes off, before tax.'),
+    billDiscountMinor: Minor('The line’s share of the discount on the whole bill, before tax.'),
   },
   { $id: 'InvoiceLine', additionalProperties: false },
 );
@@ -150,7 +193,19 @@ export const Invoice = Type.Object(
     number: Type.Optional(Type.String({ description: 'Given when the invoice is issued.' })),
     status: StringEnum(['draft', 'issued', 'paid', 'void']),
     lines: Type.Array(ref(InvoiceLine)),
-    totalMinor: Minor('What is owed: the lines and their tax, worked out by the server.'),
+    totalMinor: Minor(
+      'What is owed: the lines less their discounts, and the tax, worked out by the server.',
+    ),
+    discountMinor: Minor('Line discounts and the bill discount together, before tax.'),
+    billDiscount: Type.Optional(ref(Discount)),
+    discountStatus: StringEnum(['none', 'pending', 'approved'], {
+      description:
+        '`pending`: above the hospital’s limit and waiting for a second person (the invoice is not issued until it is approved); `approved`: approved; `none`: no discount, or one within the limit.',
+    }),
+    discountAppliedBy: Type.Optional(
+      Type.String({ description: 'The user who last changed the discount, while it is pending.' }),
+    ),
+    discountApprovedAt: Type.Optional(Type.String({ format: 'date-time' })),
     taxMinor: Minor('The part of the total that is tax; never changes once issued.'),
     paidMinor: Minor('Payments less refunds.'),
     creditedMinor: Minor('The credit notes against the invoice.'),
@@ -172,6 +227,13 @@ export const InvoiceContent = Type.Object(
   {
     chargeIds: Type.Array(Id, { maxItems: 200 }),
     manualLines: Type.Array(ref(ManualLine), { maxItems: 50 }),
+    chargeDiscounts: Type.Optional(
+      Type.Array(ref(ChargeDiscount), {
+        maxItems: 200,
+        description: 'The discounts on the lines of charges, by charge. Needs discount:apply.',
+      }),
+    ),
+    billDiscount: Type.Optional(ref(Discount)),
   },
   {
     $id: 'InvoiceContent',
@@ -186,6 +248,8 @@ export const InvoiceUpdate = Type.Object(
   {
     chargeIds: Type.Array(Id, { maxItems: 200 }),
     manualLines: Type.Array(ref(ManualLine), { maxItems: 50 }),
+    chargeDiscounts: Type.Optional(Type.Array(ref(ChargeDiscount), { maxItems: 200 })),
+    billDiscount: Type.Optional(ref(Discount)),
     version: Type.Integer({ minimum: 1 }),
   },
   { $id: 'InvoiceUpdate', additionalProperties: false },
@@ -345,7 +409,29 @@ export const TaxRatesUpdate = Type.Object(
 );
 export type TaxRatesUpdate = Static<typeof TaxRatesUpdate>;
 
+export const DiscountSettings = Type.Object(
+  {
+    limitBp: Type.Integer({
+      minimum: 0,
+      maximum: 10000,
+      description:
+        'The most a bill may be discounted without approval, as a share of the bill before tax, in basis points (500 is 5%).',
+    }),
+  },
+  { $id: 'DiscountSettings', additionalProperties: false },
+);
+export type DiscountSettings = Static<typeof DiscountSettings>;
+
+export const DiscountApproval = Type.Object(
+  { version: Type.Integer({ minimum: 1 }) },
+  { $id: 'DiscountApproval', additionalProperties: false },
+);
+
 export const BILLING_SCHEMAS = [
+  Discount,
+  ChargeDiscount,
+  DiscountSettings,
+  DiscountApproval,
   Charge,
   ChargePage,
   ChargeCreate,

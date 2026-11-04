@@ -98,6 +98,11 @@ export default function InvoiceList() {
               {t('tax.heading')}
             </Link>
           </Can>
+          <Can permission="discount:manage">
+            <Link to="/billing/discount-limit" className={LINK}>
+              {t('discount.limit.heading')}
+            </Link>
+          </Can>
           <Can permission="cashRegister:read">
             <Link to="/billing/register/sessions" className={LINK}>
               {t('register.sessionsLink')}

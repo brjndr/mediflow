@@ -2,22 +2,27 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { usePermission } from '@/access';
+import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import {
+  useApproveDiscount,
   useCreateDraft,
+  useDiscountSettings,
   useIssueInvoice,
   usePendingCharges,
   useTaxRates,
   useUpdateDraft,
 } from '../hooks/use-billing';
-import { lineTaxMinor } from '../lib/tax';
+import { aboveLimit, previewDiscounts, taxOnNet } from '../lib/discount';
+import { bpToPercent } from '../lib/tax';
 import { CHARGES_MAX, MANUAL_LINES_MAX } from '../schemas';
-import type { Charge, Invoice, InvoiceContent, ManualLine } from '../types';
+import type { Charge, Discount, Invoice, InvoiceContent, ManualLine } from '../types';
 import { AddChargePanel } from './AddChargePanel';
+import { BILL, DiscountPanel } from './DiscountPanel';
 import { ManualLineForm } from './ManualLineForm';
 
 /** A typed line while it is being built: the API's, with an id for the row. */
@@ -30,6 +35,10 @@ const REFUSED: Record<string, string> = {
   version_conflict: 'builder.refused.conflict',
   conflict: 'builder.refused.conflict',
   empty_invoice: 'builder.refused.empty',
+  discount_needs_approval: 'builder.refused.discountApproval',
+  discount_exceeds: 'builder.refused.discountExceeds',
+  own_discount: 'builder.refused.ownDiscount',
+  discount_not_pending: 'builder.refused.discountNotPending',
   encounter_cancelled: 'builder.refused.cancelled',
 };
 
@@ -57,9 +66,15 @@ export function InvoiceBuilder({
   const canIssue = usePermission('invoice:issue');
   // Typed lines skip the price list: a permission of their own.
   const canAdjust = usePermission('invoice:adjust');
+  // Discounts (#116): giving one, approving another person's, and the limit that decides.
+  const canDiscount = usePermission('discount:apply');
+  const canApprove = usePermission('discount:approve');
+  const me = useSession()?.user.id;
   // The rates only estimate the tax before saving; the server works it out.
   const canSeeRates = usePermission('invoice:read');
   const rates = useTaxRates({ enabled: canSeeRates });
+  const limit = useDiscountSettings({ enabled: canSeeRates });
+  const approve = useApproveDiscount();
   const charges = usePendingCharges(encounterId);
   const create = useCreateDraft(encounterId);
   const update = useUpdateDraft(invoice?.id ?? '');
@@ -86,6 +101,15 @@ export function InvoiceBuilder({
     [picked, invoice, held, available],
   );
   // Each typed line has an id of its own, so a row keeps its place when another is removed.
+  // The discounts, by charge id or typed line key, and on the whole bill.
+  const [discounts, setDiscounts] = useState<Record<string, Discount>>(() =>
+    Object.fromEntries(
+      (invoice?.lines ?? []).flatMap((line) =>
+        line.discount ? [[line.chargeId ?? line.id, line.discount]] : [],
+      ),
+    ),
+  );
+  const [bill, setBill] = useState<Discount | undefined>(invoice?.billDiscount);
   const [manual, setManual] = useState<KeyedLine[]>(() =>
     (invoice?.lines ?? [])
       .filter((line) => !line.chargeId)
@@ -106,36 +130,62 @@ export function InvoiceBuilder({
   const made = useRef<Invoice>(undefined);
 
   const includedCharges = available.filter((charge) => included.has(charge.id));
-  const subtotalMinor =
-    includedCharges.reduce((sum, charge) => sum + charge.totalMinor, 0) +
-    manual.reduce((sum, line) => sum + line.quantity * line.unitPriceMinor, 0);
-  // The tax as the server will work it out, line by line, at the rates now in force.
+  // The tax and the discounts as the server will work them out, line by line, at the rates now
+  // in force: tax follows what is left of a line after its discounts.
   const rateBp = (taxClass: string | undefined) =>
     rates.data?.items.find((item) => item.taxClass === taxClass)?.rateBp ?? 0;
-  const taxMinor =
-    includedCharges.reduce(
-      (sum, charge) =>
-        sum + lineTaxMinor(charge.quantity, charge.unitPriceMinor, rateBp(charge.taxClass)),
-      0,
-    ) +
-    manual.reduce(
-      (sum, line) => sum + lineTaxMinor(line.quantity, line.unitPriceMinor, rateBp(line.taxClass)),
-      0,
-    );
+  const priced = [
+    ...includedCharges.map((charge) => ({
+      key: charge.id,
+      totalMinor: charge.totalMinor,
+      taxClass: charge.taxClass,
+    })),
+    ...manual.map((line) => ({
+      key: line.key,
+      totalMinor: line.quantity * line.unitPriceMinor,
+      taxClass: line.taxClass,
+    })),
+  ];
+  const preview = previewDiscounts(
+    priced.map((row) => ({ totalMinor: row.totalMinor, discount: discounts[row.key] })),
+    bill,
+  );
+  const grossMinor = preview.grossMinor;
+  const subtotalMinor = grossMinor - preview.discountMinor;
+  const taxMinor = priced.reduce(
+    (sum, row, index) =>
+      sum +
+      taxOnNet(
+        row.totalMinor - (preview.own[index] ?? 0) - (preview.shares[index] ?? 0),
+        rateBp(row.taxClass),
+      ),
+    0,
+  );
   const totalMinor = subtotalMinor + taxMinor;
   const lineCount = includedCharges.length + manual.length;
+  const needsApproval =
+    limit.data !== undefined &&
+    preview.discountMinor > 0 &&
+    aboveLimit(preview.discountMinor, grossMinor, limit.data.limitBp);
   const content: InvoiceContent = {
     chargeIds: includedCharges.map((c) => c.id),
-    manualLines: manual.map(({ description, quantity, unitPriceMinor, taxClass }) => ({
+    manualLines: manual.map(({ key, description, quantity, unitPriceMinor, taxClass }) => ({
       description,
       quantity,
       unitPriceMinor,
       ...(taxClass ? { taxClass } : {}),
+      ...(discounts[key] ? { discount: discounts[key] } : {}),
     })),
+    chargeDiscounts: includedCharges.flatMap((charge) =>
+      discounts[charge.id]
+        ? [{ chargeId: charge.id, discount: discounts[charge.id] as Discount }]
+        : [],
+    ),
+    ...(bill ? { billDiscount: bill } : {}),
   };
 
-  const busy = create.isPending || update.isPending || issue.isPending;
-  const failed = create.error ?? update.error ?? issue.error;
+  const busy = create.isPending || update.isPending || issue.isPending || approve.isPending;
+  const failed = create.error ?? update.error ?? issue.error ?? approve.error;
   const code = isApiError(failed) ? failed.serverCode : undefined;
   const failure = failed
     ? code !== undefined && REFUSED[code]
@@ -168,6 +218,7 @@ export function InvoiceBuilder({
     create.reset();
     update.reset();
     issue.reset();
+    approve.reset();
     setSaid('');
     // Whether this press made the draft: if issuing it then fails, the draft is not made twice.
     let created = false;
@@ -303,6 +354,7 @@ export function InvoiceBuilder({
         label: t('line.remove'),
         onSelect: (row) => {
           setManual((lines) => lines.filter((line) => line.key !== row.key));
+          setDiscounts(({ [row.key]: _gone, ...rest }) => rest);
           setSaid('');
         },
       },
@@ -381,6 +433,31 @@ export function InvoiceBuilder({
         </section>
       )}
 
+      {(canDiscount || preview.discountMinor > 0) && lineCount > 0 && (
+        <DiscountPanel
+          targets={priced.map((row) => ({
+            key: row.key,
+            label:
+              includedCharges.find((charge) => charge.id === row.key)?.description ??
+              manual.find((line) => line.key === row.key)?.description ??
+              '',
+          }))}
+          discounts={discounts}
+          bill={bill}
+          canApply={canDiscount}
+          onApply={(target, discount) => {
+            if (target === BILL) setBill(discount);
+            else setDiscounts((current) => ({ ...current, [target]: discount }));
+            setSaid('');
+          }}
+          onRemove={(target) => {
+            if (target === BILL) setBill(undefined);
+            else setDiscounts(({ [target]: _gone, ...rest }) => rest);
+            setSaid('');
+          }}
+        />
+      )}
+
       <section aria-labelledby="total-heading" className="flex flex-col gap-3 border-t pt-4">
         <h2 id="total-heading" className="text-lg font-semibold">
           {t('builder.totalHeading')}
@@ -388,17 +465,74 @@ export function InvoiceBuilder({
         <p className="text-sm text-muted-foreground">
           {t('builder.lineCount', { count: lineCount })}
         </p>
-        {taxMinor > 0 && (
+        {(taxMinor > 0 || preview.discountMinor > 0) && (
           <dl className="grid max-w-xs grid-cols-2 gap-x-4 text-sm">
+            {preview.discountMinor > 0 && (
+              <>
+                <dt className="text-muted-foreground">{t('discount.beforeDiscount')}</dt>
+                <dd className="text-right" data-testid="invoice-gross">
+                  {format.money(grossMinor)}
+                </dd>
+                <dt className="text-muted-foreground">{t('discount.discount')}</dt>
+                <dd className="text-right" data-testid="invoice-discount">
+                  {format.money(preview.discountMinor)}
+                </dd>
+              </>
+            )}
             <dt className="text-muted-foreground">{t('tax.beforeTax')}</dt>
             <dd className="text-right" data-testid="invoice-subtotal">
               {format.money(subtotalMinor)}
             </dd>
-            <dt className="text-muted-foreground">{t('tax.tax')}</dt>
-            <dd className="text-right" data-testid="invoice-tax">
-              {format.money(taxMinor)}
-            </dd>
+            {taxMinor > 0 && (
+              <>
+                <dt className="text-muted-foreground">{t('tax.tax')}</dt>
+                <dd className="text-right" data-testid="invoice-tax">
+                  {format.money(taxMinor)}
+                </dd>
+              </>
+            )}
           </dl>
+        )}
+        {preview.exceeds && (
+          <p role="alert" className="text-sm text-destructive">
+            {t('discount.exceeds')}
+          </p>
+        )}
+        {needsApproval && limit.data && (
+          <p className="text-sm" data-testid="discount-needs-approval">
+            {t('discount.needsApproval', { limit: bpToPercent(limit.data.limitBp) })}
+          </p>
+        )}
+        {invoice?.discountStatus === 'pending' && (
+          <div className="flex flex-col items-start gap-2" data-testid="discount-pending">
+            <p className="text-sm font-medium">{t('discount.pending')}</p>
+            {canApprove && invoice.discountAppliedBy !== me ? (
+              <Button
+                type="button"
+                variant="outline"
+                aria-disabled={busy || undefined}
+                onClick={() => {
+                  if (busy) return;
+                  setSaid('');
+                  approve.mutate(
+                    { invoiceId: invoice.id, version: invoice.version },
+                    { onSuccess: () => setSaid(t('discount.approved')) },
+                  );
+                }}
+              >
+                {approve.isPending ? t('discount.approving') : t('discount.approve')}
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {invoice.discountAppliedBy === me && canApprove
+                  ? t('discount.someoneElse')
+                  : t('discount.waiting')}
+              </p>
+            )}
+          </div>
+        )}
+        {invoice?.discountStatus === 'approved' && (
+          <p className="text-sm text-muted-foreground">{t('discount.approvedNote')}</p>
         )}
         <p className="text-2xl font-semibold" data-testid="invoice-total">
           <span className="sr-only">{t('builder.total')}: </span>

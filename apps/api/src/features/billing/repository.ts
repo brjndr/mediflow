@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import { searchTerm } from '../../core/http/text.js';
+import { columnsOf, discountOf, inputFrom, spread, type DiscountInput } from './discount.js';
 import { taxRatesOf, type TaxClass } from './tax.js';
 
 /**
@@ -138,6 +139,13 @@ export interface InvoiceRow {
   version: number;
   created_at: Date;
   issued_at: Date | null;
+  discount_minor: string;
+  discount_status: string;
+  discount_applied_by: string | null;
+  discount_approved_at: Date | null;
+  bill_discount_bp: number | null;
+  bill_discount_amount_minor: string | null;
+  bill_discount_reason: string | null;
   lines: {
     id: string;
     chargeId: string | null;
@@ -149,6 +157,11 @@ export interface InvoiceRow {
     taxClass: string | null;
     taxRateBp: number;
     taxMinor: number;
+    discountBp: number | null;
+    discountAmountMinor: number | null;
+    discountReason: string | null;
+    discountMinor: number;
+    billDiscountMinor: number;
   }[];
   at_exact: string;
   total: number;
@@ -160,10 +173,15 @@ const INVOICE_SELECT = `
     i.number, i.status, i.total_minor::text, i.tax_minor::text, i.paid_minor::text,
     i.credited_minor::text,
     i.currency, i.version, i.created_at, i.issued_at,
+    i.discount_minor::text, i.discount_status, i.discount_applied_by, i.discount_approved_at,
+    i.bill_discount_bp, i.bill_discount_amount_minor::text, i.bill_discount_reason,
     coalesce((select json_agg(json_build_object('id', l.id, 'chargeId', l.charge_id,
         'source', l.source, 'description', l.description, 'quantity', l.quantity,
         'unitPriceMinor', l.unit_price_minor, 'totalMinor', l.total_minor,
-        'taxClass', l.tax_class, 'taxRateBp', l.tax_rate_bp, 'taxMinor', l.tax_minor)
+        'taxClass', l.tax_class, 'taxRateBp', l.tax_rate_bp, 'taxMinor', l.tax_minor,
+        'discountBp', l.discount_bp, 'discountAmountMinor', l.discount_amount_minor,
+        'discountReason', l.discount_reason, 'discountMinor', l.discount_minor,
+        'billDiscountMinor', l.bill_discount_minor)
         order by l.line_number)
       from invoice_lines l where l.tenant_id = i.tenant_id and l.invoice_id = i.id), '[]') as lines,
     ${EXACT('i.created_at')} as at_exact, count(*) over ()::int as total
@@ -265,6 +283,8 @@ export interface LockedInvoice {
   paid_minor: string;
   credited_minor: string;
   version: number;
+  discount_status: string;
+  discount_applied_by: string | null;
 }
 
 /** Holds the invoice against every other change until the transaction ends. */
@@ -275,7 +295,8 @@ export async function lockInvoice(
   if (!isUuid(id)) return null;
   const { rows } = await client.query<LockedInvoice>(
     `select id, encounter_id, patient_id, status, total_minor::text, paid_minor::text,
-       credited_minor::text, version
+       credited_minor::text, version,
+       discount_status, discount_applied_by
      from invoices where id = $1 for update`,
     [id],
   );
@@ -299,20 +320,34 @@ export interface ManualLineInput {
   unitPriceMinor: number;
   /** The class the line is taxed as; null means no tax. */
   taxClass: TaxClass | null;
+  discount: DiscountInput | null;
 }
+
+/** A line's own discount row, as it is stored. */
+interface DiscountColumns {
+  discount_bp: number | null;
+  discount_amount_minor: string | null;
+  discount_reason: string | null;
+}
+const discountOfRow = (row: DiscountColumns): DiscountInput | null =>
+  inputFrom(row.discount_bp, row.discount_amount_minor, row.discount_reason);
 
 /** The lines a draft holds that were typed in, as they are now. */
 export async function manualLinesOf(
   client: pg.ClientBase,
   invoiceId: string,
 ): Promise<ManualLineInput[]> {
-  const { rows } = await client.query<{
-    description: string;
-    quantity: number;
-    unit_price_minor: string;
-    tax_class: TaxClass | null;
-  }>(
-    `select description, quantity, unit_price_minor::text, tax_class from invoice_lines
+  const { rows } = await client.query<
+    {
+      description: string;
+      quantity: number;
+      unit_price_minor: string;
+      tax_class: TaxClass | null;
+    } & DiscountColumns
+  >(
+    `select description, quantity, unit_price_minor::text, tax_class, discount_bp,
+       discount_amount_minor::text, discount_reason
+     from invoice_lines
      where invoice_id = $1 and charge_id is null order by line_number`,
     [invoiceId],
   );
@@ -321,7 +356,59 @@ export async function manualLinesOf(
     quantity: row.quantity,
     unitPriceMinor: num(row.unit_price_minor),
     taxClass: row.tax_class,
+    discount: discountOfRow(row),
   }));
+}
+
+/** What a draft carries now: the discount of each charge line, and of the bill. */
+export interface DraftDiscounts {
+  charges: Record<string, DiscountInput | null>;
+  bill: DiscountInput | null;
+  status: string;
+  appliedBy: string | null;
+  approvedMinor: number | null;
+  approvedGrossMinor: number | null;
+  discountMinor: number;
+}
+
+export async function discountsOf(
+  client: pg.ClientBase,
+  invoiceId: string,
+): Promise<DraftDiscounts> {
+  const lines = await client.query<DiscountColumns & { charge_id: string }>(
+    `select charge_id, discount_bp, discount_amount_minor::text, discount_reason
+     from invoice_lines where invoice_id = $1 and charge_id is not null`,
+    [invoiceId],
+  );
+  const invoice = await client.query<{
+    bill_discount_bp: number | null;
+    bill_discount_amount_minor: string | null;
+    bill_discount_reason: string | null;
+    discount_status: string;
+    discount_applied_by: string | null;
+    discount_approved_minor: string | null;
+    discount_approved_gross_minor: string | null;
+    discount_minor: string;
+  }>(
+    `select bill_discount_bp, bill_discount_amount_minor::text, bill_discount_reason,
+       discount_status, discount_applied_by, discount_approved_minor::text,
+       discount_approved_gross_minor::text, discount_minor::text
+     from invoices where id = $1`,
+    [invoiceId],
+  );
+  const row = invoice.rows[0];
+  return {
+    charges: Object.fromEntries(lines.rows.map((line) => [line.charge_id, discountOfRow(line)])),
+    bill: row
+      ? inputFrom(row.bill_discount_bp, row.bill_discount_amount_minor, row.bill_discount_reason)
+      : null,
+    status: row?.discount_status ?? 'none',
+    appliedBy: row?.discount_applied_by ?? null,
+    approvedMinor: row?.discount_approved_minor == null ? null : num(row.discount_approved_minor),
+    approvedGrossMinor:
+      row?.discount_approved_gross_minor == null ? null : num(row.discount_approved_gross_minor),
+    discountMinor: num(row?.discount_minor),
+  };
 }
 
 export interface HeldCharge {
@@ -372,71 +459,166 @@ export async function holdCharges(
   ]);
 }
 
+export interface DraftAmounts {
+  /** What is owed: the lines less their discounts, and the tax on what is left. */
+  totalMinor: number;
+  taxMinor: number;
+  /** Line discounts and the bill discount together, before tax. */
+  discountMinor: number;
+  /** The lines before any discount and before tax. */
+  grossMinor: number;
+}
+
+export type DraftLine = HeldCharge & { discount: DiscountInput | null };
+
+/**
+ * Writes the lines of a draft: each line's own discount, then the bill discount spread over what
+ * the lines cost after theirs, and the database works out each line's tax on what is left.
+ */
 export async function replaceLines(
   client: pg.ClientBase,
   invoiceId: string,
-  charges: HeldCharge[],
+  charges: DraftLine[],
   manual: ManualLineInput[],
-): Promise<{ totalMinor: number; taxMinor: number }> {
+  bill: DiscountInput | null,
+): Promise<DraftAmounts> {
   await client.query('delete from invoice_lines where invoice_id = $1', [invoiceId]);
   // The rates in effect now: a draft is priced when it is saved, an issued invoice keeps them.
   const rates = await taxRatesOf(client);
   const rateOf = (taxClass: TaxClass | null) => (taxClass === null ? 0 : rates[taxClass]);
-  let number = 0;
-  for (const charge of charges) {
-    number += 1;
+  const entries = [
+    ...charges.map((charge) => ({
+      chargeId: charge.id as string | null,
+      source: charge.source,
+      description: charge.description,
+      quantity: charge.quantity,
+      price: BigInt(charge.unit_price_minor),
+      taxClass: charge.tax_class,
+      discount: charge.discount,
+    })),
+    ...manual.map((line) => ({
+      chargeId: null as string | null,
+      source: 'manual',
+      description: line.description,
+      quantity: line.quantity,
+      price: BigInt(line.unitPriceMinor),
+      taxClass: line.taxClass,
+      discount: line.discount,
+    })),
+  ];
+  const gross = entries.map((entry) => BigInt(entry.quantity) * entry.price);
+  const own = entries.map((entry, index) => discountOf(gross[index] ?? 0n, entry.discount));
+  const bases = gross.map((value, index) => value - (own[index] ?? 0n));
+  const billTotal = discountOf(
+    bases.reduce((a, b) => a + b, 0n),
+    bill,
+  );
+  const shares = spread(bases, billTotal);
+  for (const [index, entry] of entries.entries()) {
+    const columns = columnsOf(entry.discount);
     await client.query(
       `insert into invoice_lines (tenant_id, invoice_id, line_number, charge_id, source,
-         description, quantity, unit_price_minor, tax_class, tax_rate_bp)
-       values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+         description, quantity, unit_price_minor, tax_class, tax_rate_bp, discount_bp,
+         discount_amount_minor, discount_reason, bill_discount_minor)
+       values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         invoiceId,
-        number,
-        charge.id,
-        charge.source,
-        charge.description,
-        charge.quantity,
-        charge.unit_price_minor,
-        charge.tax_class,
-        rateOf(charge.tax_class),
+        index + 1,
+        entry.chargeId,
+        entry.source,
+        entry.description,
+        entry.quantity,
+        entry.price.toString(),
+        entry.taxClass,
+        rateOf(entry.taxClass),
+        columns.bp,
+        columns.amount,
+        columns.reason,
+        (shares[index] ?? 0n).toString(),
       ],
     );
   }
-  for (const line of manual) {
-    number += 1;
-    await client.query(
-      `insert into invoice_lines (tenant_id, invoice_id, line_number, source, description,
-         quantity, unit_price_minor, tax_class, tax_rate_bp)
-       values (app_tenant_id(), $1, $2, 'manual', $3, $4, $5, $6, $7)`,
-      [
-        invoiceId,
-        number,
-        line.description,
-        line.quantity,
-        line.unitPriceMinor,
-        line.taxClass,
-        rateOf(line.taxClass),
-      ],
-    );
-  }
-  const { rows } = await client.query<{ total: string; tax: string }>(
-    `select coalesce(sum(total_minor), 0)::text as total, coalesce(sum(tax_minor), 0)::text as tax
+  const { rows } = await client.query<{
+    total: string;
+    tax: string;
+    discount: string;
+    gross: string;
+  }>(
+    `select coalesce(sum(total_minor - discount_minor - bill_discount_minor), 0)::text as total,
+       coalesce(sum(tax_minor), 0)::text as tax,
+       coalesce(sum(discount_minor + bill_discount_minor), 0)::text as discount,
+       coalesce(sum(total_minor), 0)::text as gross
      from invoice_lines where invoice_id = $1`,
     [invoiceId],
   );
   const taxMinor = num(rows[0]?.tax);
-  return { totalMinor: num(rows[0]?.total) + taxMinor, taxMinor };
+  return {
+    totalMinor: num(rows[0]?.total) + taxMinor,
+    taxMinor,
+    discountMinor: num(rows[0]?.discount),
+    grossMinor: num(rows[0]?.gross),
+  };
 }
 
-export async function setDraftTotal(
+export interface DraftDiscountState {
+  bill: DiscountInput | null;
+  status: 'none' | 'pending' | 'approved';
+  appliedBy: string | null;
+}
+
+/**
+ * Saves a draft's amounts and discount standing. A status of `approved` keeps the approval it
+ * already had; anything else clears it.
+ */
+export async function setDraftState(
   client: pg.ClientBase,
   invoiceId: string,
-  amounts: { totalMinor: number; taxMinor: number },
+  amounts: DraftAmounts,
+  state: DraftDiscountState,
   bumpVersion: boolean,
 ): Promise<void> {
+  const bill = columnsOf(state.bill);
   await client.query(
-    'update invoices set total_minor = $2, tax_minor = $3, version = version + $4 where id = $1',
-    [invoiceId, amounts.totalMinor, amounts.taxMinor, bumpVersion ? 1 : 0],
+    `update invoices set total_minor = $2, tax_minor = $3, discount_minor = $4,
+       bill_discount_bp = $5, bill_discount_amount_minor = $6, bill_discount_reason = $7,
+       discount_status = $8::text, discount_applied_by = $9,
+       discount_approved_by = case when $8::text = 'approved' then discount_approved_by end,
+       discount_approved_at = case when $8::text = 'approved' then discount_approved_at end,
+       discount_approved_minor = case when $8::text = 'approved' then discount_approved_minor end,
+       discount_approved_gross_minor =
+         case when $8::text = 'approved' then discount_approved_gross_minor end,
+       version = version + $10
+     where id = $1`,
+    [
+      invoiceId,
+      amounts.totalMinor,
+      amounts.taxMinor,
+      amounts.discountMinor,
+      bill.bp,
+      bill.amount,
+      bill.reason,
+      state.status,
+      state.appliedBy,
+      bumpVersion ? 1 : 0,
+    ],
+  );
+}
+
+/** A second person approves the discount on a draft, for the amount it stands at. */
+export async function approveDiscount(
+  client: pg.ClientBase,
+  invoiceId: string,
+  approver: string,
+): Promise<void> {
+  await client.query(
+    `update invoices set discount_status = 'approved', discount_approved_by = $2,
+       discount_approved_at = now(), discount_approved_minor = discount_minor,
+       discount_approved_gross_minor = (
+         select coalesce(sum(total_minor), 0) from invoice_lines where invoice_id = $1
+       ),
+       version = version + 1
+     where id = $1`,
+    [invoiceId, approver],
   );
 }
 

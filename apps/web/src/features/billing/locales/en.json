@@ -134,7 +134,11 @@
       "notDraft": "This invoice was issued meanwhile and can no longer be changed.",
       "conflict": "Someone else changed this draft. It has been read again; your choices are kept, so check them and try again.",
       "empty": "Put at least one line on the bill.",
-      "cancelled": "This visit was cancelled and has nothing to bill."
+      "cancelled": "This visit was cancelled and has nothing to bill.",
+      "discountApproval": "The discount on this bill is above the limit and waits for approval by someone else. It can be issued once it is approved.",
+      "discountExceeds": "A discount is more than the amount it comes off.",
+      "ownDiscount": "A discount is approved by someone other than the person who gave it.",
+      "discountNotPending": "No discount on this bill waits for approval."
     }
   },
   "payment": {
@@ -354,5 +358,65 @@
       "standard": "Standard rate",
       "higher": "Higher rate"
     }
+  },
+  "discount": {
+    "heading": "Discounts",
+    "hint": "Take a percentage or an amount off one line or the whole bill, before tax. Every discount has a reason.",
+    "none": "No discounts on this bill.",
+    "wholeBill": "Whole bill",
+    "columns": {
+      "target": "Applies to",
+      "discount": "Discount",
+      "reason": "Reason"
+    },
+    "percentOf": "{{percent}}%",
+    "remove": "Remove discount",
+    "removed": "Discount removed. Save the draft to keep this.",
+    "added": "Discount added. Save the draft to keep it.",
+    "target": "Applies to",
+    "kind": "Kind",
+    "kindPercent": "Percentage",
+    "kindAmount": "Amount",
+    "value": "Discount",
+    "valueHint": "A percentage such as 7.5, or an amount in the hospital’s currency.",
+    "percentInvalid": "Type a percentage from 0.01 to 100 with up to two decimals, such as 7.5.",
+    "amountInvalid": "Type an amount above nothing, such as 150 or 150.50.",
+    "reasonLabel": "Reason",
+    "add": "Add discount",
+    "reason": {
+      "staff": "Staff",
+      "charity": "Charity or concession",
+      "senior_citizen": "Senior citizen",
+      "goodwill": "Goodwill",
+      "correction": "Correction",
+      "other": "Other"
+    },
+    "beforeDiscount": "Before discount",
+    "discount": "Discount",
+    "exceeds": "A discount is more than the amount it comes off.",
+    "needsApproval": "This discount is above the hospital’s limit of {{limit}}% of the bill. Someone other than you must approve it before the invoice is issued.",
+    "pending": "The discount on this draft waits for approval.",
+    "approve": "Approve discount",
+    "approving": "Approving…",
+    "approved": "Discount approved.",
+    "approvedNote": "The discount on this draft is approved.",
+    "someoneElse": "You gave this discount, so someone else must approve it.",
+    "waiting": "Someone with the right to approve discounts must approve it before it is issued.",
+    "line": "Discount",
+    "status": {
+      "pending": "Waiting for approval",
+      "approved": "Approved"
+    },
+    "limit": {
+      "heading": "Discount limit",
+      "description": "The most a bill may be discounted without approval, as a share of the bill before tax. A discount above it waits for someone other than the person who gave it.",
+      "back": "Back to invoices",
+      "label": "Limit",
+      "hint": "A percentage from 0 to 100: 5 allows up to 5% off a bill without approval.",
+      "submit": "Save limit",
+      "saving": "Saving…",
+      "saved": "Limit saved. It applies when a draft is next saved."
+    },
+    "limitInvalid": "Type a percentage from 0 to 100 with up to two decimals, such as 5."
   }
 }

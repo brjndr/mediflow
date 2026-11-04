@@ -21,6 +21,7 @@ export const billingFeature: FeatureManifest = {
         sessions: 'Register sessions',
         session: 'Register session',
         taxRates: 'Tax rates',
+        discountLimit: 'Discount limit',
       },
     },
     load: (language) => import(`./locales/${language}.json`),
@@ -70,6 +71,12 @@ export const billingFeature: FeatureManifest = {
       requires: ['taxRate:manage', 'invoice:read'],
       titleKey: 'taxRates',
     },
+    {
+      path: 'billing/discount-limit',
+      lazy: () => import('./routes/DiscountLimit'),
+      requires: ['discount:manage', 'invoice:read'],
+      titleKey: 'discountLimit',
+    },
   ],
   extensions: [
     {
@@ -93,6 +100,9 @@ export const billingFeature: FeatureManifest = {
     'cashRegister:read',
     'cashRegister:manage',
     'taxRate:manage',
+    'discount:apply',
+    'discount:approve',
+    'discount:manage',
     'encounter:read',
   ],
 };

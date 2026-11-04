@@ -8557,6 +8557,68 @@
           }
         }
       },
+      "Discount": {
+        "additionalProperties": false,
+        "description": "A discount the desk gives, with the reason. It comes off before tax; the server works out the amount and refuses one above what it comes off (422 `discount_exceeds`).",
+        "type": "object",
+        "required": ["kind", "value", "reason"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["percent", "amount"],
+            "description": "A share of what it comes off, or a fixed amount."
+          },
+          "value": {
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "Basis points for a percentage (1000 is 10%, at most 10000), minor units for an amount.",
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string",
+            "enum": ["staff", "charity", "senior_citizen", "goodwill", "correction", "other"]
+          }
+        }
+      },
+      "ChargeDiscount": {
+        "additionalProperties": false,
+        "description": "The discount on the line of one charge.",
+        "type": "object",
+        "required": ["chargeId", "discount"],
+        "properties": {
+          "chargeId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "discount": {
+            "$ref": "#/components/schemas/Discount"
+          }
+        }
+      },
+      "DiscountSettings": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["limitBp"],
+        "properties": {
+          "limitBp": {
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "The most a bill may be discounted without approval, as a share of the bill before tax, in basis points (500 is 5%).",
+            "type": "integer"
+          }
+        }
+      },
+      "DiscountApproval": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
       "Charge": {
         "additionalProperties": false,
         "description": "Billable work posted to a visit. Priced when it was posted; never changes afterwards.",
@@ -8700,6 +8762,9 @@
             "type": "string",
             "enum": ["exempt", "reduced", "standard", "higher"],
             "description": "The class the line is taxed as, at the hospital’s rate for it when the draft is saved. Left out: no tax."
+          },
+          "discount": {
+            "$ref": "#/components/schemas/Discount"
           }
         }
       },
@@ -8714,7 +8779,9 @@
           "unitPriceMinor",
           "totalMinor",
           "taxRateBp",
-          "taxMinor"
+          "taxMinor",
+          "discountMinor",
+          "billDiscountMinor"
         ],
         "properties": {
           "id": {
@@ -8756,7 +8823,20 @@
           },
           "taxMinor": {
             "minimum": 0,
-            "description": "The tax on the line, rounded half up; worked out by the server.",
+            "description": "The tax on the line, on what is left after the discounts, rounded half up; worked out by the server.",
+            "type": "integer"
+          },
+          "discount": {
+            "$ref": "#/components/schemas/Discount"
+          },
+          "discountMinor": {
+            "minimum": 0,
+            "description": "What the line’s own discount takes off, before tax.",
+            "type": "integer"
+          },
+          "billDiscountMinor": {
+            "minimum": 0,
+            "description": "The line’s share of the discount on the whole bill, before tax.",
             "type": "integer"
           }
         }
@@ -8775,6 +8855,8 @@
           "status",
           "lines",
           "totalMinor",
+          "discountMinor",
+          "discountStatus",
           "taxMinor",
           "paidMinor",
           "creditedMinor",
@@ -8817,8 +8899,29 @@
           },
           "totalMinor": {
             "minimum": 0,
-            "description": "What is owed: the lines and their tax, worked out by the server.",
+            "description": "What is owed: the lines less their discounts, and the tax, worked out by the server.",
             "type": "integer"
+          },
+          "discountMinor": {
+            "minimum": 0,
+            "description": "Line discounts and the bill discount together, before tax.",
+            "type": "integer"
+          },
+          "billDiscount": {
+            "$ref": "#/components/schemas/Discount"
+          },
+          "discountStatus": {
+            "type": "string",
+            "enum": ["none", "pending", "approved"],
+            "description": "`pending`: above the hospital’s limit and waiting for a second person (the invoice is not issued until it is approved); `approved`: approved; `none`: no discount, or one within the limit."
+          },
+          "discountAppliedBy": {
+            "description": "The user who last changed the discount, while it is pending.",
+            "type": "string"
+          },
+          "discountApprovedAt": {
+            "format": "date-time",
+            "type": "string"
           },
           "taxMinor": {
             "minimum": 0,
@@ -8932,6 +9035,17 @@
             "items": {
               "$ref": "#/components/schemas/ManualLine"
             }
+          },
+          "chargeDiscounts": {
+            "maxItems": 200,
+            "description": "The discounts on the lines of charges, by charge. Needs discount:apply.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChargeDiscount"
+            }
+          },
+          "billDiscount": {
+            "$ref": "#/components/schemas/Discount"
           }
         }
       },
@@ -8954,6 +9068,16 @@
             "items": {
               "$ref": "#/components/schemas/ManualLine"
             }
+          },
+          "chargeDiscounts": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChargeDiscount"
+            }
+          },
+          "billDiscount": {
+            "$ref": "#/components/schemas/Discount"
           },
           "version": {
             "minimum": 1,
@@ -34371,6 +34495,266 @@
             }
           },
           "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/discount-settings": {
+      "get": {
+        "operationId": "getDiscountSettings",
+        "tags": ["billing"],
+        "description": "The most a bill may be discounted without approval, as a share of the bill before tax in basis points (#116); 500 (5%) until the hospital sets another. Requires invoice:read with the scope `all` and the billing feature flag.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setDiscountSettings",
+        "tags": ["billing"],
+        "description": "Sets the share of a bill that may be discounted without approval (#116). It applies when a draft is next saved, so a draft already pending stays pending. The Idempotency-Key header is required. Requires discount:manage and invoice:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountSettings"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/{invoiceId}/discount-approval": {
+      "post": {
+        "operationId": "approveInvoiceDiscount",
+        "tags": ["billing"],
+        "description": "Approves the discount on a draft that is above the hospital’s limit (#116), for the amount it stands at. Not the person who gave or last changed it (403 `own_discount`); the invoice must be a draft (409 `invoice_not_draft`) whose discount is pending (409 `discount_not_pending`), at the version the approver saw (409 `version_conflict`). Any later change to the discount asks again. The Idempotency-Key header is required: a repeat approves nothing more. Requires discount:approve and invoice:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountApproval"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bill of one visit. A draft can be changed; once issued it never is.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

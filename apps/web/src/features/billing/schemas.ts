@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { PLAIN_TEXT } from '@/shared/utils/text';
 import type {
+  Discount,
+  DiscountSettings,
   TaxRates,
   Charge,
   ChargePage,
@@ -48,6 +50,25 @@ export const chargePageSchema: z.ZodType<ChargePage> = z.object({
   total: z.number().int().optional(),
 });
 
+export const DISCOUNT_REASONS = [
+  'staff',
+  'charity',
+  'senior_citizen',
+  'goodwill',
+  'correction',
+  'other',
+] as const;
+
+export const discountSchema: z.ZodType<Discount> = z.object({
+  kind: z.enum(['percent', 'amount']),
+  value: z.number().int(),
+  reason: z.enum(DISCOUNT_REASONS),
+});
+
+export const discountSettingsSchema: z.ZodType<DiscountSettings> = z.object({
+  limitBp: z.number().int(),
+});
+
 export const invoiceSchema: z.ZodType<Invoice> = z.object({
   id: z.string(),
   tenantId: z.string(),
@@ -69,9 +90,17 @@ export const invoiceSchema: z.ZodType<Invoice> = z.object({
       taxClass: z.enum(TAX_CLASSES).optional(),
       taxRateBp: z.number().int(),
       taxMinor: z.number().int(),
+      discount: discountSchema.optional(),
+      discountMinor: z.number().int(),
+      billDiscountMinor: z.number().int(),
     }),
   ),
   totalMinor: z.number().int(),
+  discountMinor: z.number().int(),
+  billDiscount: discountSchema.optional(),
+  discountStatus: z.enum(['none', 'pending', 'approved']),
+  discountAppliedBy: z.string().optional(),
+  discountApprovedAt: z.string().optional(),
   taxMinor: z.number().int(),
   paidMinor: z.number().int(),
   creditedMinor: z.number().int(),
@@ -334,3 +363,50 @@ export function createTaxRatesSchema(check: (text: string) => number | null) {
 }
 export type TaxRatesInput = z.input<ReturnType<typeof createTaxRatesSchema>>;
 export type TaxRatesValues = z.output<ReturnType<typeof createTaxRatesSchema>>;
+
+/**
+ * The form that gives a discount (#116): where it goes (the whole bill or one line), a
+ * percentage or an amount, and why. The value stays text until the screen reads it on its digits:
+ * `checkPercent` (0.01 to 100, as `percentToBp`) or `checkMoney` (as `toMinor`, above nothing).
+ */
+export function createDiscountSchema(
+  checkPercent: (text: string) => number | null,
+  checkMoney: (text: string) => number | null,
+) {
+  return z
+    .object({
+      target: z.string().min(1, 'validation.required'),
+      kind: z.enum(['percent', 'amount']),
+      value: z.string().trim().min(1, 'validation.required'),
+      reason: z.enum(DISCOUNT_REASONS),
+    })
+    .superRefine((values, context) => {
+      const read =
+        values.kind === 'percent' ? checkPercent(values.value) : checkMoney(values.value);
+      if (read === null || read < 1) {
+        context.addIssue({
+          code: 'custom',
+          path: ['value'],
+          message:
+            values.kind === 'percent'
+              ? 'billing:discount.percentInvalid'
+              : 'billing:discount.amountInvalid',
+        });
+      }
+    });
+}
+export type DiscountInput = z.input<ReturnType<typeof createDiscountSchema>>;
+export type DiscountValues = z.output<ReturnType<typeof createDiscountSchema>>;
+
+/** The form for the limit: a percentage of the bill, 0 to 100. */
+export function createDiscountLimitSchema(check: (text: string) => number | null) {
+  return z.object({
+    limit: z
+      .string()
+      .trim()
+      .min(1, 'validation.required')
+      .refine((text) => check(text) !== null, 'billing:discount.limitInvalid'),
+  });
+}
+export type DiscountLimitInput = z.input<ReturnType<typeof createDiscountLimitSchema>>;
+export type DiscountLimitValues = z.output<ReturnType<typeof createDiscountLimitSchema>>;

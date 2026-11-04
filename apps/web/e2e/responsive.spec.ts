@@ -264,6 +264,12 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Cash register sessions' })).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // The discount limit (#116): one field, in one column.
+  await goTo(page, 'Billing');
+  await page.getByRole('link', { name: 'Discount limit' }).click();
+  await expect(page.getByRole('heading', { name: 'Discount limit', level: 1 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   // The pharmacy (#100): the queue as cards on a phone, a prescription's lines, and dispensing a
   // line in place.
   await goTo(page, 'Pharmacy');
