@@ -211,5 +211,7 @@ describe('app.notifier', () => {
     } finally {
       await real.close();
     }
-  });
+    // Two whole apps are built here, which grows with every feature registered: the default
+    // limit of five seconds is no longer enough on a busy runner.
+  }, 30_000);
 });

@@ -194,6 +194,104 @@ const stock: Query = async (client, _from, _to, limit) => {
   ]);
 };
 
+const doctorActivity: Query = async (client, from, to, limit) => {
+  const { rows } = await client.query<{
+    doctor: string;
+    department: string | null;
+    opened: number;
+    closed: number;
+    cancelled: number;
+    completed: number;
+    no_shows: number;
+  }>(
+    `with b as (select ${DAY_BOUNDS} from tenants t where t.id = app_tenant_id()),
+     seen as (
+       select e.attending_doctor_id as doctor_id,
+              count(*)::int as opened,
+              (count(*) filter (where e.status = 'closed'))::int as closed,
+              (count(*) filter (where e.status = 'cancelled'))::int as cancelled,
+              0 as completed, 0 as no_shows
+       from encounters e, b
+       where e.tenant_id = app_tenant_id() and e.type = 'opd' and e.attending_doctor_id is not null
+         and e.opened_at >= b.lo and e.opened_at < b.hi
+       group by e.attending_doctor_id
+       union all
+       select a.doctor_id, 0, 0, 0,
+              (count(*) filter (where a.status = 'completed'))::int,
+              (count(*) filter (where a.status = 'no_show'))::int
+       from appointments a, b
+       where a.tenant_id = app_tenant_id() and a.starts_at >= b.lo and a.starts_at < b.hi
+       group by a.doctor_id
+     )
+     select u.name as doctor, d.name as department,
+            sum(s.opened)::int as opened, sum(s.closed)::int as closed,
+            sum(s.cancelled)::int as cancelled, sum(s.completed)::int as completed,
+            sum(s.no_shows)::int as no_shows
+     from seen s
+     join doctors dr on dr.tenant_id = app_tenant_id() and dr.id = s.doctor_id
+     join users u on u.id = dr.user_id
+     left join departments d on d.tenant_id = dr.tenant_id and d.id = dr.department_id
+     group by dr.id, u.name, d.name
+     order by u.name, dr.id
+     limit $3`,
+    [from, to, limit + 1],
+  );
+  return rows.map((r) => [
+    r.doctor,
+    r.department,
+    r.opened,
+    r.closed,
+    r.cancelled,
+    r.completed,
+    r.no_shows,
+  ]);
+};
+
+const pharmacySales: Query = async (client, from, to, limit) => {
+  const { rows } = await client.query<{
+    day: string;
+    sales: number;
+    sold: string;
+    returned: string;
+    dispenses: number;
+    units: string;
+  }>(
+    `with t as (select timezone from tenants where id = app_tenant_id()),
+     b as (select ${DAY_BOUNDS} from t),
+     moved as (
+       select (s.sold_at at time zone t.timezone)::date as day, 1 as sales, s.total_minor as sold,
+              0::bigint as returned, 0 as dispenses, 0::bigint as units
+       from pharmacy_sales s, b, t
+       where s.tenant_id = app_tenant_id() and s.sold_at >= b.lo and s.sold_at < b.hi
+       union all
+       select (r.returned_at at time zone t.timezone)::date, 0, 0::bigint, r.total_minor, 0, 0::bigint
+       from pharmacy_sale_returns r, b, t
+       where r.tenant_id = app_tenant_id() and r.returned_at >= b.lo and r.returned_at < b.hi
+       union all
+       select (x.dispensed_at at time zone t.timezone)::date, 0, 0::bigint, 0::bigint, 1,
+              x.quantity::bigint
+       from dispenses x, b, t
+       where x.tenant_id = app_tenant_id() and x.dispensed_at >= b.lo and x.dispensed_at < b.hi
+       union all
+       select (r.returned_at at time zone t.timezone)::date, 0, 0::bigint, 0::bigint, 0,
+              -l.quantity::bigint
+       from dispense_returns r
+       join dispense_return_lines l on l.tenant_id = r.tenant_id and l.return_id = r.id, b, t
+       where r.tenant_id = app_tenant_id() and r.returned_at >= b.lo and r.returned_at < b.hi
+     )
+     select day::text as day, sum(sales)::int as sales, sum(sold)::text as sold,
+            sum(returned)::text as returned, sum(dispenses)::int as dispenses,
+            sum(units)::text as units
+     from moved group by day order by day limit $3`,
+    [from, to, limit + 1],
+  );
+  return rows.map((r) => {
+    const sold = num(r.sold);
+    const returned = num(r.returned);
+    return [r.day, r.sales, sold, returned, sold - returned, r.dispenses, num(r.units)];
+  });
+};
+
 const col = (key: string, type: ReportColumn['type']): ReportColumn => ({ key, type });
 
 const DEFINITIONS: Record<
@@ -240,6 +338,32 @@ const DEFINITIONS: Record<
     ],
     sums: ['results'],
     query: labTurnaround,
+  },
+  doctor_activity: {
+    columns: [
+      col('doctor', 'text'),
+      col('department', 'text'),
+      col('opened', 'integer'),
+      col('closed', 'integer'),
+      col('cancelled', 'integer'),
+      col('appointmentsCompleted', 'integer'),
+      col('noShows', 'integer'),
+    ],
+    sums: ['opened', 'closed', 'cancelled', 'appointmentsCompleted', 'noShows'],
+    query: doctorActivity,
+  },
+  pharmacy_sales: {
+    columns: [
+      col('day', 'date'),
+      col('sales', 'integer'),
+      col('soldMinor', 'money'),
+      col('returnedMinor', 'money'),
+      col('netSoldMinor', 'money'),
+      col('dispenses', 'integer'),
+      col('unitsDispensed', 'integer'),
+    ],
+    sums: ['sales', 'soldMinor', 'returnedMinor', 'netSoldMinor', 'dispenses', 'unitsDispensed'],
+    query: pharmacySales,
   },
   stock: {
     columns: [

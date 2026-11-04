@@ -100,6 +100,21 @@ describe('showing a report now', () => {
     expect(within(lab).getByText('48 minutes')).toBeInTheDocument();
   });
 
+  it('shows doctor-wise activity and pharmacy sales with their own columns', async () => {
+    await open();
+    await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'doctor_activity');
+    await userEvent.click(screen.getByRole('button', { name: 'Show report' }));
+    const doctors = await screen.findByRole('table', { name: 'Doctor-wise activity' });
+    expect(within(doctors).getByText('Dr Asha Rao')).toBeInTheDocument();
+    expect(within(doctors).getByText('No-shows')).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'pharmacy_sales');
+    await userEvent.click(screen.getByRole('button', { name: 'Show report' }));
+    const sales = await screen.findByRole('table', { name: 'Pharmacy sales' });
+    // 185,000 paise sold on the first day.
+    expect(within(sales).getByText(/1,850.00/)).toBeInTheDocument();
+  });
+
   it('takes no days for a snapshot', async () => {
     await open();
     await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'stock');

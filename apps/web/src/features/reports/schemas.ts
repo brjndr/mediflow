@@ -12,7 +12,9 @@ import type {
 export const REPORT_KINDS = [
   'opd_census',
   'revenue',
+  'doctor_activity',
   'lab_turnaround',
+  'pharmacy_sales',
   'stock',
 ] as const satisfies readonly ReportKind[];
 

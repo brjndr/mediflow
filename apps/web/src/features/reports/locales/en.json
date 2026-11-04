@@ -3,7 +3,9 @@
   "kinds": {
     "opd_census": "OPD census",
     "revenue": "Revenue and collections",
+    "doctor_activity": "Doctor-wise activity",
     "lab_turnaround": "Laboratory turnaround",
+    "pharmacy_sales": "Pharmacy sales",
     "stock": "Stock on hand"
   },
   "form": {
@@ -69,7 +71,16 @@
     "batches": "Batches",
     "nearestExpiry": "Nearest expiry",
     "expiredOnHand": "Expired on hand",
-    "valueMinor": "Value at cost"
+    "valueMinor": "Value at cost",
+    "doctor": "Doctor",
+    "appointmentsCompleted": "Appointments completed",
+    "noShows": "No-shows",
+    "sales": "Sales",
+    "soldMinor": "Sold",
+    "returnedMinor": "Returned",
+    "netSoldMinor": "Net sold",
+    "dispenses": "Dispenses",
+    "unitsDispensed": "Units dispensed"
   },
   "table": {
     "total": "Total",
