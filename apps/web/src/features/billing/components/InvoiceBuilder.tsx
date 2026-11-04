@@ -22,6 +22,7 @@ import { bpToPercent } from '../lib/tax';
 import { CHARGES_MAX, MANUAL_LINES_MAX } from '../schemas';
 import type { Charge, Discount, Invoice, InvoiceContent, ManualLine } from '../types';
 import { AddChargePanel } from './AddChargePanel';
+import { ApplyPackagePanel } from './ApplyPackagePanel';
 import { BILL, DiscountPanel } from './DiscountPanel';
 import { ManualLineForm } from './ManualLineForm';
 
@@ -395,6 +396,14 @@ export function InvoiceBuilder({
         encounterId={encounterId}
         onAdded={(chargeId) => {
           // The new charge goes on this bill; what was chosen before stays as it was.
+          setPicked(new Set([...included, chargeId]));
+          setSaid('');
+        }}
+      />
+
+      <ApplyPackagePanel
+        encounterId={encounterId}
+        onAdded={(chargeId) => {
           setPicked(new Set([...included, chargeId]));
           setSaid('');
         }}

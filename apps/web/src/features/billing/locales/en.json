@@ -55,12 +55,14 @@
       "dispense": "Dispensed medicine",
       "bed": "Bed",
       "procedure": "Procedure",
-      "manual": "Typed in"
+      "manual": "Typed in",
+      "package": "Package"
     },
     "flag": {
       "service_archived": "Service no longer offered: last price",
       "no_price": "No price set: check it",
-      "return_review": "Medicine brought back: credit it"
+      "return_review": "Medicine brought back: credit it",
+      "package_covered": "Covered by a package"
     },
     "noFlag": "None"
   },
@@ -418,5 +420,56 @@
       "saved": "Limit saved. It applies when a draft is next saved."
     },
     "limitInvalid": "Type a percentage from 0 to 100 with up to two decimals, such as 5."
+  },
+  "package": {
+    "heading": "Apply a package",
+    "description": "A package of the price catalog, at its own price. It replaces this visit’s charges for what it includes, now and later; what it leaves out is billed as usual.",
+    "search": "Package",
+    "chosen": "Chosen: {{name}}",
+    "chooseOne": "Choose a package first.",
+    "submit": "Apply package",
+    "applying": "Applying…",
+    "applied": "{{name}} applied: its charges replace the ones for what it includes.",
+    "refused": {
+      "service_archived": "This package is no longer offered. Choose another.",
+      "no_price": "This package has no price in effect. Set its price in the price catalog first.",
+      "service_not_found": "This package no longer exists. Choose another.",
+      "not_a_package": "This service is not a package.",
+      "package_empty": "This package includes nothing yet. Set its contents first.",
+      "package_applied": "This package is already on the visit.",
+      "encounter_cancelled": "This visit was cancelled and has nothing to bill."
+    }
+  },
+  "packages": {
+    "heading": "Package contents",
+    "description": "What each package includes (covered by its price, never billed again on a visit that has it) and what it leaves to be billed separately. A package already applied to a visit is not changed.",
+    "back": "Back to invoices",
+    "choose": "Package",
+    "none": "Search for a package to set what it contains.",
+    "contentsOf": "Contents of {{name}}",
+    "kind": {
+      "included": "Included",
+      "excluded": "Excluded"
+    },
+    "kindHint": {
+      "included": "Covered by the package price.",
+      "excluded": "Always billed on its own."
+    },
+    "empty": "Nothing here.",
+    "remove": "Remove {{name}} from the package",
+    "removeShort": "Remove",
+    "addService": "Add a service",
+    "addIncluded": "Add as included",
+    "addExcluded": "Add as excluded",
+    "already": "That service is already in this package, or is the package itself.",
+    "tooMany": "A package holds at most {{count}} services.",
+    "submit": "Save contents",
+    "saving": "Saving…",
+    "saved": "Package contents saved.",
+    "refused": {
+      "invalid_package_item": "A service in the list cannot be in a package: it must exist, be offered and not be a package.",
+      "not_a_package": "This service is not a package.",
+      "service_not_found": "This package no longer exists."
+    }
   }
 }

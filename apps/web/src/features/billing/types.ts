@@ -40,3 +40,9 @@ export type ChargeDiscount = Schemas['ChargeDiscount'];
 export type DiscountReason = Discount['reason'];
 /** The most a bill may be discounted without approval, in basis points. */
 export type DiscountSettings = Schemas['DiscountSettings'];
+
+/** What a package service includes (never billed again on a visit that has it) and leaves out (#117). */
+export type PackageContents = Schemas['PackageContents'];
+export type PackageItem = Schemas['PackageItem'];
+export type PackageItemInput = Schemas['PackageItemInput'];
+export type PackageApply = Schemas['PackageApply'];

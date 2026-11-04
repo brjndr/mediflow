@@ -206,6 +206,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'cashRegister:manage' },
   // Tax rates (#119).
   { permission: 'taxRate:manage' },
+  // Package contents (#117).
+  { permission: 'package:manage' },
   // Discounts (#116): the admin gives, approves and sets the limit.
   { permission: 'discount:apply' },
   { permission: 'discount:approve' },

@@ -138,6 +138,12 @@ function seed() {
     // Until a test says otherwise, a caller with no drawer open has one opened (with no cash in
     // it) by their first cash payment, as the mock's payments always took cash before the register.
     autoOpen: true,
+    // What a package includes and leaves out, by hospital and package service (#117).
+    packages: {} as Record<string, { serviceId: string; kind: 'included' | 'excluded' }[]>,
+    // The catalog service a charge was posted for, which the contract's Charge does not carry.
+    chargeServices: {} as Record<string, string>,
+    // The package charge covering a voided charge.
+    coveredBy: {} as Record<string, string>,
   };
 }
 
@@ -608,6 +614,32 @@ function sessionView(stored: StoredSession): RegisterSession {
   };
 }
 
+/** The visit's package charge that includes the service, when there is one that is not void. */
+function coveringPackageCharge(tenantId: string, encounterId: string, serviceId: string) {
+  return state.charges.find(
+    (each) =>
+      each.tenantId === tenantId &&
+      each.encounterId === encounterId &&
+      each.source === 'package' &&
+      each.status !== 'void' &&
+      (state.packages[tenantId + ':' + state.chargeServices[each.id]] ?? []).some(
+        (item) => item.serviceId === serviceId && item.kind === 'included',
+      ),
+  )?.id;
+}
+
+const packageView = (tenantId: string, packageId: string) => ({
+  items: (state.packages[tenantId + ':' + packageId] ?? []).map((item) => {
+    const service = mockServicePrice(tenantId, item.serviceId);
+    return {
+      serviceId: item.serviceId,
+      code: service?.code ?? '',
+      name: service?.name ?? '',
+      kind: item.kind,
+    };
+  }),
+});
+
 export const billingHandlers = [
   http.get('*/api/encounters/:encounterId/charges', ({ request, params }) => {
     const access = authorize(request, { permission: 'charge:read', featureFlag: FEATURE_FLAG });
@@ -712,6 +744,136 @@ export const billingHandlers = [
       status: 'pending',
       postedAt: new Date().toISOString(),
     };
+    state.chargeServices[made.id] = serviceId;
+    // Work a package on the visit already includes is posted void, pointing at the package.
+    const covering = coveringPackageCharge(tenantId, visit.id, serviceId);
+    if (covering) {
+      made.status = 'void';
+      made.flag = 'package_covered';
+      state.coveredBy[made.id] = covering;
+    }
+    state.charges.push(made);
+    answered.set(sent.keyOf, { body: JSON.stringify(sent.body), id: made.id });
+    return HttpResponse.json<Charge>(made, { status: 201 });
+  }),
+
+  // What a package includes and leaves out (#117).
+  http.get('*/api/services/:serviceId/package', ({ request, params }) => {
+    const access = authorize(request, { permission: 'charge:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const id = String(params.serviceId);
+    const service = mockServicePrice(access.tenantId, id);
+    if (!service) return error(404, 'service_not_found', 'No such service');
+    if (service.category !== 'package') return error(409, 'not_a_package', 'Not a package');
+    return HttpResponse.json(packageView(access.tenantId, id));
+  }),
+
+  http.put('*/api/services/:serviceId/package', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'package:manage', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const id = String(params.serviceId);
+    const service = mockServicePrice(tenantId, id);
+    if (!service) return error(404, 'service_not_found', 'No such service');
+    if (service.category !== 'package') return error(409, 'not_a_package', 'Not a package');
+    const items = isObject(sent.body) && Array.isArray(sent.body.items) ? sent.body.items : null;
+    if (
+      !items ||
+      items.some(
+        (item) =>
+          !isObject(item) ||
+          typeof item.serviceId !== 'string' ||
+          (item.kind !== 'included' && item.kind !== 'excluded'),
+      )
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const wanted = items as { serviceId: string; kind: 'included' | 'excluded' }[];
+    if (new Set(wanted.map((item) => item.serviceId)).size !== wanted.length) {
+      return error(400, 'validation_failed', 'Each service is named once');
+    }
+    const bad = wanted.some((item) => {
+      const found = mockServicePrice(tenantId, item.serviceId);
+      return !found || found.archived || found.category === 'package';
+    });
+    if (bad) return error(422, 'invalid_package_item', 'That service cannot be in this package');
+    state.packages[tenantId + ':' + id] = wanted;
+    return HttpResponse.json(packageView(tenantId, id));
+  }),
+
+  // Applies a package to a visit (#117): one charge at its price, replacing what it includes.
+  http.post('*/api/encounters/:encounterId/packages', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'charge:create', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const visit = visitOf(tenantId, String(params.encounterId));
+    if (!visit) return notFound();
+    if (sent.replay) {
+      const again = state.charges.find((each) => each.id === sent.replay?.id);
+      return again ? HttpResponse.json<Charge>(again, { status: 201 }) : notFound();
+    }
+    const serviceId = isObject(sent.body) ? sent.body.serviceId : undefined;
+    if (typeof serviceId !== 'string') {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (visit.status === 'cancelled') {
+      return error(409, 'encounter_cancelled', 'The visit was cancelled');
+    }
+    const service = mockServicePrice(tenantId, serviceId);
+    if (!service) return error(404, 'service_not_found', 'No such service');
+    if (service.category !== 'package') return error(409, 'not_a_package', 'Not a package');
+    if (service.archived) return error(409, 'service_archived', 'The package is archived');
+    if (service.amountMinor === null) return error(409, 'no_price', 'The package has no price');
+    const items = state.packages[tenantId + ':' + serviceId] ?? [];
+    if (!items.some((item) => item.kind === 'included')) {
+      return error(409, 'package_empty', 'The package includes nothing');
+    }
+    const applied = state.charges.some(
+      (each) =>
+        each.tenantId === tenantId &&
+        each.encounterId === visit.id &&
+        each.source === 'package' &&
+        each.status !== 'void' &&
+        state.chargeServices[each.id] === serviceId,
+    );
+    if (applied) return error(409, 'package_applied', 'The package is already on the visit');
+    counter += 1;
+    const made: Charge = {
+      id: 'chg_new_' + counter,
+      tenantId,
+      encounterId: visit.id,
+      source: 'package',
+      description: service.name,
+      quantity: 1,
+      unitPriceMinor: service.amountMinor,
+      totalMinor: service.amountMinor,
+      status: 'pending',
+      postedAt: new Date().toISOString(),
+    };
+    state.chargeServices[made.id] = serviceId;
+    const included = new Set(
+      items.filter((item) => item.kind === 'included').map((item) => item.serviceId),
+    );
+    for (const each of state.charges) {
+      const covered = state.chargeServices[each.id];
+      if (
+        each.tenantId === tenantId &&
+        each.encounterId === visit.id &&
+        each.status === 'pending' &&
+        each.invoiceId === undefined &&
+        each.source !== 'package' &&
+        covered !== undefined &&
+        included.has(covered)
+      ) {
+        each.status = 'void';
+        each.flag = 'package_covered';
+        state.coveredBy[each.id] = made.id;
+      }
+    }
     state.charges.push(made);
     answered.set(sent.keyOf, { body: JSON.stringify(sent.body), id: made.id });
     return HttpResponse.json<Charge>(made, { status: 201 });
@@ -1358,3 +1520,12 @@ export function setMockRegisterOpen(autoOpen: boolean): void {
 
 /** The register sessions as the mock holds them, oldest first, for tests. */
 export const mockRegisterSessions = (): RegisterSession[] => state.sessions.map(sessionView);
+
+/** Sets what a package includes and leaves out, for a test (the screen does it through the API). */
+export function setMockPackage(
+  tenantId: string,
+  packageId: string,
+  items: { serviceId: string; kind: 'included' | 'excluded' }[],
+): void {
+  state.packages[tenantId + ':' + packageId] = items;
+}

@@ -11,7 +11,15 @@ export const NOTE_MAX = 300;
 /** The most a typed price may be: with the most units, a line stays a safe integer. */
 export const PRICE_MAX = 100_000_000_000;
 
-export const SOURCES = ['service', 'order', 'dispense', 'bed', 'procedure', 'manual'] as const;
+export const SOURCES = [
+  'service',
+  'order',
+  'dispense',
+  'bed',
+  'procedure',
+  'manual',
+  'package',
+] as const;
 export const METHODS = ['cash', 'card', 'upi', 'bank', 'other'] as const;
 const Id = Type.String({ maxLength: 64 });
 const Minor = (description: string) => Type.Integer({ minimum: 0, description });
@@ -33,9 +41,9 @@ export const Charge = Type.Object(
       Type.String({ description: 'The draft invoice holding the charge, when one does.' }),
     ),
     flag: Type.Optional(
-      StringEnum(['service_archived', 'no_price', 'return_review'], {
+      StringEnum(['service_archived', 'no_price', 'return_review', 'package_covered'], {
         description:
-          'For the billing desk: priced at the last price of an archived service, posted with no price, or brought back after dispensing.',
+          'For the billing desk: priced at the last price of an archived service, posted with no price, brought back after dispensing, or (on a void charge) already paid for by a package on the visit.',
       }),
     ),
     taxClass: Type.Optional(
@@ -427,7 +435,57 @@ export const DiscountApproval = Type.Object(
   { $id: 'DiscountApproval', additionalProperties: false },
 );
 
+export const PACKAGE_KINDS = ['included', 'excluded'] as const;
+
+export const PackageItem = Type.Object(
+  {
+    serviceId: Id,
+    code: Type.String(),
+    name: Type.String(),
+    kind: StringEnum(PACKAGE_KINDS, {
+      description:
+        'included: part of the package price, never billed again on the visit; excluded: always billed on its own.',
+    }),
+  },
+  { $id: 'PackageItem', additionalProperties: false },
+);
+export const PackageContents = Type.Object(
+  { items: Type.Array(ref(PackageItem), { maxItems: 100 }) },
+  {
+    $id: 'PackageContents',
+    additionalProperties: false,
+    description: 'What a package service includes and what it leaves to be billed separately.',
+  },
+);
+export const PackageItemInput = Type.Object(
+  { serviceId: Id, kind: StringEnum(PACKAGE_KINDS) },
+  { $id: 'PackageItemInput', additionalProperties: false },
+);
+export const PackageContentsUpdate = Type.Object(
+  { items: Type.Array(ref(PackageItemInput), { maxItems: 100 }) },
+  {
+    $id: 'PackageContentsUpdate',
+    additionalProperties: false,
+    description: 'The whole contents of the package; a service left out is no longer part of it.',
+  },
+);
+export const PackageApply = Type.Object(
+  { serviceId: Id },
+  {
+    $id: 'PackageApply',
+    additionalProperties: false,
+    description: 'A package service to apply to a visit, at its price in effect today.',
+  },
+);
+export type PackageContentsUpdate = Static<typeof PackageContentsUpdate>;
+export type PackageApply = Static<typeof PackageApply>;
+
 export const BILLING_SCHEMAS = [
+  PackageItem,
+  PackageContents,
+  PackageItemInput,
+  PackageContentsUpdate,
+  PackageApply,
   Discount,
   ChargeDiscount,
   DiscountSettings,
