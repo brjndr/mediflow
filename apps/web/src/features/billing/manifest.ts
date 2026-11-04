@@ -20,6 +20,7 @@ export const billingFeature: FeatureManifest = {
         register: 'Cash register',
         sessions: 'Register sessions',
         session: 'Register session',
+        taxRates: 'Tax rates',
       },
     },
     load: (language) => import(`./locales/${language}.json`),
@@ -63,6 +64,12 @@ export const billingFeature: FeatureManifest = {
       requires: ['cashRegister:read'],
       titleKey: 'session',
     },
+    {
+      path: 'billing/tax-rates',
+      lazy: () => import('./routes/TaxRates'),
+      requires: ['taxRate:manage', 'invoice:read'],
+      titleKey: 'taxRates',
+    },
   ],
   extensions: [
     {
@@ -85,6 +92,7 @@ export const billingFeature: FeatureManifest = {
     'creditNote:create',
     'cashRegister:read',
     'cashRegister:manage',
+    'taxRate:manage',
     'encounter:read',
   ],
 };

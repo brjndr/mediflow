@@ -47,6 +47,9 @@ interface Line {
   quantity: number;
   unitPriceMinor: number;
   totalMinor: number;
+  taxClass?: string;
+  taxRateBp: number;
+  taxMinor: number;
 }
 interface Invoice {
   id: string;
@@ -54,6 +57,7 @@ interface Invoice {
   status: string;
   lines: Line[];
   totalMinor: number;
+  taxMinor: number;
   paidMinor: number;
   creditedMinor: number;
   currency: string;
@@ -102,7 +106,12 @@ type Reply = {
 
 const get = (url: string, options: Options = {}) =>
   app.inject({ url, headers: as((options.tenant ?? hospital).id, (options.user ?? desk).id) });
-const send = (method: 'POST' | 'PATCH', url: string, body: object, options: Options = {}) => {
+const send = (
+  method: 'POST' | 'PATCH' | 'PUT',
+  url: string,
+  body: object,
+  options: Options = {},
+) => {
   const { tenant = hospital, user = desk, key = randomUUID() } = options;
   return app.inject({
     method,
@@ -145,13 +154,19 @@ async function addEncounter(tenant: TestTenant, patientId: string, by: TestUser)
 let sourceCount = 0;
 async function addCharge(
   encounterId: string,
-  { price = 10_000, quantity = 1, tenant = hospital, patientId = patients.asha } = {},
+  {
+    price = 10_000,
+    quantity = 1,
+    tenant = hospital,
+    patientId = patients.asha,
+    taxClass = null as string | null,
+  } = {},
 ) {
   sourceCount += 1;
   const { rows } = await pool.query<{ id: string }>(
     `insert into charges (tenant_id, encounter_id, patient_id, source, source_ref, description,
-       quantity, unit_price_minor)
-     values ($1, $2, $3, 'service', $4, $5, $6, $7) returning id`,
+       quantity, unit_price_minor, tax_class)
+     values ($1, $2, $3, 'service', $4, $5, $6, $7, $8) returning id`,
     [
       tenant.id,
       encounterId,
@@ -160,6 +175,7 @@ async function addCharge(
       `Charge ${sourceCount}`,
       quantity,
       price,
+      taxClass,
     ],
   );
   return rows[0]?.id ?? '';
@@ -222,6 +238,7 @@ afterAll(async () => {
       'charges',
       'invoices',
       'invoice_counters',
+      'tax_rates',
       'dispense_return_lines',
       'dispense_returns',
       'dispense_lines',
@@ -618,6 +635,118 @@ describe('more invoice rules', () => {
     expect(errorOf(await post(`/invoices/${draft.id}/issue`, { version: draft.version }))).toEqual([
       409,
       'charge_returned',
+    ]);
+  });
+});
+
+describe('tax', () => {
+  const rates = (options: Options = {}) =>
+    ok<{ items: { taxClass: string; rateBp: number }[] }>(get('/billing/tax-rates', options));
+  const rateOf = async (taxClass: string, options: Options = {}) =>
+    (await rates(options)).items.find((item) => item.taxClass === taxClass)?.rateBp;
+  const setRates = (items: object[], options: Options = {}) =>
+    send('PUT', '/billing/tax-rates', { items }, { user: admin, ...options });
+
+  it('starts from the default rates and taxes a charge by the class it was posted with', async () => {
+    expect(await rateOf('standard')).toBe(1200);
+    expect(await rateOf('exempt')).toBe(0);
+    const taxed = await addCharge(encounters.main, {
+      price: 10_050,
+      quantity: 2,
+      taxClass: 'standard',
+    });
+    const exempt = await addCharge(encounters.main, { price: 3_000, taxClass: 'exempt' });
+    const untaxed = await addCharge(encounters.main, { price: 1_000 });
+    const draft = await draftOf([taxed, exempt, untaxed]);
+    // 2 x 100.50 at 12% = 24.12 (rounded half up); nothing on the others.
+    expect(draft.lines.map((line) => [line.taxRateBp, line.taxMinor])).toEqual([
+      [1200, 2412],
+      [0, 0],
+      [0, 0],
+    ]);
+    expect(draft.taxMinor).toBe(2412);
+    expect(draft.totalMinor).toBe(20_100 + 3_000 + 1_000 + 2_412);
+  });
+
+  it('rounds the tax of each line half up', async () => {
+    const draft = await draftOf(
+      [],
+      [{ description: 'Dressing', quantity: 1, unitPriceMinor: 1_050, taxClass: 'reduced' }],
+      { user: admin },
+    );
+    // 10.50 at 5% = 0.525, which is 0.53.
+    expect(draft.lines[0]).toMatchObject({ taxClass: 'reduced', taxRateBp: 500, taxMinor: 53 });
+    expect(draft.totalMinor).toBe(1_103);
+  });
+
+  it('keeps the rate an issued invoice was made with when the rates change later', async () => {
+    const draft = await draftOf([
+      await addCharge(encounters.main, { price: 10_000, taxClass: 'higher' }),
+    ]);
+    expect(draft.taxMinor).toBe(1_800);
+    const invoice = await ok<Invoice>(
+      post(`/invoices/${draft.id}/issue`, { version: draft.version }),
+    );
+    await ok(setRates([{ taxClass: 'higher', rateBp: 2800 }]), 200);
+    try {
+      expect(await rateOf('higher')).toBe(2800);
+      const again = await ok<Invoice>(get(`/invoices/${invoice.id}`));
+      expect(again).toMatchObject({ taxMinor: 1_800, totalMinor: 11_800 });
+      expect(again.lines[0]).toMatchObject({ taxRateBp: 1800, taxMinor: 1_800 });
+      // A new draft takes the new rate.
+      const next = await draftOf([
+        await addCharge(encounters.main, { price: 10_000, taxClass: 'higher' }),
+      ]);
+      expect(next.taxMinor).toBe(2_800);
+    } finally {
+      await ok(setRates([{ taxClass: 'higher', rateBp: 1800 }]), 200);
+    }
+  });
+
+  it('is never changed on an issued invoice, nor on a charge, even by the owner', async () => {
+    const draft = await draftOf([await addCharge(encounters.main, { taxClass: 'standard' })]);
+    const invoice = await ok<Invoice>(
+      post(`/invoices/${draft.id}/issue`, { version: draft.version }),
+    );
+    for (const set of ['tax_minor = 0', 'total_minor = 1']) {
+      await expect(
+        pool.query(`update invoices set ${set} where id = $1`, [invoice.id]),
+      ).rejects.toThrow();
+    }
+    await expect(
+      pool.query("update charges set tax_class = 'exempt' where id = $1", [
+        invoice.lines[0]?.chargeId,
+      ]),
+    ).rejects.toThrow();
+  });
+
+  it('is set by whoever holds taxRate:manage, each class once, and by nobody else', async () => {
+    expect(errorOf(await setRates([{ taxClass: 'reduced', rateBp: 600 }], { user: desk }))).toEqual(
+      [403, 'permission_denied'],
+    );
+    expect(
+      (
+        await setRates([
+          { taxClass: 'reduced', rateBp: 600 },
+          { taxClass: 'reduced', rateBp: 700 },
+        ])
+      ).statusCode,
+    ).toBe(400);
+    expect((await setRates([{ taxClass: 'reduced', rateBp: 10_001 }])).statusCode).toBe(400);
+    // The front desk reads the rates.
+    expect(await rateOf('reduced', { user: desk })).toBe(500);
+  });
+
+  it('is each hospital’s own', async () => {
+    await ok(
+      setRates([{ taxClass: 'standard', rateBp: 2000 }], { tenant: clinic, user: clinicAdmin }),
+      200,
+    );
+    expect(await rateOf('standard', { tenant: clinic, user: clinicAdmin })).toBe(2000);
+    expect(await rateOf('standard')).toBe(1200);
+    expect(errorOf(await get('/billing/tax-rates', { tenant: closed, user: admin }))).toEqual([
+      403,
+      'feature_disabled',
     ]);
   });
 });

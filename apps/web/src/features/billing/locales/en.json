@@ -78,7 +78,9 @@
     "remove": "Remove line",
     "quantityWhole": "Type a whole number.",
     "quantityRange": "Type a number from 1 to 9999.",
-    "priceInvalid": "Type an amount with a point for the decimals, such as 12.50."
+    "priceInvalid": "Type an amount with a point for the decimals, such as 12.50.",
+    "taxClass": "Tax class",
+    "taxClassHint": "The hospital’s rate for the class is added when the draft is saved."
   },
   "list": {
     "heading": "Invoices",
@@ -329,6 +331,28 @@
       "register_open": "You already have a register open. It has been read again.",
       "register_closed": "This register was already settled.",
       "session_not_found": "This register session is not available."
+    }
+  },
+  "tax": {
+    "heading": "Tax rates",
+    "description": "The rate of tax for each tax class. A bill takes the rate of a service’s or medicine’s class when its draft is saved; an invoice already issued keeps the rates it was made with.",
+    "back": "Back to invoices",
+    "rateHint": "A percentage from 0 to 100, with a point for the decimals: 12.5",
+    "rateInvalid": "Type a percentage from 0 to 100 with up to two decimals, such as 12.5.",
+    "submit": "Save rates",
+    "saving": "Saving…",
+    "saved": "Tax rates saved. Drafts take them when next saved.",
+    "beforeTax": "Before tax",
+    "tax": "Tax",
+    "taxAt": "Tax at {{rate}}%",
+    "lineTax": "{{amount}} at {{rate}}%",
+    "none": "No tax",
+    "class": {
+      "none": "No tax",
+      "exempt": "Exempt",
+      "reduced": "Reduced rate",
+      "standard": "Standard rate",
+      "higher": "Higher rate"
     }
   }
 }

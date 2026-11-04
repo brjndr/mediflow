@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { Fragment, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
@@ -6,6 +6,7 @@ import { Button } from '@/shared/ui/button';
 import { PrintSheet } from '@/shared/ui/print-sheet';
 import { Letterhead, useFormatters } from '@/tenancy';
 import { useInvoicePrinting } from '../hooks/use-billing';
+import { bpToPercent, taxByRate } from '../lib/tax';
 import type { Invoice } from '../types';
 
 /**
@@ -101,6 +102,18 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
         </tbody>
       </table>
       <dl className="mt-4 ml-auto grid w-72 grid-cols-[1fr_auto] gap-x-6 gap-y-1 tabular-nums">
+        {invoice.taxMinor > 0 && (
+          <>
+            <dt>{t('tax.beforeTax')}</dt>
+            <dd className="text-right">{format.money(invoice.totalMinor - invoice.taxMinor)}</dd>
+            {taxByRate(invoice.lines).map((each) => (
+              <Fragment key={each.rateBp}>
+                <dt>{t('tax.taxAt', { rate: bpToPercent(each.rateBp) })}</dt>
+                <dd className="text-right">{format.money(each.taxMinor)}</dd>
+              </Fragment>
+            ))}
+          </>
+        )}
         <dt className="font-semibold">{t('builder.total')}</dt>
         <dd className="text-right font-semibold">{format.money(invoice.totalMinor)}</dd>
         {invoice.creditedMinor > 0 && (

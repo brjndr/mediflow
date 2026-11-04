@@ -12,6 +12,7 @@ import { CreditNotePanel } from '../components/CreditNotePanel';
 import { PaymentPanel } from '../components/PaymentPanel';
 import { PrintInvoiceButton } from '../components/PrintInvoiceButton';
 import { useInvoice } from '../hooks/use-billing';
+import { bpToPercent } from '../lib/tax';
 import type { Invoice, InvoiceLine } from '../types';
 
 /** An id from the address, or empty when it is not one. */
@@ -156,8 +157,24 @@ function Issued({ invoice }: { invoice: Invoice }) {
         value: (row) => format.money(row.totalMinor),
         align: 'end',
       },
+      ...(invoice.taxMinor > 0
+        ? [
+            {
+              id: 'tax',
+              header: t('tax.tax'),
+              value: (row: InvoiceLine) =>
+                row.taxRateBp > 0
+                  ? t('tax.lineTax', {
+                      amount: format.money(row.taxMinor),
+                      rate: bpToPercent(row.taxRateBp),
+                    })
+                  : t('tax.none'),
+              align: 'end' as const,
+            },
+          ]
+        : []),
     ],
-    [t, format],
+    [t, format, invoice.taxMinor],
   );
   return (
     <section aria-labelledby="lines-heading" className="flex flex-col gap-3">
@@ -186,6 +203,18 @@ function Issued({ invoice }: { invoice: Invoice }) {
         status="ready"
         emptyMessage={t('detail.noLines')}
       />
+      {invoice.taxMinor > 0 && (
+        <dl className="grid max-w-xs grid-cols-2 gap-x-4 text-sm">
+          <dt className="text-muted-foreground">{t('tax.beforeTax')}</dt>
+          <dd className="text-right" data-testid="invoice-subtotal">
+            {format.money(invoice.totalMinor - invoice.taxMinor)}
+          </dd>
+          <dt className="text-muted-foreground">{t('tax.tax')}</dt>
+          <dd className="text-right" data-testid="invoice-tax">
+            {format.money(invoice.taxMinor)}
+          </dd>
+        </dl>
+      )}
       <p className="text-2xl font-semibold" data-testid="invoice-total">
         <span className="sr-only">{t('builder.total')}: </span>
         {format.money(invoice.totalMinor)}

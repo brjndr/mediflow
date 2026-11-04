@@ -8618,6 +8618,11 @@
             "enum": ["service_archived", "no_price", "return_review"],
             "description": "For the billing desk: priced at the last price of an archived service, posted with no price, or brought back after dispensing."
           },
+          "taxClass": {
+            "type": "string",
+            "enum": ["exempt", "reduced", "standard", "higher"],
+            "description": "The tax class the work was posted with; none for a dispensed medicine, whose price holds the tax."
+          },
           "postedAt": {
             "format": "date-time",
             "type": "string"
@@ -8690,13 +8695,27 @@
             "minimum": 0,
             "maximum": 100000000000,
             "type": "integer"
+          },
+          "taxClass": {
+            "type": "string",
+            "enum": ["exempt", "reduced", "standard", "higher"],
+            "description": "The class the line is taxed as, at the hospital’s rate for it when the draft is saved. Left out: no tax."
           }
         }
       },
       "InvoiceLine": {
         "additionalProperties": false,
         "type": "object",
-        "required": ["id", "source", "description", "quantity", "unitPriceMinor", "totalMinor"],
+        "required": [
+          "id",
+          "source",
+          "description",
+          "quantity",
+          "unitPriceMinor",
+          "totalMinor",
+          "taxRateBp",
+          "taxMinor"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -8722,7 +8741,22 @@
           },
           "totalMinor": {
             "minimum": 0,
-            "description": "In minor units.",
+            "description": "Quantity times the price of one, before tax.",
+            "type": "integer"
+          },
+          "taxClass": {
+            "type": "string",
+            "enum": ["exempt", "reduced", "standard", "higher"]
+          },
+          "taxRateBp": {
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "The rate the line was made with, in basis points (1200 is 12%).",
+            "type": "integer"
+          },
+          "taxMinor": {
+            "minimum": 0,
+            "description": "The tax on the line, rounded half up; worked out by the server.",
             "type": "integer"
           }
         }
@@ -8741,6 +8775,7 @@
           "status",
           "lines",
           "totalMinor",
+          "taxMinor",
           "paidMinor",
           "creditedMinor",
           "currency",
@@ -8782,7 +8817,12 @@
           },
           "totalMinor": {
             "minimum": 0,
-            "description": "Of the lines, worked out by the server.",
+            "description": "What is owed: the lines and their tax, worked out by the server.",
+            "type": "integer"
+          },
+          "taxMinor": {
+            "minimum": 0,
+            "description": "The part of the total that is tax; never changes once issued.",
             "type": "integer"
           },
           "paidMinor": {
@@ -9230,6 +9270,52 @@
             "maxLength": 300,
             "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
             "type": "string"
+          }
+        }
+      },
+      "TaxRate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["taxClass", "rateBp"],
+        "properties": {
+          "taxClass": {
+            "type": "string",
+            "enum": ["exempt", "reduced", "standard", "higher"]
+          },
+          "rateBp": {
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "In basis points: 1200 is 12%.",
+            "type": "integer"
+          }
+        }
+      },
+      "TaxRates": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "description": "The rate of every tax class: the hospital’s own where set, else the default.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaxRate"
+            }
+          }
+        }
+      },
+      "TaxRatesUpdate": {
+        "additionalProperties": false,
+        "description": "The rates to set, each class once. A class left out keeps its rate. Drafts take the new rates when next saved; issued invoices never change.",
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "minItems": 1,
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaxRate"
+            }
           }
         }
       },
@@ -34245,6 +34331,145 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/tax-rates": {
+      "get": {
+        "operationId": "getTaxRates",
+        "tags": ["billing"],
+        "description": "The tax rate of every tax class at the hospital, in basis points (#119): the hospital’s own where it has set one, else the default (exempt 0, reduced 5%, standard 12%, higher 18%). Requires invoice:read with the scope `all` and the billing feature flag.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxRates"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setTaxRates",
+        "tags": ["billing"],
+        "description": "Sets the tax rate of the classes named (#119), each once; a class left out keeps its rate. A draft takes the new rates when it is next saved; an issued invoice keeps the rates it was made with. The Idempotency-Key header is required. Requires taxRate:manage and invoice:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaxRatesUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxRates"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

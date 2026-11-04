@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { CursorPage, ref, StringEnum } from '../../core/http/schemas.js';
 import { PLAIN_TEXT } from '../../core/http/text.js';
+import { TAX_CLASSES } from './tax.js';
 
 export const DESCRIPTION_MAX = 200;
 export const REFERENCE_MAX = 60;
@@ -34,6 +35,12 @@ export const Charge = Type.Object(
       StringEnum(['service_archived', 'no_price', 'return_review'], {
         description:
           'For the billing desk: priced at the last price of an archived service, posted with no price, or brought back after dispensing.',
+      }),
+    ),
+    taxClass: Type.Optional(
+      StringEnum(TAX_CLASSES, {
+        description:
+          'The tax class the work was posted with; none for a dispensed medicine, whose price holds the tax.',
       }),
     ),
     postedAt: Type.String({ format: 'date-time' }),
@@ -96,6 +103,12 @@ export const ManualLine = Type.Object(
     description: Type.String({ minLength: 1, maxLength: DESCRIPTION_MAX, pattern: PLAIN_TEXT }),
     quantity: Type.Integer({ minimum: 1, maximum: 9999 }),
     unitPriceMinor: Type.Integer({ minimum: 0, maximum: PRICE_MAX }),
+    taxClass: Type.Optional(
+      StringEnum(TAX_CLASSES, {
+        description:
+          'The class the line is taxed as, at the hospital’s rate for it when the draft is saved. Left out: no tax.',
+      }),
+    ),
   },
   {
     $id: 'ManualLine',
@@ -113,7 +126,14 @@ export const InvoiceLine = Type.Object(
     description: Type.String(),
     quantity: Type.Integer({ minimum: 1 }),
     unitPriceMinor: Minor('In minor units.'),
-    totalMinor: Minor('In minor units.'),
+    totalMinor: Minor('Quantity times the price of one, before tax.'),
+    taxClass: Type.Optional(StringEnum(TAX_CLASSES)),
+    taxRateBp: Type.Integer({
+      minimum: 0,
+      maximum: 10000,
+      description: 'The rate the line was made with, in basis points (1200 is 12%).',
+    }),
+    taxMinor: Minor('The tax on the line, rounded half up; worked out by the server.'),
   },
   { $id: 'InvoiceLine', additionalProperties: false },
 );
@@ -130,7 +150,8 @@ export const Invoice = Type.Object(
     number: Type.Optional(Type.String({ description: 'Given when the invoice is issued.' })),
     status: StringEnum(['draft', 'issued', 'paid', 'void']),
     lines: Type.Array(ref(InvoiceLine)),
-    totalMinor: Minor('Of the lines, worked out by the server.'),
+    totalMinor: Minor('What is owed: the lines and their tax, worked out by the server.'),
+    taxMinor: Minor('The part of the total that is tax; never changes once issued.'),
     paidMinor: Minor('Payments less refunds.'),
     creditedMinor: Minor('The credit notes against the invoice.'),
     currency: Type.String({ minLength: 3, maxLength: 3 }),
@@ -291,6 +312,39 @@ export const RegisterClose = Type.Object(
 );
 export type RegisterClose = Static<typeof RegisterClose>;
 
+export const TaxRate = Type.Object(
+  {
+    taxClass: StringEnum(TAX_CLASSES),
+    rateBp: Type.Integer({
+      minimum: 0,
+      maximum: 10000,
+      description: 'In basis points: 1200 is 12%.',
+    }),
+  },
+  { $id: 'TaxRate', additionalProperties: false },
+);
+export type TaxRate = Static<typeof TaxRate>;
+
+export const TaxRates = Type.Object(
+  {
+    items: Type.Array(ref(TaxRate), {
+      description: 'The rate of every tax class: the hospital’s own where set, else the default.',
+    }),
+  },
+  { $id: 'TaxRates' },
+);
+
+export const TaxRatesUpdate = Type.Object(
+  { items: Type.Array(ref(TaxRate), { minItems: 1, maxItems: 4 }) },
+  {
+    $id: 'TaxRatesUpdate',
+    additionalProperties: false,
+    description:
+      'The rates to set, each class once. A class left out keeps its rate. Drafts take the new rates when next saved; issued invoices never change.',
+  },
+);
+export type TaxRatesUpdate = Static<typeof TaxRatesUpdate>;
+
 export const BILLING_SCHEMAS = [
   Charge,
   ChargePage,
@@ -315,4 +369,7 @@ export const BILLING_SCHEMAS = [
   RegisterSessionPage,
   RegisterOpen,
   RegisterClose,
+  TaxRate,
+  TaxRates,
+  TaxRatesUpdate,
 ];

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { sql } from 'drizzle-orm';
 import type { Database } from '../../core/db/client.js';
+import type { TaxClass } from './tax.js';
 
 /**
  * Posts charges from what the other modules emit (#114). A module never writes a charge or an
@@ -34,14 +35,21 @@ export interface Posting {
 export interface ServicePrice {
   name: string;
   archived: boolean;
+  /** The tax class the service has now; a charge keeps the one it was posted with. */
+  taxClass: TaxClass;
   /** The standard price list's price in effect today; null when none is in effect. */
   amountMinor: number | null;
 }
 
 /** A service and its price today on the hospital's standard price list; null if no such service. */
 export async function priceOf(tx: Database, serviceId: string): Promise<ServicePrice | null> {
-  const { rows } = await tx.execute<{ name: string; archived: boolean; amount: string | null }>(
-    sql`select s.name, s.archived,
+  const { rows } = await tx.execute<{
+    name: string;
+    archived: boolean;
+    tax_class: TaxClass;
+    amount: string | null;
+  }>(
+    sql`select s.name, s.archived, s.tax_class,
           (select sp.amount_minor::text from service_prices sp
             join price_lists pl on pl.tenant_id = sp.tenant_id and pl.id = sp.price_list_id
               and pl.standard
@@ -60,6 +68,7 @@ export async function priceOf(tx: Database, serviceId: string): Promise<ServiceP
   return {
     name: service.name,
     archived: service.archived,
+    taxClass: service.tax_class,
     amountMinor: service.amount === null ? null : Number(service.amount),
   };
 }
@@ -72,19 +81,22 @@ export async function postCharge(tx: Database, posting: Posting): Promise<string
   let unit = posting.unitPriceMinor;
   let flag: string | null = posting.flag;
   let description = posting.description;
+  // A dispensed medicine is charged at its MRP, which holds the tax already: no class.
+  let taxClass: TaxClass | null = null;
   if (posting.serviceId !== null) {
     const service = await priceOf(tx, posting.serviceId);
     if (!service) return null;
     description = service.name;
+    taxClass = service.taxClass;
     unit = service.amountMinor ?? 0;
     flag = service.amountMinor === null ? 'no_price' : service.archived ? 'service_archived' : null;
   }
   const { rows } = await tx.execute<{ id: string }>(
     sql`insert into charges (tenant_id, encounter_id, patient_id, service_id, source, source_ref,
-          description, quantity, unit_price_minor, flag)
+          description, quantity, unit_price_minor, flag, tax_class)
         values (app_tenant_id(), ${posting.encounterId}, ${posting.patientId},
           ${posting.serviceId}, ${posting.source}, ${posting.sourceRef},
-          left(${description}, 200), ${posting.quantity}, ${unit}, ${flag})
+          left(${description}, 200), ${posting.quantity}, ${unit}, ${flag}, ${taxClass})
         on conflict (tenant_id, source_ref) do nothing
         returning id`,
   );

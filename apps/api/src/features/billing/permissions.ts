@@ -73,4 +73,9 @@ export const BILLING_PERMISSIONS = [
     description: 'Open a cash register session of one’s own and settle it at the end of the day',
     defaults: { admin: 'all', receptionist: 'all' },
   },
+  {
+    id: 'taxRate:manage',
+    description: 'Set the hospital’s tax rate for each tax class',
+    defaults: { admin: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];
