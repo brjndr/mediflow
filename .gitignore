@@ -26,3 +26,6 @@ bun.lockb
 Thumbs.db
 .idea/
 *.log
+
+# Local file store (report exports) until object storage is used
+.data/

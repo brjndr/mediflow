@@ -26,6 +26,11 @@ const ConfigSchema = Type.Object({
     { default: 'info' },
   ),
   DATABASE_URL: Type.String({ pattern: '^postgres(ql)?://.+' }),
+  /**
+   * A read replica for reports (`postgres://...`). Unset, reports read from the primary. A replica
+   * may lag a little behind the primary, which a report can bear and a bill cannot.
+   */
+  DATABASE_REPLICA_URL: Type.Optional(Type.String({ pattern: '^postgres(ql)?://.+' })),
   /** Upper bound on pooled connections. Small, because each request holds one for its duration. */
   DATABASE_POOL_MAX: Type.Integer({ minimum: 1, maximum: 100, default: 10 }),
   /** Where staff email is handed off, e.g. smtp://user:pass@host:587. */
@@ -77,6 +82,19 @@ const ConfigSchema = Type.Object({
    * A burst of events costs one check per stream, not one per event. Tests set 0.
    */
   LIVE_RECHECK_MS: Type.Integer({ minimum: 0, maximum: 30_000, default: 2000 }),
+  /**
+   * Signs the short-lived download links of report files: 32 random bytes, base64. Generate with
+   * `openssl rand -base64 32`. Changing it ends every link already given out.
+   */
+  REPORT_URL_SECRET: Type.String({ pattern: '^[A-Za-z0-9+/]{43}=$' }),
+  /** How long a download link works. */
+  REPORT_URL_TTL_SECONDS: Type.Integer({ minimum: 30, maximum: 3600, default: 300 }),
+  /** Where the local file store keeps files (report exports), until object storage is used. */
+  FILE_STORE_DIR: Type.String({ minLength: 1, default: '.data/files' }),
+  /** A report answered on the spot gives up after this long, so it cannot hold a connection. */
+  REPORT_SYNC_TIMEOUT_MS: Type.Integer({ minimum: 1000, maximum: 60_000, default: 10_000 }),
+  /** A report made by a job gives up after this long. */
+  REPORT_RUN_TIMEOUT_MS: Type.Integer({ minimum: 1000, maximum: 600_000, default: 120_000 }),
 });
 
 export type Config = Static<typeof ConfigSchema>;
@@ -97,6 +115,8 @@ const LOCAL_SERVICES = {
   APP_BASE_URL: 'http://localhost:5173',
   // Thirty-two zero bytes. It protects nothing, and production has no default.
   MFA_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+  // Also thirty-two zero bytes: links signed with it are forgeable, so production has no default.
+  REPORT_URL_SECRET: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
 } as const;
 
 export class ConfigError extends Error {
@@ -133,6 +153,10 @@ export function loadConfig(env: Env = process.env): Config {
       (error) => `${error.path.replace(/^\//, '') || 'config'}: ${error.message}`,
     );
     throw new ConfigError([...new Set(problems)]);
+  }
+  // The all-zero key is the development default: links signed with it can be forged by anyone.
+  if (mode === 'production' && candidate.REPORT_URL_SECRET === LOCAL_SERVICES.REPORT_URL_SECRET) {
+    throw new ConfigError(['REPORT_URL_SECRET: the development key cannot be used in production']);
   }
   return candidate;
 }

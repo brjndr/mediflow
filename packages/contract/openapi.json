@@ -10655,6 +10655,249 @@
           }
         }
       },
+      "ReportRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "from": {
+            "format": "date",
+            "description": "First day, at the hospital (YYYY-MM-DD). Required for every report but `stock`, which is a snapshot of now and ignores both days.",
+            "type": "string"
+          },
+          "to": {
+            "format": "date",
+            "description": "Last day, included. At most 366 days from `from` (31 when answered on the spot).",
+            "type": "string"
+          }
+        }
+      },
+      "ReportColumn": {
+        "description": "Money is in minor units of the report currency; minutes are whole minutes.",
+        "type": "object",
+        "required": ["key", "type"],
+        "properties": {
+          "key": {
+            "description": "Stable name of the column; the web app translates it.",
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["text", "date", "integer", "money", "minutes"]
+          }
+        }
+      },
+      "ReportResult": {
+        "description": "A report as a table of counts and money by day, department, test or drug. It holds no patient record.",
+        "type": "object",
+        "required": ["kind", "from", "to", "currency", "generatedAt", "columns", "rows", "totals"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["opd_census", "revenue", "lab_turnaround", "stock"]
+          },
+          "from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportColumn"
+            }
+          },
+          "rows": {
+            "description": "One array a row, in the order of `columns`.",
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": ["null", "string", "number"]
+              }
+            }
+          },
+          "totals": {
+            "description": "In the order of `columns`: the sum of a column that adds up, otherwise null.",
+            "type": "array",
+            "items": {
+              "type": ["null", "string", "number"]
+            }
+          }
+        }
+      },
+      "ReportRun": {
+        "description": "A stored report. `result` is given once it has succeeded, on the run read by id only, never in the list.",
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "from",
+          "to",
+          "status",
+          "requestedBy",
+          "requestedAt",
+          "expiresAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["opd_census", "revenue", "lab_turnaround", "stock"]
+          },
+          "from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["queued", "running", "succeeded", "failed"]
+          },
+          "requestedBy": {
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "finishedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "rowCount": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "failure": {
+            "description": "A code: `timeout`, `too_large`, `stalled` or `failed`.",
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/ReportResult"
+          }
+        }
+      },
+      "ReportRunPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportRun"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "ReportLimits": {
+        "description": "What the hospital may ask of the reporting service, and what it has used.",
+        "type": "object",
+        "required": ["maxConcurrent", "maxPerDay", "retentionDays", "active", "usedToday"],
+        "properties": {
+          "maxConcurrent": {
+            "type": "integer"
+          },
+          "maxPerDay": {
+            "type": "integer"
+          },
+          "retentionDays": {
+            "type": "integer"
+          },
+          "active": {
+            "description": "Stored reports waiting or running now.",
+            "type": "integer"
+          },
+          "usedToday": {
+            "description": "Stored reports asked for in the last 24 hours.",
+            "type": "integer"
+          }
+        }
+      },
+      "ReportDownload": {
+        "type": "object",
+        "required": ["url", "expiresAt"],
+        "properties": {
+          "url": {
+            "description": "A path on this API, signed; it works for a few minutes.",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
       "Notice": {
         "type": "object",
         "required": ["id", "tenantId", "title", "body", "createdAt", "archived"],
@@ -37213,6 +37456,616 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/limits": {
+      "get": {
+        "operationId": "getReportLimits",
+        "tags": ["reports"],
+        "description": "What the hospital may ask of the reporting service (stored reports at the same time and in a day, how long they are kept) and what it has used. Requires report:read with the scope `all`.",
+        "responses": {
+          "200": {
+            "description": "What the hospital may ask of the reporting service, and what it has used.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportLimits"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/{kind}": {
+      "post": {
+        "operationId": "runReport",
+        "tags": ["reports"],
+        "description": "Works out an operational report now and answers it: `opd_census` (OPD visits by day and department), `revenue` (invoiced, credited, collected and refunded by day), `lab_turnaround` (minutes from collecting a sample to its verified result, by test) or `stock` (what is on hand, a snapshot of now). It reads from the replica under a time limit, covers at most 31 days and 5,000 rows (422 `range_too_long`, `report_too_large`, `report_timeout`: ask for a stored report instead), and a hospital may run one at a time (429 `report_busy` with Retry-After). The body is a POST so filters stay out of logs. Requires report:read with the scope `all` and the reports feature flag. Audited as a read of `report`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["opd_census", "revenue", "lab_turnaround", "stock"]
+            },
+            "in": "path",
+            "name": "kind",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A report as a table of counts and money by day, department, test or drug. It holds no patient record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/{kind}/runs": {
+      "post": {
+        "operationId": "createReportRun",
+        "tags": ["reports"],
+        "description": "Asks for a stored report: it is made by a job (up to 366 days and 20,000 rows) and kept, with a CSV file, for the hospital's retention. Answers 202 with the run, `queued`; read it by id until it has succeeded or failed. The hospital's quota applies: at most `maxConcurrent` waiting or running and `maxPerDay` in 24 hours (429 `report_quota` with Retry-After), so one hospital's heavy reports never crowd out another's. The Idempotency-Key header is required: a repeat adds nothing and answers with the run as it is now. Requires report:export and report:read with the scope `all`. Audited as a create of `report_run`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["opd_census", "revenue", "lab_turnaround", "stock"]
+            },
+            "in": "path",
+            "name": "kind",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "A stored report. `result` is given once it has succeeded, on the run read by id only, never in the list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/runs": {
+      "get": {
+        "operationId": "listReportRuns",
+        "tags": ["reports"],
+        "description": "The hospital's stored reports, newest first, without their results. Requires report:read with the scope `all`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/runs/{runId}": {
+      "get": {
+        "operationId": "getReportRun",
+        "tags": ["reports"],
+        "description": "One stored report, with its result once it has succeeded. Requires report:read with the scope `all`. A report of another hospital answers 404 report_run_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A stored report. `result` is given once it has succeeded, on the run read by id only, never in the list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRun"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/runs/{runId}/download-url": {
+      "get": {
+        "operationId": "getReportDownloadUrl",
+        "tags": ["reports"],
+        "description": "A signed, short-lived address for the CSV file of a succeeded report (`REPORT_URL_TTL_SECONDS`, five minutes). The link needs no session, so give it only to the person who asked; it is audited here, as an `export` of the run. 409 `report_not_ready` until the run has succeeded. Requires report:export and report:read with the scope `all`. A report of another hospital answers 404 report_run_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportDownload"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/report-files/{runId}": {
+      "get": {
+        "operationId": "downloadReportFile",
+        "tags": ["reports"],
+        "description": "The CSV file of a stored report, for a link made by `getReportDownloadUrl`. The signature in the query is the only credential. 404 `report_file_not_found` for anything else.",
+        "parameters": [
+          {
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "expires",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "signature",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "runId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The CSV file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "The CSV file.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

@@ -8,6 +8,7 @@ const production = {
   MAIL_FROM: 'Mediflow <no-reply@example.com>',
   APP_BASE_URL: 'https://app.example.com',
   MFA_ENCRYPTION_KEY: 'q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=',
+  REPORT_URL_SECRET: 'Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=',
 };
 
 describe('loadConfig', () => {
@@ -38,6 +39,11 @@ describe('loadConfig', () => {
       RATE_LIMIT_USER_PER_MINUTE: 240,
       IDEMPOTENCY_TTL_HOURS: 24,
       LIVE_RECHECK_MS: 2000,
+      REPORT_URL_SECRET: 'Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=',
+      REPORT_URL_TTL_SECONDS: 300,
+      FILE_STORE_DIR: '.data/files',
+      REPORT_SYNC_TIMEOUT_MS: 10000,
+      REPORT_RUN_TIMEOUT_MS: 120000,
     });
   });
 
@@ -76,11 +82,21 @@ describe('loadConfig', () => {
       'MAIL_FROM',
       'APP_BASE_URL',
       'MFA_ENCRYPTION_KEY',
+      'REPORT_URL_SECRET',
     ]) {
       expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(new RegExp(name));
       const { [name]: _omitted, ...rest } = production as Record<string, string>;
       expect(() => loadConfig(rest)).toThrow(new RegExp(name));
     }
+  });
+
+  it('refuses the development signing key in production', () => {
+    expect(() =>
+      loadConfig({
+        ...production,
+        REPORT_URL_SECRET: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+      }),
+    ).toThrow(/REPORT_URL_SECRET/);
   });
 
   it('accepts only an origin as the web app address, so email links cannot carry a path', () => {

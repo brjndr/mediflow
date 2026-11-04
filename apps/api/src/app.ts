@@ -13,6 +13,8 @@ import { dbPlugin } from './core/db/plugin.js';
 import { NO_STORE, registerCacheDefault } from './core/http/cache.js';
 import { registerErrorHandling } from './core/http/errors.js';
 import { registerStrictBodies } from './core/http/strict-body.js';
+import { filesPlugin } from './core/files/plugin.js';
+import type { FileStore } from './core/files/store.js';
 import { jobsPlugin } from './core/jobs/plugin.js';
 import type { JobQueue } from './core/jobs/queue.js';
 import { loggerOptions } from './core/logging/logger.js';
@@ -45,6 +47,7 @@ import { inventoryFeature } from './features/inventory/index.js';
 import { billingFeature } from './features/billing/index.js';
 import { pharmacyFeature } from './features/pharmacy/index.js';
 import { purchasingFeature } from './features/purchasing/index.js';
+import { reportsFeature } from './features/reports/index.js';
 import { labTestsFeature } from './features/lab-tests/index.js';
 import { patientsFeature } from './features/patients/index.js';
 import { servicesFeature } from './features/services/index.js';
@@ -68,6 +71,8 @@ export interface AppOptions {
   notifier?: Notifier;
   /** The job queue. Defaults to pg-boss, or an in-process queue when `JOBS_ENABLED` is off. */
   jobQueue?: JobQueue;
+  /** Where files are kept (report exports). Defaults to a local folder (`FILE_STORE_DIR`). */
+  fileStore?: FileStore;
   /** Request counters for the per-hospital and per-user limits. Defaults to in-process. */
   rateLimiter?: RateLimiter;
   /** What tells open screens that something changed. Defaults to Postgres LISTEN/NOTIFY. */
@@ -119,6 +124,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(openApiPlugin);
   await app.register(dbPlugin);
   await app.register(jobsPlugin, { queue: options.jobQueue });
+  await app.register(filesPlugin, { store: options.fileStore });
   await app.register(notifierPlugin, { notifier: options.notifier });
   await app.register(authPlugin);
   await app.register(staffEmailsPlugin);
@@ -164,6 +170,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(pharmacyFeature);
   await app.register(billingFeature);
   await app.register(purchasingFeature);
+  await app.register(reportsFeature);
 
   return app;
 }
