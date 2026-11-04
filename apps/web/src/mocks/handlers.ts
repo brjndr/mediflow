@@ -39,6 +39,7 @@ import { staffHandlers } from './handlers/staff';
 import { patientsHandlers } from './handlers/patients';
 import { profileHandlers } from './handlers/profile';
 import { queueHandlers } from './handlers/queue';
+import { reportsHandlers } from './handlers/reports';
 import { triageHandlers } from './handlers/triage';
 import { error, tenantMismatch, unauthenticated } from './respond';
 
@@ -150,6 +151,7 @@ export const handlers = [
   ...codesHandlers,
   ...templatesHandlers,
   ...importsHandlers,
+  ...reportsHandlers,
   ...accountHandlers,
   ...mfaHandlers,
   ...profileHandlers,

@@ -1,6 +1,6 @@
 # Reports API
 
-What was decided for this feature's API (#123, BE-14). The root and `apps/api` `CLAUDE.md` rules apply. The web screens are not built yet (the rest of M12).
+What was decided for this feature's API (#123, BE-14). The root and `apps/api` `CLAUDE.md` rules apply. The web screen is `apps/web/src/features/reports` (#121).
 
 ## What exists
 
@@ -30,7 +30,7 @@ Behind the `reports` switch, with `report:read` and `report:export`, the admin's
 
 ## Known gaps
 
-- No web screens, no PDF or Excel export (CSV only; official documents are made on the server later), no scheduled or emailed reports.
+- No PDF or Excel export (CSV only; official documents are made on the server later), no scheduled or emailed reports.
 - Revenue is by issue day, not accrual by service or department; credit notes are shown beside it, not netted from it. No report by doctor, payer or tax yet.
 - The gate and the sync limits are per API instance (N instances let one hospital run N at once); a Redis limiter replaces them with the rest.
 - A run lost between the commit and the queueing waits up to an hour to be marked `stalled`.

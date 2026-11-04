@@ -213,6 +213,7 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'discount:approve' },
   { permission: 'discount:manage' },
   { permission: 'report:read' },
+  { permission: 'report:export' },
   { permission: 'user:manage' },
   { permission: 'role:manage' },
   { permission: 'notice:read' },
