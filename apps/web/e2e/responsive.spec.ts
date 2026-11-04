@@ -166,7 +166,7 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await page.getByRole('main').getByRole('link').first().click();
   await page.getByRole('link', { name: 'Create invoice' }).click();
   await expect(page.getByRole('heading', { name: 'New invoice', level: 1 })).toBeVisible();
-  await expect(page.getByText('General consultation')).toBeVisible();
+  await expect(page.getByText('General consultation').first()).toBeVisible();
   await expect(page.getByRole('textbox', { name: /^What it is for/ })).toBeVisible();
   await expectNoSidewaysScroll(page);
   // The invoice list (#110): cards on a phone, with its search and status filter.
