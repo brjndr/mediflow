@@ -46,6 +46,7 @@ describe('shell', () => {
       'Wards and beds',
       'Diagnosis and procedure codes',
       'Document templates',
+      'Reports',
       'Import centre',
       'Staff',
       'Notices',
@@ -97,6 +98,7 @@ describe('shell', () => {
       'Wards and beds',
       'Diagnosis and procedure codes',
       'Document templates',
+      'Reports',
       'Import centre',
       'Staff',
       'Notices',
@@ -172,6 +174,8 @@ describe('keyboard', () => {
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Document templates' })).toHaveFocus();
     await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Reports' })).toHaveFocus();
+    await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Import centre' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Staff' })).toHaveFocus();
@@ -234,6 +238,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Wards and beds',
       'Diagnosis and procedure codes',
       'Document templates',
+      'Reports',
       'Import centre',
       'Staff',
       'Notices',
@@ -294,6 +299,7 @@ describe('system pages', () => {
       'Wards and beds',
       'Diagnosis and procedure codes',
       'Document templates',
+      'Reports',
       'Import centre',
       'Staff',
       'Notices',

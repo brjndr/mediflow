@@ -1,0 +1,103 @@
+{
+  "heading": "Reports",
+  "kinds": {
+    "opd_census": "OPD census",
+    "revenue": "Revenue and collections",
+    "lab_turnaround": "Laboratory turnaround",
+    "stock": "Stock on hand"
+  },
+  "form": {
+    "kind": "Report",
+    "from": "From",
+    "to": "To",
+    "snapshot": "This report is a snapshot of stock now and takes no days.",
+    "show": "Show report",
+    "export": "Export",
+    "errors": {
+      "kind": "Choose a report.",
+      "day": "Enter a day.",
+      "order": "The last day cannot be before the first.",
+      "tooLong": "A report covers at most 366 days."
+    }
+  },
+  "status": {
+    "shown": "Report shown, {{count}} lines.",
+    "queued": "Export requested. It is being made, and you can keep working.",
+    "working": "Making the report…",
+    "ready": "The export is ready. Download it from the list below.",
+    "failed": "The export failed. {{reason}}",
+    "downloading": "Download started."
+  },
+  "failure": {
+    "timeout": "It took too long. Ask again for fewer days.",
+    "too_large": "It has too many lines. Ask again for fewer days.",
+    "stalled": "It did not finish. Ask again.",
+    "failed": "Something went wrong. Ask again."
+  },
+  "errors": {
+    "range_too_long": "Showing a report covers at most 31 days. Use Export for longer.",
+    "report_too_large": "This report has too many lines to show. Use Export instead.",
+    "report_timeout": "The report took too long. Try fewer days, or use Export.",
+    "report_busy": "A report is already being worked out. Try again in {{seconds}} seconds.",
+    "report_quota": "Your hospital has asked for as many exports as it may for now. Try again in {{minutes}} minutes.",
+    "report_not_ready": "The export is not ready yet."
+  },
+  "limits": "Exports: {{active}} of {{max}} at a time, {{used}} of {{perDay}} today. Kept for {{days}} days.",
+  "result": {
+    "period": "{{from}} to {{to}}, worked out {{at}}",
+    "snapshot": "On hand now, worked out {{at}}"
+  },
+  "columns": {
+    "day": "Day",
+    "department": "Department",
+    "opened": "Opened",
+    "closed": "Closed",
+    "cancelled": "Cancelled",
+    "invoicedMinor": "Invoiced",
+    "creditedMinor": "Credited",
+    "collectedMinor": "Collected",
+    "refundedMinor": "Refunded",
+    "netCollectedMinor": "Net collected",
+    "testCode": "Test code",
+    "testName": "Test",
+    "results": "Results",
+    "avgMinutes": "Average",
+    "p90Minutes": "90th percentile",
+    "maxMinutes": "Longest",
+    "drug": "Drug",
+    "onHand": "On hand",
+    "batches": "Batches",
+    "nearestExpiry": "Nearest expiry",
+    "expiredOnHand": "Expired on hand",
+    "valueMinor": "Value at cost"
+  },
+  "table": {
+    "total": "Total",
+    "empty": "Nothing in this report for these days.",
+    "minutes_one": "{{formatted}} minute",
+    "minutes_other": "{{formatted}} minutes"
+  },
+  "runs": {
+    "heading": "Exports",
+    "empty": "No exports yet.",
+    "period": "{{from}} to {{to}}",
+    "snapshot": "Now",
+    "view": "View",
+    "download": "Download CSV",
+    "columns": {
+      "report": "Report",
+      "period": "Days",
+      "requested": "Asked",
+      "by": "By",
+      "status": "State",
+      "rows": "Lines",
+      "expires": "Kept until"
+    }
+  },
+  "runStatus": {
+    "queued": "Waiting",
+    "running": "Being made",
+    "succeeded": "Ready",
+    "failed": "Failed"
+  }
+}
