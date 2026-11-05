@@ -43,6 +43,14 @@ export default function HospitalList() {
         id: 'name',
         header: t('platform.hospitals.columns.name'),
         value: (row) => row.name,
+        render: (row, text) => (
+          <Link
+            to={`/platform/hospitals/${row.id}`}
+            className="rounded-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            {text}
+          </Link>
+        ),
         hideable: false,
       },
       { id: 'slug', header: t('platform.hospitals.columns.slug'), value: (row) => row.slug },

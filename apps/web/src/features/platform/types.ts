@@ -7,3 +7,10 @@ export type HospitalCreate = NonNullable<
   paths['/platform/hospitals']['post']['requestBody']
 >['content']['application/json'];
 export type HospitalStatus = Hospital['status'];
+
+/** The limits an edit may change, with the version it started from. */
+export interface HospitalLimitsUpdate {
+  version: number;
+  maxUsers?: number | null;
+  storageMb?: number | null;
+}

@@ -141,11 +141,13 @@ export const localeSchema = z.object({
     .refine((value) => value === '' || HTTPS_URL.test(value), 'platform.create.errors.logo'),
 });
 
-export const modulesSchema = z.object({
-  features: z.array(z.string()),
+export const limitsSchema = z.object({
   maxUsers: optionalWhole(1_000_000),
   storageMb: optionalWhole(100_000_000),
 });
+export type LimitsFormValues = z.infer<typeof limitsSchema>;
+
+export const modulesSchema = z.object({ features: z.array(z.string()) }).and(limitsSchema);
 
 export const hospitalFormSchema = identitySchema.and(localeSchema).and(modulesSchema);
 export type HospitalFormValues = z.infer<typeof hospitalFormSchema>;
