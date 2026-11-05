@@ -231,8 +231,8 @@
           },
           "status": {
             "type": "string",
-            "enum": ["active", "suspended"],
-            "description": "A suspended hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended."
+            "enum": ["active", "suspended", "offboarding"],
+            "description": "A suspended or offboarding hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended."
           }
         }
       },
@@ -10909,6 +10909,232 @@
           "expiresAt": {
             "format": "date-time",
             "type": "string"
+          }
+        }
+      },
+      "PlatformHospital": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "locale",
+          "timezone",
+          "currency",
+          "themePrimary",
+          "themeLogoUrl",
+          "address",
+          "phone",
+          "registrationNumber",
+          "authMode",
+          "region",
+          "status",
+          "maxUsers",
+          "storageMb",
+          "version",
+          "memberCount",
+          "features",
+          "createdAt",
+          "suspendedAt",
+          "offboardingRequestedAt",
+          "deleteAfter"
+        ],
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "themePrimary": {
+            "type": "string"
+          },
+          "themeLogoUrl": {
+            "type": ["null", "string"]
+          },
+          "address": {
+            "type": ["null", "string"]
+          },
+          "phone": {
+            "type": ["null", "string"]
+          },
+          "registrationNumber": {
+            "type": ["null", "string"]
+          },
+          "authMode": {
+            "type": "string",
+            "enum": ["password", "sso"]
+          },
+          "region": {
+            "type": ["null", "string"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "suspended", "offboarding"]
+          },
+          "maxUsers": {
+            "type": ["null", "integer"],
+            "description": "Null: no limit."
+          },
+          "storageMb": {
+            "type": ["null", "integer"],
+            "description": "Null: no limit."
+          },
+          "version": {
+            "description": "Moves with every edit. Send it back to edit, so a stale form is refused (409).",
+            "type": "integer"
+          },
+          "memberCount": {
+            "description": "Active staff accounts at the hospital.",
+            "type": "integer"
+          },
+          "features": {
+            "description": "Every module flag set for the hospital. A module not listed is off.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["feature", "enabled"],
+              "properties": {
+                "feature": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "suspendedAt": {
+            "type": ["null", "string"]
+          },
+          "offboardingRequestedAt": {
+            "type": ["null", "string"]
+          },
+          "deleteAfter": {
+            "type": ["null", "string"],
+            "description": "When the hospital’s data may be deleted. Nothing deletes it yet."
+          }
+        }
+      },
+      "PlatformHospitalPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformHospital"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "PlatformInvite": {
+        "type": "object",
+        "required": ["id", "email", "expiresAt"],
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "PlatformAuditEntry": {
+        "type": "object",
+        "required": ["id", "at", "actorId", "action", "entity", "entityId", "hospitalId", "detail"],
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "actorId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "entity": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": ["null", "string"]
+          },
+          "hospitalId": {
+            "type": ["null", "string"]
+          },
+          "detail": {
+            "type": "object",
+            "description": "Ids and codes only, e.g. which module was switched."
+          }
+        }
+      },
+      "PlatformAuditPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformAuditEntry"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
           }
         }
       },
@@ -38094,6 +38320,1130 @@
             }
           },
           "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals": {
+      "post": {
+        "operationId": "platformCreateHospital",
+        "tags": ["platform"],
+        "description": "Onboards a hospital: creates it with its built-in roles and their default permissions, and switches on the modules named. It is created active and has no staff: invite its first admin next (`platformInviteHospitalAdmin`). Requires an Idempotency-Key; a repeat returns the hospital the first request made.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "slug",
+                  "name",
+                  "locale",
+                  "timezone",
+                  "currency",
+                  "themePrimary",
+                  "features"
+                ],
+                "properties": {
+                  "slug": {
+                    "minLength": 1,
+                    "maxLength": 63,
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                    "description": "Stable and URL-safe. Not used to find the hospital: that comes from the session.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "locale": {
+                    "minLength": 2,
+                    "maxLength": 35,
+                    "description": "A BCP 47 tag, e.g. en-IN.",
+                    "type": "string"
+                  },
+                  "timezone": {
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "An IANA zone, e.g. Asia/Kolkata.",
+                    "type": "string"
+                  },
+                  "currency": {
+                    "pattern": "^[A-Z]{3}$",
+                    "description": "ISO 4217, e.g. INR.",
+                    "type": "string"
+                  },
+                  "themePrimary": {
+                    "pattern": "^#[0-9a-fA-F]{6}$",
+                    "type": "string"
+                  },
+                  "authMode": {
+                    "type": "string",
+                    "enum": ["password", "sso"],
+                    "description": "Absent: password."
+                  },
+                  "themeLogoUrl": {
+                    "type": ["string", "null"],
+                    "maxLength": 2048,
+                    "pattern": "^https://[^\\s]+$"
+                  },
+                  "address": {
+                    "type": ["string", "null"],
+                    "maxLength": 500,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+                  },
+                  "phone": {
+                    "type": ["string", "null"],
+                    "maxLength": 32,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+                  },
+                  "registrationNumber": {
+                    "type": ["string", "null"],
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+                  },
+                  "region": {
+                    "type": ["string", "null"],
+                    "maxLength": 31,
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                  },
+                  "maxUsers": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "storageMb": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "maximum": 100000000
+                  },
+                  "features": {
+                    "maxItems": 200,
+                    "description": "The modules switched on at the start. Unknown modules are refused.",
+                    "type": "array",
+                    "items": {
+                      "minLength": 1,
+                      "maxLength": 63,
+                      "pattern": "^[a-z][a-z0-9_]*$",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformHospital"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "platformListHospitals",
+        "tags": ["platform"],
+        "description": "Hospitals, newest first, a page at a time. Filter by status, or by part of a name or slug.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["active", "suspended", "offboarding"]
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "description": "Part of a name or slug."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformHospitalPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}": {
+      "get": {
+        "operationId": "platformGetHospital",
+        "tags": ["platform"],
+        "description": "One hospital with its configuration, limits, module flags and head count.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformHospital"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "platformUpdateHospital",
+        "tags": ["platform"],
+        "description": "Changes a hospital’s configuration. Send only the fields that changed, with the `version` the edit started from: 409 `version_conflict` when someone saved first. A null clears an optional field. Status and modules have their own routes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the edit started from.",
+                    "type": "integer"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "locale": {
+                    "minLength": 2,
+                    "maxLength": 35,
+                    "description": "A BCP 47 tag, e.g. en-IN.",
+                    "type": "string"
+                  },
+                  "timezone": {
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "An IANA zone, e.g. Asia/Kolkata.",
+                    "type": "string"
+                  },
+                  "currency": {
+                    "pattern": "^[A-Z]{3}$",
+                    "description": "ISO 4217, e.g. INR.",
+                    "type": "string"
+                  },
+                  "themePrimary": {
+                    "pattern": "^#[0-9a-fA-F]{6}$",
+                    "type": "string"
+                  },
+                  "authMode": {
+                    "type": "string",
+                    "enum": ["password", "sso"]
+                  },
+                  "themeLogoUrl": {
+                    "type": ["string", "null"],
+                    "maxLength": 2048,
+                    "pattern": "^https://[^\\s]+$"
+                  },
+                  "address": {
+                    "type": ["string", "null"],
+                    "maxLength": 500,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+                  },
+                  "phone": {
+                    "type": ["string", "null"],
+                    "maxLength": 32,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+                  },
+                  "registrationNumber": {
+                    "type": ["string", "null"],
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+                  },
+                  "region": {
+                    "type": ["string", "null"],
+                    "maxLength": 31,
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                  },
+                  "maxUsers": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "storageMb": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "maximum": 100000000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformHospital"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}/features": {
+      "put": {
+        "operationId": "platformSetHospitalFeatures",
+        "tags": ["platform"],
+        "description": "Switches modules on or off for a hospital, effective at its staff’s next policy refresh with no redeploy. Modules not named keep their setting. `mfa` offers the authenticator to the hospital’s staff and `mfa_required` (with it) makes it compulsory.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["features"],
+                "properties": {
+                  "features": {
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["feature", "enabled"],
+                      "properties": {
+                        "feature": {
+                          "minLength": 1,
+                          "maxLength": 63,
+                          "pattern": "^[a-z][a-z0-9_]*$",
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformHospital"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}/admin-invite": {
+      "post": {
+        "operationId": "platformInviteHospitalAdmin",
+        "tags": ["platform"],
+        "description": "Invites the first admin of a hospital. Only while the hospital is active and has no active admin (409 `hospital_has_admin` after that: its admins invite their own staff, and the platform cannot put anyone into a live hospital’s admin role), and never to a platform admin’s address. An earlier open invite to the same address is withdrawn. The link is emailed by a job; the admin sets a password and an authenticator and signs in.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email"],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "email": {
+                    "minLength": 3,
+                    "maxLength": 254,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformInvite"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}/suspend": {
+      "post": {
+        "operationId": "platformSuspendHospital",
+        "tags": ["platform"],
+        "description": "Blocks all use of the hospital: its staff are signed out and every route of the hospital answers 403 `tenant_suspended`. Its data is kept. Reversible with reactivate.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformHospital"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}/reactivate": {
+      "post": {
+        "operationId": "platformReactivateHospital",
+        "tags": ["platform"],
+        "description": "Opens a suspended hospital again, or cancels an offboarding that has not run. Staff sign in again.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformHospital"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}/offboard": {
+      "post": {
+        "operationId": "platformOffboardHospital",
+        "tags": ["platform"],
+        "description": "Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export and the deletion itself are not run by the API yet: the data is kept, and reactivate cancels this.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["deleteAfterDays"],
+                "properties": {
+                  "deleteAfterDays": {
+                    "minimum": 1,
+                    "maximum": 3650,
+                    "description": "Days from now until the hospital’s data may be deleted, after its export.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformHospital"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/audit": {
+      "get": {
+        "operationId": "platformListAudit",
+        "tags": ["platform"],
+        "description": "What platform admins did, newest first: onboarding, edits, module switches, invites, suspension and offboarding. Ids and codes only, never a field’s value.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "hospitalId",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAuditPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

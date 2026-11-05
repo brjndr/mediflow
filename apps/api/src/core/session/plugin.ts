@@ -27,11 +27,13 @@ export type SessionResolver = (
  * - `tenant` (the default): a session with an active hospital. The request then runs inside that
  *   hospital's transaction (see core/tenancy).
  * - `session`: a signed-in user, with or without an active hospital.
+ * - `platform`: a platform admin with an authenticator (core/platform). No hospital is active and
+ *   none is set; the route works on hospitals' configuration only, never on their data.
  * - `public`: nothing. Health checks and sign-in.
  *
  * The default is the strictest, so a route that forgets to say is closed, not open.
  */
-export type RouteAccess = 'tenant' | 'session' | 'public';
+export type RouteAccess = 'tenant' | 'session' | 'platform' | 'public';
 
 declare module 'fastify' {
   interface FastifyRequest {

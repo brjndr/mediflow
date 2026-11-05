@@ -58,8 +58,8 @@ export interface Tenant {
   features: Record<string, boolean>;
   /** idleTimeoutMinutes: a session unused for this long is signed out. Absent means the app default. */
   auth: { mode: 'password' | 'sso'; idleTimeoutMinutes?: number };
-  /** A suspended hospital keeps its data, but its staff cannot use the app. */
-  status: 'active' | 'suspended';
+  /** A suspended or offboarding hospital keeps its data, but its staff cannot use the app. */
+  status: 'active' | 'suspended' | 'offboarding';
 }
 
 export interface User {

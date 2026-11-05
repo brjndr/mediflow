@@ -149,7 +149,7 @@ export const tenancyPlugin = fp(
       if (status === undefined) {
         throw new HttpError(409, 'no_active_tenant', 'The hospital no longer exists');
       }
-      if (status === 'suspended') {
+      if (status !== 'active') {
         throw new HttpError(403, 'tenant_suspended', 'This hospital is suspended');
       }
 

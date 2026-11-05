@@ -55,8 +55,8 @@ export function RequireTenant({ children }: { children: ReactNode }) {
   usePolicyRefresh();
   const tenant = useTenant();
   if (!tenant) return <HospitalPicker />;
-  // No screen of a suspended hospital is reachable, whatever the address.
-  if (tenant.status === 'suspended') {
+  // No screen of a suspended or offboarding hospital is reachable, whatever the address.
+  if (tenant.status !== 'active') {
     return (
       <>
         <DocumentTitle titleKey="tenancy.suspendedPageTitle" />

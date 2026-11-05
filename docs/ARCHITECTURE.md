@@ -72,6 +72,7 @@ Rules:
 
 - The first `platform_admin` is created by a seed script or CLI at deploy time, never through the UI or public sign-up. Require MFA for all platform admins.
 - Platform admins can create or edit a hospital's config and invite its first admin, but cannot view patient records, appointments, clinical data, or billing.
+- The API for it is `/platform/*` (`apps/api/src/features/platform/CLAUDE.md`): its own database role, `mediflow_platform`, with no grant on patient data, and its own append-only trail. The break-glass design is written there and is not built.
 - Any exceptional support access to a hospital's data must be explicit, time-limited, approved by that hospital's admin, and written to the audit log.
 - Every platform action (create, suspend, feature toggle, impersonation if ever allowed) is audit-logged.
 - A hospital admin can only manage users and roles within their own hospital.

@@ -21,7 +21,7 @@ export const tenants = pgTable('tenants', {
   authMode: text('auth_mode', { enum: ['password', 'sso'] })
     .notNull()
     .default('password'),
-  status: text('status', { enum: ['active', 'suspended'] })
+  status: text('status', { enum: ['active', 'suspended', 'offboarding'] })
     .notNull()
     .default('active'),
   /** Moves whenever a role, a grant or a module flag of the hospital changes (migration 0006). */

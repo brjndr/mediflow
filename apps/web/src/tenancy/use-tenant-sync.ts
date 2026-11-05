@@ -41,7 +41,8 @@ export function useTenantSync(): void {
     // then replaces the app with the suspended page. Once that is known, later reports of the
     // same suspension change nothing.
     const onSuspended = () => {
-      if (reloading() || activeTenant()?.status === 'suspended') return;
+      const status = activeTenant()?.status;
+      if (reloading() || (status !== undefined && status !== 'active')) return;
       dropSessionData(queryClient, dispatch);
       void queryClient.invalidateQueries({ queryKey: sessionKey });
     };
