@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
-    "analyze": "cross-env ANALYZE=true vite build"
+    "analyze": "cross-env ANALYZE=true vite build",
+    "lighthouse": "lhci autorun --config=lighthouserc.cjs && lhci autorun --config=lighthouserc.slow4g.cjs"
   },
   "msw": {
     "workerDirectory": [
@@ -56,6 +57,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
+    "@lhci/cli": "0.16.0",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",

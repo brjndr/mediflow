@@ -220,6 +220,31 @@ jobs:
           path: apps/web/playwright-report
           retention-days: 7
 
+  lighthouse:
+    name: Lighthouse (production build, mock API)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Skipped whenever verify is, so it follows the same plan.
+    needs: verify
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # lhci finds Chrome on the runner. See docs/PERFORMANCE.md for the targets.
+      - run: pnpm lighthouse
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: lighthouse-reports
+          path: |
+            apps/web/.lighthouseci
+            apps/web/.lighthouseci-slow4g
+          retention-days: 7
+
   audit:
     name: Dependency audit
     needs: plan

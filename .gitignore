@@ -29,3 +29,7 @@ Thumbs.db
 
 # Local file store (report exports) until object storage is used
 .data/
+
+# Lighthouse CI
+.lighthouseci/
+.lighthouseci-slow4g/
