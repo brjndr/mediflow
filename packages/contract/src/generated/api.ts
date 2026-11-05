@@ -4159,6 +4159,8 @@ export interface components {
             memberships: components["schemas"]["Membership"][];
             /** @description Whether sign-in asks for an authenticator code. */
             mfaEnabled: boolean;
+            /** @description A platform operator: has no hospital and no patient data, and uses the platform screens. Steers the screens only; every /platform route checks the flag on the server. */
+            isPlatformAdmin: boolean;
         };
         Session: {
             user: components["schemas"]["User"];

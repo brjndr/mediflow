@@ -69,4 +69,6 @@ export interface User {
   memberships: { tenantId: string; tenantName: string; roleId: RoleId }[];
   /** Whether sign-in asks for an authenticator code. */
   mfaEnabled: boolean;
+  /** A platform operator: no hospital, no patient data. Steers the screens; the server checks it. */
+  isPlatformAdmin: boolean;
 }

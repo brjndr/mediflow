@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
 import { DocumentTitle } from '@/app/DocumentTitle';
 import { Navigate, useLocation } from 'react-router-dom';
-import { usePolicyRefresh } from '@/access';
+import { ForbiddenPage, usePolicyRefresh } from '@/access';
 import { useSession, useSessionEndReason } from '@/app/session';
 import { HospitalPicker, SuspendedPage, useTenant, useTenantSync } from '@/tenancy';
 
 export const LOGIN_PATH = '/login';
+export const PLATFORM_PATH = '/platform';
+export const PLATFORM_SECURITY_PATH = '/platform/security';
 
 interface LoginRedirectState {
   from: string;
@@ -63,6 +65,33 @@ export function RequireTenant({ children }: { children: ReactNode }) {
         <SuspendedPage />
       </>
     );
+  }
+  return children;
+}
+
+/**
+ * Platform administrators have no hospital, so the hospital app is not theirs: they go to the
+ * platform area instead of the hospital picker. Steers only; the server answers 409 to a platform
+ * admin on any hospital route.
+ */
+export function RedirectPlatformAdmin({ children }: { children: ReactNode }) {
+  const session = useSession();
+  if (session?.user.isPlatformAdmin) return <Navigate to={PLATFORM_PATH} replace />;
+  return children;
+}
+
+/**
+ * The platform area is for platform administrators only. Anyone else signed in gets the same
+ * "no access" page as for a hospital screen they may not open, and nothing of the area loads.
+ * Whether the account has a confirmed authenticator decides what a platform admin may open: until
+ * it has one, only the security screen (the server refuses every platform route without it).
+ */
+export function RequirePlatformAdmin({ children }: { children: ReactNode }) {
+  const session = useSession();
+  const { pathname } = useLocation();
+  if (!session?.user.isPlatformAdmin) return <ForbiddenPage />;
+  if (!session.user.mfaEnabled && pathname !== PLATFORM_SECURITY_PATH) {
+    return <Navigate to={PLATFORM_SECURITY_PATH} replace />;
   }
   return children;
 }
