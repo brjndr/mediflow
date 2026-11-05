@@ -1,4 +1,4 @@
-import { LayoutDashboard } from 'lucide-react';
+import { Building2, LayoutDashboard } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export interface PlatformNavItem {
@@ -22,5 +22,11 @@ export const PLATFORM_NAV: PlatformNavItem[] = [
     to: '/platform',
     icon: LayoutDashboard,
     end: true,
+  },
+  {
+    key: 'hospitals',
+    labelKey: 'platform.nav.hospitals',
+    to: '/platform/hospitals',
+    icon: Building2,
   },
 ];
