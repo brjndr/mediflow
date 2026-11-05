@@ -32,6 +32,9 @@ test('a hospital is created with the keyboard, step by step', async ({ page }) =
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 
+  await page.getByLabel('Locale').fill('en-IN');
+  await page.getByLabel('Time zone').fill('Asia/Kolkata');
+  await page.getByLabel('Currency').selectOption('INR');
   await page.getByRole('button', { name: 'Next' }).press('Enter');
   const third = page.getByRole('heading', { name: 'Modules and limits' });
   await expect(third).toBeFocused();

@@ -33,9 +33,9 @@ const DEFAULTS: HospitalFormValues = {
   address: '',
   phone: '',
   region: REGIONS[0],
-  locale: 'en-IN',
-  timezone: 'Asia/Kolkata',
-  currency: 'INR',
+  locale: '',
+  timezone: '',
+  currency: '',
   themePrimary: '#0f766e',
   themeLogoUrl: '',
   features: [],
@@ -172,6 +172,7 @@ function LocaleStep() {
         name="currency"
         label={t('platform.create.currency')}
         required
+        placeholder={t('platform.create.choose')}
         options={currencies}
       />
       <TextField

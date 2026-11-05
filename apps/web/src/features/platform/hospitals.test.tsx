@@ -20,6 +20,12 @@ async function fillIdentity(user: ReturnType<typeof userEvent.setup>, name: stri
   }
 }
 
+async function fillLocale(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText(/^Locale/), 'en-IN');
+  await user.type(screen.getByLabelText(/Time zone/), 'Asia/Kolkata');
+  await user.selectOptions(screen.getByLabelText(/^Currency/), 'INR');
+}
+
 describe('slugFrom', () => {
   it('makes a slug from a name', () => {
     expect(slugFrom('  Saint Mary’s Hospital & Care  ')).toBe('saint-mary-s-hospital-care');
@@ -53,6 +59,7 @@ describe('hospitals (platform)', () => {
     expect(await screen.findByRole('heading', { name: 'Language, clock and look' })).toHaveFocus();
     // A preview of the brand colour.
     expect(screen.getByText('Preview')).toBeInTheDocument();
+    await fillLocale(user);
     await expectNoAxeViolations();
     await user.click(screen.getByRole('button', { name: 'Next' }));
 
@@ -111,6 +118,7 @@ describe('hospitals (platform)', () => {
     await fillIdentity(user, 'Another Hospital', 'city-general');
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await screen.findByRole('heading', { name: 'Language, clock and look' });
+    await fillLocale(user);
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await screen.findByRole('heading', { name: 'Modules and limits' });
     await user.click(screen.getByRole('button', { name: 'Create hospital' }));
@@ -180,8 +188,9 @@ describe('hospitals (platform)', () => {
     await fillIdentity(user, 'Lakeview Hospital');
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await screen.findByRole('heading', { name: 'Language, clock and look' });
+    await user.type(screen.getByLabelText(/^Locale/), 'en-IN');
+    await user.selectOptions(screen.getByLabelText(/^Currency/), 'INR');
     const zone = screen.getByLabelText(/Time zone/);
-    await user.clear(zone);
     await user.type(zone, 'Mars/Base');
     // Back never blocks, and Next on the first step checks the first step only.
     await user.click(screen.getByRole('button', { name: 'Back' }));
