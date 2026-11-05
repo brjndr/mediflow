@@ -2,8 +2,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import { lazy, Suspense, type ReactNode } from 'react';
 import type { RouteObject } from 'react-router-dom';
-import { PermissionGuard } from '@/access';
+import { ForbiddenPage, PermissionGuard } from '@/access';
 import { AppShell } from '@/app/AppShell';
+import { PlatformShell } from '@/app/PlatformShell';
+import { useSession } from '@/app/session';
 import { DocumentTitle } from '@/app/DocumentTitle';
 import { RouteErrorFallback } from '@/app/RouteErrorFallback';
 import { NotFoundPage } from '@/app/NotFoundPage';
@@ -13,6 +15,8 @@ import { OpenLinkPage } from '@/tenancy';
 import {
   LOGIN_PATH,
   RedirectIfAuthenticated,
+  RedirectPlatformAdmin,
+  RequirePlatformAdmin,
   RequireSession,
   RequireTenant,
 } from './session-guards';
@@ -32,6 +36,26 @@ const ProfilePage = lazy(() => import('@/features/auth').then((m) => ({ default:
 const SecurityPage = lazy(() =>
   import('@/features/auth').then((m) => ({ default: m.SecurityPage })),
 );
+
+const PlatformHome = lazy(() => import('@/features/platform/components/PlatformHome'));
+
+/** Someone who is not a platform admin sees the same "no access" page as for any screen they may not open. */
+function PlatformArea() {
+  const isPlatformAdmin = useSession()?.user.isPlatformAdmin === true;
+  if (!isPlatformAdmin) {
+    return (
+      <main className="flex min-h-dvh flex-col">
+        <DocumentTitle titleKey="access.forbiddenTitle" />
+        <ForbiddenPage />
+      </main>
+    );
+  }
+  return (
+    <RequirePlatformAdmin>
+      <PlatformShell />
+    </RequirePlatformAdmin>
+  );
+}
 
 /** The page with its title in the browser tab (see DocumentTitle). */
 const titled = (titleKey: string, page: ReactNode) => (
@@ -102,14 +126,40 @@ export function createRoutes(registry: Registry): RouteObject[] {
       errorElement: <RouteErrorFallback />,
     },
     {
+      // Platform administration: its own shell and navigation, outside every hospital's. No
+      // route here is a hospital's, so no screen of patient data can be reached from this area.
+      path: '/platform',
+      element: (
+        <RequireSession>
+          <PlatformArea />
+        </RequireSession>
+      ),
+      errorElement: <RouteErrorFallback />,
+      children: [
+        { index: true, element: titled('platform.title', <PlatformHome />) },
+        {
+          path: 'security',
+          element: titled(
+            'security.title',
+            <Suspense fallback={null}>
+              <SecurityPage />
+            </Suspense>,
+          ),
+        },
+        { path: '*', element: titled('notFound.title', <NotFoundPage />) },
+      ],
+    },
+    {
       path: '/',
       element: (
         <RequireSession>
-          <RequireTenant>
-            <RequireMfa>
-              <AppShell />
-            </RequireMfa>
-          </RequireTenant>
+          <RedirectPlatformAdmin>
+            <RequireTenant>
+              <RequireMfa>
+                <AppShell />
+              </RequireMfa>
+            </RequireTenant>
+          </RedirectPlatformAdmin>
         </RequireSession>
       ),
       errorElement: <RouteErrorFallback />,

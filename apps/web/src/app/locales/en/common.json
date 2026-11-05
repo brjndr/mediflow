@@ -140,6 +140,15 @@
     "tenantChangedElsewhere": "The active hospital was changed in another tab. This tab now shows the same hospital.",
     "dismiss": "Dismiss"
   },
+  "platform": {
+    "brand": "Platform administration",
+    "nav": { "label": "Platform navigation", "overview": "Overview" },
+    "home": {
+      "title": "Platform administration",
+      "description": "Hospitals, their modules and the platform audit trail are managed from here. No hospital's patient data is reachable from this area."
+    },
+    "title": "Platform"
+  },
   "access": {
     "forbiddenTitle": "You do not have access to this page",
     "forbiddenDescription": "If you think you should, ask your hospital administrator to update your role."

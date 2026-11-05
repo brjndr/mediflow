@@ -47,7 +47,7 @@
       },
       "User": {
         "type": "object",
-        "required": ["id", "email", "name", "memberships", "mfaEnabled"],
+        "required": ["id", "email", "name", "memberships", "mfaEnabled", "isPlatformAdmin"],
         "properties": {
           "id": {
             "type": "string"
@@ -66,6 +66,10 @@
           },
           "mfaEnabled": {
             "description": "Whether sign-in asks for an authenticator code.",
+            "type": "boolean"
+          },
+          "isPlatformAdmin": {
+            "description": "A platform operator: has no hospital and no patient data, and uses the platform screens. Steers the screens only; every /platform route checks the flag on the server.",
             "type": "boolean"
           }
         }

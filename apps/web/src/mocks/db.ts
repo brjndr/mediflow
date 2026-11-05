@@ -379,6 +379,8 @@ interface MockUser {
   email: string;
   name: string;
   memberships: { tenantId: string; roleId: string }[];
+  /** A platform operator: belongs to no hospital. */
+  isPlatformAdmin?: boolean;
 }
 
 export const USER_IDS = {
@@ -387,6 +389,7 @@ export const USER_IDS = {
   receptionist: 'user_receptionist',
   billingClerk: 'user_billing_clerk',
   storeKeeper: 'user_store_keeper',
+  platformAdmin: 'user_platform_admin',
   pharmacist: 'user_pharmacist',
 } as const;
 
@@ -406,6 +409,13 @@ const users: Record<string, MockUser> = {
       { tenantId: TENANT_IDS.hospital, roleId: 'doctor' },
       { tenantId: TENANT_IDS.clinic, roleId: 'doctor' },
     ],
+  },
+  [USER_IDS.platformAdmin]: {
+    id: USER_IDS.platformAdmin,
+    email: 'operator@platform.test',
+    name: 'Sample Platform Admin',
+    memberships: [],
+    isPlatformAdmin: true,
   },
   [USER_IDS.storeKeeper]: {
     id: USER_IDS.storeKeeper,
@@ -597,6 +607,7 @@ export function currentSession(): SessionDto | null {
         tenantName: tenants[m.tenantId]?.name ?? '',
       })),
       mfaEnabled: mfaUserIds.has(user.id),
+      isPlatformAdmin: user.isPlatformAdmin === true,
     },
     activeTenant: state.activeTenantId ? (tenants[state.activeTenantId] ?? null) : null,
     policy: currentPolicy(),

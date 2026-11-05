@@ -26,6 +26,10 @@ export const User = Type.Object(
     name: Type.String(),
     memberships: Type.Array(ref(Membership)),
     mfaEnabled: Type.Boolean({ description: 'Whether sign-in asks for an authenticator code.' }),
+    isPlatformAdmin: Type.Boolean({
+      description:
+        'A platform operator: has no hospital and no patient data, and uses the platform screens. Steers the screens only; every /platform route checks the flag on the server.',
+    }),
   },
   { $id: 'User' },
 );
@@ -58,10 +62,12 @@ export async function loadSessionView(
   activeTenantId: string | null,
   config: Pick<Config, 'SESSION_IDLE_MINUTES'>,
 ): Promise<Session> {
-  const user = await client.query<{ id: string; email: string; name: string }>(
-    'select id, email, name from users where id = $1',
-    [userId],
-  );
+  const user = await client.query<{
+    id: string;
+    email: string;
+    name: string;
+    is_platform_admin: boolean;
+  }>('select id, email, name, is_platform_admin from users where id = $1', [userId]);
   const account = user.rows[0];
   if (!account) throw new Error('session user not found');
 
@@ -104,6 +110,7 @@ export async function loadSessionView(
         roleId: row.role_id,
       })),
       mfaEnabled: await isMfaEnabled(client, userId),
+      isPlatformAdmin: account.is_platform_admin,
     },
     activeTenant,
     // Only for a hospital that was actually found, i.e. one the user belongs to.
