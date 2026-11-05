@@ -3894,6 +3894,144 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/hospitals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Hospitals, newest first, a page at a time. Filter by status, or by part of a name or slug. */
+        get: operations["platformListHospitals"];
+        put?: never;
+        /** @description Onboards a hospital: creates it with its built-in roles and their default permissions, and switches on the modules named. It is created active and has no staff: invite its first admin next (`platformInviteHospitalAdmin`). Requires an Idempotency-Key; a repeat returns the hospital the first request made. */
+        post: operations["platformCreateHospital"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/hospitals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One hospital with its configuration, limits, module flags and head count. */
+        get: operations["platformGetHospital"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes a hospital’s configuration. Send only the fields that changed, with the `version` the edit started from: 409 `version_conflict` when someone saved first. A null clears an optional field. Status and modules have their own routes. */
+        patch: operations["platformUpdateHospital"];
+        trace?: never;
+    };
+    "/platform/hospitals/{id}/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Switches modules on or off for a hospital, effective at its staff’s next policy refresh with no redeploy. Modules not named keep their setting. `mfa` offers the authenticator to the hospital’s staff and `mfa_required` (with it) makes it compulsory. */
+        put: operations["platformSetHospitalFeatures"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/hospitals/{id}/admin-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Invites the first admin of a hospital. Only while the hospital is active and has no active admin (409 `hospital_has_admin` after that: its admins invite their own staff, and the platform cannot put anyone into a live hospital’s admin role), and never to a platform admin’s address. An earlier open invite to the same address is withdrawn. The link is emailed by a job; the admin sets a password and an authenticator and signs in. */
+        post: operations["platformInviteHospitalAdmin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/hospitals/{id}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Blocks all use of the hospital: its staff are signed out and every route of the hospital answers 403 `tenant_suspended`. Its data is kept. Reversible with reactivate. */
+        post: operations["platformSuspendHospital"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/hospitals/{id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Opens a suspended hospital again, or cancels an offboarding that has not run. Staff sign in again. */
+        post: operations["platformReactivateHospital"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/hospitals/{id}/offboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export and the deletion itself are not run by the API yet: the data is kept, and reactivate cancels this. */
+        post: operations["platformOffboardHospital"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What platform admins did, newest first: onboarding, edits, module switches, invites, suspension and offboarding. Ids and codes only, never a field’s value. */
+        get: operations["platformListAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -4078,10 +4216,10 @@ export interface components {
                 idleTimeoutMinutes?: number;
             };
             /**
-             * @description A suspended hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended.
+             * @description A suspended or offboarding hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended.
              * @enum {string}
              */
-            status: "active" | "suspended";
+            status: "active" | "suspended" | "offboarding";
         };
         PermissionGrant: {
             /** @description resource:action */
@@ -7620,6 +7758,77 @@ export interface components {
             url: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        PlatformHospital: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            name: string;
+            locale: string;
+            timezone: string;
+            currency: string;
+            themePrimary: string;
+            themeLogoUrl: null | string;
+            address: null | string;
+            phone: null | string;
+            registrationNumber: null | string;
+            /** @enum {string} */
+            authMode: "password" | "sso";
+            region: null | string;
+            /** @enum {string} */
+            status: "active" | "suspended" | "offboarding";
+            /** @description Null: no limit. */
+            maxUsers: null | number;
+            /** @description Null: no limit. */
+            storageMb: null | number;
+            /** @description Moves with every edit. Send it back to edit, so a stale form is refused (409). */
+            version: number;
+            /** @description Active staff accounts at the hospital. */
+            memberCount: number;
+            /** @description Every module flag set for the hospital. A module not listed is off. */
+            features: {
+                feature: string;
+                enabled: boolean;
+            }[];
+            /** Format: date-time */
+            createdAt: string;
+            suspendedAt: null | string;
+            offboardingRequestedAt: null | string;
+            /** @description When the hospital’s data may be deleted. Nothing deletes it yet. */
+            deleteAfter: null | string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        PlatformHospitalPage: {
+            items: components["schemas"]["PlatformHospital"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        PlatformInvite: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        PlatformAuditEntry: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            actorId: string;
+            action: string;
+            entity: string;
+            entityId: null | string;
+            hospitalId: null | string;
+            /** @description Ids and codes only, e.g. which module was switched. */
+            detail: Record<string, never>;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        PlatformAuditPage: {
+            items: components["schemas"]["PlatformAuditEntry"][];
+            nextCursor: string | null;
+            total?: number;
         };
         Notice: {
             id: string;
@@ -28725,6 +28934,770 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformListHospitals: {
+        parameters: {
+            query: {
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit: number;
+                status?: "active" | "suspended" | "offboarding";
+                /** @description Part of a name or slug. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHospitalPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformCreateHospital: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Stable and URL-safe. Not used to find the hospital: that comes from the session. */
+                    slug: string;
+                    name: string;
+                    /** @description A BCP 47 tag, e.g. en-IN. */
+                    locale: string;
+                    /** @description An IANA zone, e.g. Asia/Kolkata. */
+                    timezone: string;
+                    /** @description ISO 4217, e.g. INR. */
+                    currency: string;
+                    themePrimary: string;
+                    /**
+                     * @description Absent: password.
+                     * @enum {string}
+                     */
+                    authMode?: "password" | "sso";
+                    themeLogoUrl?: string | null;
+                    address?: string | null;
+                    phone?: string | null;
+                    registrationNumber?: string | null;
+                    region?: string | null;
+                    maxUsers?: number | null;
+                    storageMb?: number | null;
+                    /** @description The modules switched on at the start. Unknown modules are refused. */
+                    features: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHospital"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformGetHospital: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHospital"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformUpdateHospital: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version the edit started from. */
+                    version: number;
+                    name?: string;
+                    /** @description A BCP 47 tag, e.g. en-IN. */
+                    locale?: string;
+                    /** @description An IANA zone, e.g. Asia/Kolkata. */
+                    timezone?: string;
+                    /** @description ISO 4217, e.g. INR. */
+                    currency?: string;
+                    themePrimary?: string;
+                    /** @enum {string} */
+                    authMode?: "password" | "sso";
+                    themeLogoUrl?: string | null;
+                    address?: string | null;
+                    phone?: string | null;
+                    registrationNumber?: string | null;
+                    region?: string | null;
+                    maxUsers?: number | null;
+                    storageMb?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHospital"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformSetHospitalFeatures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    features: {
+                        feature: string;
+                        enabled: boolean;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHospital"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformInviteHospitalAdmin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    email: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformInvite"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformSuspendHospital: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHospital"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformReactivateHospital: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHospital"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformOffboardHospital: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Days from now until the hospital’s data may be deleted, after its export. */
+                    deleteAfterDays: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHospital"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformListAudit: {
+        parameters: {
+            query: {
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit: number;
+                hospitalId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformAuditPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

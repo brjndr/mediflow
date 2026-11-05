@@ -22,6 +22,7 @@ import { openApiPlugin } from './core/openapi/plugin.js';
 import type { Notifier } from './core/notifier/notifier.js';
 import { notifierPlugin } from './core/notifier/plugin.js';
 import { outboxPlugin } from './core/outbox/plugin.js';
+import { platformPlugin } from './core/platform/plugin.js';
 import { idempotencyPlugin, idempotencyStorePlugin } from './core/idempotency/plugin.js';
 import { importKindsPlugin } from './core/imports/registry.js';
 import type { LiveBus } from './core/live/bus.js';
@@ -48,6 +49,7 @@ import { billingFeature } from './features/billing/index.js';
 import { pharmacyFeature } from './features/pharmacy/index.js';
 import { purchasingFeature } from './features/purchasing/index.js';
 import { reportsFeature } from './features/reports/index.js';
+import { platformFeature } from './features/platform/index.js';
 import { labTestsFeature } from './features/lab-tests/index.js';
 import { patientsFeature } from './features/patients/index.js';
 import { servicesFeature } from './features/services/index.js';
@@ -138,6 +140,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(tenancyPlugin);
   await app.register(outboxPlugin);
   await app.register(accessPlugin);
+  await app.register(platformPlugin);
   await app.register(idempotencyPlugin);
   await app.register(livePlugin, { bus: options.liveBus });
   await app.register(tenantRoutes);
@@ -171,6 +174,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(billingFeature);
   await app.register(purchasingFeature);
   await app.register(reportsFeature);
+  await app.register(platformFeature);
 
   return app;
 }

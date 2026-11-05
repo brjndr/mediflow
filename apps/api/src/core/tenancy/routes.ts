@@ -53,9 +53,9 @@ export const Tenant = Type.Object(
         }),
       ),
     }),
-    status: StringEnum(['active', 'suspended'], {
+    status: StringEnum(['active', 'suspended', 'offboarding'], {
       description:
-        'A suspended hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended.',
+        'A suspended or offboarding hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended.',
     }),
   },
   { $id: 'Tenant' },
