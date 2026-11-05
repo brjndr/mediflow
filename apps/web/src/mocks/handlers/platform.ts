@@ -142,4 +142,68 @@ export const platformHandlers = [
     hospitals.push(hospital);
     return HttpResponse.json<Hospital>(hospital, { status: 201 });
   }),
+
+  http.get('*/api/platform/hospitals/:id', ({ params }) => {
+    const denied = platformOnly();
+    if (denied) return denied;
+    const hospital = hospitals.find((h) => h.id === params.id);
+    if (!hospital) return error(404, 'not_found', 'No such hospital');
+    return HttpResponse.json<Hospital>(hospital);
+  }),
+
+  http.patch('*/api/platform/hospitals/:id', async ({ params, request }) => {
+    const denied = platformOnly();
+    if (denied) return denied;
+    const hospital = hospitals.find((h) => h.id === params.id);
+    if (!hospital) return error(404, 'not_found', 'No such hospital');
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body.version !== 'number') {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (body.version !== hospital.version) {
+      return error(409, 'version_conflict', 'The hospital was changed by someone else');
+    }
+    const limit = (value: unknown, max: number) =>
+      value === null ||
+      (Number.isInteger(value) && (value as number) >= 1 && (value as number) <= max);
+    if (
+      ('maxUsers' in body && !limit(body.maxUsers, 1_000_000)) ||
+      ('storageMb' in body && !limit(body.storageMb, 100_000_000))
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if ('maxUsers' in body) hospital.maxUsers = body.maxUsers as number | null;
+    if ('storageMb' in body) hospital.storageMb = body.storageMb as number | null;
+    hospital.version += 1;
+    return HttpResponse.json<Hospital>(hospital);
+  }),
+
+  http.put('*/api/platform/hospitals/:id/features', async ({ params, request }) => {
+    const denied = platformOnly();
+    if (denied) return denied;
+    const hospital = hospitals.find((h) => h.id === params.id);
+    if (!hospital) return error(404, 'not_found', 'No such hospital');
+    const body = (await request.json().catch(() => null)) as {
+      features?: { feature?: unknown; enabled?: unknown }[];
+    } | null;
+    const entries = body?.features;
+    if (
+      !Array.isArray(entries) ||
+      entries.length === 0 ||
+      entries.some(
+        (e) =>
+          typeof e.feature !== 'string' ||
+          !/^[a-z][a-z0-9_]*$/.test(e.feature) ||
+          typeof e.enabled !== 'boolean',
+      )
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    for (const { feature, enabled } of entries as { feature: string; enabled: boolean }[]) {
+      const known = hospital.features.find((f) => f.feature === feature);
+      if (known) known.enabled = enabled;
+      else hospital.features.push({ feature, enabled });
+    }
+    return HttpResponse.json<Hospital>(hospital);
+  }),
 ];

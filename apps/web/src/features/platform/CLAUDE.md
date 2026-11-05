@@ -15,5 +15,12 @@ What was decided for the platform admin screens (M13, PL-01 #125). The API is `a
 - **Query keys carry no hospital id** (`platformKeys`): a platform admin has none, and the cache is dropped whenever a session ends.
 - **The idempotency key** is made once per request as typed (`useCreateHospital`), so a double click or a retry creates one hospital. A `slug_taken` (409) sends the wizard back to the slug with the message on it.
 - **The slug is suggested from the name** until the person types one. A brand colour `themeFromBrandColor` would not theme with (too light for text on white) is refused in the form, instead of being stored and ignored.
-- **Region** is a fixed list (`REGIONS`, only `in`) and **starting modules** a constant (`STARTING_MODULES`, the web registry's flags). PL-03 (#127) replaces the module list with the one the API gives.
+- **Region** is a fixed list (`REGIONS`, only `in`) and **starting modules** a constant (`STARTING_MODULES`, the web registry's flags). The API has no route that lists modules, so the web constant stays (a proposed API issue would replace it).
 - Strings are still in core `common.json` under `platform`.
+
+## Modules and limits (PL-03, #127)
+
+- **Page** `/platform/hospitals/:hospitalId` (`HospitalDetail`), opened from the hospital's name in the list. `HospitalModules` and `HospitalLimits` are separate forms with separate saves; later platform screens (status, invite) add sections to this page.
+- **Modules:** a checklist saved with `PUT .../features`, sending only the flags that changed. A flag the hospital holds that the web list does not know is shown too, named by its id, so none is hidden. `mfa_required` can only be ticked while `mfa` is on, and goes off with it. A change reaches the hospital's staff at their next policy refresh; nothing here signs anyone out.
+- **Limits:** `maxUsers` and `storageMb`, empty for none, saved with `PATCH` and `version`; only changed fields are sent. On a `version_conflict` the typed values stay, the hospital is read again, and a field both changed shows the other value. The limits are **stored, not enforced** (API notes).
+- The saved hospital replaces the cached one (`platformKeys.hospital(id)`) and the list is read again.

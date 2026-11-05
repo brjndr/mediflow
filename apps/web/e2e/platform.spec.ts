@@ -47,3 +47,26 @@ test('a hospital is created with the keyboard, step by step', async ({ page }) =
   await expect(page.getByText('lakeview-hospital')).toBeVisible();
   await expectNoSidewaysScroll(page);
 });
+
+test('a hospital opens from the list; modules and limits are changed with the keyboard', async ({
+  page,
+}) => {
+  await page.goto(START);
+  await page.getByRole('link', { name: 'Riverside Clinic' }).click();
+  await expect(page.getByRole('heading', { name: 'Riverside Clinic', level: 1 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  const lab = page.getByRole('checkbox', { name: 'Laboratory' });
+  await lab.focus();
+  await lab.press('Space');
+  await expect(lab).toBeChecked();
+  await page.getByRole('button', { name: 'Save modules' }).press('Enter');
+  await expect(page.getByText('Modules saved.')).toBeVisible();
+
+  await page.getByLabel(/Most staff accounts/).fill('80');
+  await page.getByLabel(/Most staff accounts/).press('Enter');
+  await expect(page.getByText('Limits saved.')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});

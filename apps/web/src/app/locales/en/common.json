@@ -224,6 +224,28 @@
         "whole": "Enter a whole number above zero, or leave it empty."
       }
     },
+    "detail": {
+      "title": "Hospital",
+      "back": "Back to hospitals",
+      "loading": "Loading the hospital…",
+      "notFoundTitle": "Hospital not found",
+      "notFoundBody": "There is no hospital with this address.",
+      "errorTitle": "The hospital could not be loaded",
+      "modules": "Modules",
+      "modulesHint": "A module that is off is hidden from this hospital's staff. A change reaches them at their next policy refresh, with no sign-out.",
+      "mfa": "Authenticator",
+      "mfaOffer": "Offer the authenticator to staff",
+      "mfaRequired": "Make it compulsory",
+      "saveModules": "Save modules",
+      "modulesSaved": "Modules saved.",
+      "limits": "Limits",
+      "limitsHint": "Leave a limit empty for none. Limits are recorded here; they are not enforced yet.",
+      "staffNow": "{{count}} active staff accounts now.",
+      "saveLimits": "Save limits",
+      "limitsSaved": "Limits saved.",
+      "conflict": "Someone else changed this hospital meanwhile. What you typed is kept; review it and save again.",
+      "theySaved": "Saved by someone else for fields you also changed:"
+    },
     "modules": {
       "patients": "Patients",
       "departments": "Departments",

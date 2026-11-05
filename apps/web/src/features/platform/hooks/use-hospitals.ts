@@ -1,7 +1,13 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
-import { createHospital, fetchHospitals } from '../api';
-import type { HospitalCreate, HospitalStatus } from '../types';
+import {
+  createHospital,
+  fetchHospital,
+  fetchHospitals,
+  setHospitalFeatures,
+  updateHospital,
+} from '../api';
+import type { Hospital, HospitalCreate, HospitalLimitsUpdate, HospitalStatus } from '../types';
 
 /**
  * Keys of the platform's own data. They carry no hospital id because a platform admin has none:
@@ -11,6 +17,7 @@ import type { HospitalCreate, HospitalStatus } from '../types';
 export const platformKeys = {
   all: ['platform'] as const,
   hospitals: () => [...platformKeys.all, 'hospitals'] as const,
+  hospital: (id: string) => [...platformKeys.hospitals(), 'detail', id] as const,
   hospitalList: (filters: unknown) => [...platformKeys.hospitals(), 'list', filters] as const,
 };
 
@@ -44,5 +51,43 @@ export function useCreateHospital() {
       attempt.current = undefined;
       return queryClient.invalidateQueries({ queryKey: platformKeys.hospitals() });
     },
+  });
+}
+
+export function useHospital(id: string) {
+  return useQuery({
+    queryKey: platformKeys.hospital(id),
+    queryFn: ({ signal }) => fetchHospital(id, signal),
+  });
+}
+
+/** After a change the saved hospital replaces the cached one, and the list is read again. */
+function useSavedHospital() {
+  const queryClient = useQueryClient();
+  return (saved: Hospital) => {
+    queryClient.setQueryData(platformKeys.hospital(saved.id), saved);
+    return queryClient.invalidateQueries({
+      queryKey: [...platformKeys.hospitals(), 'list'],
+    });
+  };
+}
+
+export function useSetHospitalFeatures(id: string) {
+  const saved = useSavedHospital();
+  return useMutation({
+    mutationFn: (features: { feature: string; enabled: boolean }[]) =>
+      setHospitalFeatures(id, features),
+    onSuccess: saved,
+  });
+}
+
+export function useUpdateHospitalLimits(id: string) {
+  const saved = useSavedHospital();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: HospitalLimitsUpdate) => updateHospital(id, body),
+    onSuccess: saved,
+    // Someone saved first: read the hospital again so the newest version is known.
+    onError: () => queryClient.invalidateQueries({ queryKey: platformKeys.hospital(id) }),
   });
 }

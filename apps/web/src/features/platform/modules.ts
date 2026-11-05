@@ -31,3 +31,7 @@ export const STARTING_MODULES = [
 
 /** The regions a hospital's data can live in. One for now; add a code here for another. */
 export const REGIONS = ['in'] as const;
+
+/** The authenticator's two switches, kept with the module flags (`mfa_required` needs `mfa`). */
+export const MFA_SWITCH = 'mfa';
+export const MFA_REQUIRED_SWITCH = 'mfa_required';
