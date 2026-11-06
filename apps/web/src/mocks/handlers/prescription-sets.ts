@@ -208,7 +208,7 @@ const nameTaken = (tenantId: string, name: string, ownerId: string | null, excep
   state.sets.some(
     (set) =>
       set.tenantId === tenantId &&
-      set.ownerId === ownerId &&
+      (set.ownerId === null || set.ownerId === ownerId) &&
       set.id !== exceptId &&
       set.name.toLowerCase() === name.toLowerCase(),
   );
@@ -258,6 +258,10 @@ export function addMockSet(set: {
   });
   return id;
 }
+
+/** The medicines among a member of staff's favourites, in order, for a test. */
+export const mockFavouritesOf = (tenantId: string, forUser: string): string[] =>
+  state.favourites.get(`${tenantId}:${forUser}`) ?? [];
 
 /** Puts medicines among a member of staff's favourites, for a test. */
 export function setMockFavourites(tenantId: string, forUser: string, drugIds: string[]): void {
@@ -373,6 +377,35 @@ export const prescriptionSetsHandlers = [
       return error(422, 'unknown_drug', 'No such medicine');
     }
     state.favourites.set(`${access.tenantId}:${userId()}`, list);
+    return HttpResponse.json<FavouriteDrugs>(favouritesOf(access.tenantId));
+  }),
+
+  http.put('*/api/me/favourite-drugs/:drugId', ({ request, params }) => {
+    const manage = authorize(request, { permission: MANAGE, featureFlag: FEATURE_FLAG });
+    if ('denied' in manage) return manage.denied;
+    const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const drugId = String(params.drugId);
+    const drug = mockDrug(access.tenantId, drugId);
+    if (!drug || drug.type !== 'medicine' || drug.archived) {
+      return error(422, 'unknown_drug', 'No such medicine');
+    }
+    const key = `${access.tenantId}:${userId()}`;
+    const others = (state.favourites.get(key) ?? []).filter((id) => id !== drugId);
+    state.favourites.set(key, [...others, drugId].slice(-FAVOURITES_MAX));
+    return HttpResponse.json<FavouriteDrugs>(favouritesOf(access.tenantId));
+  }),
+
+  http.delete('*/api/me/favourite-drugs/:drugId', ({ request, params }) => {
+    const manage = authorize(request, { permission: MANAGE, featureFlag: FEATURE_FLAG });
+    if ('denied' in manage) return manage.denied;
+    const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const key = `${access.tenantId}:${userId()}`;
+    state.favourites.set(
+      key,
+      (state.favourites.get(key) ?? []).filter((id) => id !== String(params.drugId)),
+    );
     return HttpResponse.json<FavouriteDrugs>(favouritesOf(access.tenantId));
   }),
 ];

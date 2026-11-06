@@ -64,7 +64,7 @@ const line = (drugId: string, extra: object = {}) => ({
 });
 
 const call = (
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   url: string,
   { tenant = hospital, user = doctor, key }: Options = {},
   payload?: object,
@@ -242,6 +242,26 @@ describe('own and shared sets', () => {
     expect((await create({ name: 'Same name' }, { user: otherDoctor })).statusCode).toBe(201);
   });
 
+  it('refuses an own set with the name of a shared one, and a rename into it', async () => {
+    await added({ name: 'Hospital standard', shared: true }, { user: admin });
+    expect(errorOf(await create({ name: 'hospital STANDARD' }))).toEqual([
+      409,
+      'prescription_set_name_taken',
+    ]);
+    const other = await added({ name: 'Doctor own name' });
+    const rename = await call(
+      'PATCH',
+      `/prescription-sets/${other.set.id}`,
+      {},
+      { version: other.set.version, name: 'Hospital standard' },
+    );
+    expect(errorOf(rename)).toEqual([409, 'prescription_set_name_taken']);
+    // A shared set never learns that someone's private set has the name.
+    expect(
+      (await create({ name: 'Doctor own name', shared: true }, { user: admin })).statusCode,
+    ).toBe(201);
+  });
+
   it('holds 1 to 30 lines of medicines that may be prescribed', async () => {
     const thirty = Array.from({ length: 30 }, () => line(drugs.para!));
     expect((await create({ name: 'Thirty', lines: thirty })).statusCode).toBe(201);
@@ -383,6 +403,33 @@ describe('favourite medicines', () => {
     expect(
       (await call('GET', '/me/favourite-drugs')).json<{ items: unknown[] }>().items,
     ).toHaveLength(1);
+  });
+
+  it('stars and unstars one medicine at a time, and two sent at once both stay', async () => {
+    await call('PUT', '/me/favourite-drugs', {}, { drugIds: [] });
+    const ids = (r: Response) =>
+      r.json<{ items: { drugId: string }[] }>().items.map((i) => i.drugId);
+    const both = await Promise.all([
+      call('PUT', `/me/favourite-drugs/${drugs.para}`),
+      call('PUT', `/me/favourite-drugs/${drugs.amox}`),
+    ]);
+    expect(both.map((r) => r.statusCode)).toEqual([200, 200]);
+    expect(ids(await call('GET', '/me/favourite-drugs')).sort()).toEqual(
+      [drugs.para!, drugs.amox!].sort(),
+    );
+    expect(ids(await call('DELETE', `/me/favourite-drugs/${drugs.para}`))).toEqual([drugs.amox]);
+    // Not starred: not an error. Starring twice keeps it once.
+    expect((await call('DELETE', `/me/favourite-drugs/${drugs.para}`)).statusCode).toBe(200);
+    await call('PUT', `/me/favourite-drugs/${drugs.amox}`);
+    expect(ids(await call('GET', '/me/favourite-drugs'))).toEqual([drugs.amox]);
+    expect(ids(await call('GET', '/me/favourite-drugs', { user: otherDoctor }))).toEqual([]);
+    expect(errorOf(await call('PUT', `/me/favourite-drugs/${drugs.old}`))).toEqual([
+      422,
+      'unknown_drug',
+    ]);
+    expect(
+      errorOf(await call('PUT', `/me/favourite-drugs/${drugs.para}`, { user: nurse })),
+    ).toEqual([403, 'permission_denied']);
   });
 
   it('holds at most 20, each once, each a medicine that may be prescribed', async () => {

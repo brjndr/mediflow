@@ -177,14 +177,19 @@ export async function updateSet(
   );
 }
 
-/** Whether the caller's own (or the shared) sets already have this name, other than `exceptId`. */
+/**
+ * Whether a set already has this name, other than `exceptId`: the owner's own sets and the shared
+ * ones, since the picker lists both together. A shared set is checked against shared sets only,
+ * so a refusal never tells that someone's private set has the name.
+ */
 export async function nameTaken(
   client: pg.ClientBase,
   { name, ownerId, exceptId }: { name: string; ownerId: string | null; exceptId?: string },
 ): Promise<boolean> {
   const { rows } = await client.query(
     `select 1 from prescription_sets
-     where name_lower = lower($1) and owner_user_id is not distinct from $2::uuid
+     where name_lower = lower($1)
+       and (owner_user_id is null or owner_user_id is not distinct from $2::uuid)
        and ($3::uuid is null or id <> $3)`,
     [name, ownerId, exceptId ?? null],
   );
@@ -220,4 +225,22 @@ export async function replaceFavourites(
       [userId, drugId, position],
     );
   }
+}
+
+/**
+ * Stars or unstars one medicine under a lock on the person, so two quick changes (or two tabs)
+ * each keep theirs. A starred one past `max` drops the oldest.
+ */
+export async function changeFavourite(
+  client: pg.ClientBase,
+  userId: string,
+  drugId: string,
+  starred: boolean,
+  max: number,
+): Promise<void> {
+  await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    `favourite_drugs:${userId}`,
+  ]);
+  const others = (await favouriteIds(client, userId)).filter((id) => id !== drugId);
+  await replaceFavourites(client, userId, starred ? [...others, drugId].slice(-max) : others);
 }

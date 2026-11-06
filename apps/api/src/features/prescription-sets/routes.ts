@@ -8,6 +8,7 @@ import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { INSTRUCTIONS_MAX } from '../clinical/index.js';
 import { medicineLabels, prescribableDrug } from '../drugs/index.js';
 import {
+  changeFavourite,
   favouriteIds,
   findSet,
   insertSet,
@@ -22,6 +23,7 @@ import {
 } from './repository.js';
 import {
   FavouriteDrugs,
+  FAVOURITES_MAX,
   FavouriteDrugsSet,
   NAME_MAX,
   PRESCRIPTION_SET_SCHEMAS,
@@ -322,6 +324,53 @@ export const prescriptionSetRoutes: FastifyPluginAsyncTypebox = async (app) => {
         }
       }
       await replaceFavourites(request.txClient, userId, drugIds);
+      request.audit('update', 'favourite_drugs');
+      return favourites(request);
+    },
+  );
+
+  const DrugParams = Type.Object({ drugId: Type.String({ format: 'uuid' }) });
+
+  app.put(
+    '/me/favourite-drugs/:drugId',
+    {
+      config: { permissions: [MANAGE, READ], feature: FEATURE },
+      schema: {
+        operationId: 'addFavouriteDrug',
+        tags: ['prescription-sets'],
+        description:
+          'Stars one medicine: it goes to the end of the caller’s favourites and a twenty-first drops the oldest. One already starred moves to the end. Unlike replacing the whole list, two of these sent at once both stay. 422 unknown_drug for a medicine that may not be prescribed. Requires prescriptionSet:manage and prescriptionSet:read.',
+        params: DrugParams,
+        response: { 200: ref(FavouriteDrugs), ...errors(400, 401, 403, 409, 422, 429) },
+      },
+    },
+    async (request) => {
+      const { drugId } = request.params as { drugId: string };
+      if (!(await prescribableDrug(request.txClient, drugId))) {
+        throw new HttpError(422, 'unknown_drug', 'No such medicine');
+      }
+      await changeFavourite(request.txClient, userOf(request), drugId, true, FAVOURITES_MAX);
+      request.audit('update', 'favourite_drugs');
+      return favourites(request);
+    },
+  );
+
+  app.delete(
+    '/me/favourite-drugs/:drugId',
+    {
+      config: { permissions: [MANAGE, READ], feature: FEATURE },
+      schema: {
+        operationId: 'removeFavouriteDrug',
+        tags: ['prescription-sets'],
+        description:
+          'Takes one medicine off the caller’s favourites; the others stay, whatever else changes at the same time. A medicine not starred is not an error. Requires prescriptionSet:manage and prescriptionSet:read.',
+        params: DrugParams,
+        response: { 200: ref(FavouriteDrugs), ...errors(400, 401, 403, 409, 429) },
+      },
+    },
+    async (request) => {
+      const { drugId } = request.params as { drugId: string };
+      await changeFavourite(request.txClient, userOf(request), drugId, false, FAVOURITES_MAX);
       request.audit('update', 'favourite_drugs');
       return favourites(request);
     },

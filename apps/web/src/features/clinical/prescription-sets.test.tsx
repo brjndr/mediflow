@@ -10,7 +10,12 @@ import {
   USER_IDS,
 } from '@/mocks/db';
 import { mockDrugsOf } from '@/mocks/handlers/drugs';
-import { addMockSet, mockSetsOf, setMockFavourites } from '@/mocks/handlers/prescription-sets';
+import {
+  addMockSet,
+  mockFavouritesOf,
+  mockSetsOf,
+  setMockFavourites,
+} from '@/mocks/handlers/prescription-sets';
 import { editMockAllergies } from '@/mocks/handlers/triage';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
@@ -322,6 +327,25 @@ describe('favourite medicines', () => {
       ).toHaveAttribute('aria-pressed', 'true'),
     );
     expect(await within(line(1)).findByText(/is one of your favourites./)).toBeInTheDocument();
+  });
+
+  it('send the one change, so a star put on the server meanwhile stays', async () => {
+    await startWriting();
+    const box = within(line(1)).getByRole('combobox', { name: 'Medicine' });
+    await userEvent.type(box, 'azithro');
+    const [first] = await within(await within(line(1)).findByRole('listbox')).findAllByRole(
+      'option',
+    );
+    await userEvent.click(first as HTMLElement);
+    const star = await within(line(1)).findByRole('button', {
+      name: /^Add Azithromycin.* to your favourites$/,
+    });
+    // Another tab starred Paracetamol after this one read its list.
+    const paracetamolId = medicine(HOSPITAL, 'Paracetamol').id;
+    setMockFavourites(HOSPITAL, USER_IDS.admin, [paracetamolId]);
+    await userEvent.click(star);
+    await waitFor(() => expect(mockFavouritesOf(HOSPITAL, USER_IDS.admin)).toHaveLength(2));
+    expect(mockFavouritesOf(HOSPITAL, USER_IDS.admin)[0]).toBe(paracetamolId);
   });
 
   it('are not offered with the clinical switch off', async () => {
