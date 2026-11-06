@@ -89,7 +89,7 @@ export const tenantRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['tenancy'],
         description:
           'The active hospital of the session and its configuration. Private per session, never CDN-cached.',
-        response: { 200: ref(Tenant), ...errors(401, 403, 409) },
+        response: { 200: ref(Tenant), ...errors(401, 403, 409, 429) },
       },
     },
     async (request): Promise<Tenant> => {
