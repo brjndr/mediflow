@@ -18,6 +18,8 @@ export interface TemplateData {
     linkPath: string;
     expiresInMinutes: number;
   };
+  /** The password of this account was just changed from the account page. No link, no data. */
+  password_changed: Record<string, never>;
 }
 
 export type TemplateName = keyof TemplateData;
@@ -54,13 +56,17 @@ export function appLink(appBaseUrl: string, linkPath: string): string {
   return url.href;
 }
 
-function layout(paragraphs: string[], link: { href: string; label: string }, footer: string) {
-  const text = [...paragraphs, link.href, footer].join('\n\n');
+function layout(
+  paragraphs: string[],
+  link: { href: string; label: string } | null,
+  footer: string,
+) {
+  const text = [...paragraphs, ...(link ? [link.href] : []), footer].join('\n\n');
   const html = [
     '<!doctype html>',
     '<html lang="en"><body style="font-family: system-ui, sans-serif; line-height: 1.5; color: #1f2937">',
     ...paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`),
-    `<p><a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a></p>`,
+    ...(link ? [`<p><a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a></p>`] : []),
     `<p style="color: #6b7280; font-size: 14px">${escapeHtml(footer)}</p>`,
     '</body></html>',
   ].join('\n');
@@ -94,6 +100,16 @@ const renderers: {
         ],
         { href: appLink(appBaseUrl, data.linkPath), label: 'Reset your password' },
         `This link works once and expires in ${data.expiresInMinutes} minutes. If you did not ask for this, you can ignore this email and your password stays as it is.`,
+      ),
+    };
+  },
+  password_changed() {
+    return {
+      subject: 'Your Mediflow password was changed',
+      ...layout(
+        ['The password of your Mediflow account was just changed.'],
+        null,
+        'If you did this, nothing more is needed. If you did not, reset your password from the sign-in page now and tell your hospital administrator.',
       ),
     };
   },

@@ -28,7 +28,14 @@ export const ROTATION_GRACE_SECONDS = 30;
 const TOUCH_INTERVAL_SECONDS = 60;
 
 export type RevokeReason =
-  'logout' | 'idle' | 'expired' | 'token_reuse' | 'replaced' | 'password_changed' | 'admin';
+  | 'logout'
+  | 'idle'
+  | 'expired'
+  | 'token_reuse'
+  | 'replaced'
+  | 'password_changed'
+  | 'admin'
+  | 'revoked_by_user';
 
 export interface ActiveSession {
   id: string;
@@ -66,17 +73,39 @@ const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
 export const isToken = (value: string | undefined): value is string =>
   value !== undefined && TOKEN_SHAPE.test(value);
 
+/** The longest browser description kept with a session. */
+const MAX_USER_AGENT = 200;
+// Control characters (C0, DEL and C1) become spaces; the pattern says so in escapes.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
+
+/**
+ * The browser's own description of itself, made safe to store and show: control characters
+ * removed, runs of spaces made one, cut to MAX_USER_AGENT. Null when nothing is left. It is only
+ * ever shown to the person it belongs to, as a hint for recognising a device.
+ */
+export function cleanUserAgent(value: string | undefined): string | null {
+  if (!value) return null;
+  const cleaned = value.replace(CONTROL_CHARACTERS, ' ').replace(/\s+/g, ' ').trim();
+  const cut = [...cleaned].slice(0, MAX_USER_AGENT).join('').trim();
+  return cut === '' ? null : cut;
+}
+
 export async function createSession(
   client: pg.PoolClient,
   config: SessionConfig,
-  { userId, tenantId }: { userId: string; tenantId: string | null },
+  {
+    userId,
+    tenantId,
+    userAgent,
+  }: { userId: string; tenantId: string | null; userAgent?: string | null },
 ): Promise<{ session: ActiveSession; token: string }> {
   const { token, hash } = newToken();
   const { rows } = await client.query<{ id: string }>(
-    `insert into sessions (user_id, active_tenant_id, token_hash, expires_at)
-     values ($1, $2, $3, now() + make_interval(hours => $4))
+    `insert into sessions (user_id, active_tenant_id, token_hash, expires_at, user_agent)
+     values ($1, $2, $3, now() + make_interval(hours => $4), $5)
      returning id`,
-    [userId, tenantId, hash, config.SESSION_ABSOLUTE_HOURS],
+    [userId, tenantId, hash, config.SESSION_ABSOLUTE_HOURS, userAgent ?? null],
   );
   const id = rows[0]?.id;
   if (!id) throw new Error('session was not created');
@@ -260,6 +289,24 @@ export async function sessionStillHolds(
   if (user.rows[0]?.status !== 'active') return false;
   const standing = await mfaStanding(client, session.tenantId, session.userId, session.id);
   return standing !== null && !(standing.required && !standing.enrolled);
+}
+
+/**
+ * Replaces a session's token, as on any change of what the session may reach. The replaced token
+ * still works for ROTATION_GRACE_SECONDS. Returns the new token for the cookie.
+ */
+export async function rotateSessionToken(
+  client: pg.PoolClient,
+  sessionId: string,
+): Promise<string> {
+  const next = newToken();
+  await client.query(
+    `update sessions
+     set token_hash = $2, previous_token_hash = token_hash, rotated_at = now(), last_seen_at = now()
+     where id = $1 and revoked_at is null`,
+    [sessionId, next.hash],
+  );
+  return next.token;
 }
 
 /**

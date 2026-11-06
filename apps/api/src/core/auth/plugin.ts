@@ -8,6 +8,7 @@ import { withAuthTransaction } from './db.js';
 import { resolveSession, sessionStillHolds } from './sessions.js';
 import { AUTH_SCHEMAS } from './session-view.js';
 import { ACCOUNT_SCHEMAS } from './account-routes.js';
+import { ACCOUNT_SESSION_SCHEMAS } from './account-sessions.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -60,7 +61,8 @@ export const authPlugin = fp(
         return Object.assign(error, { statusCode: context.statusCode });
       },
     });
-    for (const schema of [...AUTH_SCHEMAS, ...ACCOUNT_SCHEMAS]) app.addSchema(schema);
+    for (const schema of [...AUTH_SCHEMAS, ...ACCOUNT_SCHEMAS, ...ACCOUNT_SESSION_SCHEMAS])
+      app.addSchema(schema);
 
     // Cross-site request forgery: the session cookie is sent automatically, so a request that
     // changes something must be shown to come from the web app itself. Browsers state where a
