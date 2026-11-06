@@ -40,6 +40,7 @@ const SecurityPage = lazy(() =>
 const PlatformHome = lazy(() => import('@/features/platform/components/PlatformHome'));
 const HospitalList = lazy(() => import('@/features/platform/routes/HospitalList'));
 const HospitalDetail = lazy(() => import('@/features/platform/routes/HospitalDetail'));
+const AuditView = lazy(() => import('@/features/platform/routes/AuditView'));
 const HospitalCreate = lazy(() => import('@/features/platform/routes/HospitalCreate'));
 
 /** Someone who is not a platform admin sees the same "no access" page as for any screen they may not open. */
@@ -164,6 +165,15 @@ export function createRoutes(registry: Registry): RouteObject[] {
             'platform.detail.title',
             <Suspense fallback={null}>
               <HospitalDetail />
+            </Suspense>,
+          ),
+        },
+        {
+          path: 'audit',
+          element: titled(
+            'platform.audit.title',
+            <Suspense fallback={null}>
+              <AuditView />
             </Suspense>,
           ),
         },

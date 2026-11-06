@@ -947,6 +947,20 @@ describe('the platform’s trail', () => {
       'hospital.create',
     ]);
   });
+
+  it('narrows to one actor', async () => {
+    const hospital = await createHospital();
+    const mine = await call(
+      'GET',
+      `/platform/audit?hospitalId=${hospital.id}&limit=10&actorId=${operator.id}`,
+    );
+    expect(mine.json().items).toHaveLength(1);
+    const other = await call(
+      'GET',
+      `/platform/audit?hospitalId=${hospital.id}&limit=10&actorId=${hospital.id}`,
+    );
+    expect(other.json().items).toHaveLength(0);
+  });
 });
 
 describe('the first platform admin', () => {

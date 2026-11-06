@@ -195,7 +195,7 @@ export async function recordPlatformAudit(client: pg.ClientBase, input: AuditInp
 
 export async function listAudit(
   client: pg.ClientBase,
-  input: { cursor?: string; limit: number; hospitalId?: string },
+  input: { cursor?: string; limit: number; hospitalId?: string; actorId?: string },
 ): Promise<{ items: PlatformAuditEntry[]; nextCursor: string | null }> {
   const from = decodeCursor(input.cursor);
   const { rows } = await client.query<{
@@ -212,10 +212,17 @@ export async function listAudit(
     `select id, at, at::text as cursor_at, actor_id, action, entity, entity_id, hospital_id, detail
      from platform_audit_log
      where ($1::uuid is null or hospital_id = $1)
+       and ($5::uuid is null or actor_id = $5)
        and ($2::timestamptz is null or (at, id) < ($2, $3::uuid))
      order by at desc, id desc
      limit $4`,
-    [input.hospitalId ?? null, from?.at ?? null, from?.id ?? null, input.limit + 1],
+    [
+      input.hospitalId ?? null,
+      from?.at ?? null,
+      from?.id ?? null,
+      input.limit + 1,
+      input.actorId ?? null,
+    ],
   );
   const page = rows.slice(0, input.limit);
   const last = page[page.length - 1];

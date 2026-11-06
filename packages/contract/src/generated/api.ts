@@ -7865,7 +7865,9 @@ export interface components {
             entityId: null | string;
             hospitalId: null | string;
             /** @description Ids and codes only, e.g. which module was switched. */
-            detail: Record<string, never>;
+            detail: {
+                [key: string]: string | number | boolean | null;
+            };
         };
         /** @description Cursor envelope used by every list endpoint. */
         PlatformAuditPage: {
@@ -29820,6 +29822,7 @@ export interface operations {
                 cursor?: string;
                 limit: number;
                 hospitalId?: string;
+                actorId?: string;
             };
             header?: never;
             path?: never;

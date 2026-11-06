@@ -679,9 +679,9 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request) => {
       admin(request);
-      const { cursor, limit: size, hospitalId } = request.query;
+      const { cursor, limit: size, hospitalId, actorId } = request.query;
       return withPlatformTransaction(pool, (client) =>
-        listAudit(client, { cursor, limit: size, hospitalId }),
+        listAudit(client, { cursor, limit: size, hospitalId, actorId }),
       );
     },
   );
