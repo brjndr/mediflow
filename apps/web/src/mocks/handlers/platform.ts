@@ -72,6 +72,26 @@ function platformOnly(): Response | null {
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
+/** One status change from the statuses it may start at; the hospital's version moves. */
+function changeStatus(
+  id: string,
+  from: Hospital['status'][],
+  apply: (hospital: Hospital) => void,
+  withdrawInvites = true,
+): Response {
+  const denied = platformOnly();
+  if (denied) return denied;
+  const hospital = hospitals.find((h) => h.id === id);
+  if (!hospital) return error(404, 'not_found', 'No such hospital');
+  if (!from.includes(hospital.status)) {
+    return error(409, 'invalid_transition', 'The hospital is not in a status that allows it');
+  }
+  apply(hospital);
+  hospital.version += 1;
+  if (withdrawInvites) invites.delete(id);
+  return HttpResponse.json<Hospital>(hospital);
+}
+
 export const platformHandlers = [
   http.get('*/api/platform/hospitals', ({ request }) => {
     const denied = platformOnly();
@@ -261,6 +281,42 @@ export const platformHandlers = [
     };
     invites.set(hospital.id, [...open, invite]);
     return HttpResponse.json<Invite>(invite, { status: 201 });
+  }),
+
+  // Status changes, with the API's rules: suspend from active, reactivate from suspended or
+  // offboarding, offboard from active or suspended. Each withdraws open invites except reactivate.
+  http.post('*/api/platform/hospitals/:id/suspend', ({ params }) =>
+    changeStatus(String(params.id), ['active'], (h) => {
+      h.status = 'suspended';
+      h.suspendedAt = new Date().toISOString();
+    }),
+  ),
+
+  http.post('*/api/platform/hospitals/:id/reactivate', ({ params }) =>
+    changeStatus(
+      String(params.id),
+      ['suspended', 'offboarding'],
+      (h) => {
+        h.status = 'active';
+        h.suspendedAt = null;
+        h.offboardingRequestedAt = null;
+        h.deleteAfter = null;
+      },
+      false,
+    ),
+  ),
+
+  http.post('*/api/platform/hospitals/:id/offboard', async ({ params, request }) => {
+    const body = (await request.json().catch(() => null)) as { deleteAfterDays?: unknown } | null;
+    const days = body?.deleteAfterDays;
+    if (typeof days !== 'number' || !Number.isInteger(days) || days < 1 || days > 3650) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    return changeStatus(String(params.id), ['active', 'suspended'], (h) => {
+      h.status = 'offboarding';
+      h.offboardingRequestedAt = new Date().toISOString();
+      h.deleteAfter = new Date(Date.now() + days * 86_400_000).toISOString();
+    });
   }),
 
   http.post('*/api/platform/hospitals/:id/admin-invites/:inviteId/revoke', ({ params }) => {

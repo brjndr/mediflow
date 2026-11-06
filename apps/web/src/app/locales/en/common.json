@@ -246,6 +246,48 @@
       "conflict": "Someone else changed this hospital meanwhile. What you typed is kept; review it and save again.",
       "theySaved": "Saved by someone else for fields you also changed:"
     },
+    "status": {
+      "heading": "Status",
+      "cancel": "Cancel",
+      "since": "Suspended on {{when}}.",
+      "offboardingSince": "Offboarding started on {{when}}.",
+      "deleteAfter": "Its data may be deleted after {{when}}; nothing is deleted yet.",
+      "changedMeanwhile": "The hospital's status was changed by someone else. It is shown again as it is now.",
+      "explain": {
+        "active": "Open. Its staff can sign in.",
+        "suspended": "Closed to its staff. Its data is kept.",
+        "offboarding": "Closed to its staff, and marked for deletion. Its data is kept for now."
+      },
+      "suspend": {
+        "action": "Suspend",
+        "title": "Suspend {{name}}?",
+        "description": "Its staff are signed out now and cannot sign in until it is reactivated. Open invites are withdrawn. Nothing is deleted.",
+        "confirm": "Suspend hospital",
+        "done": "The hospital is suspended."
+      },
+      "reactivate": {
+        "action": "Reactivate",
+        "title": "Reactivate {{name}}?",
+        "description": {
+          "suspended": "Its staff can sign in again. Invites withdrawn when it was suspended are not restored.",
+          "offboarding": "This cancels the offboarding and clears the deletion date. Its staff can sign in again."
+        },
+        "confirm": "Reactivate hospital",
+        "done": "The hospital is active again."
+      },
+      "offboard": {
+        "action": "Offboard",
+        "title": "Offboard {{name}}?",
+        "description": "Its staff are signed out now, open invites are withdrawn, and its data is marked for deletion after the days below. The export and the deletion are not built yet: nothing is deleted. Reactivating cancels this.",
+        "slug": "Type {{slug}} to confirm",
+        "slugMismatch": "This is not the hospital's slug.",
+        "days": "Days until its data may be deleted",
+        "daysHint": "From 1 to 3650.",
+        "daysInvalid": "Enter a whole number from 1 to 3650.",
+        "confirm": "Offboard hospital",
+        "done": "Offboarding has started."
+      }
+    },
     "invite": {
       "heading": "First hospital admin",
       "hint": "Invite the person who will run this hospital. They get an email with a link to set a password and an authenticator. Once the hospital has an admin, its admins invite their own staff.",

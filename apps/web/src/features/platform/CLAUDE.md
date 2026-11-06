@@ -33,3 +33,13 @@ What was decided for the platform admin screens (M13, PL-01 #125). The API is `a
 - **Focus:** a withdrawn row leaves the list, so focus goes to the status line (`focusIfLost`), which also says what was done.
 - **Mock:** a mock hospital with staff (`memberCount > 0`) has an admin, so an invite to it is refused; create a hospital first to invite into one. An address starting `platform.` stands for a platform admin's.
 - The invitee onboards through the link as any invited member (A-03).
+
+## Suspend, reactivate, offboard (PL-05, #129)
+
+- **Section** `HospitalStatus` at the top of a hospital's page: the status in words with its dates, and the actions that apply (active: Suspend, Offboard; suspended: Reactivate, Offboard; offboarding: Reactivate, which cancels it and clears the dates).
+- **Every action asks first** in a `ConfirmDialog` (`shared/ui/confirm-dialog`) that says what happens: staff are signed out now, open invites are withdrawn, nothing is deleted. Cancel has focus first. **Offboard** also needs the hospital's slug typed back and the days (1 to 3650, default 90) before its data may be deleted.
+- **The export and the deletion are not built** (API notes): offboarding closes the hospital and marks a date, and the dialog and the page say that nothing is deleted yet. Do not word a screen as if an export ran.
+- **A refused change** (409 `invalid_transition`: someone changed the status first) is said in words and the hospital is read again, so the page shows the status it has.
+- **Focus:** the button that asked often goes away (Suspend becomes Reactivate), so after a change focus goes to the status line (`focusIfLost`), which also says what was done.
+- **Suspended users see the suspended page** through `tenancy/SuspendedPage` (the tenancy hook answers 403 `tenant_suspended`); `app/layout.test.tsx` covers it, including a suspension during an open session.
+- Mock: the three routes follow the API's transitions; suspend and offboard withdraw the hospital's open invites.

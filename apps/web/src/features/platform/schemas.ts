@@ -205,3 +205,25 @@ export const adminInviteSchema = z.object({
     .regex(EMAIL, 'validation.invalid_format'),
 });
 export type AdminInviteValues = z.infer<typeof adminInviteSchema>;
+
+/** The days before an offboarded hospital's data may be deleted. The API takes 1 to 3650. */
+export const OFFBOARD_DAYS_DEFAULT = 90;
+
+/** The offboard confirmation: the hospital's slug typed back, and the days. */
+export function offboardSchema(slug: string) {
+  return z.object({
+    slug: z
+      .string()
+      .trim()
+      .refine((value) => value === slug, 'platform.status.offboard.slugMismatch'),
+    days: z
+      .string()
+      .trim()
+      .regex(/^[0-9]{1,4}$/, 'platform.status.offboard.daysInvalid')
+      .refine(
+        (value) => Number(value) >= 1 && Number(value) <= 3650,
+        'platform.status.offboard.daysInvalid',
+      ),
+  });
+}
+export type OffboardValues = z.infer<ReturnType<typeof offboardSchema>>;
