@@ -42,8 +42,8 @@ export async function issueInvite(
     [email],
   );
   const { rows } = await client.query<{ id: string; tenant_id: string }>(
-    `insert into invites (tenant_id, email, name, role_id, invited_by, token_hash, expires_at)
-     values (app_tenant_id(), $1, $2, $3, $4, $5, now() + make_interval(hours => $6))
+    `insert into invites (tenant_id, email, name, role_id, invited_by, token_hash, expires_at, email_queued_at)
+     values (app_tenant_id(), $1, $2, $3, $4, $5, now() + make_interval(hours => $6), now())
      returning id, tenant_id`,
     [email, input.name.trim(), input.roleId, input.invitedBy, hash, config.INVITE_TTL_HOURS],
   );

@@ -29,8 +29,16 @@
   "columns": {
     "name": "Name",
     "email": "Email",
-    "role": "Role"
+    "role": "Role",
+    "delivery": "Email status"
   },
+  "delivery": {
+    "sent": "Sent",
+    "sending": "Being sent",
+    "failed": "Could not be sent"
+  },
+  "deliveryFailed_one": "The email to {{count}} invited person could not be sent. Send it again, or withdraw the invitation.",
+  "deliveryFailed_other": "The emails to {{count}} invited people could not be sent. Send them again, or withdraw the invitations.",
   "you": "{{name}} (you)",
   "actions": {
     "deactivate": "Deactivate",

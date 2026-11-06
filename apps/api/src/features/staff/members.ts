@@ -1,9 +1,12 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import type { FastifyRequest } from 'fastify';
+import { randomUUID } from 'node:crypto';
 import { grantsWithin } from '../../core/access/policy.js';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
+import { queueInviteEmailTracked } from '../../core/auth/emails.js';
+import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { requireUserPlace } from '../../core/tenancy/limits.js';
 import {
   cutOffSessions,
@@ -12,6 +15,7 @@ import {
   lockMember,
   lockOpenInvite,
   lockStaffManagers,
+  markInviteRequeued,
   revokeInvite,
   revokeInvitesSentBy,
   revokeSessionsHere,
@@ -24,6 +28,7 @@ import {
   type StaffStatus,
   STAFF_SCHEMAS,
   StaffListQuery,
+  InviteResent,
   StaffMember,
   StaffPage,
   StaffRoleList,
@@ -42,6 +47,7 @@ const person = (row: PersonRow): StaffMember => ({
   roleId: row.role_id,
   roleName: row.role_name,
   status: row.status,
+  ...(row.delivery ? { delivery: row.delivery } : {}),
 });
 
 const member = (row: MemberRow, status: MemberRow['status']): StaffMember => ({
@@ -245,6 +251,44 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!own) await cutOffSessions(request.txClient, target.user_id);
       request.audit('revoke_sessions', 'membership', target.user_id);
       return { revoked };
+    },
+  );
+
+  app.post(
+    '/invites/:inviteId/resend',
+    {
+      // Only the invitation's id is kept for a replay: the answer holds nothing else.
+      config: { permissions: [INVITE], idempotent: true },
+      schema: {
+        operationId: 'resendInvite',
+        tags: ['staff'],
+        headers: IdempotencyHeaders,
+        description:
+          "Sends an open invitation again, for one whose email could not be sent or was lost. A new job gives the invitation a new link and the old link stops working; the invitation is not withdrawn, and keeps its expiry. Its email status goes back to being tried (`delivery` 'sending' on the staff list). An invitation that is not open here (accepted, withdrawn, expired, another hospital's, unknown) answers 404 invite_not_found. The caller must be allowed to give its role (403 role_not_allowed).",
+        params: Type.Object({ inviteId: Type.String({ maxLength: 64 }) }),
+        response: { 200: ref(InviteResent), ...errors(401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request) => {
+      const invite = await lockOpenInvite(request.txClient, request.params.inviteId);
+      if (!invite) throw new HttpError(404, 'invite_not_found', 'No such open invitation');
+      const roles = await roleGrants(request.txClient);
+      if (!grantsWithin(roles.get(invite.role_id)?.grants ?? [], await heldBy(request))) {
+        throw notAllowed();
+      }
+      await markInviteRequeued(request.txClient, invite.id);
+      request.audit('resend', 'invite', invite.id);
+      // The first job took the invitation's id as its own, so this one has a new id. Each job
+      // gives the invitation a new token, so only the newest link works.
+      request.afterCommit(() =>
+        queueInviteEmailTracked(
+          app.jobs,
+          app.database.pool,
+          { tenantId: invite.tenant_id, inviteId: invite.id },
+          randomUUID(),
+        ),
+      );
+      return { id: invite.id };
     },
   );
 

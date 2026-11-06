@@ -1,4 +1,4 @@
-import { PgBoss } from 'pg-boss';
+import { PgBoss, type JobWithMetadata } from 'pg-boss';
 
 export interface SendOptions {
   /** The job id. Sending an id that already exists is a no-op, which makes a send repeatable. */
@@ -15,10 +15,20 @@ export interface SendOptions {
  * The job queue, behind an interface so Redis (BullMQ) can replace pg-boss in phase 2 as a
  * configuration change. Handlers must be idempotent: a job can be delivered more than once.
  */
+export interface JobContext {
+  /** Retries made before this attempt (0 for the first). */
+  retryCount: number;
+  /** Retries the job was sent with. The attempt is the last one when the count has reached it. */
+  retryLimit: number;
+}
+
 export interface JobQueue {
   send(name: string, data: object, options?: SendOptions): Promise<void>;
   /** Registers a worker. May be called before `start`; it takes effect when the queue starts. */
-  work<T extends object>(name: string, handler: (data: T) => Promise<void>): void;
+  work<T extends object>(
+    name: string,
+    handler: (data: T, context: JobContext) => Promise<void>,
+  ): void;
   /** Runs `name` on a cron schedule (UTC). */
   schedule(name: string, cron: string): void;
   start(): Promise<void>;
@@ -72,19 +82,26 @@ export class PgBossQueue implements JobQueue {
     await this.boss.send(name, data, options);
   }
 
-  work<T extends object>(name: string, handler: (data: T) => Promise<void>): void {
+  work<T extends object>(
+    name: string,
+    handler: (data: T, context: JobContext) => Promise<void>,
+  ): void {
     this.run(async () => {
       await this.ensureQueue(name);
-      await this.boss.work<T>(name, async (jobs) => {
-        for (const job of jobs) {
-          try {
-            await handler(job.data);
-          } catch (error) {
-            // Never the error itself: pg-boss keeps it in its own table, outside every hospital.
-            throw safeJobError(error);
+      await this.boss.work<T, void, { includeMetadata: true }>(
+        name,
+        { includeMetadata: true },
+        async (jobs: JobWithMetadata<T>[]) => {
+          for (const job of jobs) {
+            try {
+              await handler(job.data, { retryCount: job.retryCount, retryLimit: job.retryLimit });
+            } catch (error) {
+              // Never the error itself: pg-boss keeps it in its own table, outside every hospital.
+              throw safeJobError(error);
+            }
           }
-        }
-      });
+        },
+      );
     });
   }
 
@@ -117,7 +134,10 @@ export class PgBossQueue implements JobQueue {
 export class MemoryQueue implements JobQueue {
   readonly sent: { name: string; data: object; options: SendOptions }[] = [];
   readonly schedules: { name: string; cron: string }[] = [];
-  private readonly handlers = new Map<string, (data: object) => Promise<void>>();
+  private readonly handlers = new Map<
+    string,
+    (data: object, context: JobContext) => Promise<void>
+  >();
   private delivered = 0;
 
   async send(name: string, data: object, options: SendOptions = {}): Promise<void> {
@@ -126,19 +146,29 @@ export class MemoryQueue implements JobQueue {
     this.sent.push({ name, data, options });
   }
 
-  work<T extends object>(name: string, handler: (data: T) => Promise<void>): void {
-    this.handlers.set(name, handler as (data: object) => Promise<void>);
+  work<T extends object>(
+    name: string,
+    handler: (data: T, context: JobContext) => Promise<void>,
+  ): void {
+    this.handlers.set(name, handler as (data: object, context: JobContext) => Promise<void>);
   }
 
   schedule(name: string, cron: string): void {
     this.schedules.push({ name, cron });
   }
 
-  /** Delivers every job not delivered yet to its worker. Jobs nobody works on are dropped. */
-  async drain(): Promise<void> {
+  /**
+   * Delivers every job not delivered yet to its worker. Jobs nobody works on are dropped. It never
+   * retries, so each delivery is the last attempt unless `context` says it is an earlier one.
+   */
+  async drain(context: Partial<JobContext> = {}): Promise<void> {
     while (this.delivered < this.sent.length) {
       const job = this.sent[this.delivered++]!;
-      await this.handlers.get(job.name)?.(job.data);
+      const limit = job.options.retryLimit ?? 0;
+      await this.handlers.get(job.name)?.(job.data, {
+        retryCount: context.retryCount ?? limit,
+        retryLimit: context.retryLimit ?? limit,
+      });
     }
   }
 

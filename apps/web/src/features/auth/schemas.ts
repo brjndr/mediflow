@@ -66,6 +66,8 @@ export const changePasswordSchema = z
       .min(MIN_PASSWORD_LENGTH, 'account.passwordTooShort')
       .max(1024, 'validation.too_big'),
     confirmPassword: z.string(),
+    // Only asked for when the person has an authenticator; the server says if it is missing.
+    code: z.string().trim().max(32, 'validation.too_big'),
   })
   .refine((v) => v.password === v.confirmPassword, {
     path: ['confirmPassword'],

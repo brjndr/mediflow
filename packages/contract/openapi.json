@@ -148,6 +148,48 @@
           }
         }
       },
+      "AccountSession": {
+        "type": "object",
+        "required": ["id", "createdAt", "lastSeenAt", "userAgent", "current"],
+        "properties": {
+          "id": {
+            "description": "An opaque id for the session, only for ending it. Not the cookie and not derived from it.",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastSeenAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "userAgent": {
+            "type": ["null", "string"],
+            "description": "The browser as it described itself at sign-in, cleaned and cut, for the person to recognise the device."
+          },
+          "current": {
+            "description": "True for the session making this call.",
+            "type": "boolean"
+          }
+        }
+      },
+      "AccountSessionList": {
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountSession"
+            }
+          },
+          "nextCursor": {
+            "type": ["null", "string"],
+            "description": "Always null: a person has few sessions."
+          }
+        }
+      },
       "Tenant": {
         "type": "object",
         "required": [
@@ -351,6 +393,11 @@
           "status": {
             "type": "string",
             "enum": ["active", "deactivated", "invited"]
+          },
+          "delivery": {
+            "type": "string",
+            "enum": ["sent", "sending", "failed"],
+            "description": "Invitations only: whether the email was sent, is still being tried, or could not be sent (its last attempt failed, or it was never sent within the hour). Never the error or the address it went to."
           }
         }
       },
@@ -411,6 +458,16 @@
         "properties": {
           "revoked": {
             "type": "integer"
+          }
+        }
+      },
+      "InviteResent": {
+        "description": "The invitation that is being sent again.",
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string"
           }
         }
       },
@@ -11729,48 +11786,6 @@
             "type": "integer"
           }
         }
-      },
-      "AccountSession": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "createdAt", "lastSeenAt", "userAgent", "current"],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "lastSeenAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "userAgent": {
-            "type": ["string", "null"],
-            "description": "The browser as it described itself at sign-in, for the person to recognise the device."
-          },
-          "current": {
-            "type": "boolean",
-            "description": "True for the session making this call."
-          }
-        }
-      },
-      "AccountSessionList": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["items", "nextCursor"],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AccountSession"
-            }
-          },
-          "nextCursor": {
-            "type": ["string", "null"]
-          }
-        }
       }
     },
     "responses": {
@@ -12665,6 +12680,169 @@
         }
       }
     },
+    "/auth/password/change": {
+      "post": {
+        "operationId": "changePassword",
+        "tags": ["auth"],
+        "description": "Changes the signed-in user's password. Needs the current password, and a code from the authenticator when the user has one (`code`: 400 mfa_code_required without it). A wrong current password or code counts toward the account lockout, as at sign-in (403 invalid_password; 429 account_locked while locked). Every other session of the user and every outstanding reset link ends; the calling session stays and gets a new token in the cookie. The user is told by email.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["currentPassword", "newPassword"],
+                "properties": {
+                  "currentPassword": {
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "type": "string"
+                  },
+                  "code": {
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "description": "Authenticator code or a recovery code. Required with an authenticator.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The password was changed"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/sessions": {
+      "get": {
+        "operationId": "listAccountSessions",
+        "tags": ["auth"],
+        "description": "The signed-in user's own active sessions, newest first, with `current` set on the one making the call. A user has few, so there is one page of at most 50.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSessionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/sessions/{sessionId}": {
+      "delete": {
+        "operationId": "revokeAccountSession",
+        "tags": ["auth"],
+        "description": "Ends one of the signed-in user's other sessions: that browser is signed out on its next request. An id that is unknown, ended already or another user's is the same 404. The session making the call is 409 current_session (use sign-out).",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sessionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The session was ended"
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/session/policy": {
       "get": {
         "operationId": "getSessionPolicy",
@@ -13292,6 +13470,107 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invites/{inviteId}/resend": {
+      "post": {
+        "operationId": "resendInvite",
+        "tags": ["staff"],
+        "description": "Sends an open invitation again, for one whose email could not be sent or was lost. A new job gives the invitation a new link and the old link stops working; the invitation is not withdrawn, and keeps its expiry. Its email status goes back to being tried (`delivery` 'sending' on the staff list). An invitation that is not open here (accepted, withdrawn, expired, another hospital's, unknown) answers 404 invite_not_found. The caller must be allowed to give its role (403 role_not_allowed).",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "inviteId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The invitation that is being sent again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteResent"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
@@ -40834,116 +41113,6 @@
             }
           }
         }
-      }
-    },
-    "/auth/password/change": {
-      "post": {
-        "operationId": "changePassword",
-        "description": "Changes the signed-in user's password. Asks for the current password. Every other session of the user is ended; the one making the call stays signed in.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["currentPassword", "newPassword"],
-                "properties": {
-                  "currentPassword": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 1024
-                  },
-                  "newPassword": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 1024
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "The password was changed"
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "429": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/auth/sessions": {
-      "get": {
-        "operationId": "listAccountSessions",
-        "description": "The signed-in user's own active sessions, newest first. A user has few, so there is one page.",
-        "responses": {
-          "200": {
-            "description": "The sessions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AccountSessionList"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/auth/sessions/{sessionId}": {
-      "delete": {
-        "operationId": "revokeAccountSession",
-        "description": "Ends one of the signed-in user's other sessions: that browser is signed out on its next request. The session making the call cannot be ended here (use sign-out).",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "The session was ended"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
       }
     },
     "/session/open-link": {
