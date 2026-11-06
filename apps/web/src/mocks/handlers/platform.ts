@@ -139,7 +139,46 @@ function changeStatus(
   return HttpResponse.json<Hospital>(hospital);
 }
 
+/** The mock's modules: what the API lists (every feature that declares permissions). */
+const MODULE_IDS = [
+  'patients',
+  'departments',
+  'doctors',
+  'staff',
+  'appointments',
+  'queue',
+  'triage',
+  'clinical',
+  'laboratory',
+  'radiology',
+  'inventory',
+  'pharmacy',
+  'purchasing',
+  'billing',
+  'reports',
+  'services',
+  'drugs',
+  'lab_tests',
+  'wards',
+  'codes',
+  'templates',
+  'imports',
+  'notices',
+].sort();
+
 export const platformHandlers = [
+  http.get('*/api/platform/modules', () => {
+    const denied = platformOnly();
+    if (denied) return denied;
+    return HttpResponse.json({
+      items: [
+        ...MODULE_IDS.map((id) => ({ id, kind: 'module' })),
+        { id: 'mfa', kind: 'switch' },
+        { id: 'mfa_required', kind: 'switch' },
+      ],
+    });
+  }),
+
   http.get('*/api/platform/audit', ({ request }) => {
     const denied = platformOnly();
     if (denied) return denied;

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
-import { useSetHospitalFeatures } from '../hooks/use-hospitals';
-import { MFA_REQUIRED_SWITCH, MFA_SWITCH, STARTING_MODULES } from '../modules';
+import { useModules, useSetHospitalFeatures } from '../hooks/use-hospitals';
+import { MFA_REQUIRED_SWITCH, MFA_SWITCH, useModuleName } from '../modules';
 import type { Hospital } from '../types';
 
 const box =
@@ -14,6 +14,8 @@ const row = 'flex min-h-8 items-center gap-2 text-sm pointer-coarse:min-h-11';
 export function HospitalModules({ hospital }: { hospital: Hospital }) {
   const { t } = useTranslation();
   const save = useSetHospitalFeatures(hospital.id);
+  const modules = useModules();
+  const moduleName = useModuleName();
   const saved = new Map(hospital.features.map((f) => [f.feature, f.enabled]));
   // What is ticked now, where the person has touched it.
   const [edits, setEdits] = useState<Record<string, boolean>>({});
@@ -24,14 +26,13 @@ export function HospitalModules({ hospital }: { hospital: Hospital }) {
     ([feature, on]) => (saved.get(feature) ?? false) !== on,
   );
 
-  // Modules the web app knows, then any other flag the hospital holds, so none is hidden.
-  const known: string[] = [...STARTING_MODULES];
+  // Modules the API offers, then any other flag the hospital holds, so none is hidden.
+  const known: string[] = modules.data ?? [];
   const others = hospital.features
     .map((f) => f.feature)
     .filter((f) => !known.includes(f) && f !== MFA_SWITCH && f !== MFA_REQUIRED_SWITCH);
   // A flag the web app has no name for is shown by its id.
-  const name = (feature: string) =>
-    known.includes(feature) ? t(`platform.modules.${feature}`) : feature;
+  const name = moduleName;
 
   const set = (feature: string, on: boolean) => {
     setDone(false);
@@ -70,6 +71,11 @@ export function HospitalModules({ hospital }: { hospital: Hospital }) {
       >
         <fieldset className="flex flex-col gap-1">
           <legend className="sr-only">{t('platform.detail.modules')}</legend>
+          {modules.isError && (
+            <p role="alert" className="text-sm text-destructive">
+              {t(errorMessageKey(modules.error))}
+            </p>
+          )}
           <div className="grid gap-x-4 sm:grid-cols-2">
             {[...known, ...others].map((feature) => (
               <label key={feature} className={row}>

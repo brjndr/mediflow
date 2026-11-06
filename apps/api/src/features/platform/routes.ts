@@ -41,6 +41,7 @@ import {
   PlatformHospitalPage,
   PlatformInvite,
   PlatformInvitePage,
+  PlatformModuleList,
   SetFeaturesBody,
   UpdateHospitalBody,
 } from './schemas.js';
@@ -91,8 +92,10 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
   const tags = ['platform'];
 
   /** The modules a hospital can be given: every module that declares permissions, and the switches. */
-  const knownModules = () =>
-    new Set([...app.permissions.all().map((permission) => permission.feature), ...AUTH_SWITCHES]);
+  const moduleIds = () => [
+    ...new Set(app.permissions.all().map((permission) => permission.feature)),
+  ];
+  const knownModules = () => new Set([...moduleIds(), ...AUTH_SWITCHES]);
   const checkModules = (names: readonly string[]) => {
     const known = knownModules();
     const unknown = names.filter((name) => !known.has(name));
@@ -213,6 +216,31 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
 
       if (result.replayed) void reply.header('idempotent-replayed', 'true');
       return reply.status(201).send(result.hospital);
+    },
+  );
+
+  app.get(
+    '/platform/modules',
+    {
+      config: { access: 'platform', ...limit },
+      schema: {
+        operationId: 'platformListModules',
+        tags,
+        description:
+          'The ids a hospital can be given through `PUT /platform/hospitals/{id}/features` and at creation: every module that declares permissions, and the two authenticator switches (`kind: switch`). Display names are the web app’s. Nothing about any hospital.',
+        response: { 200: ref(PlatformModuleList), ...errors(401, 403, 429) },
+      },
+    },
+    async (request) => {
+      admin(request);
+      return {
+        items: [
+          ...moduleIds()
+            .sort()
+            .map((id) => ({ id, kind: 'module' as const })),
+          ...AUTH_SWITCHES.map((id) => ({ id, kind: 'switch' as const })),
+        ],
+      };
     },
   );
 

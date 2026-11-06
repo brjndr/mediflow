@@ -15,6 +15,10 @@ export interface HospitalLimitsUpdate {
   storageMb?: number | null;
 }
 
+/** A module (or authenticator switch) the platform can give a hospital. */
+export type PlatformModule = components['schemas']['PlatformModule'];
+export type PlatformModuleList = components['schemas']['PlatformModuleList'];
+
 /** An invite to a hospital's first admin that nobody has accepted or withdrawn. */
 export type HospitalInvite = components['schemas']['PlatformInvite'];
 export type HospitalInvitePage = components['schemas']['PlatformInvitePage'];

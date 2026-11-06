@@ -10931,6 +10931,33 @@
           }
         }
       },
+      "PlatformModule": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "properties": {
+          "id": {
+            "description": "The id `PUT .../features` and the create route accept.",
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["module", "switch"],
+            "description": "`module`: a feature a hospital can be given. `switch`: the authenticator’s `mfa` or `mfa_required`, which are not modules."
+          }
+        }
+      },
+      "PlatformModuleList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformModule"
+            }
+          }
+        }
+      },
       "PlatformHospital": {
         "type": "object",
         "required": [
@@ -38567,6 +38594,55 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/modules": {
+      "get": {
+        "operationId": "platformListModules",
+        "tags": ["platform"],
+        "description": "The ids a hospital can be given through `PUT /platform/hospitals/{id}/features` and at creation: every module that declares permissions, and the two authenticator switches (`kind: switch`). Display names are the web app’s. Nothing about any hospital.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformModuleList"
                 }
               }
             }
