@@ -2790,6 +2790,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/radiology/orders/{orderId}/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The files attached to an imaging order’s study (#99), oldest first, with the state of each. A study holds at most 50, so the page is the whole list and `nextCursor` is null. Requires imagingStudy:read with the scope `all`. */
+        get: operations["listImagingImages"];
+        put?: never;
+        /** @description Asks to attach a file to the performed study of an imaging order (#99). Nothing is stored yet: the answer holds a signed address (valid 15 minutes) to PUT the file to with the same Content-Type. The announced size must be at most 26214400 bytes (422 `file_too_large`) and the type one of image/jpeg, image/png, application/pdf, application/dicom (422 `file_type_not_allowed`); the file received is checked against both, and against its first bytes. At most 50 files a study (409 `too_many_images`); the study must be performed (409 `invalid_transition`). Requires imagingStudy:perform and the radiology feature flag. */
+        post: operations["requestImagingImageUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/radiology/images/{imageId}/download-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A signed, short-lived address for a file that passed the malware scan (`REPORT_URL_TTL_SECONDS`). The link needs no session, so give it only to the person who asked; it is audited here as an `export`. 409 `image_not_ready` until the scan has finished, 409 `image_blocked` for a file that was infected or lost. Requires imagingStudy:read with the scope `all`. */
+        get: operations["getImagingImageDownloadUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imaging-uploads/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description The file itself, for a link made by `requestImagingImageUpload`. Send the bytes with the Content-Type announced. The signature in the query is the only credential, and the link works once: the file must be exactly the announced size (400 `size_mismatch`) and begin as its type does (415 `file_type_mismatch`). It is then held until the malware scan clears it. 404 `image_file_not_found` for any other link. */
+        put: operations["uploadImagingImage"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imaging-files/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A file that passed the malware scan, for a link made by `getImagingImageDownloadUrl`. The signature in the query is the only credential. 404 `image_file_not_found` for anything else. */
+        get: operations["downloadImagingImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/inventory/locations": {
         parameters: {
             query?: never;
@@ -6629,6 +6698,48 @@ export interface components {
         ImagingStudyChange: {
             /** @description The version the change was made from. Another one gives 409 `conflict`. */
             version: number;
+        };
+        /** @description A file attached to a performed imaging study. */
+        ImagingImage: {
+            id: string;
+            studyId: string;
+            fileName: string;
+            contentType: string;
+            size: number;
+            /**
+             * @description pending: nothing received yet. scanning: received, waiting for the malware scan. clean: may be downloaded. infected: the scan found something and the file was deleted. failed: the file was lost or could not be scanned.
+             * @enum {string}
+             */
+            status: "pending" | "scanning" | "clean" | "infected" | "failed";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            uploadedAt?: string;
+        };
+        ImagingImageCreate: {
+            fileName: string;
+            /** @description One of image/jpeg, image/png, application/pdf, application/dicom (422 `file_type_not_allowed`). */
+            contentType: string;
+            /** @description The size in bytes, at most 26214400 (422 `file_too_large`). */
+            size: number;
+        };
+        ImagingImageUpload: {
+            image: components["schemas"]["ImagingImage"];
+            /** @description A signed, short-lived address to PUT the file to with the same Content-Type. The signature is the only credential. */
+            uploadUrl: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ImagingImagePage: {
+            items: components["schemas"]["ImagingImage"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ImagingImageDownload: {
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
         };
         /**
          * @description What a place that keeps stock is: a store, a pharmacy counter, a ward’s own stock, or a department’s (a theatre, the laboratory).
@@ -22815,6 +22926,343 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listImagingImages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingImagePage"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    requestImagingImageUpload: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImagingImageCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingImageUpload"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getImagingImageDownloadUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingImageDownload"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    uploadImagingImage: {
+        parameters: {
+            query: {
+                expires: number;
+                signature: string;
+            };
+            header?: never;
+            path: {
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    downloadImagingImage: {
+        parameters: {
+            query: {
+                expires: number;
+                signature: string;
+            };
+            header?: never;
+            path: {
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

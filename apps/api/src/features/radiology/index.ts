@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { imageRoutes, scanImage, SCAN_JOB, type ScanJob } from './images.js';
 import { RADIOLOGY_PERMISSIONS } from './permissions.js';
 import { radiologyRoutes } from './routes.js';
 
@@ -8,9 +9,11 @@ import { radiologyRoutes } from './routes.js';
  * Behind the `radiology` module flag. Moves imaging orders on through the clinical module's
  * `moveImagingOrder`, never by writing its table. Publishes `imaging.scheduled`,
  * `imaging.unscheduled`, `imaging.performed`, and for reports (#97) `imaging.reported` and
- * `imaging.addendum_added`. Image uploads are #99.
+ * `imaging.addendum_added`. Image uploads (#99) go through signed links and a malware scan job.
  */
 export const radiologyFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('radiology', RADIOLOGY_PERMISSIONS);
   await app.register(radiologyRoutes);
+  await app.register(imageRoutes);
+  app.jobs.work<ScanJob>(SCAN_JOB, (job) => scanImage(app, job));
 };
