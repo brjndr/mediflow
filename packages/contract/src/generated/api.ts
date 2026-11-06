@@ -4268,7 +4268,7 @@ export interface components {
         AccountSessionList: {
             items: components["schemas"]["AccountSession"][];
             /** @description Always null: a person has few sessions. */
-            nextCursor: null;
+            nextCursor: null | string;
         };
         Tenant: {
             id: string;

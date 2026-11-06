@@ -185,8 +185,8 @@
             }
           },
           "nextCursor": {
-            "description": "Always null: a person has few sessions.",
-            "type": "null"
+            "type": ["null", "string"],
+            "description": "Always null: a person has few sessions."
           }
         }
       },

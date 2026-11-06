@@ -43,7 +43,10 @@ export const AccountSession = Type.Object(
 export const AccountSessionList = Type.Object(
   {
     items: Type.Array(ref(AccountSession)),
-    nextCursor: Type.Null({ description: 'Always null: a person has few sessions.' }),
+    nextCursor: Type.Unsafe<string | null>({
+      type: ['string', 'null'],
+      description: 'Always null: a person has few sessions.',
+    }),
   },
   { $id: 'AccountSessionList' },
 );
