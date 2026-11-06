@@ -263,8 +263,13 @@ export const staffEmailsPlugin = fp(
         final(context),
       ),
     );
-    app.jobs.work<PasswordChangedEmailJob>(PASSWORD_CHANGED_EMAIL, (job) =>
-      run('password_changed', job.eventId, () => deliverPasswordChanged(pool, app.notifier, job)),
+    app.jobs.work<PasswordChangedEmailJob>(PASSWORD_CHANGED_EMAIL, (job, context) =>
+      run(
+        'password_changed',
+        job.eventId,
+        () => deliverPasswordChanged(pool, app.notifier, job),
+        final(context),
+      ),
     );
   },
   { name: 'staff-emails', dependencies: ['db', 'jobs', 'notifier'] },
