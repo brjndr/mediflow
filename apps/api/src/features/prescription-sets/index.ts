@@ -9,6 +9,8 @@ import { prescriptionSetRoutes } from './routes.js';
  * Behind the `clinical` module flag.
  */
 export const prescriptionSetsFeature: FastifyPluginAsync = async (app) => {
-  app.permissions.register('prescription-sets', PRESCRIPTION_SET_PERMISSIONS);
+  // Under the clinical module, whose switch the routes check: a module id of its own would be
+  // offered to a platform admin as a switch that does nothing.
+  app.permissions.register('clinical', PRESCRIPTION_SET_PERMISSIONS);
   await app.register(prescriptionSetRoutes);
 };
