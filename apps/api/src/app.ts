@@ -55,6 +55,7 @@ import { labTestsFeature } from './features/lab-tests/index.js';
 import { patientsFeature } from './features/patients/index.js';
 import { servicesFeature } from './features/services/index.js';
 import { templatesFeature } from './features/templates/index.js';
+import { prescriptionSetsFeature } from './features/prescription-sets/index.js';
 import { staffFeature } from './features/staff/index.js';
 import { wardsFeature } from './features/wards/index.js';
 
@@ -177,6 +178,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(purchasingFeature);
   await app.register(reportsFeature);
   await app.register(platformFeature);
+  await app.register(prescriptionSetsFeature);
 
   return app;
 }

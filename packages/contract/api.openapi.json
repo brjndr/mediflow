@@ -11414,6 +11414,333 @@
             "type": "integer"
           }
         }
+      },
+      "PrescriptionSetLine": {
+        "description": "A medicine line of a set, as a prescription line has it.",
+        "type": "object",
+        "required": ["drugId", "dose", "route", "frequency"],
+        "properties": {
+          "drugId": {
+            "maxLength": 64,
+            "description": "A medicine of the catalog.",
+            "type": "string"
+          },
+          "dose": {
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "As written: \"500 mg\".",
+            "type": "string"
+          },
+          "route": {
+            "type": "string",
+            "enum": [
+              "oral",
+              "sublingual",
+              "topical",
+              "inhaled",
+              "nasal",
+              "eye",
+              "ear",
+              "rectal",
+              "vaginal",
+              "intramuscular",
+              "intravenous",
+              "subcutaneous",
+              "other"
+            ]
+          },
+          "frequency": {
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "As written: \"1-0-1\".",
+            "type": "string"
+          },
+          "durationDays": {
+            "minimum": 1,
+            "maximum": 365,
+            "type": "integer"
+          },
+          "quantity": {
+            "minimum": 1,
+            "maximum": 10000,
+            "type": "integer"
+          },
+          "instructions": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "PrescriptionSetLineView": {
+        "type": "object",
+        "required": [
+          "drugId",
+          "dose",
+          "route",
+          "frequency",
+          "drugName",
+          "genericName",
+          "drugArchived"
+        ],
+        "properties": {
+          "drugId": {
+            "maxLength": 64,
+            "description": "A medicine of the catalog.",
+            "type": "string"
+          },
+          "dose": {
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "As written: \"500 mg\".",
+            "type": "string"
+          },
+          "route": {
+            "type": "string",
+            "enum": [
+              "oral",
+              "sublingual",
+              "topical",
+              "inhaled",
+              "nasal",
+              "eye",
+              "ear",
+              "rectal",
+              "vaginal",
+              "intramuscular",
+              "intravenous",
+              "subcutaneous",
+              "other"
+            ]
+          },
+          "frequency": {
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "As written: \"1-0-1\".",
+            "type": "string"
+          },
+          "durationDays": {
+            "minimum": 1,
+            "maximum": 365,
+            "type": "integer"
+          },
+          "quantity": {
+            "minimum": 1,
+            "maximum": 10000,
+            "type": "integer"
+          },
+          "instructions": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "drugName": {
+            "description": "The medicine as the catalog names it now.",
+            "type": "string"
+          },
+          "genericName": {
+            "description": "The medicine’s generic name, for the allergy checks.",
+            "type": "string"
+          },
+          "brandName": {
+            "type": "string"
+          },
+          "drugArchived": {
+            "description": "True when the medicine was archived after the set was saved: it cannot be prescribed.",
+            "type": "boolean"
+          }
+        }
+      },
+      "PrescriptionSet": {
+        "description": "A prescription set. Holds no patient data.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "name",
+          "shared",
+          "lineCount",
+          "archived",
+          "version",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shared": {
+            "description": "True: shared with every prescriber. False: the caller’s own.",
+            "type": "boolean"
+          },
+          "lineCount": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "PrescriptionSetPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrescriptionSet"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "PrescriptionSetDetail": {
+        "type": "object",
+        "required": ["set", "lines"],
+        "properties": {
+          "set": {
+            "$ref": "#/components/schemas/PrescriptionSet"
+          },
+          "lines": {
+            "description": "In the order written.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrescriptionSetLineView"
+            }
+          }
+        }
+      },
+      "PrescriptionSetCreate": {
+        "type": "object",
+        "required": ["name", "lines"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "shared": {
+            "description": "Share with the whole hospital (needs prescriptionSet:manageShared). Omitted: the caller’s own.",
+            "type": "boolean"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrescriptionSetLine"
+            }
+          }
+        }
+      },
+      "PrescriptionSetUpdate": {
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrescriptionSetLine"
+            }
+          }
+        }
+      },
+      "FavouriteDrug": {
+        "type": "object",
+        "required": ["drugId", "name", "archived"],
+        "properties": {
+          "drugId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "archived": {
+            "description": "Archived after it was starred: it cannot be prescribed.",
+            "type": "boolean"
+          }
+        }
+      },
+      "FavouriteDrugs": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "description": "In the order the doctor put them.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FavouriteDrug"
+            }
+          }
+        }
+      },
+      "FavouriteDrugsSet": {
+        "type": "object",
+        "required": ["drugIds"],
+        "properties": {
+          "drugIds": {
+            "maxItems": 20,
+            "description": "The whole list, in order. Replaces the caller’s favourites.",
+            "type": "array",
+            "items": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        }
       }
     }
   },
@@ -40165,6 +40492,550 @@
             }
           },
           "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prescription-sets": {
+      "get": {
+        "operationId": "listPrescriptionSets",
+        "tags": ["prescription-sets"],
+        "description": "The prescription sets the caller may use: those shared with the hospital and their own, by name. Requires prescriptionSet:read and the clinical feature flag. `total` comes with the first page only.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque. Pass the nextCursor of the previous page."
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "archived",
+            "required": false,
+            "description": "True: the archived sets. Default: those in use."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrescriptionSetPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPrescriptionSet",
+        "tags": ["prescription-sets"],
+        "description": "Adds a prescription set: the caller’s own, or shared with the hospital when `shared` is true (needs prescriptionSet:manageShared, else 403 permission_denied). One to 30 lines, each a medicine of the catalog that may be prescribed (422 unknown_drug otherwise). A name another set of the same owner (or another shared set) has, archived or not, whatever the capitals, is 409 prescription_set_name_taken. Requires prescriptionSet:manage and prescriptionSet:read. A set holds no patient data. Audited. A repeat with the same Idempotency-Key adds nothing and answers with the set as it is now.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrescriptionSetCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrescriptionSetDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prescription-sets/{setId}": {
+      "get": {
+        "operationId": "getPrescriptionSet",
+        "tags": ["prescription-sets"],
+        "description": "One set with its lines. A medicine archived since is flagged `drugArchived`, not dropped. Requires prescriptionSet:read. A set of another hospital, or another doctor’s own, answers 404 prescription_set_not_found, the same as one that does not exist.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "setId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrescriptionSetDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updatePrescriptionSet",
+        "tags": ["prescription-sets"],
+        "description": "Renames a set, replaces its lines, archives it or restores it: send only what changes, with the `version` the change was made from (409 conflict otherwise). A shared set needs prescriptionSet:manageShared (403 permission_denied); an own set is its owner’s. Requires prescriptionSet:manage and prescriptionSet:read. Audited. A set of another hospital, or another doctor’s own, answers 404 prescription_set_not_found, the same as one that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrescriptionSetUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "setId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrescriptionSetDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/favourite-drugs": {
+      "get": {
+        "operationId": "getFavouriteDrugs",
+        "tags": ["prescription-sets"],
+        "description": "The medicines the caller starred, in the order they put them (at most 20). A medicine archived since is flagged. Requires prescriptionSet:read.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FavouriteDrugs"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setFavouriteDrugs",
+        "tags": ["prescription-sets"],
+        "description": "Replaces the caller’s favourite medicines with this list, in order (at most 20, each a medicine of the catalog that may be prescribed, none twice: 422 unknown_drug otherwise). Requires prescriptionSet:manage and prescriptionSet:read. Favourites belong to the caller alone.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FavouriteDrugsSet"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FavouriteDrugs"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

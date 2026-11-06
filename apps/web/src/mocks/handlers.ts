@@ -24,6 +24,7 @@ import { labHandlers } from './handlers/lab';
 import { radiologyHandlers } from './handlers/radiology';
 import { indentHandlers } from './handlers/indents';
 import { inventoryHandlers } from './handlers/inventory';
+import { prescriptionSetsHandlers } from './handlers/prescription-sets';
 import { pharmacyHandlers } from './handlers/pharmacy';
 import { pharmacySaleHandlers } from './handlers/pharmacy-sales';
 import { purchasingHandlers } from './handlers/purchasing';
@@ -135,6 +136,7 @@ export const handlers = [
   ...queueHandlers,
   ...triageHandlers,
   ...clinicalHandlers,
+  ...prescriptionSetsHandlers,
   ...billingHandlers,
   ...labHandlers,
   ...radiologyHandlers,

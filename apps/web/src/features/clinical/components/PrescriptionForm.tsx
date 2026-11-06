@@ -4,7 +4,7 @@ import { useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { TriangleAlert } from 'lucide-react';
 import { useFeatureFlag, usePermission } from '@/access';
-import { DrugSearch, useMedicineName, type Drug } from '@/features/drugs';
+import { DrugSearch, FavouriteToggle, useMedicineName, type Drug } from '@/features/drugs';
 import { useAllergies } from '@/features/triage';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
@@ -42,6 +42,7 @@ import {
   type PrescriptionValues,
 } from '../schemas';
 import type { Order, Prescription } from '../types';
+import { PrescriptionSetsBar } from './PrescriptionSetsBar';
 
 const REFUSED: Record<string, string> = {
   encounter_not_open: 'prescriptions.refused.notOpen',
@@ -164,6 +165,11 @@ export function PrescriptionForm({
           {t('prescriptions.form.startedStay', { count: started.length })}
         </p>
       )}
+      <PrescriptionSetsBar
+        getLines={() => form.getValues('lines')}
+        setLines={(next) => form.setValue('lines', next, { shouldDirty: true })}
+        busy={write.isPending || confirming !== null}
+      />
       <Form form={form} onSubmit={(values) => (warned ? setConfirming(values) : send(values))}>
         <fieldset
           disabled={write.isPending || confirming !== null}
@@ -492,12 +498,14 @@ function Medicine({ index }: { index: number }) {
             >
               {t('prescriptions.form.change')}
             </Button>
+            <FavouriteToggle drugId={drugId} name={drugName} />
           </div>
         </div>
       ) : (
         <DrugSearch
           label={t('prescriptions.form.medicine')}
           onSelect={choose}
+          favourites
           invalid={error !== undefined}
           describedBy={error ? errorId : undefined}
         />

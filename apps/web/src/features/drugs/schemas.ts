@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Drug, DrugCreate, DrugPage, DrugSchedule } from './types';
+import type { Drug, DrugCreate, DrugPage, DrugSchedule, FavouriteDrugs } from './types';
 import { PLAIN_TEXT } from '@/shared/utils/text';
 
 export const TYPES = ['medicine', 'consumable'] as const;
@@ -128,3 +128,9 @@ export function toRequest(values: DrugFormValues): DrugCreate {
     ...(values.reorderLevel === '' ? {} : { reorderLevel: Number(values.reorderLevel) }),
   };
 }
+
+export const FAVOURITES_MAX = 20;
+
+export const favouriteDrugsSchema: z.ZodType<FavouriteDrugs> = z.object({
+  items: z.array(z.object({ drugId: z.string(), name: z.string(), archived: z.boolean() })),
+});

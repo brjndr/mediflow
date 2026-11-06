@@ -48,7 +48,15 @@
     "found_one": "{{count}} medicine. More are found by typing more.",
     "found_other": "{{count}} medicines. More are found by typing more.",
     "name": "{{name}} {{form}}",
-    "nameWithBrand": "{{name}} {{form}} ({{brand}})"
+    "nameWithBrand": "{{name}} {{form}} ({{brand}})",
+    "favouritesHeading": "Your favourites",
+    "typeOrChoose": "Type a generic name or a brand, or choose one of your favourites.",
+    "favouritesFound_one": "{{count}} favourite. Type to search the catalog.",
+    "favouritesFound_other": "{{count}} favourites. Type to search the catalog.",
+    "favouriteLoading": "Loading your favourites…",
+    "favouriteFailed": "Your favourites could not be loaded. Type to search the catalog.",
+    "favouriteChosenFailed": "That medicine could not be loaded. Choose it again or search for it.",
+    "favouriteArchived": "{{name}} (archived)"
   },
   "forms": {
     "tablet": "Tablet",
@@ -136,5 +144,12 @@
     "theySaved": "They also changed something you changed. Saving puts your value in place of theirs:",
     "exists": "Another item of this hospital already has that generic name, brand, form and strength.",
     "notGiven": "Not given"
+  },
+  "favourites": {
+    "add": "Add {{name}} to your favourites",
+    "remove": "Remove {{name}} from your favourites",
+    "added": "{{name}} is one of your favourites.",
+    "removed": "{{name}} is no longer one of your favourites.",
+    "failed": "Your favourites could not be saved. Try again."
   }
 }
