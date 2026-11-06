@@ -16,6 +16,7 @@ import { registerErrorHandling } from './core/http/errors.js';
 import { registerStrictBodies } from './core/http/strict-body.js';
 import { filesPlugin } from './core/files/plugin.js';
 import type { FileStore } from './core/files/store.js';
+import type { MalwareScanner } from './core/files/scanner.js';
 import { jobsPlugin } from './core/jobs/plugin.js';
 import type { JobQueue } from './core/jobs/queue.js';
 import { loggerOptions } from './core/logging/logger.js';
@@ -77,6 +78,8 @@ export interface AppOptions {
   jobQueue?: JobQueue;
   /** Where files are kept (report exports). Defaults to a local folder (`FILE_STORE_DIR`). */
   fileStore?: FileStore;
+  /** Checks uploaded files for malware; the built-in one finds only the EICAR test file. */
+  scanner?: MalwareScanner;
   /** Request counters for the per-hospital and per-user limits. Defaults to in-process. */
   rateLimiter?: RateLimiter;
   /** What tells open screens that something changed. Defaults to Postgres LISTEN/NOTIFY. */
@@ -128,7 +131,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(openApiPlugin);
   await app.register(dbPlugin);
   await app.register(jobsPlugin, { queue: options.jobQueue });
-  await app.register(filesPlugin, { store: options.fileStore });
+  await app.register(filesPlugin, { store: options.fileStore, scanner: options.scanner });
   await app.register(notifierPlugin, { notifier: options.notifier });
   await app.register(authPlugin);
   await app.register(staffEmailsPlugin);

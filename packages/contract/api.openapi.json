@@ -6708,6 +6708,120 @@
           }
         }
       },
+      "ImagingImage": {
+        "description": "A file attached to a performed imaging study.",
+        "type": "object",
+        "required": ["id", "studyId", "fileName", "contentType", "size", "status", "createdAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "studyId": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "scanning", "clean", "infected", "failed"],
+            "description": "pending: nothing received yet. scanning: received, waiting for the malware scan. clean: may be downloaded. infected: the scan found something and the file was deleted. failed: the file was lost or could not be scanned."
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "uploadedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "ImagingImageCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["fileName", "contentType", "size"],
+        "properties": {
+          "fileName": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "contentType": {
+            "description": "One of image/jpeg, image/png, application/pdf, application/dicom (422 `file_type_not_allowed`).",
+            "type": "string"
+          },
+          "size": {
+            "minimum": 1,
+            "description": "The size in bytes, at most 26214400 (422 `file_too_large`).",
+            "type": "integer"
+          }
+        }
+      },
+      "ImagingImageUpload": {
+        "type": "object",
+        "required": ["image", "uploadUrl", "expiresAt"],
+        "properties": {
+          "image": {
+            "$ref": "#/components/schemas/ImagingImage"
+          },
+          "uploadUrl": {
+            "description": "A signed, short-lived address to PUT the file to with the same Content-Type. The signature is the only credential.",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "ImagingImagePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImagingImage"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "ImagingImageDownload": {
+        "type": "object",
+        "required": ["url", "expiresAt"],
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
       "StockLocationKind": {
         "type": "string",
         "enum": ["store", "pharmacy", "ward", "department"],
@@ -30456,6 +30570,447 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/radiology/orders/{orderId}/images": {
+      "post": {
+        "operationId": "requestImagingImageUpload",
+        "tags": ["radiology"],
+        "description": "Asks to attach a file to the performed study of an imaging order (#99). Nothing is stored yet: the answer holds a signed address (valid 15 minutes) to PUT the file to with the same Content-Type. The announced size must be at most 26214400 bytes (422 `file_too_large`) and the type one of image/jpeg, image/png, application/pdf, application/dicom (422 `file_type_not_allowed`); the file received is checked against both, and against its first bytes. At most 50 files a study (409 `too_many_images`); the study must be performed (409 `invalid_transition`). Requires imagingStudy:perform and the radiology feature flag.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImagingImageCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImagingImageUpload"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listImagingImages",
+        "tags": ["radiology"],
+        "description": "The files attached to an imaging order’s study (#99), oldest first, with the state of each. A study holds at most 50, so the page is the whole list and `nextCursor` is null. Requires imagingStudy:read with the scope `all`.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "orderId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImagingImagePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/radiology/images/{imageId}/download-url": {
+      "get": {
+        "operationId": "getImagingImageDownloadUrl",
+        "tags": ["radiology"],
+        "description": "A signed, short-lived address for a file that passed the malware scan (`REPORT_URL_TTL_SECONDS`). The link needs no session, so give it only to the person who asked; it is audited here as an `export`. 409 `image_not_ready` until the scan has finished, 409 `image_blocked` for a file that was infected or lost. Requires imagingStudy:read with the scope `all`.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "imageId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImagingImageDownload"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imaging-uploads/{imageId}": {
+      "put": {
+        "operationId": "uploadImagingImage",
+        "tags": ["radiology"],
+        "description": "The file itself, for a link made by `requestImagingImageUpload`. Send the bytes with the Content-Type announced. The signature in the query is the only credential, and the link works once: the file must be exactly the announced size (400 `size_mismatch`) and begin as its type does (415 `file_type_mismatch`). It is then held until the malware scan clears it. 404 `image_file_not_found` for any other link.",
+        "parameters": [
+          {
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "expires",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "signature",
+            "required": true
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "imageId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imaging-files/{imageId}": {
+      "get": {
+        "operationId": "downloadImagingImage",
+        "tags": ["radiology"],
+        "description": "A file that passed the malware scan, for a link made by `getImagingImageDownloadUrl`. The signature in the query is the only credential. 404 `image_file_not_found` for anything else.",
+        "parameters": [
+          {
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "expires",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "signature",
+            "required": true
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "imageId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "The file.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
