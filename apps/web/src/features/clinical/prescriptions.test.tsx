@@ -15,7 +15,7 @@ import { editMockAllergies } from '@/mocks/handlers/triage';
 import { server } from '@/mocks/node';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
-import { checkLines, matchesAllergy, sameGeneric } from './prescription-checks';
+import { allergyCovers, checkLines, matchesAllergy, sameGeneric } from './prescription-checks';
 import type { Order } from './types';
 
 const HOSPITAL = TENANT_IDS.hospital;
@@ -423,6 +423,54 @@ describe('the prescribing checks', () => {
     // Short words and numbers are not matched on their own.
     expect(matchesAllergy('egg', ['Eggplant extract'])).toBe(false);
     expect(matchesAllergy('500 mg', ['Paracetamol 500 mg'])).toBe(false);
+  });
+
+  it('matches a coded allergy by what it covers: a class reaches its members (#380)', () => {
+    const penicillins = {
+      substance: 'Penicillins',
+      kind: 'drug_class',
+      members: ['penicillin', 'amoxicillin', 'co-trimoxazole'],
+    };
+    expect(allergyCovers(penicillins, ['Amoxicillin and Clavulanic Acid', 'Augmentin'])).toBe(true);
+    expect(allergyCovers(penicillins, ['Co-trimoxazole 480 mg'])).toBe(true);
+    // The start of a word only: not the middle of one, and not a name beside it.
+    expect(allergyCovers(penicillins, ['Paracetamol'])).toBe(false);
+    expect(allergyCovers(penicillins, ['Nonamoxicillin'])).toBe(false);
+    // A medicine allergy covers its own generic name, whatever the brand.
+    const cetirizine = { substance: 'Cetirizine', kind: 'drug', members: ['cetirizine'] };
+    expect(allergyCovers(cetirizine, ['Cetirizine 10 mg', 'Cetzine'])).toBe(true);
+    expect(allergyCovers(cetirizine, ['Levocetirizine'])).toBe(false);
+    // Punctuation in a generic name does not stop it matching itself.
+    const punctuated = {
+      substance: 'Paracetamol (Acetaminophen)',
+      kind: 'drug',
+      members: ['paracetamol acetaminophen'],
+    };
+    expect(allergyCovers(punctuated, ['Paracetamol (Acetaminophen) 500 mg'])).toBe(true);
+    expect(allergyCovers({ ...punctuated, members: [''] }, ['Paracetamol'])).toBe(false);
+    // A food or other covers no medicine, even one named like it; free text keeps the words.
+    expect(
+      allergyCovers({ substance: 'Peanuts', kind: 'food', members: [] }, ['Peanuts oil']),
+    ).toBe(false);
+    expect(allergyCovers({ substance: 'Latex', kind: 'other' }, ['Latex'])).toBe(false);
+    expect(allergyCovers({ substance: 'Amoxicillin' }, ['Amoxicillin'])).toBe(true);
+    expect(allergyCovers({ substance: 'Penicillin' }, ['Amoxicillin'])).toBe(false);
+  });
+
+  it('warns of a line by the class its patient is allergic to (#380)', () => {
+    const warnings = checkLines(
+      [{ drugId: 'a', genericName: 'Amoxicillin', brandName: 'Novamox' }],
+      [
+        {
+          substance: 'Penicillins',
+          severity: 'severe',
+          kind: 'drug_class',
+          members: ['penicillin', 'amoxicillin'],
+        },
+      ],
+      [],
+    );
+    expect(warnings).toEqual([{ allergies: ['Penicillins'], repeated: false, prescribed: [] }]);
   });
 
   it('takes a generic name and the same one with a strength and brand as one medicine', () => {

@@ -31,3 +31,6 @@ export { dispensableDrug, substitutesOf, type DispensableDrug } from './reposito
  * drug register, an item archived or not.
  */
 export { registerDrug, saleableDrug } from './repository.js';
+
+/** For triage: naming an allergen after a medicine of the catalog (#380). */
+export { medicineGenerics, medicineNamed } from './repository.js';

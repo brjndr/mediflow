@@ -1,6 +1,13 @@
 import { api, requireData } from '@/shared/api';
-import { allergyListSchema, vitalRangesSchema, vitalsPageSchema, vitalsSchema } from './schemas';
+import {
+  allergenPageSchema,
+  allergyListSchema,
+  vitalRangesSchema,
+  vitalsPageSchema,
+  vitalsSchema,
+} from './schemas';
 import type {
+  AllergenPage,
   AllergyList,
   AllergyListUpdate,
   PrintableTriage,
@@ -75,6 +82,22 @@ export async function fetchAllergies(
     signal,
   });
   return allergyListSchema.parse(requireData(result));
+}
+
+/**
+ * What an allergy can name, by words of its name (#380). The term is sent in the body, never in
+ * an address: it is typed while a patient's allergies are open.
+ */
+export async function searchAllergens(
+  q: string,
+  limit: number,
+  signal?: AbortSignal,
+): Promise<AllergenPage> {
+  const result = await api.POST('/allergens/search', {
+    body: { q: q || undefined, limit },
+    signal,
+  });
+  return allergenPageSchema.parse(requireData(result));
 }
 
 /** Replaces the list from the version the edit started from: someone else's change first is 409. */

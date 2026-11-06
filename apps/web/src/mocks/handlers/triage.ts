@@ -3,7 +3,8 @@ import { http, HttpResponse } from 'msw';
 import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 import { todayIn } from '@/shared/utils/timezone';
 import { currentSession, mockTenantTimezone, onMockReset, TENANT_IDS } from '../db';
-import { authorize, error } from '../respond';
+import { authorize, error, searchBody } from '../respond';
+import { mockDrugsOf } from './drugs';
 import { mockPatient, mockPatientDob } from './patients';
 import { mockQueueToken } from './queue';
 
@@ -253,11 +254,108 @@ function invalidAllergies(body: Record<string, unknown>): string | null {
   return null;
 }
 
+type Allergen = components['schemas']['Allergen'];
+type AllergenKind = Allergen['kind'];
+
+/**
+ * The shared allergen catalog (#380), a few of its entries. Like the API's it belongs to no
+ * hospital; a medicine is found in the hospital's own drug catalog.
+ */
+const CATALOG: readonly { id: string; name: string; kind: AllergenKind; members: string[] }[] = [
+  {
+    id: 'alg_00001',
+    name: 'Penicillins',
+    kind: 'drug_class',
+    members: ['penicillin', 'amoxicillin', 'ampicillin', 'cloxacillin', 'piperacillin'],
+  },
+  {
+    id: 'alg_00002',
+    name: 'Sulfonamides (sulfa drugs)',
+    kind: 'drug_class',
+    members: ['sulfamethoxazole', 'sulfadiazine', 'co-trimoxazole'],
+  },
+  {
+    id: 'alg_00003',
+    name: 'NSAIDs (anti-inflammatory painkillers)',
+    kind: 'drug_class',
+    members: ['ibuprofen', 'diclofenac', 'aspirin', 'naproxen'],
+  },
+  { id: 'alg_00004', name: 'Peanuts', kind: 'food', members: [] },
+  { id: 'alg_00005', name: 'Shellfish', kind: 'food', members: [] },
+  { id: 'alg_00006', name: 'Latex', kind: 'other', members: [] },
+];
+
+/** What an allergy that names a catalog entry or a medicine is stored as, or null if unknown. */
+function codedAllergy(tenantId: string, item: Record<string, unknown>): Allergy | 'unknown' | null {
+  const { allergenId, drugId } = item;
+  if (typeof allergenId === 'string') {
+    const found = CATALOG.find((each) => each.id === allergenId);
+    return found
+      ? {
+          substance: found.name,
+          severity: item.severity as Allergy['severity'],
+          kind: found.kind,
+          allergenId: found.id,
+          members: found.members,
+        }
+      : 'unknown';
+  }
+  if (typeof drugId === 'string') {
+    const found = mockDrugsOf(tenantId).find(
+      (each) => each.id === drugId && each.type === 'medicine' && !each.archived,
+    );
+    return found
+      ? {
+          substance: found.genericName,
+          severity: item.severity as Allergy['severity'],
+          kind: 'drug',
+          drugId: found.id,
+          members: [
+            found.genericName
+              .toLowerCase()
+              .replace(/[^\p{L}\p{N}-]+/gu, ' ')
+              .trim(),
+          ],
+        }
+      : 'unknown';
+  }
+  return null;
+}
+
 /** The patient of this hospital, or the 404 the API gives for one it does not have. */
 const unknownPatient = (tenantId: string, patientId: string) =>
   mockPatient(tenantId, patientId) ? null : error(404, 'not_found', 'Patient not found');
 
 export const triageHandlers = [
+  http.post('*/api/allergens/search', async ({ request }) => {
+    const access = authorize(request, { permission: ALLERGY_READ, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const params = await searchBody(request);
+    const words = (params.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+    const kind = params.get('kind');
+    const limit = Number(params.get('limit') ?? 25);
+    const named = (name: string) => words.every((word) => name.toLowerCase().includes(word));
+    const found: Allergen[] = [];
+    if (kind !== 'drug') {
+      for (const entry of CATALOG) {
+        if ((!kind || entry.kind === kind) && named(entry.name)) {
+          found.push({ name: entry.name, kind: entry.kind, allergenId: entry.id });
+        }
+      }
+    }
+    if (!kind || kind === 'drug') {
+      const seen = new Set<string>();
+      for (const drug of mockDrugsOf(access.tenantId)) {
+        const key = drug.genericName.toLowerCase();
+        if (drug.type !== 'medicine' || drug.archived || seen.has(key) || !named(key)) continue;
+        seen.add(key);
+        found.push({ name: drug.genericName, kind: 'drug', drugId: drug.id });
+      }
+    }
+    found.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    return HttpResponse.json({ items: found.slice(0, limit), nextCursor: null });
+  }),
+
   http.get('*/api/patients/:patientId/vitals', ({ request, params }) => {
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
@@ -400,11 +498,39 @@ export const triageHandlers = [
     // Nothing awaited between the version check and the change, as a row lock decides it.
     const current = allergyView(tenantId, patientId);
     if (body.version !== current.version) return error(409, 'conflict', 'Changed by someone else');
+    const items: Allergy[] = [];
+    for (const raw of body.items as Record<string, unknown>[]) {
+      if (raw.allergenId !== undefined && raw.drugId !== undefined) {
+        return error(400, 'validation_failed', 'A catalog entry or a medicine, not both');
+      }
+      // One already on the list stays as recorded.
+      const held = current.items.find(
+        (each) =>
+          (raw.allergenId !== undefined && each.allergenId === raw.allergenId) ||
+          (raw.drugId !== undefined && each.drugId === raw.drugId),
+      );
+      const coded = held
+        ? { ...held, severity: raw.severity as Allergy['severity'] }
+        : codedAllergy(tenantId, raw);
+      if (coded === 'unknown') return error(422, 'unknown_allergen', 'No such allergen');
+      const plain: Allergy = {
+        substance: raw.substance as string,
+        severity: raw.severity as Allergy['severity'],
+      };
+      // The reaction is the request's, never the one an earlier version had.
+      const { reaction: _kept, ...base } = coded ?? plain;
+      items.push(
+        structuredClone({
+          ...base,
+          ...(typeof raw.reaction === 'string' ? { reaction: raw.reaction } : {}),
+        }),
+      );
+    }
     const stored: StoredAllergies = {
       tenantId,
       patientId,
       status: body.status as 'none' | 'listed',
-      items: structuredClone(body.items as Allergy[]),
+      items,
       version: current.version + 1,
       updatedAt: new Date().toISOString(),
       updatedByName: currentSession()?.user.name ?? '',

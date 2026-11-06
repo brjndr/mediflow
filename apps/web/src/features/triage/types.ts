@@ -15,6 +15,10 @@ export type AllergyListUpdate = Schemas['AllergyListUpdate'];
 export type Allergy = Schemas['Allergy'];
 export type AllergySeverity = Schemas['AllergySeverity'];
 export type AllergyStatus = Schemas['AllergyStatus'];
+/** Something an allergy can name (#380): a catalog entry or a medicine's generic name. */
+export type Allergen = Schemas['Allergen'];
+export type AllergenKind = Schemas['AllergenKind'];
+export type AllergenPage = Schemas['AllergenPage'];
 
 /** What triage puts on paper (#398): a part is absent when the caller may not read it. */
 export interface PrintableTriage {

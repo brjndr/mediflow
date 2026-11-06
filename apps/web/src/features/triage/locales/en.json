@@ -58,6 +58,24 @@
     "detail": " · {{severity}}",
     "detailWithReaction": " · {{severity}} · {{reaction}}",
     "max": "At most 50 allergies.",
+    "kinds": {
+      "drug": "Medicine",
+      "drug_class": "Drug class",
+      "food": "Food",
+      "other": "Other",
+      "chosen": "From the list"
+    },
+    "picker": {
+      "typeToSearch": "Type to search medicines, drug classes, foods and others. Anything else is kept as typed.",
+      "freeText": "Not chosen from the list: kept as typed, and prescribing checks it by its words only.",
+      "recognised": "Chosen from the list ({{kind}}): prescribing and the pharmacy check medicines against it.",
+      "loading": "Searching…",
+      "failed": "The search failed. What you type is still kept as typed.",
+      "none": "Nothing found. What you type is kept as typed.",
+      "found_one": "{{count}} match. Use the arrow keys to choose.",
+      "found_other": "{{count}} matches. Use the arrow keys to choose.",
+      "option": "{{name}} · {{kind}}"
+    },
     "errors": {
       "noRows": "Add at least one allergy, or choose No known allergies."
     },

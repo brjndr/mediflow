@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Mediflow API",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "description": "Generated from the API route schemas by `pnpm gen:api`. Do not edit by hand."
   },
   "components": {
@@ -3972,6 +3972,11 @@
         "type": "string",
         "enum": ["mild", "moderate", "severe", "unknown"]
       },
+      "AllergenKind": {
+        "type": "string",
+        "enum": ["drug", "drug_class", "food", "other"],
+        "description": "`drug`: a medicine’s generic name. `drug_class`: a class of medicines. `food` and `other`: match no medicine."
+      },
       "Allergy": {
         "additionalProperties": false,
         "type": "object",
@@ -3993,6 +3998,129 @@
           },
           "severity": {
             "$ref": "#/components/schemas/AllergySeverity"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AllergenKind"
+          },
+          "allergenId": {
+            "description": "The allergen catalog entry (a class, food or other).",
+            "type": "string"
+          },
+          "drugId": {
+            "description": "A medicine of the hospital’s drug catalog the generic name was taken from (kind `drug`).",
+            "type": "string"
+          },
+          "members": {
+            "description": "Lower-case generic names the allergy covers, as the catalog had them when it was saved (a class’s members, or the one generic name of a drug). A medicine is covered when a word of its generic name begins with one. Empty or absent for free text, a food and others.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AllergyInput": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["substance", "severity"],
+        "properties": {
+          "substance": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text. With `allergenId` or `drugId` the catalog’s name is stored instead, and this is only the fallback.",
+            "type": "string"
+          },
+          "reaction": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Plain text.",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/AllergySeverity"
+          },
+          "allergenId": {
+            "maxLength": 64,
+            "description": "An entry of the allergen catalog (422 `unknown_allergen` if there is none). Not with `drugId`.",
+            "type": "string"
+          },
+          "drugId": {
+            "maxLength": 64,
+            "description": "A medicine of the hospital in use (422 `unknown_allergen` if there is none): the allergy is to its generic name. Not with `allergenId`.",
+            "type": "string"
+          }
+        }
+      },
+      "Allergen": {
+        "additionalProperties": false,
+        "description": "Something an allergy can name: a catalog entry (`allergenId`) or the generic name of a medicine of the hospital (`drugId`, one of the medicines that carry it).",
+        "type": "object",
+        "required": ["name", "kind"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AllergenKind"
+          },
+          "allergenId": {
+            "type": "string"
+          },
+          "drugId": {
+            "type": "string"
+          }
+        }
+      },
+      "AllergenPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Allergen"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "AllergenSearchRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "q": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AllergenKind"
+          },
+          "cursor": {
+            "maxLength": 1024,
+            "description": "Opaque. Pass the nextCursor of the previous page.",
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Absent: 25.",
+            "type": "integer"
           }
         }
       },
@@ -4054,7 +4182,7 @@
             "maxItems": 50,
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Allergy"
+              "$ref": "#/components/schemas/AllergyInput"
             }
           }
         }
@@ -22611,6 +22739,85 @@
             "description": "Standard error body.",
             "content": {
               "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/allergens/search": {
+      "post": {
+        "operationId": "searchAllergens",
+        "tags": ["triage"],
+        "description": "What an allergy can name (#380): the catalog’s drug classes, foods and others, and the generic names of the hospital’s own medicines, by name, each once. Every word of `q` must be in the name. `kind` limits the search to one kind. It reads data only. What is searched for travels in the body, never in a query string: it is made while a patient’s allergies are open, and a term beside a patient id in an access log is patient data. The API does not log the body. Requires allergy:read and the triage feature flag. Not audited: it holds nothing about a patient. No `total`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllergenSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllergenPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 }

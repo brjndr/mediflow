@@ -175,6 +175,62 @@ export async function lockDrug(client: pg.ClientBase, id: string): Promise<DrugR
   return rows[0] ?? null;
 }
 
+export interface MedicineGeneric {
+  /** One medicine of the hospital with this generic name (the lowest id), to name it by. */
+  id: string;
+  name: string;
+  name_lower: string;
+}
+
+/**
+ * The generic names of the hospital's medicines in use, each once, by name, for naming an
+ * allergen (#380). Every word of `words` must be in the name. `after` continues a page: names
+ * after `after.name`, or that very name too when `after.inclusive`. Not a page of drugs: a name
+ * is shown once however many brands carry it.
+ */
+export async function medicineGenerics(
+  client: pg.ClientBase,
+  {
+    words,
+    after,
+    limit,
+  }: { words: string[]; after?: { name: string; inclusive: boolean }; limit: number },
+): Promise<MedicineGeneric[]> {
+  const params: unknown[] = [];
+  const where = [`type = 'medicine'`, 'not archived'];
+  for (const word of words) {
+    params.push(likePattern(word));
+    where.push(`generic_lower like lower($${params.length})`);
+  }
+  if (after) {
+    params.push(after.name);
+    where.push(`generic_lower COLLATE "C" ${after.inclusive ? '>=' : '>'} $${params.length}`);
+  }
+  params.push(limit);
+  const { rows } = await client.query<MedicineGeneric>(
+    `select distinct on (generic_lower COLLATE "C") id, generic_name as name, generic_lower as name_lower
+     from drugs where ${where.join(' and ')}
+     order by generic_lower COLLATE "C", id
+     limit $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
+/** A medicine of the hospital that is in use, with its generic name, for an allergy to name. */
+export async function medicineNamed(
+  client: pg.ClientBase,
+  id: string,
+): Promise<{ id: string; genericName: string } | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<{ id: string; generic_name: string }>(
+    `select id, generic_name from drugs where id = $1 and type = 'medicine' and not archived`,
+    [id],
+  );
+  const row = rows[0];
+  return row ? { id: row.id, genericName: row.generic_name } : null;
+}
+
 /**
  * Items of the hospital, archived or not, with this generic name in this form, whatever the brand
  * or the strength, the capitals or the Indic joiners. The database decides what the same name is.

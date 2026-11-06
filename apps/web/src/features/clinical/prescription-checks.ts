@@ -7,10 +7,13 @@ import type { Order } from './types';
  * encounter still in effect. They warn and ask once; they never refuse, as the doctor may know
  * better (a desensitised patient, a taper written as two lines).
  *
- * Allergies are free text (triage), so a match is by the words of names only: a substance word
- * of four letters or more that begins a word of the medicine's generic name or brand
- * ("amoxicillin", "sulfa" in "sulfamethoxazole"). It does not know drug classes: "penicillin"
- * does not match amoxicillin. Coded allergens and class checks are #380.
+ * An allergy chosen from the allergen catalog (#380) carries `members`, the generic names it
+ * covers (a drug class's members, or the one generic name of a medicine): it matches a medicine
+ * when a word of the medicine's generic name or brand begins with a member, so "Penicillins"
+ * matches amoxicillin. A food or other catalog entry covers no medicine. Free text is matched by
+ * the words of names only: a substance word of four letters or more that begins a word of the
+ * medicine's generic name or brand ("amoxicillin", "sulfa" in "sulfamethoxazole"); it knows no
+ * drug classes.
  */
 
 export interface LineToCheck {
@@ -36,6 +39,34 @@ const words = (text: string) =>
     .toLocaleLowerCase()
     .split(/[^\p{L}\p{N}]+/u)
     .filter(Boolean);
+
+/** What matching needs of a recorded allergy. */
+export interface AllergyLike {
+  substance: string;
+  /** Present when the allergy names a catalog entry or a medicine. */
+  kind?: string | undefined;
+  /** The generic names it covers, lower case. */
+  members?: string[] | undefined;
+}
+
+const padded = (text: string) =>
+  ` ${text
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}-]+/gu, ' ')
+    .trim()}`;
+
+/**
+ * Whether a recorded allergy covers a medicine of these names: by the members of a coded
+ * allergy, else by the words of the substance.
+ */
+export function allergyCovers(allergy: AllergyLike, names: string[]): boolean {
+  if (allergy.kind === undefined) return matchesAllergy(allergy.substance, names);
+  const haystacks = names.map(padded);
+  return (allergy.members ?? []).some((member) => {
+    const wanted = padded(member);
+    return wanted.trim() !== '' && haystacks.some((each) => each.includes(wanted));
+  });
+}
 
 /** Whether a substance the patient is allergic to is named in the medicine's names. */
 export function matchesAllergy(substance: string, names: string[]): boolean {
@@ -70,7 +101,7 @@ export function checkLines(
     const names = [line.genericName, line.brandName].filter(Boolean);
     return {
       allergies: allergies
-        .filter((allergy) => matchesAllergy(allergy.substance, names))
+        .filter((allergy) => allergyCovers(allergy, names))
         .map((allergy) => allergy.substance),
       repeated: lines.some(
         (other, at) => at !== index && other.drugId !== '' && isSame(line, other),
