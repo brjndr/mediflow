@@ -100,8 +100,14 @@ export async function fetchFavouriteDrugs(signal?: AbortSignal): Promise<Favouri
   return favouriteDrugsSchema.parse(requireData(result));
 }
 
-/** Replaces the whole list, in order. */
-export async function putFavouriteDrugs(drugIds: string[]): Promise<FavouriteDrugs> {
-  const result = await api.PUT('/me/favourite-drugs', { body: { drugIds } });
+/** Stars or unstars one medicine: the server changes its list, so quick changes all stay. */
+export async function changeFavouriteDrug(
+  drugId: string,
+  starred: boolean,
+): Promise<FavouriteDrugs> {
+  const params = { path: { drugId } };
+  const result = starred
+    ? await api.PUT('/me/favourite-drugs/{drugId}', { params })
+    : await api.DELETE('/me/favourite-drugs/{drugId}', { params });
   return favouriteDrugsSchema.parse(requireData(result));
 }

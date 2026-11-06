@@ -2,8 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sessionKey, type Session } from '@/app/session';
 import { useFeatureFlag, usePermission } from '@/access';
 import { useTenant } from '@/tenancy';
-import { fetchDrug, fetchFavouriteDrugs, putFavouriteDrugs } from '../api';
-import { FAVOURITES_MAX } from '../schemas';
+import { changeFavouriteDrug, fetchDrug, fetchFavouriteDrugs } from '../api';
 import type { FavouriteDrugs } from '../types';
 import { drugKeys } from './use-drugs';
 
@@ -31,18 +30,14 @@ export function useFavouriteDrugs(enabled: boolean) {
   });
 }
 
-/** Replaces the list with one more or one fewer medicine. */
+/** Stars or unstars one medicine. Only that change is sent, so quick changes and tabs all stay. */
 export function useToggleFavourite() {
   const queryClient = useQueryClient();
   const tenantId = useTenant()?.id;
   return useMutation({
     gcTime: 0,
-    mutationFn: async ({ drugId, starred }: { drugId: string; starred: boolean }) => {
-      // From the server's list, not the screen's: two tabs do not undo each other's stars.
-      const current = await fetchFavouriteDrugs();
-      const ids = current.items.map((item) => item.drugId).filter((id) => id !== drugId);
-      return putFavouriteDrugs(starred ? [...ids, drugId].slice(-FAVOURITES_MAX) : ids);
-    },
+    mutationFn: ({ drugId, starred }: { drugId: string; starred: boolean }) =>
+      changeFavouriteDrug(drugId, starred),
     onSuccess: (saved: FavouriteDrugs) => {
       // Nothing is written if the answer arrives after the session ended or moved on.
       const session = queryClient.getQueryData<Session | null>(sessionKey);
