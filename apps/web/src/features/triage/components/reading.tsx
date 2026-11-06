@@ -50,10 +50,9 @@ export function ReadingList({ reading, ranges }: { reading: Vitals; ranges: Rang
   );
 }
 
-/** What the screen says when no reading of this patient is marked high or low, and why. */
-export function RangesNote({ ranges, failed }: { ranges: Ranges | undefined; failed: boolean }) {
+/** What the screen says when the ranges could not be loaded, so nothing live is marked. */
+export function RangesNote({ failed }: { failed: boolean }) {
   const { t } = useTranslation('triage');
   if (failed) return <p className="text-sm text-muted-foreground">{t('rangesError')}</p>;
-  if (ranges === null) return <p className="text-sm text-muted-foreground">{t('adultsOnly')}</p>;
   return null;
 }

@@ -11,12 +11,15 @@ import { mockQueueToken } from './queue';
 type Vitals = components['schemas']['Vitals'];
 type VitalsPage = components['schemas']['VitalsPage'];
 type VitalRanges = components['schemas']['VitalRanges'];
+type VitalRangeTable = components['schemas']['VitalRangeTable'];
+type RangeSet = components['schemas']['VitalRangeSet'];
 type AllergyList = components['schemas']['AllergyList'];
 type Allergy = components['schemas']['Allergy'];
 
 const FEATURE_FLAG = 'triage';
 const READ = 'vitals:read';
 const RECORD = 'vitals:record';
+const CONFIGURE = 'vitals:configure';
 const ALLERGY_READ = 'allergy:read';
 const ALLERGY_UPDATE = 'allergy:update';
 const SEVERITIES = ['mild', 'moderate', 'severe', 'unknown'];
@@ -34,23 +37,59 @@ const LIMITS = {
 type Measure = keyof typeof LIMITS;
 const MEASURES = Object.keys(LIMITS) as Measure[];
 
-/** Each hospital's adult ranges: the clinic marks a temperature high a little sooner. */
-const RANGES: Record<string, NonNullable<VitalRanges['ranges']>> = {
-  [TENANT_IDS.hospital]: {
+const BANDS = ['infant', 'child', 'adolescent', 'adult'] as const;
+type Band = (typeof BANDS)[number];
+const RANGED = ['systolic', 'diastolic', 'pulse', 'temperature', 'spo2'] as const;
+
+/** The built-in ranges of each band, as the API has them. */
+const DEFAULT_BANDS: Record<Band, RangeSet> = {
+  infant: {
+    systolic: { low: 70, high: 100 },
+    diastolic: { low: 40, high: 65 },
+    pulse: { low: 100, high: 160 },
+    temperature: { low: 36.1, high: 37.8 },
+    spo2: { low: 95 },
+  },
+  child: {
+    systolic: { low: 80, high: 120 },
+    diastolic: { low: 50, high: 80 },
+    pulse: { low: 70, high: 130 },
+    temperature: { low: 36.1, high: 37.8 },
+    spo2: { low: 95 },
+  },
+  adolescent: {
+    systolic: { low: 90, high: 130 },
+    diastolic: { low: 55, high: 85 },
+    pulse: { low: 60, high: 105 },
+    temperature: { low: 36.1, high: 37.8 },
+    spo2: { low: 95 },
+  },
+  adult: {
     systolic: { low: 90, high: 139 },
     diastolic: { low: 60, high: 89 },
     pulse: { low: 60, high: 100 },
     temperature: { low: 36.1, high: 37.8 },
     spo2: { low: 95 },
   },
-  [TENANT_IDS.clinic]: {
-    systolic: { low: 90, high: 139 },
-    diastolic: { low: 60, high: 89 },
-    pulse: { low: 60, high: 100 },
-    temperature: { low: 36.1, high: 37.5 },
-    spo2: { low: 94 },
-  },
 };
+
+/** Each hospital's ranges: the clinic marks a temperature high a little sooner for adults. */
+function seedRanges(): Record<string, VitalRangeTable> {
+  return {
+    [TENANT_IDS.hospital]: { version: 0, bands: structuredClone(DEFAULT_BANDS) },
+    [TENANT_IDS.clinic]: {
+      version: 1,
+      bands: {
+        ...structuredClone(DEFAULT_BANDS),
+        adult: {
+          ...DEFAULT_BANDS.adult,
+          temperature: { low: 36.1, high: 37.5 },
+          spo2: { low: 94 },
+        },
+      },
+    },
+  };
+}
 
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 
@@ -138,26 +177,51 @@ function seedAllergies(): StoredAllergies[] {
   ];
 }
 
-let vitals = seedVitals();
+let ranges = seedRanges();
+let vitals = seedVitals().map(stamped);
 let allergies = seedAllergies();
 let counter = 0;
 /** Readings already recorded, by tenant, user and idempotency key, as the API keeps them. */
 let answered = new Map<string, { body: string; reading: Vitals }>();
 
 onMockReset(() => {
-  vitals = seedVitals();
+  ranges = seedRanges();
+  vitals = seedVitals().map(stamped);
   allergies = seedAllergies();
   counter = 0;
   answered = new Map();
 });
 
-/** Whether a patient was under 18 at the hospital's date: no ranges apply to them yet (#379). */
-function isChild(tenantId: string, patientId: string) {
+/** The age band a patient is in at the hospital's date, or null when their birth date is unknown. */
+function bandOf(tenantId: string, patientId: string): Band | null {
   const dob = mockPatientDob(tenantId, patientId);
-  if (!dob) return false;
+  if (!dob) return null;
   const today = todayIn(mockTenantTimezone(tenantId));
-  const eighteenth = `${String(Number(dob.slice(0, 4)) + 18).padStart(4, '0')}${dob.slice(4)}`;
-  return today < eighteenth;
+  const years = (until: string) => {
+    const age = Number(until.slice(0, 4)) - Number(dob.slice(0, 4));
+    return until.slice(5) < dob.slice(5) ? age - 1 : age;
+  };
+  const age = years(today);
+  return age >= 18 ? 'adult' : age >= 12 ? 'adolescent' : age >= 1 ? 'child' : 'infant';
+}
+
+/** What is out of range in a reading, against the ranges in force now: stored with the reading. */
+function flagsOf(tenantId: string, patientId: string, reading: Partial<Vitals>) {
+  const band = bandOf(tenantId, patientId);
+  const set = band ? ranges[tenantId]?.bands[band] : undefined;
+  const flags: NonNullable<Vitals['flags']> = {};
+  for (const measure of RANGED) {
+    const value = reading[measure];
+    const limits = set?.[measure];
+    if (value === undefined || !limits) continue;
+    if (limits.low !== undefined && value < limits.low) flags[measure] = 'low';
+    else if (limits.high !== undefined && value > limits.high) flags[measure] = 'high';
+  }
+  return flags;
+}
+
+function stamped(reading: Vitals): Vitals {
+  return { ...reading, flags: flagsOf(reading.tenantId, reading.patientId, reading) };
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -457,6 +521,7 @@ export const triageHandlers = [
       recordedAt: new Date().toISOString(),
       recordedById: session?.user.id ?? '',
       recordedByName: session?.user.name ?? '',
+      flags: flagsOf(tenantId, patientId, body as Partial<Vitals>),
     };
     vitals.push(reading);
     answered.set(keyOf, { body: JSON.stringify(body), reading });
@@ -470,9 +535,65 @@ export const triageHandlers = [
     const patientId = String(params.patientId);
     const missing = unknownPatient(tenantId, patientId);
     if (missing) return missing;
+    const band = bandOf(tenantId, patientId);
     return HttpResponse.json<VitalRanges>({
-      ranges: isChild(tenantId, patientId) ? null : (RANGES[tenantId] ?? null),
+      ranges: band ? (ranges[tenantId]?.bands[band] ?? null) : null,
     });
+  }),
+
+  http.get('*/api/vitals/ranges', ({ request }) => {
+    const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    return HttpResponse.json<VitalRangeTable>(
+      structuredClone(ranges[access.tenantId] ?? { version: 0, bands: DEFAULT_BANDS }),
+    );
+  }),
+
+  http.put('*/api/vitals/ranges', async ({ request }) => {
+    const access = authorize(request, { permission: CONFIGURE, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const body: unknown = await request.json();
+    if (!isObject(body) || typeof body.version !== 'number' || !isObject(body.bands)) {
+      return error(400, 'validation_failed', 'A version and the bands are needed');
+    }
+    const bands = {} as VitalRangeTable['bands'];
+    for (const band of BANDS) {
+      const set = body.bands[band];
+      if (!isObject(set)) return error(400, 'validation_failed', `Band ${band} is missing`);
+      bands[band] = {};
+      for (const measure of RANGED) {
+        const limits = set[measure];
+        if (limits === undefined) continue;
+        if (!isObject(limits)) return error(400, 'validation_failed', 'A range is an object');
+        const { low, high } = limits;
+        for (const limit of [low, high]) {
+          if (limit !== undefined && (typeof limit !== 'number' || limit < 0 || limit > 999.9)) {
+            return error(400, 'validation_failed', 'A limit is a number from 0 to 999.9');
+          }
+          if (typeof limit === 'number' && Math.round(limit * 10) / 10 !== limit) {
+            return error(422, 'invalid_range', 'A limit has at most one decimal');
+          }
+        }
+        if (typeof low === 'number' && typeof high === 'number' && low >= high) {
+          return error(422, 'invalid_range', 'A low limit must be below its high limit');
+        }
+        // A measure with neither limit is not checked, and is not kept.
+        if (low !== undefined || high !== undefined) {
+          bands[band][measure] = {
+            ...(typeof low === 'number' ? { low } : {}),
+            ...(typeof high === 'number' ? { high } : {}),
+          };
+        }
+      }
+    }
+    const current = ranges[tenantId] ?? { version: 0, bands: DEFAULT_BANDS };
+    if (body.version !== current.version) {
+      return error(409, 'conflict', 'The ranges were changed by someone else');
+    }
+    // Readings already recorded keep the marks they were given: flags are stored with them.
+    ranges[tenantId] = { version: current.version + 1, bands };
+    return HttpResponse.json<VitalRangeTable>(structuredClone(ranges[tenantId]));
   }),
 
   http.get('*/api/patients/:patientId/allergies', ({ request, params }) => {
@@ -563,3 +684,17 @@ export function editMockAllergies(tenantId: string, patientId: string, items: Al
 /** The readings the mock holds for a patient, for tests to check what was recorded. */
 export const mockVitalsOf = (tenantId: string, patientId: string) =>
   vitals.filter((each) => each.tenantId === tenantId && each.patientId === patientId);
+
+/** A hospital's ranges as the mock holds them. */
+export function mockRangeTable(tenantId: string): VitalRangeTable {
+  return structuredClone(ranges[tenantId] ?? { version: 0, bands: DEFAULT_BANDS });
+}
+
+/** Changes a hospital's adult pulse range behind the screen, as another admin would. */
+export function editMockAdultPulse(tenantId: string, range: { low?: number; high?: number }): void {
+  const current = mockRangeTable(tenantId);
+  ranges[tenantId] = {
+    version: current.version + 1,
+    bands: { ...current.bands, adult: { ...current.bands.adult, pulse: range } },
+  };
+}

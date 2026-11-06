@@ -1952,9 +1952,27 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The hospital’s normal ranges that apply to this patient, decided by the server from the patient’s age on today’s date at the hospital: the hospital’s adult ranges, or the built-in ones while it has set none, for a patient of 18 or over; null for a patient under 18 (#379). A patient the hospital does not have is 404 `not_found`. Audited, as it tells whether the patient is under 18. Requires vitals:read and the triage feature flag. */
+        /** @description The hospital’s normal ranges that apply to this patient, decided by the server from the patient’s age band (infant, child, adolescent or adult) on today’s date at the hospital: the hospital’s own ranges for that band, or the built-in ones for a band it has set none for (#379). A patient the hospital does not have is 404 `not_found`. Audited, as it tells the patient’s age band. Requires vitals:read and the triage feature flag. */
         get: operations["getVitalRanges"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vitals/ranges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital’s normal ranges for every age band as they apply now, with the version to send back when saving them. A band the hospital has set none for shows the built-in ranges. Requires vitals:read and the triage feature flag. Audited. */
+        get: operations["getVitalRangeTable"];
+        /** @description Saves the hospital’s normal ranges for every age band, in effect from now on: readings already recorded keep the marks they had, because a reading is marked against the ranges in effect when it was recorded (#378). `version` is the one read with the ranges; if another save came first the answer is 409 `conflict` and nothing changes. A low limit that is not below its high limit, or a limit with more than one decimal, is 422 `invalid_range`. A measure with no limit in a band is not checked for it. Audited. Requires vitals:configure and the triage feature flag. */
+        put: operations["saveVitalRangeTable"];
         post?: never;
         delete?: never;
         options?: never;
@@ -5601,6 +5619,7 @@ export interface components {
             correctsId?: string;
             /** @description Plain text. Required with correctsId, refused without it. */
             correctionReason?: string;
+            flags?: components["schemas"]["VitalFlags"];
         };
         /** @description At least one measurement or a chief complaint. Systolic and diastolic go together, the diastolic below the systolic. */
         VitalsCreate: {
@@ -5639,7 +5658,7 @@ export interface components {
             high?: number;
         };
         VitalRanges: {
-            /** @description The hospital’s ranges that apply to this patient, or null when none do (a patient under 18: ranges are for adults until #379). */
+            /** @description The hospital’s ranges for the patient’s age band today, at the hospital’s date. Null is kept for a patient with no known band; today every patient has one. */
             ranges: {
                 systolic?: components["schemas"]["VitalRange"];
                 diastolic?: components["schemas"]["VitalRange"];
@@ -5647,6 +5666,39 @@ export interface components {
                 temperature?: components["schemas"]["VitalRange"];
                 spo2?: components["schemas"]["VitalRange"];
             } | null;
+        };
+        /** @description The ranges of one age band. A measure that is absent, or has neither limit, is not checked. */
+        VitalRangeSet: {
+            systolic?: components["schemas"]["VitalRange"];
+            diastolic?: components["schemas"]["VitalRange"];
+            pulse?: components["schemas"]["VitalRange"];
+            temperature?: components["schemas"]["VitalRange"];
+            spo2?: components["schemas"]["VitalRange"];
+        };
+        /** @description A hospital’s normal ranges for every age band, as they apply now. */
+        VitalRangeTable: {
+            /** @description How many times the ranges were saved: 0 while the hospital uses the built-in ones. Sent back with a save, which is refused with 409 conflict if another save came first. */
+            version: number;
+            /** @description Infant (under 1 year), child (1 to 11), adolescent (12 to 17) and adult (18 and over), by the patient’s age at the hospital’s date on the day of the reading. */
+            bands: {
+                infant: components["schemas"]["VitalRangeSet"];
+                child: components["schemas"]["VitalRangeSet"];
+                adolescent: components["schemas"]["VitalRangeSet"];
+                adult: components["schemas"]["VitalRangeSet"];
+            };
+        };
+        /** @description Which values were outside the normal ranges in effect when the reading was recorded, for the patient’s age band that day. A value that is not listed was within them, or had no range. */
+        VitalFlags: {
+            /** @enum {string} */
+            systolic?: "low" | "high";
+            /** @enum {string} */
+            diastolic?: "low" | "high";
+            /** @enum {string} */
+            pulse?: "low" | "high";
+            /** @enum {string} */
+            temperature?: "low" | "high";
+            /** @enum {string} */
+            spo2?: "low" | "high";
         };
         /** @enum {string} */
         AllergySeverity: "mild" | "moderate" | "severe" | "unknown";
@@ -17688,6 +17740,140 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getVitalRangeTable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A hospital’s normal ranges for every age band, as they apply now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VitalRangeTable"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    saveVitalRangeTable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VitalRangeTable"];
+            };
+        };
+        responses: {
+            /** @description A hospital’s normal ranges for every age band, as they apply now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VitalRangeTable"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

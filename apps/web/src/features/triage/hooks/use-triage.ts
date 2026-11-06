@@ -6,13 +6,15 @@ import { useTenant } from '@/tenancy';
 import {
   fetchAllergies,
   fetchReading,
+  fetchVitalRangeTable,
   fetchVitalRanges,
   fetchVitals,
   recordVitals,
+  saveVitalRangeTable,
   saveAllergies,
   searchAllergens,
 } from '../api';
-import type { AllergyListUpdate, VitalsCreate } from '../types';
+import type { AllergyListUpdate, VitalRangeTable, VitalsCreate } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's readings never show in another. */
 export const triageKeys = createTenantKeys('triage');
@@ -65,6 +67,18 @@ export function useVitalRanges(patientId: string) {
     queryFn: ({ signal }) => fetchVitalRanges(patientId, signal),
     enabled: tenantId !== undefined && patientId !== '',
     staleTime: 5 * 60_000,
+  });
+}
+
+const rangeTableKey = (tenantId: string) => [...triageKeys.all(tenantId), 'range-table'] as const;
+
+/** The hospital's ranges for every age band, for the screen that edits them (#378). */
+export function useVitalRangeTable() {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: rangeTableKey(tenantId ?? ''),
+    queryFn: ({ signal }) => fetchVitalRangeTable(signal),
+    enabled: tenantId !== undefined,
   });
 }
 
@@ -174,6 +188,34 @@ export function useSaveAllergies(patientId: string) {
     onSuccess: (saved) => {
       const tenantId = stillHere();
       if (tenantId) queryClient.setQueryData(allergiesKey(tenantId, patientId), saved);
+    },
+  });
+}
+
+/**
+ * Saves the ranges from the version they were read at. The answer replaces the table held, unless
+ * the session ended or moved meanwhile, and the ranges shown beside patients are read again, as
+ * the new ones apply from now on. After a failure (a conflict included) the table is read again,
+ * so the screen sees the newest version while the form keeps what was typed.
+ */
+export function useSaveVitalRanges() {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: VitalRangeTable) => saveVitalRangeTable(body),
+    onSuccess: (saved) => {
+      const tenantId = stillHere();
+      if (!tenantId) return;
+      queryClient.setQueryData(rangeTableKey(tenantId), saved);
+      return queryClient.invalidateQueries({
+        queryKey: triageKeys.all(tenantId),
+        predicate: (query) => query.queryKey.includes('ranges'),
+      });
+    },
+    onError: () => {
+      const tenantId = stillHere();
+      if (tenantId) return queryClient.invalidateQueries({ queryKey: rangeTableKey(tenantId) });
     },
   });
 }

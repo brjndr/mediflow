@@ -1283,13 +1283,14 @@ try {
     }
   }
 
-  // The clinic's own normal ranges: it marks a temperature high a little sooner. The hospital has
-  // none, so it uses the API's built-in ones.
+  // The clinic's own adult ranges: it marks a temperature high a little sooner. The hospital has
+  // none, so it uses the API's built-in ones, and the clinic's other age bands do too.
   await client.query(
-    `insert into vital_ranges (tenant_id, measure, low, high)
-     values ($1, 'systolic', 90, 139), ($1, 'diastolic', 60, 89), ($1, 'pulse', 60, 100),
-            ($1, 'temperature', 36.1, 37.5), ($1, 'spo2', 94, null)
-     on conflict (tenant_id, measure) do nothing`,
+    `insert into vital_ranges (tenant_id, band, measure, low, high, effective_from)
+     values ($1, 'adult', 'systolic', 90, 139, 'epoch'), ($1, 'adult', 'diastolic', 60, 89, 'epoch'),
+            ($1, 'adult', 'pulse', 60, 100, 'epoch'), ($1, 'adult', 'temperature', 36.1, 37.5, 'epoch'),
+            ($1, 'adult', 'spo2', 94, null, 'epoch')
+     on conflict (tenant_id, band, measure, effective_from) do nothing`,
     [tenantIds.get('riverside-clinic')],
   );
 

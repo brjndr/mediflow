@@ -114,6 +114,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'queue:call' },
   { permission: 'vitals:read' },
   { permission: 'vitals:record' },
+  // Editing the normal ranges is the hospital admin's alone, as the API's defaults give it.
+  { permission: 'vitals:configure' },
   { permission: 'allergy:read' },
   { permission: 'allergy:update' },
   { permission: 'clinical:read' },
