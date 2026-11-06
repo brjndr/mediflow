@@ -6,6 +6,7 @@ import { authPlugin } from './core/auth/plugin.js';
 import { accessPlugin } from './core/access/plugin.js';
 import { accessRoutes } from './core/access/routes.js';
 import { accountRoutes } from './core/auth/account-routes.js';
+import { accountSessionRoutes } from './core/auth/account-sessions.js';
 import { staffEmailsPlugin } from './core/auth/emails.js';
 import { authRoutes } from './core/auth/routes.js';
 import type { Config } from './core/config/config.js';
@@ -146,6 +147,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(tenantRoutes);
   await app.register(authRoutes);
   await app.register(accountRoutes);
+  await app.register(accountSessionRoutes);
   await app.register(accessRoutes);
   // Before the features: each one that can be loaded from a file registers its kind here.
   await app.register(importKindsPlugin);

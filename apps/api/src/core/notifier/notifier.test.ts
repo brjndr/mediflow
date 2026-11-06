@@ -31,10 +31,18 @@ describe('templates', () => {
     expect(email.text).not.toMatch(/@|Hospital/);
   });
 
+  it('renders the password change notice with no link and a way to react', () => {
+    const email = renderTemplate('password_changed', {}, APP);
+    expect(email.subject).toBe('Your Mediflow password was changed');
+    expect(email.text).toContain('reset your password');
+    expect(email.text + email.html).not.toMatch(/https?:|<a /);
+  });
+
   it('carries no remote content: nothing reports that the email was opened', () => {
     for (const email of [
       renderTemplate('invite', invite, APP),
       renderTemplate('password_reset', reset, APP),
+      renderTemplate('password_changed', {}, APP),
     ]) {
       expect(email.html).not.toMatch(/<img|<script|<link|<iframe|url\(/i);
     }

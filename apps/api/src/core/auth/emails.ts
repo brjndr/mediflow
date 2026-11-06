@@ -20,6 +20,7 @@ import { newToken } from './sessions.js';
 
 export const INVITE_EMAIL = 'email.invite';
 export const PASSWORD_RESET_EMAIL = 'email.password_reset';
+export const PASSWORD_CHANGED_EMAIL = 'email.password_changed';
 
 export interface InviteEmailJob {
   tenantId: string;
@@ -28,6 +29,12 @@ export interface InviteEmailJob {
 
 export interface PasswordResetEmailJob {
   resetId: string;
+}
+
+export interface PasswordChangedEmailJob {
+  userId: string;
+  /** The `account_events` row of the change: the job id, so it is never queued twice. */
+  eventId: string;
 }
 
 /**
@@ -45,6 +52,14 @@ export function queueInviteEmail(jobs: JobQueue, job: InviteEmailJob): Promise<v
 /** Queues the reset email. Call it once the reset is committed. */
 export function queuePasswordResetEmail(jobs: JobQueue, job: PasswordResetEmailJob): Promise<void> {
   return jobs.send(PASSWORD_RESET_EMAIL, job, { id: job.resetId, ...RETRIES });
+}
+
+/** Queues the notice that the password was changed. Call it once the change is committed. */
+export function queuePasswordChangedEmail(
+  jobs: JobQueue,
+  job: PasswordChangedEmailJob,
+): Promise<void> {
+  return jobs.send(PASSWORD_CHANGED_EMAIL, job, { id: job.eventId, ...RETRIES });
 }
 
 /** One transaction as the app role at the hospital, as a request of that hospital runs. */
@@ -132,6 +147,25 @@ export async function deliverPasswordReset(
   return true;
 }
 
+/** Tells the account's owner the password changed. False when the account is not active. */
+export async function deliverPasswordChanged(
+  pool: pg.Pool,
+  notifier: Notifier,
+  job: PasswordChangedEmailJob,
+): Promise<boolean> {
+  const email = await withAuthTransaction(pool, async ({ client, identify }) => {
+    await identify(job.userId);
+    const { rows } = await client.query<{ email: string }>(
+      "select email from users where id = $1 and status = 'active'",
+      [job.userId],
+    );
+    return rows[0]?.email;
+  });
+  if (!email) return false;
+  await notifier.send({ to: email, template: 'password_changed', data: {} });
+  return true;
+}
+
 /** Registers the workers that send staff email. */
 export const staffEmailsPlugin = fp(
   async (app) => {
@@ -151,6 +185,9 @@ export const staffEmailsPlugin = fp(
     );
     app.jobs.work<PasswordResetEmailJob>(PASSWORD_RESET_EMAIL, (job) =>
       run('password_reset', job.resetId, () => deliverPasswordReset(pool, app.notifier, job)),
+    );
+    app.jobs.work<PasswordChangedEmailJob>(PASSWORD_CHANGED_EMAIL, (job) =>
+      run('password_changed', job.eventId, () => deliverPasswordChanged(pool, app.notifier, job)),
     );
   },
   { name: 'staff-emails', dependencies: ['db', 'jobs', 'notifier'] },

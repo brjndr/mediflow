@@ -18,17 +18,31 @@ import { PasswordFields } from './PasswordFields';
 const sectionTitle = 'text-lg font-semibold tracking-tight';
 
 function changeErrorKey(error: unknown): string {
-  if (isApiError(error) && error.serverCode === 'invalid_password') return 'security.wrongPassword';
+  if (isApiError(error)) {
+    switch (error.serverCode) {
+      case 'invalid_password':
+        return 'security.wrongPassword';
+      case 'password_unchanged':
+        return 'profile.passwordUnchanged';
+      case 'account_locked':
+        return 'profile.accountLocked';
+      case 'mfa_code_required':
+        return 'login.mfaCodeNeeded';
+      case 'invalid_mfa_code':
+        return 'security.invalidCode';
+    }
+  }
   return passwordErrorKey(error);
 }
 
-function ChangePassword({ tenantId }: { tenantId: string }) {
+function ChangePassword({ tenantId, mfaEnabled }: { tenantId: string; mfaEnabled: boolean }) {
   const { t } = useTranslation();
   const change = useChangePassword(tenantId);
   const form = useZodForm(changePasswordSchema, {
     currentPassword: '',
     password: '',
     confirmPassword: '',
+    code: '',
   });
 
   // What the last attempt came to: done, or the translation key of why not.
@@ -36,10 +50,14 @@ function ChangePassword({ tenantId }: { tenantId: string }) {
     null,
   );
 
-  const onSubmit = async ({ currentPassword, password }: ChangePasswordValues) => {
+  const onSubmit = async ({ currentPassword, password, code }: ChangePasswordValues) => {
     setOutcome(null);
     try {
-      await change.mutateAsync({ currentPassword, newPassword: password });
+      await change.mutateAsync({
+        currentPassword,
+        newPassword: password,
+        ...(mfaEnabled && code ? { code } : {}),
+      });
       setOutcome({ ok: true });
     } catch (error) {
       setOutcome({ ok: false, messageKey: changeErrorKey(error) });
@@ -70,6 +88,18 @@ function ChangePassword({ tenantId }: { tenantId: string }) {
           required
         />
         <PasswordFields />
+        {mfaEnabled && (
+          <TextField<ChangePasswordValues>
+            name="code"
+            label={t('login.mfaCode')}
+            hint={t('login.mfaHint')}
+            inputMode="text"
+            autoComplete="one-time-code"
+            autoCapitalize="none"
+            spellCheck={false}
+            required
+          />
+        )}
         <SubmitButton pending={change.isPending}>{t('account.resetSubmit')}</SubmitButton>
       </Form>
     </section>
@@ -202,7 +232,7 @@ export function ProfilePage() {
         </section>
       )}
 
-      <ChangePassword tenantId={tenant.id} />
+      <ChangePassword tenantId={tenant.id} mfaEnabled={user.mfaEnabled} />
       <Sessions tenantId={tenant.id} />
     </div>
   );

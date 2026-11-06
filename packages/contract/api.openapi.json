@@ -148,6 +148,48 @@
           }
         }
       },
+      "AccountSession": {
+        "type": "object",
+        "required": ["id", "createdAt", "lastSeenAt", "userAgent", "current"],
+        "properties": {
+          "id": {
+            "description": "An opaque id for the session, only for ending it. Not the cookie and not derived from it.",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastSeenAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "userAgent": {
+            "type": ["null", "string"],
+            "description": "The browser as it described itself at sign-in, cleaned and cut, for the person to recognise the device."
+          },
+          "current": {
+            "description": "True for the session making this call.",
+            "type": "boolean"
+          }
+        }
+      },
+      "AccountSessionList": {
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountSession"
+            }
+          },
+          "nextCursor": {
+            "description": "Always null: a person has few sessions.",
+            "type": "null"
+          }
+        }
+      },
       "Tenant": {
         "type": "object",
         "required": [
@@ -12217,6 +12259,169 @@
             }
           },
           "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password/change": {
+      "post": {
+        "operationId": "changePassword",
+        "tags": ["auth"],
+        "description": "Changes the signed-in user's password. Needs the current password, and a code from the authenticator when the user has one (`code`: 400 mfa_code_required without it). A wrong current password or code counts toward the account lockout, as at sign-in (403 invalid_password; 429 account_locked while locked). Every other session of the user and every outstanding reset link ends; the calling session stays and gets a new token in the cookie. The user is told by email.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["currentPassword", "newPassword"],
+                "properties": {
+                  "currentPassword": {
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "type": "string"
+                  },
+                  "code": {
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "description": "Authenticator code or a recovery code. Required with an authenticator.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The password was changed"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/sessions": {
+      "get": {
+        "operationId": "listAccountSessions",
+        "tags": ["auth"],
+        "description": "The signed-in user's own active sessions, newest first, with `current` set on the one making the call. A user has few, so there is one page of at most 50.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSessionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/sessions/{sessionId}": {
+      "delete": {
+        "operationId": "revokeAccountSession",
+        "tags": ["auth"],
+        "description": "Ends one of the signed-in user's other sessions: that browser is signed out on its next request. An id that is unknown, ended already or another user's is the same 404. The session making the call is 409 current_session (use sign-out).",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sessionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The session was ended"
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

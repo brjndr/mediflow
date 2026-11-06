@@ -53,6 +53,8 @@ export type AccountSession = components['schemas']['AccountSession'];
 export async function changePassword(input: {
   currentPassword: string;
   newPassword: string;
+  /** A code from the authenticator, for a user who has one. */
+  code?: string;
 }): Promise<void> {
   await api.POST('/auth/password/change', { body: input, fetch: apiFetchOnce });
 }
