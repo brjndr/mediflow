@@ -22,4 +22,9 @@ export const QUEUE_PERMISSIONS = [
       'Call the next patient, call again, skip, put back in the queue and set a priority',
     defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
   },
+  {
+    id: 'queue:cancel',
+    description: 'Cancel a token issued by mistake or for a patient who left',
+    defaults: { admin: 'all', receptionist: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];

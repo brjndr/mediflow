@@ -1,12 +1,30 @@
 import { z } from 'zod';
-import type { QueuePriority, QueueToken, QueueTokenPage, QueueTokenStatus } from './types';
+import { PLAIN_TEXT } from '@/shared/utils/text';
+import type {
+  QueueCancelReason,
+  QueuePriority,
+  QueueToken,
+  QueueTokenPage,
+  QueueTokenStatus,
+} from './types';
 
 export const QUEUE_STATUSES = [
   'waiting',
   'called',
   'served',
   'skipped',
+  'cancelled',
 ] as const satisfies readonly QueueTokenStatus[];
+
+/** Why a token is taken off the queue, as the API lists them. */
+export const CANCEL_REASONS = [
+  'wrong_patient',
+  'wrong_department',
+  'left_without_being_seen',
+  'other',
+] as const satisfies readonly QueueCancelReason[];
+
+export const MAX_CANCEL_NOTE = 300;
 
 /** Why a token goes ahead of the others, as the API lists them. A fixed list for now. */
 export const PRIORITIES = [
@@ -35,6 +53,7 @@ export const queueTokenSchema: z.ZodType<QueueToken> = z.object({
   issuedAt: z.string(),
   calledAt: z.string().optional(),
   callCount: z.number().int().min(0),
+  cancelReason: z.enum(CANCEL_REASONS).optional(),
   version: z.number().int().min(1),
 });
 
@@ -57,6 +76,30 @@ export const issueSchema = z.object({
 
 export type IssueValues = z.infer<typeof issueSchema>;
 
+/** Cancelling a token: a reason from the list, and a note that "other" needs and no other takes. */
+export const cancelSchema = z
+  .object({
+    reason: z.union([z.enum(CANCEL_REASONS), z.literal('')]),
+    note: z.string().max(MAX_CANCEL_NOTE).regex(PLAIN_TEXT, 'validation.plain_text'),
+  })
+  .superRefine((values, context) => {
+    if (values.reason === '') {
+      context.addIssue({
+        code: 'custom',
+        path: ['reason'],
+        message: 'queue:cancelPanel.reasonRequired',
+      });
+    } else if (values.reason === 'other' && values.note.trim() === '') {
+      context.addIssue({
+        code: 'custom',
+        path: ['note'],
+        message: 'queue:cancelPanel.noteRequired',
+      });
+    }
+  });
+
+export type CancelValues = z.infer<typeof cancelSchema>;
+
 /** What a token's status allows on the board. The API enforces the same (409 otherwise). */
 export function allowedActions(status: QueueTokenStatus) {
   return {
@@ -64,5 +107,6 @@ export function allowedActions(status: QueueTokenStatus) {
     skip: status === 'called',
     recall: status === 'skipped',
     priority: status === 'waiting' || status === 'skipped',
+    cancel: status === 'waiting' || status === 'skipped',
   };
 }

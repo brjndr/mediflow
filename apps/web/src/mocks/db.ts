@@ -112,6 +112,7 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'queue:read' },
   { permission: 'queue:create' },
   { permission: 'queue:call' },
+  { permission: 'queue:cancel' },
   { permission: 'vitals:read' },
   { permission: 'vitals:record' },
   // Editing the normal ranges is the hospital admin's alone, as the API's defaults give it.
@@ -362,6 +363,7 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
       // Issues tokens at the desk; the doctors call them.
       { permission: 'queue:read' },
       { permission: 'queue:create' },
+      { permission: 'queue:cancel' },
       // Books the follow-ups the doctors set, from the due list (#88).
       { permission: 'followUp:read' },
       { permission: 'billing:read' },

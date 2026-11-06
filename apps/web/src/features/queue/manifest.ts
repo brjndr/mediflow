@@ -32,7 +32,7 @@ export const queueFeature: FeatureManifest = {
     },
   ],
   nav: { icon: ListOrdered, order: 27, requires: ['queue:read'] },
-  permissions: ['queue:read', 'queue:create', 'queue:call'],
+  permissions: ['queue:read', 'queue:create', 'queue:call', 'queue:cancel'],
   dashboardWidgets: [
     {
       id: 'waiting',

@@ -115,10 +115,38 @@ test('change a token’s priority in its panel, and come back to where it starte
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 
-  await page.getByRole('button', { name: 'Cancel' }).focus();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(heading).toBeHidden();
   await expect(open).toBeFocused();
+});
+
+test('cancel a token issued by mistake in its panel with the keyboard alone', async ({ page }) => {
+  await page.goto('/');
+  await goTo(page, 'OPD queue');
+  const waiting = page.getByRole('region', { name: 'Waiting' });
+  const open = waiting.getByRole('button', { name: /^Cancel token/ }).nth(2);
+  await open.focus();
+  await page.keyboard.press('Enter');
+  const heading = page.getByRole('heading', { name: /^Cancel token [0-9]+,/ });
+  await expect(heading).toBeFocused();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  // Sent without a reason: focus goes to the field to fix, with its message.
+  const submit = page.getByRole('button', { name: 'Cancel token', exact: true });
+  await submit.focus();
+  await page.keyboard.press('Enter');
+  const reason = page.getByRole('combobox', { name: /^Reason/ });
+  await expect(reason).toBeFocused();
+  await expect(reason).toHaveAccessibleDescription('Choose a reason.');
+
+  await reason.selectOption('wrong_patient');
+  await submit.focus();
+  await page.keyboard.press('Enter');
+  await expect(heading).toBeHidden();
+  await expect(page.getByRole('status').filter({ hasText: 'cancelled.' })).toBeFocused();
+  await expectNoAxeViolations(page);
 });
 
 test('check in a booked patient from today’s appointments with the keyboard alone', async ({

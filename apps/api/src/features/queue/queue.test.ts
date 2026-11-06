@@ -63,6 +63,7 @@ interface Token {
   issuedAt: string;
   calledAt?: string;
   callCount: number;
+  cancelReason?: string;
   version: number;
 }
 interface Page<Item> {
@@ -579,6 +580,131 @@ describe('changing a token', () => {
   });
 });
 
+describe('cancelling a token', () => {
+  const cancel = (token: Token, body: object = {}, options: Options = {}) =>
+    post(
+      `/queue/tokens/${token.id}/cancel`,
+      { version: token.version, reason: 'wrong_patient', ...body },
+      options,
+    );
+
+  it('cancels a waiting token and a skipped one, finally, with the reason, audited', async () => {
+    const waiting = await issued({ patientId: patients.one, departmentId: departments.general });
+    const gone = await cancel(waiting);
+    expect(gone.statusCode).toBe(200);
+    expect(gone.json<Token & { cancelReason?: string }>()).toMatchObject({
+      status: 'cancelled',
+      cancelReason: 'wrong_patient',
+      version: 2,
+    });
+    expect(await audited(waiting.id)).toEqual(['create', 'update']);
+    expect((await list('status=waiting')).items).toEqual([]);
+    expect((await list('status=cancelled')).items.map((item) => item.id)).toEqual([waiting.id]);
+
+    await issued({ patientId: patients.two, departmentId: departments.general });
+    const called = (await callNext(doctors.a)).json<Token>();
+    const skipped = (
+      await post(`/queue/tokens/${called.id}/skip`, { version: called.version }, { user: nurse })
+    ).json<Token>();
+    const left = await cancel(skipped, { reason: 'left_without_being_seen' });
+    expect(left.json<Token>().status).toBe('cancelled');
+    // Final: nothing moves it again.
+    expect(errorOf(await cancel(left.json<Token>()))).toEqual([409, 'invalid_transition']);
+    const row = await pool.query<{ cancel_note: string | null; cancelled_by: string }>(
+      'select cancel_note, cancelled_by from queue_tokens where id = $1',
+      [waiting.id],
+    );
+    expect(row.rows[0]).toEqual({ cancel_note: null, cancelled_by: desk.id });
+  });
+
+  it('refuses a token being served or served, and says why for an old version', async () => {
+    await issued({ patientId: patients.one, departmentId: departments.general });
+    const called = (await callNext(doctors.a)).json<Token>();
+    expect(errorOf(await cancel(called))).toEqual([409, 'invalid_transition']);
+    expect(errorOf(await cancel({ ...called, version: 1 }))).toEqual([409, 'conflict']);
+    await issued({ patientId: patients.two, departmentId: departments.general });
+    await callNext(doctors.a);
+    const served = await pool.query<{ id: string }>(
+      "select id from queue_tokens where status = 'served' and tenant_id = $1",
+      [hospital.id],
+    );
+    expect(served.rows).toHaveLength(1);
+    const one = (await get('/queue/tokens?status=served')).json<Page<Token>>().items[0];
+    expect(errorOf(await cancel(one ?? called))).toEqual([409, 'invalid_transition']);
+  });
+
+  it('takes a note with "other" only', async () => {
+    const token = await issued({ patientId: patients.one, departmentId: departments.general });
+    expect(errorOf(await cancel(token, { reason: 'other' }))).toEqual([422, 'note_required']);
+    expect(errorOf(await cancel(token, { note: 'typo in the name' }))).toEqual([
+      422,
+      'note_not_allowed',
+    ]);
+    expect((await cancel(token, { reason: 'other', note: '  Went  home ' })).statusCode).toBe(200);
+    const row = await pool.query<{ cancel_note: string }>(
+      'select cancel_note from queue_tokens where id = $1',
+      [token.id],
+    );
+    expect(row.rows[0]?.cancel_note).toBe('Went home');
+  });
+
+  it('frees the patient for another token, and never gives the number out again', async () => {
+    const first = await issued({ patientId: patients.one, departmentId: departments.general });
+    await cancel(first);
+    const second = await issued({ patientId: patients.one, departmentId: departments.general });
+    expect(second.number).toBe(first.number + 1);
+  });
+
+  it('is for queue:cancel: the desk and the admin, not the nurse or the doctor', async () => {
+    const token = await issued({ patientId: patients.one, departmentId: departments.general });
+    expect(errorOf(await cancel(token, {}, { user: nurse }))).toEqual([403, 'permission_denied']);
+    expect(errorOf(await cancel(token, {}, { user: docA }))).toEqual([403, 'permission_denied']);
+    expect((await cancel(token, {}, { user: admin })).statusCode).toBe(200);
+  });
+
+  it('answers a repeated key with the token as it is, and needs a key', async () => {
+    const token = await issued({ patientId: patients.one, departmentId: departments.general });
+    const key = randomUUID();
+    expect((await cancel(token, {}, { key })).statusCode).toBe(200);
+    const again = await cancel(token, {}, { key });
+    expect(again.statusCode).toBe(200);
+    expect(again.json<Token>()).toMatchObject({ status: 'cancelled', version: 2 });
+    expect((await cancel(token, {}, { key: null })).statusCode).toBe(400);
+  });
+
+  it('answers 404 for another hospital’s token', async () => {
+    const theirs = await issued(
+      { patientId: patients.clinic, departmentId: departments.clinic },
+      { tenant: clinic, user: clinicDesk },
+    );
+    expect(errorOf(await cancel(theirs))).toEqual([404, 'token_not_found']);
+  });
+
+  it('is held by the database too: only from waiting or skipped, never undone', async () => {
+    const token = await issued({ patientId: patients.one, departmentId: departments.general });
+    await expect(
+      pool.query("update queue_tokens set status = 'cancelled' where id = $1", [token.id]),
+    ).rejects.toThrow(/queue_tokens_cancelled_says_why/);
+    await pool.query(
+      `update queue_tokens set status = 'cancelled', cancel_reason = 'wrong_patient',
+         cancelled_at = now(), cancelled_by = $2 where id = $1`,
+      [token.id, desk.id],
+    );
+    await expect(
+      pool.query("update queue_tokens set status = 'waiting' where id = $1", [token.id]),
+    ).rejects.toThrow(/final/);
+    const other = await issued({ patientId: patients.two, departmentId: departments.general });
+    await callNext(doctors.a);
+    await expect(
+      pool.query(
+        `update queue_tokens set status = 'cancelled', cancel_reason = 'wrong_patient',
+           cancelled_at = now(), cancelled_by = $2 where id = $1`,
+        [other.id, desk.id],
+      ),
+    ).rejects.toThrow(/does not move/);
+  });
+});
+
 describe('access', () => {
   it('lets the desk issue but not call, and the nurse call but not issue', async () => {
     await issued({ patientId: patients.one, departmentId: departments.general });
@@ -731,6 +857,26 @@ describe('the live stream', () => {
   }
   const queueEvents = (stream: Stream) =>
     stream.blocks.filter((block) => block.startsWith('event:'));
+
+  it('announces a cancelled token to the open boards', async () => {
+    const token = await issued({ patientId: patients.one, departmentId: departments.surgery });
+    const board = await open();
+    try {
+      await until(() => board.blocks.length > 0);
+      const response = await post(`/queue/tokens/${token.id}/cancel`, {
+        version: token.version,
+        reason: 'wrong_department',
+      });
+      expect(response.statusCode).toBe(200);
+      await until(() => queueEvents(board).length === 1);
+      expect(queueEvents(board)).toEqual([
+        `event: queue
+data: ${JSON.stringify({ departmentId: departments.surgery })}`,
+      ]);
+    } finally {
+      board.close();
+    }
+  });
 
   it('says which department changed, to the hospital’s streams only, holding no connection', async () => {
     const ours = await open();

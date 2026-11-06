@@ -1,6 +1,10 @@
 import type pg from 'pg';
 import type { PermissionScope } from '../../core/access/registry.js';
-import type { QueuePriorityValue, QueueTokenStatusValue } from './schemas.js';
+import type {
+  QueueCancelReasonValue,
+  QueuePriorityValue,
+  QueueTokenStatusValue,
+} from './schemas.js';
 
 /**
  * The queue SQL. Every statement runs on the request's own transaction under the app role, so
@@ -28,6 +32,7 @@ export interface TokenRow {
   issued_at: Date;
   called_at: Date | null;
   call_count: number;
+  cancel_reason: QueueCancelReasonValue | null;
   version: number;
   /** The time the row is ordered by, in UTC to the microsecond, whatever the session's DateStyle. */
   order_at: string;
@@ -45,7 +50,7 @@ const TOKENS = `select t.id, t.tenant_id, t.number, t.day::text as day,
                        t.doctor_id, u.name as doctor_name,
                        t.patient_id, p.first_name || ' ' || p.last_name as patient_name,
                        p.mrn as patient_mrn, t.appointment_id,
-                       t.status, t.priority, t.issued_at, t.called_at, t.call_count, t.version,
+                       t.status, t.priority, t.issued_at, t.called_at, t.call_count, t.cancel_reason, t.version,
                        to_char((case when t.status in ('called', 'served') then t.called_at else ${LINE_AT} end) at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') || '+00' as order_at
                 from queue_tokens t
                 join departments dp on dp.id = t.department_id
@@ -403,6 +408,21 @@ export async function setStatus(
   status: 'skipped' | 'waiting',
 ): Promise<void> {
   await client.query('update queue_tokens set status = $2 where id = $1', [id, status]);
+}
+
+/** Takes a waiting or skipped token off the queue for good; the guard trigger allows it from those only. */
+export async function cancelToken(
+  client: pg.ClientBase,
+  id: string,
+  input: { reason: QueueCancelReasonValue; note: string | null },
+  userId: string,
+): Promise<void> {
+  await client.query(
+    `update queue_tokens
+     set status = 'cancelled', cancel_reason = $2, cancel_note = $3, cancelled_at = now(), cancelled_by = $4
+     where id = $1`,
+    [id, input.reason, input.note, userId],
+  );
 }
 
 export async function setPriority(

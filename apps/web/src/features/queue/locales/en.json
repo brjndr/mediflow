@@ -18,13 +18,15 @@
     "called": "Now serving",
     "waiting": "Waiting",
     "skipped": "Skipped",
-    "served": "Served"
+    "served": "Served",
+    "cancelled": "Cancelled"
   },
   "empty": {
     "called": "Nobody is being served.",
     "waiting": "Nobody is waiting.",
     "skipped": "No skipped tokens.",
-    "served": "Nobody has been served yet."
+    "served": "Nobody has been served yet.",
+    "cancelled": "No cancelled tokens."
   },
   "filters": {
     "department": "Department",
@@ -57,14 +59,16 @@
     "callAgain": "Call again",
     "skip": "Skip",
     "recall": "Back in the queue",
-    "priority": "Change priority"
+    "priority": "Change priority",
+    "cancel": "Cancel token"
   },
   "done": {
     "called": "Token {{number}}, {{patient}}, called.",
     "calledAgain": "Token {{number}}, {{patient}}, called again.",
     "skipped": "Token {{number}}, {{patient}}, skipped.",
     "recalled": "Token {{number}}, {{patient}}, is back in the queue.",
-    "priority": "Priority of token {{number}}, {{patient}}, changed."
+    "priority": "Priority of token {{number}}, {{patient}}, changed.",
+    "cancelled": "Token {{number}}, {{patient}}, cancelled."
   },
   "refused": {
     "changed": "Someone else changed this token first. The queue shows it as it is now.",
@@ -75,6 +79,24 @@
     "label": "Priority",
     "save": "Save priority",
     "cancel": "Cancel"
+  },
+  "cancelReason": {
+    "wrong_patient": "Wrong patient",
+    "wrong_department": "Wrong department",
+    "left_without_being_seen": "Left without being seen",
+    "other": "Other"
+  },
+  "cancelPanel": {
+    "heading": "Cancel token {{number}}, {{patient}}",
+    "description": "A cancelled token leaves the queue for good and its number is not used again. The patient can be given a new token.",
+    "reason": "Reason",
+    "chooseReason": "Choose a reason",
+    "reasonRequired": "Choose a reason.",
+    "note": "Note",
+    "noteHint": "Say why.",
+    "noteRequired": "Say why, when the reason is \"Other\".",
+    "submit": "Cancel token",
+    "back": "Keep the token"
   },
   "checkIn": {
     "action": "Check in",

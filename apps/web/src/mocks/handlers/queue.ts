@@ -12,12 +12,20 @@ type QueueToken = components['schemas']['QueueToken'];
 type QueueTokenPage = components['schemas']['QueueTokenPage'];
 type QueueTokenStatus = components['schemas']['QueueTokenStatus'];
 type QueuePriority = components['schemas']['QueuePriority'];
+type QueueCancelReason = components['schemas']['QueueCancelReason'];
 
 const FEATURE_FLAG = 'queue';
 const READ = 'queue:read';
 const CREATE = 'queue:create';
 const CALL = 'queue:call';
-const STATUSES: QueueTokenStatus[] = ['waiting', 'called', 'served', 'skipped'];
+const CANCEL = 'queue:cancel';
+const STATUSES: QueueTokenStatus[] = ['waiting', 'called', 'served', 'skipped', 'cancelled'];
+const CANCEL_REASONS: QueueCancelReason[] = [
+  'wrong_patient',
+  'wrong_department',
+  'left_without_being_seen',
+  'other',
+];
 const PRIORITIES: QueuePriority[] = [
   'senior_citizen',
   'pregnancy',
@@ -37,6 +45,7 @@ export interface StoredToken {
   patientId: string;
   status: QueueTokenStatus;
   priority?: QueuePriority;
+  cancelReason?: QueueCancelReason;
   issuedAt: string;
   /** The appointment it was checked in from (#376). */
   appointmentId?: string;
@@ -207,6 +216,7 @@ function viewOf(stored: StoredToken): QueueToken | null {
     ...(stored.appointmentId ? { appointmentId: stored.appointmentId } : {}),
     status: stored.status,
     ...(stored.priority ? { priority: stored.priority } : {}),
+    ...(stored.cancelReason ? { cancelReason: stored.cancelReason } : {}),
     issuedAt: stored.issuedAt,
     ...(stored.calledAt ? { calledAt: stored.calledAt } : {}),
     callCount: stored.callCount,
@@ -278,9 +288,10 @@ function tokenChange(
   path: string,
   allowed: QueueTokenStatus[],
   apply: (token: StoredToken, body: Record<string, unknown>) => Response | void,
+  permission = CALL,
 ) {
   return http.post(`*/api/queue/tokens/:tokenId/${path}`, ({ request, params }) =>
-    once(request, CALL, (tenantId, body) => {
+    once(request, permission, (tenantId, body) => {
       if (!isObject(body) || !Number.isInteger(body.version)) {
         return error(400, 'validation_failed', 'Some details are not valid');
       }
@@ -406,7 +417,12 @@ export const queueHandlers = [
       const sameDay = tokens.filter(
         (t) => t.tenantId === tenantId && t.departmentId === department.id && t.day === day,
       );
-      if (sameDay.some((t) => t.patientId === body.patientId && t.status !== 'served')) {
+      if (
+        sameDay.some(
+          (t) =>
+            t.patientId === body.patientId && t.status !== 'served' && t.status !== 'cancelled',
+        )
+      ) {
         return error(409, 'already_queued', 'The patient is already in this queue');
       }
       const number = Math.max(0, ...sameDay.map((t) => t.number)) + 1;
@@ -465,7 +481,14 @@ export const queueHandlers = [
       const sameDay = tokens.filter(
         (t) => t.tenantId === tenantId && t.departmentId === department.id && t.day === day,
       );
-      if (sameDay.some((t) => t.patientId === appointment.patientId && t.status !== 'served')) {
+      if (
+        sameDay.some(
+          (t) =>
+            t.patientId === appointment.patientId &&
+            t.status !== 'served' &&
+            t.status !== 'cancelled',
+        )
+      ) {
         return error(409, 'already_queued', 'The patient is already in this queue');
       }
       const number = Math.max(0, ...sameDay.map((t) => t.number)) + 1;
@@ -533,6 +556,25 @@ export const queueHandlers = [
   tokenChange('recall', ['skipped'], (token) => {
     token.status = 'waiting';
   }),
+  tokenChange(
+    'cancel',
+    ['waiting', 'skipped'],
+    (token, body) => {
+      const { reason, note } = body;
+      if (!CANCEL_REASONS.includes(reason as QueueCancelReason)) {
+        return error(400, 'validation_failed', 'Unknown reason');
+      }
+      if (reason === 'other' && (typeof note !== 'string' || note.trim() === '')) {
+        return error(422, 'note_required', 'The reason "other" needs a note');
+      }
+      if (reason !== 'other' && note !== undefined) {
+        return error(422, 'note_not_allowed', 'Only the reason "other" takes a note');
+      }
+      token.status = 'cancelled';
+      token.cancelReason = reason as QueueCancelReason;
+    },
+    CANCEL,
+  ),
   tokenChange('priority', ['waiting', 'skipped'], (token, body) => {
     if (body.priority === null) {
       delete token.priority;

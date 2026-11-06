@@ -12,6 +12,7 @@ import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import type { GridAction } from '@/shared/ui/data-grid';
 import type { QueueAction } from '../api';
+import { CancelPanel } from '../components/CancelPanel';
 import { PriorityPanel } from '../components/PriorityPanel';
 import { TokenGrid } from '../components/TokenGrid';
 import { useQueueAction } from '../hooks/use-queue-actions';
@@ -86,7 +87,10 @@ export default function QueueBoard() {
   const action = useQueueAction();
   // What this person last did, said once in the status line; others' changes are not announced.
   const [done, setDone] = useState<{ text: string; at: number }>();
-  const [panel, setPanel] = useState<QueueToken | null>(null);
+  // The form open beside the groups: a priority to set or a reason to cancel, for one token.
+  const [panel, setPanel] = useState<{ kind: 'priority' | 'cancel'; token: QueueToken } | null>(
+    null,
+  );
   const box = useRef<HTMLDivElement>(null);
   const statusLine = useRef<HTMLParagraphElement>(null);
   usePanelFocus(panel, box, statusLine);
@@ -149,9 +153,20 @@ export default function QueueBoard() {
       label: t('actions.priority'),
       requires: 'queue:call',
       disabled: (row) => pending || panel !== null || !allowedActions(row.status).priority,
-      onSelect: (row) => setPanel(row),
+      onSelect: (row) => setPanel({ kind: 'priority', token: row }),
     };
-    return { called: [callAgain, skip], waiting: [priority], skipped: [recall, priority] };
+    const cancel: GridAction<QueueToken> = {
+      id: 'cancel',
+      label: t('actions.cancel'),
+      requires: 'queue:cancel',
+      disabled: (row) => pending || panel !== null || !allowedActions(row.status).cancel,
+      onSelect: (row) => setPanel({ kind: 'cancel', token: row }),
+    };
+    return {
+      called: [callAgain, skip],
+      waiting: [priority, cancel],
+      skipped: [recall, priority, cancel],
+    };
   })();
 
   const refused = refusalKey(action.error);
@@ -245,16 +260,41 @@ export default function QueueBoard() {
         {done?.text ?? ''}
       </p>
 
-      {panel && (
+      {panel?.kind === 'priority' && (
         <PriorityPanel
-          key={panel.id}
-          token={panel}
+          key={panel.token.id}
+          token={panel.token}
           pending={pending}
           onCancel={() => setPanel(null)}
           onSave={(priority) =>
             void run(
-              { kind: 'priority', tokenId: panel.id, version: panel.version, priority },
+              {
+                kind: 'priority',
+                tokenId: panel.token.id,
+                version: panel.token.version,
+                priority,
+              },
               (token) => t('done.priority', { number: token.number, patient: token.patientName }),
+            )
+          }
+        />
+      )}
+      {panel?.kind === 'cancel' && (
+        <CancelPanel
+          key={panel.token.id}
+          token={panel.token}
+          pending={pending}
+          onBack={() => setPanel(null)}
+          onSubmit={(reason, note) =>
+            void run(
+              {
+                kind: 'cancel',
+                tokenId: panel.token.id,
+                version: panel.token.version,
+                reason,
+                ...(note === undefined ? {} : { note }),
+              },
+              (token) => t('done.cancelled', { number: token.number, patient: token.patientName }),
             )
           }
         />
