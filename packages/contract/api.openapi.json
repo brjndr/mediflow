@@ -393,6 +393,11 @@
           "status": {
             "type": "string",
             "enum": ["active", "deactivated", "invited"]
+          },
+          "delivery": {
+            "type": "string",
+            "enum": ["sent", "sending", "failed"],
+            "description": "Invitations only: whether the email was sent, is still being tried, or could not be sent (its last attempt failed, or it was never sent within the hour). Never the error or the address it went to."
           }
         }
       },
@@ -453,6 +458,16 @@
         "properties": {
           "revoked": {
             "type": "integer"
+          }
+        }
+      },
+      "InviteResent": {
+        "description": "The invitation that is being sent again.",
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string"
           }
         }
       },
@@ -13071,6 +13086,107 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invites/{inviteId}/resend": {
+      "post": {
+        "operationId": "resendInvite",
+        "tags": ["staff"],
+        "description": "Sends an open invitation again, for one whose email could not be sent or was lost. A new job gives the invitation a new link and the old link stops working; the invitation is not withdrawn, and keeps its expiry. Its email status goes back to being tried (`delivery` 'sending' on the staff list). An invitation that is not open here (accepted, withdrawn, expired, another hospital's, unknown) answers 404 invite_not_found. The caller must be allowed to give its role (403 role_not_allowed).",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "inviteId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The invitation that is being sent again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteResent"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

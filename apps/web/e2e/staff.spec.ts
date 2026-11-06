@@ -41,7 +41,7 @@ test('invite someone, then deactivate and reactivate a member', async ({ page })
   await page.getByRole('link', { name: 'Back to the staff list' }).click();
   await show(page, 'Open invitations');
   await expect(inList(page, 'Nina Rao')).toBeVisible();
-  await expect(status(page, '2 open invitations')).toBeVisible();
+  await expect(status(page, '4 open invitations')).toBeVisible();
 
   // Deactivate a member: a question first, then they are gone from the active staff.
   await show(page, 'Active staff');

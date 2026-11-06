@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
 import type pg from 'pg';
-import type { JobQueue, SendOptions } from '../jobs/queue.js';
+import type { JobContext, JobQueue, SendOptions } from '../jobs/queue.js';
 import type { Notifier } from '../notifier/notifier.js';
 import { APP_ROLE } from '../tenancy/plugin.js';
 import { withAuthTransaction } from './db.js';
@@ -16,6 +16,10 @@ import { newToken } from './sessions.js';
  * queue's own table, which has no row-level security. Each attempt makes a new token, so only the
  * newest link works, as when an invite is sent again. A link that was used, withdrawn or replaced,
  * or that expired before the job ran, is not sent, nor is an invitation to a suspended hospital.
+ *
+ * The invite row says how it went (#349): `email_queued_at` when it was queued, `email_sent_at`
+ * when the mail server took it, `email_failed_at` when the last attempt failed or it could not be
+ * queued. Times only: never the address or the error.
  */
 
 export const INVITE_EMAIL = 'email.invite';
@@ -43,10 +47,17 @@ export interface PasswordChangedEmailJob {
  */
 const RETRIES: SendOptions = { retryLimit: 5, retryDelay: 30, retryBackoff: true };
 
-/** Queues the invitation email. Call it once the invite is committed (`request.afterCommit`). */
-export function queueInviteEmail(jobs: JobQueue, job: InviteEmailJob): Promise<void> {
-  // The job id is the invite's, so the same invitation is never queued twice.
-  return jobs.send(INVITE_EMAIL, job, { id: job.inviteId, ...RETRIES });
+/**
+ * Queues the invitation email. Call it once the invite is committed (`request.afterCommit`).
+ * The job id is the invite's, so the same invitation is never queued twice; sending an invite
+ * again passes a fresh `jobId`, since the first one is already taken.
+ */
+export function queueInviteEmail(
+  jobs: JobQueue,
+  job: InviteEmailJob,
+  jobId: string = job.inviteId,
+): Promise<void> {
+  return jobs.send(INVITE_EMAIL, job, { id: jobId, ...RETRIES });
 }
 
 /** Queues the reset email. Call it once the reset is committed. */
@@ -85,6 +96,51 @@ async function atHospital<T>(
     throw error;
   } finally {
     client.release(broken);
+  }
+}
+
+const OPEN_INVITE = 'accepted_at is null and revoked_at is null';
+
+/** Records that the mail server took an open invite's email. Never throws: the email has gone. */
+export async function markInviteEmailSent(pool: pg.Pool, job: InviteEmailJob): Promise<void> {
+  await atHospital(pool, job.tenantId, (client) =>
+    client.query(
+      `update invites set email_sent_at = now(), email_failed_at = null
+       where id = $1 and ${OPEN_INVITE}`,
+      [job.inviteId],
+    ),
+  ).catch(() => undefined);
+}
+
+/**
+ * Records that an open invite's email could not be sent: its last attempt failed, or it could not
+ * be queued. A time only. Never throws, so it can sit in a failure path.
+ */
+export async function markInviteEmailFailed(pool: pg.Pool, job: InviteEmailJob): Promise<void> {
+  await atHospital(pool, job.tenantId, (client) =>
+    client.query(
+      `update invites set email_failed_at = now(), email_sent_at = null
+       where id = $1 and ${OPEN_INVITE}`,
+      [job.inviteId],
+    ),
+  ).catch(() => undefined);
+}
+
+/**
+ * Queues the invitation email, and marks the invite as not sent when the queue refuses it, so the
+ * list can say so. The error is rethrown for the caller to log. Call it after the commit.
+ */
+export async function queueInviteEmailTracked(
+  jobs: JobQueue,
+  pool: pg.Pool,
+  job: InviteEmailJob,
+  jobId?: string,
+): Promise<void> {
+  try {
+    await queueInviteEmail(jobs, job, jobId);
+  } catch (error) {
+    await markInviteEmailFailed(pool, job);
+    throw error;
   }
 }
 
@@ -170,21 +226,42 @@ export async function deliverPasswordChanged(
 export const staffEmailsPlugin = fp(
   async (app) => {
     const { pool } = app.database;
-    const run = async (template: string, jobId: string, send: () => Promise<boolean>) => {
+    const run = async (
+      template: string,
+      jobId: string,
+      send: () => Promise<boolean>,
+      lastAttempt: boolean,
+      onSent?: () => Promise<void>,
+      onGaveUp?: () => Promise<void>,
+    ) => {
       try {
-        await send();
+        if (await send()) await onSent?.();
       } catch (error) {
+        if (lastAttempt) await onGaveUp?.();
         // The id and the template only: never the address, and never the error, whose text can
         // quote the address (the queue keeps only `safeJobError`). The queue retries the job.
         app.log.warn({ event: 'email_send_failed', template, jobId }, 'email not sent');
         throw error;
       }
     };
-    app.jobs.work<InviteEmailJob>(INVITE_EMAIL, (job) =>
-      run('invite', job.inviteId, () => deliverInvite(pool, app.notifier, job)),
+    const final = (context: JobContext) => context.retryCount >= context.retryLimit;
+    app.jobs.work<InviteEmailJob>(INVITE_EMAIL, (job, context) =>
+      run(
+        'invite',
+        job.inviteId,
+        () => deliverInvite(pool, app.notifier, job),
+        final(context),
+        () => markInviteEmailSent(pool, job),
+        () => markInviteEmailFailed(pool, job),
+      ),
     );
-    app.jobs.work<PasswordResetEmailJob>(PASSWORD_RESET_EMAIL, (job) =>
-      run('password_reset', job.resetId, () => deliverPasswordReset(pool, app.notifier, job)),
+    app.jobs.work<PasswordResetEmailJob>(PASSWORD_RESET_EMAIL, (job, context) =>
+      run(
+        'password_reset',
+        job.resetId,
+        () => deliverPasswordReset(pool, app.notifier, job),
+        final(context),
+      ),
     );
     app.jobs.work<PasswordChangedEmailJob>(PASSWORD_CHANGED_EMAIL, (job) =>
       run('password_changed', job.eventId, () => deliverPasswordChanged(pool, app.notifier, job)),
