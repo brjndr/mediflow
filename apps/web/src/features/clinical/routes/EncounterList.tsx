@@ -82,17 +82,7 @@ export default function EncounterList() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">{t('list.heading')}</h1>
-        {canSets && (
-          <Link
-            to="/prescription-sets"
-            className="text-sm text-primary underline underline-offset-4 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
-          >
-            {t('list.setsLink')}
-          </Link>
-        )}
-      </div>
+      <h1 className="text-2xl font-semibold tracking-tight">{t('list.heading')}</h1>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:max-w-2xl">
         {doctors.available && (
           <div className="flex flex-col gap-1.5">
@@ -153,6 +143,14 @@ export default function EncounterList() {
         loadingMore={encounters.isFetchingNextPage}
         onLoadMore={() => void encounters.fetchNextPage()}
       />
+      {canSets && (
+        <Link
+          to="/prescription-sets"
+          className="self-start text-sm text-primary underline underline-offset-4 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
+        >
+          {t('list.setsLink')}
+        </Link>
+      )}
     </div>
   );
 }
