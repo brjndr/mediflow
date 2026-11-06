@@ -420,6 +420,7 @@ describe('through the API', () => {
         theme: { primary: '#0f766e' },
         features: { laboratory: true, pharmacy: true },
         auth: { mode: 'password', idleTimeoutMinutes: 30 },
+        staffLimit: { max: null, used: expect.any(Number) },
         status: 'active',
       });
 

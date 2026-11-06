@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type, type Static } from '@sinclair/typebox';
 import { HttpError } from '../http/errors.js';
 import { errors, ref, StringEnum } from '../http/schemas.js';
+import { readUserLimit } from './limits.js';
 import { tenantFeatures, tenants } from './schema.js';
 
 /** A hospital's configuration, as the web app receives it. */
@@ -53,6 +54,21 @@ export const Tenant = Type.Object(
         }),
       ),
     }),
+    staffLimit: Type.Optional(
+      Type.Object(
+        {
+          max: Type.Unsafe<number | null>({
+            type: ['integer', 'null'],
+            description: 'The most staff the hospital may have. Null: no limit.',
+          }),
+          used: Type.Integer({
+            description:
+              'Active members plus open invitations. At the limit, POST /invites is 409 user_limit_reached.',
+          }),
+        },
+        { description: 'Only in GET /tenant, not in the session.' },
+      ),
+    ),
     status: StringEnum(['active', 'suspended', 'offboarding'], {
       description:
         'A suspended or offboarding hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended.',
@@ -83,7 +99,8 @@ export const tenantRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!tenant) throw new HttpError(409, 'no_active_tenant', 'The hospital no longer exists');
       const flags = await request.tx.select().from(tenantFeatures);
 
-      return toTenant(tenant, flags, app.config.SESSION_IDLE_MINUTES);
+      const staffLimit = await readUserLimit(request.txClient);
+      return { ...toTenant(tenant, flags, app.config.SESSION_IDLE_MINUTES), staffLimit };
     },
   );
 };

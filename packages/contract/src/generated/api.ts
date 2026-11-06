@@ -302,7 +302,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Invites someone to the active hospital in one of its roles and emails them a single-use link. A newer invite to the same address replaces an older one. The role may hold nothing the caller does not hold: 403 role_not_allowed otherwise. */
+        /** @description Invites someone to the active hospital in one of its roles and emails them a single-use link. A newer invite to the same address replaces an older one. The role may hold nothing the caller does not hold: 403 role_not_allowed otherwise. 409 user_limit_reached when active members plus open invitations would pass the limit on staff set for the hospital (a new invite to an address that already has one takes no further place). */
         post: operations["createInvite"];
         delete?: never;
         options?: never;
@@ -370,7 +370,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Makes a deactivated membership active again, in the role it had. Doing it twice changes nothing. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
+        /** @description Makes a deactivated membership active again, in the role it had. Doing it twice changes nothing. 409 user_limit_reached when that would pass the limit on staff set for the hospital. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
         post: operations["reactivateStaff"];
         delete?: never;
         options?: never;
@@ -4250,6 +4250,13 @@ export interface components {
                 mode: "password" | "sso";
                 /** @description A session with no activity for this long ends. The web app warns shortly before and signs the user out. Absent means the app default. */
                 idleTimeoutMinutes?: number;
+            };
+            /** @description Only in GET /tenant, not in the session. */
+            staffLimit?: {
+                /** @description The most staff the hospital may have. Null: no limit. */
+                max: null | number;
+                /** @description Active members plus open invitations. At the limit, POST /invites is 409 user_limit_reached. */
+                used: number;
             };
             /**
              * @description A suspended or offboarding hospital keeps its data but its staff cannot use the app. Tenant-scoped routes answer 403 tenant_suspended.

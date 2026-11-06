@@ -6,6 +6,7 @@ import { issueInvite } from '../../core/auth/invites.js';
 import { HttpError } from '../../core/http/errors.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { errors, ref } from '../../core/http/schemas.js';
+import { requireUserPlace } from '../../core/tenancy/limits.js';
 
 export const Invite = Type.Object(
   {
@@ -33,7 +34,7 @@ export const staffRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['staff'],
         headers: IdempotencyHeaders,
         description:
-          'Invites someone to the active hospital in one of its roles and emails them a single-use link. A newer invite to the same address replaces an older one. The role may hold nothing the caller does not hold: 403 role_not_allowed otherwise.',
+          'Invites someone to the active hospital in one of its roles and emails them a single-use link. A newer invite to the same address replaces an older one. The role may hold nothing the caller does not hold: 403 role_not_allowed otherwise. 409 user_limit_reached when active members plus open invitations would pass the limit on staff set for the hospital (a new invite to an address that already has one takes no further place).',
         body: Type.Object({
           email: Type.String({ minLength: 3, maxLength: 254 }),
           name: Type.String({ minLength: 1, maxLength: 200 }),
@@ -66,6 +67,8 @@ export const staffRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!policy || !grantsWithin(wanted.rows, policy.permissions)) {
         throw new HttpError(403, 'role_not_allowed', 'That role holds more than you do');
       }
+      // Last, once the request is otherwise allowed: it holds the hospital's lock until commit.
+      await requireUserPlace(request.txClient, email);
       const invite = await issueInvite(request.txClient, app.config, {
         email,
         name,
