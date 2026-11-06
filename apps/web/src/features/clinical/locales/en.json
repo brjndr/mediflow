@@ -30,6 +30,7 @@
     "me": "{{name}} (me)",
     "status": "Status",
     "allStatuses": "Any status",
+    "setsLink": "Prescription sets and favourites",
     "count_one": "{{count}} consultation",
     "count_other": "{{count}} consultations",
     "empty": "No consultations to show.",
@@ -505,6 +506,54 @@
       "nameTaken": "You, or the hospital, already have a set with this name. Choose another name.",
       "notAllowed": "You may not share a set with the hospital.",
       "unknownDrug": "A medicine in these lines can no longer be prescribed."
+    },
+    "manage": {
+      "title": "Prescription sets and favourites",
+      "heading": "Prescription sets",
+      "archivedHeading": "Archived prescription sets",
+      "intro": "Your own sets, and the hospital's shared ones. To add medicines to a set, write a prescription and save it as a set.",
+      "showArchived": "Show archived sets",
+      "count_one": "{{count}} set",
+      "count_other": "{{count}} sets",
+      "empty": "No sets yet. Save the lines of a prescription as a set to use them again.",
+      "emptyArchived": "No archived sets.",
+      "shared": "Shared with the hospital",
+      "own": "Yours",
+      "columns": {
+        "name": "Name",
+        "owner": "Kept by",
+        "lines": "Medicines",
+        "updated": "Changed"
+      },
+      "edit": "Edit",
+      "archive": "Archive",
+      "restore": "Restore",
+      "editTitle": "Edit the set",
+      "editDescription": "Rename the set or take medicines out of it. Changes apply to prescriptions written from now on.",
+      "editConfirm": "Save changes",
+      "medicines": "Medicines in the set",
+      "remove": "Remove",
+      "removeLine": "Remove {{name}} from the set",
+      "lineArchived": "{{name}} (archived: remove it to save)",
+      "lastLine": "A set keeps at least one medicine. Archive the set to stop using it.",
+      "saved": "{{name}} was saved.",
+      "archivedDone": "{{name}} was archived.",
+      "restoredDone": "{{name}} was restored.",
+      "nameTaken": "You, or the hospital, already have a set with this name. Choose another name.",
+      "conflict": "Someone else changed this set. Close this and open it again.",
+      "gone": "That set is no longer there.",
+      "notAllowed": "You may not change a set shared with the hospital.",
+      "unknownDrug": "A medicine in this set can no longer be prescribed. Remove it and save again."
     }
+  },
+  "favourites": {
+    "heading": "Favourite medicines",
+    "intro": "Offered first when you search for a medicine to prescribe.",
+    "loading": "Loading your favourites…",
+    "empty": "No favourites yet. Star a medicine in the drug catalog or on a prescription.",
+    "archived": "{{name}} (archived)",
+    "removeNamed": "Remove {{name}} from your favourites",
+    "removed": "{{name}} is no longer one of your favourites.",
+    "failed": "Your favourites could not be changed. Try again."
   }
 }

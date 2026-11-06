@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
 import { errorMessageKey } from '@/shared/api';
@@ -23,6 +24,7 @@ export default function EncounterList() {
   const { t } = useTranslation('clinical');
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
+  const canSets = usePermission('prescriptionSet:read');
   const doctorFieldId = useId();
   const statusFieldId = useId();
   const session = useSession();
@@ -80,7 +82,17 @@ export default function EncounterList() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
-      <h1 className="text-2xl font-semibold tracking-tight">{t('list.heading')}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">{t('list.heading')}</h1>
+        {canSets && (
+          <Link
+            to="/prescription-sets"
+            className="text-sm text-primary underline underline-offset-4 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
+          >
+            {t('list.setsLink')}
+          </Link>
+        )}
+      </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:max-w-2xl">
         {doctors.available && (
           <div className="flex flex-col gap-1.5">
