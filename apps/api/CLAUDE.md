@@ -27,7 +27,7 @@ src/
     access/       # permission registry, the access policy, the guard, default grants
     auth/         # sign-in, sessions, passwords, invites, password reset, the second factor
     config/       # environment, validated once at startup
-    audit/        # the audit log writer (request.audit, route config `audit`)
+    audit/        # the audit log writer (request.audit, route config `audit`); a 401, 403 or 404 on such a route is written as `denied.<action>` in its own transaction; the daily partition job fails loudly if the default partition has rows
     db/           # pool (and the report pool: the read replica when there is one), Drizzle client, migration runner
     files/        # the file store interface and its local-folder adapter, signed download links
     http/         # the error body and the error handlers
@@ -38,7 +38,7 @@ src/
     logging/      # pino options and redaction
     notifier/     # staff email: the Notifier interface, SMTP adapter, templates
     openapi/      # contract generation and its version
-    outbox/       # domain events: request.emit, the dispatcher, the event list
+    outbox/       # domain events: request.emit, the dispatcher, the event list; a payload holds ids, codes, numbers and timestamps only (assertEventPayload), dispatched rows are purged after OUTBOX_RETENTION_DAYS
     ratelimit/    # per-tenant and per-user rate limits
     session/      # who is asking; route access levels
     tenancy/      # tenants tables, the per-request tenant transaction, GET /tenant

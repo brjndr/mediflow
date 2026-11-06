@@ -1,8 +1,9 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import type pg from 'pg';
 import { replayed } from '../idempotency/state.js';
 import { WORKER_ROLE } from '../outbox/dispatcher.js';
+import { APP_ROLE } from '../tenancy/plugin.js';
 
 /**
  * Creates the audit partitions for this month and the next three. Runs as the worker role: the
@@ -21,6 +22,26 @@ export async function ensureAuditPartitions(pool: pg.Pool): Promise<void> {
       );
     }
     await client.query('commit');
+  } catch (error) {
+    await client.query('rollback').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * How many audit rows landed in the default partition, which means a month had no partition when
+ * they were written. Zero is the only healthy answer.
+ */
+export async function auditDefaultRows(pool: pg.Pool): Promise<number> {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query(`set local role ${WORKER_ROLE}`);
+    const { rows } = await client.query<{ count: string }>('select audit_default_rows() as count');
+    await client.query('commit');
+    return Number(rows[0]?.count ?? 0);
   } catch (error) {
     await client.query('rollback').catch(() => undefined);
     throw error;
@@ -100,6 +121,38 @@ const METHOD_ACTIONS: Record<string, string> = {
   DELETE: 'delete',
 };
 
+/** A refused attempt at a PHI route, or one that found nothing for this hospital. */
+const DENIED_STATUSES = new Set([401, 403, 404]);
+
+/**
+ * Records a refused attempt on a PHI route (one that declares `audit`) as `denied.<action>`. The
+ * request's own transaction rolls back on an error, so this uses a short one of its own, under the
+ * app role at the session's hospital. A failure is logged and never changes the answer.
+ */
+async function recordDenied(app: FastifyInstance, request: FastifyRequest): Promise<void> {
+  const declared = request.routeOptions.config.audit;
+  const tenantId = request.tenant?.id;
+  if (!declared || !tenantId) return;
+  const action = declared.action ?? METHOD_ACTIONS[request.method] ?? request.method.toLowerCase();
+  const params = request.params as Record<string, unknown> | undefined;
+  const id = typeof params?.id === 'string' ? params.id : null;
+  const client = await app.database.pool.connect();
+  try {
+    await client.query('begin');
+    await client.query(`set local role ${APP_ROLE}`);
+    await client.query("select set_config('app.tenant_id', $1, true)", [tenantId]);
+    await insertAuditEntries(client, request.session?.userId ?? null, request.id, [
+      { action: `denied.${action}`.slice(0, 63), entity: declared.entity, entityId: id },
+    ]);
+    await client.query('commit');
+  } catch {
+    await client.query('rollback').catch(() => undefined);
+    request.log.warn({ event: 'audit_denied_failed' }, 'could not record a denied attempt');
+  } finally {
+    client.release();
+  }
+}
+
 /**
  * The audit log writer: who read or changed which record. Entries are inserted in the request's
  * transaction just before it commits, so they exist exactly when the change does. If the insert
@@ -119,6 +172,10 @@ export const auditPlugin = fp(
     });
 
     app.addHook('onSend', async (request: FastifyRequest, reply: FastifyReply) => {
+      if (request.tenant && DENIED_STATUSES.has(reply.statusCode)) {
+        await recordDenied(app, request);
+        return;
+      }
       if (reply.statusCode >= 400 || !request.tenant) return;
       const entries = pending.get(request) ?? [];
       // A replayed result did not do the work again, so the route's own entry is not written a
@@ -156,7 +213,19 @@ export const auditPlugin = fp(
     });
 
     // Months are created ahead of time so a row never lands in the default partition.
-    app.jobs.work('audit.partitions', () => ensureAuditPartitions(app.database.pool));
+    // The job fails loudly (logged, and failed in the queue) when rows already sit in the default
+    // partition: they are in the wrong place and a person has to move them.
+    app.jobs.work('audit.partitions', async () => {
+      await ensureAuditPartitions(app.database.pool);
+      const stray = await auditDefaultRows(app.database.pool);
+      if (stray > 0) {
+        app.log.error(
+          { event: 'audit_default_partition_rows', count: stray },
+          'audit rows strayed',
+        );
+        throw new Error('audit_default_partition_not_empty');
+      }
+    });
     app.jobs.schedule('audit.partitions', '0 3 * * *');
   },
   { name: 'audit', dependencies: ['db', 'jobs', 'session'] },

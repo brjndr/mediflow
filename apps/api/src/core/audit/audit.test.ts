@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
-import { ensureAuditPartitions } from './plugin.js';
+import { HttpError } from '../http/errors.js';
+import { auditDefaultRows, ensureAuditPartitions } from './plugin.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   as,
@@ -23,10 +24,26 @@ beforeAll(async () => {
   app = await buildTestApp({
     resolveSession: resolveTestSession,
     extend(instance) {
+      instance.permissions.register('auditprobe', [
+        { id: 'auditprobe:read', description: 'Held by no role', defaults: {} },
+      ]);
       instance.get<{ Params: { id: string } }>(
         '/things/:id',
         { config: { ...member, audit: { entity: 'thing' } } },
         async (request) => ({ id: request.params.id }),
+      );
+      // A PHI route that refuses or finds nothing.
+      instance.get<{ Params: { id: string } }>(
+        '/guarded/:id',
+        { config: { permissions: ['auditprobe:read'], audit: { entity: 'thing' } } },
+        async () => ({}),
+      );
+      instance.get<{ Params: { id: string } }>(
+        '/gone/:id',
+        { config: { ...member, audit: { entity: 'thing' } } },
+        async () => {
+          throw new HttpError(404, 'not_found', 'No such thing');
+        },
       );
       // The entity name is longer than the column allows, so the audit insert is refused.
       instance.post('/things/too-long', { config: member }, async (request) => {
@@ -184,6 +201,34 @@ describe('audit log', () => {
         code: '42501',
       });
     });
+  });
+
+  it('records a denied or empty attempt on a declared route, in a transaction of its own', async () => {
+    const before = (await auditRows(hospital.id)).length;
+    const refused = await app.inject({
+      method: 'GET',
+      url: '/guarded/x1',
+      headers: as(hospital.id, 'user_prober'),
+    });
+    expect(refused.statusCode).toBe(403);
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/gone/x2',
+      headers: as(hospital.id, 'user_prober'),
+    });
+    expect(missing.statusCode).toBe(404);
+
+    const rows = (await auditRows(hospital.id)).slice(before);
+    expect(rows.map((row) => [row.actor_id, row.action, row.entity, row.entity_id])).toEqual([
+      ['user_prober', 'denied.read', 'thing', 'x1'],
+      ['user_prober', 'denied.read', 'thing', 'x2'],
+    ]);
+    expect(await auditRows(clinic.id)).toEqual([]);
+    expect(pool.waitingCount).toBe(0);
+  });
+
+  it('counts rows in the default partition, which is none', async () => {
+    expect(await auditDefaultRows(pool)).toBe(0);
   });
 
   it('stops the app from starting when a non-tenant route asks for auditing', async () => {

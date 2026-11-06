@@ -96,3 +96,62 @@ export interface DomainEventMessage {
 
 /** The queue an event is delivered on. */
 export const eventQueue = (event: DomainEvent): string => `event.${event}`;
+
+/** Keys that name patient data; a payload never carries them, whatever the value. */
+const FORBIDDEN_KEYS = new Set([
+  'name',
+  'firstname',
+  'lastname',
+  'fullname',
+  'phone',
+  'mobile',
+  'email',
+  'address',
+  'dob',
+  'dateofbirth',
+  'birthdate',
+  'mrn',
+  'note',
+  'notes',
+  'text',
+  'comment',
+  'body',
+  'content',
+  'description',
+  'diagnosis',
+  'complaint',
+  'chiefcomplaint',
+  'allergies',
+  'password',
+  'secret',
+]);
+
+const KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9]{0,39}$/;
+/** An id, a code, a number or a timestamp: one token, so a sentence of free text cannot pass. */
+const TOKEN_PATTERN = /^\S{1,64}$/;
+const MAX_LIST = 50;
+
+const scalarOk = (value: unknown): boolean =>
+  value === null ||
+  typeof value === 'boolean' ||
+  (typeof value === 'number' && Number.isFinite(value)) ||
+  (typeof value === 'string' && TOKEN_PATTERN.test(value));
+
+/**
+ * Payloads are copied into the job queue's table, which has no row-level security, so they hold
+ * ids, codes, numbers and timestamps only (#253). The rule is structural: a flat object whose
+ * values are single tokens (or a short list of them) under keys that do not name patient data.
+ * The error names the event and the key, never the value.
+ */
+export function assertEventPayload(event: DomainEvent, payload: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(payload)) {
+    if (!KEY_PATTERN.test(key) || FORBIDDEN_KEYS.has(key.toLowerCase())) {
+      throw new Error(`event_payload_key_refused: ${event}.${key}`);
+    }
+    if (value === undefined) continue;
+    const ok = Array.isArray(value)
+      ? value.length <= MAX_LIST && value.every(scalarOk)
+      : scalarOk(value);
+    if (!ok) throw new Error(`event_payload_value_refused: ${event}.${key}`);
+  }
+}

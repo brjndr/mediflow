@@ -12,8 +12,9 @@ import {
   type TestTenant,
 } from '../../../test/helpers.js';
 import { MemoryQueue, type SendOptions } from '../jobs/queue.js';
-import { MAX_ATTEMPTS, WORKER_ROLE } from './dispatcher.js';
-import type { DomainEventMessage } from './events.js';
+import { MAX_ATTEMPTS, WORKER_ROLE, purgeDispatchedEvents } from './dispatcher.js';
+import { assertEventPayload, type DomainEventMessage } from './events.js';
+import { insertEvent } from './plugin.js';
 
 /** A queue that refuses events about one chosen entity. */
 class FlakyQueue extends MemoryQueue {
@@ -184,12 +185,98 @@ describe('transactional outbox', () => {
   });
 });
 
+describe('event payloads', () => {
+  it('accepts ids, codes, numbers, timestamps and short lists', () => {
+    expect(() =>
+      assertEventPayload('master.changed', {
+        kind: 'drug',
+        version: 3,
+        startsAt: '2026-11-07T10:00:00.000Z',
+        urgent: false,
+        orderId: null,
+        fields: ['phone', 'status'],
+      }),
+    ).not.toThrow();
+  });
+
+  it('refuses keys that name patient data, free text and nesting, naming the key and not the value', () => {
+    expect(() => assertEventPayload('patient.updated', { name: 'Asha' })).toThrow(
+      'event_payload_key_refused: patient.updated.name',
+    );
+    expect(() => assertEventPayload('patient.updated', { reason: 'has a long cough' })).toThrow(
+      'event_payload_value_refused: patient.updated.reason',
+    );
+    expect(() => assertEventPayload('patient.updated', { who: { id: 'x' } })).toThrow(
+      'event_payload_value_refused',
+    );
+    expect(() => assertEventPayload('patient.updated', { fields: ['a b'] })).toThrow(
+      'event_payload_value_refused',
+    );
+    expect(() => assertEventPayload('patient.updated', { x: 'y'.repeat(65) })).toThrow(
+      'event_payload_value_refused',
+    );
+  });
+
+  it('refuses writing an event with such a payload', async () => {
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('set local role mediflow_app');
+      await client.query("select set_config('app.tenant_id', $1, true)", [hospital.id]);
+      await expect(
+        insertEvent(client, 'patient.updated', 'p-x', null, { phone: '9999999999' }),
+      ).rejects.toThrow(/event_payload_key_refused/);
+    } finally {
+      await client.query('rollback');
+      client.release();
+    }
+  });
+});
+
+describe('outbox purge', () => {
+  it('removes dispatched events past the retention and keeps recent and undispatched ones', async () => {
+    const seed = async (entity: string, dispatchedAgo: string | null) => {
+      const client = await pool.connect();
+      try {
+        await client.query('begin');
+        await client.query('set local role mediflow_app');
+        await client.query("select set_config('app.tenant_id', $1, true)", [hospital.id]);
+        await client.query(
+          "insert into outbox (tenant_id, event, entity_id) values (app_tenant_id(), 'patient.updated', $1)",
+          [entity],
+        );
+        await client.query('commit');
+        if (dispatchedAgo === null) return;
+        await client.query('begin');
+        await client.query(`set local role ${WORKER_ROLE}`);
+        await client.query(
+          'update outbox set dispatched_at = now() - $2::interval where entity_id = $1',
+          [entity, dispatchedAgo],
+        );
+        await client.query('commit');
+      } finally {
+        client.release();
+      }
+    };
+    await seed('purge-old', '30 days');
+    await seed('purge-recent', '2 days');
+    await seed('purge-pending', null);
+
+    expect(await purgeDispatchedEvents(pool, 14)).toBeGreaterThanOrEqual(1);
+    const left = await asWorker(
+      "select entity_id from outbox where tenant_id = $1 and entity_id like 'purge-%' order by entity_id",
+      hospital.id,
+    );
+    expect(left.rows.map((row) => row.entity_id)).toEqual(['purge-pending', 'purge-recent']);
+  });
+});
+
 async function asWorker(text: string, tenantId: string) {
   const client = await pool.connect();
   try {
     await client.query('begin');
     await client.query(`set local role ${WORKER_ROLE}`);
-    return await client.query<{ attempts: number }>(text, [tenantId]);
+    return await client.query<{ attempts: number; entity_id: string }>(text, [tenantId]);
   } finally {
     await client.query('rollback');
     client.release();
