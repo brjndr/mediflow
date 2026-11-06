@@ -1,6 +1,7 @@
 import { api, requireData } from '@/shared/api';
 import { queueTokenPageSchema, queueTokenSchema } from './schemas';
 import type {
+  QueueCancelReason,
   QueuePriority,
   QueueToken,
   QueueTokenCreate,
@@ -80,7 +81,15 @@ export async function checkIn(
 export type QueueAction =
   | { kind: 'call_next'; doctorId: string }
   | { kind: 'call_again' | 'skip' | 'recall'; tokenId: string; version: number }
-  | { kind: 'priority'; tokenId: string; version: number; priority: QueuePriority | null };
+  | { kind: 'priority'; tokenId: string; version: number; priority: QueuePriority | null }
+  | {
+      kind: 'cancel';
+      tokenId: string;
+      version: number;
+      reason: QueueCancelReason;
+      /** With the reason "other" only. */
+      note?: string;
+    };
 
 export async function changeQueue(
   action: QueueAction,
@@ -117,6 +126,16 @@ export async function changeQueue(
       result = await api.POST('/queue/tokens/{tokenId}/priority', {
         params: { header, path: { tokenId: action.tokenId } },
         body: { version: action.version, priority: action.priority },
+      });
+      break;
+    case 'cancel':
+      result = await api.POST('/queue/tokens/{tokenId}/cancel', {
+        params: { header, path: { tokenId: action.tokenId } },
+        body: {
+          version: action.version,
+          reason: action.reason,
+          ...(action.note === undefined ? {} : { note: action.note }),
+        },
       });
       break;
   }

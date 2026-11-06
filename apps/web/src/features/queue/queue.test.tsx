@@ -194,6 +194,60 @@ describe('the queue board', () => {
     expect(mockQueueToken(`qt_${TENANT_IDS.hospital}_dep_h_01_2`)?.priority).toBe('child');
   });
 
+  it('cancels a token in a panel with a reason, and it leaves the board', async () => {
+    await openBoard();
+    await waitFor(() => expect(tokensIn('Waiting')).toHaveLength(6));
+    const row = within(grid('Waiting')).getAllByRole('row')[3] as HTMLElement;
+    await userEvent.click(within(row).getByRole('button', { name: /^Cancel token/ }));
+    const heading = await screen.findByRole('heading', { name: /^Cancel token 2,/ });
+    expect(document.activeElement).toBe(heading);
+    await expectNoAxeViolations();
+
+    // A reason is needed, and "other" needs a note.
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel token' }));
+    expect(await screen.findByText('Choose a reason.')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /Reason/ }), 'Other');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel token' }));
+    expect(await screen.findByText('Say why, when the reason is "Other".')).toBeInTheDocument();
+    expect(mockQueueToken(`qt_${TENANT_IDS.hospital}_dep_h_01_2`)?.status).toBe('waiting');
+
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /Reason/ }),
+      'Wrong patient',
+    );
+    expect(screen.queryByRole('textbox', { name: /Note/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel token' }));
+    await waitFor(() => expect(status().textContent).toMatch(/^Token 2, .+, cancelled.$/));
+    expect(screen.queryByRole('heading', { name: /^Cancel token 2,/ })).not.toBeInTheDocument();
+    const stored = mockQueueToken(`qt_${TENANT_IDS.hospital}_dep_h_01_2`);
+    expect(stored).toMatchObject({ status: 'cancelled', cancelReason: 'wrong_patient' });
+    await waitFor(() => expect(tokensIn('Waiting')).toHaveLength(5));
+  });
+
+  it('sends a note with the reason "other"', async () => {
+    await openBoard();
+    await waitFor(() => expect(tokensIn('Waiting')).toHaveLength(6));
+    const row = within(grid('Waiting')).getAllByRole('row')[3] as HTMLElement;
+    await userEvent.click(within(row).getByRole('button', { name: /^Cancel token/ }));
+    await userEvent.selectOptions(await screen.findByRole('combobox', { name: /Reason/ }), 'Other');
+    await userEvent.type(screen.getByRole('textbox', { name: /Note/ }), 'Went home');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel token' }));
+    await waitFor(() => expect(status().textContent).toMatch(/cancelled.$/));
+    expect(mockQueueToken(`qt_${TENANT_IDS.hospital}_dep_h_01_2`)).toMatchObject({
+      status: 'cancelled',
+      cancelReason: 'other',
+    });
+  });
+
+  it('offers no cancelling on a token being served', async () => {
+    await openBoard();
+    await waitFor(() => expect(tokensIn('Now serving')).toHaveLength(1));
+    const serving = within(grid('Now serving')).getAllByRole('row')[1] as HTMLElement;
+    expect(
+      within(serving).queryByRole('button', { name: /^Cancel token/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it('says so when someone else changed the token first, and shows it as it is now', async () => {
     await openBoard();
     await waitFor(() => expect(tokensIn('Now serving')).toHaveLength(1));
@@ -328,6 +382,21 @@ describe('access', () => {
     expect(screen.queryByRole('button', { name: /^Skip/ })).not.toBeInTheDocument();
     // The desk issues tokens.
     expect(screen.getByRole('link', { name: 'Issue a token' })).toBeInTheDocument();
+  });
+
+  it('offers cancelling to the desk and not to a doctor, who may call', async () => {
+    signIn(USER_IDS.receptionist);
+    await openBoard();
+    await waitFor(() => expect(tokensIn('Waiting')).toEqual(['Token 1', 'Token 2']));
+    expect(screen.getAllByRole('button', { name: /^Cancel token/ })).toHaveLength(2);
+  });
+
+  it('offers no cancelling without queue:cancel', async () => {
+    revokePermission(TENANT_IDS.hospital, 'admin', 'queue:cancel');
+    await openBoard();
+    await waitFor(() => expect(tokensIn('Waiting')).toHaveLength(6));
+    expect(screen.getAllByRole('button', { name: /^Change priority/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /^Cancel token/ })).not.toBeInTheDocument();
   });
 
   it('is not open without queue:read', async () => {

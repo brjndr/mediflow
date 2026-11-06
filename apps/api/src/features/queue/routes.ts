@@ -6,10 +6,12 @@ import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { appointmentForCheckIn } from '../appointments/index.js';
+import { tidyWithin } from '../../core/http/text.js';
 import { patientInScope } from '../patients/index.js';
 import {
   callAgain,
   callNext,
+  cancelToken,
   departmentOpen,
   departmentsInScope,
   findToken,
@@ -28,6 +30,8 @@ import {
   QueueCheckIn,
   QueueListQuery,
   QueueToken,
+  NOTE_MAX,
+  QueueTokenCancel,
   QueueTokenChange,
   QueueTokenCreate,
   QueueTokenPage,
@@ -40,6 +44,7 @@ const FEATURE = 'queue';
 const READ = 'queue:read';
 const CREATE = 'queue:create';
 const CALL = 'queue:call';
+const CANCEL = 'queue:cancel';
 const PATIENT_READ = 'patient:read';
 const APPOINTMENT_READ = 'appointment:read';
 
@@ -77,6 +82,7 @@ const token = (row: TokenRow) => ({
   issuedAt: row.issued_at.toISOString(),
   ...(row.called_at === null ? {} : { calledAt: row.called_at.toISOString() }),
   callCount: row.call_count,
+  ...(row.cancel_reason === null ? {} : { cancelReason: row.cancel_reason }),
   version: row.version,
 });
 
@@ -372,7 +378,8 @@ export const queueRoutes: FastifyPluginAsyncTypebox = async (app) => {
 
   /**
    * The shape every change of one token shares: a repeat answers with the token as it is now;
-   * otherwise the row is locked, found within the caller's scope of `queue:call`, must be today's,
+   * otherwise the row is locked, found within the caller's scope of `queue:call` (or of the
+   * permission the change is behind), must be today's,
    * at the version the change was made from and in a status that allows it, and `change` does
    * the rest.
    */
@@ -382,8 +389,9 @@ export const queueRoutes: FastifyPluginAsyncTypebox = async (app) => {
     version: number,
     from: readonly QueueTokenStatusValue[],
     change: (row: TokenRow) => Promise<void>,
+    permission: Permission = CALL,
   ) {
-    const visibility = visibilityFor(request, CALL);
+    const visibility = visibilityFor(request, permission);
     const id = request.params.tokenId;
     if (request.replayOf === null) {
       const row = await findToken(request.txClient, id, visibility, { forUpdate: true });
@@ -485,6 +493,52 @@ export const queueRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     );
   }
+
+  app.post(
+    '/queue/tokens/:tokenId/cancel',
+    {
+      config: {
+        permissions: [CANCEL],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'cancelQueueToken',
+        tags: ['queue'],
+        description:
+          'Takes a token off the queue for good: one issued to the wrong patient or department, or for a patient who left without being seen. Only a `waiting` or `skipped` token (a called or served one is 409 `invalid_transition`); `cancelled` is final. The reason is from a fixed list; `other` needs a plain-text note (422 `note_required`) and no other reason takes one (422 `note_not_allowed`). The patient may then be issued another token in that department; the number is not given out again. Requires queue:cancel, and the scope the caller holds it with applies as it does for queue:call.' +
+          CHANGE_RULES.replaceAll('queue:call', 'queue:cancel'),
+        headers: RequiredIdempotencyHeaders,
+        params: QueueTokenParams,
+        body: QueueTokenCancel,
+        response: { 200: ref(QueueToken), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as QueueTokenCancel;
+      if (request.replayOf === null) {
+        if (body.reason === 'other' && body.note === undefined) {
+          throw new HttpError(422, 'note_required', 'The reason "other" needs a note');
+        }
+        if (body.reason !== 'other' && body.note !== undefined) {
+          throw new HttpError(422, 'note_not_allowed', 'Only the reason "other" takes a note');
+        }
+      }
+      const note = body.note === undefined ? null : tidyWithin(body.note, NOTE_MAX);
+      if (body.note !== undefined && note === '') {
+        throw new HttpError(422, 'note_required', 'The note is empty');
+      }
+      return changeToken(
+        request,
+        reply,
+        body.version,
+        ['waiting', 'skipped'],
+        (row) =>
+          cancelToken(request.txClient, row.id, { reason: body.reason, note }, userIdOf(request)),
+        CANCEL,
+      );
+    },
+  );
 
   app.post(
     '/queue/tokens/:tokenId/priority',

@@ -1859,6 +1859,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/queue/tokens/{tokenId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Takes a token off the queue for good: one issued to the wrong patient or department, or for a patient who left without being seen. Only a `waiting` or `skipped` token (a called or served one is 409 `invalid_transition`); `cancelled` is final. The reason is from a fixed list; `other` needs a plain-text note (422 `note_required`) and no other reason takes one (422 `note_not_allowed`). The patient may then be issued another token in that department; the number is not given out again. Requires queue:cancel, and the scope the caller holds it with applies as it does for queue:call. The `version` must be the current one, or 409 `conflict`; a change the status does not allow is 409 `invalid_transition`. Enforced on the locked row, in the same transaction as the change. A token of another hospital, of another day, or outside the scope the caller holds `queue:cancel` with, answers 404 `token_not_found`, the same as one that does not exist. The Idempotency-Key header is required: the same key changes nothing again and answers with the token as it is now. Audited, and announced on `/queue/events`. */
+        post: operations["cancelQueueToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/queue/tokens/{tokenId}/priority": {
         parameters: {
             query?: never;
@@ -5547,15 +5564,20 @@ export interface components {
             version: number;
         };
         /**
-         * @description waiting -> called -> served, called -> skipped (did not come), skipped -> waiting (came back). A doctor calling the next token makes the one they were serving `served`.
+         * @description waiting -> called -> served, called -> skipped (did not come), skipped -> waiting (came back). A doctor calling the next token makes the one they were serving `served`. waiting or skipped -> cancelled (issued by mistake, or the patient left), final.
          * @enum {string}
          */
-        QueueTokenStatus: "waiting" | "called" | "served" | "skipped";
+        QueueTokenStatus: "waiting" | "called" | "served" | "skipped" | "cancelled";
         /**
          * @description Why a token goes ahead of the others.
          * @enum {string}
          */
         QueuePriority: "senior_citizen" | "pregnancy" | "disability" | "child" | "clinical_urgency";
+        /**
+         * @description Why a token was taken off the queue.
+         * @enum {string}
+         */
+        QueueCancelReason: "wrong_patient" | "wrong_department" | "left_without_being_seen" | "other";
         QueueTokenCreate: {
             patientId: string;
             departmentId: string;
@@ -5596,6 +5618,7 @@ export interface components {
              */
             calledAt?: string;
             callCount: number;
+            cancelReason?: components["schemas"]["QueueCancelReason"];
             version: number;
         };
         /** @description Cursor envelope used by every list endpoint. */
@@ -17157,6 +17180,104 @@ export interface operations {
                 "application/json": {
                     /** @description The version the change was made from. Another one gives 409 `conflict`. */
                     version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueToken"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelQueueToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                    reason: components["schemas"]["QueueCancelReason"];
+                    /** @description Required with the reason `other` (422 `note_required`), and refused with any other (422 `note_not_allowed`). */
+                    note?: string;
                 };
             };
         };

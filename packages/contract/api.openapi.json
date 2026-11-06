@@ -3625,13 +3625,18 @@
       },
       "QueueTokenStatus": {
         "type": "string",
-        "enum": ["waiting", "called", "served", "skipped"],
-        "description": "waiting -> called -> served, called -> skipped (did not come), skipped -> waiting (came back). A doctor calling the next token makes the one they were serving `served`."
+        "enum": ["waiting", "called", "served", "skipped", "cancelled"],
+        "description": "waiting -> called -> served, called -> skipped (did not come), skipped -> waiting (came back). A doctor calling the next token makes the one they were serving `served`. waiting or skipped -> cancelled (issued by mistake, or the patient left), final."
       },
       "QueuePriority": {
         "type": "string",
         "enum": ["senior_citizen", "pregnancy", "disability", "child", "clinical_urgency"],
         "description": "Why a token goes ahead of the others."
+      },
+      "QueueCancelReason": {
+        "type": "string",
+        "enum": ["wrong_patient", "wrong_department", "left_without_being_seen", "other"],
+        "description": "Why a token was taken off the queue."
       },
       "QueueTokenCreate": {
         "additionalProperties": false,
@@ -3746,6 +3751,9 @@
           "callCount": {
             "minimum": 0,
             "type": "integer"
+          },
+          "cancelReason": {
+            "$ref": "#/components/schemas/QueueCancelReason"
           },
           "version": {
             "minimum": 1,
@@ -23062,6 +23070,146 @@
                     "minimum": 1,
                     "description": "The version the change was made from. Another one gives 409 `conflict`.",
                     "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tokenId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/tokens/{tokenId}/cancel": {
+      "post": {
+        "operationId": "cancelQueueToken",
+        "tags": ["queue"],
+        "description": "Takes a token off the queue for good: one issued to the wrong patient or department, or for a patient who left without being seen. Only a `waiting` or `skipped` token (a called or served one is 409 `invalid_transition`); `cancelled` is final. The reason is from a fixed list; `other` needs a plain-text note (422 `note_required`) and no other reason takes one (422 `note_not_allowed`). The patient may then be issued another token in that department; the number is not given out again. Requires queue:cancel, and the scope the caller holds it with applies as it does for queue:call. The `version` must be the current one, or 409 `conflict`; a change the status does not allow is 409 `invalid_transition`. Enforced on the locked row, in the same transaction as the change. A token of another hospital, of another day, or outside the scope the caller holds `queue:cancel` with, answers 404 `token_not_found`, the same as one that does not exist. The Idempotency-Key header is required: the same key changes nothing again and answers with the token as it is now. Audited, and announced on `/queue/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version", "reason"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  },
+                  "reason": {
+                    "$ref": "#/components/schemas/QueueCancelReason"
+                  },
+                  "note": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "description": "Required with the reason `other` (422 `note_required`), and refused with any other (422 `note_not_allowed`).",
+                    "type": "string"
                   }
                 }
               }

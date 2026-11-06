@@ -1,8 +1,9 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { CursorPage, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, ref } from '../../core/http/schemas.js';
+import { PLAIN_TEXT } from '../../core/http/text.js';
 
 // The enums carry an $id, unlike `StringEnum`, so the contract names them as the web app does.
-export const STATUSES = ['waiting', 'called', 'served', 'skipped'] as const;
+export const STATUSES = ['waiting', 'called', 'served', 'skipped', 'cancelled'] as const;
 export type QueueTokenStatusValue = (typeof STATUSES)[number];
 
 export const QueueTokenStatus = Type.Unsafe<QueueTokenStatusValue>({
@@ -10,7 +11,7 @@ export const QueueTokenStatus = Type.Unsafe<QueueTokenStatusValue>({
   type: 'string',
   enum: [...STATUSES],
   description:
-    'waiting -> called -> served, called -> skipped (did not come), skipped -> waiting (came back). A doctor calling the next token makes the one they were serving `served`.',
+    'waiting -> called -> served, called -> skipped (did not come), skipped -> waiting (came back). A doctor calling the next token makes the one they were serving `served`. waiting or skipped -> cancelled (issued by mistake, or the patient left), final.',
 });
 
 export const PRIORITIES = [
@@ -27,6 +28,21 @@ export const QueuePriority = Type.Unsafe<QueuePriorityValue>({
   type: 'string',
   enum: [...PRIORITIES],
   description: 'Why a token goes ahead of the others.',
+});
+
+export const CANCEL_REASONS = [
+  'wrong_patient',
+  'wrong_department',
+  'left_without_being_seen',
+  'other',
+] as const;
+export type QueueCancelReasonValue = (typeof CANCEL_REASONS)[number];
+
+export const QueueCancelReason = Type.Unsafe<QueueCancelReasonValue>({
+  $id: 'QueueCancelReason',
+  type: 'string',
+  enum: [...CANCEL_REASONS],
+  description: 'Why a token was taken off the queue.',
 });
 
 const Id = Type.String({ maxLength: 64 });
@@ -83,6 +99,7 @@ export const QueueToken = Type.Object(
       Type.String({ format: 'date-time', description: 'The last time it was called.' }),
     ),
     callCount: Type.Integer({ minimum: 0 }),
+    cancelReason: Type.Optional(ref(QueueCancelReason)),
     version: Type.Integer({ minimum: 1 }),
   },
   { $id: 'QueueToken', additionalProperties: false },
@@ -123,11 +140,32 @@ export const QueueTokenPriorityChange = Type.Object(
 );
 export type QueueTokenPriorityChange = Static<typeof QueueTokenPriorityChange>;
 
+export const NOTE_MAX = 300;
+
+export const QueueTokenCancel = Type.Object(
+  {
+    version: Version,
+    reason: ref(QueueCancelReason),
+    note: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: NOTE_MAX,
+        pattern: PLAIN_TEXT,
+        description:
+          'Required with the reason `other` (422 `note_required`), and refused with any other (422 `note_not_allowed`).',
+      }),
+    ),
+  },
+  { additionalProperties: false },
+);
+export type QueueTokenCancel = Static<typeof QueueTokenCancel>;
+
 export const QueueTokenParams = Type.Object({ tokenId: Type.String({ maxLength: 64 }) });
 
 export const QUEUE_SCHEMAS = [
   QueueTokenStatus,
   QueuePriority,
+  QueueCancelReason,
   QueueTokenCreate,
   QueueCheckIn,
   QueueToken,
