@@ -47,7 +47,7 @@ Done in the web app and the API: patients, departments, doctors, staff, and ever
 - Platform admins: the platform API exists (`/platform/*`, BE-15, #132: hospitals, module flags, the first admin's invite, suspend and offboard, an audit trail; `apps/api/src/features/platform/CLAUDE.md`), and the first one is made with `pnpm --filter api platform:bootstrap`; routes need a confirmed authenticator. Built: the shell and guard (PL-01, #125), the hospital list and create wizard (PL-02, #126) a hospital's modules and limits (PL-03, #127) the first admin's invite (PL-04, #128) the status changes (PL-05, #129) and the audit trail (PL-06, #130). Not built: the other screen (PL-07), enforcing the hospital limits, the export and deletion of an offboarded hospital, and break-glass access (designed only).
 - Deployment: no infrastructure code and no hosted environment. CI builds the API image and runs the tests.
 
-**Known gaps** (detail in `docs/STATUS.md`): the authenticator is off for a hospital until its `mfa` switch (and `mfa_required` to make it compulsory) is set in `tenant_features`, with no screen for the switches yet; disabling the authenticator on the account page is missing (#252); Safari on iOS, phone dialogs and a phone Lighthouse run are unchecked; the dev seed refuses a remote host without `--allow-host`; `react-router` 6 has two moderate advisories (CI gates at high); production needs `MFA_ENCRYPTION_KEY` and `REPORT_URL_SECRET`, and the migrate step the API's environment.
+**Known gaps** (detail in `docs/STATUS.md`): the authenticator is off for a hospital until its `mfa` switch (and `mfa_required` to make it compulsory) is set in `tenant_features`, with no screen for the switches yet; disabling the authenticator on the account page is missing (#252); phone dialogs and a phone Lighthouse run are unchecked; the dev seed refuses a remote host without `--allow-host`; `react-router` 6 has two moderate advisories (CI gates at high); production needs `MFA_ENCRYPTION_KEY` and `REPORT_URL_SECRET`, and the migrate step the API's environment.
 
 ## Product Scope: End-to-End Patient Journey
 
@@ -139,7 +139,7 @@ Billing (invoice assembly, claims) must work on a tablet and a desktop. A phone 
 
 Playwright runs every spec at desktop, tablet (768 px, touch) and phone (360 px, touch); a new screen is added to `e2e/responsive.spec.ts`, and specs reach the navigation through `goTo(page, name)`. "Works at phone and tablet width" is in the definition of done of every frontend issue. The detail is in `apps/web/e2e/CLAUDE.md`.
 
-**Dialogs** should fill the screen on a phone; there is no shared dialog yet. Safari on iOS and a phone Lighthouse run are not checked yet (`docs/STATUS.md`).
+**Dialogs** should fill the screen on a phone; there is no shared dialog yet. A phone Lighthouse run is not checked yet (`docs/STATUS.md`).
 
 ## Accessibility
 

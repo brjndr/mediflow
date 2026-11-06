@@ -198,9 +198,9 @@ jobs:
           exit 1
 
   e2e:
-    name: Playwright (Chromium)
+    name: Playwright (Chromium, WebKit)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     # Skipped whenever verify is, so it follows the same plan.
     needs: verify
     steps:
@@ -211,7 +211,14 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - id: playwright
+        run: echo "version=$(pnpm --filter web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      # WebKit runs the subset named in playwright.config.ts (the webkit-phone project, #334).
+      - run: pnpm --filter web exec playwright install --with-deps chromium webkit
       - run: pnpm e2e
       - uses: actions/upload-artifact@v7
         if: failure()

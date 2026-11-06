@@ -17,8 +17,8 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   // The three widths the app supports (see Responsive Design in CLAUDE.md). Every spec runs at
-  // each of them, all in Chromium: locally only Chromium is installed, and what is being checked
-  // is the layout, not the browser. CI can add Firefox and WebKit later.
+  // each of them, in Chromium: locally only Chromium is installed, and what is being checked
+  // is the layout. CI adds one WebKit project (Safari on iOS) on a subset of the specs (#334).
   projects: [
     {
       name: 'chromium',
@@ -45,6 +45,22 @@ export default defineConfig({
         ...chromium,
       },
     },
+    // WebKit at an iPhone's real width (about 390 px), in CI only: the dev machine keeps Chromium.
+    ...(isCI
+      ? [
+          {
+            name: 'webkit-phone',
+            use: { ...devices['iPhone 14'] },
+            testMatch: [
+              'responsive.spec.ts',
+              'login.spec.ts',
+              'patients.spec.ts',
+              'appointments.spec.ts',
+              'webkit.spec.ts',
+            ],
+          },
+        ]
+      : []),
   ],
   webServer: {
     command:
