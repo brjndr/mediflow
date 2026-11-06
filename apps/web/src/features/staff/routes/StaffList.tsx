@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react';
+import { CircleAlert, CircleCheck, Clock, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -11,13 +11,13 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import {
   SEARCH_DEBOUNCE_MS,
   useDebouncedValue,
-  useSendInvite,
+  useResendInvite,
   useStaff,
   useStaffAction,
   type StaffAction,
 } from '../hooks/use-staff';
 import { STAFF_STATUSES } from '../schemas';
-import type { StaffMember, StaffStatus } from '../types';
+import type { InviteDelivery, StaffMember, StaffStatus } from '../types';
 
 const MANAGE = 'staff:manage';
 const INVITE = 'staff:invite';
@@ -37,6 +37,12 @@ function refusal(error: unknown) {
   if (error.serverCode === 'invite_not_found') return 'errors.inviteGone' as const;
   return null;
 }
+
+const DELIVERY_ICON: Record<InviteDelivery, typeof Clock> = {
+  sent: CircleCheck,
+  sending: Clock,
+  failed: CircleAlert,
+};
 
 /** Asks before deactivating: it ends the person's work here at once. */
 function ConfirmDeactivate({
@@ -95,7 +101,7 @@ export default function StaffList() {
   const q = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const staff = useStaff({ q, status });
   const action = useStaffAction();
-  const resend = useSendInvite();
+  const resend = useResendInvite();
 
   const rows = useMemo(() => staff.data?.pages.flatMap((page) => page.items) ?? [], [staff.data]);
   const total = staff.data?.pages[0]?.total;
@@ -126,8 +132,29 @@ export default function StaffList() {
       },
       { id: 'email', header: t('columns.email'), value: (row) => row.email },
       { id: 'role', header: t('columns.role'), value: (row) => row.roleName },
+      // Only invitations have an email to send. The word is the signal; the icon only adds to it.
+      ...(status === 'invited'
+        ? [
+            {
+              id: 'delivery',
+              header: t('columns.delivery'),
+              value: (row: StaffMember) => (row.delivery ? t(`delivery.${row.delivery}`) : ''),
+              render: (row: StaffMember, text: string) => {
+                const Icon = row.delivery ? DELIVERY_ICON[row.delivery] : null;
+                return (
+                  <span
+                    className={`inline-flex items-center gap-1.5 ${row.delivery === 'failed' ? 'font-medium text-destructive' : ''}`}
+                  >
+                    {Icon && <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />}
+                    {text}
+                  </span>
+                );
+              },
+            },
+          ]
+        : []),
     ],
-    [t, ownId],
+    [t, ownId, status],
   );
 
   // One change at a time: an action on its way is not overtaken by another.
@@ -172,10 +199,7 @@ export default function StaffList() {
               onSelect: (row) => {
                 clear();
                 resend.mutate(
-                  {
-                    body: { name: row.name, email: row.email, roleId: row.roleId },
-                    idempotencyKey: crypto.randomUUID(),
-                  },
+                  { inviteId: row.id, idempotencyKey: crypto.randomUUID() },
                   { onSuccess: () => setDone(t('done.resend', { email: row.email })) },
                 );
               },
@@ -189,6 +213,11 @@ export default function StaffList() {
             },
           ];
 
+  // Said in a region that is always on the page, so it is announced when the list arrives.
+  const undelivered =
+    status === 'invited' && !staff.isPlaceholderData
+      ? rows.filter((row) => row.delivery === 'failed').length
+      : 0;
   const failure = action.error ?? resend.error;
   const refused = refusal(failure);
   // A row's action disables its button, or moves the row to another list: the keyboard goes to
@@ -277,6 +306,10 @@ export default function StaffList() {
           (total === undefined || staff.isPlaceholderData
             ? ''
             : t(`count.${status}`, { count: total }))}
+      </p>
+
+      <p role="status" className="text-sm text-destructive">
+        {undelivered > 0 ? t('deliveryFailed', { count: undelivered }) : ''}
       </p>
 
       <DataGrid

@@ -7,6 +7,7 @@ import {
   fetchStaff,
   fetchStaffRoles,
   reactivateStaff,
+  resendInvite,
   revokeStaffSessions,
   sendInvite,
   withdrawInvite,
@@ -101,6 +102,16 @@ export function useSendInvite() {
   return useMutation({
     mutationFn: ({ body, idempotencyKey }: { body: InviteRequest; idempotencyKey: string }) =>
       sendInvite(body, idempotencyKey),
+    onSettled: refresh,
+  });
+}
+
+/** Sends an open invitation again. Every list is asked for again, so its email status is fresh. */
+export function useResendInvite() {
+  const refresh = useRefreshLists();
+  return useMutation({
+    mutationFn: ({ inviteId, idempotencyKey }: { inviteId: string; idempotencyKey: string }) =>
+      resendInvite(inviteId, idempotencyKey),
     onSettled: refresh,
   });
 }
