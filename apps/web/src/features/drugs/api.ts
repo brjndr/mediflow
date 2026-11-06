@@ -1,5 +1,5 @@
 import { api, requireData } from '@/shared/api';
-import { drugMatchesSchema, drugPageSchema, drugSchema } from './schemas';
+import { drugMatchesSchema, drugPageSchema, drugSchema, favouriteDrugsSchema } from './schemas';
 import type {
   Drug,
   DrugCreate,
@@ -8,6 +8,7 @@ import type {
   DrugSchedule,
   DrugType,
   DrugUpdate,
+  FavouriteDrugs,
 } from './types';
 
 export interface DrugFilters {
@@ -90,4 +91,17 @@ export async function setDrugArchived(drugId: string, archived: boolean): Promis
     ? await api.POST('/drugs/{drugId}/archive', { params })
     : await api.POST('/drugs/{drugId}/restore', { params });
   return drugSchema.parse(requireData(result));
+}
+
+// ----- A doctor's favourite medicines (#394) ---------------------------------------------------
+
+export async function fetchFavouriteDrugs(signal?: AbortSignal): Promise<FavouriteDrugs> {
+  const result = await api.GET('/me/favourite-drugs', { signal });
+  return favouriteDrugsSchema.parse(requireData(result));
+}
+
+/** Replaces the whole list, in order. */
+export async function putFavouriteDrugs(drugIds: string[]): Promise<FavouriteDrugs> {
+  const result = await api.PUT('/me/favourite-drugs', { body: { drugIds } });
+  return favouriteDrugsSchema.parse(requireData(result));
 }

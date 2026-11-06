@@ -491,3 +491,41 @@ export async function substitutesOf(client: pg.ClientBase, id: string): Promise<
   );
   return rows.map(dispensableView);
 }
+
+/**
+ * For a saved list of medicines (a prescription set, a doctor's favourites): the medicines of
+ * the hospital with these ids, archived or not, named as `prescribableDrug` names them. An id
+ * that is not a medicine of the hospital is left out.
+ */
+export async function medicineLabels(
+  client: pg.ClientBase,
+  ids: readonly string[],
+): Promise<
+  Map<string, { name: string; archived: boolean; genericName: string; brandName: string | null }>
+> {
+  const valid = [...new Set(ids)].filter((id) => UUID.test(id));
+  if (valid.length === 0) return new Map();
+  const { rows } = await client.query<{
+    id: string;
+    name: string;
+    archived: boolean;
+    generic_name: string;
+    brand_name: string | null;
+  }>(
+    `select id, generic_name || coalesce(' ' || strength, '') || coalesce(' (' || brand_name || ')', '')
+              as name, archived, generic_name, brand_name
+     from drugs where id = any($1::uuid[]) and type = 'medicine'`,
+    [valid],
+  );
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      {
+        name: row.name,
+        archived: row.archived,
+        genericName: row.generic_name,
+        brandName: row.brand_name,
+      },
+    ]),
+  );
+}

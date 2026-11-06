@@ -25,3 +25,6 @@ export { imagingOrder, moveImagingOrder, type ImagingOrder } from './imaging.js'
 /** For the pharmacy: a medication order, and moving it on as it is dispensed (#100). */
 export { medicationOrder, moveMedicationOrder, type MedicationOrder } from './medication.js';
 export { OrderPriority, OrderStatus } from './schemas.js';
+
+/** For prescription sets (#394): the limits and routes of a prescription line, kept in one place. */
+export { DOSE_MAX, INSTRUCTIONS_MAX, LINES_MAX, ROUTES as MEDICATION_ROUTES } from './schemas.js';

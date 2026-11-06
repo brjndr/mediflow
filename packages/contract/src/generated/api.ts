@@ -4100,6 +4100,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/prescription-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The prescription sets the caller may use: those shared with the hospital and their own, by name. Requires prescriptionSet:read and the clinical feature flag. `total` comes with the first page only. */
+        get: operations["listPrescriptionSets"];
+        put?: never;
+        /** @description Adds a prescription set: the caller’s own, or shared with the hospital when `shared` is true (needs prescriptionSet:manageShared, else 403 permission_denied). One to 30 lines, each a medicine of the catalog that may be prescribed (422 unknown_drug otherwise). A name another set of the same owner (or another shared set) has, archived or not, whatever the capitals, is 409 prescription_set_name_taken. Requires prescriptionSet:manage and prescriptionSet:read. A set holds no patient data. Audited. A repeat with the same Idempotency-Key adds nothing and answers with the set as it is now. */
+        post: operations["createPrescriptionSet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/prescription-sets/{setId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One set with its lines. A medicine archived since is flagged `drugArchived`, not dropped. Requires prescriptionSet:read. A set of another hospital, or another doctor’s own, answers 404 prescription_set_not_found, the same as one that does not exist. */
+        get: operations["getPrescriptionSet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Renames a set, replaces its lines, archives it or restores it: send only what changes, with the `version` the change was made from (409 conflict otherwise). A shared set needs prescriptionSet:manageShared (403 permission_denied); an own set is its owner’s. Requires prescriptionSet:manage and prescriptionSet:read. Audited. A set of another hospital, or another doctor’s own, answers 404 prescription_set_not_found, the same as one that does not exist. */
+        patch: operations["updatePrescriptionSet"];
+        trace?: never;
+    };
+    "/me/favourite-drugs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The medicines the caller starred, in the order they put them (at most 20). A medicine archived since is flagged. Requires prescriptionSet:read. */
+        get: operations["getFavouriteDrugs"];
+        /** @description Replaces the caller’s favourite medicines with this list, in order (at most 20, each a medicine of the catalog that may be prescribed, none twice: 422 unknown_drug otherwise). Requires prescriptionSet:manage and prescriptionSet:read. Favourites belong to the caller alone. */
+        put: operations["setFavouriteDrugs"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/password/change": {
         parameters: {
             query?: never;
@@ -7971,6 +8025,91 @@ export interface components {
             items: components["schemas"]["PlatformAuditEntry"][];
             nextCursor: string | null;
             total?: number;
+        };
+        /** @description A medicine line of a set, as a prescription line has it. */
+        PrescriptionSetLine: {
+            /** @description A medicine of the catalog. */
+            drugId: string;
+            /** @description As written: "500 mg". */
+            dose: string;
+            /** @enum {string} */
+            route: "oral" | "sublingual" | "topical" | "inhaled" | "nasal" | "eye" | "ear" | "rectal" | "vaginal" | "intramuscular" | "intravenous" | "subcutaneous" | "other";
+            /** @description As written: "1-0-1". */
+            frequency: string;
+            durationDays?: number;
+            quantity?: number;
+            instructions?: string;
+        };
+        PrescriptionSetLineView: {
+            /** @description A medicine of the catalog. */
+            drugId: string;
+            /** @description As written: "500 mg". */
+            dose: string;
+            /** @enum {string} */
+            route: "oral" | "sublingual" | "topical" | "inhaled" | "nasal" | "eye" | "ear" | "rectal" | "vaginal" | "intramuscular" | "intravenous" | "subcutaneous" | "other";
+            /** @description As written: "1-0-1". */
+            frequency: string;
+            durationDays?: number;
+            quantity?: number;
+            instructions?: string;
+            /** @description The medicine as the catalog names it now. */
+            drugName: string;
+            /** @description The medicine’s generic name, for the allergy checks. */
+            genericName: string;
+            brandName?: string;
+            /** @description True when the medicine was archived after the set was saved: it cannot be prescribed. */
+            drugArchived: boolean;
+        };
+        /** @description A prescription set. Holds no patient data. */
+        PrescriptionSet: {
+            id: string;
+            tenantId: string;
+            name: string;
+            /** @description True: shared with every prescriber. False: the caller’s own. */
+            shared: boolean;
+            lineCount: number;
+            archived: boolean;
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        PrescriptionSetPage: {
+            items: components["schemas"]["PrescriptionSet"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        PrescriptionSetDetail: {
+            set: components["schemas"]["PrescriptionSet"];
+            /** @description In the order written. */
+            lines: components["schemas"]["PrescriptionSetLineView"][];
+        };
+        PrescriptionSetCreate: {
+            name: string;
+            /** @description Share with the whole hospital (needs prescriptionSet:manageShared). Omitted: the caller’s own. */
+            shared?: boolean;
+            lines: components["schemas"]["PrescriptionSetLine"][];
+        };
+        PrescriptionSetUpdate: {
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
+            name?: string;
+            archived?: boolean;
+            lines?: components["schemas"]["PrescriptionSetLine"][];
+        };
+        FavouriteDrug: {
+            drugId: string;
+            name: string;
+            /** @description Archived after it was starred: it cannot be prescribed. */
+            archived: boolean;
+        };
+        FavouriteDrugs: {
+            /** @description In the order the doctor put them. */
+            items: components["schemas"]["FavouriteDrug"][];
+        };
+        FavouriteDrugsSet: {
+            /** @description The whole list, in order. Replaces the caller’s favourites. */
+            drugIds: string[];
         };
         Notice: {
             id: string;
@@ -30072,6 +30211,457 @@ export interface operations {
             };
             /** @description Standard error body. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listPrescriptionSets: {
+        parameters: {
+            query?: {
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit?: number;
+                /** @description True: the archived sets. Default: those in use. */
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionSetPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createPrescriptionSet: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrescriptionSetCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionSetDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPrescriptionSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                setId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionSetDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updatePrescriptionSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                setId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrescriptionSetUpdate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionSetDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getFavouriteDrugs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavouriteDrugs"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setFavouriteDrugs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FavouriteDrugsSet"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavouriteDrugs"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

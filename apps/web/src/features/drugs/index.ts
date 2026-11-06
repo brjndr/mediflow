@@ -4,3 +4,5 @@ export { drugsFeature } from './manifest';
 export { DrugSearch } from './components/DrugSearch';
 export { useMedicineName } from './hooks/use-medicine-name';
 export type { Drug, DrugForm, DrugSchedule, DrugType } from './types';
+// A star for a medicine, and the caller's favourites that `DrugSearch` offers first (#394).
+export { FavouriteToggle } from './components/FavouriteToggle';

@@ -41,3 +41,11 @@ export type Referral = Schemas['Referral'];
 export type ReferralPage = Schemas['ReferralPage'];
 export type ReferralCreate = Schemas['ReferralCreate'];
 export type ReferralUrgency = Schemas['ReferralUrgency'];
+
+/** A named list of medicine lines, the hospital own or a doctor own (#394). Holds no patient. */
+export type PrescriptionSet = Schemas['PrescriptionSet'];
+export type PrescriptionSetPage = Schemas['PrescriptionSetPage'];
+export type PrescriptionSetDetail = Schemas['PrescriptionSetDetail'];
+export type PrescriptionSetCreate = Schemas['PrescriptionSetCreate'];
+export type PrescriptionSetLine = Schemas['PrescriptionSetLine'];
+export type PrescriptionSetLineView = Schemas['PrescriptionSetLineView'];
