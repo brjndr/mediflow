@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { Type } from '@sinclair/typebox';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type pg from 'pg';
 import { syncRoleDefaults } from '../../core/access/sync.js';
@@ -21,6 +22,8 @@ import {
   getHospital,
   listAudit,
   listHospitals,
+  listOpenInvites,
+  revokeOpenInvite,
   recordPlatformAudit,
   rememberKey,
   requestHash,
@@ -30,12 +33,14 @@ import {
   AuditQuery,
   CreateHospitalBody,
   HospitalParams,
+  InviteParams,
   ListHospitalsQuery,
   OffboardBody,
   PlatformAuditPage,
   PlatformHospital,
   PlatformHospitalPage,
   PlatformInvite,
+  PlatformInvitePage,
   SetFeaturesBody,
   UpdateHospitalBody,
 } from './schemas.js';
@@ -452,6 +457,60 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
         request.log.warn({ event: 'invite_email_not_queued' }, 'invite email not queued');
       });
       return reply.status(201).send(invite);
+    },
+  );
+
+  app.get(
+    '/platform/hospitals/:id/admin-invites',
+    {
+      config: { access: 'platform', ...limit },
+      schema: {
+        operationId: 'platformListHospitalAdminInvites',
+        tags,
+        description:
+          'The invites to the hospital that nobody has accepted or withdrawn, newest first (at most 50; an expired one is listed so it can be sent again). Never the token.',
+        params: HospitalParams,
+        response: { 200: ref(PlatformInvitePage), ...errors(401, 403, 404, 429) },
+      },
+    },
+    async (request) => {
+      const { id } = request.params;
+      return withPlatformTransaction(pool, async (client) => {
+        await getHospital(client, id);
+        return { items: await listOpenInvites(client, id), nextCursor: null };
+      });
+    },
+  );
+
+  app.post(
+    '/platform/hospitals/:id/admin-invites/:inviteId/revoke',
+    {
+      config: { access: 'platform', ...limit },
+      schema: {
+        operationId: 'platformRevokeHospitalAdminInvite',
+        tags,
+        description:
+          'Withdraws an open invite, so its link no longer works. 404 for an invite that is not open at this hospital. To send one again, invite the same address again.',
+        params: InviteParams,
+        response: { 204: Type.Null(), ...errors(401, 403, 404, 429) },
+      },
+    },
+    async (request, reply) => {
+      const userId = admin(request);
+      const { id, inviteId } = request.params;
+      await withPlatformTransaction(pool, async (client) => {
+        const revoked = await revokeOpenInvite(client, id, inviteId);
+        if (!revoked) throw new HttpError(404, 'not_found', 'No such open invite');
+        await recordPlatformAudit(client, {
+          actorId: userId,
+          action: 'hospital.admin_invite_revoked',
+          entity: 'invite',
+          entityId: inviteId,
+          hospitalId: id,
+          requestId: request.id,
+        });
+      });
+      return reply.status(204).send(null);
     },
   );
 

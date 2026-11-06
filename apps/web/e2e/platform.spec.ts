@@ -70,3 +70,21 @@ test('a hospital opens from the list; modules and limits are changed with the ke
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 });
+
+test('the first admin is invited with the keyboard; a hospital with an admin says so', async ({
+  page,
+}) => {
+  await page.goto(START);
+  await page.getByRole('link', { name: 'Riverside Clinic' }).click();
+  await expect(page.getByRole('heading', { name: 'First hospital admin' })).toBeVisible();
+  await expect(page.getByText('No open invites.')).toBeVisible();
+
+  await page.getByRole('textbox', { name: /^Name/ }).fill('Asha Rao');
+  await page.getByRole('textbox', { name: /^Email address/ }).fill('asha@riverside.test');
+  await page.getByRole('textbox', { name: /^Email address/ }).press('Enter');
+
+  // The mock's Riverside Clinic has staff, so it already has an admin.
+  await expect(page.getByText(/already has an admin/)).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});

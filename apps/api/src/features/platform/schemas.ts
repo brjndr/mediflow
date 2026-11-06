@@ -153,11 +153,19 @@ export const PlatformInvite = Type.Object(
   {
     id: Type.String({ format: 'uuid' }),
     email: Type.String(),
+    name: Type.String(),
     expiresAt: Type.String({ format: 'date-time' }),
   },
   { $id: 'PlatformInvite' },
 );
 export type PlatformInvite = Static<typeof PlatformInvite>;
+
+export const PlatformInvitePage = CursorPage(ref(PlatformInvite), { $id: 'PlatformInvitePage' });
+
+export const InviteParams = Type.Object({
+  id: Type.String({ format: 'uuid' }),
+  inviteId: Type.String({ format: 'uuid' }),
+});
 
 export const OffboardBody = Type.Object({
   deleteAfterDays: Type.Integer({
@@ -197,6 +205,7 @@ export const PLATFORM_SCHEMAS = [
   PlatformHospital,
   PlatformHospitalPage,
   PlatformInvite,
+  PlatformInvitePage,
   PlatformAuditEntry,
   PlatformAuditPage,
 ] as const;

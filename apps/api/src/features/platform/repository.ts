@@ -249,7 +249,7 @@ export async function createAdminInvite(
     invitedBy: string;
     ttlHours: number;
   },
-): Promise<{ id: string; email: string; expiresAt: string }> {
+): Promise<{ id: string; email: string; name: string; expiresAt: string }> {
   await client.query(
     `update invites set revoked_at = now()
      where tenant_id = $1 and email = $2 and accepted_at is null and revoked_at is null`,
@@ -263,7 +263,51 @@ export async function createAdminInvite(
   );
   const row = rows[0];
   if (!row) throw new Error('invite was not created');
-  return { id: row.id, email: input.email, expiresAt: row.expires_at.toISOString() };
+  return {
+    id: row.id,
+    email: input.email,
+    name: input.name,
+    expiresAt: row.expires_at.toISOString(),
+  };
+}
+
+/** The invites to a hospital that nobody has accepted or withdrawn, newest first (an expired one still shows, so it can be sent again). */
+export async function listOpenInvites(
+  client: pg.ClientBase,
+  hospitalId: string,
+): Promise<{ id: string; email: string; name: string; expiresAt: string }[]> {
+  const { rows } = await client.query<{
+    id: string;
+    email: string;
+    name: string;
+    expires_at: Date;
+  }>(
+    `select id, email, name, expires_at from invites
+     where tenant_id = $1 and accepted_at is null and revoked_at is null
+     order by created_at desc, id desc limit 50`,
+    [hospitalId],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    expiresAt: row.expires_at.toISOString(),
+  }));
+}
+
+/** Withdraws one open invite of the hospital. False when there is no such open invite there. */
+export async function revokeOpenInvite(
+  client: pg.ClientBase,
+  hospitalId: string,
+  inviteId: string,
+): Promise<boolean> {
+  const { rows } = await client.query<{ id: string }>(
+    `update invites set revoked_at = now()
+     where id = $1 and tenant_id = $2 and accepted_at is null and revoked_at is null
+     returning id`,
+    [inviteId, hospitalId],
+  );
+  return rows.length > 0;
 }
 
 /** JSON with the keys of an object in order, so the same request in another key order is the same. */

@@ -246,6 +246,25 @@
       "conflict": "Someone else changed this hospital meanwhile. What you typed is kept; review it and save again.",
       "theySaved": "Saved by someone else for fields you also changed:"
     },
+    "invite": {
+      "heading": "First hospital admin",
+      "hint": "Invite the person who will run this hospital. They get an email with a link to set a password and an authenticator. Once the hospital has an admin, its admins invite their own staff.",
+      "name": "Name",
+      "email": "Email address",
+      "submit": "Send invite",
+      "sent": "Invite sent to {{email}}.",
+      "revoked": "Invite to {{email}} withdrawn.",
+      "openHeading": "Open invites",
+      "gridLabel": "Open invites",
+      "empty": "No open invites.",
+      "resend": "Send again",
+      "revoke": "Withdraw",
+      "expired": "Expired {{when}}",
+      "columns": { "email": "Email address", "name": "Name", "expires": "Expires" },
+      "hasAdmin": "This hospital already has an admin. Its admins invite their own staff.",
+      "notActive": "The hospital is not active, so it cannot be sent an invite.",
+      "notAllowed": "This address cannot be invited. Check it and try again."
+    },
     "modules": {
       "patients": "Patients",
       "departments": "Departments",

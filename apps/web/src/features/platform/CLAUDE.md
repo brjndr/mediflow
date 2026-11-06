@@ -24,3 +24,12 @@ What was decided for the platform admin screens (M13, PL-01 #125). The API is `a
 - **Modules:** a checklist saved with `PUT .../features`, sending only the flags that changed. A flag the hospital holds that the web list does not know is shown too, named by its id, so none is hidden. `mfa_required` can only be ticked while `mfa` is on, and goes off with it. A change reaches the hospital's staff at their next policy refresh; nothing here signs anyone out.
 - **Limits:** `maxUsers` and `storageMb`, empty for none, saved with `PATCH` and `version`; only changed fields are sent. On a `version_conflict` the typed values stay, the hospital is read again, and a field both changed shows the other value. The limits are **stored, not enforced** (API notes).
 - The saved hospital replaces the cached one (`platformKeys.hospital(id)`) and the list is read again.
+
+## The first admin (PL-04, #128)
+
+- **Section** `HospitalAdminInvites` on a hospital's page, shown while the hospital is `active` (the API refuses an invite otherwise). A name and an email, then the list of open invites (a `DataGrid`, cursor envelope without a cursor: at most 50) with **Send again** and **Withdraw** on each row.
+- **Send again is the same invite route** with the row's name and email: the API withdraws the earlier invite to that address and emails a new link. There is no resend route. Expired invites stay in the list, marked, so they can be sent again.
+- **Refusals have their own words:** `hospital_has_admin` (once the hospital has an admin, its admins invite their own staff), `hospital_not_active`, and 400 for a platform admin's address. The address is lower-cased before it is sent, as the API does.
+- **Focus:** a withdrawn row leaves the list, so focus goes to the status line (`focusIfLost`), which also says what was done.
+- **Mock:** a mock hospital with staff (`memberCount > 0`) has an admin, so an invite to it is refused; create a hospital first to invite into one. An address starting `platform.` stands for a platform admin's.
+- The invitee onboards through the link as any invited member (A-03).
