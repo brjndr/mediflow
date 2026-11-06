@@ -8,6 +8,10 @@ export type VitalsCreate = Schemas['VitalsCreate'];
 export type VitalsPage = Schemas['VitalsPage'];
 export type VitalRange = Schemas['VitalRange'];
 export type VitalRanges = Schemas['VitalRanges'];
+/** A hospital's ranges for every age band, with the version a save is made from (#378, #379). */
+export type VitalRangeTable = Schemas['VitalRangeTable'];
+export type VitalRangeSet = Schemas['VitalRangeSet'];
+export type VitalFlags = Schemas['VitalFlags'];
 
 /** A patient's allergies, with whether they were ever asked about. */
 export type AllergyList = Schemas['AllergyList'];

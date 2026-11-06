@@ -13,14 +13,24 @@ import {
   findAllergen,
   findAllergies,
   findVitals,
-  hospitalRanges,
+  ageBasis,
+  bandOf,
+  dateAt,
+  flagsFor,
   insertVitals,
-  isAdult,
+  LATEST,
   listVitals,
+  loadRangeRows,
+  rangesAt,
+  rangesVersion,
   replaceAllergies,
+  saveRanges,
   searchCatalog,
+  tableAt,
   UUID,
   type CatalogAllergen,
+  type Flags,
+  type RangeTable,
   type VitalsRow,
 } from './repository.js';
 import {
@@ -37,6 +47,7 @@ import {
   REACTION_MAX,
   SUBSTANCE_MAX,
   TRIAGE_SCHEMAS,
+  VitalRangeTable,
   VitalRanges,
   Vitals,
   VitalsCreate,
@@ -46,6 +57,9 @@ import {
   type Allergy,
   type AllergyInput,
   type Measure,
+  type VitalRangeTableBody,
+  BANDS,
+  RANGED,
 } from './schemas.js';
 
 const FEATURE = 'triage';
@@ -53,6 +67,7 @@ const READ = 'vitals:read';
 const RECORD = 'vitals:record';
 const ALLERGY_READ = 'allergy:read';
 const ALLERGY_UPDATE = 'allergy:update';
+const CONFIGURE = 'vitals:configure';
 
 const invalid = (message: string) => new HttpError(400, 'validation_failed', message);
 const patientNotFound = () => new HttpError(404, 'not_found', 'Patient not found');
@@ -73,7 +88,7 @@ const inScope = (request: FastifyRequest, patientId: string, permission: Permiss
     userId: userIdOf(request),
   });
 
-const reading = (row: VitalsRow) => ({
+const reading = (row: VitalsRow, flags: Flags) => ({
   id: row.id,
   tenantId: row.tenant_id,
   patientId: row.patient_id,
@@ -88,7 +103,15 @@ const reading = (row: VitalsRow) => ({
   ...(row.chief_complaint === null ? {} : { chiefComplaint: row.chief_complaint }),
   ...(row.corrects_id === null ? {} : { correctsId: row.corrects_id }),
   ...(row.correction_reason === null ? {} : { correctionReason: row.correction_reason }),
+  flags,
 });
+
+/** The readings of one patient, each with what was out of range when it was recorded (#378). */
+async function readings(client: pg.ClientBase, patientId: string, rows: VitalsRow[]) {
+  const basis = rows.length > 0 ? await ageBasis(client, patientId) : null;
+  const ranges = basis ? await loadRangeRows(client) : [];
+  return rows.map((row) => reading(row, basis ? flagsFor(basis, ranges, row) : {}));
+}
 
 /** The measurements of a body: whole numbers or one decimal, within what a body can be. */
 function measuresOf(body: VitalsCreate): Partial<Record<Measure, number>> {
@@ -330,7 +353,7 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!page) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
       for (const row of page.rows) request.audit('read', 'vitals', row.id);
       return {
-        items: page.rows.map(reading),
+        items: await readings(request.txClient, patientId, page.rows),
         nextCursor: page.nextCursor,
         ...(page.total === undefined ? {} : { total: page.total }),
       };
@@ -366,7 +389,7 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
           : null;
         if (!recorded) throw new HttpError(404, 'not_found', 'Reading not found');
         request.audit('read', 'vitals', recorded.id);
-        return reply.status(201).send(reading(recorded));
+        return reply.status(201).send((await readings(request.txClient, patientId, [recorded]))[0]);
       }
       const body = request.body as VitalsCreate;
       const measures = measuresOf(body);
@@ -424,7 +447,7 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       const recorded = await findVitals(request.txClient, patientId, id);
       if (!recorded) throw new Error('reading was not recorded');
-      return reply.status(201).send(reading(recorded));
+      return reply.status(201).send((await readings(request.txClient, patientId, [recorded]))[0]);
     },
   );
 
@@ -452,7 +475,7 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       );
       if (!row) throw new HttpError(404, 'not_found', 'Reading not found');
       request.audit('read', 'vitals', row.id);
-      return reading(row);
+      return (await readings(request.txClient, request.params.patientId, [row]))[0];
     },
   );
 
@@ -464,7 +487,7 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'getVitalRanges',
         tags: ['triage'],
         description:
-          'The hospital’s normal ranges that apply to this patient, decided by the server from the patient’s age on today’s date at the hospital: the hospital’s adult ranges, or the built-in ones while it has set none, for a patient of 18 or over; null for a patient under 18 (#379). A patient the hospital does not have is 404 `not_found`. Audited, as it tells whether the patient is under 18. Requires vitals:read and the triage feature flag.',
+          'The hospital’s normal ranges that apply to this patient, decided by the server from the patient’s age band (infant, child, adolescent or adult) on today’s date at the hospital: the hospital’s own ranges for that band, or the built-in ones for a band it has set none for (#379). A patient the hospital does not have is 404 `not_found`. Audited, as it tells the patient’s age band. Requires vitals:read and the triage feature flag.',
         params: PatientParams,
         response: { 200: ref(VitalRanges), ...errors(401, 403, 404, 409, 429) },
       },
@@ -472,10 +495,82 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       const { patientId } = request.params;
       if (!(await inScope(request, patientId, READ))) throw patientNotFound();
-      const adult = await isAdult(request.txClient, patientId);
-      if (adult === null) throw patientNotFound();
+      const basis = await ageBasis(request.txClient, patientId);
+      if (!basis) throw patientNotFound();
       request.audit('read', 'vital_ranges', patientId);
-      return { ranges: adult ? await hospitalRanges(request.txClient) : null };
+      const now = new Date();
+      const band = bandOf(basis.dob, dateAt(now, basis.timeZone));
+      return { ranges: rangesAt(await loadRangeRows(request.txClient), band, LATEST) };
+    },
+  );
+
+  app.get(
+    '/vitals/ranges',
+    {
+      config: { permissions: [READ], feature: FEATURE },
+      schema: {
+        operationId: 'getVitalRangeTable',
+        tags: ['triage'],
+        description:
+          'The hospital’s normal ranges for every age band as they apply now, with the version to send back when saving them. A band the hospital has set none for shows the built-in ranges. Requires vitals:read and the triage feature flag. Audited.',
+        response: { 200: ref(VitalRangeTable), ...errors(401, 403, 409, 429) },
+      },
+    },
+    async (request) => {
+      request.audit('read', 'vital_ranges');
+      return {
+        version: await rangesVersion(request.txClient),
+        bands: tableAt(await loadRangeRows(request.txClient), LATEST),
+      };
+    },
+  );
+
+  app.put(
+    '/vitals/ranges',
+    {
+      config: { permissions: [CONFIGURE], feature: FEATURE },
+      schema: {
+        operationId: 'saveVitalRangeTable',
+        tags: ['triage'],
+        description:
+          'Saves the hospital’s normal ranges for every age band, in effect from now on: readings already recorded keep the marks they had, because a reading is marked against the ranges in effect when it was recorded (#378). `version` is the one read with the ranges; if another save came first the answer is 409 `conflict` and nothing changes. A low limit that is not below its high limit, or a limit with more than one decimal, is 422 `invalid_range`. A measure with no limit in a band is not checked for it. Audited. Requires vitals:configure and the triage feature flag.',
+        body: ref(VitalRangeTable),
+        response: {
+          200: ref(VitalRangeTable),
+          ...errors(400, 401, 403, 409, 422, 429),
+        },
+      },
+    },
+    async (request) => {
+      const body = request.body as VitalRangeTableBody;
+      const table = {} as RangeTable;
+      for (const band of BANDS) {
+        table[band] = {};
+        for (const measure of RANGED) {
+          const limits = body.bands[band]?.[measure];
+          if (!limits) continue;
+          const { low, high } = limits;
+          for (const limit of [low, high]) {
+            if (limit !== undefined && Math.round(limit * 10) / 10 !== limit) {
+              throw new HttpError(422, 'invalid_range', 'A limit has at most one decimal');
+            }
+          }
+          if (low !== undefined && high !== undefined && low >= high) {
+            throw new HttpError(422, 'invalid_range', 'A low limit must be below its high limit');
+          }
+          table[band][measure] = {
+            ...(low === undefined ? {} : { low }),
+            ...(high === undefined ? {} : { high }),
+          };
+        }
+      }
+      const saved = await saveRanges(request.txClient, userIdOf(request), table, body.version);
+      if (!saved) throw new HttpError(409, 'conflict', 'The ranges were changed by someone else');
+      request.audit('update', 'vital_ranges');
+      return {
+        version: await rangesVersion(request.txClient),
+        bands: tableAt(await loadRangeRows(request.txClient), LATEST),
+      };
     },
   );
 

@@ -1,3 +1,4 @@
+import { Activity } from 'lucide-react';
 import type { FeatureManifest } from '@/registry';
 
 /**
@@ -11,7 +12,7 @@ export const triageFeature: FeatureManifest = {
   id: 'triage',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Triage', record: 'Record vitals' } },
+    titles: { en: { title: 'Triage', record: 'Record vitals', ranges: 'Vital sign ranges' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
@@ -25,8 +26,23 @@ export const triageFeature: FeatureManifest = {
       // Reading the ranges and the earlier readings needs `vitals:read` too.
       requires: ['vitals:record', 'vitals:read'],
     },
+    {
+      // The hospital's normal ranges by age band (#378, #379): a desktop-only screen.
+      path: 'triage/ranges',
+      titleKey: 'ranges',
+      lazy: () => import('./routes/VitalRanges'),
+      requires: ['vitals:configure', 'vitals:read'],
+    },
   ],
-  permissions: ['vitals:read', 'vitals:record', 'allergy:read', 'allergy:update'],
+  // Triage is about one patient, so its one nav item is for setting it up.
+  nav: { icon: Activity, order: 85, requires: ['vitals:configure'], path: 'triage/ranges' },
+  permissions: [
+    'vitals:read',
+    'vitals:record',
+    'vitals:configure',
+    'allergy:read',
+    'allergy:update',
+  ],
   extensions: [
     {
       slot: 'patient.detail.tabs',

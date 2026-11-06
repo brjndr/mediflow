@@ -358,7 +358,7 @@ export default function RecordVitals() {
           ) : (
             <>
               {tokenId && !correctsId && <TakenForToken patientId={patientId} tokenId={tokenId} />}
-              <RangesNote ranges={rangeData} failed={ranges.isError} />
+              <RangesNote failed={ranges.isError} />
               {correctsId && original.isPending ? (
                 <p className="text-sm text-muted-foreground">{tCommon('app.loading')}</p>
               ) : correctsId && original.isError ? (

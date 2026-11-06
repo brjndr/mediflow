@@ -9,6 +9,8 @@ import type {
   VitalsCreate,
   VitalsPage,
   VitalRange,
+  VitalRangeSet,
+  VitalRangeTable,
   VitalRanges,
 } from './types';
 
@@ -19,6 +21,10 @@ export type RangedMeasure = (typeof RANGED)[number];
 /** Every measurement of a reading, in the order the form and the history show them. */
 export const MEASURES = [...RANGED, 'weight', 'height'] as const;
 export type Measure = (typeof MEASURES)[number];
+
+/** Age bands the ranges are kept for, youngest first (#379). */
+export const BANDS = ['infant', 'child', 'adolescent', 'adult'] as const;
+export type Band = (typeof BANDS)[number];
 
 export const SEVERITIES = [
   'severe',
@@ -58,6 +64,15 @@ export const vitalsSchema: z.ZodType<Vitals> = z.object({
   chiefComplaint: z.string().optional(),
   correctsId: z.string().optional(),
   correctionReason: z.string().optional(),
+  flags: z
+    .object({
+      systolic: z.enum(['low', 'high']).optional(),
+      diastolic: z.enum(['low', 'high']).optional(),
+      pulse: z.enum(['low', 'high']).optional(),
+      temperature: z.enum(['low', 'high']).optional(),
+      spo2: z.enum(['low', 'high']).optional(),
+    })
+    .optional(),
 });
 
 export const vitalsPageSchema: z.ZodType<VitalsPage> = z.object({
@@ -71,16 +86,26 @@ const rangeSchema: z.ZodType<VitalRange> = z.object({
   high: z.number().optional(),
 });
 
+const rangeSetSchema: z.ZodType<VitalRangeSet> = z.object({
+  systolic: rangeSchema.optional(),
+  diastolic: rangeSchema.optional(),
+  pulse: rangeSchema.optional(),
+  temperature: rangeSchema.optional(),
+  spo2: rangeSchema.optional(),
+});
+
 export const vitalRangesSchema: z.ZodType<VitalRanges> = z.object({
-  ranges: z
-    .object({
-      systolic: rangeSchema.optional(),
-      diastolic: rangeSchema.optional(),
-      pulse: rangeSchema.optional(),
-      temperature: rangeSchema.optional(),
-      spo2: rangeSchema.optional(),
-    })
-    .nullable(),
+  ranges: rangeSetSchema.nullable(),
+});
+
+export const vitalRangeTableSchema: z.ZodType<VitalRangeTable> = z.object({
+  version: z.number().int().min(0),
+  bands: z.object({
+    infant: rangeSetSchema,
+    child: rangeSetSchema,
+    adolescent: rangeSetSchema,
+    adult: rangeSetSchema,
+  }),
 });
 
 export const allergyListSchema: z.ZodType<AllergyList> = z.object({
@@ -356,5 +381,87 @@ export function toAllergyListUpdate(values: AllergiesValues, version: number): A
             ...(row.allergenId ? { allergenId: row.allergenId } : {}),
             ...(row.drugId ? { drugId: row.drugId } : {}),
           })),
+  };
+}
+
+// The ranges form (#378). Fields hold what was typed; `toRangeTable` turns it into numbers.
+
+// A point before the decimal, as the API takes it: "37,5" is refused, not read as 375.
+const LIMIT = /^\d{1,3}(\.\d)?$/;
+
+const limitField = z
+  .string()
+  .trim()
+  .refine((text) => text === '' || LIMIT.test(text), 'triage:ranges.errors.limit');
+const measureFields = z
+  .object({ low: limitField, high: limitField })
+  .superRefine((limits, context) => {
+    // A low limit must be below its high one; either may be left empty.
+    if (
+      LIMIT.test(limits.low) &&
+      LIMIT.test(limits.high) &&
+      Number(limits.low) >= Number(limits.high)
+    ) {
+      context.addIssue({ code: 'custom', path: ['high'], message: 'triage:ranges.errors.order' });
+    }
+  });
+const bandFields = z.object({
+  systolic: measureFields,
+  diastolic: measureFields,
+  pulse: measureFields,
+  temperature: measureFields,
+  spo2: measureFields,
+});
+
+export const rangesFormSchema = z.object({
+  bands: z.object({
+    infant: bandFields,
+    child: bandFields,
+    adolescent: bandFields,
+    adult: bandFields,
+  }),
+});
+export type RangesValues = z.infer<typeof rangesFormSchema>;
+
+/** The table as the form: every limit as text, empty where there is none. */
+export function toRangesValues(table: VitalRangeTable): RangesValues {
+  const text = (value: number | undefined) => (value === undefined ? '' : String(value));
+  const band = (set: VitalRangeSet) =>
+    Object.fromEntries(
+      RANGED.map((name) => [name, { low: text(set[name]?.low), high: text(set[name]?.high) }]),
+    ) as RangesValues['bands']['adult'];
+  return {
+    bands: {
+      infant: band(table.bands.infant),
+      child: band(table.bands.child),
+      adolescent: band(table.bands.adolescent),
+      adult: band(table.bands.adult),
+    },
+  };
+}
+
+/** What the form holds as the table the API takes, to be saved from `version`. */
+export function toRangeTable(values: RangesValues, version: number): VitalRangeTable {
+  const band = (fields: RangesValues['bands']['adult']): VitalRangeSet =>
+    Object.fromEntries(
+      RANGED.map((name) => {
+        const { low, high } = fields[name];
+        return [
+          name,
+          {
+            ...(low === '' ? {} : { low: Number(low) }),
+            ...(high === '' ? {} : { high: Number(high) }),
+          },
+        ];
+      }),
+    );
+  return {
+    version,
+    bands: {
+      infant: band(values.bands.infant),
+      child: band(values.bands.child),
+      adolescent: band(values.bands.adolescent),
+      adult: band(values.bands.adult),
+    },
   };
 }

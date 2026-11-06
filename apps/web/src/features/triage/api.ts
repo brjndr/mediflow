@@ -3,6 +3,7 @@ import {
   allergenPageSchema,
   allergyListSchema,
   vitalRangesSchema,
+  vitalRangeTableSchema,
   vitalsPageSchema,
   vitalsSchema,
 } from './schemas';
@@ -14,6 +15,7 @@ import type {
   Vitals,
   VitalsCreate,
   VitalsPage,
+  VitalRangeTable,
   VitalRanges,
 } from './types';
 
@@ -61,7 +63,7 @@ export async function recordVitals(
   return vitalsSchema.parse(requireData(result));
 }
 
-/** The hospital's ranges for this patient, or null when none apply (a child). */
+/** The hospital's ranges for this patient's age band today. */
 export async function fetchVitalRanges(
   patientId: string,
   signal?: AbortSignal,
@@ -71,6 +73,18 @@ export async function fetchVitalRanges(
     signal,
   });
   return vitalRangesSchema.parse(requireData(result));
+}
+
+/** The hospital's ranges for every age band, with the version a save is made from. */
+export async function fetchVitalRangeTable(signal?: AbortSignal): Promise<VitalRangeTable> {
+  const result = await api.GET('/vitals/ranges', { signal });
+  return vitalRangeTableSchema.parse(requireData(result));
+}
+
+/** Saves the table as the ranges from now on; 409 conflict if another save came first. */
+export async function saveVitalRangeTable(body: VitalRangeTable): Promise<VitalRangeTable> {
+  const result = await api.PUT('/vitals/ranges', { body });
+  return vitalRangeTableSchema.parse(requireData(result));
 }
 
 export async function fetchAllergies(

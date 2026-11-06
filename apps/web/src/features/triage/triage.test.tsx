@@ -158,17 +158,17 @@ describe('recording vitals', () => {
     expect(mockVitalsOf(HOSPITAL, 'pth_00103')).toHaveLength(0);
   });
 
-  it('marks nothing for a child, and says why', async () => {
+  it('marks a child against the ranges of the child’s age band', async () => {
     const today = todayIn('Asia/Kolkata');
     editMockPatient('pth_00002', { dob: `${Number(today.slice(0, 4)) - 5}${today.slice(4)}` });
     await openForm('/triage/pth_00002');
-    expect(
-      await screen.findByText(
-        'Normal ranges are for adults: nothing is marked high or low for a patient under 18.',
-      ),
-    ).toBeInTheDocument();
+    // Child ranges (1 to 11 years): a pulse up to 130 is normal, 140 is high.
     await userEvent.type(field(/^Pulse/), '130');
     expect(screen.queryByText('High')).not.toBeInTheDocument();
+    await userEvent.clear(field(/^Pulse/));
+    await userEvent.type(field(/^Pulse/), '140');
+    expect(await screen.findByText('High')).toBeInTheDocument();
+    expect(screen.queryByText(/Normal ranges are for adults/)).not.toBeInTheDocument();
   });
 
   it('corrects a reading with a reason, keeping the original', async () => {

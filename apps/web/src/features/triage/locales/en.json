@@ -23,7 +23,6 @@
     "low": "Low",
     "high": "High"
   },
-  "adultsOnly": "Normal ranges are for adults: nothing is marked high or low for a patient under 18.",
   "rangesError": "Normal ranges could not be loaded: nothing is marked high or low.",
   "summary": {
     "heading": "Triage",
@@ -159,6 +158,37 @@
       "height": "Enter a height from 20 to 250, with at most one decimal.",
       "pressurePair": "Enter both the systolic and the diastolic pressure.",
       "pressureOrder": "The diastolic pressure must be below the systolic."
+    }
+  },
+  "ranges": {
+    "heading": "Normal ranges for vital signs",
+    "description": "A reading is marked High or Low against these ranges for the patient's age on the day it is recorded. A change applies to readings recorded from now on: earlier readings keep the marks they had. Leave both limits empty to stop checking a measure.",
+    "loading": "Loading the ranges…",
+    "failed": "The ranges could not be loaded.",
+    "retry": "Try again",
+    "bands": {
+      "infant": "Infant (under 1 year)",
+      "child": "Child (1 to 11 years)",
+      "adolescent": "Adolescent (12 to 17 years)",
+      "adult": "Adult (18 years and over)"
+    },
+    "measures": {
+      "systolic": "Systolic pressure (mmHg)",
+      "diastolic": "Diastolic pressure (mmHg)",
+      "pulse": "Pulse (beats a minute)",
+      "temperature": "Temperature (°C)",
+      "spo2": "Oxygen saturation (%)"
+    },
+    "low": "Low: below",
+    "high": "High: above",
+    "save": "Save ranges",
+    "reset": "Discard changes",
+    "saved": "Ranges saved. They apply to readings recorded from now on.",
+    "conflictReading": "Someone else changed the ranges first. Reading them again…",
+    "conflict": "Someone else changed the ranges first. What you typed is kept: check it, then save again to replace theirs.",
+    "errors": {
+      "limit": "Enter a number from 0 to 999.9, with at most one decimal, or leave it empty.",
+      "order": "The high limit must be above the low limit."
     }
   },
   "print": {

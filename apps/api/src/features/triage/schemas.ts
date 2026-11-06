@@ -20,6 +20,13 @@ export const LIMITS = {
 export type Measure = keyof typeof LIMITS;
 export const MEASURES = Object.keys(LIMITS) as Measure[];
 
+/** The measurements a hospital's ranges can mark abnormal. */
+export const RANGED = ['systolic', 'diastolic', 'pulse', 'temperature', 'spo2'] as const;
+export type Ranged = (typeof RANGED)[number];
+
+/** Age bands the ranges are kept for, youngest first (#379). */
+export const BANDS = ['infant', 'child', 'adolescent', 'adult'] as const;
+
 export const COMPLAINT_MAX = 500;
 export const CORRECTION_REASON_MAX = 200;
 export const SUBSTANCE_MAX = 100;
@@ -54,6 +61,21 @@ const CorrectionReason = Type.String({
   description: 'Plain text. Required with correctsId, refused without it.',
 });
 
+export const VitalFlags = Type.Object(
+  Object.fromEntries(
+    RANGED.map((name) => [
+      name,
+      Type.Optional(Type.Unsafe<'low' | 'high'>({ type: 'string', enum: ['low', 'high'] })),
+    ]),
+  ),
+  {
+    $id: 'VitalFlags',
+    additionalProperties: false,
+    description:
+      'Which values were outside the normal ranges in effect when the reading was recorded, for the patient’s age band that day. A value that is not listed was within them, or had no range.',
+  },
+);
+
 export const Vitals = Type.Object(
   {
     id: Type.String(),
@@ -78,6 +100,7 @@ export const Vitals = Type.Object(
     chiefComplaint: Type.Optional(ChiefComplaint),
     correctsId: Type.Optional(CorrectsId),
     correctionReason: Type.Optional(CorrectionReason),
+    flags: Type.Optional(ref(VitalFlags)),
   },
   {
     $id: 'Vitals',
@@ -113,7 +136,10 @@ export type VitalsCreate = Static<typeof VitalsCreate>;
 export const VitalsPage = CursorPage(ref(Vitals), { $id: 'VitalsPage' });
 
 export const VitalRange = Type.Object(
-  { low: Type.Optional(Type.Number()), high: Type.Optional(Type.Number()) },
+  {
+    low: Type.Optional(Type.Number({ minimum: 0, maximum: 999.9 })),
+    high: Type.Optional(Type.Number({ minimum: 0, maximum: 999.9 })),
+  },
   {
     $id: 'VitalRange',
     additionalProperties: false,
@@ -121,9 +147,6 @@ export const VitalRange = Type.Object(
       'Values below low or above high are abnormal. A limit that is absent is not checked.',
   },
 );
-
-export const RANGED = ['systolic', 'diastolic', 'pulse', 'temperature', 'spo2'] as const;
-export type Ranged = (typeof RANGED)[number];
 
 export const VitalRanges = Type.Object(
   {
@@ -137,12 +160,43 @@ export const VitalRanges = Type.Object(
       ],
       {
         description:
-          'The hospital’s ranges that apply to this patient, or null when none do (a patient under 18: ranges are for adults until #379).',
+          'The hospital’s ranges for the patient’s age band today, at the hospital’s date. Null is kept for a patient with no known band; today every patient has one.',
       },
     ),
   },
   { $id: 'VitalRanges', additionalProperties: false },
 );
+
+export const VitalRangeSet = Type.Object(
+  Object.fromEntries(RANGED.map((name) => [name, Type.Optional(ref(VitalRange))])),
+  {
+    $id: 'VitalRangeSet',
+    additionalProperties: false,
+    description:
+      'The ranges of one age band. A measure that is absent, or has neither limit, is not checked.',
+  },
+);
+
+export const VitalRangeTable = Type.Object(
+  {
+    version: Type.Integer({
+      minimum: 0,
+      description:
+        'How many times the ranges were saved: 0 while the hospital uses the built-in ones. Sent back with a save, which is refused with 409 conflict if another save came first.',
+    }),
+    bands: Type.Object(Object.fromEntries(BANDS.map((band) => [band, ref(VitalRangeSet)])), {
+      additionalProperties: false,
+      description:
+        'Infant (under 1 year), child (1 to 11), adolescent (12 to 17) and adult (18 and over), by the patient’s age at the hospital’s date on the day of the reading.',
+    }),
+  },
+  {
+    $id: 'VitalRangeTable',
+    additionalProperties: false,
+    description: 'A hospital’s normal ranges for every age band, as they apply now.',
+  },
+);
+export type VitalRangeTableBody = Static<typeof VitalRangeTable>;
 
 export const SEVERITIES = ['mild', 'moderate', 'severe', 'unknown'] as const;
 export const AllergySeverity = Type.Unsafe<(typeof SEVERITIES)[number]>({
@@ -333,6 +387,9 @@ export const TRIAGE_SCHEMAS = [
   VitalsPage,
   VitalRange,
   VitalRanges,
+  VitalRangeSet,
+  VitalRangeTable,
+  VitalFlags,
   AllergySeverity,
   AllergenKind,
   Allergy,

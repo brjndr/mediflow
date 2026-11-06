@@ -112,7 +112,7 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
       <p className="text-sm text-muted-foreground">
         {total === undefined ? '' : t('history.count', { count: total })}
       </p>
-      <RangesNote ranges={ranges.data?.ranges} failed={ranges.isError} />
+      <RangesNote failed={ranges.isError} />
       <DataGrid
         label={t('history.label')}
         columns={columns}
