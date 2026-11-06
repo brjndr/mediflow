@@ -655,3 +655,117 @@ describe('two hospitals', () => {
     }
   });
 });
+
+describe('the hospital’s limit on staff', () => {
+  const setLimit = (tenant: TestTenant, max: number | null) =>
+    pool.query('update tenants set max_users = $2 where id = $1', [tenant.id, max]);
+  const activeAt = async (tenant: TestTenant) =>
+    Number(
+      (
+        await pool.query<{ n: string }>(
+          "select count(*) as n from memberships where tenant_id = $1 and status = 'active'",
+          [tenant.id],
+        )
+      ).rows[0]?.n,
+    );
+  const inviteAs = (token: string, email = freshEmail()) =>
+    send('POST', '/invites', token, { email, name: 'Limit Lena', roleId: 'nurse' });
+
+  beforeEach(async () => {
+    await pool.query('update tenants set max_users = null where id = any($1)', [
+      [hospital.id, clinic.id],
+    ]);
+    await pool.query(
+      'update invites set revoked_at = now() where tenant_id = any($1) and revoked_at is null and accepted_at is null',
+      [[hospital.id, clinic.id]],
+    );
+  });
+  afterAll(async () => {
+    await pool.query('update tenants set max_users = null where id = any($1)', [
+      [hospital.id, clinic.id],
+    ]);
+  });
+
+  it('refuses an invitation that would pass the limit, and does not touch a hospital with none', async () => {
+    const token = await signIn(admin);
+    const members = await activeAt(hospital);
+    await setLimit(hospital, members + 1);
+    // The clinic has no limit and is not affected by the hospital's.
+    await setLimit(clinic, null);
+
+    expect((await inviteAs(token)).statusCode).toBe(201);
+    const refused = await inviteAs(token);
+    expect(errorOf(refused)).toEqual([409, 'user_limit_reached']);
+
+    const clinicToken = await signIn(clinicAdmin);
+    expect((await inviteAs(clinicToken)).statusCode).toBe(201);
+    expect((await inviteAs(clinicToken)).statusCode).toBe(201);
+  });
+
+  it('lets a new invitation to the same address replace the old one at the limit', async () => {
+    const token = await signIn(admin);
+    const email = freshEmail();
+    expect((await inviteAs(token, email)).statusCode).toBe(201);
+    await setLimit(hospital, (await activeAt(hospital)) + 1);
+
+    expect((await inviteAs(token, email)).statusCode).toBe(201);
+    expect(errorOf(await inviteAs(token))).toEqual([409, 'user_limit_reached']);
+  });
+
+  it('frees the place when an invitation is withdrawn', async () => {
+    const token = await signIn(admin);
+    await setLimit(hospital, (await activeAt(hospital)) + 1);
+    const held = await inviteAs(token);
+    expect(held.statusCode).toBe(201);
+    expect(errorOf(await inviteAs(token))).toEqual([409, 'user_limit_reached']);
+
+    const withdrawn = await send('DELETE', `/invites/${held.json<{ id: string }>().id}`, token);
+    if (withdrawn.statusCode === 404) {
+      await pool.query('update invites set revoked_at = now() where id = $1', [
+        held.json<{ id: string }>().id,
+      ]);
+    }
+    expect((await inviteAs(token)).statusCode).toBe(201);
+  });
+
+  it('does not let two requests take the last place together', async () => {
+    const token = await signIn(admin);
+    await setLimit(hospital, (await activeAt(hospital)) + 1);
+
+    const results = await Promise.all([inviteAs(token), inviteAs(token), inviteAs(token)]);
+
+    expect(results.filter((r) => r.statusCode === 201)).toHaveLength(1);
+    expect(results.filter((r) => r.statusCode === 409)).toHaveLength(2);
+  });
+
+  it('refuses to reactivate a member when the hospital is full, but not one already active', async () => {
+    const token = await signIn(admin);
+    expect((await act(nurse, 'deactivate', token)).statusCode).toBe(200);
+    await setLimit(hospital, await activeAt(hospital));
+
+    expect(errorOf(await act(nurse, 'reactivate', token))).toEqual([409, 'user_limit_reached']);
+    expect(await statusOf(nurse, hospital)).toBe('suspended');
+
+    await setLimit(hospital, (await activeAt(hospital)) + 1);
+    expect((await act(nurse, 'reactivate', token)).statusCode).toBe(200);
+    // Already active: changes nothing, so the full hospital does not matter.
+    await setLimit(hospital, await activeAt(hospital));
+    expect((await act(nurse, 'reactivate', token)).statusCode).toBe(200);
+  });
+
+  it('shows the hospital its count and limit, and no one else’s', async () => {
+    await setLimit(hospital, 40);
+    const open = await inviteAs(await signIn(admin));
+    expect(open.statusCode).toBe(201);
+
+    const own = (await get('/tenant', await signIn(admin))).json<{
+      staffLimit: { max: number | null; used: number };
+    }>();
+    expect(own.staffLimit).toEqual({ max: 40, used: (await activeAt(hospital)) + 1 });
+
+    const other = (await get('/tenant', await signIn(clinicAdmin))).json<{
+      staffLimit: { max: number | null; used: number };
+    }>();
+    expect(other.staffLimit).toEqual({ max: null, used: await activeAt(clinic) });
+  });
+});

@@ -4,6 +4,7 @@ import type { FastifyRequest } from 'fastify';
 import { grantsWithin } from '../../core/access/policy.js';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
+import { requireUserPlace } from '../../core/tenancy/limits.js';
 import {
   cutOffSessions,
   isActiveMember,
@@ -195,7 +196,7 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'reactivateStaff',
         tags: ['staff'],
         description:
-          'Makes a deactivated membership active again, in the role it had. Doing it twice changes nothing.' +
+          'Makes a deactivated membership active again, in the role it had. Doing it twice changes nothing. 409 user_limit_reached when that would pass the limit on staff set for the hospital.' +
           CEILING +
           OTHER_HOSPITAL,
         params: UserParams,
@@ -204,6 +205,8 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request) => {
       const target = await memberWithin(request, request.params.userId);
+      // Only a suspended membership takes a place; doing it twice changes nothing.
+      if (target.status !== 'active') await requireUserPlace(request.txClient);
       if (await setMemberStatus(request.txClient, target.user_id, 'active')) {
         request.audit('reactivate', 'membership', target.user_id);
       }
