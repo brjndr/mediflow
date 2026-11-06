@@ -5,6 +5,7 @@ import {
   hospitalInviteSchema,
   hospitalPageSchema,
   hospitalSchema,
+  moduleListSchema,
 } from './schemas';
 import type {
   AuditPage,
@@ -15,6 +16,7 @@ import type {
   HospitalLimitsUpdate,
   HospitalPage,
   HospitalStatus,
+  PlatformModuleList,
 } from './types';
 
 export async function fetchHospitals(
@@ -43,6 +45,12 @@ export async function createHospital(
     params: { header: { 'idempotency-key': idempotencyKey } },
   });
   return hospitalSchema.parse(requireData(result));
+}
+
+/** The ids a hospital can be given, from the API. */
+export async function fetchModules(signal?: AbortSignal): Promise<PlatformModuleList> {
+  const result = await api.GET('/platform/modules', { signal });
+  return moduleListSchema.parse(requireData(result));
 }
 
 export async function fetchHospital(id: string, signal?: AbortSignal): Promise<Hospital> {

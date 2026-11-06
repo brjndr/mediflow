@@ -15,7 +15,7 @@ What was decided for the platform admin screens (M13, PL-01 #125). The API is `a
 - **Query keys carry no hospital id** (`platformKeys`): a platform admin has none, and the cache is dropped whenever a session ends.
 - **The idempotency key** is made once per request as typed (`useCreateHospital`), so a double click or a retry creates one hospital. A `slug_taken` (409) sends the wizard back to the slug with the message on it.
 - **The slug is suggested from the name** until the person types one. A brand colour `themeFromBrandColor` would not theme with (too light for text on white) is refused in the form, instead of being stored and ignored.
-- **Region** is a fixed list (`REGIONS`, only `in`) and **starting modules** a constant (`STARTING_MODULES`, the web registry's flags). The API has no route that lists modules, so the web constant stays (a proposed API issue would replace it).
+- **Region** is a fixed list (`REGIONS`, only `in`) and the **modules offered** come from `GET /platform/modules` (`useModules`, #468), so a module added to the API appears with no web change except its name. Names are `platform.modules.<id>` in `common.json`; an id with no name is shown as the id (`useModuleName`).
 - Strings are still in core `common.json` under `platform`.
 
 ## Modules and limits (PL-03, #127)

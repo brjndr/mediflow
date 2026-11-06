@@ -1,33 +1,4 @@
-/**
- * The modules a new hospital can start with: the feature flags of the web app's registered
- * features. PL-03 (#127) replaces this with the list the API gives. A module not in the list is
- * switched on later from the hospital's own page.
- */
-export const STARTING_MODULES = [
-  'patients',
-  'departments',
-  'doctors',
-  'staff',
-  'appointments',
-  'queue',
-  'triage',
-  'clinical',
-  'laboratory',
-  'radiology',
-  'inventory',
-  'pharmacy',
-  'purchasing',
-  'billing',
-  'reports',
-  'services',
-  'drugs',
-  'lab_tests',
-  'wards',
-  'codes',
-  'templates',
-  'imports',
-  'notices',
-] as const;
+import { useTranslation } from 'react-i18next';
 
 /** The regions a hospital's data can live in. One for now; add a code here for another. */
 export const REGIONS = ['in'] as const;
@@ -35,3 +6,9 @@ export const REGIONS = ['in'] as const;
 /** The authenticator's two switches, kept with the module flags (`mfa_required` needs `mfa`). */
 export const MFA_SWITCH = 'mfa';
 export const MFA_REQUIRED_SWITCH = 'mfa_required';
+
+/** A module's display name; an id the web app has no name for is shown as it is. */
+export function useModuleName() {
+  const { t, i18n } = useTranslation();
+  return (id: string) => (i18n.exists(`platform.modules.${id}`) ? t(`platform.modules.${id}`) : id);
+}

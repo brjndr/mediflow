@@ -6,6 +6,7 @@ import {
   fetchAdminInvites,
   fetchHospital,
   fetchHospitals,
+  fetchModules,
   inviteHospitalAdmin,
   offboardHospital,
   reactivateHospital,
@@ -26,6 +27,7 @@ export const platformKeys = {
   hospitals: () => [...platformKeys.all, 'hospitals'] as const,
   hospital: (id: string) => [...platformKeys.hospitals(), 'detail', id] as const,
   invites: (id: string) => [...platformKeys.hospital(id), 'invites'] as const,
+  modules: () => [...platformKeys.all, 'modules'] as const,
   audit: (filters: unknown) => [...platformKeys.all, 'audit', filters] as const,
   hospitalList: (filters: unknown) => [...platformKeys.hospitals(), 'list', filters] as const,
 };
@@ -68,6 +70,16 @@ export function useCreateHospital() {
       attempt.current = undefined;
       return queryClient.invalidateQueries({ queryKey: platformKeys.hospitals() });
     },
+  });
+}
+
+/** The modules the API offers: the ids only; names are the web app's. Rarely changes. */
+export function useModules() {
+  return useQuery({
+    queryKey: platformKeys.modules(),
+    queryFn: ({ signal }) => fetchModules(signal),
+    staleTime: 5 * 60_000,
+    select: (list) => list.items.filter((item) => item.kind === 'module').map((item) => item.id),
   });
 }
 

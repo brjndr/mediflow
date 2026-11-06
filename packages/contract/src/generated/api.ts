@@ -3912,6 +3912,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The ids a hospital can be given through `PUT /platform/hospitals/{id}/features` and at creation: every module that declares permissions, and the two authenticator switches (`kind: switch`). Display names are the web app’s. Nothing about any hospital. */
+        get: operations["platformListModules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/hospitals/{id}": {
         parameters: {
             query?: never;
@@ -7801,6 +7818,18 @@ export interface components {
             url: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        PlatformModule: {
+            /** @description The id `PUT .../features` and the create route accept. */
+            id: string;
+            /**
+             * @description `module`: a feature a hospital can be given. `switch`: the authenticator’s `mfa` or `mfa_required`, which are not modules.
+             * @enum {string}
+             */
+            kind: "module" | "switch";
+        };
+        PlatformModuleList: {
+            items: components["schemas"]["PlatformModule"][];
         };
         PlatformHospital: {
             /** Format: uuid */
@@ -29155,6 +29184,53 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformListModules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformModuleList"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

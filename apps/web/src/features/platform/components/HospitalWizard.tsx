@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { errorMessageKey } from '@/shared/api';
 import { themeFromBrandColor } from '@/shared/lib/theme';
 import { Button } from '@/shared/ui/button';
 import {
@@ -13,7 +14,8 @@ import {
   useSetFieldValue,
   useZodForm,
 } from '@/shared/ui/form';
-import { REGIONS, STARTING_MODULES } from '../modules';
+import { useModules } from '../hooks/use-hospitals';
+import { REGIONS, useModuleName } from '../modules';
 import { hospitalFormSchema, slugFrom, type HospitalFormValues } from '../schemas';
 
 const STEPS = ['identity', 'locale', 'modules'] as const;
@@ -202,6 +204,8 @@ function ModulesStep() {
   const { t } = useTranslation();
   const chosen = (useFieldValue('features') as string[] | undefined) ?? [];
   const set = useSetFieldValue();
+  const modules = useModules();
+  const moduleName = useModuleName();
   const toggle = (module: string, on: boolean) =>
     set('features', on ? [...chosen, module] : chosen.filter((id) => id !== module));
   return (
@@ -209,8 +213,13 @@ function ModulesStep() {
       <fieldset className="flex flex-col gap-1">
         <legend className="text-sm font-medium">{t('platform.create.modules')}</legend>
         <p className="mb-1 text-xs text-muted-foreground">{t('platform.create.modulesHint')}</p>
+        {modules.isError && (
+          <p role="alert" className="text-sm text-destructive">
+            {t(errorMessageKey(modules.error))}
+          </p>
+        )}
         <div className="grid gap-x-4 sm:grid-cols-2">
-          {STARTING_MODULES.map((module) => (
+          {(modules.data ?? []).map((module) => (
             <label
               key={module}
               className="flex min-h-8 items-center gap-2 text-sm pointer-coarse:min-h-11"
@@ -221,7 +230,7 @@ function ModulesStep() {
                 checked={chosen.includes(module)}
                 onChange={(event) => toggle(module, event.target.checked)}
               />
-              {t(`platform.modules.${module}`)}
+              {moduleName(module)}
             </label>
           ))}
         </div>
@@ -246,6 +255,7 @@ function ModulesStep() {
 
 function Review() {
   const { t } = useTranslation();
+  const moduleName = useModuleName();
   const { getValues } = useFormContext<HospitalFormValues>();
   const v = getValues();
   const none = t('platform.create.none');
@@ -263,7 +273,7 @@ function Review() {
     [t('platform.create.logo'), v.themeLogoUrl || none],
     [
       t('platform.create.modules'),
-      v.features.length ? v.features.map((id) => t(`platform.modules.${id}`)).join(', ') : none,
+      v.features.length ? v.features.map((id) => moduleName(id)).join(', ') : none,
     ],
     [t('platform.create.maxUsers'), v.maxUsers || t('platform.create.noLimit')],
     [t('platform.create.storageMb'), v.storageMb || t('platform.create.noLimit')],

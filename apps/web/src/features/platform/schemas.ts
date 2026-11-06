@@ -8,6 +8,7 @@ import type {
   HospitalInvite,
   HospitalInvitePage,
   HospitalPage,
+  PlatformModuleList,
 } from './types';
 
 /** Responses are validated where they enter the app. */
@@ -254,3 +255,7 @@ export function offboardSchema(slug: string) {
   });
 }
 export type OffboardValues = z.infer<ReturnType<typeof offboardSchema>>;
+
+export const moduleListSchema: z.ZodType<PlatformModuleList> = z.object({
+  items: z.array(z.object({ id: z.string(), kind: z.enum(['module', 'switch']) })),
+});

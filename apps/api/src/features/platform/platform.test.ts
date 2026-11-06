@@ -363,6 +363,40 @@ describe('creating a hospital', () => {
   });
 });
 
+describe('the modules a hospital can be given', () => {
+  it('lists exactly the ids the features route accepts, switches marked', async () => {
+    const response = await call('GET', '/platform/modules');
+    expect(response.statusCode).toBe(200);
+    const { items } = response.json<{ items: { id: string; kind: string }[] }>();
+    expect(items.filter((i) => i.kind === 'switch').map((i) => i.id)).toEqual([
+      'mfa',
+      'mfa_required',
+    ]);
+    expect(items.length).toBeGreaterThan(2);
+
+    // Every listed id is accepted, and a hospital can be created with all of them.
+    const hospital = await createHospital({ features: items.map((i) => i.id) });
+    const put = await call('PUT', `/platform/hospitals/${hospital.id}/features`, {
+      payload: { features: items.map((i) => ({ feature: i.id, enabled: false })) },
+    });
+    expect(put.statusCode, put.body).toBe(200);
+
+    // Nothing but ids and kinds.
+    for (const item of items) expect(Object.keys(item).sort()).toEqual(['id', 'kind']);
+  });
+
+  it('answers a platform admin, and refuses no session and hospital staff', async () => {
+    expect((await call('GET', '/platform/modules')).statusCode).toBe(200);
+    expect((await app.inject({ url: '/platform/modules' })).statusCode).toBe(401);
+    const hospital = await createHospital();
+    const staff = await newUser('Modules Staff');
+    await pool.query('select seed_built_in_roles($1)', [hospital.id]);
+    await addMembership(pool, staff, { id: hospital.id, slug: hospital.slug, name: 'x' }, 'admin');
+    const refused = await call('GET', '/platform/modules', { as: as(hospital.id, staff.id) });
+    expect(refused.statusCode).toBe(403);
+  });
+});
+
 describe('reading hospitals', () => {
   it('lists them newest first a page at a time, and filters', async () => {
     const tag = randomBytes(3).toString('hex');

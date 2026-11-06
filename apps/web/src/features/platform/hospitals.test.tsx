@@ -64,7 +64,7 @@ describe('hospitals (platform)', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }));
 
     expect(await screen.findByRole('heading', { name: 'Modules and limits' })).toBeInTheDocument();
-    await user.click(screen.getByRole('checkbox', { name: 'Patients' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Patients' }));
     expect(screen.getByRole('heading', { name: 'Check before creating' })).toBeInTheDocument();
     await expectNoAxeViolations();
     await user.click(screen.getByRole('button', { name: 'Create hospital' }));

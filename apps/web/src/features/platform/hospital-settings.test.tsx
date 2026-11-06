@@ -1,6 +1,8 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+import { server } from '@/mocks/node';
 import { setMockMfa, signIn, USER_IDS } from '@/mocks/db';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
@@ -22,9 +24,30 @@ describe('hospital modules and limits (platform)', () => {
     expect(
       await screen.findByRole('heading', { name: 'Riverside Clinic', level: 1 }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: 'Patients' })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: 'Laboratory' })).not.toBeChecked();
+    expect(await screen.findByRole('checkbox', { name: 'Patients' })).toBeChecked();
+    expect(await screen.findByRole('checkbox', { name: 'Laboratory' })).not.toBeChecked();
     await expectNoAxeViolations();
+  });
+
+  it('shows a module the API lists that the web app has no name for, by its id', async () => {
+    asPlatformAdmin();
+    server.use(
+      http.get('*/api/platform/modules', () =>
+        HttpResponse.json({
+          items: [
+            { id: 'patients', kind: 'module' },
+            { id: 'new_thing', kind: 'module' },
+            { id: 'mfa', kind: 'switch' },
+          ],
+        }),
+      ),
+    );
+    renderApp({ entry: '/platform/hospitals/hosp_city' });
+
+    expect(await screen.findByRole('checkbox', { name: 'new_thing' })).not.toBeChecked();
+    expect(await screen.findByRole('checkbox', { name: 'Patients' })).toBeChecked();
+    // Only what the API lists, so no stale web list: Laboratory is not offered.
+    expect(screen.queryByRole('checkbox', { name: 'Laboratory' })).not.toBeInTheDocument();
   });
 
   it('switches a module on and keeps it after a reload of the hospital', async () => {

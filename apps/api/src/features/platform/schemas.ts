@@ -203,7 +203,26 @@ export const AuditQuery = Type.Object({
 });
 export type AuditQuery = Static<typeof AuditQuery>;
 
+export const PlatformModule = Type.Object(
+  {
+    id: Type.String({ description: 'The id `PUT .../features` and the create route accept.' }),
+    kind: StringEnum(['module', 'switch'], {
+      description:
+        '`module`: a feature a hospital can be given. `switch`: the authenticator’s `mfa` or `mfa_required`, which are not modules.',
+    }),
+  },
+  { $id: 'PlatformModule' },
+);
+export type PlatformModule = Static<typeof PlatformModule>;
+
+export const PlatformModuleList = Type.Object(
+  { items: Type.Array(ref(PlatformModule)) },
+  { $id: 'PlatformModuleList' },
+);
+
 export const PLATFORM_SCHEMAS = [
+  PlatformModule,
+  PlatformModuleList,
   PlatformHospital,
   PlatformHospitalPage,
   PlatformInvite,
