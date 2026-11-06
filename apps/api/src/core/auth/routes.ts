@@ -130,7 +130,7 @@ export const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['auth'],
         description:
           'Bootstraps the app in one request: the signed-in user, the active tenant with its config, and the effective access policy. Private per session, never CDN-cached. Session routes ignore X-Tenant-ID, so a stale tab can always reload its session.',
-        response: { 200: ref(Session), ...errors(401) },
+        response: { 200: ref(Session), ...errors(401, 429) },
       },
     },
     async (request, reply) => {
@@ -154,7 +154,7 @@ export const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
         description:
           'Rebinds the session to another hospital the user belongs to and returns the new session. Affects every tab.',
         body: Type.Object({ tenantId: Type.String({ minLength: 1, maxLength: 64 }) }),
-        response: { 200: ref(Session), ...errors(400, 401, 403) },
+        response: { 200: ref(Session), ...errors(400, 401, 403, 429) },
       },
     },
     async (request, reply) => {

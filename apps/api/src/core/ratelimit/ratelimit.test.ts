@@ -25,6 +25,7 @@ beforeAll(async () => {
     config: { RATE_LIMIT_USER_PER_MINUTE: 3, RATE_LIMIT_TENANT_PER_MINUTE: 8 },
     extend(instance) {
       instance.get('/ping', { config: { permissions: [] } }, async () => ({ ok: true }));
+      instance.get('/me', { config: { access: 'session' } }, async () => ({ ok: true }));
       instance.get('/open', { config: { access: 'public' } }, async () => ({ ok: true }));
       instance.post('/pay', { config: { permissions: [], idempotent: true } }, async () => {
         payments++;
@@ -121,5 +122,17 @@ describe('MemoryRateLimiter', () => {
     expect((await limiter.hit('k', 1, 60_000)).retryAfterSeconds).toBe(30);
     now += 30_000;
     expect((await limiter.hit('k', 1, 60_000)).allowed).toBe(true);
+  });
+});
+
+describe('session routes', () => {
+  it('limits a signed-in user on a route without a hospital, apart from the hospital routes', async () => {
+    const one = tenants[0] as TestTenant;
+    const me = () => app.inject({ method: 'GET', url: '/me', headers: as(one.id, 'user_session') });
+    for (let hit = 0; hit < 3; hit++) expect((await me()).statusCode).toBe(200);
+    const refused = await me();
+    expect(refused.statusCode).toBe(429);
+    expect(Number(refused.headers['retry-after'])).toBeGreaterThanOrEqual(1);
+    expect((await ping(one, 'user_session')).statusCode).toBe(200);
   });
 });
