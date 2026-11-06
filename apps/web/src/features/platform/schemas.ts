@@ -1,7 +1,14 @@
 import { z } from 'zod';
 import { themeFromBrandColor } from '@/shared/lib/theme';
 import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
-import type { Hospital, HospitalInvite, HospitalInvitePage, HospitalPage } from './types';
+import type {
+  AuditEntry,
+  AuditPage,
+  Hospital,
+  HospitalInvite,
+  HospitalInvitePage,
+  HospitalPage,
+} from './types';
 
 /** Responses are validated where they enter the app. */
 export const hospitalSchema: z.ZodType<Hospital> = z.object({
@@ -48,6 +55,26 @@ export const hospitalInvitePageSchema: z.ZodType<HospitalInvitePage> = z.object(
   nextCursor: z.string().nullable(),
   total: z.number().int().optional(),
 });
+
+export const auditEntrySchema: z.ZodType<AuditEntry> = z.object({
+  id: z.string(),
+  at: z.string(),
+  actorId: z.string(),
+  action: z.string(),
+  entity: z.string(),
+  entityId: z.string().nullable(),
+  hospitalId: z.string().nullable(),
+  detail: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
+});
+
+export const auditPageSchema: z.ZodType<AuditPage> = z.object({
+  items: z.array(auditEntrySchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+/** What an actor filter may hold: an id as the server gives them, or nothing. */
+export const ACTOR_ID = /^[\w-]{8,64}$/;
 
 export const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const HEX_COLOUR = /^#[0-9a-fA-F]{6}$/;

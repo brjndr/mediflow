@@ -117,3 +117,11 @@ test('a hospital is suspended and reactivated with the keyboard, after a questio
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 });
+
+test('the audit trail fits the screen and passes axe', async ({ page }) => {
+  await page.goto('/platform/audit?mockUser=user_platform_admin&mockMfa=on');
+  await expect(page.getByRole('heading', { name: 'Audit trail', level: 1 })).toBeVisible();
+  await expect(page.getByText('First admin invited').first()).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});

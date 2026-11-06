@@ -142,7 +142,45 @@
   },
   "platform": {
     "brand": "Platform administration",
-    "nav": { "label": "Platform navigation", "overview": "Overview", "hospitals": "Hospitals" },
+    "nav": {
+      "label": "Platform navigation",
+      "overview": "Overview",
+      "hospitals": "Hospitals",
+      "audit": "Audit trail"
+    },
+    "audit": {
+      "title": "Audit trail",
+      "description": "What platform administrators did, newest first. Ids and codes only, never a hospital's data.",
+      "hospital": "Hospital",
+      "allHospitals": "All hospitals",
+      "actor": "Actor id",
+      "actorHint": "Paste the id of a platform administrator to see only what they did.",
+      "actorInvalid": "That is not an id.",
+      "count": "{{count}} actions",
+      "empty": "No actions match.",
+      "gridLabel": "Platform actions",
+      "otherHospital": "Removed hospital",
+      "none": "None",
+      "columns": {
+        "at": "When",
+        "action": "Action",
+        "hospital": "Hospital",
+        "actor": "Actor",
+        "detail": "Detail"
+      },
+      "actions": {
+        "hospital_create": "Hospital created",
+        "hospital_update": "Hospital changed",
+        "hospital_feature_on": "Module switched on",
+        "hospital_feature_off": "Module switched off",
+        "hospital_admin_invited": "First admin invited",
+        "hospital_admin_invite_revoked": "Invite withdrawn",
+        "hospital_suspend": "Hospital suspended",
+        "hospital_reactivate": "Hospital reactivated",
+        "hospital_offboard": "Hospital offboarded",
+        "hospital_offboard_swept": "Offboarding sweep ran"
+      }
+    },
     "home": {
       "title": "Platform administration",
       "description": "Hospitals, their modules and the platform audit trail are managed from here. No hospital's patient data is reachable from this area."

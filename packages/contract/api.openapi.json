@@ -11140,8 +11140,24 @@
             "type": ["null", "string"]
           },
           "detail": {
+            "description": "Ids and codes only, e.g. which module was switched.",
             "type": "object",
-            "description": "Ids and codes only, e.g. which module was switched."
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
           }
         }
       },
@@ -39486,6 +39502,15 @@
             },
             "in": "query",
             "name": "hospitalId",
+            "required": false
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "actorId",
             "required": false
           }
         ],

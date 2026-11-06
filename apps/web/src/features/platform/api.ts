@@ -1,11 +1,13 @@
 import { api, requireData } from '@/shared/api';
 import {
+  auditPageSchema,
   hospitalInvitePageSchema,
   hospitalInviteSchema,
   hospitalPageSchema,
   hospitalSchema,
 } from './schemas';
 import type {
+  AuditPage,
   Hospital,
   HospitalCreate,
   HospitalInvite,
@@ -120,4 +122,20 @@ export async function offboardHospital(id: string, deleteAfterDays: number): Pro
     body: { deleteAfterDays },
   });
   return hospitalSchema.parse(requireData(result));
+}
+
+export async function fetchAudit(
+  {
+    cursor,
+    limit,
+    hospitalId,
+    actorId,
+  }: { cursor?: string; limit: number; hospitalId?: string; actorId?: string },
+  signal?: AbortSignal,
+): Promise<AuditPage> {
+  const result = await api.GET('/platform/audit', {
+    params: { query: { cursor, limit, hospitalId, actorId } },
+    signal,
+  });
+  return auditPageSchema.parse(requireData(result));
 }

@@ -7,6 +7,53 @@ type Hospital = components['schemas']['PlatformHospital'];
 type HospitalPage = components['schemas']['PlatformHospitalPage'];
 type Invite = components['schemas']['PlatformInvite'];
 type InvitePage = components['schemas']['PlatformInvitePage'];
+type AuditEntry = components['schemas']['PlatformAuditEntry'];
+type AuditPage = components['schemas']['PlatformAuditPage'];
+
+/** Older actions, newest first, by two platform admins. */
+const AUDIT: AuditEntry[] = [
+  [
+    'a4',
+    '2026-03-02T08:05:00Z',
+    'user_platform_admin',
+    'hospital.admin_invited',
+    'hosp_clinic',
+    { role: 'admin' },
+  ],
+  [
+    'a3',
+    '2026-03-02T08:00:00Z',
+    'user_platform_admin',
+    'hospital.create',
+    'hosp_clinic',
+    { modules: 2 },
+  ],
+  [
+    'a2',
+    '2026-01-10T09:00:00Z',
+    'user_platform_two',
+    'hospital.feature_on',
+    'hosp_city',
+    { feature: 'patients' },
+  ],
+  [
+    'a1',
+    '2026-01-10T08:00:00Z',
+    'user_platform_two',
+    'hospital.create',
+    'hosp_city',
+    { modules: 1 },
+  ],
+].map(([id, at, actorId, action, hospitalId, detail]) => ({
+  id: id as string,
+  at: at as string,
+  actorId: actorId as string,
+  action: action as string,
+  entity: 'hospital',
+  entityId: hospitalId as string,
+  hospitalId: hospitalId as string,
+  detail: detail as AuditEntry['detail'],
+}));
 
 function seed(): Hospital[] {
   const base = {
@@ -93,6 +140,25 @@ function changeStatus(
 }
 
 export const platformHandlers = [
+  http.get('*/api/platform/audit', ({ request }) => {
+    const denied = platformOnly();
+    if (denied) return denied;
+    const url = new URL(request.url);
+    const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 25), 1), 100);
+    const cursor = url.searchParams.get('cursor');
+    const hospitalId = url.searchParams.get('hospitalId');
+    const actorId = url.searchParams.get('actorId');
+    const visible = AUDIT.filter((e) => !hospitalId || e.hospitalId === hospitalId).filter(
+      (e) => !actorId || e.actorId === actorId,
+    );
+    const start = cursor ? visible.findIndex((e) => e.id === cursor) : 0;
+    if (start < 0) return error(400, 'invalid_cursor', 'Unknown cursor');
+    return HttpResponse.json<AuditPage>({
+      items: visible.slice(start, start + limit),
+      nextCursor: visible[start + limit]?.id ?? null,
+    });
+  }),
+
   http.get('*/api/platform/hospitals', ({ request }) => {
     const denied = platformOnly();
     if (denied) return denied;

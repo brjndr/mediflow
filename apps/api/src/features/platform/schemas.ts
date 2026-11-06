@@ -184,10 +184,11 @@ export const PlatformAuditEntry = Type.Object(
     entity: Type.String(),
     entityId: nullableString(),
     hospitalId: nullableString(),
-    detail: Type.Unsafe<Record<string, string | number | boolean | null>>({
-      type: 'object',
-      description: 'Ids and codes only, e.g. which module was switched.',
-    }),
+    detail: Type.Record(
+      Type.String(),
+      Type.Union([Type.String(), Type.Number(), Type.Boolean(), Type.Null()]),
+      { description: 'Ids and codes only, e.g. which module was switched.' },
+    ),
   },
   { $id: 'PlatformAuditEntry' },
 );
@@ -198,6 +199,7 @@ export const PlatformAuditPage = CursorPage(ref(PlatformAuditEntry), { $id: 'Pla
 export const AuditQuery = Type.Object({
   ...CursorQuery.properties,
   hospitalId: Type.Optional(Type.String({ format: 'uuid' })),
+  actorId: Type.Optional(Type.String({ format: 'uuid' })),
 });
 export type AuditQuery = Static<typeof AuditQuery>;
 

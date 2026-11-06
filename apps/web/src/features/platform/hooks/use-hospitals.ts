@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useRef } from 'react';
 import {
   createHospital,
+  fetchAudit,
   fetchAdminInvites,
   fetchHospital,
   fetchHospitals,
@@ -25,16 +26,25 @@ export const platformKeys = {
   hospitals: () => [...platformKeys.all, 'hospitals'] as const,
   hospital: (id: string) => [...platformKeys.hospitals(), 'detail', id] as const,
   invites: (id: string) => [...platformKeys.hospital(id), 'invites'] as const,
+  audit: (filters: unknown) => [...platformKeys.all, 'audit', filters] as const,
   hospitalList: (filters: unknown) => [...platformKeys.hospitals(), 'list', filters] as const,
 };
 
 export const HOSPITALS_PAGE_SIZE = 25;
 
-export function useHospitals({ status, q }: { status?: HospitalStatus; q?: string }) {
+export function useHospitals({
+  status,
+  q,
+  limit = HOSPITALS_PAGE_SIZE,
+}: {
+  status?: HospitalStatus;
+  q?: string;
+  limit?: number;
+}) {
   return useInfiniteQuery({
-    queryKey: platformKeys.hospitalList({ status, q, limit: HOSPITALS_PAGE_SIZE }),
+    queryKey: platformKeys.hospitalList({ status, q, limit }),
     queryFn: ({ pageParam, signal }) =>
-      fetchHospitals({ cursor: pageParam, limit: HOSPITALS_PAGE_SIZE, status, q }, signal),
+      fetchHospitals({ cursor: pageParam, limit, status, q }, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
@@ -151,4 +161,16 @@ export function useReactivateHospital(id: string) {
 
 export function useOffboardHospital(id: string) {
   return useStatusChange(id, (deleteAfterDays: number) => offboardHospital(id, deleteAfterDays));
+}
+
+export const AUDIT_PAGE_SIZE = 50;
+
+export function useAudit({ hospitalId, actorId }: { hospitalId?: string; actorId?: string }) {
+  return useInfiniteQuery({
+    queryKey: platformKeys.audit({ hospitalId, actorId, limit: AUDIT_PAGE_SIZE }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchAudit({ cursor: pageParam, limit: AUDIT_PAGE_SIZE, hospitalId, actorId }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
 }

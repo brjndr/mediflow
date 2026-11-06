@@ -43,3 +43,9 @@ What was decided for the platform admin screens (M13, PL-01 #125). The API is `a
 - **Focus:** the button that asked often goes away (Suspend becomes Reactivate), so after a change focus goes to the status line (`focusIfLost`), which also says what was done.
 - **Suspended users see the suspended page** through `tenancy/SuspendedPage` (the tenancy hook answers 403 `tenant_suspended`); `app/layout.test.tsx` covers it, including a suspension during an open session.
 - Mock: the three routes follow the API's transitions; suspend and offboard withdraw the hospital's open invites.
+
+## Audit trail (PL-06, #130)
+
+- **Screen** `/platform/audit` (`routes/AuditView`): `DataGrid` over `GET /platform/audit` by cursor (50 a page), newest first. The nav item is `audit` in `nav.ts`; `e2e/platform.spec.ts` walks it.
+- **Filters:** a hospital (a select over the first 100 hospitals; rows of a hospital not in that list read "Removed hospital") and an actor. `actorId` is an additive query parameter of the API. The platform role has no grant on `users`, so an actor is shown and searched **by id**, not by name; an input that is not an id is refused in words and not sent.
+- Action codes (`hospital.create`) are translated through `platform.audit.actions.<code with _ for .>`; an unknown code is shown as it is. `detail` holds ids and codes only and is shown as `key: value`.

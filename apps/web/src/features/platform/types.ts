@@ -18,3 +18,7 @@ export interface HospitalLimitsUpdate {
 /** An invite to a hospital's first admin that nobody has accepted or withdrawn. */
 export type HospitalInvite = components['schemas']['PlatformInvite'];
 export type HospitalInvitePage = components['schemas']['PlatformInvitePage'];
+
+/** One thing a platform admin did: ids and codes only, never a value. */
+export type AuditEntry = components['schemas']['PlatformAuditEntry'];
+export type AuditPage = components['schemas']['PlatformAuditPage'];
