@@ -19,6 +19,12 @@ export const StaffMember = Type.Object(
     roleId: Type.String(),
     roleName: Type.String(),
     status: StringEnum(STAFF_STATUSES),
+    delivery: Type.Optional(
+      StringEnum(['sent', 'sending', 'failed'] as const, {
+        description:
+          'Invitations only: whether the email was sent, is still being tried, or could not be sent (its last attempt failed, or it was never sent within the hour). Never the error or the address it went to.',
+      }),
+    ),
   },
   {
     $id: 'StaffMember',
@@ -38,6 +44,11 @@ export const StaffRole = Type.Object(
 export const StaffRoleList = Type.Object(
   { items: Type.Array(ref(StaffRole)) },
   { $id: 'StaffRoleList' },
+);
+
+export const InviteResent = Type.Object(
+  { id: Type.String() },
+  { $id: 'InviteResent', description: 'The invitation that is being sent again.' },
 );
 
 export const StaffSessionsRevoked = Type.Object(
@@ -69,4 +80,5 @@ export const STAFF_SCHEMAS = [
   StaffRole,
   StaffRoleList,
   StaffSessionsRevoked,
+  InviteResent,
 ] as const;

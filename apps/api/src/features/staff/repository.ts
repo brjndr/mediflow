@@ -15,9 +15,20 @@ export interface PersonRow {
   role_id: string;
   role_name: string;
   status: StaffStatus;
+  /** For an invitation only: how its email went. Null for a member. */
+  delivery: InviteDelivery | null;
   /** The name as the database lower-cases it, which is what the list is ordered by. */
   name_lower: string;
 }
+
+export type InviteDelivery = 'sent' | 'sending' | 'failed';
+
+/**
+ * How long an email may stay unsent before it counts as failed: the job's retries run for about
+ * half an hour, so an invitation still unsent after this has lost its job (or predates the
+ * columns) and needs sending again.
+ */
+const DELIVERY_GRACE = '1 hour';
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -49,15 +60,21 @@ function decodeCursor(cursor: string): Cursor | null {
 /** The hospital's members of one status, or its open invitations, as one shape. */
 const PEOPLE: Record<StaffStatus, string> = {
   active: `select m.user_id as id, m.tenant_id, u.name, u.email, m.role_id, r.name as role_name,
-                  'active' as status
+                  'active' as status, null::text as delivery
            from memberships m join users u on u.id = m.user_id join roles r on r.id = m.role_id
            where m.status = 'active'`,
   deactivated: `select m.user_id as id, m.tenant_id, u.name, u.email, m.role_id,
-                       r.name as role_name, 'deactivated' as status
+                       r.name as role_name, 'deactivated' as status,
+                       null::text as delivery
                 from memberships m join users u on u.id = m.user_id join roles r on r.id = m.role_id
                 where m.status = 'suspended'`,
   invited: `select i.id, i.tenant_id, i.name, i.email, i.role_id, r.name as role_name,
-                   'invited' as status
+                   'invited' as status,
+                   case when i.email_failed_at is not null then 'failed'
+                        when i.email_sent_at is not null then 'sent'
+                        when coalesce(i.email_queued_at, i.created_at)
+                             < now() - interval '${DELIVERY_GRACE}' then 'failed'
+                        else 'sending' end as delivery
             from invites i join roles r on r.id = i.role_id
             where i.accepted_at is null and i.revoked_at is null and i.expires_at > now()`,
 };
@@ -239,10 +256,10 @@ export async function revokeInvitesSentBy(client: pg.ClientBase, userId: string)
 export async function lockOpenInvite(
   client: pg.ClientBase,
   inviteId: string,
-): Promise<{ id: string; role_id: string } | null> {
+): Promise<{ id: string; tenant_id: string; role_id: string } | null> {
   if (!UUID.test(inviteId)) return null;
-  const { rows } = await client.query<{ id: string; role_id: string }>(
-    `select id, role_id from invites
+  const { rows } = await client.query<{ id: string; tenant_id: string; role_id: string }>(
+    `select id, tenant_id, role_id from invites
      where id = $1 and accepted_at is null and revoked_at is null and expires_at > now()
      for update`,
     [inviteId],
@@ -252,4 +269,13 @@ export async function lockOpenInvite(
 
 export async function revokeInvite(client: pg.ClientBase, inviteId: string): Promise<void> {
   await client.query('update invites set revoked_at = now() where id = $1', [inviteId]);
+}
+
+/** An invitation about to be sent again: nothing is known of its email until the new job runs. */
+export async function markInviteRequeued(client: pg.ClientBase, inviteId: string): Promise<void> {
+  await client.query(
+    `update invites set email_queued_at = now(), email_sent_at = null, email_failed_at = null
+     where id = $1`,
+    [inviteId],
+  );
 }

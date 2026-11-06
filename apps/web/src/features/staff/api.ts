@@ -1,5 +1,6 @@
 import { api, requireData } from '@/shared/api';
 import {
+  inviteResentSchema,
   inviteSchema,
   sessionsRevokedSchema,
   staffMemberSchema,
@@ -64,6 +65,17 @@ export async function sendInvite(body: InviteRequest, idempotencyKey: string): P
     params: { header: { 'idempotency-key': idempotencyKey } },
   });
   return inviteSchema.parse(requireData(result));
+}
+
+/**
+ * Sends an open invitation again: a new job and a new link, the old link stops working. The key
+ * makes a repeat of the same request send one email, not two.
+ */
+export async function resendInvite(inviteId: string, idempotencyKey: string): Promise<void> {
+  const result = await api.POST('/invites/{inviteId}/resend', {
+    params: { path: { inviteId }, header: { 'idempotency-key': idempotencyKey } },
+  });
+  inviteResentSchema.parse(requireData(result));
 }
 
 /** Withdraws an open invitation: its link stops working. */

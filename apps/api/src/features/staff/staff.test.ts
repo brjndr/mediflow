@@ -15,6 +15,7 @@ import {
   type TestTenant,
   type TestUser,
 } from '../../../test/helpers.js';
+import { INVITE_EMAIL } from '../../core/auth/emails.js';
 import { MemoryQueue } from '../../core/jobs/queue.js';
 import { createMemoryNotifier } from '../../core/notifier/notifier.js';
 
@@ -53,6 +54,7 @@ interface Person {
   roleId: string;
   roleName: string;
   status: string;
+  delivery?: string;
 }
 interface Page {
   items: Person[];
@@ -264,6 +266,7 @@ describe('the staff list', () => {
         roleId: 'nurse',
         roleName: 'Nurse',
         status: 'invited',
+        delivery: 'sent',
       },
     ]);
   });
@@ -539,6 +542,228 @@ describe('withdrawing an invitation', () => {
     }
     const { rows } = await pool.query('select revoked_at from invites where id = $1', [theirs.id]);
     expect(rows[0]).toEqual({ revoked_at: null });
+  });
+});
+
+const deliveryOf = async (token: string, sent: { email: string }) =>
+  (await get(`/staff?status=invited&q=${encodeURIComponent(sent.email)}`, token))
+    .json<Page>()
+    .items.map((item) => item.delivery);
+
+/** An invitation whose email is queued but not yet sent, as the request leaves it. */
+async function invitePending(token: string) {
+  const email = freshEmail();
+  const response = await send('POST', '/invites', token, {
+    email,
+    name: 'Invited Ira',
+    roleId: 'nurse',
+  });
+  if (response.statusCode !== 201) throw new Error('invite failed in test setup');
+  return { id: response.json<{ id: string }>().id, email };
+}
+
+const resend = (id: string, token: string, key?: string) =>
+  app.inject({
+    method: 'POST',
+    url: `/invites/${id}/resend`,
+    cookies: { [COOKIE]: token },
+    headers: { origin: ORIGIN, ...(key ? { 'idempotency-key': key } : {}) },
+  });
+
+const failMail = async (work: () => Promise<void>) => {
+  const original = notifier.send;
+  notifier.send = () => Promise.reject(new Error('mail server down for someone@secret.test'));
+  try {
+    await work();
+  } finally {
+    notifier.send = original;
+  }
+};
+
+describe('the email of an invitation', () => {
+  it('is being sent until the job has run, then sent', async () => {
+    const token = await signIn(admin);
+    const pending = await invitePending(token);
+    expect(await deliveryOf(token, pending)).toEqual(['sending']);
+
+    await queue.drain();
+
+    expect(await deliveryOf(token, pending)).toEqual(['sent']);
+    const { rows } = await pool.query(
+      'select email_queued_at, email_sent_at, email_failed_at from invites where id = $1',
+      [pending.id],
+    );
+    expect(rows[0].email_queued_at).toBeInstanceOf(Date);
+    expect(rows[0].email_sent_at).toBeInstanceOf(Date);
+    expect(rows[0].email_failed_at).toBeNull();
+  });
+
+  it('stays being tried after a failed attempt that will be retried', async () => {
+    const token = await signIn(admin);
+    const pending = await invitePending(token);
+
+    await failMail(async () => {
+      await expect(queue.drain({ retryCount: 1, retryLimit: 5 })).rejects.toThrow();
+    });
+
+    expect(await deliveryOf(token, pending)).toEqual(['sending']);
+  });
+
+  it('could not be sent once the last attempt has failed, and keeps no error or address', async () => {
+    const token = await signIn(admin);
+    const pending = await invitePending(token);
+
+    await failMail(async () => {
+      await expect(queue.drain({ retryCount: 5, retryLimit: 5 })).rejects.toThrow();
+    });
+
+    expect(await deliveryOf(token, pending)).toEqual(['failed']);
+    const { rows } = await pool.query('select to_jsonb(i) as row from invites i where id = $1', [
+      pending.id,
+    ]);
+    const row = rows[0].row as Record<string, unknown>;
+    expect(row.email_failed_at).toEqual(expect.any(String));
+    expect(row.email_sent_at).toBeNull();
+    // The address is kept in its own column and in no other; the error is kept nowhere.
+    const elsewhere = Object.entries(row).filter(
+      ([key, value]) => key !== 'email' && JSON.stringify(value).includes(pending.email),
+    );
+    expect(elsewhere).toEqual([]);
+    expect(JSON.stringify(row)).not.toContain('secret.test');
+  });
+
+  it('could not be sent when the job could not be queued', async () => {
+    const token = await signIn(admin);
+    const original = queue.send.bind(queue);
+    queue.send = () => Promise.reject(new Error('queue down'));
+    try {
+      const pending = await invitePending(token);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(await deliveryOf(token, pending)).toEqual(['failed']);
+    } finally {
+      queue.send = original;
+    }
+  });
+
+  it('counts as not sent when an hour has passed with no word, as for one from before the columns', async () => {
+    const token = await signIn(admin);
+    const pending = await invitePending(token);
+    await pool.query(
+      "update invites set email_queued_at = null, created_at = now() - interval '2 hours' where id = $1",
+      [pending.id],
+    );
+
+    expect(await deliveryOf(token, pending)).toEqual(['failed']);
+  });
+
+  it('says nothing of delivery for members', async () => {
+    const token = await signIn(admin);
+    const items = (await get('/staff', token)).json<Page>().items;
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) expect(item.delivery).toBeUndefined();
+  });
+});
+
+describe('sending an invitation again', () => {
+  it('queues a new job and gives the invitation a new link, killing the old one', async () => {
+    const token = await signIn(admin);
+    const first = await invite(token);
+    const queued = queue.sent.length;
+
+    const response = await resend(first.id, token);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ id: first.id });
+    expect(await deliveryOf(token, first)).toEqual(['sending']);
+    expect(queue.sent.slice(queued)).toHaveLength(1);
+    expect(queue.sent[queued]?.name).toBe(INVITE_EMAIL);
+    expect(queue.sent[queued]?.options.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(queue.sent[queued]?.options.id).not.toBe(first.id);
+    notifier.sent.length = 0;
+    await queue.drain();
+    const link = notifier.sent.at(-1)?.text.match(/token=([A-Za-z0-9_-]{43})/)?.[1] ?? '';
+    expect(link).not.toBe('');
+    expect(link).not.toBe(first.link);
+    const inspect = (value: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/auth/invite/inspect',
+        headers: { origin: ORIGIN },
+        payload: { token: value },
+      });
+    expect(errorOf(await inspect(first.link))).toEqual([400, 'invalid_token']);
+    expect((await inspect(link)).statusCode).toBe(200);
+    expect(await deliveryOf(token, first)).toEqual(['sent']);
+    expect(await audited(hospital, 'invite', first.id)).toEqual(['resend']);
+  });
+
+  it('puts a failed invitation back to being tried, without withdrawing it', async () => {
+    const token = await signIn(admin);
+    const pending = await invitePending(token);
+    await failMail(async () => {
+      await expect(queue.drain()).rejects.toThrow();
+    });
+    expect(await deliveryOf(token, pending)).toEqual(['failed']);
+
+    expect((await resend(pending.id, token)).statusCode).toBe(200);
+    expect(await deliveryOf(token, pending)).toEqual(['sending']);
+    await queue.drain();
+    expect(await deliveryOf(token, pending)).toEqual(['sent']);
+  });
+
+  it('answers the same key again without a second job', async () => {
+    const token = await signIn(admin);
+    const sent = await invite(token);
+    const queued = queue.sent.length;
+    const key = `resend-${randomUUID()}`;
+
+    const first = await resend(sent.id, token, key);
+    const again = await resend(sent.id, token, key);
+
+    expect(again.statusCode).toBe(200);
+    expect(again.headers['idempotent-replayed']).toBe('true');
+    expect(again.json()).toEqual(first.json());
+    expect(queue.sent.slice(queued)).toHaveLength(1);
+    expect(await audited(hospital, 'invite', sent.id)).toEqual(['resend']);
+    await queue.drain();
+  });
+
+  it('is closed without staff:invite', async () => {
+    const sent = await invite(await signIn(admin));
+
+    expect(errorOf(await resend(sent.id, await signIn(nurse)))).toEqual([403, 'permission_denied']);
+    expect(
+      (await app.inject({ method: 'POST', url: `/invites/${sent.id}/resend` })).statusCode,
+    ).toBe(401);
+  });
+
+  it('refuses a role the caller could not have given', async () => {
+    const sent = await invite(await signIn(admin), 'admin');
+    const queued = queue.sent.length;
+
+    expect(errorOf(await resend(sent.id, await signIn(hr)))).toEqual([403, 'role_not_allowed']);
+    expect(queue.sent.slice(queued)).toHaveLength(0);
+  });
+
+  it('has one answer for another hospital’s, a withdrawn, an expired and an unknown invitation', async () => {
+    const theirs = await invite(await signIn(clinicAdmin));
+    const token = await signIn(admin);
+    const withdrawn = await invite(token);
+    await send('DELETE', `/invites/${withdrawn.id}`, token);
+    const expired = await invite(token);
+    await pool.query("update invites set expires_at = now() - interval '1 minute' where id = $1", [
+      expired.id,
+    ]);
+    const queued = queue.sent.length;
+
+    for (const id of [theirs.id, withdrawn.id, expired.id, randomUUID(), 'not-an-id']) {
+      expect(errorOf(await resend(id, token)), id).toEqual([404, 'invite_not_found']);
+    }
+    expect(queue.sent.slice(queued)).toHaveLength(0);
+    const { rows } = await pool.query('select email_sent_at from invites where id = $1', [
+      theirs.id,
+    ]);
+    expect(rows[0].email_sent_at).toBeInstanceOf(Date);
   });
 });
 

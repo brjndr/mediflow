@@ -12,6 +12,7 @@ export const staffMemberSchema: z.ZodType<StaffMember> = z.object({
   roleId: z.string(),
   roleName: z.string(),
   status: z.enum(STAFF_STATUSES),
+  delivery: z.enum(['sent', 'sending', 'failed']).optional(),
 });
 
 export const staffPageSchema: z.ZodType<StaffPage> = z.object({
@@ -30,6 +31,8 @@ export const inviteSchema: z.ZodType<Invite> = z.object({
   roleId: z.string(),
   expiresInHours: z.number().int(),
 });
+
+export const inviteResentSchema = z.object({ id: z.string() });
 
 export const sessionsRevokedSchema = z.object({ revoked: z.number().int() });
 
