@@ -5,6 +5,8 @@ import { error, unauthenticated } from '../respond';
 
 type Hospital = components['schemas']['PlatformHospital'];
 type HospitalPage = components['schemas']['PlatformHospitalPage'];
+type Invite = components['schemas']['PlatformInvite'];
+type InvitePage = components['schemas']['PlatformInvitePage'];
 
 function seed(): Hospital[] {
   const base = {
@@ -50,9 +52,14 @@ function seed(): Hospital[] {
 
 let hospitals = seed();
 let created = 0;
+/** Open invites by hospital id. */
+let invites = new Map<string, Invite[]>();
+let invited = 0;
 onMockReset(() => {
   hospitals = seed();
   created = 0;
+  invites = new Map();
+  invited = 0;
 });
 
 /** The mock's version of the `platform` access level: a signed-in platform admin only. */
@@ -205,5 +212,69 @@ export const platformHandlers = [
       else hospital.features.push({ feature, enabled });
     }
     return HttpResponse.json<Hospital>(hospital);
+  }),
+
+  http.get('*/api/platform/hospitals/:id/admin-invites', ({ params }) => {
+    const denied = platformOnly();
+    if (denied) return denied;
+    if (!hospitals.some((h) => h.id === params.id))
+      return error(404, 'not_found', 'No such hospital');
+    return HttpResponse.json<InvitePage>({
+      items: [...(invites.get(String(params.id)) ?? [])].reverse(),
+      nextCursor: null,
+    });
+  }),
+
+  http.post('*/api/platform/hospitals/:id/admin-invite', async ({ params, request }) => {
+    const denied = platformOnly();
+    if (denied) return denied;
+    const hospital = hospitals.find((h) => h.id === params.id);
+    if (!hospital) return error(404, 'not_found', 'No such hospital');
+    const body = (await request.json().catch(() => null)) as {
+      name?: unknown;
+      email?: unknown;
+    } | null;
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+    if (
+      typeof body?.name !== 'string' ||
+      body.name.trim() === '' ||
+      !/^[^\s@]+@[^\s@]+$/.test(email)
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (hospital.status !== 'active') {
+      return error(409, 'hospital_not_active', 'The hospital is not active');
+    }
+    // The mock's hospitals with staff already have an admin.
+    if (hospital.memberCount > 0) {
+      return error(409, 'hospital_has_admin', 'The hospital already has an admin');
+    }
+    if (email.startsWith('platform.')) {
+      return error(400, 'validation_failed', 'That address belongs to a platform admin');
+    }
+    const open = (invites.get(hospital.id) ?? []).filter((i) => i.email !== email);
+    const invite: Invite = {
+      id: `invite_${++invited}`,
+      email,
+      name: body.name.trim(),
+      expiresAt: new Date(Date.now() + 72 * 3_600_000).toISOString(),
+    };
+    invites.set(hospital.id, [...open, invite]);
+    return HttpResponse.json<Invite>(invite, { status: 201 });
+  }),
+
+  http.post('*/api/platform/hospitals/:id/admin-invites/:inviteId/revoke', ({ params }) => {
+    const denied = platformOnly();
+    if (denied) return denied;
+    const id = String(params.id);
+    const open = invites.get(id) ?? [];
+    if (!open.some((i) => i.id === params.inviteId)) {
+      return error(404, 'not_found', 'No such open invite');
+    }
+    invites.set(
+      id,
+      open.filter((i) => i.id !== params.inviteId),
+    );
+    return new HttpResponse(null, { status: 204 });
   }),
 ];

@@ -2,8 +2,11 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useRef } from 'react';
 import {
   createHospital,
+  fetchAdminInvites,
   fetchHospital,
   fetchHospitals,
+  inviteHospitalAdmin,
+  revokeAdminInvite,
   setHospitalFeatures,
   updateHospital,
 } from '../api';
@@ -18,6 +21,7 @@ export const platformKeys = {
   all: ['platform'] as const,
   hospitals: () => [...platformKeys.all, 'hospitals'] as const,
   hospital: (id: string) => [...platformKeys.hospitals(), 'detail', id] as const,
+  invites: (id: string) => [...platformKeys.hospital(id), 'invites'] as const,
   hospitalList: (filters: unknown) => [...platformKeys.hospitals(), 'list', filters] as const,
 };
 
@@ -89,5 +93,29 @@ export function useUpdateHospitalLimits(id: string) {
     onSuccess: saved,
     // Someone saved first: read the hospital again so the newest version is known.
     onError: () => queryClient.invalidateQueries({ queryKey: platformKeys.hospital(id) }),
+  });
+}
+
+export function useAdminInvites(hospitalId: string) {
+  return useQuery({
+    queryKey: platformKeys.invites(hospitalId),
+    queryFn: ({ signal }) => fetchAdminInvites(hospitalId, signal),
+  });
+}
+
+/** Inviting (and inviting the same address again) changes the open invites, so they are read again. */
+export function useInviteAdmin(hospitalId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { name: string; email: string }) => inviteHospitalAdmin(hospitalId, body),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: platformKeys.invites(hospitalId) }),
+  });
+}
+
+export function useRevokeInvite(hospitalId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (inviteId: string) => revokeAdminInvite(hospitalId, inviteId),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: platformKeys.invites(hospitalId) }),
   });
 }

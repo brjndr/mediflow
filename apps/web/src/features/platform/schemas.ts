@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { themeFromBrandColor } from '@/shared/lib/theme';
 import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
-import type { Hospital, HospitalPage } from './types';
+import type { Hospital, HospitalInvite, HospitalInvitePage, HospitalPage } from './types';
 
 /** Responses are validated where they enter the app. */
 export const hospitalSchema: z.ZodType<Hospital> = z.object({
@@ -32,6 +32,19 @@ export const hospitalSchema: z.ZodType<Hospital> = z.object({
 
 export const hospitalPageSchema: z.ZodType<HospitalPage> = z.object({
   items: z.array(hospitalSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+export const hospitalInviteSchema: z.ZodType<HospitalInvite> = z.object({
+  id: z.string(),
+  email: z.string(),
+  name: z.string(),
+  expiresAt: z.string(),
+});
+
+export const hospitalInvitePageSchema: z.ZodType<HospitalInvitePage> = z.object({
+  items: z.array(hospitalInviteSchema),
   nextCursor: z.string().nullable(),
   total: z.number().int().optional(),
 });
@@ -172,3 +185,23 @@ export function toCreateBody(values: HospitalFormValues) {
     features: values.features,
   };
 }
+
+/** One address, as the API accepts it. */
+const EMAIL = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
+
+/** The first admin's invite. Messages are translation keys in core `common`. */
+export const adminInviteSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(200)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(254)
+    .regex(EMAIL, 'validation.invalid_format'),
+});
+export type AdminInviteValues = z.infer<typeof adminInviteSchema>;

@@ -4,6 +4,7 @@ import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
+import { HospitalAdminInvites } from '../components/HospitalAdminInvites';
 import { HospitalLimits } from '../components/HospitalLimits';
 import { HospitalModules } from '../components/HospitalModules';
 import { useHospital } from '../hooks/use-hospitals';
@@ -59,6 +60,9 @@ export default function HospitalDetail() {
       </div>
       <HospitalModules key={record.id} hospital={record} />
       <HospitalLimits key={record.id} hospital={record} />
+      {record.status === 'active' && (
+        <HospitalAdminInvites key={record.id} hospitalId={record.id} />
+      )}
     </div>
   );
 }

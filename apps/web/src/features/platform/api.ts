@@ -1,8 +1,15 @@
 import { api, requireData } from '@/shared/api';
-import { hospitalPageSchema, hospitalSchema } from './schemas';
+import {
+  hospitalInvitePageSchema,
+  hospitalInviteSchema,
+  hospitalPageSchema,
+  hospitalSchema,
+} from './schemas';
 import type {
   Hospital,
   HospitalCreate,
+  HospitalInvite,
+  HospitalInvitePage,
   HospitalLimitsUpdate,
   HospitalPage,
   HospitalStatus,
@@ -57,4 +64,37 @@ export async function setHospitalFeatures(
 export async function updateHospital(id: string, body: HospitalLimitsUpdate): Promise<Hospital> {
   const result = await api.PATCH('/platform/hospitals/{id}', { params: { path: { id } }, body });
   return hospitalSchema.parse(requireData(result));
+}
+
+export async function fetchAdminInvites(
+  hospitalId: string,
+  signal?: AbortSignal,
+): Promise<HospitalInvitePage> {
+  const result = await api.GET('/platform/hospitals/{id}/admin-invites', {
+    params: { path: { id: hospitalId } },
+    signal,
+  });
+  return hospitalInvitePageSchema.parse(requireData(result));
+}
+
+/**
+ * Invites the first admin. The same address again is the way to send it again: the API withdraws
+ * the earlier invite to that address and the new one is emailed.
+ */
+export async function inviteHospitalAdmin(
+  hospitalId: string,
+  body: { name: string; email: string },
+): Promise<HospitalInvite> {
+  const result = await api.POST('/platform/hospitals/{id}/admin-invite', {
+    params: { path: { id: hospitalId } },
+    body,
+  });
+  return hospitalInviteSchema.parse(requireData(result));
+}
+
+export async function revokeAdminInvite(hospitalId: string, inviteId: string): Promise<void> {
+  // A refusal is thrown by the client; a 204 has no body to read.
+  await api.POST('/platform/hospitals/{id}/admin-invites/{inviteId}/revoke', {
+    params: { path: { id: hospitalId, inviteId } },
+  });
 }

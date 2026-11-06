@@ -568,6 +568,68 @@ describe('the first admin', () => {
   });
 });
 
+describe('open invites of a hospital', () => {
+  it('lists the open ones, withdraws one, and sends again by inviting again', async () => {
+    const hospital = await createHospital();
+    const other = await createHospital();
+    const email = `open.${randomBytes(3).toString('hex')}@onboarded.test`;
+    const invite = (id: string, to: string) =>
+      call('POST', `/platform/hospitals/${id}/admin-invite`, {
+        payload: { name: 'Open Admin', email: to },
+      });
+    const first = (await invite(hospital.id, email)).json();
+    await invite(other.id, `elsewhere.${randomBytes(3).toString('hex')}@onboarded.test`);
+
+    const listed = await call('GET', `/platform/hospitals/${hospital.id}/admin-invites`);
+    expect(listed.statusCode).toBe(200);
+    expect(listed.json().items).toEqual([
+      { id: first.id, email, name: 'Open Admin', expiresAt: first.expiresAt },
+    ]);
+    expect(JSON.stringify(listed.json())).not.toMatch(/token/i);
+
+    // Another hospital's invite cannot be withdrawn through this one.
+    const wrong = await call(
+      'POST',
+      `/platform/hospitals/${other.id}/admin-invites/${first.id}/revoke`,
+    );
+    expect(wrong.statusCode).toBe(404);
+
+    const revoked = await call(
+      'POST',
+      `/platform/hospitals/${hospital.id}/admin-invites/${first.id}/revoke`,
+    );
+    expect(revoked.statusCode).toBe(204);
+    const again = await call(
+      'POST',
+      `/platform/hospitals/${hospital.id}/admin-invites/${first.id}/revoke`,
+    );
+    expect(again.statusCode).toBe(404);
+    expect(
+      (await call('GET', `/platform/hospitals/${hospital.id}/admin-invites`)).json().items,
+    ).toEqual([]);
+
+    // Sending again is inviting again: a new invite, the earlier one gone.
+    const second = (await invite(hospital.id, email)).json();
+    expect(second.id).not.toBe(first.id);
+    const items = (await call('GET', `/platform/hospitals/${hospital.id}/admin-invites`)).json()
+      .items;
+    expect(items.map((i: { id: string }) => i.id)).toEqual([second.id]);
+
+    const trail = await pool.query(
+      "select detail from platform_audit_log where hospital_id = $1 and action = 'hospital.admin_invite_revoked'",
+      [hospital.id],
+    );
+    expect(trail.rowCount).toBe(1);
+    expect(JSON.stringify(trail.rows[0])).not.toContain(email);
+
+    const missing = await call(
+      'GET',
+      '/platform/hospitals/00000000-0000-4000-8000-000000000000/admin-invites',
+    );
+    expect(missing.statusCode).toBe(404);
+  });
+});
+
 describe('suspending, reactivating and offboarding', () => {
   /** A hospital with a signed-in member, using real cookies. */
   async function hospitalWithMember() {
