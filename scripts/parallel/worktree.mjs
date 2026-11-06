@@ -24,13 +24,13 @@ const run = (command, args, cwd = root, allowFail = false) => {
   }
   return r.status === 0;
 };
+// No shell here: the SQL has spaces and a shell on Windows would split it.
 const psql = (sql) =>
-  run(
+  spawnSync(
     'docker',
     ['compose', 'exec', '-T', 'postgres', 'psql', '-U', 'mediflow', '-d', 'postgres', '-c', sql],
-    root,
-    true,
-  );
+    { cwd: root, stdio: 'inherit' },
+  ).status === 0;
 
 if (!/^\d+$/.test(issue ?? '')) {
   console.error('usage: worktree.mjs add <issue> <feat|fix|chore> <slug> | remove <issue>');
