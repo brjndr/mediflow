@@ -32,6 +32,7 @@ test('a finger is the pointer, and the controls are touch-sized', async ({ page 
 
 test('inputs are 16 px or more, so focusing one does not zoom the page', async ({ page }) => {
   await page.goto('/?mockUser=none');
+  await expect(page.getByLabel('Email')).toBeVisible();
   const sizes = await page
     .locator('input:visible')
     .evaluateAll((inputs) => inputs.map((el) => parseFloat(getComputedStyle(el).fontSize)));
@@ -48,7 +49,9 @@ test('inputs are 16 px or more, so focusing one does not zoom the page', async (
 test('signing out in one tab signs out another, over BroadcastChannel', async ({ context }) => {
   const first = await context.newPage();
   const second = await context.newPage();
+  // One tab at a time: in WebKit, two pages starting the mock's service worker together may not boot.
   await first.goto('/');
+  await expect(first.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
   await second.goto('/notices');
   await expect(second.getByRole('heading', { name: 'Staff notices' })).toBeVisible();
   await first.getByRole('button', { name: 'Sign out' }).click();

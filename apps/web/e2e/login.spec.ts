@@ -49,7 +49,9 @@ test('someone who works at two hospitals picks one after signing in', async ({ p
 test('signing out in one tab signs out the other', async ({ context }) => {
   const first = await context.newPage();
   const second = await context.newPage();
+  // One tab at a time: in WebKit, two pages starting the mock's service worker together may not boot.
   await first.goto('/');
+  await expect(first.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
   await second.goto('/notices');
   await expect(second.getByRole('heading', { name: 'Staff notices' })).toBeVisible();
 
