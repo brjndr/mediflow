@@ -16,6 +16,7 @@ type StaffMember = components['schemas']['StaffMember'];
 type StaffPage = components['schemas']['StaffPage'];
 type StaffRoleList = components['schemas']['StaffRoleList'];
 type Invite = components['schemas']['Invite'];
+type InviteResent = components['schemas']['InviteResent'];
 
 const FEATURE_FLAG = 'staff';
 const READ = 'staff:read';
@@ -38,6 +39,8 @@ interface MockInvite {
   name: string;
   email: string;
   roleId: string;
+  /** How its email went. The mock sends at once, so a new one is 'sent'. */
+  delivery: NonNullable<StaffMember['delivery']>;
 }
 
 const FIRST = ['Aarav', 'Diya', 'Kabir', 'Meera', 'Rohan', 'Sana', 'Vikram', 'Zoya'];
@@ -120,6 +123,23 @@ function seed() {
       name: 'Invited Ira',
       email: 'ira@sample-hospital.test',
       roleId: 'doctor',
+      delivery: 'sent',
+    },
+    {
+      id: 'inv_h_02',
+      tenantId: TENANT_IDS.hospital,
+      name: 'Invited Wen',
+      email: 'wen@sample-hospital.test',
+      roleId: 'doctor',
+      delivery: 'sending',
+    },
+    {
+      id: 'inv_h_03',
+      tenantId: TENANT_IDS.hospital,
+      name: 'Invited Fay',
+      email: 'fay@sample-hospital.test',
+      roleId: 'doctor',
+      delivery: 'failed',
     },
     {
       id: 'inv_c_01',
@@ -127,6 +147,7 @@ function seed() {
       name: 'Invited Omar',
       email: 'omar@riverside-clinic.test',
       roleId: 'receptionist',
+      delivery: 'failed',
     },
   ];
   return {
@@ -135,6 +156,7 @@ function seed() {
     created: 0,
     sent: [] as MockInvite[],
     replies: new Map<string, { raw: string; invite: Invite }>(),
+    resent: new Set<string>(),
   };
 }
 
@@ -221,6 +243,7 @@ export const staffHandlers = [
               roleId: invite.roleId,
               roleName: roleName(invite.roleId),
               status: 'invited',
+              delivery: invite.delivery,
             }))
         : state.members
             .filter((member) => member.tenantId === access.tenantId && member.status === status)
@@ -288,6 +311,30 @@ export const staffHandlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  http.post('*/api/invites/:inviteId/resend', ({ request, params }) => {
+    const access = authorize(request, { permission: INVITE });
+    if ('denied' in access) return access.denied;
+    const key = `${access.tenantId}:${params.inviteId as string}:${request.headers.get('idempotency-key') ?? ''}`;
+    const invite = state.invites.find(
+      (candidate) => candidate.id === params.inviteId && candidate.tenantId === access.tenantId,
+    );
+    if (!invite) return error(404, 'invite_not_found', 'No such open invitation');
+    if (!mayGive(access.tenantId, invite.roleId)) {
+      return error(403, 'role_not_allowed', 'That role holds more than you do');
+    }
+    // The same key is answered as before, and nothing is sent again.
+    if (request.headers.get('idempotency-key') && state.resent.has(key)) {
+      return HttpResponse.json<InviteResent>(
+        { id: invite.id },
+        { headers: { 'Idempotent-Replayed': 'true' } },
+      );
+    }
+    state.resent.add(key);
+    invite.delivery = 'sent';
+    state.sent.push(invite);
+    return HttpResponse.json<InviteResent>({ id: invite.id });
+  }),
+
   // The real API has this one (features/staff). No feature flag there either.
   http.post('*/api/invites', async ({ request }) => {
     // No module switch, as in the real API: only the permission.
@@ -336,6 +383,7 @@ export const staffHandlers = [
       name: name.trim(),
       email: address,
       roleId,
+      delivery: 'sent',
     };
     state.invites.push(invite);
     state.sent.push(invite);

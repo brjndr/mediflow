@@ -46,6 +46,9 @@ export const clinicalFeature: FeatureManifest = {
     'prescription:create',
     'referral:read',
     'referral:create',
+    'prescriptionSet:read',
+    'prescriptionSet:manage',
+    'prescriptionSet:manageShared',
   ],
   // Opening also needs `patient:read`, checked by the component: a slot contribution requires the
   // feature's own permissions only. It opens the consultation, so it needs reading it too.

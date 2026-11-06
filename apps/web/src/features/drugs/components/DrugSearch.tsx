@@ -1,6 +1,7 @@
 import { useId, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlag, usePermission } from '@/access';
+import { useFavouriteAccess, useFavouriteDrugs, loadDrug } from '../hooks/use-favourites';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue, useMedicineSuggestions } from '../hooks/use-drugs';
 import { useMedicineName } from '../hooks/use-medicine-name';
 import type { Drug } from '../types';
@@ -21,6 +22,7 @@ export function DrugSearch({
   invalid,
   describedBy,
   includeConsumables = false,
+  favourites = false,
 }: {
   /** Already translated: what the medicine is for on this screen. */
   label: string;
@@ -30,6 +32,11 @@ export function DrugSearch({
   describedBy?: string;
   /** Offer consumables too: for a screen about any item kept, such as stock. */
   includeConsumables?: boolean;
+  /**
+   * Offer the caller's favourite medicines while nothing is typed (#394). For a screen that
+   * prescribes; needs `prescriptionSet:read` and the clinical switch, and is left out without.
+   */
+  favourites?: boolean;
 }) {
   const { t } = useTranslation('drugs');
   const nameOf = useMedicineName();
@@ -46,17 +53,46 @@ export function DrugSearch({
   const available = allowed && switchedOn;
   const searching = text.trim() !== '';
   const suggestions = useMedicineSuggestions(typed, open && available, includeConsumables);
+  const favouriteAccess = useFavouriteAccess();
+  const showFavourites = favourites && available && favouriteAccess.canRead && !searching;
+  const favouriteList = useFavouriteDrugs(showFavourites && open);
+  const [picking, setPicking] = useState<'idle' | 'busy' | 'failed'>('idle');
+  // A favourite that was archived since cannot be prescribed: it is not offered.
+  const favouriteRows = (favouriteList.data?.items ?? [])
+    .filter((item) => !item.archived)
+    .map((item) => ({ id: item.drugId, label: item.name }));
+  const searchRows = searching
+    ? (suggestions.data ?? []).map((drug) => ({ id: drug.id, label: nameOf(drug), drug }))
+    : [];
+  const rows: { id: string; label: string; drug?: Drug }[] = showFavourites
+    ? favouriteRows
+    : searchRows;
   // What is listed belongs to what was typed: while a search is on its way nothing of an
   // earlier one can be chosen by mistake.
-  const settled = typed === text && !suggestions.isPlaceholderData;
-  const options = searching ? (suggestions.data ?? []) : [];
-  const highlighted = Math.min(active, Math.max(options.length - 1, 0));
+  const settled = showFavourites
+    ? favouriteList.isSuccess
+    : typed === text && !suggestions.isPlaceholderData;
+  const highlighted = Math.min(active, Math.max(rows.length - 1, 0));
 
   const choose = (drug: Drug) => {
     onSelect(drug);
     setText('');
     setOpen(false);
     setActive(0);
+  };
+
+  // A favourite is only an id and a name: the medicine itself is read before it is chosen.
+  const pick = (row: { id: string; drug?: Drug }) => {
+    if (row.drug) return choose(row.drug);
+    if (picking === 'busy') return;
+    setPicking('busy');
+    loadDrug(row.id).then(
+      (drug) => {
+        setPicking('idle');
+        choose(drug);
+      },
+      () => setPicking('failed'),
+    );
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -68,31 +104,42 @@ export function DrugSearch({
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       if (!open) return setOpen(true);
-      if (options.length === 0) return;
+      if (rows.length === 0) return;
       const step = event.key === 'ArrowDown' ? 1 : -1;
-      setActive((highlighted + step + options.length) % options.length);
+      setActive((highlighted + step + rows.length) % rows.length);
       return;
     }
     if (event.key === 'Enter' && open) {
       // Never the form's submit while the list is open.
       event.preventDefault();
-      const option = settled ? options[highlighted] : undefined;
-      if (option) choose(option);
+      const row = settled ? rows[highlighted] : undefined;
+      if (row) pick(row);
     }
   };
 
   // A list is drawn only with options in it: an empty listbox is announced as one.
-  const listed = open && settled && options.length > 0;
+  const listed = open && settled && rows.length > 0;
   const optionId = (index: number) => `${listId}-${index}`;
-  const message = !searching
-    ? t('search.typeToSearch')
-    : suggestions.isError
-      ? t('search.failed')
-      : !settled || suggestions.isPending
-        ? t('search.loading')
-        : options.length === 0
-          ? t('search.none')
-          : t('search.found', { count: options.length });
+  const message =
+    picking === 'failed'
+      ? t('search.favouriteChosenFailed')
+      : showFavourites
+        ? favouriteList.isError
+          ? t('search.favouriteFailed')
+          : !settled
+            ? t('search.favouriteLoading')
+            : rows.length === 0
+              ? t('search.typeToSearch')
+              : t('search.favouritesFound', { count: rows.length })
+        : !searching
+          ? t('search.typeToSearch')
+          : suggestions.isError
+            ? t('search.failed')
+            : !settled || suggestions.isPending
+              ? t('search.loading')
+              : rows.length === 0
+                ? t('search.none')
+                : t('search.found', { count: rows.length });
   const described =
     [available ? undefined : `${inputId}-unavailable`, describedBy].filter(Boolean).join(' ') ||
     undefined;
@@ -122,6 +169,7 @@ export function DrugSearch({
           setText(event.target.value);
           setOpen(true);
           setActive(0);
+          setPicking('idle');
         }}
         onFocus={() => setOpen(true)}
         // After a tap on an option has had its turn.
@@ -141,11 +189,16 @@ export function DrugSearch({
       {open && available && (
         <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-md border bg-background shadow-md">
           <p aria-hidden className="px-3 py-2 text-xs text-muted-foreground">
-            {message}
+            {listed && showFavourites ? t('search.favouritesHeading') : message}
           </p>
           {listed && (
-            <ul id={listId} role="listbox" aria-label={label} className="max-h-72 overflow-y-auto">
-              {options.map((option, index) => (
+            <ul
+              id={listId}
+              role="listbox"
+              aria-label={showFavourites ? t('search.favouritesHeading') : label}
+              className="max-h-72 overflow-y-auto"
+            >
+              {rows.map((option, index) => (
                 // The keyboard works the list from the input (arrows and Enter, with
                 // aria-activedescendant), as a combobox does: an option never takes focus.
                 // eslint-disable-next-line jsx-a11y/click-events-have-key-events
@@ -156,11 +209,11 @@ export function DrugSearch({
                   aria-selected={index === highlighted}
                   // Before the input loses focus, which would close the list under the finger.
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => choose(option)}
+                  onClick={() => pick(option)}
                   onMouseEnter={() => setActive(index)}
                   className="cursor-pointer break-words px-3 py-2 text-sm aria-selected:bg-accent pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center"
                 >
-                  {nameOf(option)}
+                  {option.label}
                 </li>
               ))}
             </ul>

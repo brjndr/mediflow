@@ -71,6 +71,12 @@ test('write a prescription with the keyboard alone', async ({ page }) => {
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'New prescription' })).toBeFocused();
 
+  // The prescription sets come first (#394): "Load a set", "Save as a set", then the lines.
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Load a set' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Save as a set' })).toBeFocused();
+
   // The medicine is searched on the server and chosen from the list with the arrows and Enter.
   await page.keyboard.press('Tab');
   const medicine = page.getByRole('combobox', { name: 'Medicine' });
@@ -85,6 +91,11 @@ test('write a prescription with the keyboard alone', async ({ page }) => {
   await expect(change).toBeFocused();
   expect(await focusVisible(page)).toBe(true);
 
+  // The star for the favourites (#394) sits between "Change" and the dose.
+  const star = page.getByRole('button', { name: /^Add Azithromycin.* to your favourites$/ });
+  await expect(star).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(star).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('textbox', { name: /^Dose/ })).toBeFocused();
   await page.keyboard.type('1 tablet');
@@ -107,6 +118,38 @@ test('write a prescription with the keyboard alone', async ({ page }) => {
   expect(await page.evaluate(() => window.localStorage.length + window.sessionStorage.length)).toBe(
     0,
   );
+  await expectNoAxeViolations(page);
+});
+
+test('load a prescription set with the keyboard alone', async ({ page }) => {
+  await page.goto('/');
+  await goTo(page, 'Consultations');
+  await page.getByRole('main').getByRole('link').first().click();
+  await expect(page.getByRole('heading', { name: 'Prescriptions' })).toBeVisible();
+
+  const write = page.getByRole('button', { name: 'Write a prescription' });
+  await write.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'New prescription' })).toBeFocused();
+
+  await page.keyboard.press('Tab');
+  const load = page.getByRole('button', { name: 'Load a set' });
+  await expect(load).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(load).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: /^Common cold/ })).toBeVisible();
+  // Past "Save as a set" to the first set; Enter adds its lines and gives focus back.
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: /^Common cold/ })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('status').filter({ hasText: /from Common cold were added/ }),
+  ).toBeVisible();
+  await expect(load).toBeFocused();
+  await expect(page.getByRole('group', { name: 'Medicine 2' })).toBeVisible();
+  expect(await focusVisible(page)).toBe(true);
+  await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 });
 

@@ -114,6 +114,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'queue:call' },
   { permission: 'vitals:read' },
   { permission: 'vitals:record' },
+  // Editing the normal ranges is the hospital admin's alone, as the API's defaults give it.
+  { permission: 'vitals:configure' },
   { permission: 'allergy:read' },
   { permission: 'allergy:update' },
   { permission: 'clinical:read' },
@@ -138,6 +140,10 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'referral:create' },
   { permission: 'followUp:read' },
   { permission: 'followUp:create' },
+  // Prescription sets and favourite medicines (#394), as the API's defaults give them.
+  { permission: 'prescriptionSet:read' },
+  { permission: 'prescriptionSet:manage' },
+  { permission: 'prescriptionSet:manageShared' },
   // The laboratory (#90): the admin holds all of it, as the clinical defaults give it.
   { permission: 'labSample:read' },
   { permission: 'labSample:collect' },
@@ -278,6 +284,8 @@ const DOCTOR: PermissionGrantDto[] = [
   { permission: 'referral:create' },
   { permission: 'followUp:read' },
   { permission: 'followUp:create' },
+  { permission: 'prescriptionSet:read' },
+  { permission: 'prescriptionSet:manage' },
   // Lab results once verified (#91), acknowledging a critical one and printing reports (#92), as
   // the API's defaults give the doctor.
   { permission: 'labResult:read' },

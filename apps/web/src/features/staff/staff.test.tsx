@@ -13,6 +13,7 @@ import {
 import { mockInvitesSent } from '@/mocks/handlers/staff';
 import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
+import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 import { parseCsv, readInvites } from './csv';
 import { staffKeys } from './hooks/use-staff';
@@ -90,7 +91,7 @@ describe('the staff list', () => {
 
     await show('Open invitations');
     expect(await screen.findByText('Invited Ira')).toBeInTheDocument();
-    await waitFor(() => expect(statuses()).toContain('1 open invitation'));
+    await waitFor(() => expect(statuses()).toContain('3 open invitations'));
   });
 });
 
@@ -211,6 +212,92 @@ describe('what an admin does to a member', () => {
   });
 });
 
+describe('the email of an invitation', () => {
+  const openInvited = async () => {
+    await openList();
+    await show('Open invitations');
+    await screen.findByText('Invited Ira');
+  };
+  const rowOf = (name: string) => screen.getAllByText(name)[0]!.closest('tr, li, [role="row"]');
+
+  it('says in words whether it was sent, is being sent, or could not be sent', async () => {
+    await openInvited();
+
+    expect(screen.getAllByText('Email status').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Sent')).toHaveLength(1);
+    expect(screen.getAllByText('Being sent')).toHaveLength(1);
+    expect(screen.getAllByText('Could not be sent')).toHaveLength(1);
+    // The failed one is also announced, in a region that is on the page all the time.
+    await waitFor(() =>
+      expect(statuses()).toContain(
+        'The email to 1 invited person could not be sent. Send it again, or withdraw the invitation.',
+      ),
+    );
+    expect(rowOf('Invited Fay')).toHaveTextContent('Could not be sent');
+  });
+
+  it('shows no email status for members', async () => {
+    await openList();
+
+    expect(screen.queryByText('Email status')).not.toBeInTheDocument();
+  });
+
+  it('sends a failed one again, and it is sent', async () => {
+    await openInvited();
+    await userEvent.click(screen.getByRole('button', { name: 'Send again: Invited Fay' }));
+
+    await waitFor(() =>
+      expect(statuses()).toContain('The invitation to fay@sample-hospital.test was sent again.'),
+    );
+    expect(sentTo()).toEqual(['fay@sample-hospital.test']);
+    await waitFor(() => expect(screen.queryByText('Could not be sent')).not.toBeInTheDocument());
+    expect(screen.getAllByText('Sent')).toHaveLength(2);
+  });
+
+  it('sends again with a key, once for one press', async () => {
+    const keys: (string | null)[] = [];
+    server.use(
+      http.post('*/api/invites/:id/resend', ({ request }) => {
+        keys.push(request.headers.get('idempotency-key'));
+        return undefined;
+      }),
+    );
+    await openInvited();
+    await userEvent.click(screen.getByRole('button', { name: 'Send again: Invited Fay' }));
+
+    await waitFor(() => expect(keys).toHaveLength(1));
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('says so when it was withdrawn meanwhile', async () => {
+    await openInvited();
+    await api.DELETE('/invites/{inviteId}', { params: { path: { inviteId: 'inv_h_03' } } });
+    await userEvent.click(screen.getByRole('button', { name: 'Send again: Invited Fay' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'That invitation is no longer open.',
+    );
+  });
+
+  it('keeps the keyboard on the page after sending again', async () => {
+    await openInvited();
+    const again = screen.getByRole('button', { name: 'Send again: Invited Fay' });
+    again.focus();
+    await userEvent.keyboard('{Enter}');
+
+    await waitFor(() =>
+      expect(statuses()).toContain('The invitation to fay@sample-hospital.test was sent again.'),
+    );
+    expect(document.body).not.toHaveFocus();
+  });
+
+  it('has no accessibility violations', async () => {
+    await openInvited();
+
+    await expectNoAxeViolations(document.body);
+  });
+});
+
 describe('withdrawing an invitation', () => {
   it('takes it off the list of open invitations', async () => {
     await openList();
@@ -222,7 +309,7 @@ describe('withdrawing an invitation', () => {
         'The invitation to Invited Ira was withdrawn. Its link no longer works.',
       ),
     );
-    expect(await screen.findByText('No invitation is open.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('Invited Ira')).not.toBeInTheDocument());
   });
 
   it('says so when it was accepted or withdrawn meanwhile', async () => {

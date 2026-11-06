@@ -3,7 +3,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type pg from 'pg';
 import { syncRoleDefaults } from '../../core/access/sync.js';
-import { queueInviteEmail } from '../../core/auth/emails.js';
+import { queueInviteEmailTracked } from '../../core/auth/emails.js';
 import { normalizeEmail } from '../../core/auth/login.js';
 import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
@@ -481,7 +481,10 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
 
       // After the commit: the job gives the invite its token and sends the link.
-      await queueInviteEmail(app.jobs, { tenantId: id, inviteId: invite.id }).catch(() => {
+      await queueInviteEmailTracked(app.jobs, app.database.pool, {
+        tenantId: id,
+        inviteId: invite.id,
+      }).catch(() => {
         request.log.warn({ event: 'invite_email_not_queued' }, 'invite email not queued');
       });
       return reply.status(201).send(invite);

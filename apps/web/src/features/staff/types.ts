@@ -5,6 +5,7 @@ export type StaffMember = components['schemas']['StaffMember'];
 export type StaffPage = components['schemas']['StaffPage'];
 export type StaffStatus = StaffMember['status'];
 export type StaffRole = components['schemas']['StaffRole'];
+export type InviteDelivery = NonNullable<StaffMember['delivery']>;
 export type Invite = components['schemas']['Invite'];
 
 export interface InviteRequest {

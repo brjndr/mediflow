@@ -40,7 +40,7 @@ function LatestVitals({ patientId }: { patientId: string }) {
             })}
           </p>
           <ReadingList reading={latest} ranges={ranges.data?.ranges} />
-          <RangesNote ranges={ranges.data?.ranges} failed={ranges.isError} />
+          <RangesNote failed={ranges.isError} />
         </>
       ) : (
         <p>{t('summary.noVitals')}</p>

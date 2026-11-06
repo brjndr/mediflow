@@ -5,7 +5,7 @@ import { errors, ref } from '../http/schemas.js';
 import { withAuthTransaction } from './db.js';
 import { authenticate } from './login.js';
 import { MAX_PASSWORD_LENGTH } from './password.js';
-import { createSession, revokeSessionByToken, switchTenant } from './sessions.js';
+import { cleanUserAgent, createSession, revokeSessionByToken, switchTenant } from './sessions.js';
 import { loadSessionView, Session } from './session-view.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -80,7 +80,11 @@ export const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
         // One hospital: straight in. Several: none is active until the user picks.
         const tenantId =
           memberships.rows.length === 1 ? (memberships.rows[0]?.tenant_id ?? null) : null;
-        const { token } = await createSession(client, config, { userId, tenantId });
+        const { token } = await createSession(client, config, {
+          userId,
+          tenantId,
+          userAgent: cleanUserAgent(request.headers['user-agent']),
+        });
         return {
           ok: true as const,
           token,

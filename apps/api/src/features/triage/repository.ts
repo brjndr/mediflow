@@ -1,5 +1,5 @@
 import type pg from 'pg';
-import type { Allergy, Measure, Ranged } from './schemas.js';
+import { BANDS, RANGED, type Allergy, type Measure, type Ranged } from './schemas.js';
 /**
  * The triage SQL. Every statement runs on the request's own transaction under the app role, so
  * row-level security limits it to the active hospital.
@@ -173,44 +173,192 @@ export async function insertVitals(
   return id;
 }
 
-/** The built-in adult ranges, for a hospital that has set none of its own. */
-export const DEFAULT_RANGES: Record<Ranged, { low?: number; high?: number }> = {
-  systolic: { low: 90, high: 139 },
-  diastolic: { low: 60, high: 89 },
-  pulse: { low: 60, high: 100 },
-  temperature: { low: 36.1, high: 37.8 },
-  spo2: { low: 95 },
+export type Band = (typeof BANDS)[number];
+export type Limits = { low?: number; high?: number };
+export type RangeSet = Partial<Record<Ranged, Limits>>;
+export type RangeTable = Record<Band, RangeSet>;
+
+/** The age, in whole years, a band starts at: under 1, 1 to 11, 12 to 17, 18 and over. */
+export const BAND_STARTS: Record<Band, number> = { infant: 0, child: 1, adolescent: 12, adult: 18 };
+
+/**
+ * The built-in ranges, for a band a hospital has set none for. A starting point to be reviewed by
+ * the hospital's own clinicians, not a clinical standard.
+ */
+export const DEFAULT_RANGES: RangeTable = {
+  infant: {
+    systolic: { low: 70, high: 100 },
+    diastolic: { low: 40, high: 65 },
+    pulse: { low: 100, high: 160 },
+    temperature: { low: 36.1, high: 37.8 },
+    spo2: { low: 95 },
+  },
+  child: {
+    systolic: { low: 80, high: 120 },
+    diastolic: { low: 50, high: 80 },
+    pulse: { low: 70, high: 130 },
+    temperature: { low: 36.1, high: 37.8 },
+    spo2: { low: 95 },
+  },
+  adolescent: {
+    systolic: { low: 90, high: 130 },
+    diastolic: { low: 55, high: 85 },
+    pulse: { low: 60, high: 105 },
+    temperature: { low: 36.1, high: 37.8 },
+    spo2: { low: 95 },
+  },
+  adult: {
+    systolic: { low: 90, high: 139 },
+    diastolic: { low: 60, high: 89 },
+    pulse: { low: 60, high: 100 },
+    temperature: { low: 36.1, high: 37.8 },
+    spo2: { low: 95 },
+  },
 };
 
-/** Whether the patient is 18 or over on today's date at the hospital, or null when unknown. */
-export async function isAdult(client: pg.ClientBase, patientId: string): Promise<boolean | null> {
+/** The band of a person born on `dob` on `onDate`, both as `YYYY-MM-DD` (a calendar date). */
+export function bandOf(dob: string, onDate: string): Band {
+  const [by = 0, bm = 0, bd = 0] = dob.split('-').map(Number);
+  const [oy = 0, om = 0, od = 0] = onDate.split('-').map(Number);
+  let years = oy - by;
+  if (om < bm || (om === bm && od < bd)) years -= 1;
+  if (years >= BAND_STARTS.adult) return 'adult';
+  if (years >= BAND_STARTS.adolescent) return 'adolescent';
+  if (years >= BAND_STARTS.child) return 'child';
+  return 'infant';
+}
+
+/** The calendar date at a moment on the hospital's clock, as `YYYY-MM-DD`. */
+export function dateAt(moment: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(moment);
+}
+
+/** A moment after every row: the ranges as they stand, whatever the clocks say. */
+export const LATEST = new Date(8.64e15);
+
+export interface RangeRow {
+  band: Band;
+  measure: Ranged;
+  low: number | null;
+  high: number | null;
+  effective_from: Date;
+}
+
+/** Every range row of the hospital. Small: twenty rows for each time the ranges were saved. */
+export async function loadRangeRows(client: pg.ClientBase): Promise<RangeRow[]> {
+  const { rows } = await client.query<RangeRow>(
+    `select band, measure, low::float8 as low, high::float8 as high, effective_from
+     from vital_ranges order by effective_from desc`,
+  );
+  return rows;
+}
+
+/**
+ * The ranges of a band that applied at a moment: for each measure the newest row not after it,
+ * else the built-in one. A row with no limits means the measure was not checked.
+ */
+export function rangesAt(rows: RangeRow[], band: Band, at: Date): RangeSet {
+  const set: RangeSet = {};
+  for (const measure of RANGED) {
+    const row = rows.find(
+      (r) => r.band === band && r.measure === measure && r.effective_from <= at,
+    );
+    const limits: Limits | undefined = row
+      ? {
+          ...(row.low === null ? {} : { low: row.low }),
+          ...(row.high === null ? {} : { high: row.high }),
+        }
+      : DEFAULT_RANGES[band][measure];
+    if (limits && (limits.low !== undefined || limits.high !== undefined)) set[measure] = limits;
+  }
+  return set;
+}
+
+/** All four bands as they apply at a moment. */
+export function tableAt(rows: RangeRow[], at: Date): RangeTable {
+  return Object.fromEntries(BANDS.map((band) => [band, rangesAt(rows, band, at)])) as RangeTable;
+}
+
+/** The number a hospital's ranges are at: one for each time they were saved. */
+export async function rangesVersion(client: pg.ClientBase): Promise<number> {
+  const { rows } = await client.query<{ version: number }>(
+    'select count(distinct effective_from)::int as version from vital_ranges',
+  );
+  return rows[0]?.version ?? 0;
+}
+
+/**
+ * The patient's date of birth and the hospital's time zone, or null for a patient the hospital
+ * does not have.
+ */
+export async function ageBasis(
+  client: pg.ClientBase,
+  patientId: string,
+): Promise<{ dob: string; timeZone: string } | null> {
   if (!UUID.test(patientId)) return null;
-  const { rows } = await client.query<{ adult: boolean }>(
-    `select p.dob + interval '18 years' <= (now() at time zone h.timezone)::date as adult
+  const { rows } = await client.query<{ dob: string; timezone: string }>(
+    `select p.dob::text as dob, h.timezone
      from patients p join tenants h on h.id = p.tenant_id
      where p.id = $1`,
     [patientId],
   );
-  return rows[0]?.adult ?? null;
+  const row = rows[0];
+  return row ? { dob: row.dob, timeZone: row.timezone } : null;
 }
 
-/** The hospital's own ranges, or the built-in ones when it has none. */
-export async function hospitalRanges(
+export type Flags = Partial<Record<Ranged, 'low' | 'high'>>;
+
+/** Which values of a reading were outside the ranges in effect when it was recorded. */
+export function flagsFor(
+  basis: { dob: string; timeZone: string },
+  rows: RangeRow[],
+  reading: Pick<VitalsRow, 'recorded_at' | Ranged>,
+): Flags {
+  const band = bandOf(basis.dob, dateAt(reading.recorded_at, basis.timeZone));
+  const set = rangesAt(rows, band, reading.recorded_at);
+  const flags: Flags = {};
+  for (const measure of RANGED) {
+    const value = reading[measure];
+    const limits = set[measure];
+    if (value === null || !limits) continue;
+    if (limits.low !== undefined && value < limits.low) flags[measure] = 'low';
+    else if (limits.high !== undefined && value > limits.high) flags[measure] = 'high';
+  }
+  return flags;
+}
+
+/**
+ * Saves a table of ranges as the ones in effect from now on, when the caller read the table at
+ * `version`. Returns false when someone saved first. Saves are serialised per hospital.
+ */
+export async function saveRanges(
   client: pg.ClientBase,
-): Promise<Partial<Record<Ranged, { low?: number; high?: number }>>> {
-  const { rows } = await client.query<{ measure: Ranged; low: number | null; high: number | null }>(
-    'select measure, low::float8 as low, high::float8 as high from vital_ranges order by measure',
+  userId: string,
+  table: RangeTable,
+  version: number,
+): Promise<boolean> {
+  await client.query(
+    `select pg_advisory_xact_lock(hashtextextended('vital_ranges:' || app_tenant_id()::text, 0))`,
   );
-  if (rows.length === 0) return DEFAULT_RANGES;
-  return Object.fromEntries(
-    rows.map((row) => [
-      row.measure,
-      {
-        ...(row.low === null ? {} : { low: row.low }),
-        ...(row.high === null ? {} : { high: row.high }),
-      },
-    ]),
-  );
+  if ((await rangesVersion(client)) !== version) return false;
+  const { rows } = await client.query<{ at: Date }>('select clock_timestamp() as at');
+  const at = rows[0]?.at ?? new Date();
+  for (const band of BANDS) {
+    for (const measure of RANGED) {
+      const limits = table[band][measure];
+      await client.query(
+        `insert into vital_ranges (tenant_id, band, measure, low, high, effective_from, created_by)
+         values (app_tenant_id(), $1, $2, $3, $4, $5, $6)`,
+        [band, measure, limits?.low ?? null, limits?.high ?? null, at, userId],
+      );
+    }
+  }
+  return true;
 }
 
 export interface CatalogAllergen {

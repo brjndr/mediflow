@@ -242,6 +242,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/password/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Changes the signed-in user's password. Needs the current password, and a code from the authenticator when the user has one (`code`: 400 mfa_code_required without it). A wrong current password or code counts toward the account lockout, as at sign-in (403 invalid_password; 429 account_locked while locked). Every other session of the user and every outstanding reset link ends; the calling session stays and gets a new token in the cookie. The user is told by email. */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The signed-in user's own active sessions, newest first, with `current` set on the one making the call. A user has few, so there is one page of at most 50. */
+        get: operations["listAccountSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Ends one of the signed-in user's other sessions: that browser is signed out on its next request. An id that is unknown, ended already or another user's is the same 404. The session making the call is 409 current_session (use sign-out). */
+        delete: operations["revokeAccountSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session/policy": {
         parameters: {
             query?: never;
@@ -389,6 +440,23 @@ export interface paths {
         put?: never;
         /** @description Ends every session the person has at this hospital, so they must sign in again to work here: the sessions bound to it are revoked (`revoked` counts them), and a session they have at the hospital picker or at another hospital can no longer be brought here. Their work at other hospitals carries on. For the caller's own account only the sessions bound here are ended, and the current one is kept. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
         post: operations["revokeStaffSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invites/{inviteId}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Sends an open invitation again, for one whose email could not be sent or was lost. A new job gives the invitation a new link and the old link stops working; the invitation is not withdrawn, and keeps its expiry. Its email status goes back to being tried (`delivery` 'sending' on the staff list). An invitation that is not open here (accepted, withdrawn, expired, another hospital's, unknown) answers 404 invite_not_found. The caller must be allowed to give its role (403 role_not_allowed). */
+        post: operations["resendInvite"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1884,9 +1952,27 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The hospital’s normal ranges that apply to this patient, decided by the server from the patient’s age on today’s date at the hospital: the hospital’s adult ranges, or the built-in ones while it has set none, for a patient of 18 or over; null for a patient under 18 (#379). A patient the hospital does not have is 404 `not_found`. Audited, as it tells whether the patient is under 18. Requires vitals:read and the triage feature flag. */
+        /** @description The hospital’s normal ranges that apply to this patient, decided by the server from the patient’s age band (infant, child, adolescent or adult) on today’s date at the hospital: the hospital’s own ranges for that band, or the built-in ones for a band it has set none for (#379). A patient the hospital does not have is 404 `not_found`. Audited, as it tells the patient’s age band. Requires vitals:read and the triage feature flag. */
         get: operations["getVitalRanges"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vitals/ranges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital’s normal ranges for every age band as they apply now, with the version to send back when saving them. A band the hospital has set none for shows the built-in ranges. Requires vitals:read and the triage feature flag. Audited. */
+        get: operations["getVitalRangeTable"];
+        /** @description Saves the hospital’s normal ranges for every age band, in effect from now on: readings already recorded keep the marks they had, because a reading is marked against the ranges in effect when it was recorded (#378). `version` is the one read with the ranges; if another save came first the answer is 409 `conflict` and nothing changes. A low limit that is not below its high limit, or a limit with more than one decimal, is 422 `invalid_range`. A measure with no limit in a band is not checked for it. Audited. Requires vitals:configure and the triage feature flag. */
+        put: operations["saveVitalRangeTable"];
         post?: never;
         delete?: never;
         options?: never;
@@ -4100,33 +4186,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/password/change": {
+    "/prescription-sets": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** @description The prescription sets the caller may use: those shared with the hospital and their own, by name. Requires prescriptionSet:read and the clinical feature flag. `total` comes with the first page only. */
+        get: operations["listPrescriptionSets"];
         put?: never;
-        /** @description Changes the signed-in user's password. Asks for the current password. Every other session of the user is ended; the one making the call stays signed in. */
-        post: operations["changePassword"];
+        /** @description Adds a prescription set: the caller’s own, or shared with the hospital when `shared` is true (needs prescriptionSet:manageShared, else 403 permission_denied). One to 30 lines, each a medicine of the catalog that may be prescribed (422 unknown_drug otherwise). A name another set of the same owner (or another shared set) has, archived or not, whatever the capitals, is 409 prescription_set_name_taken. Requires prescriptionSet:manage and prescriptionSet:read. A set holds no patient data. Audited. A repeat with the same Idempotency-Key adds nothing and answers with the set as it is now. */
+        post: operations["createPrescriptionSet"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/auth/sessions": {
+    "/prescription-sets/{setId}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description The signed-in user's own active sessions, newest first. A user has few, so there is one page. */
-        get: operations["listAccountSessions"];
+        /** @description One set with its lines. A medicine archived since is flagged `drugArchived`, not dropped. Requires prescriptionSet:read. A set of another hospital, or another doctor’s own, answers 404 prescription_set_not_found, the same as one that does not exist. */
+        get: operations["getPrescriptionSet"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Renames a set, replaces its lines, archives it or restores it: send only what changes, with the `version` the change was made from (409 conflict otherwise). A shared set needs prescriptionSet:manageShared (403 permission_denied); an own set is its owner’s. Requires prescriptionSet:manage and prescriptionSet:read. Audited. A set of another hospital, or another doctor’s own, answers 404 prescription_set_not_found, the same as one that does not exist. */
+        patch: operations["updatePrescriptionSet"];
+        trace?: never;
+    };
+    "/me/favourite-drugs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The medicines the caller starred, in the order they put them (at most 20). A medicine archived since is flagged. Requires prescriptionSet:read. */
+        get: operations["getFavouriteDrugs"];
+        /** @description Replaces the caller’s favourite medicines with this list, in order (at most 20, each a medicine of the catalog that may be prescribed, none twice: 422 unknown_drug otherwise). Requires prescriptionSet:manage and prescriptionSet:read. Favourites belong to the caller alone. */
+        put: operations["setFavouriteDrugs"];
         post?: never;
         delete?: never;
         options?: never;
@@ -4134,7 +4240,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/sessions/{sessionId}": {
+    "/me/favourite-drugs/{drugId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -4142,10 +4248,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /** @description Stars one medicine: it goes to the end of the caller’s favourites and a twenty-first drops the oldest. One already starred moves to the end. Unlike replacing the whole list, two of these sent at once both stay. 422 unknown_drug for a medicine that may not be prescribed. Requires prescriptionSet:manage and prescriptionSet:read. */
+        put: operations["addFavouriteDrug"];
         post?: never;
-        /** @description Ends one of the signed-in user's other sessions: that browser is signed out on its next request. The session making the call cannot be ended here (use sign-out). */
-        delete: operations["revokeAccountSession"];
+        /** @description Takes one medicine off the caller’s favourites; the others stay, whatever else changes at the same time. A medicine not starred is not an error. Requires prescriptionSet:manage and prescriptionSet:read. */
+        delete: operations["removeFavouriteDrug"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4253,6 +4360,23 @@ export interface components {
             /** @description One-time codes. Returned this once and never again. */
             recoveryCodes: string[];
         };
+        AccountSession: {
+            /** @description An opaque id for the session, only for ending it. Not the cookie and not derived from it. */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastSeenAt: string;
+            /** @description The browser as it described itself at sign-in, cleaned and cut, for the person to recognise the device. */
+            userAgent: null | string;
+            /** @description True for the session making this call. */
+            current: boolean;
+        };
+        AccountSessionList: {
+            items: components["schemas"]["AccountSession"][];
+            /** @description Always null: a person has few sessions. */
+            nextCursor: null | string;
+        };
         Tenant: {
             id: string;
             slug: string;
@@ -4334,6 +4458,11 @@ export interface components {
             roleName: string;
             /** @enum {string} */
             status: "active" | "deactivated" | "invited";
+            /**
+             * @description Invitations only: whether the email was sent, is still being tried, or could not be sent (its last attempt failed, or it was never sent within the hour). Never the error or the address it went to.
+             * @enum {string}
+             */
+            delivery?: "sent" | "sending" | "failed";
         };
         /** @description Cursor envelope used by every list endpoint. */
         StaffPage: {
@@ -4350,6 +4479,10 @@ export interface components {
         };
         StaffSessionsRevoked: {
             revoked: number;
+        };
+        /** @description The invitation that is being sent again. */
+        InviteResent: {
+            id: string;
         };
         /** @description A patient as shown in a list: compact, no clinical data. */
         PatientSummary: {
@@ -5504,6 +5637,7 @@ export interface components {
             correctsId?: string;
             /** @description Plain text. Required with correctsId, refused without it. */
             correctionReason?: string;
+            flags?: components["schemas"]["VitalFlags"];
         };
         /** @description At least one measurement or a chief complaint. Systolic and diastolic go together, the diastolic below the systolic. */
         VitalsCreate: {
@@ -5542,7 +5676,7 @@ export interface components {
             high?: number;
         };
         VitalRanges: {
-            /** @description The hospital’s ranges that apply to this patient, or null when none do (a patient under 18: ranges are for adults until #379). */
+            /** @description The hospital’s ranges for the patient’s age band today, at the hospital’s date. Null is kept for a patient with no known band; today every patient has one. */
             ranges: {
                 systolic?: components["schemas"]["VitalRange"];
                 diastolic?: components["schemas"]["VitalRange"];
@@ -5550,6 +5684,39 @@ export interface components {
                 temperature?: components["schemas"]["VitalRange"];
                 spo2?: components["schemas"]["VitalRange"];
             } | null;
+        };
+        /** @description The ranges of one age band. A measure that is absent, or has neither limit, is not checked. */
+        VitalRangeSet: {
+            systolic?: components["schemas"]["VitalRange"];
+            diastolic?: components["schemas"]["VitalRange"];
+            pulse?: components["schemas"]["VitalRange"];
+            temperature?: components["schemas"]["VitalRange"];
+            spo2?: components["schemas"]["VitalRange"];
+        };
+        /** @description A hospital’s normal ranges for every age band, as they apply now. */
+        VitalRangeTable: {
+            /** @description How many times the ranges were saved: 0 while the hospital uses the built-in ones. Sent back with a save, which is refused with 409 conflict if another save came first. */
+            version: number;
+            /** @description Infant (under 1 year), child (1 to 11), adolescent (12 to 17) and adult (18 and over), by the patient’s age at the hospital’s date on the day of the reading. */
+            bands: {
+                infant: components["schemas"]["VitalRangeSet"];
+                child: components["schemas"]["VitalRangeSet"];
+                adolescent: components["schemas"]["VitalRangeSet"];
+                adult: components["schemas"]["VitalRangeSet"];
+            };
+        };
+        /** @description Which values were outside the normal ranges in effect when the reading was recorded, for the patient’s age band that day. A value that is not listed was within them, or had no range. */
+        VitalFlags: {
+            /** @enum {string} */
+            systolic?: "low" | "high";
+            /** @enum {string} */
+            diastolic?: "low" | "high";
+            /** @enum {string} */
+            pulse?: "low" | "high";
+            /** @enum {string} */
+            temperature?: "low" | "high";
+            /** @enum {string} */
+            spo2?: "low" | "high";
         };
         /** @enum {string} */
         AllergySeverity: "mild" | "moderate" | "severe" | "unknown";
@@ -7972,6 +8139,91 @@ export interface components {
             nextCursor: string | null;
             total?: number;
         };
+        /** @description A medicine line of a set, as a prescription line has it. */
+        PrescriptionSetLine: {
+            /** @description A medicine of the catalog. */
+            drugId: string;
+            /** @description As written: "500 mg". */
+            dose: string;
+            /** @enum {string} */
+            route: "oral" | "sublingual" | "topical" | "inhaled" | "nasal" | "eye" | "ear" | "rectal" | "vaginal" | "intramuscular" | "intravenous" | "subcutaneous" | "other";
+            /** @description As written: "1-0-1". */
+            frequency: string;
+            durationDays?: number;
+            quantity?: number;
+            instructions?: string;
+        };
+        PrescriptionSetLineView: {
+            /** @description A medicine of the catalog. */
+            drugId: string;
+            /** @description As written: "500 mg". */
+            dose: string;
+            /** @enum {string} */
+            route: "oral" | "sublingual" | "topical" | "inhaled" | "nasal" | "eye" | "ear" | "rectal" | "vaginal" | "intramuscular" | "intravenous" | "subcutaneous" | "other";
+            /** @description As written: "1-0-1". */
+            frequency: string;
+            durationDays?: number;
+            quantity?: number;
+            instructions?: string;
+            /** @description The medicine as the catalog names it now. */
+            drugName: string;
+            /** @description The medicine’s generic name, for the allergy checks. */
+            genericName: string;
+            brandName?: string;
+            /** @description True when the medicine was archived after the set was saved: it cannot be prescribed. */
+            drugArchived: boolean;
+        };
+        /** @description A prescription set. Holds no patient data. */
+        PrescriptionSet: {
+            id: string;
+            tenantId: string;
+            name: string;
+            /** @description True: shared with every prescriber. False: the caller’s own. */
+            shared: boolean;
+            lineCount: number;
+            archived: boolean;
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        PrescriptionSetPage: {
+            items: components["schemas"]["PrescriptionSet"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        PrescriptionSetDetail: {
+            set: components["schemas"]["PrescriptionSet"];
+            /** @description In the order written. */
+            lines: components["schemas"]["PrescriptionSetLineView"][];
+        };
+        PrescriptionSetCreate: {
+            name: string;
+            /** @description Share with the whole hospital (needs prescriptionSet:manageShared). Omitted: the caller’s own. */
+            shared?: boolean;
+            lines: components["schemas"]["PrescriptionSetLine"][];
+        };
+        PrescriptionSetUpdate: {
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
+            name?: string;
+            archived?: boolean;
+            lines?: components["schemas"]["PrescriptionSetLine"][];
+        };
+        FavouriteDrug: {
+            drugId: string;
+            name: string;
+            /** @description Archived after it was starred: it cannot be prescribed. */
+            archived: boolean;
+        };
+        FavouriteDrugs: {
+            /** @description In the order the doctor put them. */
+            items: components["schemas"]["FavouriteDrug"][];
+        };
+        FavouriteDrugsSet: {
+            /** @description The whole list, in order. Replaces the caller’s favourites. */
+            drugIds: string[];
+        };
         Notice: {
             id: string;
             tenantId: string;
@@ -7989,21 +8241,6 @@ export interface components {
             items: components["schemas"]["Notice"][];
             nextCursor: string | null;
             total?: number;
-        };
-        AccountSession: {
-            id: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            lastSeenAt: string;
-            /** @description The browser as it described itself at sign-in, for the person to recognise the device. */
-            userAgent: string | null;
-            /** @description True for the session making this call. */
-            current: boolean;
-        };
-        AccountSessionList: {
-            items: components["schemas"]["AccountSession"][];
-            nextCursor: string | null;
         };
     };
     responses: {
@@ -8750,6 +8987,145 @@ export interface operations {
             };
         };
     };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    currentPassword: string;
+                    newPassword: string;
+                    /** @description Authenticator code or a recovery code. Required with an authenticator. */
+                    code?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The password was changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAccountSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountSessionList"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeAccountSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The session was ended */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getSessionPolicy: {
         parameters: {
             query?: never;
@@ -9252,6 +9628,85 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resendInvite: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                inviteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The invitation that is being sent again. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteResent"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -17303,6 +17758,140 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getVitalRangeTable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A hospital’s normal ranges for every age band, as they apply now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VitalRangeTable"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    saveVitalRangeTable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VitalRangeTable"];
+            };
+        };
+        responses: {
+            /** @description A hospital’s normal ranges for every age band, as they apply now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VitalRangeTable"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -30090,7 +30679,380 @@ export interface operations {
             };
         };
     };
-    changePassword: {
+    listPrescriptionSets: {
+        parameters: {
+            query?: {
+                /** @description Opaque. Pass the nextCursor of the previous page. */
+                cursor?: string;
+                limit?: number;
+                /** @description True: the archived sets. Default: those in use. */
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionSetPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createPrescriptionSet: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrescriptionSetCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionSetDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPrescriptionSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                setId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionSetDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updatePrescriptionSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                setId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrescriptionSetUpdate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionSetDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getFavouriteDrugs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavouriteDrugs"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setFavouriteDrugs: {
         parameters: {
             query?: never;
             header?: never;
@@ -30099,71 +31061,216 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    currentPassword: string;
-                    newPassword: string;
-                };
+                "application/json": components["schemas"]["FavouriteDrugsSet"];
             };
         };
         responses: {
-            /** @description The password was changed */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listAccountSessions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The sessions */
+            /** @description Default Response */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccountSessionList"];
+                    "application/json": components["schemas"]["FavouriteDrugs"];
                 };
             };
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    revokeAccountSession: {
+    addFavouriteDrug: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                sessionId: string;
+                drugId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description The session was ended */
-            204: {
+            /** @description Default Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["FavouriteDrugs"];
+                };
             };
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    removeFavouriteDrug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                drugId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavouriteDrugs"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     openLink: {

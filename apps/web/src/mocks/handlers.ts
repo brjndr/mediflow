@@ -24,6 +24,7 @@ import { labHandlers } from './handlers/lab';
 import { radiologyHandlers } from './handlers/radiology';
 import { indentHandlers } from './handlers/indents';
 import { inventoryHandlers } from './handlers/inventory';
+import { prescriptionSetsHandlers } from './handlers/prescription-sets';
 import { pharmacyHandlers } from './handlers/pharmacy';
 import { pharmacySaleHandlers } from './handlers/pharmacy-sales';
 import { purchasingHandlers } from './handlers/purchasing';
@@ -38,7 +39,6 @@ import { wardsHandlers } from './handlers/wards';
 import { staffHandlers } from './handlers/staff';
 import { patientsHandlers } from './handlers/patients';
 import { platformHandlers } from './handlers/platform';
-import { profileHandlers } from './handlers/profile';
 import { queueHandlers } from './handlers/queue';
 import { reportsHandlers } from './handlers/reports';
 import { triageHandlers } from './handlers/triage';
@@ -136,6 +136,7 @@ export const handlers = [
   ...queueHandlers,
   ...triageHandlers,
   ...clinicalHandlers,
+  ...prescriptionSetsHandlers,
   ...billingHandlers,
   ...labHandlers,
   ...radiologyHandlers,
@@ -155,6 +156,5 @@ export const handlers = [
   ...reportsHandlers,
   ...accountHandlers,
   ...mfaHandlers,
-  ...profileHandlers,
   ...platformHandlers,
 ];

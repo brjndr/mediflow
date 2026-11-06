@@ -17,6 +17,7 @@ import {
   type TestTenant,
   type TestUser,
 } from '../../../test/helpers.js';
+import { bandOf, dateAt } from './repository.js';
 
 /**
  * The triage API through the real app and database: recording and correcting readings, the
@@ -36,7 +37,7 @@ let nurse: TestUser;
 let doctor: TestUser;
 let desk: TestUser;
 let clinicNurse: TestUser;
-const patients = { adult: '', child: '', other: '', clinic: '' };
+const patients = { adult: '', child: '', infant: '', other: '', clinic: '' };
 let department = '';
 
 interface Reading {
@@ -58,6 +59,14 @@ interface Reading {
   chiefComplaint?: string;
   correctsId?: string;
   correctionReason?: string;
+  flags?: Record<string, string>;
+}
+interface RangeTable {
+  version: number;
+  bands: Record<
+    'infant' | 'child' | 'adolescent' | 'adult',
+    Record<string, { low?: number; high?: number }>
+  >;
 }
 interface AllergyList {
   patientId: string;
@@ -91,6 +100,15 @@ const record = (patientId: string, body: object, options: Options = {}) => {
     payload: body,
   });
 };
+const rangeTable = async (options: Options = {}) =>
+  (await get('/vitals/ranges', { user: admin, ...options })).json<RangeTable>();
+const putRanges = (body: object, options: Options = {}) =>
+  app.inject({
+    method: 'PUT',
+    url: '/vitals/ranges',
+    headers: as((options.tenant ?? hospital).id, (options.user ?? admin).id),
+    payload: body,
+  });
 const putAllergies = (patientId: string, body: object, options: Options = {}) =>
   app.inject({
     method: 'PUT',
@@ -191,6 +209,7 @@ beforeAll(async () => {
   await addMembership(pool, doctor, hospital, 'doctor');
   await addMembership(pool, desk, hospital, 'receptionist');
   await addMembership(pool, clinicNurse, clinic, 'nurse');
+  await addMembership(pool, admin, clinic, 'admin');
   const { rows } = await pool.query<{ id: string }>(
     "insert into departments (tenant_id, name) values ($1, 'General') returning id",
     [hospital.id],
@@ -202,6 +221,10 @@ beforeAll(async () => {
     "select ((now() at time zone 'Asia/Kolkata')::date - interval '18 years' + interval '1 day')::date::text as dob",
   );
   patients.child = await addPatient(hospital, 'Bala', childDob[0]?.dob ?? '');
+  const { rows: infantDob } = await pool.query<{ dob: string }>(
+    "select ((now() at time zone 'Asia/Kolkata')::date - interval '6 months')::date::text as dob",
+  );
+  patients.infant = await addPatient(hospital, 'Esha', infantDob[0]?.dob ?? '');
   patients.other = await addPatient(hospital, 'Chitra', '1990-01-01');
   patients.clinic = await addPatient(clinic, 'Dina', '1985-01-01');
 });
@@ -373,8 +396,29 @@ describe('recording a reading', () => {
   });
 });
 
+describe('age bands', () => {
+  it('chooses the band from the age in whole years on the day', () => {
+    expect(bandOf('2025-06-15', '2026-06-14')).toBe('infant');
+    expect(bandOf('2025-06-15', '2026-06-15')).toBe('child');
+    expect(bandOf('2015-06-15', '2026-06-14')).toBe('child');
+    expect(bandOf('2014-06-15', '2026-06-15')).toBe('adolescent');
+    expect(bandOf('2008-06-15', '2026-06-14')).toBe('adolescent');
+    expect(bandOf('2008-06-15', '2026-06-15')).toBe('adult');
+    // 29 February: a person born that day is a year older on 1 March in a common year.
+    expect(bandOf('2008-02-29', '2026-02-28')).toBe('adolescent');
+    expect(bandOf('2008-02-29', '2026-03-01')).toBe('adult');
+  });
+
+  it('reads the day on the hospital’s clock, not on UTC', () => {
+    // 20:00 UTC on 14 June is already 15 June in Kolkata and in Dubai.
+    const moment = new Date('2026-06-14T20:00:00Z');
+    expect(dateAt(moment, 'Asia/Kolkata')).toBe('2026-06-15');
+    expect(dateAt(moment, 'UTC')).toBe('2026-06-14');
+  });
+});
+
 describe('ranges', () => {
-  it('gives the built-in adult ranges while the hospital has none, and null under 18', async () => {
+  it('gives the built-in ranges of the patient’s band while the hospital has none', async () => {
     const adult = await get(`/patients/${patients.adult}/vital-ranges`);
     expect(adult.json()).toEqual({
       ranges: {
@@ -385,9 +429,15 @@ describe('ranges', () => {
         spo2: { low: 95 },
       },
     });
-    expect((await get(`/patients/${patients.child}/vital-ranges`)).json()).toEqual({
-      ranges: null,
-    });
+    // Seventeen, one day short of eighteen: ranges for children are no longer withheld (#379).
+    const adolescent = (await get(`/patients/${patients.child}/vital-ranges`)).json<{
+      ranges: Record<string, unknown>;
+    }>();
+    expect(adolescent.ranges.pulse).toEqual({ low: 60, high: 105 });
+    const infant = (await get(`/patients/${patients.infant}/vital-ranges`)).json<{
+      ranges: Record<string, unknown>;
+    }>();
+    expect(infant.ranges.pulse).toEqual({ low: 100, high: 160 });
     expect(await audited('vital_ranges', patients.child)).toEqual(['read']);
     expect(errorOf(await get(`/patients/${patients.clinic}/vital-ranges`))).toEqual([
       404,
@@ -395,15 +445,151 @@ describe('ranges', () => {
     ]);
   });
 
-  it('gives the hospital’s own ranges once it has them', async () => {
-    await pool.query(
-      `insert into vital_ranges (tenant_id, measure, low, high)
-       values ($1, 'temperature', 36.1, 37.5), ($1, 'spo2', 94, null)`,
+  it('shows the whole table at version 0 and saves it as a new version', async () => {
+    const before = await rangeTable();
+    expect(before.version).toBe(0);
+    expect(Object.keys(before.bands)).toEqual(['infant', 'child', 'adolescent', 'adult']);
+    expect(before.bands.adult.temperature).toEqual({ low: 36.1, high: 37.8 });
+
+    const edited = {
+      version: 0,
+      bands: {
+        ...before.bands,
+        adult: { ...before.bands.adult, temperature: { low: 36.1, high: 37.5 }, spo2: {} },
+        child: { ...before.bands.child, pulse: { high: 125.5 } },
+      },
+    };
+    const saved = await putRanges(edited);
+    expect(saved.statusCode).toBe(200);
+    const after = saved.json<RangeTable>();
+    expect(after.version).toBe(1);
+    expect(after.bands.adult.temperature).toEqual({ low: 36.1, high: 37.5 });
+    // A measure with no limit is not checked, and does not fall back to the built-in one.
+    expect(after.bands.adult.spo2).toBeUndefined();
+    expect(after.bands.child.pulse).toEqual({ high: 125.5 });
+    expect(after.bands.infant).toEqual(before.bands.infant);
+    expect((await rangeTable()).bands).toEqual(after.bands);
+
+    expect((await get(`/patients/${patients.adult}/vital-ranges`)).json()).toEqual({
+      ranges: {
+        systolic: { low: 90, high: 139 },
+        diastolic: { low: 60, high: 89 },
+        pulse: { low: 60, high: 100 },
+        temperature: { low: 36.1, high: 37.5 },
+      },
+    });
+    const { rows } = await pool.query<{ action: string }>(
+      "select action from audit_log where tenant_id = $1 and entity = 'vital_ranges' order by at",
       [hospital.id],
     );
-    expect((await get(`/patients/${patients.adult}/vital-ranges`)).json()).toEqual({
-      ranges: { spo2: { low: 94 }, temperature: { low: 36.1, high: 37.5 } },
+    expect(rows.map((row) => row.action)).toContain('update');
+  });
+
+  it('refuses a stale version, a low limit not below its high, and a third decimal', async () => {
+    const { bands } = await rangeTable();
+    expect((await putRanges({ version: 0, bands })).statusCode).toBe(200);
+    // The same version again: someone saved first.
+    expect(errorOf(await putRanges({ version: 0, bands }))).toEqual([409, 'conflict']);
+    expect((await rangeTable()).version).toBe(1);
+
+    const withPulse = (pulse: object) => ({
+      version: 1,
+      bands: { ...bands, adult: { ...bands.adult, pulse } },
     });
+    expect(errorOf(await putRanges(withPulse({ low: 100, high: 60 })))).toEqual([
+      422,
+      'invalid_range',
+    ]);
+    expect(errorOf(await putRanges(withPulse({ low: 80, high: 80 })))).toEqual([
+      422,
+      'invalid_range',
+    ]);
+    expect(errorOf(await putRanges(withPulse({ low: 60.25 })))).toEqual([422, 'invalid_range']);
+    expect(errorOf(await putRanges(withPulse({ low: -1 })))).toEqual([400, 'validation_failed']);
+    expect(
+      errorOf(await putRanges({ version: 1, bands: { ...bands, infant: undefined } })),
+    ).toEqual([400, 'validation_failed']);
+    expect((await rangeTable()).version).toBe(1);
+  });
+
+  it('marks a reading against the ranges in effect when it was recorded', async () => {
+    const early = await recorded(patients.adult, { pulse: 110, temperature: 37 });
+    expect(early.flags).toEqual({ pulse: 'high' });
+
+    const { bands } = await rangeTable();
+    const looser = { ...bands.adult, pulse: { low: 60, high: 120 } };
+    expect((await putRanges({ version: 0, bands: { ...bands, adult: looser } })).statusCode).toBe(
+      200,
+    );
+
+    const late = await recorded(patients.adult, { pulse: 110 });
+    expect(late.flags).toEqual({});
+    // The earlier reading keeps its mark, in a list and on its own.
+    const page = (await get(`/patients/${patients.adult}/vitals`)).json<Page<Reading>>();
+    expect(page.items.map((item) => [item.id === early.id, item.flags])).toEqual([
+      [false, {}],
+      [true, { pulse: 'high' }],
+    ]);
+    expect(
+      (await get(`/patients/${patients.adult}/vitals/${early.id}`)).json<Reading>().flags,
+    ).toEqual({ pulse: 'high' });
+  });
+
+  it('marks a reading against the band the patient was in that day', async () => {
+    const infant = await recorded(patients.infant, { pulse: 90, spo2: 97, temperature: 38.5 });
+    expect(infant.flags).toEqual({ pulse: 'low', temperature: 'high' });
+    const adolescent = await recorded(patients.child, { pulse: 90, systolic: 140, diastolic: 80 });
+    expect(adolescent.flags).toEqual({ systolic: 'high' });
+  });
+
+  it('keeps each hospital’s ranges apart', async () => {
+    const { bands } = await rangeTable();
+    const strict = { ...bands.adult, pulse: { low: 70, high: 80 } };
+    expect((await putRanges({ version: 0, bands: { ...bands, adult: strict } })).statusCode).toBe(
+      200,
+    );
+    const clinicAdmin = { tenant: clinic, user: admin };
+    const theirs = await rangeTable(clinicAdmin);
+    expect(theirs.version).toBe(0);
+    expect(theirs.bands.adult.pulse).toEqual({ low: 60, high: 100 });
+    expect(
+      (await recorded(patients.clinic, { pulse: 75 }, { tenant: clinic, user: clinicNurse })).flags,
+    ).toEqual({});
+    const counted = await pool.query(
+      'select count(*)::int as n from vital_ranges where tenant_id = $1',
+      [clinic.id],
+    );
+    expect(counted.rows[0]).toEqual({ n: 0 });
+    // The clinic's own save does not reach the hospital either.
+    expect((await putRanges({ version: 0, bands: theirs.bands }, clinicAdmin)).statusCode).toBe(
+      200,
+    );
+    expect((await rangeTable()).bands.adult.pulse).toEqual({ low: 70, high: 80 });
+  });
+
+  it('is for those who may configure, and only where the module is on', async () => {
+    const { bands } = await rangeTable();
+    for (const user of [nurse, doctor, desk]) {
+      expect(errorOf(await putRanges({ version: 0, bands }, { user }))).toEqual([
+        403,
+        'permission_denied',
+      ]);
+    }
+    expect((await rangeTable()).version).toBe(0);
+    // Reading the table needs only vitals:read.
+    expect((await get('/vitals/ranges', { user: nurse })).statusCode).toBe(200);
+    expect((await get('/vitals/ranges', { user: doctor })).statusCode).toBe(200);
+    expect(errorOf(await get('/vitals/ranges', { user: desk }))).toEqual([
+      403,
+      'permission_denied',
+    ]);
+    expect(errorOf(await get('/vitals/ranges', { tenant: closed, user: nurse }))).toEqual([
+      403,
+      'feature_disabled',
+    ]);
+    expect(
+      errorOf(await putRanges({ version: 0, bands }, { tenant: closed, user: nurse })),
+    ).toEqual([403, 'feature_disabled']);
   });
 });
 
@@ -741,14 +927,29 @@ describe('the hospital boundary', () => {
         ),
       ).rejects.toThrow();
     }
+    // Ranges can be added, but only for one's own hospital, and never changed or removed.
     await expect(
       asTenantSql(pool, clinic.id, (client) =>
-        client.query('insert into vital_ranges (tenant_id, measure, low) values ($1, $2, 1)', [
-          clinic.id,
-          'pulse',
-        ]),
+        client.query(
+          "insert into vital_ranges (tenant_id, band, measure, low, effective_from) values ($1, 'adult', 'pulse', 1, now())",
+          [hospital.id],
+        ),
       ),
     ).rejects.toThrow();
+    await asTenantSql(pool, clinic.id, async (client) => {
+      await client.query(
+        "insert into vital_ranges (tenant_id, band, measure, low, effective_from) values ($1, 'adult', 'pulse', 1, now())",
+        [clinic.id],
+      );
+      await expect(client.query('update vital_ranges set low = 2')).rejects.toThrow();
+    });
+    await asTenantSql(pool, clinic.id, async (client) => {
+      await client.query(
+        "insert into vital_ranges (tenant_id, band, measure, low, effective_from) values ($1, 'adult', 'pulse', 1, now())",
+        [clinic.id],
+      );
+      await expect(client.query('delete from vital_ranges')).rejects.toThrow();
+    });
     // A reading never changes and is never removed, by the app or anyone else.
     await asTenantSql(pool, hospital.id, async (client) => {
       await expect(

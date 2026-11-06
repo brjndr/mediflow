@@ -4,7 +4,10 @@ import type { AuthTransaction } from './db.js';
 import { checkSecondFactor, isMfaEnabled } from './mfa.js';
 import { verifyAgainstNothing, verifyPassword } from './password.js';
 
-type LoginConfig = Pick<Config, 'LOGIN_MAX_FAILURES' | 'LOGIN_LOCK_MINUTES' | 'MFA_ENCRYPTION_KEY'>;
+export type LoginConfig = Pick<
+  Config,
+  'LOGIN_MAX_FAILURES' | 'LOGIN_LOCK_MINUTES' | 'MFA_ENCRYPTION_KEY'
+>;
 
 interface Candidate {
   id: string;
@@ -30,7 +33,7 @@ export function normalizeEmail(email: string): string {
 }
 
 /** Counts a failed attempt, and locks the account when it is one too many. */
-async function recordFailure(
+export async function recordFailure(
   client: pg.PoolClient,
   config: LoginConfig,
   userId: string,

@@ -34,3 +34,6 @@ export { registerDrug, saleableDrug } from './repository.js';
 
 /** For triage: naming an allergen after a medicine of the catalog (#380). */
 export { medicineGenerics, medicineNamed } from './repository.js';
+
+/** For prescription sets and favourites (#394): names of saved medicines, archived or not. */
+export { medicineLabels } from './repository.js';

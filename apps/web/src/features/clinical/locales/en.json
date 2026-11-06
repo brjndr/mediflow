@@ -468,5 +468,43 @@
       "alreadyCancelled": "This referral was already cancelled.",
       "gone": "This referral is no longer available."
     }
+  },
+  "sets": {
+    "load": {
+      "open": "Load a set",
+      "heading": "Prescription sets",
+      "listLoading": "Loading the sets…",
+      "listFailed": "The sets could not be loaded. Close this and try again.",
+      "none": "No sets yet. Save the lines of a prescription as a set to use them again.",
+      "sharedLines_one": "Shared with the hospital, {{count}} medicine",
+      "sharedLines_other": "Shared with the hospital, {{count}} medicines",
+      "ownLines_one": "Yours, {{count}} medicine",
+      "ownLines_other": "Yours, {{count}} medicines",
+      "loading": "Loading {{name}}…",
+      "added_zero": "Nothing from {{name}} was added.",
+      "added_one": "{{count}} medicine from {{name}} was added. Check its dose before writing.",
+      "added_other": "{{count}} medicines from {{name}} were added. Check their doses before writing.",
+      "skippedArchived_one": "{{count}} was left out: the medicine is archived.",
+      "skippedArchived_other": "{{count}} were left out: the medicines are archived.",
+      "skippedFull_one": "{{count}} was left out: a prescription holds at most {{max}} medicines.",
+      "skippedFull_other": "{{count}} were left out: a prescription holds at most {{max}} medicines.",
+      "gone": "That set is no longer there. Close this and open it again.",
+      "failed": "The set could not be loaded. Try again."
+    },
+    "save": {
+      "open": "Save as a set",
+      "title": "Save as a set",
+      "description": "Keep these medicines, with their doses, to add to a prescription in one step.",
+      "name": "Name of the set",
+      "shared": "Share with the whole hospital",
+      "sharedHint": "Every prescriber can use it. Only you keep it otherwise.",
+      "confirm": "Save the set",
+      "incomplete": "Choose the medicine and write the dose, route and frequency of every line first.",
+      "saved": "Saved as your set: {{name}}.",
+      "savedShared": "Saved as a set shared with the hospital: {{name}}.",
+      "nameTaken": "You, or the hospital, already have a set with this name. Choose another name.",
+      "notAllowed": "You may not share a set with the hospital.",
+      "unknownDrug": "A medicine in these lines can no longer be prescribed."
+    }
   }
 }

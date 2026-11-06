@@ -8,3 +8,7 @@ export type DrugUpdate = components['schemas']['DrugUpdate'];
 export type DrugType = Drug['type'];
 export type DrugForm = Drug['form'];
 export type DrugSchedule = Drug['schedule'];
+
+/** A medicine a doctor starred, as the prescription sets API names it (#394). */
+export type FavouriteDrug = components['schemas']['FavouriteDrug'];
+export type FavouriteDrugs = components['schemas']['FavouriteDrugs'];

@@ -1,13 +1,92 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { MOCK_PASSWORD, setMockMfa, signOut as signOutOnServer, USER_IDS } from '@/mocks/db';
 import { setMockMfaAvailable, setMockMfaRequired } from '@/mocks/handlers/mfa';
 import { server } from '@/mocks/node';
 import { renderApp } from '@/test/render';
 
 const ADMIN = 'admin@sample-hospital.test';
+const AUTHENTICATOR_CODE = '123456';
+
+interface FakeSession {
+  id: string;
+  createdAt: string;
+  lastSeenAt: string;
+  userAgent: string | null;
+  current: boolean;
+}
+
+const errorBody = (status: number, code: string) =>
+  HttpResponse.json({ error: { code, message: 'x', requestId: 'req_test' } }, { status });
+
+/**
+ * The account endpoints as the real API answers them (apps/api core/auth/account-sessions.ts):
+ * the shapes and the error codes, with three sessions to start from. The mock server has no
+ * handlers of its own for these.
+ */
+function mockAccountApi() {
+  let sessions: FakeSession[] = [
+    {
+      id: '5b0f1c1e-0000-4000-8000-000000000001',
+      createdAt: '2026-10-11T03:30:00Z',
+      lastSeenAt: '2026-10-11T06:10:00Z',
+      userAgent: 'Chrome on Windows',
+      current: true,
+    },
+    {
+      id: '5b0f1c1e-0000-4000-8000-000000000002',
+      createdAt: '2026-10-09T02:00:00Z',
+      lastSeenAt: '2026-10-10T11:45:00Z',
+      userAgent: 'Edge on Windows',
+      current: false,
+    },
+    {
+      id: '5b0f1c1e-0000-4000-8000-000000000003',
+      createdAt: '2026-10-05T14:20:00Z',
+      lastSeenAt: '2026-10-05T14:25:00Z',
+      userAgent: null,
+      current: false,
+    },
+  ];
+  server.use(
+    http.get('*/api/auth/sessions', () => HttpResponse.json({ items: sessions, nextCursor: null })),
+    http.delete('*/api/auth/sessions/:sessionId', ({ params }) => {
+      const target = sessions.find((s) => s.id === params.sessionId);
+      if (!target) return errorBody(404, 'not_found');
+      if (target.current) return errorBody(409, 'current_session');
+      sessions = sessions.filter((s) => s !== target);
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.post('*/api/auth/password/change', async ({ request }) => {
+      const body = (await request.json()) as {
+        currentPassword: string;
+        newPassword: string;
+        code?: string;
+      };
+      if (body.currentPassword !== MOCK_PASSWORD) return errorBody(403, 'invalid_password');
+      if ([...body.newPassword].length < 12) return errorBody(400, 'password_too_short');
+      if (/password|123456/i.test(body.newPassword)) return errorBody(400, 'password_too_common');
+      if (body.newPassword === body.currentPassword) return errorBody(400, 'password_unchanged');
+      if (body.newPassword.startsWith('locked')) return errorBody(429, 'account_locked');
+      if (mockMfaOn()) {
+        if (!body.code) return errorBody(400, 'mfa_code_required');
+        if (body.code !== AUTHENTICATOR_CODE) return errorBody(400, 'invalid_mfa_code');
+      }
+      sessions = sessions.filter((s) => s.current);
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+}
+
+let authenticator = false;
+const mockMfaOn = () => authenticator;
+
+beforeEach(() => {
+  authenticator = false;
+  mockAccountApi();
+});
 const NEW_PASSWORD = 'a-long-new-phrase-42';
 
 async function paste(label: RegExp, text: string) {
@@ -208,5 +287,50 @@ describe('changing the password', () => {
     await screen.findByText(/^Your password has been changed\./);
 
     expect(window.location.href).not.toContain(NEW_PASSWORD);
+  });
+
+  it('says the new password is the same as the current one', async () => {
+    await openProfile();
+
+    await fillPasswords(MOCK_PASSWORD, MOCK_PASSWORD);
+    await submitPassword();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('same as the current one');
+  });
+
+  it('says when the account is locked after too many wrong attempts', async () => {
+    await openProfile();
+
+    await fillPasswords(MOCK_PASSWORD, 'locked-after-many-tries');
+    await submitPassword();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your account is locked');
+  });
+
+  it('asks for an authenticator code only of someone who has one, and sends it', async () => {
+    authenticator = true;
+    setMockMfa(USER_IDS.admin, true);
+    await openProfile();
+    expect(await screen.findByLabelText(/^Code/)).toBeInTheDocument();
+
+    await fillPasswords(MOCK_PASSWORD, NEW_PASSWORD);
+    await submitPassword();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter the code');
+
+    await fillPasswords(MOCK_PASSWORD, NEW_PASSWORD);
+    await paste(/^Code/, '000000');
+    await submitPassword();
+    expect(await screen.findByRole('alert')).toHaveTextContent('That code is not correct');
+
+    await fillPasswords(MOCK_PASSWORD, NEW_PASSWORD);
+    await paste(/^Code/, AUTHENTICATOR_CODE);
+    await submitPassword();
+    expect(await screen.findByText(/^Your password has been changed./)).toBeInTheDocument();
+  });
+
+  it('has no code field without an authenticator', async () => {
+    await openProfile();
+
+    expect(screen.queryByLabelText(/^Code/)).not.toBeInTheDocument();
   });
 });
