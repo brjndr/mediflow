@@ -87,9 +87,15 @@ async function choosePatient() {
   expect(await screen.findByRole('button', { name: 'Change patient' })).toBeInTheDocument();
 }
 
-async function chooseDoctorAndDay(day: string) {
-  const doctor = screen.getByRole('combobox', { name: /^Doctor/ });
+// The select exists while its options are still "Loading doctors…": wait for them.
+async function loadedDoctorSelect() {
+  const doctor = await screen.findByRole('combobox', { name: /^Doctor/ });
   await waitFor(() => expect(within(doctor).getAllByRole('option').length).toBeGreaterThan(1));
+  return doctor;
+}
+
+async function chooseDoctorAndDay(day: string) {
+  const doctor = await loadedDoctorSelect();
   await userEvent.selectOptions(doctor, DOCTOR);
   fireEvent.change(screen.getByLabelText(/^Day/), { target: { value: day } });
   // Four hours of fifteen-minute slots.
@@ -433,8 +439,7 @@ describe('the booking form', () => {
 
   it('says the free times are loading and how many there are, without moving focus', async () => {
     await openBooking();
-    const doctor = screen.getByRole('combobox', { name: /^Doctor/ });
-    await waitFor(() => expect(within(doctor).getAllByRole('option').length).toBeGreaterThan(1));
+    const doctor = await loadedDoctorSelect();
     // Present before there is anything to say, so what is put in it is read.
     const status = within(timeGroup()).getByRole('status');
     await userEvent.selectOptions(doctor, DOCTOR);
@@ -464,7 +469,7 @@ describe('the booking form', () => {
       if (request.url.includes('/free-slots')) asked.push(new URL(request.url).search);
     });
     await openBooking();
-    await userEvent.selectOptions(await screen.findByRole('combobox', { name: /^Doctor/ }), DOCTOR);
+    await userEvent.selectOptions(await loadedDoctorSelect(), DOCTOR);
     const tooFar = shiftDay(todayIn(HOSPITAL_TZ), 91);
     fireEvent.change(screen.getByLabelText(/^Day/), { target: { value: tooFar } });
 
