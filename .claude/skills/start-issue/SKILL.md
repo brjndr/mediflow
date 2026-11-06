@@ -5,7 +5,7 @@ description: Start work on a GitHub issue the project way (read it, confirm depe
 
 # Start an issue
 
-Follow "Workflow (GitHub issues)" in CLAUDE.md and `docs/WORKFLOW.md`. One issue at a time.
+Follow "Workflow (GitHub issues)" in CLAUDE.md and `docs/WORKFLOW.md`. Several issues may be picked in a session; take them one after another, each with its own branch and PR.
 
 ## Steps
 
