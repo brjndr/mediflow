@@ -98,3 +98,26 @@ export async function revokeAdminInvite(hospitalId: string, inviteId: string): P
     params: { path: { id: hospitalId, inviteId } },
   });
 }
+
+/** Closes the hospital to its staff, who are signed out at once. Its data is kept. */
+export async function suspendHospital(id: string): Promise<Hospital> {
+  const result = await api.POST('/platform/hospitals/{id}/suspend', { params: { path: { id } } });
+  return hospitalSchema.parse(requireData(result));
+}
+
+/** Opens a suspended hospital again, or cancels an offboarding that has not run. */
+export async function reactivateHospital(id: string): Promise<Hospital> {
+  const result = await api.POST('/platform/hospitals/{id}/reactivate', {
+    params: { path: { id } },
+  });
+  return hospitalSchema.parse(requireData(result));
+}
+
+/** Closes the hospital and marks its data for deletion after the days given. Nothing is deleted yet. */
+export async function offboardHospital(id: string, deleteAfterDays: number): Promise<Hospital> {
+  const result = await api.POST('/platform/hospitals/{id}/offboard', {
+    params: { path: { id } },
+    body: { deleteAfterDays },
+  });
+  return hospitalSchema.parse(requireData(result));
+}

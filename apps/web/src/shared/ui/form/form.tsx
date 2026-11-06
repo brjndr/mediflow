@@ -53,6 +53,8 @@ interface FormProps<Input extends FieldValues, Output extends FieldValues> {
   onSubmit: (values: Output) => void | Promise<void>;
   children: ReactNode;
   className?: string;
+  /** Lets a button outside the form (in a dialog's footer) submit it with its `form` attribute. */
+  id?: string;
 }
 
 export function Form<Input extends FieldValues, Output extends FieldValues>({
@@ -60,11 +62,13 @@ export function Form<Input extends FieldValues, Output extends FieldValues>({
   onSubmit,
   children,
   className,
+  id,
 }: FormProps<Input, Output>) {
   return (
     <FormProvider {...form}>
       {/* noValidate: the schema validates, with translated messages, not the browser. */}
       <form
+        id={id}
         noValidate
         className={cn('flex flex-col gap-4', className)}
         onSubmit={(event) => void form.handleSubmit(onSubmit)(event)}

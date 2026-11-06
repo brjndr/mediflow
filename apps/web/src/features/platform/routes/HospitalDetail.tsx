@@ -6,6 +6,7 @@ import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
 import { HospitalAdminInvites } from '../components/HospitalAdminInvites';
 import { HospitalLimits } from '../components/HospitalLimits';
+import { HospitalStatus } from '../components/HospitalStatus';
 import { HospitalModules } from '../components/HospitalModules';
 import { useHospital } from '../hooks/use-hospitals';
 
@@ -58,10 +59,11 @@ export default function HospitalDetail() {
           {record.slug} · {t(`platform.hospitals.status.${record.status}`)}
         </p>
       </div>
-      <HospitalModules key={record.id} hospital={record} />
-      <HospitalLimits key={record.id} hospital={record} />
+      <HospitalStatus key={`status-${record.id}`} hospital={record} />
+      <HospitalModules key={`modules-${record.id}`} hospital={record} />
+      <HospitalLimits key={`limits-${record.id}`} hospital={record} />
       {record.status === 'active' && (
-        <HospitalAdminInvites key={record.id} hospitalId={record.id} />
+        <HospitalAdminInvites key={`invites-${record.id}`} hospitalId={record.id} />
       )}
     </div>
   );

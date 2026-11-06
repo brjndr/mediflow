@@ -88,3 +88,32 @@ test('the first admin is invited with the keyboard; a hospital with an admin say
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 });
+
+test('a hospital is suspended and reactivated with the keyboard, after a question', async ({
+  page,
+}) => {
+  await page.goto(START);
+  await page.getByRole('link', { name: 'City General Hospital' }).click();
+  await expect(page.getByRole('heading', { name: 'Status' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Suspend' }).press('Enter');
+  const dialog = page.getByRole('alertdialog', { name: /Suspend City General Hospital/ });
+  await expect(dialog).toBeVisible();
+  // The safe answer has focus, and the dialog fits the screen at every width.
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  await expectNoAxeViolations(page);
+  const box = await dialog.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box && viewport && box.x >= 0 && box.x + box.width <= viewport.width).toBe(true);
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Suspend' })).toBeFocused();
+
+  await page.getByRole('button', { name: 'Suspend' }).press('Enter');
+  await dialog.getByRole('button', { name: 'Suspend hospital' }).press('Enter');
+  await expect(page.getByText('The hospital is suspended.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reactivate' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});

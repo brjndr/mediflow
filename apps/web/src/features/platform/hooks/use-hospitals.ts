@@ -6,6 +6,9 @@ import {
   fetchHospital,
   fetchHospitals,
   inviteHospitalAdmin,
+  offboardHospital,
+  reactivateHospital,
+  suspendHospital,
   revokeAdminInvite,
   setHospitalFeatures,
   updateHospital,
@@ -118,4 +121,34 @@ export function useRevokeInvite(hospitalId: string) {
     mutationFn: (inviteId: string) => revokeAdminInvite(hospitalId, inviteId),
     onSettled: () => queryClient.invalidateQueries({ queryKey: platformKeys.invites(hospitalId) }),
   });
+}
+
+/**
+ * A status change replaces the cached hospital and reads the list again, as any other change.
+ * When it is refused (someone changed the status first) the hospital is read again, so the page
+ * shows the status it really has.
+ */
+function useStatusChange<Variables>(
+  id: string,
+  change: (variables: Variables) => Promise<Hospital>,
+) {
+  const saved = useSavedHospital();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: change,
+    onSuccess: saved,
+    onError: () => queryClient.invalidateQueries({ queryKey: platformKeys.hospital(id) }),
+  });
+}
+
+export function useSuspendHospital(id: string) {
+  return useStatusChange(id, () => suspendHospital(id));
+}
+
+export function useReactivateHospital(id: string) {
+  return useStatusChange(id, () => reactivateHospital(id));
+}
+
+export function useOffboardHospital(id: string) {
+  return useStatusChange(id, (deleteAfterDays: number) => offboardHospital(id, deleteAfterDays));
 }
