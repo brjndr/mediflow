@@ -22,12 +22,12 @@ import {
   REACTION_MAX,
   blankAllergy,
   SEVERITIES,
-  SUBSTANCE_MAX,
   toAllergiesValues,
   toAllergyListUpdate,
   type AllergiesValues,
 } from '../schemas';
 import type { AllergyList } from '../types';
+import { AllergenField } from './AllergenField';
 
 /** The allergies as saved: never asked, none known, or the list, worst first as recorded. */
 function AllergyView({ list }: { list: AllergyList }) {
@@ -40,6 +40,7 @@ function AllergyView({ list }: { list: AllergyList }) {
           {list.items.map((item, index) => (
             <li key={index} className="break-words">
               <span className="font-medium">{item.substance}</span>
+              {item.kind && item.kind !== 'drug' && ` (${t(`allergies.kinds.${item.kind}`)})`}
               {t(item.reaction ? 'allergies.detailWithReaction' : 'allergies.detail', {
                 severity: t(`allergies.severities.${item.severity}`),
                 reaction: item.reaction,
@@ -84,13 +85,7 @@ function AllergyRows() {
               {t('allergies.rowLegend', { number: index + 1 })}
             </legend>
             <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
-              <TextField
-                name={name('substance')}
-                label={t('allergies.substance')}
-                required
-                maxLength={SUBSTANCE_MAX}
-                autoComplete="off"
-              />
+              <AllergenField index={index} />
               <TextField
                 name={name('reaction')}
                 label={t('allergies.reaction')}

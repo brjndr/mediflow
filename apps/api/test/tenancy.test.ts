@@ -338,7 +338,7 @@ describe('the row-level security template', () => {
     // The test above finds tables by their tenant_id column, so a table made without one, and
     // granted to the app role, would pass it unseen. Shared reference data is such a table by
     // design: it is listed here with exactly what a request may do to it, which is read it.
-    const SHARED: Record<string, string[]> = { codes: ['SELECT'] };
+    const SHARED: Record<string, string[]> = { allergens: ['SELECT'], codes: ['SELECT'] };
     const { rows } = await pool.query<{ table_name: string; privileges: string[] }>(`
       select c.relname as table_name,
              array(

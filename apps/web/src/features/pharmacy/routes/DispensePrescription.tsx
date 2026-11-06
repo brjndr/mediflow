@@ -33,11 +33,16 @@ function useDispensingAllergies(patientId: string): AllergyCheck {
   const allowed = usePermission('allergy:read');
   const switchedOn = useFeatureFlag('triage');
   const list = useAllergies(patientId, { enabled: allowed && switchedOn && patientId !== '' });
-  if (!allowed || !switchedOn) return { substances: [], notice: 'allergies.hidden' };
-  if (list.isPending) return { substances: [], notice: 'allergies.loading' };
-  if (list.isError) return { substances: [], notice: 'allergies.failed' };
-  if (list.data.status === 'unknown') return { substances: [], notice: 'allergies.unknown' };
-  return { substances: list.data.items.map((each) => each.substance) };
+  if (!allowed || !switchedOn) return { substances: [], items: [], notice: 'allergies.hidden' };
+  if (list.isPending) return { substances: [], items: [], notice: 'allergies.loading' };
+  if (list.isError) return { substances: [], items: [], notice: 'allergies.failed' };
+  if (list.data.status === 'unknown') {
+    return { substances: [], items: [], notice: 'allergies.unknown' };
+  }
+  return {
+    substances: list.data.items.map((each) => each.substance),
+    items: list.data.items,
+  };
 }
 
 /**

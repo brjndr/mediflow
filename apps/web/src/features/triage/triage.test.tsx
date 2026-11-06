@@ -222,7 +222,7 @@ describe('the patient’s tab', () => {
     expect(await screen.findByRole('heading', { name: 'Allergies' })).toHaveFocus();
     await userEvent.click(screen.getByRole('button', { name: 'Add an allergy' }));
     const second = screen.getByRole('group', { name: 'Allergy 2' });
-    await userEvent.type(within(second).getByRole('textbox', { name: /^Substance/ }), 'Peanuts');
+    await userEvent.type(within(second).getByRole('combobox', { name: /^Substance/ }), 'Peanuts');
 
     // Someone else changes them meanwhile.
     editMockAllergies(HOSPITAL, 'pth_00001', [{ substance: 'Latex', severity: 'mild' }]);
@@ -233,7 +233,7 @@ describe('the patient’s tab', () => {
     expect(await screen.findByText('Latex')).toBeInTheDocument();
     // What was typed is still there, and saving again replaces from the newest version.
     expect(
-      within(screen.getByRole('group', { name: 'Allergy 2' })).getByRole('textbox', {
+      within(screen.getByRole('group', { name: 'Allergy 2' })).getByRole('combobox', {
         name: /^Substance/,
       }),
     ).toHaveValue('Peanuts');
@@ -422,12 +422,12 @@ describe('saving, when things go wrong', () => {
     await openForm('/triage/pth_00102');
     await userEvent.click(await screen.findByRole('button', { name: 'Record allergies' }));
     const first = screen.getByRole('group', { name: 'Allergy 1' });
-    await userEvent.type(within(first).getByRole('textbox', { name: /^Substance/ }), 'Latex');
+    await userEvent.type(within(first).getByRole('combobox', { name: /^Substance/ }), 'Latex');
     await userEvent.type(field(/^Pulse/), '72');
     await userEvent.click(screen.getByRole('button', { name: 'Save vitals' }));
     await screen.findByRole('heading', { name: 'Vitals saved' });
     expect(
-      within(screen.getByRole('group', { name: 'Allergy 1' })).getByRole('textbox', {
+      within(screen.getByRole('group', { name: 'Allergy 1' })).getByRole('combobox', {
         name: /^Substance/,
       }),
     ).toHaveValue('Latex');
@@ -443,7 +443,7 @@ describe('the allergies form', () => {
   it('asks for a substance, and for a row when the patient has allergies', async () => {
     await openEditor();
     await userEvent.clear(
-      within(screen.getByRole('group', { name: 'Allergy 1' })).getByRole('textbox', {
+      within(screen.getByRole('group', { name: 'Allergy 1' })).getByRole('combobox', {
         name: /^Substance/,
       }),
     );
@@ -470,7 +470,7 @@ describe('the allergies form', () => {
     });
     await openEditor('pth_00002');
     const row = screen.getByRole('group', { name: 'Allergy 1' });
-    await userEvent.type(within(row).getByRole('textbox', { name: /^Substance/ }), '  Aspirin  ');
+    await userEvent.type(within(row).getByRole('combobox', { name: /^Substance/ }), '  Aspirin  ');
     await userEvent.type(within(row).getByRole('textbox', { name: /^Reaction/ }), '   ');
     await userEvent.click(screen.getByRole('button', { name: 'Save allergies' }));
     expect(await screen.findByText('Allergies saved.')).toBeInTheDocument();
@@ -515,7 +515,7 @@ describe('the allergies form', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Edit allergies' }));
     await userEvent.click(screen.getByRole('button', { name: 'Add an allergy' }));
     await userEvent.type(
-      within(screen.getByRole('group', { name: 'Allergy 2' })).getByRole('textbox', {
+      within(screen.getByRole('group', { name: 'Allergy 2' })).getByRole('combobox', {
         name: /^Substance/,
       }),
       'Peanuts',
@@ -604,5 +604,156 @@ describe('TriageSummary', () => {
     await screen.findByRole('heading', { name: 'Consultation' });
     expect(screen.queryByRole('heading', { name: 'Latest vitals' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Allergies' })).not.toBeInTheDocument();
+  });
+});
+
+describe('coded allergens (#380)', () => {
+  const sent: unknown[] = [];
+  const watchSaves = () => {
+    sent.length = 0;
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'PUT') {
+        void request
+          .clone()
+          .json()
+          .then((body: unknown) => sent.push(body));
+      }
+    });
+  };
+  const openEditor = async (patientId: string, entry = `/patients/${patientId}?tab=vitals`) => {
+    renderApp({ entry });
+    await userEvent.click(await screen.findByRole('button', { name: /^(Edit|Record) allergies$/ }));
+    return within(screen.getByRole('group', { name: 'Allergy 1' }));
+  };
+
+  it('chooses a drug class from the list with the keyboard, and says what it is', async () => {
+    watchSaves();
+    const row = await openEditor('pth_00002');
+    const substance = row.getByRole('combobox', { name: /^Substance/ });
+    await userEvent.type(substance, 'penic');
+    const option = await screen.findByRole('option', { name: 'Penicillins · Drug class' });
+    expect(substance).toHaveAttribute('aria-expanded', 'true');
+    expect(option).toHaveAttribute('aria-selected', 'true');
+    await userEvent.keyboard('{Enter}');
+    expect(substance).toHaveValue('Penicillins');
+    expect(substance).toHaveAccessibleDescription(/Chosen from the list \(Drug class\)/);
+    await userEvent.click(screen.getByRole('button', { name: 'Save allergies' }));
+    expect(await screen.findByText('Allergies saved.')).toBeInTheDocument();
+    expect(sent[0]).toEqual({
+      version: 0,
+      status: 'listed',
+      items: [{ substance: 'Penicillins', severity: 'unknown', allergenId: 'alg_00001' }],
+    });
+    // The saved allergy says what kind it is, beside its name.
+    expect(await screen.findByText('Penicillins')).toBeInTheDocument();
+    expect(screen.getByText(/\(Drug class\)/)).toBeInTheDocument();
+  });
+
+  it('offers a medicine of the hospital by its generic name, once', async () => {
+    watchSaves();
+    const row = await openEditor('pth_00002');
+    await userEvent.type(row.getByRole('combobox', { name: /^Substance/ }), 'paracet');
+    const options = await screen.findAllByRole('option', { name: /^Paracetamol · Medicine$/ });
+    expect(options).toHaveLength(1);
+    await userEvent.click(options[0]!);
+    await userEvent.click(screen.getByRole('button', { name: 'Save allergies' }));
+    await screen.findByText('Allergies saved.');
+    expect(sent[0]).toMatchObject({
+      items: [{ substance: 'Paracetamol', drugId: expect.stringMatching(/^drg_h_/) as string }],
+    });
+  });
+
+  it('goes back to free text when a choice is typed over, and keeps what the list lacks', async () => {
+    watchSaves();
+    const row = await openEditor('pth_00002');
+    const substance = row.getByRole('combobox', { name: /^Substance/ });
+    await userEvent.type(substance, 'latex');
+    await userEvent.click(await screen.findByRole('option', { name: 'Latex · Other' }));
+    await userEvent.type(substance, ' gloves');
+    expect(substance).toHaveValue('Latex gloves');
+    expect(substance).toHaveAccessibleDescription(/Not chosen from the list/);
+    await userEvent.click(screen.getByRole('button', { name: 'Save allergies' }));
+    await screen.findByText('Allergies saved.');
+    expect(sent[0]).toEqual({
+      version: 0,
+      status: 'listed',
+      items: [{ substance: 'Latex gloves', severity: 'unknown' }],
+    });
+  });
+
+  it('keeps a typed substance when nothing matches, and says so', async () => {
+    const row = await openEditor('pth_00002');
+    await userEvent.type(row.getByRole('combobox', { name: /^Substance/ }), 'zzzz');
+    expect(
+      await screen.findByText('Nothing found. What you type is kept as typed.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('closes the list with Escape and sends the search in a body, not an address', async () => {
+    const searches: { url: string; body: unknown }[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (new URL(request.url).pathname.endsWith('/allergens/search')) {
+        void request
+          .clone()
+          .json()
+          .then((body: unknown) => searches.push({ url: request.url, body }));
+      }
+    });
+    const row = await openEditor('pth_00002');
+    const substance = row.getByRole('combobox', { name: /^Substance/ });
+    await userEvent.type(substance, 'shell');
+    await screen.findByRole('option', { name: 'Shellfish · Food' });
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(substance).toHaveValue('shell');
+    expect(searches.length).toBeGreaterThan(0);
+    for (const search of searches) {
+      expect(search.url).not.toContain('shell');
+      expect(search.body).toMatchObject({ q: 'shell' });
+    }
+  });
+
+  it('has no accessibility violations with the list open', async () => {
+    const row = await openEditor('pth_00002');
+    await userEvent.type(row.getByRole('combobox', { name: /^Substance/ }), 'pen');
+    await screen.findByRole('listbox');
+    await expectNoAxeViolations(document.body);
+  });
+
+  it('searches the same at the clinic, and the hospital’s medicines are not offered there', async () => {
+    // The clinic's patient has "No known allergies": choose to list some first.
+    signIn(USER_IDS.doctor, TENANT_IDS.clinic);
+    renderApp({ entry: '/patients/ptc_00001?tab=vitals' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit allergies' }));
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /^Allergies/ }), 'listed');
+    await userEvent.click(screen.getByRole('button', { name: 'Add an allergy' }));
+    const substance = within(screen.getByRole('group', { name: 'Allergy 1' })).getByRole(
+      'combobox',
+      { name: /^Substance/ },
+    );
+    await userEvent.type(substance, 'peanuts');
+    expect(await screen.findByRole('option', { name: 'Peanuts · Food' })).toBeInTheDocument();
+    // A medicine only the hospital keeps (archived there too) is not the clinic's to name.
+    await userEvent.clear(substance);
+    await userEvent.type(substance, 'withdrawn');
+    expect(
+      await screen.findByText('Nothing found. What you type is kept as typed.'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a coded allergy that is already recorded as it was saved', async () => {
+    editMockAllergies(HOSPITAL, 'pth_00002', [
+      {
+        substance: 'Penicillins',
+        severity: 'severe',
+        kind: 'drug_class',
+        allergenId: 'alg_00001',
+        members: ['penicillin', 'amoxicillin'],
+      },
+    ]);
+    renderApp({ entry: '/patients/pth_00002?tab=vitals' });
+    expect(await screen.findByText('Penicillins')).toBeInTheDocument();
+    expect(screen.getByText(/\(Drug class\)/)).toBeInTheDocument();
   });
 });

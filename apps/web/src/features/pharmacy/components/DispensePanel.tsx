@@ -1,7 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { matchesAllergy } from '@/features/clinical';
+import { allergyCovers, type AllergyLike } from '@/features/clinical';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
@@ -34,6 +34,8 @@ import type {
 /** The patient's allergies to check against, or why there are none to check. */
 export interface AllergyCheck {
   substances: string[];
+  /** The same allergies as recorded, to match a medicine against a drug class (#380). */
+  items: AllergyLike[];
   /** Set when the check cannot be made: a key of `pharmacy`. */
   notice?: string;
 }
@@ -224,7 +226,9 @@ function DispenseForm({
   const drugId = form.watch('drugId');
   const item = items.find((each) => each.drugId === drugId);
   const warnings = item
-    ? allergies.substances.filter((substance) => matchesAllergy(substance, [item.name]))
+    ? allergies.items
+        .filter((allergy) => allergyCovers(allergy, [item.name]))
+        .map((allergy) => allergy.substance)
     : [];
   const needsAsking = warnings.length > 0 || allergies.notice !== undefined;
 

@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
@@ -10,6 +10,7 @@ import {
   fetchVitals,
   recordVitals,
   saveAllergies,
+  searchAllergens,
 } from '../api';
 import type { AllergyListUpdate, VitalsCreate } from '../types';
 
@@ -73,6 +74,35 @@ export function useAllergies(patientId: string, { enabled = true }: { enabled?: 
     queryKey: allergiesKey(tenantId ?? '', patientId),
     queryFn: ({ signal }) => fetchAllergies(patientId, signal),
     enabled: enabled && tenantId !== undefined && patientId !== '',
+  });
+}
+
+export const ALLERGEN_SUGGESTIONS = 10;
+export const SEARCH_DEBOUNCE_MS = 300;
+
+/** The text, as it was a moment ago: a search is made when typing pauses. */
+export function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+/** What an allergy can name that matches the words typed: nothing is asked until some are. */
+export function useAllergenSearch(search: string, enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  const q = search.trim();
+  return useQuery({
+    queryKey: [...triageKeys.all(tenantId ?? ''), 'allergens', q],
+    queryFn: ({ signal }) => searchAllergens(q, ALLERGEN_SUGGESTIONS, signal),
+    enabled: enabled && tenantId !== undefined && q !== '',
+    staleTime: 60_000,
+    select: (page) => page.items,
+    // The last matches stay while more is typed, at the same hospital only.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === tenantId ? previous : undefined,
   });
 }
 

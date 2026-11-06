@@ -1825,6 +1825,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/allergens/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description What an allergy can name (#380): the catalog’s drug classes, foods and others, and the generic names of the hospital’s own medicines, by name, each once. Every word of `q` must be in the name. `kind` limits the search to one kind. It reads data only. What is searched for travels in the body, never in a query string: it is made while a patient’s allergies are open, and a term beside a patient id in an access log is patient data. The API does not log the body. Requires allergy:read and the triage feature flag. Not audited: it holds nothing about a patient. No `total`. */
+        post: operations["searchAllergens"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patients/{patientId}/vitals": {
         parameters: {
             query?: never;
@@ -5536,12 +5553,56 @@ export interface components {
         };
         /** @enum {string} */
         AllergySeverity: "mild" | "moderate" | "severe" | "unknown";
+        /**
+         * @description `drug`: a medicine’s generic name. `drug_class`: a class of medicines. `food` and `other`: match no medicine.
+         * @enum {string}
+         */
+        AllergenKind: "drug" | "drug_class" | "food" | "other";
         Allergy: {
             /** @description Plain text. */
             substance: string;
             /** @description Plain text. */
             reaction?: string;
             severity: components["schemas"]["AllergySeverity"];
+            kind?: components["schemas"]["AllergenKind"];
+            /** @description The allergen catalog entry (a class, food or other). */
+            allergenId?: string;
+            /** @description A medicine of the hospital’s drug catalog the generic name was taken from (kind `drug`). */
+            drugId?: string;
+            /** @description Lower-case generic names the allergy covers, as the catalog had them when it was saved (a class’s members, or the one generic name of a drug). A medicine is covered when a word of its generic name begins with one. Empty or absent for free text, a food and others. */
+            members?: string[];
+        };
+        AllergyInput: {
+            /** @description Plain text. With `allergenId` or `drugId` the catalog’s name is stored instead, and this is only the fallback. */
+            substance: string;
+            /** @description Plain text. */
+            reaction?: string;
+            severity: components["schemas"]["AllergySeverity"];
+            /** @description An entry of the allergen catalog (422 `unknown_allergen` if there is none). Not with `drugId`. */
+            allergenId?: string;
+            /** @description A medicine of the hospital in use (422 `unknown_allergen` if there is none): the allergy is to its generic name. Not with `allergenId`. */
+            drugId?: string;
+        };
+        /** @description Something an allergy can name: a catalog entry (`allergenId`) or the generic name of a medicine of the hospital (`drugId`, one of the medicines that carry it). */
+        Allergen: {
+            name: string;
+            kind: components["schemas"]["AllergenKind"];
+            allergenId?: string;
+            drugId?: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        AllergenPage: {
+            items: components["schemas"]["Allergen"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        AllergenSearchRequest: {
+            q?: string;
+            kind?: components["schemas"]["AllergenKind"];
+            /** @description Opaque. Pass the nextCursor of the previous page. */
+            cursor?: string;
+            /** @description Absent: 25. */
+            limit?: number;
         };
         /**
          * @description `unknown`: never asked. `none`: asked, no known allergies. `listed`: the items. Never asked and none are not the same.
@@ -5565,7 +5626,7 @@ export interface components {
             version: number;
             /** @enum {string} */
             status: "none" | "listed";
-            items: components["schemas"]["Allergy"][];
+            items: components["schemas"]["AllergyInput"][];
         };
         /**
          * @description The kind of visit. The API opens `opd` encounters; the others come with their modules.
@@ -16880,6 +16941,75 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    searchAllergens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllergenSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllergenPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

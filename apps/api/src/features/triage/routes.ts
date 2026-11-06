@@ -1,13 +1,16 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyRequest } from 'fastify';
+import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
-import { tidyLinesOptional, tidyOptional, tidyWithin } from '../../core/http/text.js';
+import { searchTerm, tidyLinesOptional, tidyOptional, tidyWithin } from '../../core/http/text.js';
+import { medicineGenerics, medicineNamed } from '../drugs/index.js';
 import type { Permission } from '../../core/access/registry.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { patientInScope } from '../patients/index.js';
 import { tokenOfPatientToday } from '../queue/index.js';
 import {
+  findAllergen,
   findAllergies,
   findVitals,
   hospitalRanges,
@@ -15,10 +18,15 @@ import {
   isAdult,
   listVitals,
   replaceAllergies,
+  searchCatalog,
+  UUID,
+  type CatalogAllergen,
   type VitalsRow,
 } from './repository.js';
 import {
   ALLERGIES_MAX,
+  AllergenPage,
+  AllergenSearchRequest,
   AllergyList,
   AllergyListUpdate,
   COMPLAINT_MAX,
@@ -36,6 +44,7 @@ import {
   VitalsPage,
   VitalsParams,
   type Allergy,
+  type AllergyInput,
   type Measure,
 } from './schemas.js';
 
@@ -118,6 +127,85 @@ function correctionRefusal(error: unknown): unknown {
   return error;
 }
 
+/**
+ * What an allergy that names a catalog entry or a medicine is stored as: the catalog's name and,
+ * as it is now, what it covers. A snapshot, so changing the catalog later never changes a
+ * recorded allergy. Null for free text; 422 `unknown_allergen` for an id the hospital cannot use.
+ */
+async function codedAllergy(
+  client: pg.ClientBase,
+  item: AllergyInput,
+  previous: Allergy[],
+): Promise<Pick<Allergy, 'substance' | 'kind' | 'allergenId' | 'drugId' | 'members'> | null> {
+  const unknown = () => new HttpError(422, 'unknown_allergen', 'No such allergen');
+  // One already on the list is kept as it was recorded, so editing the list never re-reads the
+  // catalog for it: a medicine archived since, or a class changed, does not stop a save.
+  const held = previous.find(
+    (each) =>
+      (item.allergenId !== undefined && each.allergenId === item.allergenId) ||
+      (item.drugId !== undefined && each.drugId === item.drugId),
+  );
+  if (held?.kind !== undefined) {
+    return {
+      substance: held.substance,
+      kind: held.kind,
+      ...(held.allergenId === undefined ? {} : { allergenId: held.allergenId }),
+      ...(held.drugId === undefined ? {} : { drugId: held.drugId }),
+      members: held.members ?? [],
+    };
+  }
+  if (item.allergenId !== undefined) {
+    const found = await findAllergen(client, item.allergenId);
+    if (!found) throw unknown();
+    return {
+      substance: found.name,
+      kind: found.kind,
+      allergenId: found.id,
+      members: found.members,
+    };
+  }
+  if (item.drugId !== undefined) {
+    const found = await medicineNamed(client, item.drugId);
+    if (!found) throw unknown();
+    return {
+      substance: tidyWithin(found.genericName, SUBSTANCE_MAX),
+      kind: 'drug',
+      drugId: found.id,
+      members: [memberOf(found.genericName)],
+    };
+  }
+  return null;
+}
+
+/**
+ * A generic name as a member of an allergy: lower case, with anything that is not a letter, a
+ * digit or a hyphen turned into a space, as the web app reads a medicine's names when it matches
+ * them, so "Paracetamol (Acetaminophen)" still matches itself.
+ */
+const memberOf = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}-]+/gu, ' ')
+    .trim();
+
+type AllergenCursor = { n: string; r: 0 | 1; i: string };
+
+const encodeAllergenCursor = (c: AllergenCursor) =>
+  Buffer.from(JSON.stringify(c)).toString('base64url');
+
+function decodeAllergenCursor(cursor: string): AllergenCursor | null {
+  try {
+    const value: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (typeof value !== 'object' || value === null) return null;
+    const { n, r, i } = value as Record<string, unknown>;
+    if (typeof n !== 'string' || [...n].length > 150 || n.includes('\u0000')) return null;
+    if ((r !== 0 && r !== 1) || typeof i !== 'string' || !UUID.test(i)) return null;
+    return { n, r, i };
+  } catch {
+    return null;
+  }
+}
+
 function allergyView(
   patientId: string,
   tenantId: string,
@@ -143,6 +231,78 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
     if (!id) throw new HttpError(409, 'no_active_tenant', 'Pick a hospital first');
     return id;
   };
+
+  app.post(
+    '/allergens/search',
+    {
+      config: { permissions: [ALLERGY_READ], feature: FEATURE },
+      schema: {
+        operationId: 'searchAllergens',
+        tags: ['triage'],
+        description:
+          'What an allergy can name (#380): the catalog’s drug classes, foods and others, and the generic names of the hospital’s own medicines, by name, each once. Every word of `q` must be in the name. `kind` limits the search to one kind. It reads data only. What is searched for travels in the body, never in a query string: it is made while a patient’s allergies are open, and a term beside a patient id in an access log is patient data. The API does not log the body. Requires allergy:read and the triage feature flag. Not audited: it holds nothing about a patient. No `total`.',
+        body: ref(AllergenSearchRequest),
+        response: { 200: ref(AllergenPage), ...errors(400, 401, 403, 409, 429) },
+      },
+    },
+    async (request) => {
+      const body = request.body as AllergenSearchRequest;
+      const limit = body.limit ?? DEFAULT_PAGE_SIZE;
+      const words = (searchTerm(body.q) ?? '').split(/\s+/).filter(Boolean);
+      const cursor = body.cursor === undefined ? undefined : decodeAllergenCursor(body.cursor);
+      if (cursor === null) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
+
+      const withCatalog = body.kind !== 'drug';
+      const withDrugs = body.kind === undefined || body.kind === 'drug';
+      const catalogKind = body.kind === 'drug' ? undefined : body.kind;
+      const [catalog, generics] = await Promise.all([
+        withCatalog
+          ? searchCatalog(request.txClient, {
+              words,
+              ...(catalogKind === undefined ? {} : { kind: catalogKind }),
+              ...(cursor
+                ? { after: { name: cursor.n, id: cursor.i, fromCatalog: cursor.r === 0 } }
+                : {}),
+              limit: limit + 1,
+            })
+          : [],
+        withDrugs
+          ? medicineGenerics(request.txClient, {
+              words,
+              ...(cursor ? { after: { name: cursor.n, inclusive: cursor.r === 0 } } : {}),
+              limit: limit + 1,
+            })
+          : [],
+      ]);
+      // Both are in name order, so the first limit + 1 of the two together are the page and one.
+      const merged = [
+        ...catalog.map((row) => ({ rank: 0 as const, row })),
+        ...generics.map((row) => ({ rank: 1 as const, row })),
+      ].sort(
+        (a, b) =>
+          (a.row.name_lower < b.row.name_lower
+            ? -1
+            : a.row.name_lower > b.row.name_lower
+              ? 1
+              : 0) ||
+          a.rank - b.rank ||
+          (a.row.id < b.row.id ? -1 : a.row.id > b.row.id ? 1 : 0),
+      );
+      const page = merged.slice(0, limit);
+      const last = page.at(-1);
+      return {
+        items: page.map(({ rank, row }) =>
+          rank === 0
+            ? { name: row.name, kind: (row as CatalogAllergen).kind, allergenId: row.id }
+            : { name: row.name, kind: 'drug' as const, drugId: row.id },
+        ),
+        nextCursor:
+          merged.length > limit && last
+            ? encodeAllergenCursor({ n: last.row.name_lower, r: last.rank, i: last.row.id })
+            : null,
+      };
+    },
+  );
 
   app.get(
     '/patients/:patientId/vitals',
@@ -360,16 +520,26 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       const { patientId } = request.params;
       const body = request.body as AllergyListUpdate;
-      const items: Allergy[] = body.items.map((item) => {
+      if (!(await inScope(request, patientId, ALLERGY_UPDATE))) throw patientNotFound();
+      const previous = (await findAllergies(request.txClient, patientId))?.items ?? [];
+      const items: Allergy[] = [];
+      for (const item of body.items) {
         const reaction = tidyOptional(item.reaction, REACTION_MAX);
         const substance = tidyWithin(item.substance, SUBSTANCE_MAX);
         if (substance === '') throw invalid('A substance is needed');
-        return { substance, ...(reaction === null ? {} : { reaction }), severity: item.severity };
-      });
+        if (item.allergenId !== undefined && item.drugId !== undefined) {
+          throw invalid('An allergy names a catalog entry or a medicine, not both');
+        }
+        const coded = await codedAllergy(request.txClient, item, previous);
+        items.push({
+          ...(coded ?? { substance }),
+          ...(reaction === null ? {} : { reaction }),
+          severity: item.severity,
+        });
+      }
       if ((body.status === 'none') !== (items.length === 0)) {
         throw invalid('`none` has no items and `listed` has at least one');
       }
-      if (!(await inScope(request, patientId, ALLERGY_UPDATE))) throw patientNotFound();
       const replaced = await replaceAllergies(
         request.txClient,
         patientId,

@@ -77,7 +77,7 @@ test('edit a patient’s allergies in place with the keyboard alone', async ({ p
   const first = page.getByRole('group', { name: 'Allergy 1' });
   for (const next of [
     page.getByRole('combobox', { name: /^Allergies/ }),
-    first.getByRole('textbox', { name: /^Substance/ }),
+    first.getByRole('combobox', { name: /^Substance/ }),
     first.getByRole('textbox', { name: /^Reaction/ }),
     first.getByRole('combobox', { name: /^Severity/ }),
     page.getByRole('button', { name: 'Remove allergy 1' }),
@@ -91,7 +91,7 @@ test('edit a patient’s allergies in place with the keyboard alone', async ({ p
   // The new row comes before "Add an allergy": back through it to its substance.
   const second = page.getByRole('group', { name: 'Allergy 2' });
   for (let step = 0; step < 4; step++) await page.keyboard.press('Shift+Tab');
-  await expect(second.getByRole('textbox', { name: /^Substance/ })).toBeFocused();
+  await expect(second.getByRole('combobox', { name: /^Substance/ })).toBeFocused();
   await page.keyboard.type('Peanuts');
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
@@ -103,4 +103,31 @@ test('edit a patient’s allergies in place with the keyboard alone', async ({ p
   await expect(page.getByText('Allergies saved.')).toBeVisible();
   await expect(page.getByText('Peanuts')).toBeVisible();
   await expect(edit).toBeFocused();
+});
+
+test('choose an allergen from the list with the keyboard alone (#380)', async ({ page }) => {
+  await page.goto('/patients/pth_00002?tab=vitals');
+  await page.getByRole('button', { name: 'Record allergies' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Allergies' })).toBeFocused();
+
+  const substance = page
+    .getByRole('group', { name: 'Allergy 1' })
+    .getByRole('combobox', { name: /^Substance/ });
+  // The status select first, then the substance.
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(substance).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+
+  await page.keyboard.type('penic');
+  await expect(page.getByRole('option', { name: 'Penicillins · Drug class' })).toBeVisible();
+  await expectNoAxeViolations(page);
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(substance).toHaveValue('Penicillins');
+  await expect(page.getByRole('listbox')).toBeHidden();
+  // Enter chose the entry; it did not submit the form.
+  await expect(page.getByRole('button', { name: 'Save allergies' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
 });

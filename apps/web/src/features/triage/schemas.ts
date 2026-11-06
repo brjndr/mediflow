@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 import type {
+  AllergenPage,
   AllergyList,
   AllergyListUpdate,
   AllergySeverity,
@@ -91,11 +92,28 @@ export const allergyListSchema: z.ZodType<AllergyList> = z.object({
       substance: z.string(),
       reaction: z.string().optional(),
       severity: z.enum(SEVERITIES),
+      kind: z.enum(['drug', 'drug_class', 'food', 'other']).optional(),
+      allergenId: z.string().optional(),
+      drugId: z.string().optional(),
+      members: z.array(z.string()).optional(),
     }),
   ),
   version: z.number().int().min(0),
   updatedAt: z.string().optional(),
   updatedByName: z.string().optional(),
+});
+
+export const allergenPageSchema: z.ZodType<AllergenPage> = z.object({
+  items: z.array(
+    z.object({
+      name: z.string(),
+      kind: z.enum(['drug', 'drug_class', 'food', 'other']),
+      allergenId: z.string().optional(),
+      drugId: z.string().optional(),
+    }),
+  ),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
 });
 
 /** Below the low limit, above the high one, or neither. A limit that is absent is not checked. */
@@ -249,10 +267,19 @@ const allergyRowSchema = z.object({
     .max(REACTION_MAX, 'validation.too_big')
     .regex(PLAIN_TEXT, 'validation.plain_text'),
   severity: z.enum(SEVERITIES),
+  // What the substance was chosen from, if it was (#380); empty for free text.
+  allergenId: z.string(),
+  drugId: z.string(),
 });
 export type AllergyRowValues = z.infer<typeof allergyRowSchema>;
 
-export const blankAllergy: AllergyRowValues = { substance: '', reaction: '', severity: 'unknown' };
+export const blankAllergy: AllergyRowValues = {
+  substance: '',
+  reaction: '',
+  severity: 'unknown',
+  allergenId: '',
+  drugId: '',
+};
 
 /**
  * The rows are checked only while the status is "has allergies": rows left over from before
@@ -263,7 +290,13 @@ export const allergiesFormSchema = z
     status: z.enum(['none', 'listed', '']),
     rows: z
       .array(
-        z.object({ substance: z.string(), reaction: z.string(), severity: z.enum(SEVERITIES) }),
+        z.object({
+          substance: z.string(),
+          reaction: z.string(),
+          severity: z.enum(SEVERITIES),
+          allergenId: z.string(),
+          drugId: z.string(),
+        }),
       )
       .max(ALLERGIES_MAX),
   })
@@ -300,6 +333,8 @@ export function toAllergiesValues(list: AllergyList): AllergiesValues {
       substance: item.substance,
       reaction: item.reaction ?? '',
       severity: item.severity,
+      allergenId: item.allergenId ?? '',
+      drugId: item.drugId ?? '',
     })),
   };
 }
@@ -318,6 +353,8 @@ export function toAllergyListUpdate(values: AllergiesValues, version: number): A
             substance: row.substance.trim(),
             ...(row.reaction.trim() ? { reaction: row.reaction.trim() } : {}),
             severity: row.severity,
+            ...(row.allergenId ? { allergenId: row.allergenId } : {}),
+            ...(row.drugId ? { drugId: row.drugId } : {}),
           })),
   };
 }

@@ -1,6 +1,5 @@
 import type pg from 'pg';
 import type { Allergy, Measure, Ranged } from './schemas.js';
-
 /**
  * The triage SQL. Every statement runs on the request's own transaction under the app role, so
  * row-level security limits it to the active hospital.
@@ -212,6 +211,79 @@ export async function hospitalRanges(
       },
     ]),
   );
+}
+
+export interface CatalogAllergen {
+  id: string;
+  name: string;
+  name_lower: string;
+  kind: 'drug_class' | 'food' | 'other';
+  members: string[];
+}
+
+/** An entry of the allergen catalog, or null. The catalog is shared by every hospital. */
+export async function findAllergen(
+  client: pg.ClientBase,
+  id: string,
+): Promise<CatalogAllergen | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<CatalogAllergen>(
+    `select id, name, name_lower, kind, members from allergens where id = $1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+const likePattern = (text: string) => `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+
+/**
+ * Catalog entries in name order (then id), every word of `words` in the name. `after` continues a
+ * page from a row of the catalog (name and id) or from a medicine's name, which sorts after a
+ * catalog entry of the same name.
+ */
+export async function searchCatalog(
+  client: pg.ClientBase,
+  {
+    words,
+    kind,
+    after,
+    limit,
+  }: {
+    words: string[];
+    kind?: CatalogAllergen['kind'];
+    after?: { name: string; id: string; fromCatalog: boolean };
+    limit: number;
+  },
+): Promise<CatalogAllergen[]> {
+  const params: unknown[] = [];
+  const where: string[] = [];
+  for (const word of words) {
+    params.push(likePattern(word));
+    where.push(`name_lower like lower($${params.length})`);
+  }
+  if (kind) {
+    params.push(kind);
+    where.push(`kind = $${params.length}`);
+  }
+  if (after) {
+    params.push(after.name);
+    const name = params.length;
+    if (after.fromCatalog) {
+      params.push(after.id);
+      where.push(`(name_lower COLLATE "C", id) > ($${name}, $${params.length}::uuid)`);
+    } else {
+      where.push(`name_lower COLLATE "C" > $${name}`);
+    }
+  }
+  params.push(limit);
+  const { rows } = await client.query<CatalogAllergen>(
+    `select id, name, name_lower, kind, members from allergens
+     ${where.length > 0 ? `where ${where.join(' and ')}` : ''}
+     order by name_lower COLLATE "C", id
+     limit $${params.length}`,
+    params,
+  );
+  return rows;
 }
 
 export interface AllergyRow {

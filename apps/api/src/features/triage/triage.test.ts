@@ -465,6 +465,199 @@ describe('allergies', () => {
   });
 });
 
+describe('coded allergens (#380)', () => {
+  interface Allergen {
+    name: string;
+    kind: string;
+    allergenId?: string;
+    drugId?: string;
+  }
+  const search = (body: object, options: Options = {}) =>
+    app.inject({
+      method: 'POST',
+      url: '/allergens/search',
+      headers: as((options.tenant ?? hospital).id, (options.user ?? nurse).id),
+      payload: body,
+    });
+  const names = async (body: object, options: Options = {}) =>
+    (await search(body, options)).json<Page<Allergen>>().items.map((item) => item.name);
+
+  const addDrug = async (tenant: TestTenant, generic: string, brand: string, archived = false) => {
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into drugs (tenant_id, type, generic_name, brand_name, form, schedule, tax_class, archived)
+       values ($1, 'medicine', $2, $3, 'tablet', 'none', 'exempt', $4) returning id`,
+      [tenant.id, generic, brand, archived],
+    );
+    return rows[0]?.id ?? '';
+  };
+  afterEach(async () => {
+    await pool.query('delete from drugs where tenant_id = any($1)', [[hospital.id, clinic.id]]);
+  });
+
+  it('finds catalog entries and the hospital’s own medicines, each once, by name', async () => {
+    await addDrug(hospital, 'Amoxicillin', 'Novamox');
+    await addDrug(hospital, 'Amoxicillin', 'Mox');
+    await addDrug(hospital, 'Cetirizine', 'Cetzine', true);
+    await addDrug(clinic, 'Amoxapine', 'Clinic only');
+    const found = (await search({ q: 'amox' })).json<Page<Allergen>>();
+    expect(found.items).toEqual([
+      { name: 'Amoxicillin', kind: 'drug', drugId: expect.any(String) },
+    ]);
+    expect(found.total).toBeUndefined();
+    expect(await names({ q: 'penic' })).toEqual(['Penicillins']);
+    expect(await names({ q: 'amox' }, { tenant: clinic, user: clinicNurse })).toEqual([
+      'Amoxapine',
+    ]);
+    expect(await names({ q: 'cetirizine' })).toEqual([]);
+    expect(await names({ q: 'nuts', kind: 'food' })).toEqual(['Peanuts', 'Tree nuts']);
+    expect(await names({ q: 'nuts', kind: 'drug' })).toEqual([]);
+  });
+
+  it('pages through the two sources in name order', async () => {
+    await addDrug(hospital, 'Aspirin', 'Disprin');
+    await addDrug(hospital, 'Zolpidem', 'Zolfresh');
+    const all = await names({ limit: 100 });
+    expect(all).toEqual(
+      [...all].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase(), 'en')),
+    );
+    const paged: string[] = [];
+    let cursor: string | null | undefined;
+    do {
+      const page = (await search({ limit: 4, ...(cursor ? { cursor } : {}) })).json<
+        Page<Allergen>
+      >();
+      paged.push(...page.items.map((item) => item.name));
+      cursor = page.nextCursor;
+    } while (cursor);
+    expect(paged).toEqual(all);
+    expect(new Set(paged).size).toBe(paged.length);
+    expect(errorOf(await search({ cursor: 'nonsense' }))).toEqual([400, 'invalid_cursor']);
+  });
+
+  it('pages past names that sort differently by collation, once each', async () => {
+    // Space, hyphen and none: the order a locale gives them is not the bytes' order.
+    for (const generic of ['Co trimoxazole', 'Co-trimoxazole', 'Cotrimoxazole', 'Co_trimoxazole']) {
+      await addDrug(hospital, generic, 'B');
+    }
+    const paged: string[] = [];
+    let cursor: string | null | undefined;
+    do {
+      const page = (
+        await search({ q: 'trimoxazole', limit: 1, ...(cursor ? { cursor } : {}) })
+      ).json<Page<Allergen>>();
+      paged.push(...page.items.map((item) => item.name));
+      cursor = page.nextCursor;
+    } while (cursor);
+    expect([...paged].sort()).toEqual(
+      ['Co trimoxazole', 'Co-trimoxazole', 'Co_trimoxazole', 'Cotrimoxazole'].sort(),
+    );
+    expect(paged).toEqual([...paged].sort());
+  });
+
+  it('stores a drug’s name for matching as the web reads names, punctuation turned to spaces', async () => {
+    const drugId = await addDrug(hospital, 'Paracetamol (Acetaminophen) 0.9%', 'P');
+    const saved = await putAllergies(patients.adult, {
+      version: 0,
+      status: 'listed',
+      items: [{ substance: 'x', drugId, severity: 'mild' }],
+    });
+    expect(saved.json<AllergyList>().items[0]).toMatchObject({
+      substance: 'Paracetamol (Acetaminophen) 0.9%',
+      members: ['paracetamol acetaminophen 0 9'],
+    });
+  });
+
+  it('is for those who read allergies, with the module on', async () => {
+    expect((await search({}, { user: desk })).statusCode).toBe(403);
+    expect((await search({}, { tenant: closed })).statusCode).toBe(403);
+  });
+
+  it('stores an allergy that names a class with what it covers, and keeps free text', async () => {
+    const { rows } = await pool.query<{ id: string }>(
+      `select id from allergens where name = 'Penicillins'`,
+    );
+    const allergenId = rows[0]?.id ?? '';
+    const drugId = await addDrug(hospital, 'Cetirizine', 'Cetzine');
+    const saved = await putAllergies(patients.adult, {
+      version: 0,
+      status: 'listed',
+      items: [
+        { substance: 'x', allergenId, severity: 'severe' },
+        { substance: 'x', drugId, severity: 'mild' },
+        { substance: 'Mango', severity: 'unknown' },
+      ],
+    });
+    const list = saved.json<AllergyList>();
+    expect(list.items[0]).toMatchObject({
+      substance: 'Penicillins',
+      kind: 'drug_class',
+      allergenId,
+      members: expect.arrayContaining(['amoxicillin']),
+    });
+    expect(list.items[1]).toEqual({
+      substance: 'Cetirizine',
+      kind: 'drug',
+      drugId,
+      members: ['cetirizine'],
+      severity: 'mild',
+    });
+    expect(list.items[2]).toEqual({ substance: 'Mango', severity: 'unknown' });
+    // The medicine is archived afterwards: what was recorded does not change.
+    await pool.query('update drugs set archived = true where id = $1', [drugId]);
+    const again = (await get(`/patients/${patients.adult}/allergies`)).json<AllergyList>();
+    expect(again.items).toEqual(list.items);
+    // Saving the list again with the same medicine still works, and keeps it as recorded.
+    const resaved = await putAllergies(patients.adult, {
+      version: again.version,
+      status: 'listed',
+      items: [
+        { substance: 'x', allergenId, severity: 'severe' },
+        { substance: 'x', drugId, severity: 'moderate' },
+      ],
+    });
+    expect(resaved.statusCode).toBe(200);
+    expect(resaved.json<AllergyList>().items[1]).toMatchObject({
+      substance: 'Cetirizine',
+      kind: 'drug',
+      severity: 'moderate',
+    });
+  });
+
+  it('refuses an allergen that does not exist at the hospital, or two at once', async () => {
+    const other = await addDrug(clinic, 'Clinicillin', 'C');
+    for (const item of [
+      { substance: 'x', allergenId: randomUUID(), severity: 'mild' },
+      { substance: 'x', allergenId: 'not-an-id', severity: 'mild' },
+      { substance: 'x', drugId: other, severity: 'mild' },
+      { substance: 'x', drugId: randomUUID(), severity: 'mild' },
+    ]) {
+      expect(
+        errorOf(
+          await putAllergies(patients.adult, { version: 0, status: 'listed', items: [item] }),
+        ),
+      ).toEqual([422, 'unknown_allergen']);
+    }
+    const { rows } = await pool.query<{ id: string }>(`select id from allergens limit 1`);
+    const both = {
+      substance: 'x',
+      allergenId: rows[0]?.id,
+      drugId: randomUUID(),
+      severity: 'mild',
+    };
+    expect(
+      errorOf(await putAllergies(patients.adult, { version: 0, status: 'listed', items: [both] })),
+    ).toEqual([400, 'validation_failed']);
+  });
+
+  it('cannot change the catalog under the app role', async () => {
+    await asTenantSql(pool, hospital.id, async (client) => {
+      await expect(client.query(`update allergens set name = 'x'`)).rejects.toMatchObject({
+        code: '42501',
+      });
+    });
+  });
+});
+
 describe('access', () => {
   it('lets the doctor read but not record, and the desk do neither', async () => {
     expect((await get(`/patients/${patients.adult}/vitals`, { user: doctor })).statusCode).toBe(

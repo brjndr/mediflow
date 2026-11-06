@@ -151,6 +151,16 @@ export const AllergySeverity = Type.Unsafe<(typeof SEVERITIES)[number]>({
   enum: [...SEVERITIES],
 });
 
+export const ALLERGEN_KINDS = ['drug', 'drug_class', 'food', 'other'] as const;
+export type AllergenKindValue = (typeof ALLERGEN_KINDS)[number];
+export const AllergenKind = Type.Unsafe<AllergenKindValue>({
+  $id: 'AllergenKind',
+  type: 'string',
+  enum: [...ALLERGEN_KINDS],
+  description:
+    '`drug`: a medicine’s generic name. `drug_class`: a class of medicines. `food` and `other`: match no medicine.',
+});
+
 export const Allergy = Type.Object(
   {
     substance: Type.String({
@@ -168,10 +178,100 @@ export const Allergy = Type.Object(
       }),
     ),
     severity: ref(AllergySeverity),
+    // Present when the allergy names a catalog entry (#380); absent for free text.
+    kind: Type.Optional(ref(AllergenKind)),
+    allergenId: Type.Optional(
+      Type.String({ description: 'The allergen catalog entry (a class, food or other).' }),
+    ),
+    drugId: Type.Optional(
+      Type.String({
+        description:
+          'A medicine of the hospital’s drug catalog the generic name was taken from (kind `drug`).',
+      }),
+    ),
+    members: Type.Optional(
+      Type.Array(Type.String(), {
+        description:
+          'Lower-case generic names the allergy covers, as the catalog had them when it was saved (a class’s members, or the one generic name of a drug). A medicine is covered when a word of its generic name begins with one. Empty or absent for free text, a food and others.',
+      }),
+    ),
   },
   { $id: 'Allergy', additionalProperties: false },
 );
 export type Allergy = Static<typeof Allergy>;
+
+/** What a request names an allergy by: the server fills the rest from the catalog. */
+export const AllergyInput = Type.Object(
+  {
+    substance: Type.String({
+      minLength: 1,
+      maxLength: SUBSTANCE_MAX,
+      pattern: PLAIN_TEXT,
+      description:
+        'Plain text. With `allergenId` or `drugId` the catalog’s name is stored instead, and this is only the fallback.',
+    }),
+    reaction: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: REACTION_MAX,
+        pattern: PLAIN_TEXT,
+        description: 'Plain text.',
+      }),
+    ),
+    severity: ref(AllergySeverity),
+    allergenId: Type.Optional(
+      Type.String({
+        maxLength: 64,
+        description:
+          'An entry of the allergen catalog (422 `unknown_allergen` if there is none). Not with `drugId`.',
+      }),
+    ),
+    drugId: Type.Optional(
+      Type.String({
+        maxLength: 64,
+        description:
+          'A medicine of the hospital in use (422 `unknown_allergen` if there is none): the allergy is to its generic name. Not with `allergenId`.',
+      }),
+    ),
+  },
+  { $id: 'AllergyInput', additionalProperties: false },
+);
+export type AllergyInput = Static<typeof AllergyInput>;
+
+export const Allergen = Type.Object(
+  {
+    name: Type.String(),
+    kind: ref(AllergenKind),
+    allergenId: Type.Optional(Type.String()),
+    drugId: Type.Optional(Type.String()),
+  },
+  {
+    $id: 'Allergen',
+    additionalProperties: false,
+    description:
+      'Something an allergy can name: a catalog entry (`allergenId`) or the generic name of a medicine of the hospital (`drugId`, one of the medicines that carry it).',
+  },
+);
+
+export const AllergenPage = CursorPage(ref(Allergen), { $id: 'AllergenPage' });
+
+export const AllergenSearchRequest = Type.Object(
+  {
+    q: Type.Optional(Type.String({ maxLength: 100 })),
+    kind: Type.Optional(ref(AllergenKind)),
+    cursor: Type.Optional(
+      Type.String({
+        maxLength: 1024,
+        description: 'Opaque. Pass the nextCursor of the previous page.',
+      }),
+    ),
+    limit: Type.Optional(
+      Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, description: 'Absent: 25.' }),
+    ),
+  },
+  { $id: 'AllergenSearchRequest', additionalProperties: false },
+);
+export type AllergenSearchRequest = Static<typeof AllergenSearchRequest>;
 
 export const ALLERGY_STATUSES = ['unknown', 'none', 'listed'] as const;
 export type AllergyStatusValue = (typeof ALLERGY_STATUSES)[number];
@@ -204,7 +304,7 @@ export const AllergyListUpdate = Type.Object(
         'The version the edit started from (0 while never recorded). Another one gives 409 `conflict`.',
     }),
     status: Type.Unsafe<'none' | 'listed'>({ type: 'string', enum: ['none', 'listed'] }),
-    items: Type.Array(ref(Allergy), { maxItems: ALLERGIES_MAX }),
+    items: Type.Array(ref(AllergyInput), { maxItems: ALLERGIES_MAX }),
   },
   {
     $id: 'AllergyListUpdate',
@@ -234,7 +334,12 @@ export const TRIAGE_SCHEMAS = [
   VitalRange,
   VitalRanges,
   AllergySeverity,
+  AllergenKind,
   Allergy,
+  AllergyInput,
+  Allergen,
+  AllergenPage,
+  AllergenSearchRequest,
   AllergyStatus,
   AllergyList,
   AllergyListUpdate,
