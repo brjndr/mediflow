@@ -8,6 +8,12 @@ Moved out of the root `CLAUDE.md` (#370), which keeps the rule; Claude Code load
 - **Specs reach the navigation through `goTo(page, name)`** from `e2e/support.ts`, which uses the sidebar or the drawer as the width requires. A spec that depends on a table uses `gridIsStacked(page)` to pick the table or the cards.
 - "Works at phone and tablet width" is in the definition of done of every frontend issue.
 
+## WebKit (Safari on iOS, #334)
+
+- **CI only:** `playwright.config.ts` adds a `webkit-phone` project (iPhone 14 profile, about 390 px, touch) when `CI` is set; the dev machine keeps Chromium alone. It runs a subset to keep CI time down: `responsive`, `login`, `patients`, `appointments` and `webkit` specs.
+- `e2e/webkit.spec.ts` (skipped in other projects) checks what WebKit does differently: date inputs, `pointer: coarse`, 44 px targets, inputs of 16 px or more and no zoom on focus, `BroadcastChannel` sign-out across tabs, and the idle timer with a tab in the background.
+- A check that cannot pass on WebKit is marked `test.fixme(browserName === 'webkit', 'reason, #issue')` in the spec, never deleted.
+
 ## Accessibility (checks every screen gets)
 
 - **axe in the unit tests:** `expectNoAxeViolations` from `src/test/axe.ts` on the rendered screen (contrast is off in jsdom).
