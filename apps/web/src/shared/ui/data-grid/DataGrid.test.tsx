@@ -304,7 +304,7 @@ describe('<DataGrid>', () => {
   });
 
   describe('virtualisation', () => {
-    it('keeps only the rows in view in the DOM for a long list', async () => {
+    it.each([2000, 10000])('keeps only the rows in view in the DOM for %i rows', async (count) => {
       // jsdom has no layout. Give the scroll area a height so the virtualiser has a viewport.
       // Both sizes: the virtualiser reads the scroll area's client box (since virtual-core 3.19).
       vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(440);
@@ -320,17 +320,17 @@ describe('<DataGrid>', () => {
         },
       );
       try {
-        renderWithProviders(<Grid rows={people(2000)} />);
+        renderWithProviders(<Grid rows={people(count)} />);
         const table = await grid();
         // The whole list is announced, though only a screenful is rendered.
-        expect(table).toHaveAttribute('aria-rowcount', '2001');
+        expect(table).toHaveAttribute('aria-rowcount', String(count + 1));
         const rendered = screen
           .getAllByRole('row')
           .filter((row) => row.getAttribute('aria-rowindex'));
         expect(rendered.length).toBeGreaterThan(5);
         expect(rendered.length).toBeLessThan(60);
         expect(screen.getByText('Person 1')).toBeInTheDocument();
-        expect(screen.queryByText('Person 2000')).not.toBeInTheDocument();
+        expect(screen.queryByText(`Person ${count}`)).not.toBeInTheDocument();
       } finally {
         vi.unstubAllGlobals();
       }
