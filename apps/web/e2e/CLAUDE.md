@@ -21,3 +21,9 @@ Moved out of the root `CLAUDE.md` (#370), which keeps the rule; Claude Code load
 - **A keyboard test in Playwright:** the screen's main task done with the keyboard alone (reach it, fill it, submit it, close what opened), with focus visible at each step.
 - `eslint-plugin-jsx-a11y` runs in lint.
 - "Keyboard and axe checked for changed screens" is in the PR template and in the definition of done of every issue.
+
+## Audit of 2026-11-07 (H-02, #139)
+
+- **axe in CI:** `a11y.spec.ts` runs with the e2e suite on every PR, over every registered route plus empty, error and form-error states. Its `KNOWN` list is empty: no rule is switched off anywhere, so there are no known violations of any impact.
+- **Keyboard pass on critical flows:** every module that has a task has a "with the keyboard alone" spec (sign-in, patients, appointments, queue, triage, consultation, prescriptions, orders, lab, radiology, pharmacy, inventory, purchasing, indents, billing, cash register, reports, roles, platform, catalogs). The landing page and notices were the gap and are in `dashboard-notices.spec.ts`.
+- **Screen reader:** not run with a real reader (NVDA or VoiceOver) on this machine. What it relies on is checked in code: names for controls and icons (axe, `jsx-a11y`), live regions for saved, refused and busy states, a title that takes focus on each step, and `<main>` focused on navigation. A manual pass with NVDA on the sign-in, a consultation and an invoice is still to be done by a person and recorded here.
