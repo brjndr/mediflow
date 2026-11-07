@@ -62,9 +62,13 @@ export function PermissionMatrix({
               {items.map((item) => {
                 const id = `${prefix}-${item.permission}`;
                 const checked = grants.has(item.permission);
-                const reason = readOnly ? null : blocked(item.permission);
-                const locked = readOnly || reason !== null;
                 const scopes = allowedScopes(item.permission, item.scopes);
+                // Nothing the caller may give: none of the scopes the catalog allows is within theirs.
+                const reason: Reason | null = readOnly
+                  ? null
+                  : (blocked(item.permission) ??
+                    (!checked && scopes.length === 0 ? 'notHeld' : null));
+                const locked = readOnly || reason !== null;
                 const scope = grants.get(item.permission) ?? 'all';
                 const theirs = saved.get(item.permission);
                 return (
