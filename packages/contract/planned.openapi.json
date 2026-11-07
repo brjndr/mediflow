@@ -147,6 +147,301 @@
           }
         }
       }
+    },
+    "/patients/{patientId}/consents": {
+      "get": {
+        "operationId": "listConsents",
+        "description": "Signed consents of one patient, newest first (MR-02, #190). Needs consent:read and the consents feature flag. The text and signature are in the single read.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of consents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "signConsent",
+        "description": "Records a signed consent: the text as filled in from a version of a consent template, who signed, and the signature. Needs consent:sign. A signed consent is never changed or removed: there is no update or delete.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The signed consent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/consents/{consentId}": {
+      "get": {
+        "operationId": "getConsent",
+        "description": "One signed consent with its text and signature. Audited as a read of the patient record. Needs consent:read.",
+        "parameters": [
+          {
+            "name": "consentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The signed consent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/certificates": {
+      "get": {
+        "operationId": "listCertificates",
+        "description": "Certificates issued for one patient, newest first (MR-02, #190). Needs certificate:read and the consents feature flag.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of certificates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificatePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "issueCertificate",
+        "description": "Records a medical, fitness, birth or death certificate from the data entered. The server numbers it. Needs certificate:issue. An issued certificate is never changed or removed.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificateCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The issued certificate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Certificate"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -193,6 +488,230 @@
           },
           "total": {
             "type": "integer"
+          }
+        }
+      },
+      "ConsentSigner": {
+        "type": "string",
+        "enum": ["patient", "guardian", "representative"]
+      },
+      "ConsentSignature": {
+        "type": "string",
+        "enum": ["drawn", "typed"]
+      },
+      "Consent": {
+        "type": "object",
+        "required": [
+          "id",
+          "patientId",
+          "procedureName",
+          "templateId",
+          "templateVersion",
+          "signerName",
+          "signerRole",
+          "signatureMethod",
+          "signedAt",
+          "signedByName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "procedureName": {
+            "type": "string"
+          },
+          "templateId": {
+            "type": "string"
+          },
+          "templateVersion": {
+            "type": "integer"
+          },
+          "signerName": {
+            "type": "string"
+          },
+          "signerRole": {
+            "$ref": "#/components/schemas/ConsentSigner"
+          },
+          "signatureMethod": {
+            "$ref": "#/components/schemas/ConsentSignature"
+          },
+          "signedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "signedByName": {
+            "type": "string",
+            "description": "The member of staff who recorded the signature."
+          }
+        }
+      },
+      "ConsentDetail": {
+        "type": "object",
+        "required": ["consent", "body"],
+        "properties": {
+          "consent": {
+            "$ref": "#/components/schemas/Consent"
+          },
+          "body": {
+            "type": "object",
+            "description": "The text as it was signed: the rich text document of the app, placeholders filled in.",
+            "additionalProperties": true
+          },
+          "signature": {
+            "type": "string",
+            "description": "SVG path data of a drawn signature in a 300 by 150 box; absent for a typed one."
+          }
+        }
+      },
+      "ConsentPage": {
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Consent"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConsentCreate": {
+        "type": "object",
+        "required": [
+          "templateId",
+          "templateVersion",
+          "procedureName",
+          "body",
+          "signerName",
+          "signerRole",
+          "signatureMethod"
+        ],
+        "properties": {
+          "templateId": {
+            "type": "string"
+          },
+          "templateVersion": {
+            "type": "integer"
+          },
+          "procedureName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "signerName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "signerRole": {
+            "$ref": "#/components/schemas/ConsentSigner"
+          },
+          "signatureMethod": {
+            "$ref": "#/components/schemas/ConsentSignature"
+          },
+          "signature": {
+            "type": "string",
+            "maxLength": 20000
+          }
+        }
+      },
+      "CertificateKind": {
+        "type": "string",
+        "enum": ["medical", "fitness", "birth", "death"]
+      },
+      "Certificate": {
+        "type": "object",
+        "required": [
+          "id",
+          "patientId",
+          "kind",
+          "number",
+          "issuedOn",
+          "fields",
+          "issuedByName",
+          "issuedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CertificateKind"
+          },
+          "number": {
+            "type": "string",
+            "description": "Assigned by the server, in order for each kind and year."
+          },
+          "issuedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "What was entered, by the field names of the kind."
+          },
+          "issuedByName": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CertificatePage": {
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Certificate"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "CertificateCreate": {
+        "type": "object",
+        "required": ["kind", "issuedOn", "fields"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CertificateKind"
+          },
+          "issuedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         }
       }
