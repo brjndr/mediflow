@@ -101,11 +101,11 @@ test('the doctors of a department side by side, worked with the keyboard (deskto
   await expect(page.getByText(/At most 8 are shown at once/)).toBeVisible();
   const columns = page.locator('.rbc-row-resource .rbc-header');
   await expect(columns).toHaveCount(8);
-  await expect(status(page, /d+ appointments?/)).toBeVisible();
+  await expect(status(page, /\d+ appointments?/)).toBeVisible();
 
   await tabIntoGrid(page);
   const first = await page.evaluate(() => document.activeElement?.getAttribute('data-day'));
-  expect(await focusedName(page)).toMatch(/^9:00s?am .+, until 9:15s?am, /i);
+  expect(await focusedName(page)).toMatch(/^9:00\s?am .+, until 9:15\s?am, /i);
   await page.keyboard.press('ArrowRight');
   const second = await page.evaluate(() => document.activeElement?.getAttribute('data-day'));
   expect(second).not.toBe(first);
