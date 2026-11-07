@@ -50,4 +50,4 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 ## Layout stability (#460)
 
-- **The list loads the row-action chunks early.** `<Slot id="appointment.row.actions" context={{}} />` sits on the screen outside the grid: every contribution renders nothing without an appointment, but its lazy chunk loads while the rows are on their way. Without it the "Check in" and "Start consultation" buttons arrived after the rows and pushed them down (CLS 0.26). The count line keeps its height (`min-h-5`) while empty. Lighthouse asserts LCP and CLS on `/appointments` as errors.
+- **A row keeps the place of its action buttons while they load.** The contributions to `appointment.row.actions` are lazy and wait for their strings, so "Check in" and "Start consultation" arrived after the rows and pushed them down (CLS 0.3). A scheduled appointment of today gets a fixed-height `fallback` in the `Slot` per contribution (the button's height, taller on a touch screen). The count line keeps its height (`min-h-5`) while empty. Lighthouse asserts LCP and CLS on `/appointments` as errors.
