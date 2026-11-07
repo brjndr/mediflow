@@ -7,9 +7,10 @@ import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { useFormatters } from '@/tenancy';
-import { SEARCH_DEBOUNCE_MS, useDebouncedValue, useServices } from '../hooks/use-services';
+import { useServices } from '../hooks/use-services';
 import { CATEGORIES } from '../schemas';
 import type { Service, ServiceCategory } from '../types';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 const link =

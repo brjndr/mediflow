@@ -5,7 +5,6 @@ import { errorMessageKey } from '@/shared/api';
 import { DuplicateSuggestions } from '../components/DuplicateSuggestions';
 import { DuplicateWarning } from '../components/DuplicateWarning';
 import { PatientForm } from '../components/PatientForm';
-import { useDebouncedValue } from '../hooks/use-patients';
 import {
   SUGGESTION_DEBOUNCE_MS,
   useCheckDuplicates,
@@ -17,6 +16,7 @@ import type {
   PatientDuplicateMatch,
   PatientDuplicateQuery,
 } from '../types';
+import { useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
 /** Empty optional fields are left out, and the server adds when and by whom consent was recorded. */
 function toRequest(values: PatientFormValues): PatientCreateBody {

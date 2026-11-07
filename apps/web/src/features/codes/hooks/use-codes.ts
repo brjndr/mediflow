@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import { fetchCodes, setCodeFavourite, type CodeFilters } from '../api';
@@ -14,19 +14,9 @@ export const codeKeys = createTenantKeys('codes');
 export const CODES_PAGE_SIZE = 25;
 /** How many codes a search box offers. The rest are found by typing more. */
 export const SUGGESTIONS = 10;
-export const SEARCH_DEBOUNCE_MS = 300;
 
 /** A code set changes with a yearly revision; favourites when a manager changes them. */
 const STALE_TIME_MS = 5 * 60_000;
-
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 /** A code set, one server page at a time. It is never loaded whole. */
 export function useCodes(filters: CodeFilters) {

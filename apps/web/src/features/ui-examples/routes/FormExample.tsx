@@ -11,6 +11,7 @@ import {
   useZodForm,
 } from '@/shared/ui/form';
 import { ExamplePage } from '../components/ExamplePage';
+import { SearchExample } from '../components/SearchExample';
 
 const DEPARTMENTS = ['cardiology', 'neurology', 'orthopaedics', 'paediatrics'] as const;
 
@@ -69,6 +70,7 @@ export default function FormExample() {
           <pre className="overflow-x-auto text-xs">{JSON.stringify(submitted, null, 2)}</pre>
         </section>
       )}
+      <SearchExample />
     </ExamplePage>
   );
 }

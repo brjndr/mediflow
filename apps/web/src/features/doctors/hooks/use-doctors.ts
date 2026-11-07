@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
@@ -25,20 +25,10 @@ const candidatesKey = (tenantId: string, q: string) =>
   [...doctorKeys.all(tenantId), 'candidates', q] as const;
 
 export const DOCTORS_PAGE_SIZE = 25;
-export const SEARCH_DEBOUNCE_MS = 300;
 const CANDIDATES_SHOWN = 10;
 
 /** Staff and their hours change rarely. */
 const STALE_TIME_MS = 60_000;
-
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 /** The doctor list, one server page at a time. Search and filters are the server's job. */
 export function useDoctors(filters: DoctorFilters) {

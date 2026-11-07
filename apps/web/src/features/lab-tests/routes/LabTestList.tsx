@@ -6,9 +6,10 @@ import { Can } from '@/access';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
-import { SEARCH_DEBOUNCE_MS, useDebouncedValue, useLabTests } from '../hooks/use-lab-tests';
+import { useLabTests } from '../hooks/use-lab-tests';
 import { DEPARTMENTS, KINDS } from '../schemas';
 import type { LabDepartment, LabTest, LabTestKind } from '../types';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 const link =

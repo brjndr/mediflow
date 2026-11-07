@@ -8,13 +8,9 @@ import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridColumn, type GridSort } from '@/shared/ui/data-grid';
 import { maskMrn, maskPhone } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
-import {
-  PATIENT_PAGE_SIZES,
-  SEARCH_DEBOUNCE_MS,
-  useDebouncedValue,
-  usePatients,
-} from '../hooks/use-patients';
+import { PATIENT_PAGE_SIZES, usePatients } from '../hooks/use-patients';
 import type { PatientSort, PatientSummary } from '../types';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function PatientList() {

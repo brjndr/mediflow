@@ -36,6 +36,19 @@
     "departmentsTitle": "Visits by department",
     "department": "Department"
   },
+  "search": {
+    "heading": "Server search",
+    "label": "Medicine",
+    "placeholder": "Type a few letters",
+    "unavailable": "The search is not open to you.",
+    "typeToSearch": "Type to search.",
+    "loading": "Searching…",
+    "failed": "The search failed. Type again to retry.",
+    "none": "Nothing matches.",
+    "found_one": "{{count}} match.",
+    "found_other": "{{count}} matches.",
+    "chosen": "Chosen: {{name}}"
+  },
   "form": {
     "heading": "Form kit",
     "name": "Full name",

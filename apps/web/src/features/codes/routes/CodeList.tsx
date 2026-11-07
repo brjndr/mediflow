@@ -6,14 +6,10 @@ import { focusIfLost } from '@/shared/lib/focus';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { CodeSearch } from '../components/CodeSearch';
-import {
-  SEARCH_DEBOUNCE_MS,
-  useCodeFavourite,
-  useCodes,
-  useDebouncedValue,
-} from '../hooks/use-codes';
+import { useCodeFavourite, useCodes } from '../hooks/use-codes';
 import { CODE_SYSTEMS } from '../schemas';
 import type { Code, CodeSystem } from '../types';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
 const MANAGE = 'code:manage';
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';

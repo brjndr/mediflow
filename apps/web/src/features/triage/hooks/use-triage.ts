@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
@@ -92,17 +92,6 @@ export function useAllergies(patientId: string, { enabled = true }: { enabled?: 
 }
 
 export const ALLERGEN_SUGGESTIONS = 10;
-export const SEARCH_DEBOUNCE_MS = 300;
-
-/** The text, as it was a moment ago: a search is made when typing pauses. */
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 /** What an allergy can name that matches the words typed: nothing is asked until some are. */
 export function useAllergenSearch(search: string, enabled: boolean) {

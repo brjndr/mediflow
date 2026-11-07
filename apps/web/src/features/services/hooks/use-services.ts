@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { sessionKey, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
@@ -25,19 +25,9 @@ export const pricesKey = (tenantId: string, serviceId: string) =>
   [...serviceKeys.detail(tenantId, serviceId), 'prices'] as const;
 
 export const SERVICES_PAGE_SIZE = 25;
-export const SEARCH_DEBOUNCE_MS = 300;
 
 /** A catalog changes rarely, but a price shown must be the price charged: keep it fresh. */
 const STALE_TIME_MS = 60_000;
-
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 /** The catalog, one server page at a time. Search and filters are the server's job. */
 export function useServices(filters: ServiceFilters) {
