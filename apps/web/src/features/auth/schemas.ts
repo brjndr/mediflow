@@ -75,3 +75,11 @@ export const changePasswordSchema = z
   });
 
 export type ChangePasswordValues = z.output<typeof changePasswordSchema>;
+
+/** Managing an existing authenticator re-asks for the password and a code; the server judges both. */
+export const mfaManageSchema = z.object({
+  password: z.string().min(1, 'validation.required').max(1024, 'validation.too_big'),
+  code: z.string().trim().min(1, 'validation.required').max(64, 'validation.too_big'),
+});
+
+export type MfaManageValues = z.output<typeof mfaManageSchema>;

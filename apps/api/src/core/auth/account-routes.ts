@@ -12,6 +12,7 @@ import {
   confirmEnrollment,
   disableMfa,
   regenerateRecoveryCodes,
+  mfaRequiredAnywhere,
   mfaStanding,
 } from './mfa.js';
 import { MAX_PASSWORD_LENGTH, verifyPassword, type PasswordProblem } from './password.js';
@@ -297,7 +298,10 @@ export const accountRoutes: FastifyPluginAsyncTypebox = async (app) => {
         description:
           'Removes the authenticator and its recovery codes. Needs the password and a current code.',
         body: Type.Object({ password: Password, code: Code }),
-        response: { 204: Type.Null({ description: 'Removed' }), ...errors(400, 401, 403, 429) },
+        response: {
+          204: Type.Null({ description: 'Removed' }),
+          ...errors(400, 401, 403, 409, 429),
+        },
       },
     },
     async (request, reply) => {
@@ -307,6 +311,14 @@ export const accountRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const done = await withAuthTransaction(pool, async ({ client, identify }) => {
         await identify(userId);
         await confirmPassword(client, userId, password);
+        // Before the code is checked, so a refusal does not use the code up.
+        if (await mfaRequiredAnywhere(client, userId)) {
+          throw new HttpError(
+            409,
+            'mfa_required_here',
+            'A hospital you work at requires an authenticator',
+          );
+        }
         if (!(await checkTotp(client, config, userId, code.trim()))) return false;
         await disableMfa(client, userId);
         return true;

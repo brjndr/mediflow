@@ -9098,6 +9098,15 @@ export interface operations {
                 };
             };
             /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
             429: {
                 headers: {
                     [name: string]: unknown;
