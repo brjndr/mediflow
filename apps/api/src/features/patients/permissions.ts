@@ -42,4 +42,11 @@ export const PATIENT_PERMISSIONS = [
     description: 'See a patient’s full phone number, email and address',
     defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
   },
+  {
+    // Two records of one person made one (#194): the source points at the survivor for good.
+    // Nothing is deleted, but it cannot be undone, so the hospital's admin alone, by default.
+    id: 'patient:merge',
+    description: 'Merge two records of the same patient into one',
+    defaults: { admin: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];

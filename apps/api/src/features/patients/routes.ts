@@ -53,6 +53,7 @@ const summary = (row: PatientRow, contact: boolean) => ({
 const record = (row: PatientRow, contact: boolean) => ({
   ...summary(row, contact),
   version: row.version,
+  ...(row.merged_into_id ? { mergedInto: row.merged_into_id } : {}),
   ...(contact && row.email !== null ? { email: row.email } : {}),
   ...(contact && row.address !== null ? { address: row.address } : {}),
   ...(row.contact_consent_given !== null &&
@@ -269,6 +270,9 @@ export const patientRoutes: FastifyPluginAsyncTypebox = async (app) => {
         { forUpdate: true },
       );
       if (!existing) throw notFound();
+      if (existing.merged_into_id) {
+        throw new HttpError(409, 'patient_merged', 'This record was merged into another');
+      }
       // The row is locked, so this comparison and the update below see the same record. Someone
       // else changed it since the caller read it: refuse, and let them look at it again.
       if (existing.version !== expectedVersion) {

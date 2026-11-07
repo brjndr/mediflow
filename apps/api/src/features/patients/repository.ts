@@ -29,10 +29,11 @@ export interface PatientRow {
   contact_consent_at: Date | null;
   contact_consent_recorded_by: string | null;
   version: number;
+  merged_into_id: string | null;
 }
 
 const COLUMNS = `id, tenant_id, mrn, first_name, last_name, dob::text as dob, gender, phone, email,
-  address, contact_consent_given, contact_consent_at, contact_consent_recorded_by, version`;
+  address, contact_consent_given, contact_consent_at, contact_consent_recorded_by, version, merged_into_id`;
 
 /** Who may the caller see, given the scope their role holds the permission with. */
 export interface Visibility {
@@ -104,6 +105,8 @@ export async function searchPatients(
 
   const visible = visibilityClause(visibility, params);
   if (visible) where.push(visible);
+  // A record merged into another (#194) is out of the list: its survivor is the one to find.
+  where.push('merged_into_id is null');
 
   const term = input.q?.trim().toLowerCase() ?? '';
   if (term !== '') {
@@ -354,8 +357,9 @@ export async function findDuplicates(
   const digits = query.phone.replace(/\D/g, '').slice(-10);
   const { rows } = await client.query<PatientRow>(
     `select ${COLUMNS} from patients
-     where (dob = $1::date and first_name_lower = lower($2) and last_name_lower = lower($3))
-        or (phone_last10 = $4 and length($4) >= 7 and (dob = $1::date or last_name_lower = lower($3)))
+     where merged_into_id is null
+       and ((dob = $1::date and first_name_lower = lower($2) and last_name_lower = lower($3))
+        or (phone_last10 = $4 and length($4) >= 7 and (dob = $1::date or last_name_lower = lower($3))))
      order by last_name_lower, first_name_lower, id
      limit 5`,
     [query.dob, query.firstName, query.lastName, digits],

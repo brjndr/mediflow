@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { patientImport } from './create.js';
+import { mergeRoutes } from './merge.js';
 import { PATIENT_PERMISSIONS } from './permissions.js';
 import { patientRoutes } from './routes.js';
 
@@ -12,7 +13,10 @@ export const patientsFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('patients', PATIENT_PERMISSIONS);
   app.importKinds.register(patientImport);
   await app.register(patientRoutes);
+  await app.register(mergeRoutes);
 };
 
 /** For another module that answers about a patient: is it within the caller's scope here. */
 export { patientInScope } from './repository.js';
+/** For a module that must not write to a record merged away (#194): the survivor's id, or null. */
+export { patientMergedInto } from './merge.js';

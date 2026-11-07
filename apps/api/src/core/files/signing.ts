@@ -57,6 +57,26 @@ export const verifyImageUpload = (
   signature: string,
   nowSeconds = Math.floor(Date.now() / 1000),
 ) => verifyFor('imaging-upload', secret, subject, expires, signature, nowSeconds);
+/** Links for patient documents (#194), each signed for its own purpose; `subject` is the document id. */
+export const signDocumentUpload = (secret: string, subject: string, expires: number) =>
+  signFor('document-upload', secret, subject, expires);
+export const verifyDocumentUpload = (
+  secret: string,
+  subject: string,
+  expires: number,
+  signature: string,
+  nowSeconds = Math.floor(Date.now() / 1000),
+) => verifyFor('document-upload', secret, subject, expires, signature, nowSeconds);
+export const signDocumentDownload = (secret: string, subject: string, expires: number) =>
+  signFor('document-file', secret, subject, expires);
+export const verifyDocumentDownload = (
+  secret: string,
+  subject: string,
+  expires: number,
+  signature: string,
+  nowSeconds = Math.floor(Date.now() / 1000),
+) => verifyFor('document-file', secret, subject, expires, signature, nowSeconds);
+
 export const signImageDownload = (secret: string, subject: string, expires: number) =>
   signFor('imaging-image', secret, subject, expires);
 export const verifyImageDownload = (

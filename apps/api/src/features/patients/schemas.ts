@@ -54,6 +54,12 @@ export const PatientRecord = Type.Object(
     email: Type.Optional(Type.String()),
     address: Type.Optional(Type.String()),
     contactConsent: Type.Optional(ContactConsent),
+    mergedInto: Type.Optional(
+      Type.String({
+        description:
+          'Present when this record was merged into another (#194): the id of the record to use. A merged record cannot be changed.',
+      }),
+    ),
     version: Type.Integer({
       minimum: 1,
       description:
