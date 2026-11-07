@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { sessionKey, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
@@ -24,21 +24,11 @@ const rangesKey = (tenantId: string, labTestId: string) =>
   [...labTestKeys.detail(tenantId, labTestId), 'ranges'] as const;
 
 export const LAB_TESTS_PAGE_SIZE = 25;
-export const SEARCH_DEBOUNCE_MS = 300;
 /** How many choices a picker offers at a time: the rest are found by typing. */
 export const PICKER_SIZE = 20;
 
 /** A catalog changes rarely. */
 const STALE_TIME_MS = 60_000;
-
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 /** The catalog, one server page at a time. Search and every filter are the server's job. */
 export function useLabTests(filters: LabTestFilters) {

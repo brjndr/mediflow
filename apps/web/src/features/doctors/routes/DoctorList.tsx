@@ -6,8 +6,9 @@ import { Can } from '@/access';
 import { useDepartmentOptions } from '@/features/departments';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
-import { SEARCH_DEBOUNCE_MS, useDebouncedValue, useDoctors } from '../hooks/use-doctors';
+import { useDoctors } from '../hooks/use-doctors';
 import type { Doctor } from '../types';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 const link =

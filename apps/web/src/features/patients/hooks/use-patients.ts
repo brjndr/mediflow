@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+
 import { createTenantKeys, isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import { fetchPatients } from '../api';
@@ -23,22 +23,12 @@ export const patientDraftKey = (tenantId: string, id: string) =>
   [...patientKeys.detail(tenantId, id), 'draft'] as const;
 
 export const PATIENT_PAGE_SIZES = [25, 50, 100] as const;
-export const SEARCH_DEBOUNCE_MS = 300;
 
 /** Failures worth a second try: the request may not have reached a working server at all. */
 const RETRYABLE = new Set(['network', 'timeout', 'server']);
 
 /** Patient data changes at the front desk all day: keep it fresh. */
 const STALE_TIME_MS = 15_000;
-
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 export interface PatientFilters {
   q: string;

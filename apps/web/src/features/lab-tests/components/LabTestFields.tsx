@@ -11,13 +11,7 @@ import {
   useFieldValue,
   useSetFieldValue,
 } from '@/shared/ui/form';
-import {
-  PICKER_SIZE,
-  SEARCH_DEBOUNCE_MS,
-  useComponentChoices,
-  useDebouncedValue,
-  useServiceChoices,
-} from '../hooks/use-lab-tests';
+import { PICKER_SIZE, useComponentChoices, useServiceChoices } from '../hooks/use-lab-tests';
 import {
   CODE_MAX,
   COMPONENTS_MAX,
@@ -32,6 +26,7 @@ import {
   UNIT_MAX,
 } from '../schemas';
 import type { LabTestComponent } from '../types';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
 const control =
   'h-9 w-full rounded-md border bg-background px-3 text-base outline-none md:text-sm focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11';

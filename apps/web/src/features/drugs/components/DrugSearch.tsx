@@ -1,10 +1,18 @@
-import { useId, useState, type KeyboardEvent } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlag, usePermission } from '@/access';
+import { ServerSearch, type ServerSearchIdle } from '@/shared/ui/server-search';
 import { useFavouriteAccess, useFavouriteDrugs, loadDrug } from '../hooks/use-favourites';
-import { SEARCH_DEBOUNCE_MS, useDebouncedValue, useMedicineSuggestions } from '../hooks/use-drugs';
+import { useMedicineSuggestions } from '../hooks/use-drugs';
 import { useMedicineName } from '../hooks/use-medicine-name';
 import type { Drug } from '../types';
+
+/** A row of the list: a found medicine, or a favourite, which is only an id and a name. */
+interface Row {
+  id: string;
+  label: string;
+  drug?: Drug;
+}
 
 /**
  * A search box for a medicine to prescribe: type words of its generic name or brand, and choose
@@ -14,7 +22,7 @@ import type { Drug } from '../types';
  *
  * For any screen that records a medicine (a prescription, a medication order). It works with the
  * keyboard (arrows, Enter, Escape), by touch, and at any width. It tells the screen which item
- * was chosen and keeps nothing itself.
+ * was chosen and keeps nothing itself. Built on `ServerSearch` (`shared/ui`).
  */
 export function DrugSearch({
   label,
@@ -40,186 +48,92 @@ export function DrugSearch({
 }) {
   const { t } = useTranslation('drugs');
   const nameOf = useMedicineName();
-  const inputId = useId();
-  const listId = useId();
-  const [text, setText] = useState('');
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
-  const typed = useDebouncedValue(text, SEARCH_DEBOUNCE_MS);
   // The catalog is a module of its own: switched on for the hospital, and open to this person.
   // Without it the box says so and asks the server for nothing.
   const allowed = usePermission('drug:read');
   const switchedOn = useFeatureFlag('drugs');
   const available = allowed && switchedOn;
-  const searching = text.trim() !== '';
-  const suggestions = useMedicineSuggestions(typed, open && available, includeConsumables);
   const favouriteAccess = useFavouriteAccess();
-  const showFavourites = favourites && available && favouriteAccess.canRead && !searching;
-  const favouriteList = useFavouriteDrugs(showFavourites && open);
   const [picking, setPicking] = useState<'idle' | 'busy' | 'failed'>('idle');
-  // A favourite that was archived since cannot be prescribed: it is not offered.
-  const favouriteRows = (favouriteList.data?.items ?? [])
-    .filter((item) => !item.archived)
-    .map((item) => ({ id: item.drugId, label: item.name }));
-  const searchRows = searching
-    ? (suggestions.data ?? []).map((drug) => ({ id: drug.id, label: nameOf(drug), drug }))
-    : [];
-  const rows: { id: string; label: string; drug?: Drug }[] = showFavourites
-    ? favouriteRows
-    : searchRows;
-  // What is listed belongs to what was typed: while a search is on its way nothing of an
-  // earlier one can be chosen by mistake.
-  const settled = showFavourites
-    ? favouriteList.isSuccess
-    : typed === text && !suggestions.isPlaceholderData;
-  const highlighted = Math.min(active, Math.max(rows.length - 1, 0));
 
-  const choose = (drug: Drug) => {
-    onSelect(drug);
-    setText('');
-    setOpen(false);
-    setActive(0);
+  // While nothing is typed, the caller's favourites, when the screen asks for them.
+  const useIdle = ({
+    open,
+    searching,
+  }: {
+    open: boolean;
+    searching: boolean;
+  }): ServerSearchIdle<Row> | undefined => {
+    const show = favourites && available && favouriteAccess.canRead && !searching;
+    const list = useFavouriteDrugs(show && open);
+    if (!show) return undefined;
+    // A favourite that was archived since cannot be prescribed: it is not offered.
+    const options = (list.data?.items ?? [])
+      .filter((item) => !item.archived)
+      .map((item) => ({ id: item.drugId, label: item.name }));
+    const settled = list.isSuccess;
+    return {
+      options,
+      settled,
+      heading: t('search.favouritesHeading'),
+      message: list.isError
+        ? t('search.favouriteFailed')
+        : !settled
+          ? t('search.favouriteLoading')
+          : options.length === 0
+            ? t('search.typeToSearch')
+            : t('search.favouritesFound', { count: options.length }),
+    };
   };
 
-  // A favourite is only an id and a name: the medicine itself is read before it is chosen.
-  const pick = (row: { id: string; drug?: Drug }) => {
-    if (row.drug) return choose(row.drug);
-    if (picking === 'busy') return;
-    setPicking('busy');
-    loadDrug(row.id).then(
-      (drug) => {
-        setPicking('idle');
-        choose(drug);
-      },
-      () => setPicking('failed'),
-    );
+  const useSearch = (typed: string, enabled: boolean) => {
+    const query = useMedicineSuggestions(typed, enabled, includeConsumables);
+    return {
+      data: query.data?.map((drug) => ({ id: drug.id, label: nameOf(drug), drug })),
+      isError: query.isError,
+      isPending: query.isPending,
+      isPlaceholderData: query.isPlaceholderData,
+    };
   };
-
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Escape') {
-      if (open) event.preventDefault();
-      setOpen(false);
-      return;
-    }
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      if (!open) return setOpen(true);
-      if (rows.length === 0) return;
-      const step = event.key === 'ArrowDown' ? 1 : -1;
-      setActive((highlighted + step + rows.length) % rows.length);
-      return;
-    }
-    if (event.key === 'Enter' && open) {
-      // Never the form's submit while the list is open.
-      event.preventDefault();
-      const row = settled ? rows[highlighted] : undefined;
-      if (row) pick(row);
-    }
-  };
-
-  // A list is drawn only with options in it: an empty listbox is announced as one.
-  const listed = open && settled && rows.length > 0;
-  const optionId = (index: number) => `${listId}-${index}`;
-  const message =
-    picking === 'failed'
-      ? t('search.favouriteChosenFailed')
-      : showFavourites
-        ? favouriteList.isError
-          ? t('search.favouriteFailed')
-          : !settled
-            ? t('search.favouriteLoading')
-            : rows.length === 0
-              ? t('search.typeToSearch')
-              : t('search.favouritesFound', { count: rows.length })
-        : !searching
-          ? t('search.typeToSearch')
-          : suggestions.isError
-            ? t('search.failed')
-            : !settled || suggestions.isPending
-              ? t('search.loading')
-              : rows.length === 0
-                ? t('search.none')
-                : t('search.found', { count: rows.length });
-  const described =
-    [available ? undefined : `${inputId}-unavailable`, describedBy].filter(Boolean).join(' ') ||
-    undefined;
 
   return (
-    <div className="relative flex flex-col gap-1.5">
-      <label htmlFor={inputId} className="text-sm font-medium">
-        {label}
-      </label>
-      <input
-        id={inputId}
-        type="text"
-        role="combobox"
-        // Expanded only while a list is drawn: an open box with nothing in it controls nothing.
-        aria-expanded={listed}
-        aria-controls={listed ? listId : undefined}
-        aria-autocomplete="list"
-        aria-activedescendant={listed ? optionId(highlighted) : undefined}
-        aria-invalid={invalid || undefined}
-        aria-describedby={described}
-        value={text}
-        maxLength={100}
-        autoComplete="off"
-        disabled={!available}
-        placeholder={available ? t('search.placeholder') : ''}
-        onChange={(event) => {
-          setText(event.target.value);
-          setOpen(true);
-          setActive(0);
-          setPicking('idle');
-        }}
-        onFocus={() => setOpen(true)}
-        // After a tap on an option has had its turn.
-        onBlur={() => setOpen(false)}
-        onKeyDown={onKeyDown}
-        className="h-9 w-full rounded-md border bg-background px-3 text-base outline-none md:text-sm focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive pointer-coarse:h-11"
-      />
-      {!available && (
-        <p id={`${inputId}-unavailable`} className="text-xs text-muted-foreground">
-          {t('search.unavailable')}
-        </p>
-      )}
-      {/* Always on the page, so what the search found is announced as it changes. */}
-      <p role="status" className="sr-only">
-        {open && available ? message : ''}
-      </p>
-      {open && available && (
-        <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-md border bg-background shadow-md">
-          <p aria-hidden className="px-3 py-2 text-xs text-muted-foreground">
-            {listed && showFavourites ? t('search.favouritesHeading') : message}
-          </p>
-          {listed && (
-            <ul
-              id={listId}
-              role="listbox"
-              aria-label={showFavourites ? t('search.favouritesHeading') : label}
-              className="max-h-72 overflow-y-auto"
-            >
-              {rows.map((option, index) => (
-                // The keyboard works the list from the input (arrows and Enter, with
-                // aria-activedescendant), as a combobox does: an option never takes focus.
-                // eslint-disable-next-line jsx-a11y/click-events-have-key-events
-                <li
-                  key={option.id}
-                  id={optionId(index)}
-                  role="option"
-                  aria-selected={index === highlighted}
-                  // Before the input loses focus, which would close the list under the finger.
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => pick(option)}
-                  onMouseEnter={() => setActive(index)}
-                  className="cursor-pointer break-words px-3 py-2 text-sm aria-selected:bg-accent pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center"
-                >
-                  {option.label}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
+    <ServerSearch<Row>
+      label={label}
+      available={available}
+      useSearch={useSearch}
+      useIdle={useIdle}
+      messages={{
+        placeholder: t('search.placeholder'),
+        unavailable: t('search.unavailable'),
+        typeToSearch: t('search.typeToSearch'),
+        loading: t('search.loading'),
+        failed: t('search.failed'),
+        none: () => t('search.none'),
+        found: (count) => t('search.found', { count }),
+      }}
+      optionKey={(row) => row.id}
+      renderOption={(row) => row.label}
+      notice={picking === 'failed' ? t('search.favouriteChosenFailed') : undefined}
+      onType={() => setPicking('idle')}
+      onChoose={(row, reset) => {
+        const done = (drug: Drug) => {
+          onSelect(drug);
+          reset();
+        };
+        if (row.drug) return done(row.drug);
+        if (picking === 'busy') return;
+        // A favourite is only an id and a name: the medicine itself is read before it is chosen.
+        setPicking('busy');
+        loadDrug(row.id).then(
+          (drug) => {
+            setPicking('idle');
+            done(drug);
+          },
+          () => setPicking('failed'),
+        );
+      }}
+      invalid={invalid}
+      describedBy={describedBy}
+    />
   );
 }

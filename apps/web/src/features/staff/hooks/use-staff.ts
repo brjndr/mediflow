@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
@@ -21,19 +21,9 @@ export const staffKeys = createTenantKeys('staff');
 const rolesKey = (tenantId: string) => [...staffKeys.all(tenantId), 'roles'] as const;
 
 export const STAFF_PAGE_SIZE = 25;
-export const SEARCH_DEBOUNCE_MS = 300;
 
 /** Who works here changes rarely, but an admin acts on what the list says: keep it fresh. */
 const STALE_TIME_MS = 30_000;
-
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 /** The people of the hospital, one server page at a time. */
 export function useStaff(filters: StaffFilters) {

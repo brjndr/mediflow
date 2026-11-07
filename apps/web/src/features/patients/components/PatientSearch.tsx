@@ -2,12 +2,9 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlag, usePermission } from '@/access';
 import { useFormatters } from '@/tenancy';
-import {
-  SEARCH_DEBOUNCE_MS,
-  useDebouncedValue,
-  usePatientSuggestions,
-} from '../hooks/use-patients';
+import { usePatientSuggestions } from '../hooks/use-patients';
 import type { PatientSummary } from '../types';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
 /**
  * A search box to choose a patient in another feature's screen (whom to book an appointment

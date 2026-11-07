@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { sessionKey, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
@@ -23,22 +23,12 @@ import type { BedCategoryCreate, BedCategoryUpdate, WardCreate, WardUpdate } fro
 export const wardKeys = createTenantKeys('wards');
 
 export const WARDS_PAGE_SIZE = 25;
-export const SEARCH_DEBOUNCE_MS = 300;
 /** As many as one request may ask for. A hospital has a handful of bed categories. */
 const CATEGORIES_LIMIT = 100;
 
 /** Setup changes rarely. A bed's status changes with admissions, so a ward is asked for anew. */
 const STALE_TIME_MS = 60_000;
 const WARD_STALE_TIME_MS = 10_000;
-
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 /** The wards, one server page at a time. Search is the server's job. */
 export function useWards(filters: WardFilters) {

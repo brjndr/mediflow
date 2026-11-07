@@ -268,7 +268,6 @@ export function useRefundPayment() {
 }
 
 export const INVOICE_PAGE_SIZES = [25, 50, 100] as const;
-export const SEARCH_DEBOUNCE_MS = 300;
 
 /** Failures worth a second try: the request may not have reached a working server at all. */
 const RETRYABLE = new Set(['network', 'timeout', 'server']);
@@ -331,15 +330,6 @@ export function useInvoicePrinting(invoiceId: string) {
   }, [isPending, mutate]);
   const done = useCallback(() => setJob(null), []);
   return { print, busy: isPending, error: mutation.error, job, done };
-}
-
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
 }
 
 /** The invoice's credit notes, for `invoice:read`. */

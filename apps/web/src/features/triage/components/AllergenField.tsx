@@ -1,9 +1,10 @@
 import { useId, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFieldError, useFieldFocusRef, useFieldValue, useSetFieldValue } from '@/shared/ui/form';
-import { SEARCH_DEBOUNCE_MS, useAllergenSearch, useDebouncedValue } from '../hooks/use-triage';
+import { useAllergenSearch } from '../hooks/use-triage';
 import { SUBSTANCE_MAX } from '../schemas';
 import type { Allergen } from '../types';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
 /**
  * The substance of one allergy (row `index` of the form's `rows`): typed as free text, or chosen

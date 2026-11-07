@@ -1,7 +1,8 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SEARCH_DEBOUNCE_MS, useCandidates, useDebouncedValue } from '../hooks/use-doctors';
+import { useCandidates } from '../hooks/use-doctors';
 import type { DoctorCandidate } from '../types';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
 interface StaffPickerProps {
   selected: DoctorCandidate | null;

@@ -6,13 +6,9 @@ import { Can } from '@/access';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
-import {
-  INVOICE_PAGE_SIZES,
-  SEARCH_DEBOUNCE_MS,
-  useDebouncedValue,
-  useInvoices,
-} from '../hooks/use-billing';
+import { INVOICE_PAGE_SIZES, useInvoices } from '../hooks/use-billing';
 import type { Invoice } from '../types';
+import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
 const LINK =
   'inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
