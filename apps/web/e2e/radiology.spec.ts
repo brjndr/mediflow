@@ -141,7 +141,7 @@ test('an imaging study from the doctor’s order to its signed report (#98)', as
   const imaging = page
     .getByRole('heading', { name: 'Imaging orders' })
     .locator('xpath=ancestor::section[1]');
-  await imaging.getByRole('combobox', { name: 'Study' }).fill('ultrasound');
+  await imaging.getByRole('combobox', { name: 'Study', exact: true }).fill('ultrasound');
   await page.getByRole('option', { name: 'Abdominal ultrasound (IMG-002)' }).click();
   await imaging.getByRole('button', { name: 'Order the study' }).click();
   await expect(imaging.getByText('Imaging ordered.')).toBeVisible();
