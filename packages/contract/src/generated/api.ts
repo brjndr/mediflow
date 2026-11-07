@@ -3221,6 +3221,215 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/roster/shifts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Duty shifts by start time, oldest first, for the hospital. `from` and `to` keep the shifts that overlap that window; cancelled shifts are left out unless `includeCancelled`. Requires roster:read. */
+        get: operations["listRosterShifts"];
+        put?: never;
+        /** @description Puts a member of the hospital on duty. The end is after the start and at most 24 hours later (422 `invalid_period`). A person is on one shift at a time: an overlap with another scheduled shift is 409 `shift_overlap`, whatever the department. 422 `unknown_user` for someone who is not a member here, 422 `unknown_department`. The Idempotency-Key header is required. Audited; emits `roster.shift_scheduled`. Requires roster:manage. */
+        post: operations["createRosterShift"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roster/shifts/{shiftId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cancels a scheduled shift, once; the row stays as the record. The `version` is the shift’s, or 409 `conflict`; a shift already cancelled is 409 `invalid_transition`. Audited; emits `roster.shift_cancelled`. Requires roster:manage. */
+        post: operations["cancelRosterShift"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood-units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Blood units by expiry date, soonest first, with filters for status, group, component and the patient a unit is held for. Requires bloodUnit:read. */
+        get: operations["listBloodUnits"];
+        put?: never;
+        /** @description Registers a collected unit, in status `collected`. The expiry is after the collection (422 `invalid_period`); the unit number is the hospital’s own and unique (409 `duplicate_unit`). The Idempotency-Key header is required. Audited; emits `blood.unit_registered`. Requires bloodUnit:manage. */
+        post: operations["registerBloodUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood-units/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What can be given now: for each group and component, the units available (cleared and not past their date) and reserved, and the nearest expiry. Requires bloodUnit:read. */
+        get: operations["getBloodStock"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood-units/{unitId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A unit and every move it made, oldest first. A unit linked to a patient is audited as a read. 404 `blood_unit_not_found`. Requires bloodUnit:read. */
+        get: operations["getBloodUnit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood-units/{unitId}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Reserving needs a `patientId` the caller may read (422 `unknown_patient`) and a unit within its date (409 `unit_expired`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`. */
+        post: operations["moveBloodUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ambulances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital’s ambulances, oldest first. Requires ambulance:read. */
+        get: operations["listAmbulances"];
+        put?: never;
+        /** @description Adds an ambulance, available. The registration is unique in the hospital (409 `duplicate_registration`). The Idempotency-Key header is required. Audited. Requires ambulance:manage. */
+        post: operations["createAmbulance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ambulances/{ambulanceId}/service": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Takes an ambulance out of service, or returns it. Only an available ambulance goes out of service and only one out of service returns: one on a trip is 409 `invalid_transition` (dispatching and ending trips move it). The `version` is the ambulance’s, or 409 `conflict`. Audited. Requires ambulance:manage. */
+        post: operations["setAmbulanceService"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ambulance-trips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Trips, newest request first, filtered by status or ambulance. A trip with a patient is audited as a read of that patient’s trip. Requires ambulance:read. */
+        get: operations["listAmbulanceTrips"];
+        put?: never;
+        /** @description Asks for a trip from a pick-up place to a destination, in status `requested`. A `patientId` is optional (an emergency may have no record yet) and must be one the caller may read (422 `unknown_patient`). The Idempotency-Key header is required. Audited; emits `ambulance.trip_requested`. Requires ambulance:dispatch. */
+        post: operations["requestAmbulanceTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ambulance-trips/{tripId}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Moves a trip: requested -> dispatched (with an `ambulanceId` of an available ambulance, which goes on the trip) -> picked_up -> completed; cancelled before the pick-up (the ambulance is freed). Anything else is 409 `invalid_transition`. An ambulance on another trip or out of service is 409 `ambulance_unavailable`; an unknown one 422 `unknown_ambulance`. The `version` is the trip’s, or 409 `conflict`. Audited; emits `ambulance.trip_status_changed`. Requires ambulance:dispatch. */
+        post: operations["moveAmbulanceTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cleaning-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Bed cleaning tasks, oldest first, filtered by status or ward. Requires cleaningTask:read. */
+        get: operations["listCleaningTasks"];
+        put?: never;
+        /** @description Asks for a bed to be cleaned (a `routine` task). An available bed is set to being cleaned; one being cleaned already keeps that. An occupied or blocked bed is 409 `bed_not_available`, a bed that already has a task open 409 `task_exists`, an unknown bed 422 `unknown_bed`. `assignedTo` must be a member of the hospital (422 `unknown_user`). Needs the wards module (403 `feature_disabled`). The Idempotency-Key header is required. Audited, announced on `/beds/events`; emits `cleaning.task_created`. Requires cleaningTask:manage. */
+        post: operations["createCleaningTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cleaning-tasks/{taskId}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description open -> in_progress (the caller takes an unassigned task) -> done, which makes the bed available if it is still being cleaned; or cancelled before it is done (the bed stays as it is). Starting and finishing need cleaningTask:work, cancelling cleaningTask:manage (403 `permission_denied`). Anything else is 409 `invalid_transition`. Finishing needs the wards module (403 `feature_disabled`). The `version` is the task’s, or 409 `conflict`. Audited, announced on `/beds/events`; emits `cleaning.task_completed` when done. Requires cleaningTask:read. */
+        post: operations["moveCleaningTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/inventory/locations": {
         parameters: {
             query?: never;
@@ -7518,6 +7727,270 @@ export interface components {
         };
         DocumentRetentionRuleSet: {
             years: number | null;
+        };
+        /**
+         * @description What kind of duty a shift is.
+         * @enum {string}
+         */
+        ShiftKind: "morning" | "evening" | "night" | "day" | "on_call";
+        /**
+         * @description scheduled -> cancelled, final.
+         * @enum {string}
+         */
+        ShiftStatus: "scheduled" | "cancelled";
+        RosterShift: {
+            id: string;
+            tenantId: string;
+            userId: string;
+            userName: string;
+            departmentId?: string;
+            departmentName?: string;
+            shiftKind: components["schemas"]["ShiftKind"];
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+            status: components["schemas"]["ShiftStatus"];
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        RosterShiftPage: {
+            items: components["schemas"]["RosterShift"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        RosterShiftCreate: {
+            userId: string;
+            departmentId?: string;
+            shiftKind: components["schemas"]["ShiftKind"];
+            /** Format: date-time */
+            startsAt: string;
+            /**
+             * Format: date-time
+             * @description After the start, and at most 24 hours later.
+             */
+            endsAt: string;
+        };
+        /**
+         * @description ABO and Rh group.
+         * @enum {string}
+         */
+        BloodGroup: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
+        /**
+         * @description What the unit holds.
+         * @enum {string}
+         */
+        BloodComponent: "whole_blood" | "red_cells" | "plasma" | "platelets" | "cryo";
+        /**
+         * @description collected -> testing -> available -> reserved -> issued -> transfused. Discarded from any state before transfusion; available or reserved units past their date are expired; reserved goes back to available when released.
+         * @enum {string}
+         */
+        BloodUnitStatus: "collected" | "testing" | "available" | "reserved" | "issued" | "transfused" | "discarded" | "expired";
+        BloodUnit: {
+            id: string;
+            tenantId: string;
+            unitNumber: string;
+            bloodGroup: components["schemas"]["BloodGroup"];
+            component: components["schemas"]["BloodComponent"];
+            volumeMl: number;
+            /** Format: date-time */
+            collectedAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            status: components["schemas"]["BloodUnitStatus"];
+            /** @description The patient it is held for, issued to or went to. */
+            patientId?: string;
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        BloodUnitPage: {
+            items: components["schemas"]["BloodUnit"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        BloodUnitEntry: {
+            fromStatus?: components["schemas"]["BloodUnitStatus"];
+            toStatus: components["schemas"]["BloodUnitStatus"];
+            patientId?: string;
+            reason?: string;
+            actorId: string;
+            /** Format: date-time */
+            occurredAt: string;
+        };
+        BloodUnitDetail: {
+            unit: components["schemas"]["BloodUnit"];
+            /** @description Every move, oldest first. */
+            history: components["schemas"]["BloodUnitEntry"][];
+        };
+        BloodUnitCreate: {
+            unitNumber: string;
+            bloodGroup: components["schemas"]["BloodGroup"];
+            component: components["schemas"]["BloodComponent"];
+            volumeMl: number;
+            /** Format: date-time */
+            collectedAt: string;
+            /**
+             * Format: date-time
+             * @description After the collection.
+             */
+            expiresAt: string;
+        };
+        BloodUnitMove: {
+            /**
+             * @description The status to move to.
+             * @enum {string}
+             */
+            to: "testing" | "available" | "reserved" | "issued" | "transfused" | "discarded" | "expired";
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
+            /** @description Required to reserve a unit. */
+            patientId?: string;
+            /** @description Required to discard, and for a unit that failed its tests. Kept with the move. */
+            reason?: string;
+        };
+        BloodStockRow: {
+            bloodGroup: components["schemas"]["BloodGroup"];
+            component: components["schemas"]["BloodComponent"];
+            /** @description Units cleared and not past their date. */
+            available: number;
+            reserved: number;
+            /** Format: date-time */
+            nextExpiry?: string;
+        };
+        BloodStock: {
+            items: components["schemas"]["BloodStockRow"][];
+        };
+        /**
+         * @description How well equipped an ambulance is.
+         * @enum {string}
+         */
+        AmbulanceKind: "basic" | "advanced" | "neonatal";
+        /**
+         * @description on_trip is set by dispatching and cleared when the trip ends; out_of_service is set by hand.
+         * @enum {string}
+         */
+        AmbulanceStatus: "available" | "on_trip" | "out_of_service";
+        Ambulance: {
+            id: string;
+            tenantId: string;
+            registration: string;
+            kind: components["schemas"]["AmbulanceKind"];
+            status: components["schemas"]["AmbulanceStatus"];
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        AmbulancePage: {
+            items: components["schemas"]["Ambulance"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        AmbulanceCreate: {
+            registration: string;
+            kind: components["schemas"]["AmbulanceKind"];
+        };
+        AmbulanceServiceChange: {
+            /**
+             * @description Only these two are set by hand.
+             * @enum {string}
+             */
+            status: "available" | "out_of_service";
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
+        };
+        /**
+         * @description requested -> dispatched -> picked_up -> completed; cancelled before the pick-up.
+         * @enum {string}
+         */
+        AmbulanceTripStatus: "requested" | "dispatched" | "picked_up" | "completed" | "cancelled";
+        AmbulanceTrip: {
+            id: string;
+            tenantId: string;
+            patientId?: string;
+            ambulanceId?: string;
+            ambulanceRegistration?: string;
+            pickup: string;
+            destination: string;
+            status: components["schemas"]["AmbulanceTripStatus"];
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            dispatchedAt?: string;
+            /** Format: date-time */
+            pickedUpAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        AmbulanceTripPage: {
+            items: components["schemas"]["AmbulanceTrip"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        AmbulanceTripCreate: {
+            /** @description Left out for an emergency with no record yet. */
+            patientId?: string;
+            pickup: string;
+            destination: string;
+        };
+        AmbulanceTripMove: {
+            /**
+             * @description The status to move to.
+             * @enum {string}
+             */
+            to: "dispatched" | "picked_up" | "completed" | "cancelled";
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
+            /** @description Required to dispatch. */
+            ambulanceId?: string;
+        };
+        /**
+         * @description discharge is made when a patient leaves a bed; routine is asked for.
+         * @enum {string}
+         */
+        CleaningKind: "discharge" | "routine";
+        /**
+         * @description open -> in_progress -> done; cancelled before it is done. Done makes the bed available.
+         * @enum {string}
+         */
+        CleaningTaskStatus: "open" | "in_progress" | "done" | "cancelled";
+        CleaningTask: {
+            id: string;
+            tenantId: string;
+            bedId: string;
+            bedNumber: string;
+            wardId: string;
+            wardName: string;
+            kind: components["schemas"]["CleaningKind"];
+            status: components["schemas"]["CleaningTaskStatus"];
+            assignedTo?: string;
+            assignedToName?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        CleaningTaskPage: {
+            items: components["schemas"]["CleaningTask"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        CleaningTaskCreate: {
+            bedId: string;
+            assignedTo?: string;
+        };
+        CleaningTaskMove: {
+            /**
+             * @description The status to move to.
+             * @enum {string}
+             */
+            to: "in_progress" | "done" | "cancelled";
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
         };
         /**
          * @description What a place that keeps stock is: a store, a pharmacy counter, a ward’s own stock, or a department’s (a theatre, the laboratory).
@@ -26130,6 +26603,1315 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listRosterShifts: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                userId?: string;
+                departmentId?: string;
+                includeCancelled?: boolean;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterShiftPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createRosterShift: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    userId: string;
+                    departmentId?: string;
+                    shiftKind: components["schemas"]["ShiftKind"];
+                    /** Format: date-time */
+                    startsAt: string;
+                    /**
+                     * Format: date-time
+                     * @description After the start, and at most 24 hours later.
+                     */
+                    endsAt: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterShift"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelRosterShift: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                shiftId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterShift"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listBloodUnits: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["BloodUnitStatus"];
+                bloodGroup?: components["schemas"]["BloodGroup"];
+                component?: components["schemas"]["BloodComponent"];
+                patientId?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodUnitPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    registerBloodUnit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    unitNumber: string;
+                    bloodGroup: components["schemas"]["BloodGroup"];
+                    component: components["schemas"]["BloodComponent"];
+                    volumeMl: number;
+                    /** Format: date-time */
+                    collectedAt: string;
+                    /**
+                     * Format: date-time
+                     * @description After the collection.
+                     */
+                    expiresAt: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodUnit"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getBloodStock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodStock"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getBloodUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodUnitDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    moveBloodUnit: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description The status to move to.
+                     * @enum {string}
+                     */
+                    to: "testing" | "available" | "reserved" | "issued" | "transfused" | "discarded" | "expired";
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                    /** @description Required to reserve a unit. */
+                    patientId?: string;
+                    /** @description Required to discard, and for a unit that failed its tests. Kept with the move. */
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodUnit"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAmbulances: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["AmbulanceStatus"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmbulancePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createAmbulance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    registration: string;
+                    kind: components["schemas"]["AmbulanceKind"];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ambulance"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setAmbulanceService: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                ambulanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description Only these two are set by hand.
+                     * @enum {string}
+                     */
+                    status: "available" | "out_of_service";
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ambulance"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAmbulanceTrips: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["AmbulanceTripStatus"];
+                ambulanceId?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmbulanceTripPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    requestAmbulanceTrip: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Left out for an emergency with no record yet. */
+                    patientId?: string;
+                    pickup: string;
+                    destination: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmbulanceTrip"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    moveAmbulanceTrip: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description The status to move to.
+                     * @enum {string}
+                     */
+                    to: "dispatched" | "picked_up" | "completed" | "cancelled";
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                    /** @description Required to dispatch. */
+                    ambulanceId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmbulanceTrip"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listCleaningTasks: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["CleaningTaskStatus"];
+                wardId?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleaningTaskPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCleaningTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    bedId: string;
+                    assignedTo?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleaningTask"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    moveCleaningTask: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description The status to move to.
+                     * @enum {string}
+                     */
+                    to: "in_progress" | "done" | "cancelled";
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleaningTask"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

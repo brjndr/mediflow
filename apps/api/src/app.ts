@@ -63,6 +63,7 @@ import { rolesFeature } from './features/roles/index.js';
 import { staffFeature } from './features/staff/index.js';
 import { wardsFeature } from './features/wards/index.js';
 import { admissionsFeature } from './features/admissions/index.js';
+import { operationsFeature } from './features/operations/index.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -184,6 +185,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(labFeature);
   await app.register(radiologyFeature);
   await app.register(documentsFeature);
+  await app.register(operationsFeature);
   await app.register(inventoryFeature);
   await app.register(pharmacyFeature);
   await app.register(billingFeature);
