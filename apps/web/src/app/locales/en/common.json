@@ -419,7 +419,10 @@
     "event": "{{start}} {{title}}, until {{end}}, {{day}}",
     "eventWithDetail": "{{start}} {{title}}, until {{end}}, {{day}}, {{detail}}",
     "slot": "{{time}}, {{day}}, nothing booked",
-    "slotWithAction": "{{time}}, {{day}}, nothing booked. {{action}}"
+    "slotWithAction": "{{time}}, {{day}}, nothing booked. {{action}}",
+    "resourceColumn": "{{resource}}, {{day}}",
+    "resourceSlot": "{{time}}, {{resource}}, {{day}}, nothing booked",
+    "resourceSlotWithAction": "{{time}}, {{resource}}, {{day}}, nothing booked. {{action}}"
   },
   "editor": {
     "toolbar": "Formatting",

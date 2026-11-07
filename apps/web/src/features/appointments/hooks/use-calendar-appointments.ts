@@ -64,3 +64,60 @@ export function useCalendarAppointments(
         : undefined,
   });
 }
+
+/** Most doctors drawn side by side: eight columns still leave a column wide enough to read. */
+export const MAX_SIDE_BY_SIDE = 8;
+
+/** The key of several doctors' day: the doctors sorted, so the same set is one entry. */
+export const doctorsDayKey = (tenantId: string, range: { day: DayString; doctorIds: string[] }) =>
+  [
+    ...appointmentKeys.all(tenantId),
+    'calendar',
+    { day: range.day, doctorIds: [...range.doctorIds].sort().join(',') },
+  ] as const;
+
+/**
+ * Several doctors' appointments on one day, every status, for the calendar's doctors view. The API
+ * filters by one doctor, so each doctor's day is asked for on its own, at the same time, each
+ * following its cursor; together they stop at the calendar's cap (a later API change may take
+ * several doctors in one request). A different set of doctors is a different entry, and its
+ * placeholder is never another set's: those appointments would be drawn under the wrong columns.
+ */
+export function useDoctorsDayAppointments(
+  { day, doctorIds }: { day: DayString; doctorIds: string[] },
+  enabled = true,
+) {
+  const tenantId = useTenant()?.id;
+  const key = doctorsDayKey(tenantId ?? '', { day, doctorIds });
+  return useQuery({
+    queryKey: key,
+    queryFn: async ({ signal }): Promise<CalendarAppointments> => {
+      const items: AppointmentSummary[] = [];
+      let truncated = false;
+      await Promise.all(
+        doctorIds.map(async (doctorId) => {
+          let cursor: string | undefined;
+          do {
+            const page = await fetchAppointments(
+              { from: day, to: day, doctorId, status: '', cursor, limit: CALENDAR_PAGE_SIZE },
+              signal,
+            );
+            items.push(...page.items);
+            cursor = page.nextCursor ?? undefined;
+          } while (cursor !== undefined && items.length < CALENDAR_MAX_APPOINTMENTS);
+          if (cursor !== undefined) truncated = true;
+        }),
+      );
+      // Past the cap, say so; and never draw more than the cap.
+      if (items.length > CALENDAR_MAX_APPOINTMENTS) truncated = true;
+      return { items: items.slice(0, CALENDAR_MAX_APPOINTMENTS), truncated };
+    },
+    enabled: enabled && tenantId !== undefined && doctorIds.length > 0,
+    staleTime: STALE_TIME_MS,
+    placeholderData: (previous, previousQuery) =>
+      (previousQuery?.queryKey.at(-1) as { doctorIds?: string } | undefined)?.doctorIds ===
+      doctorIds.slice().sort().join(',')
+        ? previous
+        : undefined,
+  });
+}

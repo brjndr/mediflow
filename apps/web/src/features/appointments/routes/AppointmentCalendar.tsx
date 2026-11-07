@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Can, usePermission } from '@/access';
 import { useSession } from '@/app/session';
+import { useDepartmentOptions } from '@/features/departments';
 import { useDoctorOptions } from '@/features/doctors';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
@@ -12,10 +13,13 @@ import { Calendar, type CalendarEventItem, type CalendarView } from '@/shared/ui
 import { addDays, visibleDays, weekStartFor } from '@/shared/ui/calendar/zoned';
 import { todayIn, utcToZoned, type DayString } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
+import { DoctorsPicker } from '../components/DoctorsPicker';
 import { ViewSwitch } from '../components/ViewSwitch';
 import {
   CALENDAR_MAX_APPOINTMENTS,
+  MAX_SIDE_BY_SIDE,
   useCalendarAppointments,
+  useDoctorsDayAppointments,
 } from '../hooks/use-calendar-appointments';
 import { bookableDays } from '../schemas';
 import type { AppointmentStatus } from '../types';
@@ -54,8 +58,11 @@ export default function AppointmentCalendar() {
 
   // The week is for desktop width (CLAUDE.md, Responsive Design): narrower, the day is shown.
   const isDesktop = useIsDesktop();
-  const [chosenView, setChosenView] = useState<CalendarView>('week');
-  const view: CalendarView = isDesktop ? chosenView : 'day';
+  // "Doctors" is the day of several doctors side by side: desktop width only, like the week.
+  const [chosenView, setChosenView] = useState<CalendarView | 'doctors'>('week');
+  const screenView = isDesktop ? chosenView : 'day';
+  const sideBySide = screenView === 'doctors';
+  const view: CalendarView = sideBySide ? 'day' : screenView;
   const [day, setDay] = useState<DayString>(today);
   // Null until someone chooses: a doctor opens on their own calendar, everyone else on the first
   // doctor's. The calendar is always one doctor's.
@@ -69,8 +76,38 @@ export default function AppointmentCalendar() {
   const doctorId = chosen ?? mine?.id ?? doctors.data?.[0]?.id ?? '';
   const canBook = usePermission('appointment:create');
 
+  // The doctors view: a department, and up to eight of its doctors.
+  const departments = useDepartmentOptions();
+  const [departmentId, setDepartmentId] = useState('');
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const departmentDoctors = useMemo(
+    () =>
+      (doctors.data ?? []).filter((d) => departmentId === '' || d.departmentId === departmentId),
+    [doctors.data, departmentId],
+  );
+  const shownDoctors = useMemo(() => {
+    if (departmentDoctors.length <= MAX_SIDE_BY_SIDE) return departmentDoctors;
+    if (picked === null) return departmentDoctors.slice(0, MAX_SIDE_BY_SIDE);
+    return departmentDoctors.filter((d) => picked.includes(d.id));
+  }, [departmentDoctors, picked]);
+  const shownIds = useMemo(() => shownDoctors.map((d) => d.id), [shownDoctors]);
+  const resources = useMemo(
+    () => (sideBySide ? shownDoctors.map((d) => ({ id: d.id, title: d.name })) : undefined),
+    [sideBySide, shownDoctors],
+  );
+  const toggleDoctor = (id: string) =>
+    setPicked(shownIds.includes(id) ? shownIds.filter((x) => x !== id) : [...shownIds, id]);
+
   const { from, to } = visibleDays(view, day, weekStartFor(locale));
-  const appointments = useCalendarAppointments({ from, to, doctorId }, doctors.available);
+  const oneDoctor = useCalendarAppointments(
+    { from, to, doctorId },
+    doctors.available && !sideBySide,
+  );
+  const manyDoctors = useDoctorsDayAppointments(
+    { day, doctorIds: shownIds },
+    doctors.available && sideBySide,
+  );
+  const appointments = sideBySide ? manyDoctors : oneDoctor;
 
   const items = appointments.data?.items;
   const events = useMemo<CalendarEventItem[]>(
@@ -90,6 +127,7 @@ export default function AppointmentCalendar() {
         tone: STATUS_TONE[item.status],
         hint: t(`status.${item.status}`),
         icon: STATUS_ICON[item.status],
+        resourceId: item.doctorId,
         // With whom and the status, said after the block's own text, which may be too narrow
         // to hold them.
         label: t('calendar.eventLabel', {
@@ -109,9 +147,9 @@ export default function AppointmentCalendar() {
   const nowAtHospital = utcToZoned(new Date().toISOString(), timezone).time;
   const canBookAt = (slotDay: DayString, time: string) =>
     slotDay >= today && slotDay <= lastBookable && (slotDay > today || time > nowAtHospital);
-  const bookAt = (slotDay: DayString, time: string) =>
+  const bookAt = (slotDay: DayString, time: string, resourceId?: string) =>
     navigate(
-      `/appointments/new?${new URLSearchParams({ doctorId, day: slotDay, time }).toString()}`,
+      `/appointments/new?${new URLSearchParams({ doctorId: resourceId ?? doctorId, day: slotDay, time }).toString()}`,
     );
 
   const step = view === 'day' ? 1 : 7;
@@ -158,21 +196,35 @@ export default function AppointmentCalendar() {
       {header}
 
       <div className="flex flex-wrap items-end gap-4">
-        <label className={`${field} min-w-52`}>
-          {t('filters.doctor')}
-          <select
-            value={doctorId}
-            onChange={(event) => setChosenDoctor(event.target.value)}
-            disabled={!doctors.isSuccess || doctors.data.length === 0}
-            className={control}
-          >
-            {(doctors.data ?? []).map((doctor) => (
-              <option key={doctor.id} value={doctor.id}>
-                {doctor.id === mine?.id ? t('filters.me', { name: doctor.name }) : doctor.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {sideBySide ? (
+          <DoctorsPicker
+            departments={departments.available ? (departments.data ?? []) : null}
+            departmentId={departmentId}
+            onDepartment={(id) => {
+              setDepartmentId(id);
+              setPicked(null);
+            }}
+            doctors={departmentDoctors}
+            shown={shownIds}
+            onToggle={toggleDoctor}
+          />
+        ) : (
+          <label className={`${field} min-w-52`}>
+            {t('filters.doctor')}
+            <select
+              value={doctorId}
+              onChange={(event) => setChosenDoctor(event.target.value)}
+              disabled={!doctors.isSuccess || doctors.data.length === 0}
+              className={control}
+            >
+              {(doctors.data ?? []).map((doctor) => (
+                <option key={doctor.id} value={doctor.id}>
+                  {doctor.id === mine?.id ? t('filters.me', { name: doctor.name }) : doctor.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className={field}>
           {t('calendar.goTo')}
           <input
@@ -189,14 +241,14 @@ export default function AppointmentCalendar() {
             aria-label={t('calendar.view')}
             className="inline-flex rounded-md border"
           >
-            {(['day', 'week'] as const).map((option) => (
+            {(['day', 'week', 'doctors'] as const).map((option) => (
               <button
                 key={option}
                 type="button"
-                aria-pressed={view === option}
+                aria-pressed={screenView === option}
                 onClick={() => setChosenView(option)}
                 className={`h-9 px-3 text-sm font-medium first:rounded-l-md last:rounded-r-md pointer-coarse:h-11 ${
-                  view === option ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+                  screenView === option ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
                 }`}
               >
                 {t(`calendar.views.${option}`)}
@@ -243,6 +295,10 @@ export default function AppointmentCalendar() {
         <p role="status" className="text-muted-foreground">
           {t('calendar.noDoctors')}
         </p>
+      ) : sideBySide && doctors.isSuccess && shownIds.length === 0 ? (
+        <p role="status" className="text-muted-foreground">
+          {t('doctorsDay.none')}
+        </p>
       ) : (
         <>
           <CalendarStatus
@@ -251,6 +307,7 @@ export default function AppointmentCalendar() {
             onRetry={() => void appointments.refetch()}
             count={appointments.isPlaceholderData ? undefined : items?.length}
             truncated={appointments.data?.truncated === true}
+            truncatedKey={sideBySide ? 'calendar.truncatedDoctors' : 'calendar.truncated'}
             empty={view === 'day' ? t('emptyDay') : t('empty')}
           />
           <Calendar
@@ -260,6 +317,7 @@ export default function AppointmentCalendar() {
             timezone={timezone}
             locale={locale}
             events={events}
+            resources={resources}
             // On a phone the hours scroll inside a grid that leaves room for the controls.
             height={isDesktop ? 640 : 'min(640px, 70dvh)'}
             onSelectEvent={openAppointment}
@@ -285,6 +343,7 @@ function CalendarStatus({
   onRetry,
   count,
   truncated,
+  truncatedKey,
   empty,
 }: {
   loading: boolean;
@@ -292,6 +351,7 @@ function CalendarStatus({
   onRetry: () => void;
   count: number | undefined;
   truncated: boolean;
+  truncatedKey: 'calendar.truncated' | 'calendar.truncatedDoctors';
   empty: string;
 }) {
   const { t } = useTranslation('appointments');
@@ -310,7 +370,7 @@ function CalendarStatus({
       {loading || count === undefined
         ? t('calendar.loading')
         : truncated
-          ? t('calendar.truncated', { count: CALENDAR_MAX_APPOINTMENTS })
+          ? t(truncatedKey, { count: CALENDAR_MAX_APPOINTMENTS })
           : count === 0
             ? empty
             : t('count', { count })}

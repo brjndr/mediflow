@@ -15,8 +15,9 @@ import { addDays } from './zoned';
  * the keys. It is chosen knowingly: the markup is the library's, and every cell is named by its
  * full time and day, so nothing depends on how a screen reader reads rows and columns (#341).
  *
- * One resource only: a column is a day. Several doctors or theatres side by side (the library's
- * `resources`, #331) need columns mapped to a day and a resource first.
+ * With `resources` (several doctors side by side, #331) a column is a resource on one day, not a
+ * day: the model's `days` then hold the columns' keys (a resource's id), `dates` the day each
+ * draws, and Left and Right move to the neighbouring column.
  */
 
 /** The library draws a quarter-hour slot per row of each column, from midnight. */
@@ -34,8 +35,10 @@ export interface GridEvent {
 }
 
 export interface GridModel {
-  /** The days drawn, in the order of the library's columns. */
+  /** The columns drawn, in the order of the library's columns: days, or resources' ids. */
   days: DayString[];
+  /** With resources: the one day every column draws, per column. Absent: a column is a day. */
+  dates?: DayString[];
   events: Map<string, GridEvent>;
   gridLabel: string;
   /** While the blocks of the days drawn are still loading. */
@@ -113,12 +116,13 @@ export function layout(root: HTMLElement, model: GridModel): StopsByDay {
       .querySelectorAll('.rbc-current-time-indicator')
       .forEach((line) => set(line, 'aria-hidden', 'true'));
 
+    const date = model.dates?.[index] ?? day;
     const dayStops: Stop[] = [];
     const covered: [number, number][] = [];
     column.querySelectorAll<HTMLElement>('.rbc-event[data-event-id]').forEach((element) => {
       const id = element.dataset.eventId ?? '';
       const event = model.events.get(id);
-      const part = event && partOn(event, day);
+      const part = event && partOn(event, date);
       if (!event || !part) {
         // Nothing of it on this day (it ends at midnight): not a stop, and not a Tab stop either.
         for (const name of ['role', 'tabindex']) set(element, name, null);
@@ -194,11 +198,20 @@ export function move(
   cursor: Cursor,
   stops: StopsByDay,
   rangeDays: number,
+  /** With resources: the columns' keys in order, which Left and Right walk instead of days. */
+  columns?: string[],
 ): { cursor: Cursor; outside: boolean } | undefined {
   const day = stops.get(cursor.day) ?? [];
   const current = resolve(stops, cursor);
   const index = current ? day.indexOf(current) : -1;
   const toDay = (by: number) => {
+    if (columns) {
+      const next = columns[columns.indexOf(cursor.day) + by];
+      return {
+        cursor: next === undefined ? cursor : { day: next, minutes: cursor.minutes },
+        outside: false,
+      };
+    }
     const next = addDays(cursor.day, by);
     return { cursor: { day: next, minutes: cursor.minutes }, outside: !stops.has(next) };
   };

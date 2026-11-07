@@ -24,7 +24,7 @@ import {
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './calendar.css';
 import type { DayString } from '@/shared/utils/timezone';
-import type { CalendarEventItem, CalendarProps } from './index';
+import type { CalendarEventItem, CalendarProps, CalendarResource } from './index';
 import {
   clockTime,
   layout,
@@ -46,6 +46,7 @@ interface WallEvent {
   hint?: string;
   label?: string;
   icon?: CalendarEventItem['icon'];
+  resourceId?: string;
 }
 
 /**
@@ -173,6 +174,7 @@ export default function CalendarImpl({
   busy = false,
   onNavigate,
   onOpenDay,
+  resources,
   height = 640,
 }: CalendarProps) {
   const { t } = useTranslation();
@@ -189,6 +191,14 @@ export default function CalendarImpl({
   );
   const root = useRef<HTMLElement>(null);
 
+  // Several resources side by side are one day: the week is not drawn then, and the keyboard's
+  // columns are the resources, not days.
+  const sideBySide = resources !== undefined && resources.length > 0;
+  const columnKeys = useMemo(
+    () => (sideBySide ? resources.map((r) => r.id) : undefined),
+    [sideBySide, resources],
+  );
+
   const wallEvents = useMemo<WallEvent[]>(
     () =>
       events.map((event) => ({
@@ -200,12 +210,15 @@ export default function CalendarImpl({
         hint: event.hint,
         label: event.label,
         icon: event.icon,
+        // Without resources a block belongs to no column: the library would not draw it.
+        resourceId: sideBySide ? event.resourceId : undefined,
       })),
-    [events, timezone],
+    [events, timezone, sideBySide],
   );
 
-  const { from } = visibleDays(view, day, weekStartFor(locale));
-  const rangeDays = view === 'day' ? 1 : 7;
+  const shownView = sideBySide ? 'day' : view;
+  const { from } = visibleDays(shownView, day, weekStartFor(locale));
+  const rangeDays = shownView === 'day' ? 1 : 7;
 
   // Open the day at its first event, or at the start of a working day when it has none.
   const scrollToTime = useMemo(() => {
@@ -223,10 +236,21 @@ export default function CalendarImpl({
 
   // Whether a free time can be chosen: never while the blocks of the days drawn are loading,
   // when every time would look free.
+  // A column's key is a day, or with resources the resource's id on the one day shown.
+  const columnAt = useCallback(
+    (key: string) => (sideBySide ? { day, resourceId: key } : { day: key, resourceId: undefined }),
+    [sideBySide, day],
+  );
   const selectable = useCallback(
-    (slotDay: DayString, minutes: number) =>
-      onSelectSlot !== undefined && !busy && (canSelectSlot?.(slotDay, clockTime(minutes)) ?? true),
-    [onSelectSlot, busy, canSelectSlot],
+    (key: string, minutes: number) => {
+      const column = columnAt(key);
+      return (
+        onSelectSlot !== undefined &&
+        !busy &&
+        (canSelectSlot?.(column.day, clockTime(minutes), column.resourceId) ?? true)
+      );
+    },
+    [onSelectSlot, busy, canSelectSlot, columnAt],
   );
 
   // What the keyboard model needs. Rebuilt on each render and read by `apply`, which also runs
@@ -234,9 +258,16 @@ export default function CalendarImpl({
   const model = useMemo<GridModel & { home: Cursor }>(() => {
     const gridEvents = new Map<string, GridEvent>();
     let first: WallEvent | undefined;
+    const titles = new Map(resources?.map((r) => [r.id, r.title]));
     for (const event of wallEvents) {
       const startDay = wallToDay(event.start);
-      if (startDay === day && (!first || minutesOf(event.start) < minutesOf(first.start))) {
+      const listed =
+        !sideBySide || (event.resourceId !== undefined && titles.has(event.resourceId));
+      if (
+        listed &&
+        startDay === day &&
+        (!first || minutesOf(event.start) < minutesOf(first.start))
+      ) {
         first = event;
       }
       // A block past midnight is drawn on each of its days (`showMultiDayTimes`); one that
@@ -265,7 +296,7 @@ export default function CalendarImpl({
     };
     // Named once per model: a week is 672 quarter hours, laid out again on every key.
     const dayNames = new Map<DayString, string>();
-    const dayLabel = (columnDay: DayString) => {
+    const dayOnly = (columnDay: DayString) => {
       let name = dayNames.get(columnDay);
       if (name === undefined) {
         name = dayName.format(dayToWall(columnDay));
@@ -273,9 +304,15 @@ export default function CalendarImpl({
       }
       return name;
     };
+    // A column of resources is named by the resource and the day.
+    const dayLabel = (key: string) =>
+      sideBySide
+        ? t('calendar.resourceColumn', { resource: titles.get(key) ?? '', day: dayOnly(day) })
+        : dayOnly(key);
     const slotNames = new Map<string, string>();
     return {
-      days: Array.from({ length: rangeDays }, (_, i) => addDays(from, i)),
+      days: columnKeys ?? Array.from({ length: rangeDays }, (_, i) => addDays(from, i)),
+      dates: columnKeys?.map(() => day),
       events: gridEvents,
       gridLabel: label,
       busy,
@@ -284,20 +321,46 @@ export default function CalendarImpl({
         const key = `${slotDay}|${minutes}`;
         const known = slotNames.get(key);
         if (known !== undefined) return known;
-        const values = { time: time.format(wallAt(slotDay, minutes)), day: dayLabel(slotDay) };
-        const name =
-          slotAction && selectable(slotDay, minutes)
-            ? t('calendar.slotWithAction', { ...values, action: slotAction })
+        const column = columnAt(slotDay);
+        const values = {
+          time: time.format(wallAt(column.day, minutes)),
+          day: dayOnly(column.day),
+          resource: titles.get(slotDay) ?? '',
+        };
+        const withAction = slotAction && selectable(slotDay, minutes);
+        const args = { ...values, action: slotAction };
+        const name = sideBySide
+          ? withAction
+            ? t('calendar.resourceSlotWithAction', args)
+            : t('calendar.resourceSlot', values)
+          : withAction
+            ? t('calendar.slotWithAction', args)
             : t('calendar.slot', values);
         slotNames.set(key, name);
         return name;
       },
       // Where the keyboard starts: the day's first block, or the start of a working day.
       home: first
-        ? { day, minutes: minutesOf(first.start), eventId: first.id }
-        : { day, minutes: OPENING_HOUR * 60 },
+        ? { day: first.resourceId ?? day, minutes: minutesOf(first.start), eventId: first.id }
+        : { day: columnKeys?.[0] ?? day, minutes: OPENING_HOUR * 60 },
     };
-  }, [wallEvents, day, from, rangeDays, label, busy, selectable, slotAction, t, time, dayName]);
+  }, [
+    wallEvents,
+    day,
+    from,
+    rangeDays,
+    label,
+    busy,
+    selectable,
+    slotAction,
+    t,
+    time,
+    dayName,
+    sideBySide,
+    resources,
+    columnKeys,
+    columnAt,
+  ]);
   const modelRef = useRef(model);
 
   // Where the keyboard is; null until it has been somewhere in the days drawn.
@@ -348,7 +411,10 @@ export default function CalendarImpl({
 
   const choose = (stop: Cursor) => {
     if (stop.eventId !== undefined) onSelectEvent?.(stop.eventId);
-    else if (selectable(stop.day, stop.minutes)) onSelectSlot?.(stop.day, clockTime(stop.minutes));
+    else if (selectable(stop.day, stop.minutes)) {
+      const column = columnAt(stop.day);
+      onSelectSlot?.(column.day, clockTime(stop.minutes), column.resourceId);
+    }
   };
 
   const onFocus = (event: FocusEvent) => {
@@ -391,7 +457,14 @@ export default function CalendarImpl({
       choose(at);
       return;
     }
-    const moved = move(event.key, at, stops.current, rangeDays);
+    if (sideBySide && (event.key === 'PageUp' || event.key === 'PageDown')) {
+      // The columns are doctors: the page keys change the day, and the cursor stays in its column.
+      event.preventDefault();
+      cursor.current = at;
+      onNavigate?.(addDays(day, event.key === 'PageUp' ? -1 : 1));
+      return;
+    }
+    const moved = move(event.key, at, stops.current, rangeDays, columnKeys);
     if (!moved) return;
     event.preventDefault();
     if (moved.outside) {
@@ -431,8 +504,11 @@ export default function CalendarImpl({
         // Controlled: the screen draws its own toolbar and holds the day and the view.
         toolbar={false}
         date={date}
-        view={view}
+        view={shownView}
         views={['day', 'week']}
+        resources={sideBySide ? resources : undefined}
+        resourceIdAccessor={(resource) => (resource as CalendarResource).id}
+        resourceTitleAccessor={(resource) => (resource as CalendarResource).title}
         onNavigate={() => {}}
         onView={() => {}}
         // The hospital's "now", for today's column and the line across it.
