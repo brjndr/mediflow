@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useFeatureFlag, usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
-import { PatientSearch, type PatientSummary } from '@/features/patients';
+import { PatientSearch, usePatientName, type PatientName } from '@/features/patients';
 import { Slot } from '@/registry';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
@@ -82,8 +82,8 @@ function PatientChoice({
   onChange,
   focusSearch,
 }: {
-  patient: PatientSummary | undefined;
-  onChange: (patient: PatientSummary | undefined) => void;
+  patient: PatientName | undefined;
+  onChange: (patient: PatientName | undefined) => void;
   /** Whether the search box takes focus when it appears ("Book another"). */
   focusSearch: boolean;
 }) {
@@ -101,7 +101,7 @@ function PatientChoice({
     if (moved && patient) card.current?.querySelector('button')?.focus();
   }, [moved, patient]);
 
-  const choose = (next: PatientSummary | undefined) => {
+  const choose = (next: PatientName | undefined) => {
     setMoved(true);
     onChange(next);
     setValue('patientId', next?.id ?? '');
@@ -182,6 +182,12 @@ export default function AppointmentBook() {
   const canReadPatients = usePermission('patient:read');
   const patientsOn = useFeatureFlag('patients');
   const canFindPatients = canReadPatients && patientsOn;
+  // The patient whose screen this was opened from (`?patientId`): an id only, never a name.
+  const [askedPatientId] = useState(() => {
+    const id = params.get('patientId') ?? '';
+    return /^[\w-]{1,64}$/.test(id) ? id : '';
+  });
+  const askedPatient = usePatientName(canFindPatients ? askedPatientId : '');
   const book = useBookAppointment();
   const mine = doctors.data?.find((doctor) => doctor.userId === session?.user.id);
 
@@ -196,7 +202,7 @@ export default function AppointmentBook() {
     extensions: {},
   });
   // Kept in memory only, never in the address or browser storage.
-  const [patient, setPatient] = useState<PatientSummary>();
+  const [patient, setPatient] = useState<PatientName>();
   const [refusal, setRefusal] = useState<Refusal>();
   const [booked, setBooked] = useState<Appointment>();
   const [another, setAnother] = useState(false);
@@ -233,6 +239,17 @@ export default function AppointmentBook() {
     });
     return () => subscription.unsubscribe();
   }, [form]);
+
+  // The patient asked for is chosen once, when known; a patient chosen meanwhile is kept.
+  const [usedAsked, setUsedAsked] = useState(false);
+  if (askedPatient.data && !usedAsked) {
+    setUsedAsked(true);
+    if (!patient) setPatient(askedPatient.data);
+  }
+  useEffect(() => {
+    if (patient && form.getValues('patientId') !== patient.id)
+      form.setValue('patientId', patient.id, { shouldValidate: form.formState.isSubmitted });
+  }, [patient, form]);
 
   // After booking, move focus to the confirmation so a screen reader announces it.
   useEffect(() => {
@@ -341,6 +358,11 @@ export default function AppointmentBook() {
         </div>
       ) : (
         <Form form={form} onSubmit={submit}>
+          {askedPatient.isError && !patient && (
+            <p role="alert" className="text-sm">
+              {t('book.askedNotFound')}
+            </p>
+          )}
           <PatientChoice
             patient={patient}
             focusSearch={another}
