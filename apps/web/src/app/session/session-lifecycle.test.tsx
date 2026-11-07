@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   currentSession,
   MOCK_PASSWORD,
@@ -40,6 +40,7 @@ function fromAnotherTab(message: SessionMessage | 'something-else') {
   tab.postMessage(message);
 }
 afterEach(() => {
+  vi.useRealTimers();
   for (const tab of otherTabs.splice(0)) tab.close();
 });
 
@@ -61,13 +62,18 @@ async function openNotices() {
 describe('nobody at the screen', () => {
   it('warns first, then signs out and clears everything that was loaded', async () => {
     setTenantIdleTimeout(TENANT_IDS.hospital, SHORT);
+    // Only the clock is held: the idle check still runs on its real interval but reads a time the
+    // test sets, so a slow machine cannot let the short warning window pass unseen.
+    vi.useFakeTimers({ toFake: ['Date'] });
     const { queryClient, router } = await openNotices();
     expect(tenantData(queryClient).length).toBeGreaterThan(0);
 
+    vi.setSystemTime(Date.now() + SHORT_MS * 0.75);
     const warning = await screen.findByRole('heading', STILL_THERE);
     expect(warning.closest('dialog')).toHaveAttribute('role', 'alertdialog');
     expect(screen.getByText(/You will be signed out in \d+ seconds?/)).toBeInTheDocument();
 
+    vi.setSystemTime(Date.now() + SHORT_MS);
     expect(await screen.findByRole('heading', SIGN_IN)).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(
       'You were signed out because the app was not used for a while.',
