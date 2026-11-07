@@ -20,6 +20,12 @@ import {
  * template. It exists so writes can be tested before any writable product table does.
  */
 
+// A name for each run, so two runs against one database never share or drop each other's table.
+const runId = `${process.pid}_${Date.now().toString(36)}`;
+const probe = `rls_probe_${runId}`;
+// Tables other runs of this file have open right now are not this run's to judge.
+const otherRunsTable = (name: string) => name !== probe && /^rls_(bad|probe)_/.test(name);
+
 const RLS_VIOLATION = /row-level security policy/;
 
 let app: FastifyInstance;
@@ -43,8 +49,8 @@ beforeAll(async () => {
           // A buggy or malicious handler naming another hospital must still be stopped.
           const result = await request.tx.execute<{ id: string; tenant_id: string }>(
             tenantId
-              ? sql`insert into rls_probe (tenant_id, note) values (${tenantId}, ${note}) returning id, tenant_id`
-              : sql`insert into rls_probe (tenant_id, note) values (app_tenant_id(), ${note}) returning id, tenant_id`,
+              ? sql`insert into ${sql.raw(probe)} (tenant_id, note) values (${tenantId}, ${note}) returning id, tenant_id`
+              : sql`insert into ${sql.raw(probe)} (tenant_id, note) values (app_tenant_id(), ${note}) returning id, tenant_id`,
           );
           if (fail) throw new Error('handler failed after writing');
           return result.rows[0];
@@ -52,33 +58,33 @@ beforeAll(async () => {
       );
       instance.get('/probe', member, async (request) => {
         const result = await request.tx.execute<{ note: string; tenant_id: string }>(
-          sql`select note, tenant_id from rls_probe order by note`,
+          sql`select note, tenant_id from ${sql.raw(probe)} order by note`,
         );
         return { tenant: request.tenant?.id, rows: result.rows };
       });
       instance.patch<{ Body: { note: string } }>('/probe/all', member, async (request) => {
         const result = await request.tx.execute(
-          sql`update rls_probe set note = ${request.body.note}`,
+          sql`update ${sql.raw(probe)} set note = ${request.body.note}`,
         );
         return { updated: result.rowCount };
       });
       instance.delete('/probe/all', member, async (request) => {
-        const result = await request.tx.execute(sql`delete from rls_probe`);
+        const result = await request.tx.execute(sql`delete from ${sql.raw(probe)}`);
         return { deleted: result.rowCount };
       });
     },
   });
   pool = app.database.pool;
 
-  await pool.query('drop table if exists rls_probe');
+  await pool.query(`drop table if exists ${probe}`);
   await pool.query(`
-    create table rls_probe (
+    create table ${probe} (
       id uuid primary key default gen_random_uuid(),
       tenant_id uuid not null references tenants (id) on delete cascade,
       note text not null
     )`);
-  await pool.query('create index rls_probe_tenant on rls_probe (tenant_id, note)');
-  await pool.query("select enable_tenant_rls('rls_probe')");
+  await pool.query(`create index ${probe}_tenant on ${probe} (tenant_id, note)`);
+  await pool.query(`select enable_tenant_rls('${probe}')`);
 
   hospital = await createTenant(pool, 'Isolation Hospital', {
     features: { laboratory: true, pharmacy: true },
@@ -93,7 +99,7 @@ beforeAll(async () => {
   suspended = await createTenant(pool, 'Isolation Suspended', { status: 'suspended' });
 
   // Rows owned by each hospital, inserted through the owner connection.
-  await pool.query('insert into rls_probe (tenant_id, note) values ($1, $2), ($1, $3), ($4, $5)', [
+  await pool.query(`insert into ${probe} (tenant_id, note) values ($1, $2), ($1, $3), ($4, $5)`, [
     hospital.id,
     'hospital-1',
     'hospital-2',
@@ -104,7 +110,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteTenants(pool, [hospital, clinic, suspended]);
-  await pool.query('drop table if exists rls_probe');
+  await pool.query(`drop table if exists ${probe}`);
   await app.close();
 });
 
@@ -112,7 +118,7 @@ afterAll(async () => {
 const allProbeRows = async () =>
   (
     await pool.query<{ note: string; tenant_id: string }>(
-      'select note, tenant_id from rls_probe where tenant_id = any($1::uuid[]) order by note',
+      `select note, tenant_id from ${probe} where tenant_id = any($1::uuid[]) order by note`,
       [[hospital.id, clinic.id, suspended.id]],
     )
   ).rows;
@@ -121,25 +127,25 @@ describe('SQL under the app role', () => {
   describe('reads', () => {
     it('sees only its own hospital’s rows', async () => {
       const notes = await asTenantSql(pool, hospital.id, async (client) =>
-        (await client.query('select note from rls_probe order by note')).rows.map((r) => r.note),
+        (await client.query(`select note from ${probe} order by note`)).rows.map((r) => r.note),
       );
       expect(notes).toEqual(['hospital-1', 'hospital-2']);
 
       const clinicNotes = await asTenantSql(pool, clinic.id, async (client) =>
-        (await client.query('select note from rls_probe')).rows.map((r) => r.note),
+        (await client.query(`select note from ${probe}`)).rows.map((r) => r.note),
       );
       expect(clinicNotes).toEqual(['clinic-1']);
     });
 
     it('cannot reach another hospital’s rows by naming them', async () => {
       await asTenantSql(pool, hospital.id, async (client) => {
-        const byTenant = await client.query('select * from rls_probe where tenant_id = $1', [
+        const byTenant = await client.query(`select * from ${probe} where tenant_id = $1`, [
           clinic.id,
         ]);
         expect(byTenant.rows).toEqual([]);
-        const byNote = await client.query("select * from rls_probe where note = 'clinic-1'");
+        const byNote = await client.query(`select * from ${probe} where note = 'clinic-1'`);
         expect(byNote.rows).toEqual([]);
-        const count = await client.query('select count(*)::int as n from rls_probe');
+        const count = await client.query(`select count(*)::int as n from ${probe}`);
         expect(count.rows[0].n).toBe(2);
       });
     });
@@ -164,7 +170,7 @@ describe('SQL under the app role', () => {
 
     it('sees nothing at all when no tenant is set', async () => {
       await asTenantSql(pool, null, async (client) => {
-        expect((await client.query('select * from rls_probe')).rows).toEqual([]);
+        expect((await client.query(`select * from ${probe}`)).rows).toEqual([]);
         expect((await client.query('select * from tenants')).rows).toEqual([]);
         expect((await client.query('select * from tenant_features')).rows).toEqual([]);
       });
@@ -175,7 +181,7 @@ describe('SQL under the app role', () => {
     it('can insert for its own hospital', async () => {
       await asTenantSql(pool, hospital.id, async (client) => {
         const { rows } = await client.query(
-          "insert into rls_probe (tenant_id, note) values ($1, 'own') returning tenant_id",
+          `insert into ${probe} (tenant_id, note) values ($1, 'own') returning tenant_id`,
           [hospital.id],
         );
         expect(rows[0].tenant_id).toBe(hospital.id);
@@ -185,7 +191,7 @@ describe('SQL under the app role', () => {
     it('cannot insert a row for another hospital', async () => {
       await asTenantSql(pool, hospital.id, async (client) => {
         await expect(
-          client.query("insert into rls_probe (tenant_id, note) values ($1, 'planted')", [
+          client.query(`insert into ${probe} (tenant_id, note) values ($1, 'planted')`, [
             clinic.id,
           ]),
         ).rejects.toThrow(RLS_VIOLATION);
@@ -195,9 +201,7 @@ describe('SQL under the app role', () => {
     it('cannot hand one of its own rows to another hospital', async () => {
       await asTenantSql(pool, hospital.id, async (client) => {
         await expect(
-          client.query("update rls_probe set tenant_id = $1 where note = 'hospital-1'", [
-            clinic.id,
-          ]),
+          client.query(`update ${probe} set tenant_id = $1 where note = 'hospital-1'`, [clinic.id]),
         ).rejects.toThrow(RLS_VIOLATION);
       });
     });
@@ -205,16 +209,16 @@ describe('SQL under the app role', () => {
     it('cannot update or delete another hospital’s rows: they are not there to it', async () => {
       await asTenantSql(pool, hospital.id, async (client) => {
         const updated = await client.query(
-          "update rls_probe set note = 'defaced' where tenant_id = $1",
+          `update ${probe} set note = 'defaced' where tenant_id = $1`,
           [clinic.id],
         );
         expect(updated.rowCount).toBe(0);
-        const deleted = await client.query('delete from rls_probe where tenant_id = $1', [
+        const deleted = await client.query(`delete from ${probe} where tenant_id = $1`, [
           clinic.id,
         ]);
         expect(deleted.rowCount).toBe(0);
         // An unqualified statement touches only its own rows.
-        const all = await client.query("update rls_probe set note = note || '!'");
+        const all = await client.query(`update ${probe} set note = note || '!'`);
         expect(all.rowCount).toBe(2);
       });
       // asTenantSql rolls back, and the clinic's row was never touched in any case.
@@ -224,7 +228,7 @@ describe('SQL under the app role', () => {
     it('cannot write anything when no tenant is set', async () => {
       await asTenantSql(pool, null, async (client) => {
         await expect(
-          client.query("insert into rls_probe (tenant_id, note) values ($1, 'x')", [hospital.id]),
+          client.query(`insert into ${probe} (tenant_id, note) values ($1, 'x')`, [hospital.id]),
         ).rejects.toThrow(RLS_VIOLATION);
       });
     });
@@ -242,12 +246,12 @@ describe('SQL under the app role', () => {
         'add a module flag',
         "insert into tenant_features (tenant_id, feature, enabled) select app_tenant_id(), 'billing', true",
       ],
-      ['remove the row-level security policy', 'drop policy tenant_isolation on rls_probe'],
+      ['remove the row-level security policy', `drop policy tenant_isolation on ${probe}`],
       [
         'turn row-level security off for the table',
-        'alter table rls_probe disable row level security',
+        `alter table ${probe} disable row level security`,
       ],
-      ['drop the table', 'drop table rls_probe'],
+      ['drop the table', `drop table ${probe}`],
     ])('cannot %s', async (_what, statement) => {
       await asTenantSql(pool, hospital.id, async (client) => {
         await expect(client.query(statement)).rejects.toThrow(
@@ -277,7 +281,7 @@ describe('SQL under the app role', () => {
       await asTenantSql(pool, hospital.id, async (client) => {
         await client.query('set local row_security = off');
         // With row_security off, a role that cannot bypass it gets an error, not the rows.
-        await expect(client.query('select * from rls_probe')).rejects.toThrow(
+        await expect(client.query(`select * from ${probe}`)).rejects.toThrow(
           /row-level security policy/,
         );
       });
@@ -288,7 +292,7 @@ describe('SQL under the app role', () => {
       // This documents the property the hook relies on: whatever it is set to is what is seen.
       await asTenantSql(pool, hospital.id, async (client) => {
         await client.query("select set_config('app.tenant_id', $1, true)", [clinic.id]);
-        const notes = (await client.query('select note from rls_probe')).rows.map((r) => r.note);
+        const notes = (await client.query(`select note from ${probe}`)).rows.map((r) => r.note);
         expect(notes).toEqual(['clinic-1']);
       });
     });
@@ -319,10 +323,11 @@ describe('the row-level security template', () => {
       where c.relkind = 'r'
       order by 1`);
 
-    expect(rows.map((row) => row.table_name)).toEqual(
-      expect.arrayContaining(['rls_probe', 'tenant_features']),
+    const own = rows.filter((row) => !otherRunsTable(row.table_name));
+    expect(own.map((row) => row.table_name)).toEqual(
+      expect.arrayContaining([probe, 'tenant_features']),
     );
-    for (const row of rows) {
+    for (const row of own) {
       expect(row, row.table_name).toMatchObject({
         enabled: true,
         forced: true,
@@ -353,7 +358,7 @@ describe('the row-level security template', () => {
       order by 1`);
     const open = Object.fromEntries(
       rows
-        .filter((row) => row.table_name !== 'rls_probe')
+        .filter((row) => !otherRunsTable(row.table_name))
         .map((row) => [row.table_name, row.privileges]),
     );
     expect(open).toEqual(SHARED);
@@ -367,37 +372,39 @@ describe('the row-level security template', () => {
   });
 
   it('refuses a table with no tenant_id column', async () => {
-    await pool.query('create table rls_bad_no_column (id uuid primary key)');
+    await pool.query(`create table rls_bad_no_column_${runId} (id uuid primary key)`);
     try {
-      await expect(pool.query("select enable_tenant_rls('rls_bad_no_column')")).rejects.toThrow(
-        /needs a "tenant_id uuid NOT NULL" column/,
-      );
+      await expect(
+        pool.query(`select enable_tenant_rls('rls_bad_no_column_${runId}')`),
+      ).rejects.toThrow(/needs a "tenant_id uuid NOT NULL" column/);
     } finally {
-      await pool.query('drop table rls_bad_no_column');
+      await pool.query(`drop table rls_bad_no_column_${runId}`);
     }
   });
 
   it('refuses a nullable tenant_id, which would let rows belong to nobody', async () => {
-    await pool.query('create table rls_bad_nullable (id uuid primary key, tenant_id uuid)');
+    await pool.query(
+      `create table rls_bad_nullable_${runId} (id uuid primary key, tenant_id uuid)`,
+    );
     try {
-      await expect(pool.query("select enable_tenant_rls('rls_bad_nullable')")).rejects.toThrow(
-        /needs a "tenant_id uuid NOT NULL" column/,
-      );
+      await expect(
+        pool.query(`select enable_tenant_rls('rls_bad_nullable_${runId}')`),
+      ).rejects.toThrow(/needs a "tenant_id uuid NOT NULL" column/);
     } finally {
-      await pool.query('drop table rls_bad_nullable');
+      await pool.query(`drop table rls_bad_nullable_${runId}`);
     }
   });
 
   it('refuses a table with no index that starts with tenant_id', async () => {
     await pool.query(
-      'create table rls_bad_no_index (id uuid primary key, tenant_id uuid not null)',
+      `create table rls_bad_no_index_${runId} (id uuid primary key, tenant_id uuid not null)`,
     );
     try {
-      await expect(pool.query("select enable_tenant_rls('rls_bad_no_index')")).rejects.toThrow(
-        /needs an index that starts with tenant_id/,
-      );
+      await expect(
+        pool.query(`select enable_tenant_rls('rls_bad_no_index_${runId}')`),
+      ).rejects.toThrow(/needs an index that starts with tenant_id/);
     } finally {
-      await pool.query('drop table rls_bad_no_index');
+      await pool.query(`drop table rls_bad_no_index_${runId}`);
     }
   });
 });
