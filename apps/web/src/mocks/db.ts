@@ -36,6 +36,7 @@ const initialTenants: Record<string, TenantDto> = {
       radiology: true,
       documents: true,
       consents: true,
+      records: true,
       pharmacy: true,
       inventory: true,
       purchasing: true,
@@ -178,6 +179,11 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'consent:sign' },
   { permission: 'certificate:read' },
   { permission: 'certificate:issue' },
+  // The records desk (MR-04).
+  { permission: 'medicalRecord:read' },
+  { permission: 'medicalRecord:code' },
+  { permission: 'recordRequest:read' },
+  { permission: 'recordRequest:manage' },
   // Inventory (#102): stock, adjustments asked for and approved, and the places.
   { permission: 'stock:read' },
   { permission: 'stock:adjust' },
