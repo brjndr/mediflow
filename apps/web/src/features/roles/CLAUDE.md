@@ -24,3 +24,8 @@ The root `CLAUDE.md` holds the rules every module follows. The API side is `apps
 - **Catalog scopes:** `PermissionDefinition.scopes` (API) lists the narrower scopes a permission's routes honour; only the appointment permissions declare them so far. The server does not refuse a scope the catalog does not list.
 - **After every save the caller's policy is read again** (`useSaveGrants`), so editing one's own role shows at once; other open tabs follow at the policy refresh.
 - Module headings are the feature id made readable; permission texts are the API's English descriptions.
+
+### View as this role (#135)
+
+- **Computed, not rendered.** `preview.ts` builds a copy of the real policy with the role's permissions (the hospital's own module switches stay) and asks the registry (`navItems`, `routes`, `enabledFeatures`) and the access evaluator (`isAllowed`, `permissionScope`) what the role gets. No second rule set, no role names. It lists menu, pages and the actions (permissions a module declares); it never mounts a real screen, so it makes no request, shows no cached data and cannot mutate. The real session and policy are only read.
+- Source is a choice: the unsaved matrix (default) or the role as saved. Slot contributions are not listed yet.
