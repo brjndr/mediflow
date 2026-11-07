@@ -629,6 +629,9 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         await lockWard(client, probe.ward_id);
         const bed = await bedForAdmission(client, bedId);
         if (!bed) throw new HttpError(404, 'bed_not_found', 'No such bed');
+        if (bed.archived) {
+          throw new HttpError(409, 'bed_not_available', 'The bed is archived');
+        }
         if (bed.version !== body.version) {
           throw new HttpError(409, 'conflict', 'The bed has changed since it was read');
         }

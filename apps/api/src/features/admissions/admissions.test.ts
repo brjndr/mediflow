@@ -1025,3 +1025,23 @@ describe('the live stream', () => {
     await response.body?.cancel();
   });
 });
+
+describe('the stay’s encounter', () => {
+  it('is not closed or cancelled from the clinical routes', async () => {
+    await reset();
+    const detail = await admitted(patient(0));
+    const encounter = (
+      await pool.query<{ version: number }>('select version from encounters where id = $1', [
+        detail.admission.encounterId,
+      ])
+    ).rows[0];
+    for (const action of ['close', 'cancel']) {
+      const response = await post(`/encounters/${detail.admission.encounterId}/${action}`, {
+        version: encounter?.version,
+        reason: 'mistake',
+      });
+      expect(errorOf(response)).toEqual([409, 'managed_by_admission']);
+    }
+    await ok(await discharge(detail));
+  });
+});
