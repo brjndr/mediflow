@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import type { FileStore } from '../../core/files/store.js';
 import { WORKER_ROLE } from '../../core/outbox/dispatcher.js';
-import { APP_ROLE } from '../../core/tenancy/plugin.js';
+import { withTenantTransaction } from '../../core/tenancy/transaction.js';
 import { computeReport, readAtHospital, RUN_MAX_ROWS, TooLarge } from './compute.js';
 import { toCsv } from './csv.js';
 import type { ReportKind } from './schemas.js';
@@ -24,31 +24,6 @@ export const staleMinutesFor = (timeoutMs: number): number => Math.ceil(timeoutM
 export const fileKeyOf = (tenantId: string, runId: string): string =>
   `reports/${tenantId}/${runId}.csv`;
 
-/** Runs `work` in one transaction as the app role at the hospital, as a request does. */
-async function atHospital<T>(
-  pool: pg.Pool,
-  tenantId: string,
-  work: (client: pg.PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await pool.connect();
-  let broken: Error | undefined;
-  try {
-    await client.query('begin');
-    await client.query(`set local role ${APP_ROLE}`);
-    await client.query("select set_config('app.tenant_id', $1, true)", [tenantId]);
-    const result = await work(client);
-    await client.query('commit');
-    return result;
-  } catch (error) {
-    await client.query('rollback').catch((failure: unknown) => {
-      broken = failure instanceof Error ? failure : new Error('rollback failed');
-    });
-    throw error;
-  } finally {
-    client.release(broken);
-  }
-}
-
 interface Claimed {
   kind: ReportKind;
   from: string | null;
@@ -60,7 +35,7 @@ interface Claimed {
  * stopped). A second delivery of a run that has finished finds nothing to take.
  */
 function claim(pool: pg.Pool, job: RunJob, staleMinutes: number): Promise<Claimed | null> {
-  return atHospital(pool, job.tenantId, async (client) => {
+  return withTenantTransaction(pool, job.tenantId, async (client) => {
     const { rows } = await client.query<{
       kind: ReportKind;
       from: string | null;
@@ -110,7 +85,7 @@ export async function runReport(
     );
     const csv = toCsv(result);
     await files.put(key, csv);
-    const saved = await atHospital(pools.pool, job.tenantId, (client) =>
+    const saved = await withTenantTransaction(pools.pool, job.tenantId, (client) =>
       client.query(
         `update report_runs
          set status = 'succeeded', finished_at = now(), row_count = $2, result = $3::jsonb,
@@ -124,7 +99,7 @@ export async function runReport(
   } catch (error) {
     // The file may have been written before the failure; a failed run names none.
     await files.delete(key).catch(() => undefined);
-    await atHospital(pools.pool, job.tenantId, (client) =>
+    await withTenantTransaction(pools.pool, job.tenantId, (client) =>
       client.query(
         `update report_runs set status = 'failed', failure = $2, finished_at = now()
          where id = $1 and status = 'running'`,

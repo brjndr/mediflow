@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import type { Database } from '../db/client.js';
 import * as schema from '../db/schema.js';
-import { APP_ROLE } from '../tenancy/plugin.js';
+import { withTenantTransaction } from '../tenancy/transaction.js';
 import type { DomainEventMessage } from './events.js';
 
 /**
@@ -16,17 +16,7 @@ export async function runAsTenant(
   message: DomainEventMessage,
   handler: (message: DomainEventMessage, tx: Database) => Promise<void>,
 ): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('begin');
-    await client.query(`set local role ${APP_ROLE}`);
-    await client.query("select set_config('app.tenant_id', $1, true)", [message.tenantId]);
-    await handler(message, drizzle(client, { schema }));
-    await client.query('commit');
-  } catch (error) {
-    await client.query('rollback').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
+  await withTenantTransaction(pool, message.tenantId, (client) =>
+    handler(message, drizzle(client, { schema })),
+  );
 }

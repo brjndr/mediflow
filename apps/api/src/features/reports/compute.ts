@@ -1,6 +1,6 @@
 import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
-import { APP_ROLE } from '../../core/tenancy/plugin.js';
+import { withTenantTransaction } from '../../core/tenancy/transaction.js';
 import type { Cell, ReportColumn, ReportKind, ReportResult } from './schemas.js';
 
 /** Rows a report may have: past it the report is refused, never cut short. */
@@ -26,24 +26,10 @@ export async function readAtHospital<T>(
   timeoutMs: number,
   work: (client: pg.PoolClient) => Promise<T>,
 ): Promise<T> {
-  const client = await pool.connect();
-  let broken: Error | undefined;
-  try {
-    await client.query('begin read only');
-    await client.query(`set local role ${APP_ROLE}`);
-    await client.query("select set_config('app.tenant_id', $1, true)", [tenantId]);
-    await client.query("select set_config('statement_timeout', $1, true)", [String(timeoutMs)]);
-    const result = await work(client);
-    await client.query('commit');
-    return result;
-  } catch (error) {
-    await client.query('rollback').catch((failure: unknown) => {
-      broken = failure instanceof Error ? failure : new Error('rollback failed');
-    });
-    throw error;
-  } finally {
-    client.release(broken);
-  }
+  return withTenantTransaction(pool, tenantId, work, {
+    readOnly: true,
+    statementTimeoutMs: timeoutMs,
+  });
 }
 
 /** A database number as a JS number; a sum that no longer fits is a failure, not a wrong figure. */
