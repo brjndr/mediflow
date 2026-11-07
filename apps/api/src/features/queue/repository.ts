@@ -1,4 +1,11 @@
 import type pg from 'pg';
+import {
+  activeDepartmentsOf,
+  activeProfilesOf,
+  departmentOfDoctor,
+  departmentsOfCaller,
+  practisingDoctor as doctorWithin,
+} from '../doctors/index.js';
 import type { PermissionScope } from '../../core/access/registry.js';
 import type {
   QueueCancelReasonValue,
@@ -69,11 +76,9 @@ export interface Visibility {
 // nobody. Someone with no profile sees nothing under either.
 const visible = (scope: string, user: string) =>
   `(${scope}::text = 'all'
-    or exists (select 1 from doctors o
-               where o.user_id::text = ${user}::text and o.active
-                 and ((${scope}::text = 'department' and t.department_id = o.department_id)
-                      or (${scope}::text = 'own' and (t.doctor_id = o.id
-                          or (t.doctor_id is null and t.department_id = o.department_id))))))`;
+    or (${scope}::text = 'department' and t.department_id in (${activeDepartmentsOf(user)}))
+    or (${scope}::text = 'own' and (t.doctor_id in (${activeProfilesOf(user)})
+        or (t.doctor_id is null and t.department_id in (${activeDepartmentsOf(user)})))))`;
 
 /** The departments a caller's scope reaches, or null for all of them. */
 export async function departmentsInScope(
@@ -81,11 +86,7 @@ export async function departmentsInScope(
   visibility: Visibility,
 ): Promise<Set<string> | null> {
   if (visibility.scope === 'all') return null;
-  const { rows } = await client.query<{ department_id: string }>(
-    'select department_id from doctors where user_id::text = $1 and active',
-    [visibility.userId],
-  );
-  return new Set(rows.map((row) => row.department_id));
+  return departmentsOfCaller(client, visibility.userId);
 }
 
 // Call order. The tokens being served (and served) are in the order they were called; the others
@@ -166,7 +167,7 @@ export async function listTokens(
       and ($2::uuid is null or t.department_id = $2)
       -- A doctor's queue: given to them, or to nobody in their department.
       and ($3::uuid is null or t.doctor_id = $3
-           or (t.doctor_id is null and t.department_id = (select department_id from doctors where id = $3)))
+           or (t.doctor_id is null and t.department_id = (${departmentOfDoctor('$3')})))
       and ${visible('$4', '$5')}`;
   const values = [
     filters.status,
@@ -294,18 +295,8 @@ export async function practisingDoctor(
   id: string,
   visibility: Visibility = { scope: 'all', userId: '' },
 ): Promise<Doctor | null> {
-  if (!UUID.test(id)) return null;
-  const { rows } = await client.query<Doctor>(
-    `select d.id, d.department_id
-     from doctors d join memberships m on m.user_id = d.user_id
-     where d.id = $1 and d.active and m.status = 'active'
-       and ($2::text = 'all'
-            or exists (select 1 from doctors o where o.user_id::text = $3::text and o.active
-                       and (($2::text = 'own' and o.id = d.id)
-                            or ($2::text = 'department' and o.department_id = d.department_id))))`,
-    [id, visibility.scope, visibility.userId],
-  );
-  return rows[0] ?? null;
+  const doctor = await doctorWithin(client, id, visibility);
+  return doctor ? { id: doctor.id, department_id: doctor.department_id } : null;
 }
 
 /**

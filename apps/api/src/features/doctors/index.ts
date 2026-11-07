@@ -17,3 +17,19 @@ export const doctorsFeature: FastifyPluginAsync = async (app) => {
  * attending doctor's name, by doctor id or user id.
  */
 export { credentialsOf, type Credentials } from './repository.js';
+
+/**
+ * For appointments, clinical and the queue (#391): the practising doctor within a scope, the
+ * caller's own profile and departments, and the SQL fragments of their visibility clauses.
+ */
+export {
+  activeDepartmentsOf,
+  activeProfilesOf,
+  departmentOfDoctor,
+  departmentsOfCaller,
+  ownDoctorId,
+  practisingDoctor,
+  profilesOf,
+  type DoctorScope,
+  type PractisingDoctor,
+} from './scope.js';
