@@ -25,7 +25,10 @@
     "category": "Category",
     "status": "Status",
     "patient": "Patient",
-    "mrn": "MRN"
+    "mrn": "MRN",
+    "doctor": "Doctor",
+    "type": "Type",
+    "admittedAt": "Admitted"
   },
   "status": {
     "available": "Available",
@@ -45,7 +48,8 @@
     "markCleaning": "Mark being cleaned",
     "markReady": "Mark ready",
     "block": "Block",
-    "unblock": "Put back in use"
+    "unblock": "Put back in use",
+    "bed": "Give or change bed"
   },
   "blockPanel": {
     "heading": "Block bed {{number}}",
@@ -59,9 +63,68 @@
     "cleaning": "Bed {{number}} is marked as being cleaned.",
     "ready": "Bed {{number}} is ready.",
     "blocked": "Bed {{number}} is blocked.",
-    "unblocked": "Bed {{number}} is back in use."
+    "unblocked": "Bed {{number}} is back in use.",
+    "bed": "{{patient}} is now in bed {{bed}}."
   },
   "refused": {
-    "changed": "Someone else changed this bed first. The board has been refreshed; try again."
-  }
+    "changed": "Someone else changed this bed first. The board has been refreshed; try again.",
+    "admission": "The bed or the admission changed first. The list has been refreshed; try again."
+  },
+  "admissionsHeading": "Admissions",
+  "admissionsDescription": "Patients admitted to the hospital, with their bed and doctor. Give a bed or move a patient from here.",
+  "admissionsGrid": "Admissions",
+  "admissionsEmpty": "No admissions match.",
+  "admissionRowLabel": "Admission of {{patient}}",
+  "bedOf": "{{number}}, {{ward}}",
+  "noBed": "No bed yet",
+  "types": {
+    "planned": "Planned",
+    "emergency": "Emergency",
+    "transfer_in": "Transferred in"
+  },
+  "admissionStatus": {
+    "admitted": "Admitted",
+    "discharged": "Discharged"
+  },
+  "bedPanel": {
+    "giveHeading": "Give {{patient}} a bed",
+    "moveHeading": "Move {{patient}} to another bed",
+    "give": "Give bed",
+    "move": "Move patient",
+    "back": "Cancel"
+  },
+  "admit": {
+    "open": "Admit a patient",
+    "heading": "Admit a patient",
+    "description": "Choose the patient and a free bed. Admitting opens the inpatient stay.",
+    "patient": "Patient",
+    "patientMrn": "MRN {{mrn}}",
+    "changePatient": "Change patient",
+    "patientRequired": "Choose a patient.",
+    "type": "Admission type",
+    "doctor": "Admitting doctor",
+    "doctorHint": "Your own profile when left empty.",
+    "ownDoctor": "Me",
+    "bed": "Bed",
+    "category": "Bed category",
+    "allCategories": "Every category",
+    "loadingBeds": "Reading the free beds…",
+    "noBeds": "No bed is free, so nobody can be admitted now.",
+    "bedRequired": "Choose a free bed.",
+    "bedOption": "Bed {{number}}, {{ward}}",
+    "submit": "Admit patient",
+    "cancel": "Cancel",
+    "refused": {
+      "bed": "That bed was taken first. Choose another.",
+      "admitted": "This patient is already admitted.",
+      "doctor": "Choose the admitting doctor."
+    },
+    "done": {
+      "heading": "Patient admitted",
+      "summary": "{{patient}} is admitted to bed {{bed}}, {{ward}}, under {{doctor}}.",
+      "list": "Admissions",
+      "board": "Bed board"
+    }
+  },
+  "admissionsLink": "Admissions"
 }

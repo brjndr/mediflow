@@ -1,6 +1,20 @@
 import { api, requireData } from '@/shared/api';
-import { boardPageSchema, wardOptionsSchema, type BlockReason } from './schemas';
-import type { BoardBed, BoardBedPage, BoardBedStatus, WardOption } from './types';
+import {
+  admissionPageSchema,
+  admissionSchema,
+  boardPageSchema,
+  wardOptionsSchema,
+  type BlockReason,
+} from './schemas';
+import type {
+  Admission,
+  AdmissionCreate,
+  AdmissionPage,
+  BoardBed,
+  BoardBedPage,
+  BoardBedStatus,
+  WardOption,
+} from './types';
 
 export interface BoardFilters {
   /** Empty: every ward. */
@@ -70,4 +84,43 @@ export async function openBedEvents(signal: AbortSignal): Promise<ReadableStream
   const result = await api.GET('/beds/events', { parseAs: 'stream', signal });
   if (!result.data) throw new TypeError('Expected an event stream');
   return result.data;
+}
+
+/** The admissions, newest first. Names the patients, so the server audits every row. */
+export async function fetchAdmissions(
+  {
+    status,
+    cursor,
+    limit,
+  }: { status: 'admitted' | 'discharged' | ''; cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<AdmissionPage> {
+  const result = await api.GET('/admissions', {
+    params: { query: { status: status || undefined, cursor, limit } },
+    signal,
+  });
+  return admissionPageSchema.parse(requireData(result));
+}
+
+/** Admits a patient with the bed chosen, which opens the stay's inpatient encounter. */
+export async function admitPatient(body: AdmissionCreate, key: string): Promise<Admission> {
+  const result = await api.POST('/admissions', {
+    params: { header: { 'idempotency-key': key } },
+    body,
+  });
+  return admissionSchema.parse(requireData(result));
+}
+
+/** Gives an admitted patient their first bed, or moves them to another. */
+export async function changeAdmissionBed(
+  admission: Admission,
+  bedId: string,
+  key: string,
+): Promise<Admission> {
+  const params = { path: { admissionId: admission.id }, header: { 'idempotency-key': key } };
+  const body = { bedId, version: admission.version };
+  const result = admission.bed
+    ? await api.POST('/admissions/{admissionId}/transfer', { params, body })
+    : await api.POST('/admissions/{admissionId}/assign-bed', { params, body });
+  return admissionSchema.parse(requireData(result));
 }
