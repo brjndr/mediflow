@@ -16,7 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "analyze": "cross-env ANALYZE=true vite build",
-    "lighthouse": "lhci autorun --config=lighthouserc.cjs && lhci autorun --config=lighthouserc.slow4g.cjs"
+    "lighthouse": "lhci autorun --config=lighthouserc.cjs && lhci autorun --config=lighthouserc.slow4g.cjs && lhci autorun --config=lighthouserc.mobile.cjs",
+    "soak": "node scripts/soak.mjs"
   },
   "msw": {
     "workerDirectory": [
