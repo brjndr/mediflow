@@ -9,6 +9,7 @@ import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
 import { PermissionMatrix, type Reason } from '../components/PermissionMatrix';
+import { RolePreview } from '../components/RolePreview';
 import {
   differences,
   OWN_ACCESS,
@@ -188,6 +189,13 @@ function Editor({ role, catalog }: { role: RoleDetail; catalog: PermissionCatalo
         saved={theirs}
         onToggle={onToggle}
         onScope={onScope}
+      />
+
+      <RolePreview
+        roleName={role.name}
+        saved={base}
+        unsaved={draft}
+        descriptions={new Map(catalog.map((item) => [item.permission, item.description]))}
       />
 
       {!readOnly && (
