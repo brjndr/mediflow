@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import type { PermissionScope } from '../../core/access/registry.js';
+import { activeDepartmentsOf, practisingDoctor as doctorWithin } from '../doctors/index.js';
 import type { AppointmentStatusValue } from './schemas.js';
 
 /**
@@ -54,8 +55,7 @@ export interface Visibility {
 const visible = (scope: string, user: string) =>
   `(${scope}::text = 'all'
     or (${scope}::text = 'own' and d.user_id::text = ${user}::text)
-    or (${scope}::text = 'department' and d.department_id in (
-          select o.department_id from doctors o where o.user_id::text = ${user}::text and o.active)))`;
+    or (${scope}::text = 'department' and d.department_id in (${activeDepartmentsOf(user)})))`;
 
 interface Cursor {
   s: string;
@@ -182,14 +182,8 @@ export async function practisingDoctor(
   id: string,
   visibility: Visibility = { scope: 'all', userId: '' },
 ): Promise<{ id: string; consultation_minutes: number } | null> {
-  if (!UUID.test(id)) return null;
-  const { rows } = await client.query<{ id: string; consultation_minutes: number }>(
-    `select d.id, d.consultation_minutes
-     from doctors d join memberships m on m.user_id = d.user_id
-     where d.id = $1 and d.active and m.status = 'active' and ${visible('$2', '$3')}`,
-    [id, visibility.scope, visibility.userId],
-  );
-  return rows[0] ?? null;
+  const doctor = await doctorWithin(client, id, visibility);
+  return doctor ? { id: doctor.id, consultation_minutes: doctor.consultation_minutes } : null;
 }
 
 export interface Slot {

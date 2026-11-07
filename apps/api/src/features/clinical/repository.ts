@@ -1,4 +1,9 @@
 import type pg from 'pg';
+import {
+  activeDepartmentsOf,
+  ownDoctorId as ownProfileId,
+  practisingDoctor as doctorWithin,
+} from '../doctors/index.js';
 import type { PermissionScope } from '../../core/access/registry.js';
 import type { RichTextDocument } from '../../core/http/rich-text.js';
 import type {
@@ -28,8 +33,7 @@ export interface Visibility {
 export const visible = (scope: string, user: string) =>
   `(${scope}::text = 'all'
     or (${scope}::text = 'own' and d.user_id::text = ${user}::text)
-    or (${scope}::text = 'department' and e.department_id in (
-          select o.department_id from doctors o where o.user_id::text = ${user}::text and o.active)))`;
+    or (${scope}::text = 'department' and e.department_id in (${activeDepartmentsOf(user)})))`;
 
 export interface Page<Row> {
   rows: Row[];
@@ -249,29 +253,12 @@ export async function practisingDoctor(
   id: string,
   visibility: Visibility,
 ): Promise<Doctor | null> {
-  if (!UUID.test(id)) return null;
-  const { rows } = await client.query<Doctor>(
-    `select d.id, d.department_id
-     from doctors d join memberships m on m.user_id = d.user_id
-     where d.id = $1 and d.active and m.status = 'active'
-       and ($2::text = 'all'
-            or ($2::text = 'own' and d.user_id::text = $3::text)
-            or ($2::text = 'department' and d.department_id in (
-                  select o.department_id from doctors o where o.user_id::text = $3::text and o.active)))`,
-    [id, visibility.scope, visibility.userId],
-  );
-  return rows[0] ?? null;
+  const doctor = await doctorWithin(client, id, visibility);
+  return doctor ? { id: doctor.id, department_id: doctor.department_id } : null;
 }
 
 /** The caller's own active doctor profile here, or null. */
-export async function ownDoctorId(client: pg.ClientBase, userId: string): Promise<string | null> {
-  if (!UUID.test(userId)) return null;
-  const { rows } = await client.query<{ id: string }>(
-    'select id from doctors where user_id = $1 and active',
-    [userId],
-  );
-  return rows[0]?.id ?? null;
-}
+export const ownDoctorId = ownProfileId;
 
 export interface NewEncounter {
   patientId: string;
