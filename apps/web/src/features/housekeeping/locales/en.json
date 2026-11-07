@@ -1,0 +1,35 @@
+{
+  "heading": "Housekeeping",
+  "description": "Bed cleaning tasks. A bed is made available when its task is finished.",
+  "gridLabel": "Cleaning tasks",
+  "count_one": "{{count}} task",
+  "count_other": "{{count}} tasks",
+  "empty": "No tasks here.",
+  "rowLabel": "Bed {{number}}, {{ward}}",
+  "filters": { "status": "Status" },
+  "columns": {
+    "bed": "Bed",
+    "ward": "Ward",
+    "kind": "Kind",
+    "status": "Status",
+    "assignedTo": "Assigned to",
+    "created": "Created"
+  },
+  "status": {
+    "open": "Open",
+    "in_progress": "In progress",
+    "done": "Done",
+    "cancelled": "Cancelled"
+  },
+  "kind": { "discharge": "After discharge", "routine": "Routine" },
+  "actions": { "start": "Start", "finish": "Finish: bed ready", "cancel": "Cancel task" },
+  "done": {
+    "in_progress": "Cleaning of bed {{number}} started.",
+    "done": "Bed {{number}} is clean and available.",
+    "cancelled": "Task for bed {{number}} cancelled."
+  },
+  "refused": {
+    "changed": "Someone else changed this task first. The list has been refreshed.",
+    "wardsOff": "Beds cannot be updated here: the wards module is off."
+  }
+}
