@@ -12,7 +12,9 @@ export const queueFeature: FeatureManifest = {
   id: 'queue',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'OPD queue', issue: 'Issue a token' } },
+    titles: {
+      en: { title: 'OPD queue', issue: 'Issue a token', displayTitle: 'Waiting-room display' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
@@ -22,6 +24,13 @@ export const queueFeature: FeatureManifest = {
       // Calling needs `queue:call`, checked on the screen for each action.
       path: 'queue',
       lazy: () => import('./routes/QueueBoard'),
+      requires: ['queue:read'],
+    },
+    {
+      // The screen for a waiting room: numbers only. Opened from the board, not in the menu.
+      path: 'queue/display',
+      titleKey: 'displayTitle',
+      lazy: () => import('./routes/QueueDisplay'),
       requires: ['queue:read'],
     },
     {

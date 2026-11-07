@@ -1774,6 +1774,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/queue/display": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What a waiting-room screen shows of today’s queue (the hospital’s own calendar day): for each department with tokens, the numbers being served with the name of the doctor they go to, the first numbers waiting in call order, and how many are waiting. Token numbers, departments and doctors’ names only: no patient, MRN, priority or reason is read, so a screen in a waiting room holds nothing about anyone, and the response is not audited as a patient read. For signed-in staff only (queue:read and the queue feature flag, within the scope of queue:read), no public link. The screen follows /queue/events and reads this again on each. */
+        get: operations["queueDisplay"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/queue/check-ins": {
         parameters: {
             query?: never;
@@ -5695,6 +5712,22 @@ export interface components {
             items: components["schemas"]["QueueToken"][];
             nextCursor: string | null;
             total?: number;
+        };
+        QueueDisplayServing: {
+            number: number;
+            /** @description The doctor serving it: where the patient goes. */
+            doctorName?: string;
+        };
+        QueueDisplayDepartment: {
+            departmentId: string;
+            departmentName: string;
+            serving: components["schemas"]["QueueDisplayServing"][];
+            /** @description The numbers next to be called, in call order. */
+            next: number[];
+            waiting: number;
+        };
+        QueueDisplay: {
+            departments: components["schemas"]["QueueDisplayDepartment"][];
         };
         /** @description One reading of vital signs, append-only: a correction is a new reading that names the one it corrects. Attached to the patient and, when taken at the queue, to the token; encounterId is set once the OPD encounter exists (M7). */
         Vitals: {
@@ -16911,6 +16944,62 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    queueDisplay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueDisplay"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

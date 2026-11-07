@@ -1,4 +1,3 @@
-import { Radio, RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -13,10 +12,11 @@ import { Button } from '@/shared/ui/button';
 import type { GridAction } from '@/shared/ui/data-grid';
 import type { QueueAction } from '../api';
 import { CancelPanel } from '../components/CancelPanel';
+import { LiveStatus } from '../components/LiveStatus';
 import { PriorityPanel } from '../components/PriorityPanel';
 import { TokenGrid } from '../components/TokenGrid';
 import { useQueueAction } from '../hooks/use-queue-actions';
-import { FALLBACK_REFRESH_MS, useQueueEvents } from '../hooks/use-queue';
+import { useQueueEvents } from '../hooks/use-queue';
 import { allowedActions } from '../schemas';
 import type { QueueToken, QueueTokenStatus } from '../types';
 
@@ -34,26 +34,6 @@ function refusalKey(error: unknown): string | null {
   }
   if (error.serverCode === 'queue_empty') return 'refused.empty';
   return null;
-}
-
-/** Whether the queue follows the server's events, said in words and an icon. */
-function LiveStatus({ status }: { status: ReturnType<typeof useQueueEvents> }) {
-  const { t } = useTranslation('queue');
-  const seconds = FALLBACK_REFRESH_MS / 1000;
-  const live = status === 'live';
-  const Icon = live ? Radio : RefreshCw;
-  return (
-    <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-      <Icon aria-hidden="true" className="size-4" />
-      {live
-        ? t('live.on')
-        : status === 'stopped'
-          ? t('live.off', { seconds })
-          : status === 'retrying'
-            ? t('live.retrying', { seconds })
-            : t('live.connecting')}
-    </p>
-  );
 }
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
@@ -180,11 +160,16 @@ export default function QueueBoard() {
           <p className="text-muted-foreground">{t('description')}</p>
           <LiveStatus status={events} />
         </div>
-        <Can permission="queue:create">
-          <Button asChild>
-            <Link to="/queue/new">{t('issue.open')}</Link>
+        <div className="flex flex-wrap gap-2">
+          <Can permission="queue:create">
+            <Button asChild>
+              <Link to="/queue/new">{t('issue.open')}</Link>
+            </Button>
+          </Can>
+          <Button asChild variant="outline">
+            <Link to="/queue/display">{t('display.open')}</Link>
           </Button>
-        </Can>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
