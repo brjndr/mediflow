@@ -45,37 +45,43 @@ async function printedSheet(): Promise<HTMLElement> {
 const closeDialog = () => window.dispatchEvent(new Event('afterprint'));
 
 describe('printing a prescription', () => {
-  it('records the print, then prints the letterhead, the patient and the lines to take', async () => {
-    await openConsultation();
-    await userEvent.click(
-      await screen.findByRole('button', { name: /^Print the prescription written/ }),
-    );
-    const sheet = await printedSheet();
-    expect(mockPrints()).toEqual([
-      { tenantId: HOSPITAL, entity: 'prescription', id: 'rx_h_1', userId: USER_IDS.admin },
-    ]);
-    expect(within(sheet).getByText('Sample Hospital')).toBeInTheDocument();
-    expect(within(sheet).getByRole('heading', { name: 'Prescription' })).toBeInTheDocument();
-    expect(within(sheet).getByText(/pth_00001|MRN/)).toBeInTheDocument();
-    expect(within(sheet).getByText('Paracetamol 500 mg (ParaCare)')).toBeInTheDocument();
-    expect(within(sheet).getByText(/Drink plenty of fluids/)).toBeInTheDocument();
-    expect(within(sheet).getByText(/^Printed .* by Sample Admin$/)).toBeInTheDocument();
-    // The letterhead and the prescriber as the NMC asks (#397), and nothing said missing.
-    expect(within(sheet).getByText(/12 Sample Road, Indiranagar/)).toBeInTheDocument();
-    expect(
-      within(sheet).getByText('Phone: +91 80 4000 0000 · Registration no. KA-CE-0000'),
-    ).toBeInTheDocument();
-    expect(within(sheet).getByText('Signature')).toBeInTheDocument();
-    expect(within(sheet).getByText(/, MBBS, MD \(General Medicine\)$/)).toBeInTheDocument();
-    expect(
-      within(sheet).getByText('Reg. no. KMC-40001, Karnataka Medical Council'),
-    ).toBeInTheDocument();
-    expect(within(sheet).queryByText(/Not on record/)).not.toBeInTheDocument();
+  // The first render in this file loads the whole consultation (lazy route chunks, the app shell)
+  // and the test ends with an axe pass over it: the default 5 s is too tight on a busy runner.
+  it(
+    'records the print, then prints the letterhead, the patient and the lines to take',
+    { timeout: 20_000 },
+    async () => {
+      await openConsultation();
+      await userEvent.click(
+        await screen.findByRole('button', { name: /^Print the prescription written/ }),
+      );
+      const sheet = await printedSheet();
+      expect(mockPrints()).toEqual([
+        { tenantId: HOSPITAL, entity: 'prescription', id: 'rx_h_1', userId: USER_IDS.admin },
+      ]);
+      expect(within(sheet).getByText('Sample Hospital')).toBeInTheDocument();
+      expect(within(sheet).getByRole('heading', { name: 'Prescription' })).toBeInTheDocument();
+      expect(within(sheet).getByText(/pth_00001|MRN/)).toBeInTheDocument();
+      expect(within(sheet).getByText('Paracetamol 500 mg (ParaCare)')).toBeInTheDocument();
+      expect(within(sheet).getByText(/Drink plenty of fluids/)).toBeInTheDocument();
+      expect(within(sheet).getByText(/^Printed .* by Sample Admin$/)).toBeInTheDocument();
+      // The letterhead and the prescriber as the NMC asks (#397), and nothing said missing.
+      expect(within(sheet).getByText(/12 Sample Road, Indiranagar/)).toBeInTheDocument();
+      expect(
+        within(sheet).getByText('Phone: +91 80 4000 0000 · Registration no. KA-CE-0000'),
+      ).toBeInTheDocument();
+      expect(within(sheet).getByText('Signature')).toBeInTheDocument();
+      expect(within(sheet).getByText(/, MBBS, MD \(General Medicine\)$/)).toBeInTheDocument();
+      expect(
+        within(sheet).getByText('Reg. no. KMC-40001, Karnataka Medical Council'),
+      ).toBeInTheDocument();
+      expect(within(sheet).queryByText(/Not on record/)).not.toBeInTheDocument();
 
-    closeDialog();
-    await waitFor(() => expect(document.querySelector('[data-print-sheet]')).toBeNull());
-    await expectNoAxeViolations();
-  });
+      closeDialog();
+      await waitFor(() => expect(document.querySelector('[data-print-sheet]')).toBeNull());
+      await expectNoAxeViolations();
+    },
+  );
 
   it('prints nothing and says why when the print could not be recorded', async () => {
     server.use(
