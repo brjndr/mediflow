@@ -7687,6 +7687,744 @@
           }
         }
       },
+      "ShiftKind": {
+        "type": "string",
+        "enum": ["morning", "evening", "night", "day", "on_call"],
+        "description": "What kind of duty a shift is."
+      },
+      "ShiftStatus": {
+        "type": "string",
+        "enum": ["scheduled", "cancelled"],
+        "description": "scheduled -> cancelled, final."
+      },
+      "RosterShift": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "userId",
+          "userName",
+          "shiftKind",
+          "startsAt",
+          "endsAt",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "departmentId": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "shiftKind": {
+            "$ref": "#/components/schemas/ShiftKind"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ShiftStatus"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "RosterShiftPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RosterShift"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "RosterShiftCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["userId", "shiftKind", "startsAt", "endsAt"],
+        "properties": {
+          "userId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "departmentId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "shiftKind": {
+            "$ref": "#/components/schemas/ShiftKind"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "description": "After the start, and at most 24 hours later.",
+            "type": "string"
+          }
+        }
+      },
+      "BloodGroup": {
+        "type": "string",
+        "enum": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+        "description": "ABO and Rh group."
+      },
+      "BloodComponent": {
+        "type": "string",
+        "enum": ["whole_blood", "red_cells", "plasma", "platelets", "cryo"],
+        "description": "What the unit holds."
+      },
+      "BloodUnitStatus": {
+        "type": "string",
+        "enum": [
+          "collected",
+          "testing",
+          "available",
+          "reserved",
+          "issued",
+          "transfused",
+          "discarded",
+          "expired"
+        ],
+        "description": "collected -> testing -> available -> reserved -> issued -> transfused. Discarded from any state before transfusion; available or reserved units past their date are expired; reserved goes back to available when released."
+      },
+      "BloodUnit": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "unitNumber",
+          "bloodGroup",
+          "component",
+          "volumeMl",
+          "collectedAt",
+          "expiresAt",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "unitNumber": {
+            "type": "string"
+          },
+          "bloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "component": {
+            "$ref": "#/components/schemas/BloodComponent"
+          },
+          "volumeMl": {
+            "type": "integer"
+          },
+          "collectedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BloodUnitStatus"
+          },
+          "patientId": {
+            "description": "The patient it is held for, issued to or went to.",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "BloodUnitPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BloodUnit"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "BloodUnitEntry": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["toStatus", "actorId", "occurredAt"],
+        "properties": {
+          "fromStatus": {
+            "$ref": "#/components/schemas/BloodUnitStatus"
+          },
+          "toStatus": {
+            "$ref": "#/components/schemas/BloodUnitStatus"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "BloodUnitDetail": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["unit", "history"],
+        "properties": {
+          "unit": {
+            "$ref": "#/components/schemas/BloodUnit"
+          },
+          "history": {
+            "description": "Every move, oldest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BloodUnitEntry"
+            }
+          }
+        }
+      },
+      "BloodUnitCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "unitNumber",
+          "bloodGroup",
+          "component",
+          "volumeMl",
+          "collectedAt",
+          "expiresAt"
+        ],
+        "properties": {
+          "unitNumber": {
+            "minLength": 1,
+            "maxLength": 40,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "bloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "component": {
+            "$ref": "#/components/schemas/BloodComponent"
+          },
+          "volumeMl": {
+            "minimum": 10,
+            "maximum": 1000,
+            "type": "integer"
+          },
+          "collectedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "description": "After the collection.",
+            "type": "string"
+          }
+        }
+      },
+      "BloodUnitMove": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["to", "version"],
+        "properties": {
+          "to": {
+            "type": "string",
+            "enum": [
+              "testing",
+              "available",
+              "reserved",
+              "issued",
+              "transfused",
+              "discarded",
+              "expired"
+            ],
+            "description": "The status to move to."
+          },
+          "version": {
+            "minimum": 1,
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "patientId": {
+            "maxLength": 64,
+            "description": "Required to reserve a unit.",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Required to discard, and for a unit that failed its tests. Kept with the move.",
+            "type": "string"
+          }
+        }
+      },
+      "BloodStockRow": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["bloodGroup", "component", "available", "reserved"],
+        "properties": {
+          "bloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "component": {
+            "$ref": "#/components/schemas/BloodComponent"
+          },
+          "available": {
+            "description": "Units cleared and not past their date.",
+            "type": "integer"
+          },
+          "reserved": {
+            "type": "integer"
+          },
+          "nextExpiry": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "BloodStock": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BloodStockRow"
+            }
+          }
+        }
+      },
+      "AmbulanceKind": {
+        "type": "string",
+        "enum": ["basic", "advanced", "neonatal"],
+        "description": "How well equipped an ambulance is."
+      },
+      "AmbulanceStatus": {
+        "type": "string",
+        "enum": ["available", "on_trip", "out_of_service"],
+        "description": "on_trip is set by dispatching and cleared when the trip ends; out_of_service is set by hand."
+      },
+      "Ambulance": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "tenantId", "registration", "kind", "status", "version"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "registration": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AmbulanceKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AmbulanceStatus"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "AmbulancePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Ambulance"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "AmbulanceCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["registration", "kind"],
+        "properties": {
+          "registration": {
+            "minLength": 1,
+            "maxLength": 20,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AmbulanceKind"
+          }
+        }
+      },
+      "AmbulanceServiceChange": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["status", "version"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["available", "out_of_service"],
+            "description": "Only these two are set by hand."
+          },
+          "version": {
+            "minimum": 1,
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          }
+        }
+      },
+      "AmbulanceTripStatus": {
+        "type": "string",
+        "enum": ["requested", "dispatched", "picked_up", "completed", "cancelled"],
+        "description": "requested -> dispatched -> picked_up -> completed; cancelled before the pick-up."
+      },
+      "AmbulanceTrip": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "tenantId", "pickup", "destination", "status", "requestedAt", "version"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "ambulanceId": {
+            "type": "string"
+          },
+          "ambulanceRegistration": {
+            "type": "string"
+          },
+          "pickup": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AmbulanceTripStatus"
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dispatchedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "pickedUpAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "finishedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "AmbulanceTripPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AmbulanceTrip"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "AmbulanceTripCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["pickup", "destination"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "description": "Left out for an emergency with no record yet.",
+            "type": "string"
+          },
+          "pickup": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "destination": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "AmbulanceTripMove": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["to", "version"],
+        "properties": {
+          "to": {
+            "type": "string",
+            "enum": ["dispatched", "picked_up", "completed", "cancelled"],
+            "description": "The status to move to."
+          },
+          "version": {
+            "minimum": 1,
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          },
+          "ambulanceId": {
+            "maxLength": 64,
+            "description": "Required to dispatch.",
+            "type": "string"
+          }
+        }
+      },
+      "CleaningKind": {
+        "type": "string",
+        "enum": ["discharge", "routine"],
+        "description": "discharge is made when a patient leaves a bed; routine is asked for."
+      },
+      "CleaningTaskStatus": {
+        "type": "string",
+        "enum": ["open", "in_progress", "done", "cancelled"],
+        "description": "open -> in_progress -> done; cancelled before it is done. Done makes the bed available."
+      },
+      "CleaningTask": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "bedId",
+          "bedNumber",
+          "wardId",
+          "wardName",
+          "kind",
+          "status",
+          "createdAt",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "bedId": {
+            "type": "string"
+          },
+          "bedNumber": {
+            "type": "string"
+          },
+          "wardId": {
+            "type": "string"
+          },
+          "wardName": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CleaningKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CleaningTaskStatus"
+          },
+          "assignedTo": {
+            "type": "string"
+          },
+          "assignedToName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "finishedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "CleaningTaskPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CleaningTask"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "CleaningTaskCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["bedId"],
+        "properties": {
+          "bedId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "assignedTo": {
+            "maxLength": 64,
+            "type": "string"
+          }
+        }
+      },
+      "CleaningTaskMove": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["to", "version"],
+        "properties": {
+          "to": {
+            "type": "string",
+            "enum": ["in_progress", "done", "cancelled"],
+            "description": "The status to move to."
+          },
+          "version": {
+            "minimum": 1,
+            "description": "The version the change was made from. Another one gives 409 `conflict`.",
+            "type": "integer"
+          }
+        }
+      },
       "StockLocationKind": {
         "type": "string",
         "enum": ["store", "pharmacy", "ward", "department"],
@@ -34387,6 +35125,1901 @@
             }
           },
           "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roster/shifts": {
+      "get": {
+        "operationId": "listRosterShifts",
+        "tags": ["roster"],
+        "description": "Duty shifts by start time, oldest first, for the hospital. `from` and `to` keep the shifts that overlap that window; cancelled shifts are left out unless `includeCancelled`. Requires roster:read.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "from",
+            "required": false
+          },
+          {
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "to",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "userId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "departmentId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "includeCancelled",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterShiftPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRosterShift",
+        "tags": ["roster"],
+        "description": "Puts a member of the hospital on duty. The end is after the start and at most 24 hours later (422 `invalid_period`). A person is on one shift at a time: an overlap with another scheduled shift is 409 `shift_overlap`, whatever the department. 422 `unknown_user` for someone who is not a member here, 422 `unknown_department`. The Idempotency-Key header is required. Audited; emits `roster.shift_scheduled`. Requires roster:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["userId", "shiftKind", "startsAt", "endsAt"],
+                "properties": {
+                  "userId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "departmentId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "shiftKind": {
+                    "$ref": "#/components/schemas/ShiftKind"
+                  },
+                  "startsAt": {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  "endsAt": {
+                    "format": "date-time",
+                    "description": "After the start, and at most 24 hours later.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterShift"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roster/shifts/{shiftId}/cancel": {
+      "post": {
+        "operationId": "cancelRosterShift",
+        "tags": ["roster"],
+        "description": "Cancels a scheduled shift, once; the row stays as the record. The `version` is the shift’s, or 409 `conflict`; a shift already cancelled is 409 `invalid_transition`. Audited; emits `roster.shift_cancelled`. Requires roster:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "shiftId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterShift"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood-units": {
+      "get": {
+        "operationId": "listBloodUnits",
+        "tags": ["bloodbank"],
+        "description": "Blood units by expiry date, soonest first, with filters for status, group, component and the patient a unit is held for. Requires bloodUnit:read.",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/BloodUnitStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/BloodGroup"
+            },
+            "in": "query",
+            "name": "bloodGroup",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/BloodComponent"
+            },
+            "in": "query",
+            "name": "component",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "patientId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodUnitPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "registerBloodUnit",
+        "tags": ["bloodbank"],
+        "description": "Registers a collected unit, in status `collected`. The expiry is after the collection (422 `invalid_period`); the unit number is the hospital’s own and unique (409 `duplicate_unit`). The Idempotency-Key header is required. Audited; emits `blood.unit_registered`. Requires bloodUnit:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "unitNumber",
+                  "bloodGroup",
+                  "component",
+                  "volumeMl",
+                  "collectedAt",
+                  "expiresAt"
+                ],
+                "properties": {
+                  "unitNumber": {
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "bloodGroup": {
+                    "$ref": "#/components/schemas/BloodGroup"
+                  },
+                  "component": {
+                    "$ref": "#/components/schemas/BloodComponent"
+                  },
+                  "volumeMl": {
+                    "minimum": 10,
+                    "maximum": 1000,
+                    "type": "integer"
+                  },
+                  "collectedAt": {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  "expiresAt": {
+                    "format": "date-time",
+                    "description": "After the collection.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodUnit"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood-units/stock": {
+      "get": {
+        "operationId": "getBloodStock",
+        "tags": ["bloodbank"],
+        "description": "What can be given now: for each group and component, the units available (cleared and not past their date) and reserved, and the nearest expiry. Requires bloodUnit:read.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodStock"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood-units/{unitId}": {
+      "get": {
+        "operationId": "getBloodUnit",
+        "tags": ["bloodbank"],
+        "description": "A unit and every move it made, oldest first. A unit linked to a patient is audited as a read. 404 `blood_unit_not_found`. Requires bloodUnit:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "unitId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodUnitDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood-units/{unitId}/move": {
+      "post": {
+        "operationId": "moveBloodUnit",
+        "tags": ["bloodbank"],
+        "description": "Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Reserving needs a `patientId` the caller may read (422 `unknown_patient`) and a unit within its date (409 `unit_expired`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["to", "version"],
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "enum": [
+                      "testing",
+                      "available",
+                      "reserved",
+                      "issued",
+                      "transfused",
+                      "discarded",
+                      "expired"
+                    ],
+                    "description": "The status to move to."
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  },
+                  "patientId": {
+                    "maxLength": 64,
+                    "description": "Required to reserve a unit.",
+                    "type": "string"
+                  },
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "description": "Required to discard, and for a unit that failed its tests. Kept with the move.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "unitId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodUnit"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ambulances": {
+      "get": {
+        "operationId": "listAmbulances",
+        "tags": ["ambulance"],
+        "description": "The hospital’s ambulances, oldest first. Requires ambulance:read.",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/AmbulanceStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AmbulancePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAmbulance",
+        "tags": ["ambulance"],
+        "description": "Adds an ambulance, available. The registration is unique in the hospital (409 `duplicate_registration`). The Idempotency-Key header is required. Audited. Requires ambulance:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["registration", "kind"],
+                "properties": {
+                  "registration": {
+                    "minLength": 1,
+                    "maxLength": 20,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "$ref": "#/components/schemas/AmbulanceKind"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ambulance"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ambulances/{ambulanceId}/service": {
+      "post": {
+        "operationId": "setAmbulanceService",
+        "tags": ["ambulance"],
+        "description": "Takes an ambulance out of service, or returns it. Only an available ambulance goes out of service and only one out of service returns: one on a trip is 409 `invalid_transition` (dispatching and ending trips move it). The `version` is the ambulance’s, or 409 `conflict`. Audited. Requires ambulance:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["status", "version"],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["available", "out_of_service"],
+                    "description": "Only these two are set by hand."
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "ambulanceId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ambulance"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ambulance-trips": {
+      "get": {
+        "operationId": "listAmbulanceTrips",
+        "tags": ["ambulance"],
+        "description": "Trips, newest request first, filtered by status or ambulance. A trip with a patient is audited as a read of that patient’s trip. Requires ambulance:read.",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/AmbulanceTripStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "ambulanceId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AmbulanceTripPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "requestAmbulanceTrip",
+        "tags": ["ambulance"],
+        "description": "Asks for a trip from a pick-up place to a destination, in status `requested`. A `patientId` is optional (an emergency may have no record yet) and must be one the caller may read (422 `unknown_patient`). The Idempotency-Key header is required. Audited; emits `ambulance.trip_requested`. Requires ambulance:dispatch.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["pickup", "destination"],
+                "properties": {
+                  "patientId": {
+                    "maxLength": 64,
+                    "description": "Left out for an emergency with no record yet.",
+                    "type": "string"
+                  },
+                  "pickup": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "destination": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AmbulanceTrip"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ambulance-trips/{tripId}/move": {
+      "post": {
+        "operationId": "moveAmbulanceTrip",
+        "tags": ["ambulance"],
+        "description": "Moves a trip: requested -> dispatched (with an `ambulanceId` of an available ambulance, which goes on the trip) -> picked_up -> completed; cancelled before the pick-up (the ambulance is freed). Anything else is 409 `invalid_transition`. An ambulance on another trip or out of service is 409 `ambulance_unavailable`; an unknown one 422 `unknown_ambulance`. The `version` is the trip’s, or 409 `conflict`. Audited; emits `ambulance.trip_status_changed`. Requires ambulance:dispatch.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["to", "version"],
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "enum": ["dispatched", "picked_up", "completed", "cancelled"],
+                    "description": "The status to move to."
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  },
+                  "ambulanceId": {
+                    "maxLength": 64,
+                    "description": "Required to dispatch.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AmbulanceTrip"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cleaning-tasks": {
+      "get": {
+        "operationId": "listCleaningTasks",
+        "tags": ["housekeeping"],
+        "description": "Bed cleaning tasks, oldest first, filtered by status or ward. Requires cleaningTask:read.",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/CleaningTaskStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "wardId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleaningTaskPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCleaningTask",
+        "tags": ["housekeeping"],
+        "description": "Asks for a bed to be cleaned (a `routine` task). An available bed is set to being cleaned; one being cleaned already keeps that. An occupied or blocked bed is 409 `bed_not_available`, a bed that already has a task open 409 `task_exists`, an unknown bed 422 `unknown_bed`. `assignedTo` must be a member of the hospital (422 `unknown_user`). Needs the wards module (403 `feature_disabled`). The Idempotency-Key header is required. Audited, announced on `/beds/events`; emits `cleaning.task_created`. Requires cleaningTask:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["bedId"],
+                "properties": {
+                  "bedId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "assignedTo": {
+                    "maxLength": 64,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleaningTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cleaning-tasks/{taskId}/move": {
+      "post": {
+        "operationId": "moveCleaningTask",
+        "tags": ["housekeeping"],
+        "description": "open -> in_progress (the caller takes an unassigned task) -> done, which makes the bed available if it is still being cleaned; or cancelled before it is done (the bed stays as it is). Starting and finishing need cleaningTask:work, cancelling cleaningTask:manage (403 `permission_denied`). Anything else is 409 `invalid_transition`. Finishing needs the wards module (403 `feature_disabled`). The `version` is the task’s, or 409 `conflict`. Audited, announced on `/beds/events`; emits `cleaning.task_completed` when done. Requires cleaningTask:read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["to", "version"],
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "enum": ["in_progress", "done", "cancelled"],
+                    "description": "The status to move to."
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "taskId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleaningTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
