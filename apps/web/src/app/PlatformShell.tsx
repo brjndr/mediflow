@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { PLATFORM_NAV } from '@/features/platform';
 import { cn } from '@/shared/lib/utils';
+import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SignOutButton } from './SignOutButton';
 import { UserIdentity } from './UserIdentity';
@@ -80,7 +81,9 @@ export function PlatformShell() {
         </header>
         <main ref={main} id="main" tabIndex={-1} className="flex flex-1 flex-col outline-none">
           <Suspense fallback={<PageSkeleton label={t('app.loading')} />}>
-            <Outlet />
+            <DesktopOnly>
+              <Outlet />
+            </DesktopOnly>
           </Suspense>
         </main>
       </div>
