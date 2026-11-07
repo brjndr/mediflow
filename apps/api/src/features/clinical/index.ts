@@ -28,3 +28,6 @@ export { OrderPriority, OrderStatus } from './schemas.js';
 
 /** For prescription sets (#394): the limits and routes of a prescription line, kept in one place. */
 export { DOSE_MAX, INSTRUCTIONS_MAX, LINES_MAX, ROUTES as MEDICATION_ROUTES } from './schemas.js';
+
+/** For admissions (BE-23): the inpatient encounter an admission opens and a discharge closes. */
+export { closeInpatientEncounter, openInpatientEncounter } from './inpatient.js';

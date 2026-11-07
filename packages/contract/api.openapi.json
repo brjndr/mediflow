@@ -2849,6 +2849,366 @@
           }
         }
       },
+      "AdmissionType": {
+        "type": "string",
+        "enum": ["planned", "emergency", "transfer_in"],
+        "description": "How the patient came to be admitted."
+      },
+      "AdmissionStatus": {
+        "type": "string",
+        "enum": ["admitted", "discharged"],
+        "description": "admitted -> discharged, final."
+      },
+      "DischargeType": {
+        "type": "string",
+        "enum": ["routine", "against_advice", "referred", "absconded", "deceased"],
+        "description": "How the stay ended."
+      },
+      "BedReleaseReason": {
+        "type": "string",
+        "enum": ["transfer", "discharge"],
+        "description": "Why a patient left a bed."
+      },
+      "BoardBedStatus": {
+        "type": "string",
+        "enum": ["available", "occupied", "cleaning", "blocked"],
+        "description": "available -> occupied (a patient is given the bed) -> cleaning (they leave) -> available (it is ready). blocked is set from the wards API."
+      },
+      "AdmissionCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "admissionType"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "admissionType": {
+            "$ref": "#/components/schemas/AdmissionType"
+          },
+          "doctorId": {
+            "maxLength": 64,
+            "description": "The admitting doctor, a practising one. The caller’s own profile when left out (422 `unknown_doctor` when they have none). The stay’s department is theirs.",
+            "type": "string"
+          },
+          "bedId": {
+            "maxLength": 64,
+            "description": "An available bed to give the patient now. Left out, the patient is admitted without a bed and given one with assignBed.",
+            "type": "string"
+          }
+        }
+      },
+      "AdmissionBed": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "assignmentId",
+          "bedId",
+          "bedNumber",
+          "wardId",
+          "wardName",
+          "roomName",
+          "assignedAt"
+        ],
+        "properties": {
+          "assignmentId": {
+            "type": "string"
+          },
+          "bedId": {
+            "type": "string"
+          },
+          "bedNumber": {
+            "type": "string"
+          },
+          "wardId": {
+            "type": "string"
+          },
+          "wardName": {
+            "type": "string"
+          },
+          "roomName": {
+            "type": "string"
+          },
+          "assignedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "Admission": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "encounterId",
+          "doctorId",
+          "doctorName",
+          "departmentId",
+          "departmentName",
+          "admissionType",
+          "status",
+          "admittedAt",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "encounterId": {
+            "description": "The stay’s inpatient encounter.",
+            "type": "string"
+          },
+          "doctorId": {
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "departmentId": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "admissionType": {
+            "$ref": "#/components/schemas/AdmissionType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AdmissionStatus"
+          },
+          "admittedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dischargedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dischargeType": {
+            "$ref": "#/components/schemas/DischargeType"
+          },
+          "bed": {
+            "$ref": "#/components/schemas/AdmissionBed"
+          },
+          "version": {
+            "minimum": 1,
+            "description": "Counts the changes, a change of bed too.",
+            "type": "integer"
+          }
+        }
+      },
+      "AdmissionPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Admission"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "BedStay": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "assignmentId",
+          "bedId",
+          "bedNumber",
+          "wardId",
+          "wardName",
+          "bedCategoryId",
+          "assignedAt"
+        ],
+        "properties": {
+          "assignmentId": {
+            "type": "string"
+          },
+          "bedId": {
+            "type": "string"
+          },
+          "bedNumber": {
+            "type": "string"
+          },
+          "wardId": {
+            "type": "string"
+          },
+          "wardName": {
+            "type": "string"
+          },
+          "bedCategoryId": {
+            "description": "The bed’s category when the patient was given it.",
+            "type": "string"
+          },
+          "serviceId": {
+            "description": "The bed-day service of that category then.",
+            "type": "string"
+          },
+          "assignedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "releasedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "releaseReason": {
+            "$ref": "#/components/schemas/BedReleaseReason"
+          }
+        }
+      },
+      "AdmissionDetail": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["admission", "stays"],
+        "properties": {
+          "admission": {
+            "$ref": "#/components/schemas/Admission"
+          },
+          "stays": {
+            "description": "Every bed the patient was in, oldest first: the bed history.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BedStay"
+            }
+          }
+        }
+      },
+      "BoardOccupant": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["admissionId", "patientId", "patientName", "patientMrn", "assignedAt"],
+        "properties": {
+          "admissionId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "assignedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "BoardBed": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "number",
+          "wardId",
+          "wardName",
+          "roomId",
+          "roomName",
+          "categoryName",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "wardId": {
+            "type": "string"
+          },
+          "wardName": {
+            "type": "string"
+          },
+          "roomId": {
+            "type": "string"
+          },
+          "roomName": {
+            "type": "string"
+          },
+          "categoryName": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BoardBedStatus"
+          },
+          "blockedReason": {
+            "description": "Why a blocked bed is out of use, from a list.",
+            "type": "string"
+          },
+          "occupant": {
+            "$ref": "#/components/schemas/BoardOccupant"
+          },
+          "version": {
+            "minimum": 1,
+            "description": "The bed’s, for setBedHousekeeping.",
+            "type": "integer"
+          }
+        }
+      },
+      "BoardBedPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BoardBed"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
       "Code": {
         "description": "A diagnosis code (ICD-10) or a procedure code. Reference data shared by every hospital, so it carries no tenant; only `favourite` is the hospital’s own.",
         "type": "object",
@@ -20472,6 +20832,1007 @@
             "description": "Standard error body.",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions": {
+      "get": {
+        "operationId": "listAdmissions",
+        "tags": ["admissions"],
+        "description": "The hospital’s admissions, newest first: of one status, of one patient, in one ward (the ward of the bed the patient is in now), or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds admission:read with: `own`, the admissions they made as a doctor; `department`, those of their department. A list nobody types patient facts into, so a GET. Every row names its patient, so every row of a page is audited. `total` comes with the first page only. Requires admission:read and the admissions feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/AdmissionStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "wardId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "patientId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "admitPatient",
+        "tags": ["admissions"],
+        "description": "Admits a patient: opens the stay’s inpatient encounter and the admission, and gives the patient a bed when `bedId` is sent (otherwise assignBed does later). A patient has one admission not yet discharged (409 `already_admitted`). The bed must be available (409 `bed_not_available`), is looked up in the hospital only (422 `unknown_bed`), and needs the wards module (403 `feature_disabled`). Of two requests for one bed at the same moment, one succeeds and the other is 409: the ward is locked while a bed is given, and an exclusion constraint on the time a bed holds a patient backs it up. The doctor is `doctorId`, else the caller’s own profile; one who does not practise here, or is outside the scope the caller holds admission:create with, is 422 `unknown_doctor`. Requires admission:create and admission:read, and patient:read (checked in the handler, within its scope): a patient the caller may not read and one that does not exist are both 422 `unknown_patient`. The Idempotency-Key header is required: a repeat admits nobody again and answers with the admission. Audited; emits `encounter.opened`, `admission.created` and, with a bed, `bed.assigned` through the outbox, and is announced on `/beds/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdmissionCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}": {
+      "get": {
+        "operationId": "getAdmission",
+        "tags": ["admissions"],
+        "description": "One admission with the beds the patient has been in, oldest first. 404 `admission_not_found` for one that does not exist, is another hospital’s or is outside the caller’s scope. Audited as a read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/assign-bed": {
+      "post": {
+        "operationId": "assignBed",
+        "tags": ["admissions"],
+        "description": "Gives an admitted patient who has no bed an available one (409 `already_in_bed` for one who has: use transferPatient). The target must be available (409 `bed_not_available`), is looked up in the hospital only (422 `unknown_bed`) and needs the wards module (403 `feature_disabled`). Both wards are locked, in id order, while the move is made. Requires admission:transfer and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["bedId", "version"],
+                "properties": {
+                  "bedId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/transfer": {
+      "post": {
+        "operationId": "transferPatient",
+        "tags": ["admissions"],
+        "description": "Moves an admitted patient from their bed to another available one (409 `no_bed` for one who has none: use assignBed; 422 `same_bed`). The bed they leave is set to being cleaned, with `bed.released` and `bed.assigned` through the outbox, and the move is one transaction: the patient is never in no bed or two. The target must be available (409 `bed_not_available`), is looked up in the hospital only (422 `unknown_bed`) and needs the wards module (403 `feature_disabled`). Both wards are locked, in id order, while the move is made. Requires admission:transfer and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["bedId", "version"],
+                "properties": {
+                  "bedId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/discharge": {
+      "post": {
+        "operationId": "dischargePatient",
+        "tags": ["admissions"],
+        "description": "Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. Billing and the discharge summary react to the event; this API does not clear the bill. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["dischargeType", "version"],
+                "properties": {
+                  "dischargeType": {
+                    "$ref": "#/components/schemas/DischargeType"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/beds/board": {
+      "get": {
+        "operationId": "listBedBoard",
+        "tags": ["admissions"],
+        "description": "The beds in use (not archived, in a ward and a room not archived) with their status and, for an occupied bed, the patient in it: by ward name and bed number, filtered by ward and status. The board reads this again on each event of `/beds/events`. Names patients, so the admission of every occupied bed of a page is audited as a read. `total` comes with the first page only. Requires admission:read, the admissions and wards feature flags.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "wardId",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/BoardBedStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 400,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardBedPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/beds/{bedId}/housekeeping": {
+      "post": {
+        "operationId": "setBedHousekeeping",
+        "tags": ["admissions"],
+        "description": "Marks an available bed being cleaned, or a bed being cleaned ready (available). Only these two moves: an occupied or blocked bed is 409 `invalid_transition` (a patient leaving sets a bed being cleaned by itself; blocking is the wards API). The `version` is the bed’s, from the board, or 409 `conflict`. The ward is locked while the bed changes. 404 `bed_not_found` for a bed this hospital does not have. Needs the wards module (403 `feature_disabled`). The Idempotency-Key header is required. Audited, and announced on `/beds/events`. Requires bed:update.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["status", "version"],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["cleaning", "available"],
+                    "description": "`cleaning` from an available bed, `available` (ready) from one being cleaned. 409 `invalid_transition` otherwise."
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "bedId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardBed"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/beds/events": {
+      "get": {
+        "operationId": "bedEvents",
+        "tags": ["admissions"],
+        "description": "Server-sent events for the beds of the session’s hospital, and of no other. Each `beds` event says only which ward changed (`data: {\"wardId\":\"...\"}`), never who is in a bed: the board then reads again through listBedBoard, which is audited. The stream opens with a `retry:` line and holds no database connection while open; a comment line is sent every 20 seconds to keep the connection open, and a client takes 45 seconds without anything as a lost connection. The server ends the stream when the session ends, is revoked, goes idle or switches hospital, and when the session loses admission:read or the hospital the admissions switch or is suspended, checking all of these again at each keep-alive and before sending events. It also ends the stream when it may have missed changes, so the board opens it again and reads afresh. 503 `live_unavailable` when live updates cannot be followed now: the board reads on a timer instead. Requires admission:read and the admissions feature flag.",
+        "responses": {
+          "200": {
+            "description": "An event stream that stays open",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "description": "An event stream that stays open",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard error body.",
+            "content": {
+              "text/event-stream": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 }
