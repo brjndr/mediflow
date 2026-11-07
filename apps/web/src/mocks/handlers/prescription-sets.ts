@@ -348,6 +348,41 @@ export const prescriptionSetsHandlers = [
     return set ? HttpResponse.json<SetDetail>(detail(set)) : notFound();
   }),
 
+  http.patch('*/api/prescription-sets/:setId', async ({ request, params }) => {
+    const manage = authorize(request, { permission: MANAGE, featureFlag: FEATURE_FLAG });
+    if ('denied' in manage) return manage.denied;
+    const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    seed();
+    const set = find(access.tenantId, String(params.setId));
+    if (!set) return notFound();
+    if (set.ownerId === null && !mayShare()) {
+      return error(403, 'permission_denied', 'A shared set needs more access');
+    }
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || !Number.isInteger(body.version)) return invalid();
+    if (set.version !== body.version) return error(409, 'conflict', 'A newer version was saved');
+    const name = body.name === undefined ? undefined : text(body.name, 100);
+    const lines = body.lines === undefined ? undefined : readLines(access.tenantId, body.lines);
+    if (
+      name === null ||
+      lines === null ||
+      (body.archived !== undefined && typeof body.archived !== 'boolean')
+    ) {
+      return invalid();
+    }
+    if (lines === 'unknown_drug') return error(422, 'unknown_drug', 'No such medicine');
+    if (name !== undefined && name !== set.name) {
+      if (nameTaken(access.tenantId, name, set.ownerId, set.id)) return taken();
+      set.name = name;
+    }
+    if (lines) set.lines = lines;
+    if (typeof body.archived === 'boolean') set.archived = body.archived;
+    set.version += 1;
+    set.updatedAt = new Date().toISOString();
+    return HttpResponse.json<SetDetail>(detail(set));
+  }),
+
   http.get('*/api/me/favourite-drugs', ({ request }) => {
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;

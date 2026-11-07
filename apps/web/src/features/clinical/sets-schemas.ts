@@ -59,6 +59,10 @@ export const saveSetSchema = z.object({
     .regex(PLAIN_TEXT, 'validation.plain_text'),
   shared: z.boolean(),
 });
+/** The dialog that edits a set: its name (the lines are removed one by one). */
+export const renameSetSchema = saveSetSchema.pick({ name: true });
+export type RenameSetValues = z.input<typeof renameSetSchema>;
+export type RenameSetOutput = z.output<typeof renameSetSchema>;
 export type SaveSetValues = z.input<typeof saveSetSchema>;
 export type SaveSetOutput = z.output<typeof saveSetSchema>;
 
@@ -104,3 +108,14 @@ export function toSetLines(lines: PrescriptionLineValues[]): PrescriptionSetLine
     ...(line.instructions ? { instructions: line.instructions } : {}),
   }));
 }
+
+/** A line of a set as the API takes it back, without the names the view adds. */
+export const lineOfView = (line: PrescriptionSetLineView): PrescriptionSetLine => ({
+  drugId: line.drugId,
+  dose: line.dose,
+  route: line.route,
+  frequency: line.frequency,
+  ...(line.durationDays === undefined ? {} : { durationDays: line.durationDays }),
+  ...(line.quantity === undefined ? {} : { quantity: line.quantity }),
+  ...(line.instructions === undefined ? {} : { instructions: line.instructions }),
+});

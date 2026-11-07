@@ -46,6 +46,7 @@ export type ReferralUrgency = Schemas['ReferralUrgency'];
 export type PrescriptionSet = Schemas['PrescriptionSet'];
 export type PrescriptionSetPage = Schemas['PrescriptionSetPage'];
 export type PrescriptionSetDetail = Schemas['PrescriptionSetDetail'];
+export type PrescriptionSetUpdate = Schemas['PrescriptionSetUpdate'];
 export type PrescriptionSetCreate = Schemas['PrescriptionSetCreate'];
 export type PrescriptionSetLine = Schemas['PrescriptionSetLine'];
 export type PrescriptionSetLineView = Schemas['PrescriptionSetLineView'];

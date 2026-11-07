@@ -2,8 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFeatureFlag, usePermission } from '@/access';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
-import { createPrescriptionSet, fetchPrescriptionSet, fetchPrescriptionSets } from '../sets-api';
-import type { PrescriptionSetCreate } from '../types';
+import {
+  createPrescriptionSet,
+  fetchPrescriptionSet,
+  fetchPrescriptionSets,
+  updatePrescriptionSet,
+} from '../sets-api';
+import type { PrescriptionSetCreate, PrescriptionSetUpdate } from '../types';
 import { useIdempotencyKey, useStillHere } from './use-clinical';
 
 /** Every key is prefixed with the tenant, so one hospital's sets never show in another. */
@@ -19,11 +24,11 @@ export function useSetAccess() {
 }
 
 /** The sets the caller may use. Asked only while the list is wanted. */
-export function usePrescriptionSets(enabled: boolean) {
+export function usePrescriptionSets(enabled: boolean, archived = false) {
   const tenantId = useTenant()?.id;
   return useQuery({
-    queryKey: setKeys.lists(tenantId ?? ''),
-    queryFn: ({ signal }) => fetchPrescriptionSets(signal),
+    queryKey: setKeys.list(tenantId ?? '', { archived }),
+    queryFn: ({ signal }) => fetchPrescriptionSets(signal, archived),
     enabled: enabled && tenantId !== undefined,
     staleTime: 30_000,
   });
@@ -53,6 +58,21 @@ export function useSavePrescriptionSet() {
     onSettled: () => {
       const tenantId = stillHere();
       if (tenantId) return queryClient.invalidateQueries({ queryKey: setKeys.lists(tenantId) });
+    },
+  });
+}
+
+/** Changes one set, from the version the edit began at (#485). Both lists are read again after. */
+export function useUpdatePrescriptionSet() {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ setId, body }: { setId: string; body: PrescriptionSetUpdate }) =>
+      updatePrescriptionSet(setId, body),
+    onSettled: () => {
+      const tenantId = stillHere();
+      if (tenantId) return queryClient.invalidateQueries({ queryKey: setKeys.all(tenantId) });
     },
   });
 }

@@ -14,7 +14,9 @@ export const clinicalFeature: FeatureManifest = {
   id: 'clinical',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Consultations', detail: 'Consultation' } },
+    titles: {
+      en: { title: 'Consultations', detail: 'Consultation', sets: 'Prescription sets' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
@@ -31,6 +33,13 @@ export const clinicalFeature: FeatureManifest = {
       titleKey: 'detail',
       lazy: () => import('./routes/EncounterDetail'),
       requires: ['encounter:read'],
+    },
+    {
+      // Rename, trim and archive prescription sets, and unstar favourite medicines (#485).
+      path: 'prescription-sets',
+      titleKey: 'sets',
+      lazy: () => import('./routes/PrescriptionSets'),
+      requires: ['prescriptionSet:read'],
     },
   ],
   nav: { icon: ClipboardPlus, order: 28, requires: ['encounter:read'] },

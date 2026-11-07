@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
 import { errorMessageKey } from '@/shared/api';
@@ -23,6 +24,7 @@ export default function EncounterList() {
   const { t } = useTranslation('clinical');
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
+  const canSets = usePermission('prescriptionSet:read');
   const doctorFieldId = useId();
   const statusFieldId = useId();
   const session = useSession();
@@ -141,6 +143,15 @@ export default function EncounterList() {
         loadingMore={encounters.isFetchingNextPage}
         onLoadMore={() => void encounters.fetchNextPage()}
       />
+      {/* After the rows, so a click on the first link of the page is a consultation. */}
+      {canSets && encounters.isSuccess && (
+        <Link
+          to="/prescription-sets"
+          className="self-start text-sm text-primary underline underline-offset-4 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
+        >
+          {t('list.setsLink')}
+        </Link>
+      )}
     </div>
   );
 }
