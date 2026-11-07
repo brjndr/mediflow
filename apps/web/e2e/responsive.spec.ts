@@ -63,6 +63,13 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByLabel('CSV file')).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // Roles: a desktop-only screen, so narrower displays get the notice, which fits the width.
+  await goTo(page, 'Roles');
+  await expect(
+    page.getByRole('heading', { name: /^(Roles|This screen needs a wider display)$/ }),
+  ).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   // Appointments: the filters wrap and the list becomes cards on a phone.
   await goTo(page, 'Appointments');
   await expect(page.getByRole('heading', { name: 'Appointments', exact: true })).toBeVisible();

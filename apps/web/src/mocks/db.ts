@@ -47,6 +47,7 @@ const initialTenants: Record<string, TenantDto> = {
       codes: true,
       services: true,
       staff: true,
+      roles: true,
       templates: true,
       wards: true,
       imports: true,
@@ -88,6 +89,7 @@ const initialTenants: Record<string, TenantDto> = {
       codes: true,
       services: true,
       staff: true,
+      roles: true,
       templates: true,
       wards: true,
     },
@@ -222,6 +224,7 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'report:read' },
   { permission: 'report:export' },
   { permission: 'user:manage' },
+  { permission: 'role:read' },
   { permission: 'role:manage' },
   { permission: 'notice:read' },
   { permission: 'notice:manage' },
@@ -645,6 +648,14 @@ export function mockRoleGrants(tenantId: string, roleId: string): PermissionGran
 /** The ids of a hospital's roles. */
 export function mockRoleIds(tenantId: string): string[] {
   return Object.keys(roles[tenantId] ?? {});
+}
+
+/** Removes a role of a hospital (the role screen deletes custom ones). */
+export function deleteMockRole(tenantId: string, roleId: string): void {
+  const rest = { ...roles[tenantId] };
+  delete rest[roleId];
+  roles[tenantId] = rest;
+  revision++;
 }
 
 /** What a hospital admin does on the role screen: replace the permissions of one role. */

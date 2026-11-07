@@ -1,0 +1,49 @@
+{
+  "heading": "Roles",
+  "description": "What people at this hospital are allowed to do depends on their role. Built-in roles cannot be renamed or deleted; add your own for anything else.",
+  "gridLabel": "Roles",
+  "add": "Add role",
+  "count_one": "{{count}} role",
+  "count_other": "{{count}} roles",
+  "empty": "No roles.",
+  "columns": {
+    "name": "Name",
+    "kind": "Kind",
+    "permissions": "Permissions",
+    "members": "Active members"
+  },
+  "kind": {
+    "builtIn": "Built-in",
+    "custom": "Custom"
+  },
+  "actions": {
+    "rename": "Rename",
+    "delete": "Delete"
+  },
+  "form": {
+    "addHeading": "Add a role",
+    "renameHeading": "Rename {{name}}",
+    "name": "Name",
+    "nameHint": "A new role holds no permissions until you give it some.",
+    "save": "Save role",
+    "cancel": "Cancel"
+  },
+  "delete": {
+    "title": "Delete {{name}}?",
+    "description": "The role is removed from this hospital. This cannot be undone.",
+    "confirm": "Delete role",
+    "cancel": "Keep role"
+  },
+  "saved": {
+    "added": "Added {{name}}.",
+    "renamed": "Renamed to {{name}}.",
+    "deleted": "Deleted {{name}}."
+  },
+  "errors": {
+    "exists": "A role with that name already exists.",
+    "builtIn": "Built-in roles cannot be renamed or deleted.",
+    "inUse": "People or open invitations still use this role. Move them to another role first.",
+    "notAllowed": "You cannot change a role that may do more than yours.",
+    "notFound": "That role no longer exists."
+  }
+}

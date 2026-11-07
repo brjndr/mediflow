@@ -1,6 +1,7 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import {
+  activeTenantId,
   currentPolicy,
   currentSession,
   mockRoleGrants,
@@ -11,6 +12,7 @@ import {
   USER_IDS,
 } from '../db';
 import { authorize, error } from '../respond';
+import { mockRoleName } from './roles';
 
 type StaffMember = components['schemas']['StaffMember'];
 type StaffPage = components['schemas']['StaffPage'];
@@ -173,8 +175,7 @@ export const mockStaffOf = (tenantId: string): MockStaff[] =>
 export const mockInvitesSent = (): readonly MockInvite[] => state.sent;
 
 /** A role's name as the hospital shows it. Roles have no names of their own in the mock. */
-const roleName = (roleId: string) =>
-  roleId.replace(/_/g, ' ').replace(/^./, (letter) => letter.toUpperCase());
+const roleName = (roleId: string) => mockRoleName(activeTenantId() ?? '', roleId);
 
 const EMAIL = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
 
