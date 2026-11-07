@@ -24,7 +24,7 @@ module.exports = {
         {
           // The targets in docs/PERFORMANCE.md for LCP and CLS.
           matchingUrlPattern:
-            '^http://localhost:4173/([?]mockUser=none|patients|encounters|reports)?$',
+            '^http://localhost:4173/([?]mockUser=none|patients|encounters|reports|appointments)?$',
           assertions: {
             'largest-contentful-paint': [
               'error',
@@ -32,21 +32,6 @@ module.exports = {
             ],
             'cumulative-layout-shift': [
               'error',
-              { maxNumericValue: 0.1, aggregationMethod: 'median' },
-            ],
-          },
-        },
-        {
-          // The appointment list misses both targets today (CLS about 0.26, LCP about 2.7 s), so it
-          // warns until it is fixed. Make this entry an error then.
-          matchingUrlPattern: '/appointments$',
-          assertions: {
-            'largest-contentful-paint': [
-              'warn',
-              { maxNumericValue: 2500, aggregationMethod: 'median' },
-            ],
-            'cumulative-layout-shift': [
-              'warn',
               { maxNumericValue: 0.1, aggregationMethod: 'median' },
             ],
           },

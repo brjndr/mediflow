@@ -10,7 +10,7 @@ import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
-import { todayIn, type DayString } from '@/shared/utils/timezone';
+import { todayIn, utcToZoned, type DayString } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
 import { STATUS_STYLE } from '../components/status';
 import { ViewSwitch } from '../components/ViewSwitch';
@@ -39,7 +39,8 @@ export default function AppointmentList() {
   const navigate = useNavigate();
   const tenant = useTenant();
   const session = useSession();
-  const today = todayIn(tenant?.timezone ?? 'UTC');
+  const timezone = tenant?.timezone ?? 'UTC';
+  const today = todayIn(timezone);
 
   const [from, setFrom] = useState<DayString>(today);
   const [to, setTo] = useState<DayString>(today);
@@ -79,8 +80,15 @@ export default function AppointmentList() {
             {text}
             {/* Other features' actions for the appointment (the queue's "Check in"), given ids
                 and values only. Rendered for every row: a contribution reads no data of its own. */}
+            {/* A button of today's scheduled rows arrives after its chunk and strings load: its
+                place is kept meanwhile, so the rows below do not jump (CLS, #460). */}
             <Slot
               id="appointment.row.actions"
+              fallback={
+                row.status === 'scheduled' && utcToZoned(row.startsAt, timezone).day === today ? (
+                  <span aria-hidden className="block h-8 pointer-coarse:h-11" />
+                ) : null
+              }
               context={{
                 appointmentId: row.id,
                 patientId: row.patientId,
@@ -124,7 +132,7 @@ export default function AppointmentList() {
         ),
       },
     ],
-    [t, format, oneDay],
+    [t, format, oneDay, timezone, today],
   );
 
   const actions = useMemo<GridAction<AppointmentSummary>[]>(
@@ -237,7 +245,7 @@ export default function AppointmentList() {
         </p>
       ) : (
         <>
-          <p role="status" className="text-sm text-muted-foreground">
+          <p role="status" className="min-h-5 text-sm text-muted-foreground">
             {/* Not while the previous filter's rows are still shown: the total would be theirs. */}
             {total === undefined || appointments.isPlaceholderData
               ? ''
