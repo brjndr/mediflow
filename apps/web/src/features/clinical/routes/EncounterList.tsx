@@ -143,7 +143,8 @@ export default function EncounterList() {
         loadingMore={encounters.isFetchingNextPage}
         onLoadMore={() => void encounters.fetchNextPage()}
       />
-      {canSets && (
+      {/* After the rows, so a click on the first link of the page is a consultation. */}
+      {canSets && encounters.isSuccess && (
         <Link
           to="/prescription-sets"
           className="self-start text-sm text-primary underline underline-offset-4 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
