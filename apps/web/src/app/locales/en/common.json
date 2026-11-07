@@ -55,6 +55,7 @@
     "mfaHint": "Six digits from the app, or one of your recovery codes.",
     "mfaSubmit": "Verify",
     "mfaCancel": "Use a different account",
+    "mfaTimedOut": "The code step timed out. Sign in again.",
     "mfaInvalid": "That code is not correct. Check it and try again.",
     "mfaCodeNeeded": "Enter the code from your authenticator app.",
     "ended": {
@@ -84,7 +85,21 @@
     "download": "Download codes",
     "codesSaved": "I have saved these codes",
     "done": "Done",
-    "enabled": "An authenticator is set up for your account."
+    "enabled": "An authenticator is set up for your account.",
+    "regenerate": "Replace recovery codes",
+    "regenerateIntro": "Your old recovery codes stop working. Enter your password and a code from the authenticator app.",
+    "regenerateConfirm": "Replace codes",
+    "turnOff": "Turn off authenticator",
+    "turnOffIntro": "Signing in will ask for your password only. Enter your password and a code from the authenticator app.",
+    "turnOffConfirm": "Turn off",
+    "turnedOff": "The authenticator is turned off.",
+    "requiredHere": "A hospital you work at requires an authenticator, so it cannot be turned off.",
+    "appCodeHint": "Six digits from the app. A recovery code does not work here.",
+    "invalidAppCode": "That code is not correct. Enter the six digits shown in the app now.",
+    "cancel": "Cancel",
+    "sharedPc": "On a shared computer, do not leave these codes on the screen. The clipboard is emptied a minute after you copy them.",
+    "leaveBlocked": "Your recovery codes are shown only once. Tick that you have saved them before you leave this page.",
+    "manage": "Manage authenticator"
   },
   "account": {
     "signedInTitle": "Someone is signed in here",

@@ -15,6 +15,16 @@ export const MOCK_MFA_CODE = '123456';
 export const MOCK_SECRET = 'JBSWY3DPEHPK3PXP';
 export const MOCK_RECOVERY_CODES = ['mock-aaaa-1111', 'mock-bbbb-2222', 'mock-cccc-3333'];
 
+/** What regenerating the recovery codes hands out in the mock. */
+export const MOCK_NEW_RECOVERY_CODES = ['mock-dddd-4444', 'mock-eeee-5555', 'mock-ffff-6666'];
+
+const invalidCode400 = () => error(400, 'invalid_mfa_code', 'That code is not valid');
+
+async function manageBody(request: Request): Promise<{ password?: unknown; code?: unknown }> {
+  const body: unknown = await request.json().catch(() => null);
+  return typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+}
+
 let enrolling = false;
 
 /** Offers the authenticator at a hospital, as its `mfa` switch does. Off for every mock hospital. */
@@ -97,5 +107,33 @@ export const mfaHandlers = [
     enrolling = false;
     setMockMfa(session.user.id, true);
     return HttpResponse.json({ recoveryCodes: MOCK_RECOVERY_CODES });
+  }),
+
+  http.post('*/api/auth/mfa/recovery-codes', async ({ request }) => {
+    const session = currentSession();
+    if (!session) return unauthenticated();
+    const { password, code } = await manageBody(request);
+    if (password !== MOCK_PASSWORD) {
+      return error(403, 'invalid_password', 'The password is not correct');
+    }
+    // An authenticator code only: a recovery code does not count here.
+    if (!session.user.mfaEnabled || code !== MOCK_MFA_CODE) return invalidCode400();
+    return HttpResponse.json({ recoveryCodes: MOCK_NEW_RECOVERY_CODES });
+  }),
+
+  http.post('*/api/auth/mfa/disable', async ({ request }) => {
+    const session = currentSession();
+    if (!session) return unauthenticated();
+    const { password, code } = await manageBody(request);
+    if (password !== MOCK_PASSWORD) {
+      return error(403, 'invalid_password', 'The password is not correct');
+    }
+    const features = session.activeTenant?.features;
+    if (features?.mfa === true && features.mfa_required === true) {
+      return error(409, 'mfa_required_here', 'A hospital you work at requires an authenticator');
+    }
+    if (!session.user.mfaEnabled || code !== MOCK_MFA_CODE) return invalidCode400();
+    setMockMfa(session.user.id, false);
+    return new HttpResponse(null, { status: 204 });
   }),
 ];

@@ -1016,6 +1016,24 @@ describe('the second factor', () => {
     const requirementOf = async (token: string) =>
       (await get('/auth/mfa/requirement', token)).json<{ required: boolean }>().required;
 
+    it('does not let the authenticator be removed, and keeps the code unused', async () => {
+      const strict = await newHospital('Keeps Hospital', { mfa: true, mfa_required: true });
+      const user = await newUser('Staying Sam');
+      await addMembership(pool, user, strict, 'nurse');
+      const authenticator = await enableMfa(user);
+      const session = await signIn(user, await authenticator.code());
+
+      const code = await authenticator.code();
+      const refused = await post('/auth/mfa/disable', { password: user.password, code }, session);
+
+      expect([refused.statusCode, errorOf(refused)]).toEqual([409, 'mfa_required_here']);
+      expect((await sessionOf(session)).user.mfaEnabled).toBe(true);
+      // The refusal did not use the code up: once the rule is off, the same code removes it.
+      await setFlag(strict, 'mfa_required', false);
+      const removed = await post('/auth/mfa/disable', { password: user.password, code }, session);
+      expect(removed.statusCode).toBe(204);
+    });
+
     it('refuses its routes to someone without one, until they set it up', async () => {
       const strict = await newHospital('Strict Hospital', { mfa: true, mfa_required: true });
       const user = await newUser('Pending Pia');

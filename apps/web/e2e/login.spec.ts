@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectNoAxeViolations } from './support';
+import { expectNoAxeViolations, expectNoSidewaysScroll } from './support';
 
 /**
  * Signing in and out in a real browser, against the mock backend. `?mockUser=none` starts the
@@ -134,4 +134,35 @@ test('choose and change hospital from the keyboard, and hear where you are', asy
   ).toBeAttached();
   await expect(switcher.locator('option:checked')).toHaveText('Riverside Clinic');
   await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
+});
+
+test('managing the authenticator with the keyboard: new recovery codes, held until saved', async ({
+  page,
+}) => {
+  await page.goto('/security?mockUser=user_admin&mockMfa=on');
+  await expect(page.getByText('An authenticator is set up for your account.')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
+  await page.getByRole('button', { name: 'Replace recovery codes' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('Password')).toBeFocused();
+  await expectNoAxeViolations(page);
+  await page.keyboard.type(PASSWORD);
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('123456');
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByRole('list', { name: 'Recovery codes' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+  // Not done until the person says the codes are saved.
+  await page.getByRole('button', { name: 'Done' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('list', { name: 'Recovery codes' })).toBeVisible();
+  await page.getByRole('checkbox', { name: 'I have saved these codes' }).focus();
+  await page.keyboard.press('Space');
+  await page.getByRole('button', { name: 'Done' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('list', { name: 'Recovery codes' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Replace recovery codes' })).toBeVisible();
 });
