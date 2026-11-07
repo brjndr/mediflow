@@ -455,7 +455,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Sends an open invitation again, for one whose email could not be sent or was lost. A new job gives the invitation a new link and the old link stops working; the invitation is not withdrawn, and keeps its expiry. Its email status goes back to being tried (`delivery` 'sending' on the staff list). An invitation that is not open here (accepted, withdrawn, expired, another hospital's, unknown) answers 404 invite_not_found. The caller must be allowed to give its role (403 role_not_allowed). */
+        /** @description Sends an open invitation again, for one whose email could not be sent or was lost. A new job gives the invitation a new link and the old link stops working; the invitation is not withdrawn, and keeps its expiry. Its email status goes back to being tried (`delivery` 'sending' on the staff list). A second send within a minute of the last answers 429 resend_too_soon with Retry-After. An invitation that is not open here (accepted, withdrawn, expired, another hospital's, unknown) answers 404 invite_not_found. The caller must be allowed to give its role (403 role_not_allowed). */
         post: operations["resendInvite"];
         delete?: never;
         options?: never;
