@@ -34,6 +34,7 @@ import { importsHandlers } from './handlers/imports';
 import { mfaHandlers, mfaLoginHandlers } from './handlers/mfa';
 import { noticesHandlers } from './handlers/notices';
 import { servicesHandlers } from './handlers/services';
+import { consentsHandlers } from './handlers/consents';
 import { documentsHandlers } from './handlers/documents';
 import { templatesHandlers } from './handlers/templates';
 import { wardsHandlers } from './handlers/wards';
@@ -156,6 +157,7 @@ export const handlers = [
   ...codesHandlers,
   ...templatesHandlers,
   ...documentsHandlers,
+  ...consentsHandlers,
   ...importsHandlers,
   ...reportsHandlers,
   ...accountHandlers,

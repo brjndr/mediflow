@@ -4757,6 +4757,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients/{patientId}/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Signed consents of one patient, newest first (MR-02, #190). Needs consent:read and the consents feature flag. The text and signature are in the single read. */
+        get: operations["listConsents"];
+        put?: never;
+        /** @description Records a signed consent: the text as filled in from a version of a consent template, who signed, and the signature. Needs consent:sign. A signed consent is never changed or removed: there is no update or delete. */
+        post: operations["signConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/consents/{consentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One signed consent with its text and signature. Audited as a read of the patient record. Needs consent:read. */
+        get: operations["getConsent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Certificates issued for one patient, newest first (MR-02, #190). Needs certificate:read and the consents feature flag. */
+        get: operations["listCertificates"];
+        put?: never;
+        /** @description Records a medical, fitness, birth or death certificate from the data entered. The server numbers it. Needs certificate:issue. An issued certificate is never changed or removed. */
+        post: operations["issueCertificate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9014,6 +9067,81 @@ export interface components {
             items: components["schemas"]["Notice"][];
             nextCursor: string | null;
             total?: number;
+        };
+        /** @enum {string} */
+        ConsentSigner: "patient" | "guardian" | "representative";
+        /** @enum {string} */
+        ConsentSignature: "drawn" | "typed";
+        Consent: {
+            id: string;
+            patientId: string;
+            procedureName: string;
+            templateId: string;
+            templateVersion: number;
+            signerName: string;
+            signerRole: components["schemas"]["ConsentSigner"];
+            signatureMethod: components["schemas"]["ConsentSignature"];
+            /** Format: date-time */
+            signedAt: string;
+            /** @description The member of staff who recorded the signature. */
+            signedByName: string;
+        };
+        ConsentDetail: {
+            consent: components["schemas"]["Consent"];
+            /** @description The text as it was signed: the rich text document of the app, placeholders filled in. */
+            body: {
+                [key: string]: unknown;
+            };
+            /** @description SVG path data of a drawn signature in a 300 by 150 box; absent for a typed one. */
+            signature?: string;
+        };
+        ConsentPage: {
+            items: components["schemas"]["Consent"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ConsentCreate: {
+            templateId: string;
+            templateVersion: number;
+            procedureName: string;
+            body: {
+                [key: string]: unknown;
+            };
+            signerName: string;
+            signerRole: components["schemas"]["ConsentSigner"];
+            signatureMethod: components["schemas"]["ConsentSignature"];
+            signature?: string;
+        };
+        /** @enum {string} */
+        CertificateKind: "medical" | "fitness" | "birth" | "death";
+        Certificate: {
+            id: string;
+            patientId: string;
+            kind: components["schemas"]["CertificateKind"];
+            /** @description Assigned by the server, in order for each kind and year. */
+            number: string;
+            /** Format: date */
+            issuedOn: string;
+            /** @description What was entered, by the field names of the kind. */
+            fields: {
+                [key: string]: string;
+            };
+            issuedByName: string;
+            /** Format: date-time */
+            issuedAt: string;
+        };
+        CertificatePage: {
+            items: components["schemas"]["Certificate"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        CertificateCreate: {
+            kind: components["schemas"]["CertificateKind"];
+            /** Format: date */
+            issuedOn: string;
+            fields: {
+                [key: string]: string;
+            };
         };
     };
     responses: {
@@ -34494,6 +34622,163 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listConsents: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of consents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    signConsent: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsentCreate"];
+            };
+        };
+        responses: {
+            /** @description The signed consent */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The signed consent */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listCertificates: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of certificates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificatePage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    issueCertificate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CertificateCreate"];
+            };
+        };
+        responses: {
+            /** @description The issued certificate */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Certificate"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

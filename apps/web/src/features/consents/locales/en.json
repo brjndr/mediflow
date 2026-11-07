@@ -1,0 +1,151 @@
+{
+  "close": "Close",
+  "tab": "Consents and certificates",
+  "heading": "Consents and certificates",
+  "signer": {
+    "patient": "Patient",
+    "guardian": "Guardian",
+    "representative": "Representative"
+  },
+  "columns": {
+    "procedure": "Procedure",
+    "signer": "Signed by",
+    "method": "Signature",
+    "signedAt": "Signed",
+    "number": "Number",
+    "kind": "Kind",
+    "issuedOn": "Issued on",
+    "issuedBy": "Issued by"
+  },
+  "signature": {
+    "legend": "Signature",
+    "method": {
+      "drawn": "Draw the signature",
+      "typed": "Type the name instead"
+    },
+    "padEmpty": "Signature pad, empty. Draw with a finger, a stylus or a mouse.",
+    "padSigned": "Signature pad, signed.",
+    "clear": "Clear the signature",
+    "typedConfirm": "The signer has read the text above and agrees to it. The name typed above is their signature.",
+    "errors": {
+      "drawn": "Draw the signature, or choose to type the name instead.",
+      "typed": "Confirm that the signer agrees to the text."
+    }
+  },
+  "consent": {
+    "section": "Consents",
+    "action": "Record a consent",
+    "heading": "Record a consent",
+    "rowLabel": "Consent for {{procedure}}",
+    "empty": "No consents signed for this patient.",
+    "template": "Consent form",
+    "chooseTemplate": "Choose a consent form",
+    "procedure": "Procedure",
+    "procedureHint": "Put into the text where the form names the procedure.",
+    "text": "Text to be signed",
+    "unfilled": "This text still has {{names}} that could not be filled in. Choose another form, or ask an administrator to change it.",
+    "signerName": "Name of the signer",
+    "signerRole": "Signing as",
+    "final": "A signed consent is kept exactly as it is shown here and cannot be changed or removed.",
+    "submit": "Sign the consent",
+    "submitting": "Signing",
+    "done": "The consent for {{procedure}} was signed and kept.",
+    "noTemplates": {
+      "access": "You do not have access to the hospital's consent forms.",
+      "none": "The hospital has no consent form yet. An administrator can add one under templates."
+    },
+    "errors": {
+      "load": "The consent form could not be read. Try again.",
+      "merged": "This patient record was merged into another. Open the other record.",
+      "template": "That consent form is no longer available. Choose another."
+    }
+  },
+  "view": {
+    "action": "View",
+    "heading": "Consent for {{procedure}}",
+    "immutable": "Signed and kept as it is. It cannot be changed or removed.",
+    "loading": "Loading the consent",
+    "signedBy": "Signed by",
+    "signer": "{{name}} ({{role}})",
+    "signedAt": "Signed",
+    "recordedBy": "Recorded by",
+    "version": "Form version",
+    "versionValue": "Version {{version}}",
+    "signatureOf": "Signature of {{name}}",
+    "typedSignature": "Signed by typing the name {{name}}."
+  },
+  "certificate": {
+    "section": "Certificates",
+    "kindLabel": "Kind of certificate",
+    "action": "Issue a certificate",
+    "heading": "Issue a {{kind}} certificate",
+    "viewHeading": "{{kind}} certificate {{number}}",
+    "rowLabel": "Certificate {{number}}",
+    "empty": "No certificates issued for this patient.",
+    "issuedOn": "Issued on",
+    "choose": "Choose",
+    "final": "An issued certificate is kept as entered and cannot be changed or removed.",
+    "submit": "Issue the certificate",
+    "submitting": "Issuing",
+    "done": "Certificate {{number}} was issued.",
+    "kind": {
+      "medical": "Medical",
+      "fitness": "Fitness",
+      "birth": "Birth",
+      "death": "Death"
+    },
+    "field": {
+      "medical": {
+        "diagnosis": "Diagnosis",
+        "restFrom": "Rest advised from",
+        "restTo": "Rest advised until",
+        "remarks": "Remarks"
+      },
+      "fitness": {
+        "purpose": "Purpose",
+        "findings": "Findings",
+        "outcome": "Outcome",
+        "validUntil": "Valid until"
+      },
+      "birth": {
+        "childName": "Name of the child",
+        "dateOfBirth": "Date of birth",
+        "timeOfBirth": "Time of birth",
+        "sex": "Sex of the child",
+        "placeOfBirth": "Place of birth",
+        "motherName": "Name of the mother",
+        "fatherName": "Name of the father"
+      },
+      "death": {
+        "deceasedName": "Name of the deceased",
+        "dateOfDeath": "Date of death",
+        "timeOfDeath": "Time of death",
+        "placeOfDeath": "Place of death",
+        "causeOfDeath": "Cause of death",
+        "manner": "Manner of death"
+      }
+    },
+    "option": {
+      "outcome": {
+        "fit": "Fit",
+        "fit_with_conditions": "Fit with conditions",
+        "unfit": "Unfit"
+      },
+      "sex": {
+        "female": "Female",
+        "male": "Male",
+        "other": "Other"
+      },
+      "manner": {
+        "natural": "Natural",
+        "accident": "Accident",
+        "suicide": "Suicide",
+        "homicide": "Homicide",
+        "undetermined": "Undetermined"
+      }
+    },
+    "errors": {
+      "merged": "This patient record was merged into another. Open the other record."
+    }
+  }
+}
