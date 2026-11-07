@@ -168,7 +168,7 @@ describe('setting up an authenticator', () => {
     const list = await screen.findByRole('list', { name: 'Recovery codes' });
     for (const code of MOCK_RECOVERY_CODES) expect(list).toHaveTextContent(code);
     // The codes cannot be dismissed before the person says they saved them.
-    expect(screen.getByRole('button', { name: 'Done' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Done' })).toHaveAttribute('aria-disabled', 'true');
     await userEvent.click(screen.getByRole('checkbox', { name: 'I have saved these codes' }));
     await userEvent.click(screen.getByRole('button', { name: 'Done' }));
 

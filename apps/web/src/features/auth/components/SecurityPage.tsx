@@ -1,10 +1,11 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
 import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
+import { ManageAuthenticator } from './ManageAuthenticator';
+import { RecoveryCodes } from './RecoveryCodes';
 import { useConfirmMfa, useEnrollMfa, useRefreshSession } from '../hooks/use-mfa';
 import {
   mfaCodeSchema,
@@ -36,64 +37,6 @@ function enrollErrorKey(error: unknown): string {
   return errorMessageKey(error);
 }
 
-/** Saves the codes as a text file the person chooses where to keep. Nothing is stored here. */
-function downloadCodes(codes: string[]) {
-  const url = URL.createObjectURL(new Blob([codes.join('\n') + '\n'], { type: 'text/plain' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'recovery-codes.txt';
-  link.click();
-  // After the browser has taken the file, not in the same breath as the click.
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
-
-function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
-  const { t } = useTranslation();
-  const [saved, setSaved] = useState(false);
-  const [copy, setCopy] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const copyCodes = async () => {
-    try {
-      await navigator.clipboard.writeText(codes.join('\n'));
-      setCopy('copied');
-    } catch {
-      // No clipboard access (an insecure page, or refused): the codes are still on screen.
-      setCopy('failed');
-    }
-  };
-  return (
-    <>
-      <p className="text-sm">{t('security.codesIntro')}</p>
-      <ul
-        aria-label={t('security.codesLabel')}
-        className="grid grid-cols-2 gap-2 rounded-md border bg-muted p-3 font-mono text-sm"
-      >
-        {codes.map((code) => (
-          <li key={code}>{code}</li>
-        ))}
-      </ul>
-      <div className="flex gap-2">
-        <Button type="button" variant="outline" onClick={() => void copyCodes()}>
-          {t('security.copy')}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => downloadCodes(codes)}>
-          {t('security.download')}
-        </Button>
-      </div>
-      <p role="status" className="min-h-5 text-sm">
-        {copy === 'copied' && t('security.copied')}
-        {copy === 'failed' && t('security.copyFailed')}
-      </p>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
-        {t('security.codesSaved')}
-      </label>
-      <Button type="button" disabled={!saved} onClick={onDone}>
-        {t('security.done')}
-      </Button>
-    </>
-  );
-}
-
 /**
  * Setting up an authenticator for the signed-in user: scan the code (or type the secret), prove
  * it works with a code, then keep the recovery codes. The secret and the recovery codes live only
@@ -109,6 +52,10 @@ export function SecurityPage() {
   const confirm = useConfirmMfa();
   const form = useZodForm(mfaCodeSchema, { code: '' });
   const passwordForm = useZodForm(mfaPasswordSchema, { password: '' });
+  // Kept in the router's state, not here: the page may be rebuilt while the session reloads.
+  const location = useLocation();
+  const removed =
+    (location.state as { authenticatorOff?: boolean } | null)?.authenticatorOff === true;
 
   const onStart = async ({ password }: MfaPasswordValues) => {
     try {
@@ -178,9 +125,9 @@ export function SecurityPage() {
     );
   } else if (session?.user.mfaEnabled) {
     body = (
-      <p role="status" className="text-sm">
-        {t('security.enabled')}
-      </p>
+      <ManageAuthenticator
+        onDisabled={() => void navigate('.', { replace: true, state: { authenticatorOff: true } })}
+      />
     );
   } else {
     body = (
@@ -205,6 +152,10 @@ export function SecurityPage() {
   return (
     <div className="flex max-w-md flex-col gap-4">
       <h1 className="text-2xl font-semibold tracking-tight">{t('security.title')}</h1>
+      {/* Always on the page, so turning the authenticator off is announced. */}
+      <p role="status" className="min-h-5 text-sm">
+        {removed && !session?.user.mfaEnabled && t('security.turnedOff')}
+      </p>
       {body}
     </div>
   );

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Mediflow API",
-    "version": "0.10.0",
+    "version": "0.11.0",
     "description": "Generated from the API route schemas by `pnpm gen:api`. Do not edit by hand."
   },
   "components": {
@@ -12958,6 +12958,16 @@
             }
           },
           "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

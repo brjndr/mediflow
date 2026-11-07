@@ -9,6 +9,12 @@ import { loginSchema, type LoginValues } from '../schemas';
 import { MfaChallenge } from './MfaChallenge';
 
 /**
+ * How long the code step waits for a code before the held password is dropped. Each attempt
+ * starts it again; an abandoned screen on a shared computer does not keep a password in memory.
+ */
+export const MFA_STEP_TIMEOUT_MS = 5 * 60_000;
+
+/**
  * The one sign-in page for every hospital. Generic and unbranded: which hospital someone belongs
  * to is known only after they sign in.
  */
@@ -24,8 +30,23 @@ export function LoginPage() {
   const credentials = useRef<LoginValues | null>(null);
   const [asksForCode, setAsksForCode] = useState(false);
   useEffect(() => () => void (credentials.current = null), []);
+  const [attempts, setAttempts] = useState(0);
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    if (!asksForCode) return;
+    const timer = setTimeout(() => {
+      credentials.current = null;
+      signIn.reset();
+      setAsksForCode(false);
+      setTimedOut(true);
+    }, MFA_STEP_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+    // `signIn` is a new object each render; only the step and the attempts restart the clock.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asksForCode, attempts]);
 
   const onSubmit = async (values: LoginValues) => {
+    setTimedOut(false);
     try {
       await signIn.mutateAsync(values);
     } catch (error) {
@@ -44,6 +65,7 @@ export function LoginPage() {
 
   const onCode = async (code: string) => {
     if (!credentials.current) return;
+    setAttempts((n) => n + 1);
     try {
       await signIn.mutateAsync({ ...credentials.current, code });
       credentials.current = null;
@@ -79,6 +101,11 @@ export function LoginPage() {
       {endedKey && !signIn.isError && (
         <p role="status" className="rounded-md border bg-accent px-3 py-2 text-sm">
           {t(endedKey)}
+        </p>
+      )}
+      {timedOut && !asksForCode && (
+        <p role="status" className="rounded-md border bg-accent px-3 py-2 text-sm">
+          {t('login.mfaTimedOut')}
         </p>
       )}
       {asksForCode ? (
