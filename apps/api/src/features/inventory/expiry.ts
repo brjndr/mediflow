@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import { insertEvent } from '../../core/outbox/plugin.js';
 import { WORKER_ROLE } from '../../core/outbox/dispatcher.js';
-import { APP_ROLE } from '../../core/tenancy/plugin.js';
+import { withTenantTransaction } from '../../core/tenancy/transaction.js';
 
 export const EXPIRY_JOB = 'inventory.expiry';
 /** A batch with stock is told when it is this many days (or fewer) from its last day of use. */
@@ -38,11 +38,7 @@ async function stockKeepers(pool: pg.Pool): Promise<string[]> {
  * batches were told.
  */
 export async function announceExpiring(pool: pg.Pool, tenantId: string): Promise<number> {
-  const client = await pool.connect();
-  try {
-    await client.query('begin');
-    await client.query(`set local role ${APP_ROLE}`);
-    await client.query("select set_config('app.tenant_id', $1, true)", [tenantId]);
+  return withTenantTransaction(pool, tenantId, async (client) => {
     const { rows } = await client.query<{ batch_id: string; drug_id: string }>(
       `with due as (
          select t.id as batch_id, t.drug_id
@@ -65,14 +61,8 @@ export async function announceExpiring(pool: pg.Pool, tenantId: string): Promise
     for (const row of rows) {
       await insertEvent(client, 'stock.expiring', row.batch_id, null, { drugId: row.drug_id });
     }
-    await client.query('commit');
     return rows.length;
-  } catch (error) {
-    await client.query('rollback').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**

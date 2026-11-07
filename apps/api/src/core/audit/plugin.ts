@@ -3,7 +3,7 @@ import fp from 'fastify-plugin';
 import type pg from 'pg';
 import { replayed } from '../idempotency/state.js';
 import { WORKER_ROLE } from '../outbox/dispatcher.js';
-import { APP_ROLE } from '../tenancy/plugin.js';
+import { withTenantTransaction } from '../tenancy/transaction.js';
 
 /**
  * Creates the audit partitions for this month and the next three. Runs as the worker role: the
@@ -136,20 +136,14 @@ async function recordDenied(app: FastifyInstance, request: FastifyRequest): Prom
   const action = declared.action ?? METHOD_ACTIONS[request.method] ?? request.method.toLowerCase();
   const params = request.params as Record<string, unknown> | undefined;
   const id = typeof params?.id === 'string' ? params.id : null;
-  const client = await app.database.pool.connect();
   try {
-    await client.query('begin');
-    await client.query(`set local role ${APP_ROLE}`);
-    await client.query("select set_config('app.tenant_id', $1, true)", [tenantId]);
-    await insertAuditEntries(client, request.session?.userId ?? null, request.id, [
-      { action: `denied.${action}`.slice(0, 63), entity: declared.entity, entityId: id },
-    ]);
-    await client.query('commit');
+    await withTenantTransaction(app.database.pool, tenantId, (client) =>
+      insertAuditEntries(client, request.session?.userId ?? null, request.id, [
+        { action: `denied.${action}`.slice(0, 63), entity: declared.entity, entityId: id },
+      ]),
+    );
   } catch {
-    await client.query('rollback').catch(() => undefined);
     request.log.warn({ event: 'audit_denied_failed' }, 'could not record a denied attempt');
-  } finally {
-    client.release();
   }
 }
 

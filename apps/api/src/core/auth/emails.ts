@@ -2,7 +2,7 @@ import fp from 'fastify-plugin';
 import type pg from 'pg';
 import type { JobContext, JobQueue, SendOptions } from '../jobs/queue.js';
 import type { Notifier } from '../notifier/notifier.js';
-import { APP_ROLE } from '../tenancy/plugin.js';
+import { withTenantTransaction } from '../tenancy/transaction.js';
 import { withAuthTransaction } from './db.js';
 import { newToken } from './sessions.js';
 
@@ -73,37 +73,11 @@ export function queuePasswordChangedEmail(
   return jobs.send(PASSWORD_CHANGED_EMAIL, job, { id: job.eventId, ...RETRIES });
 }
 
-/** One transaction as the app role at the hospital, as a request of that hospital runs. */
-async function atHospital<T>(
-  pool: pg.Pool,
-  tenantId: string,
-  work: (client: pg.PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await pool.connect();
-  let broken: Error | undefined;
-  try {
-    await client.query('begin');
-    await client.query(`set local role ${APP_ROLE}`);
-    await client.query("select set_config('app.tenant_id', $1, true)", [tenantId]);
-    const result = await work(client);
-    await client.query('commit');
-    return result;
-  } catch (error) {
-    await client.query('rollback').catch((failure: unknown) => {
-      // The connection is in an unknown state: it is destroyed, not given back to the pool.
-      broken = failure instanceof Error ? failure : new Error('rollback failed');
-    });
-    throw error;
-  } finally {
-    client.release(broken);
-  }
-}
-
 const OPEN_INVITE = 'accepted_at is null and revoked_at is null';
 
 /** Records that the mail server took an open invite's email. Never throws: the email has gone. */
 export async function markInviteEmailSent(pool: pg.Pool, job: InviteEmailJob): Promise<void> {
-  await atHospital(pool, job.tenantId, (client) =>
+  await withTenantTransaction(pool, job.tenantId, (client) =>
     client.query(
       `update invites set email_sent_at = now(), email_failed_at = null
        where id = $1 and ${OPEN_INVITE}`,
@@ -117,7 +91,7 @@ export async function markInviteEmailSent(pool: pg.Pool, job: InviteEmailJob): P
  * be queued. A time only. Never throws, so it can sit in a failure path.
  */
 export async function markInviteEmailFailed(pool: pg.Pool, job: InviteEmailJob): Promise<void> {
-  await atHospital(pool, job.tenantId, (client) =>
+  await withTenantTransaction(pool, job.tenantId, (client) =>
     client.query(
       `update invites set email_failed_at = now(), email_sent_at = null
        where id = $1 and ${OPEN_INVITE}`,
@@ -151,7 +125,7 @@ export async function deliverInvite(
   job: InviteEmailJob,
 ): Promise<boolean> {
   const { token, hash } = newToken();
-  const invite = await atHospital(pool, job.tenantId, async (client) => {
+  const invite = await withTenantTransaction(pool, job.tenantId, async (client) => {
     const { rows } = await client.query<{ email: string; hospital_name: string; hours: number }>(
       `update invites set token_hash = $2
        where id = $1 and accepted_at is null and revoked_at is null and expires_at > now()
