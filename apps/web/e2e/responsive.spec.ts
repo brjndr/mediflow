@@ -141,6 +141,15 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByText('GW-A-01').first()).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // Admitting (#152): the form is one column with the free beds as choices.
+  await page.getByRole('link', { name: 'Admissions' }).click();
+  await expect(page.getByRole('heading', { name: 'Admissions', level: 1 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'Admit a patient' }).click();
+  await expect(page.getByRole('heading', { name: 'Admit a patient', level: 1 })).toBeVisible();
+  await expect(page.getByRole('radio').first()).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   // The OPD queue: three groups of tokens, cards on a phone, and the form to issue one.
   await goTo(page, 'OPD queue');
   await expect(page.getByRole('heading', { name: 'OPD queue', exact: true })).toBeVisible();

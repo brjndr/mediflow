@@ -12,6 +12,7 @@ import {
   SelectField,
   SubmitButton,
   useFieldError,
+  useFieldFocusRef,
   useFieldValue,
   useSetFieldValue,
   useZodForm,
@@ -47,6 +48,7 @@ function PatientChoice({
   const { t } = useTranslation('admissions');
   const setValue = useSetFieldValue();
   const error = useFieldError('patientId');
+  const focusRef = useFieldFocusRef('patientId');
   const [moved, setMoved] = useState(false);
   const card = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -60,7 +62,7 @@ function PatientChoice({
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div ref={focusRef} className="flex flex-col gap-1.5">
       {patient ? (
         <>
           <p className="text-sm font-medium">{t('admit.patient')}</p>
@@ -103,12 +105,14 @@ function BedChoice() {
   const setValue = useSetFieldValue();
   const value = useFieldValue('bedId');
   const error = useFieldError('bedId');
+  const focusRef = useFieldFocusRef('bedId');
   return (
-    <div className="flex flex-col gap-1.5">
+    <div ref={focusRef} className="flex flex-col gap-1.5">
       <BedPicker
         value={typeof value === 'string' ? value : ''}
         onChange={(bedId) => setValue('bedId', bedId)}
         describedBy={error ? 'admit-bed-error' : undefined}
+        invalid={Boolean(error)}
       />
       {error && (
         <p id="admit-bed-error" role="alert" className="text-sm text-destructive">

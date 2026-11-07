@@ -16,10 +16,12 @@ export function BedPicker({
   value,
   onChange,
   describedBy,
+  invalid,
 }: {
   value: string;
   onChange: (bedId: string) => void;
   describedBy?: string;
+  invalid?: boolean;
 }) {
   const { t } = useTranslation('admissions');
   const { t: tCommon } = useTranslation();
@@ -37,7 +39,7 @@ export function BedPicker({
   const shown = (beds.data ?? []).filter((bed) => !category || bed.categoryName === category);
 
   return (
-    <fieldset className="flex flex-col gap-3" aria-describedby={describedBy}>
+    <fieldset className="flex flex-col gap-3">
       <legend className="text-sm font-medium">{t('admit.bed')}</legend>
       <div className="flex flex-wrap gap-4">
         {mayWards && wards.isSuccess && (
@@ -89,33 +91,41 @@ export function BedPicker({
         </p>
       )}
       {shown.length > 0 && (
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {shown.map((bed) => {
-            return (
-              <li key={bed.id}>
-                {/* The text is in nested spans, which the rule does not follow; the input is inside the label. */}
-                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-accent pointer-coarse:min-h-11">
-                  <input
-                    type="radio"
-                    name={groupId}
-                    checked={value === bed.id}
-                    onChange={() => onChange(bed.id)}
-                    className="mt-0.5"
-                  />
-                  <span>
-                    <span className="block font-medium">
-                      {t('admit.bedOption', { number: bed.number, ward: bed.wardName })}
+        <div
+          role="radiogroup"
+          aria-label={t('admit.bed')}
+          aria-required="true"
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
+        >
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {shown.map((bed) => {
+              return (
+                <li key={bed.id}>
+                  {/* The text is in nested spans, which the rule does not follow; the input is inside the label. */}
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                  <label className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-accent pointer-coarse:min-h-11">
+                    <input
+                      type="radio"
+                      name={groupId}
+                      checked={value === bed.id}
+                      onChange={() => onChange(bed.id)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="block font-medium">
+                        {t('admit.bedOption', { number: bed.number, ward: bed.wardName })}
+                      </span>
+                      <span className="block text-muted-foreground">
+                        {bed.roomName} · {bed.categoryName}
+                      </span>
                     </span>
-                    <span className="block text-muted-foreground">
-                      {bed.roomName} · {bed.categoryName}
-                    </span>
-                  </span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </fieldset>
   );
