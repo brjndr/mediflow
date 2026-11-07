@@ -45,6 +45,9 @@ export const PermissionCatalog = Type.Object(
         permission: Type.String(),
         description: Type.String(),
         feature: Type.String(),
+        scopes: Type.Array(StringEnum(['all', 'own', 'department']), {
+          description: 'The scopes the permission can be held at; always starts with all',
+        }),
       }),
     ),
   },

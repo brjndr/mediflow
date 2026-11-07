@@ -4629,6 +4629,8 @@ export interface components {
                 permission: string;
                 description: string;
                 feature: string;
+                /** @description The scopes the permission can be held at; always starts with all */
+                scopes: ("all" | "own" | "department")[];
             }[];
         };
         /** @description An invitation that has been emailed. The link is not returned. */

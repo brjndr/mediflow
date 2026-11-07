@@ -60,3 +60,58 @@ test('add a custom role and delete it from the keyboard', async ({ page }) => {
   await expect(page.getByRole('row', { name: /^Ward clerk/ })).toHaveCount(0);
   expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
 });
+
+test('change what a role may do from the keyboard, with focus visible at each step', async ({
+  page,
+}) => {
+  test.skip(!isDesktop(page), 'The permission matrix is a desktop-only screen.');
+  await page.goto('/');
+  await goTo(page, 'Roles');
+  await expect(status(page, '4 roles')).toBeVisible();
+
+  const open = page.getByRole('button', { name: /^Permissions.*Doctor/ });
+  await open.focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('heading', { name: 'Permissions of Doctor', level: 1 }),
+  ).toBeVisible();
+  await expect(status(page, 'No changes.')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  // A checkbox takes Space, and shows where the keyboard is.
+  const remove = page.getByRole('checkbox', { name: /patient:delete$/ });
+  await remove.focus();
+  await expect(remove).toBeFocused();
+  await expect(remove).not.toBeChecked();
+  await page.keyboard.press('Space');
+  await expect(remove).toBeChecked();
+  await expect(status(page, '1 unsaved change.')).toBeVisible();
+
+  // A scope list is a native select, changed with the arrow keys.
+  const scope = page.getByRole('combobox', { name: 'Scope of appointment:read' });
+  await scope.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(status(page, '2 unsaved changes.')).toBeVisible();
+
+  const save = page.getByRole('button', { name: 'Save permissions' });
+  await save.focus();
+  await page.keyboard.press('Enter');
+  await expect(status(page, 'Saved the permissions of Doctor.')).toBeVisible();
+  // Focus stays on the button that was used, and the status line is announced.
+  await expect(save).toBeFocused();
+  await expectNoAxeViolations(page);
+});
+
+test('the role that manages roles cannot lose that, and says why', async ({ page }) => {
+  test.skip(!isDesktop(page), 'The permission matrix is a desktop-only screen.');
+  await page.goto('/');
+  await goTo(page, 'Roles');
+  await page.getByRole('button', { name: /^Permissions.*Admin/ }).click();
+  const manage = page.getByRole('checkbox', { name: /role:manage$/ });
+  await expect(manage).toHaveAttribute('aria-disabled', 'true');
+  await manage.focus();
+  await page.keyboard.press('Space');
+  await expect(manage).toBeChecked();
+  await expect(manage).toHaveAccessibleDescription(/cannot take away your own ability/);
+});

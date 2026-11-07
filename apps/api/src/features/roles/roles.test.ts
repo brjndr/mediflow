@@ -167,6 +167,12 @@ describe('reading roles', () => {
     const items = catalog.json<{ items: { permission: string; description: string }[] }>().items;
     expect(items.map((item) => item.permission)).toContain('role:manage');
     expect(items.every((item) => item.description.length > 0)).toBe(true);
+    const scopes = (id: string) =>
+      catalog
+        .json<{ items: { permission: string; scopes: string[] }[] }>()
+        .items.find((item) => item.permission === id)?.scopes;
+    expect(scopes('role:manage')).toEqual(['all']);
+    expect(scopes('appointment:read')).toEqual(['all', 'own', 'department']);
   });
 
   it('is for those who hold role:read', async () => {

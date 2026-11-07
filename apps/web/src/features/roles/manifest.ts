@@ -11,12 +11,20 @@ export const rolesFeature: FeatureManifest = {
   id: 'roles',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Roles' } },
+    titles: { en: { title: 'Roles', matrix: 'Role permissions' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
   featureFlag: 'roles',
-  routes: [{ path: 'roles', lazy: () => import('./routes/RolesPage'), requires: ['role:read'] }],
+  routes: [
+    { path: 'roles', lazy: () => import('./routes/RolesPage'), requires: ['role:read'] },
+    {
+      path: 'roles/:roleId',
+      titleKey: 'matrix',
+      lazy: () => import('./routes/RoleMatrix'),
+      requires: ['role:read'],
+    },
+  ],
   nav: { icon: ShieldCheck, order: 810, requires: ['role:read'] },
   permissions: ['role:read', 'role:manage'],
 };
