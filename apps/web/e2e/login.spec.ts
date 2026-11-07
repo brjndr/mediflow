@@ -163,5 +163,6 @@ test('managing the authenticator with the keyboard: new recovery codes, held unt
   await page.keyboard.press('Space');
   await page.getByRole('button', { name: 'Done' }).focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Recovery codes' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Replace recovery codes' })).toBeVisible();
 });
