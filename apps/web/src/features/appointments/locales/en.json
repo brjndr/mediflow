@@ -110,7 +110,8 @@
     "view": "Calendar view",
     "views": {
       "day": "Day",
-      "week": "Week"
+      "week": "Week",
+      "doctors": "Doctors"
     },
     "previousDay": "Previous day",
     "nextDay": "Next day",
@@ -124,8 +125,16 @@
     "loading": "Loading appointments…",
     "retry": "Try again",
     "truncated": "More than {{count}} appointments on these days: not all are shown. Choose the day view.",
+    "truncatedDoctors": "More than {{count}} appointments on this day: not all are shown. Choose fewer doctors.",
     "needsDoctors": "The calendar shows one doctor's appointments, and choosing a doctor is not available to you here. Use the list.",
     "noDoctors": "This hospital has no practising doctors yet."
+  },
+  "doctorsDay": {
+    "department": "Department",
+    "allDepartments": "All departments",
+    "none": "No practising doctors in this department.",
+    "choose": "Doctors shown (up to {{max}})",
+    "tooMany": "This department has {{count}} doctors. At most {{max}} are shown at once: choose which."
   },
   "detail": {
     "heading": "Appointment",

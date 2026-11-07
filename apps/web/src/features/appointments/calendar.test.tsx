@@ -655,3 +655,112 @@ describe('booking asked for from the calendar', () => {
     expect(await screen.findByLabelText(/^Day/)).toHaveValue(today());
   });
 });
+
+describe('the doctors of a department side by side (#331)', () => {
+  /** The first three doctors share a department, each with eight appointments today. */
+  const shareDepartment = () => {
+    for (const id of ['doc_h_01', 'doc_h_02', 'doc_h_03']) {
+      editMockDoctor(id, { departmentId: 'dep_h_01' });
+    }
+  };
+  const doctorHeadings = () =>
+    [...calendar().querySelectorAll('.rbc-row-resource .rbc-header')].map(
+      (heading) => heading.textContent ?? '',
+    );
+  const openDoctors = async () => {
+    renderApp({ entry: '/appointments/calendar' });
+    await screen.findByRole('heading', HEADING);
+    await chooseDoctor();
+    await userEvent.click(screen.getByRole('button', { name: 'Doctors' }));
+  };
+  const chooseDepartment = async () => {
+    const select = await screen.findByRole('combobox', { name: 'Department' });
+    await waitFor(() => expect(within(select).queryAllByRole('option').length).toBeGreaterThan(1));
+    await userEvent.selectOptions(select, 'dep_h_01');
+  };
+
+  it('draws a column for each doctor of the department, asking for each one day', async () => {
+    shareDepartment();
+    const seen = watchRequests();
+    await openDoctors();
+    const before = seen.length;
+    await chooseDepartment();
+    await waitFor(() => expect(statuses()).toContain('24 appointments'));
+    expect(doctorHeadings()).toHaveLength(3);
+    expect(blocks()).toHaveLength(24);
+    const asked = seen
+      .slice(before)
+      .filter((params) => params.get('from') === today() && params.get('to') === today());
+    expect(new Set(asked.map((params) => params.get('doctorId')))).toEqual(
+      new Set(['doc_h_01', 'doc_h_02', 'doc_h_03']),
+    );
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/^Day: /);
+  });
+
+  it('shows at most eight doctors, says so, and lets the person choose which', async () => {
+    await openDoctors();
+    await screen.findByText(/This department has 28 doctors\. At most 8 are shown at once/);
+    const group = screen.getByRole('group', { name: /Doctors shown/ });
+    const boxes = () => within(group).getAllByRole('checkbox') as HTMLInputElement[];
+    await waitFor(() => expect(boxes().filter((box) => box.checked)).toHaveLength(8));
+    expect(doctorHeadings()).toHaveLength(8);
+
+    // Full: another cannot be added until one is taken off.
+    const ninth = boxes().find((box) => !box.checked) as HTMLInputElement;
+    expect(ninth).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(ninth);
+    expect(ninth.checked).toBe(false);
+
+    await userEvent.click(boxes().find((box) => box.checked) as HTMLInputElement);
+    await waitFor(() => expect(doctorHeadings()).toHaveLength(7));
+    await userEvent.click(ninth);
+    await waitFor(() => expect(doctorHeadings()).toHaveLength(8));
+  });
+
+  it('is not offered at phone and tablet width, which keep one doctor’s day', async () => {
+    narrowWindow();
+    renderApp({ entry: '/appointments/calendar' });
+    await chooseDoctor();
+    expect(screen.queryByRole('button', { name: 'Doctors' })).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Doctor' })).toBeInTheDocument();
+  });
+
+  it('moves between doctors with the arrow keys, at the same time', async () => {
+    shareDepartment();
+    await openDoctors();
+    await chooseDepartment();
+    await waitFor(() => expect(statuses()).toContain('24 appointments'));
+    const grid = within(calendar()).getByRole('grid', { name: 'Appointments calendar' });
+    const active = () => document.activeElement as HTMLElement;
+    screen.getByRole('button', { name: 'Today' }).focus();
+    for (let i = 0; i < 12 && !grid.contains(document.activeElement); i++) await userEvent.tab();
+    expect(grid).toContainElement(active());
+    const first = active().dataset.day;
+    expect(first).toBe('doc_h_01');
+    expect(active().getAttribute('aria-label')).toMatch(/^9:00\s?am .+, with /i);
+    await userEvent.keyboard('{ArrowRight}');
+    expect(active().dataset.day).toBe('doc_h_02');
+    expect(active().getAttribute('aria-label')).toMatch(/^9:00\s?am /i);
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}');
+    expect(active().dataset.day).toBe('doc_h_01');
+    // Page Down is the next day, in the same column.
+    await userEvent.keyboard('{PageDown}');
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
+        new RegExp(`^Day: .*${addDays(today(), 1).slice(0, 4)}`),
+      ),
+    );
+    await waitFor(() => expect(active().dataset.day).toBe('doc_h_01'));
+  });
+
+  it('has no accessibility violations', { timeout: 15_000 }, async () => {
+    shareDepartment();
+    const { container } = renderApp({ entry: '/appointments/calendar' });
+    await screen.findByRole('heading', HEADING);
+    await chooseDoctor();
+    await userEvent.click(screen.getByRole('button', { name: 'Doctors' }));
+    await chooseDepartment();
+    await waitFor(() => expect(statuses()).toContain('24 appointments'));
+    await expectNoAxeViolations(container);
+  });
+});

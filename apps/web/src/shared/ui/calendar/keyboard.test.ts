@@ -93,3 +93,24 @@ it('writes minutes as a clock time', () => {
   expect(clockTime(0)).toBe('00:00');
   expect(clockTime(11 * 60 + 15)).toBe('11:15');
 });
+
+describe('move with resources as columns', () => {
+  const columns = ['doc_a', 'doc_b', 'doc_c'];
+  const stops: StopsByDay = new Map(
+    columns.map((id) => [id, [stop(id, 480), stop(id, 540, `e_${id}`)]]),
+  );
+
+  it('walks the columns in order, at the same time, and stays at either end', () => {
+    const at = { day: 'doc_b', minutes: 540 };
+    expect(move('ArrowRight', at, stops, 1, columns)?.cursor).toEqual({
+      day: 'doc_c',
+      minutes: 540,
+    });
+    expect(move('ArrowLeft', at, stops, 1, columns)?.cursor).toEqual({
+      day: 'doc_a',
+      minutes: 540,
+    });
+    const last = move('ArrowRight', { day: 'doc_c', minutes: 540 }, stops, 1, columns);
+    expect(last).toEqual({ cursor: { day: 'doc_c', minutes: 540 }, outside: false });
+  });
+});

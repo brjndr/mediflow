@@ -33,6 +33,15 @@ export interface CalendarEventItem {
    * does not rely on colour, such as a status, at the start where truncation cannot cut it off.
    */
   icon?: LucideIcon;
+  /** With `resources`: the column the block is drawn in. A block of no listed resource is not drawn. */
+  resourceId?: string;
+}
+
+/** A column of a day drawn for several resources side by side, such as a doctor. */
+export interface CalendarResource {
+  id: string;
+  /** The column's heading, and part of the name of each of its blocks and free times. */
+  title: string;
 }
 
 export interface CalendarProps {
@@ -53,12 +62,12 @@ export interface CalendarProps {
    * A time with nothing booked chosen by click, tap, Enter or Space: the day and its start as
    * `HH:mm` at the hospital. Without it a free time can be reached but does nothing.
    */
-  onSelectSlot?: (day: DayString, time: string) => void;
+  onSelectSlot?: (day: DayString, time: string, resourceId?: string) => void;
   /**
    * Which free times can be chosen (a time in the past, or a day outside a booking window, may
    * not), as the day and `HH:mm` at the hospital. All of them when absent.
    */
-  canSelectSlot?: (day: DayString, time: string) => boolean;
+  canSelectSlot?: (day: DayString, time: string, resourceId?: string) => boolean;
   /** What choosing a free time does, said after its name of each that can be chosen. */
   slotAction?: string;
   /**
@@ -73,6 +82,12 @@ export interface CalendarProps {
   onNavigate?: (day: DayString) => void;
   /** A day heading of the week chosen, to show that day. */
   onOpenDay?: (day: DayString) => void;
+  /**
+   * One day with a column for each of these, side by side (a department's doctors). The view is
+   * the day then: the week is not drawn. Free times and blocks belong to a column by their
+   * `resourceId`. For desktop width: a screen offers it there only.
+   */
+  resources?: CalendarResource[];
   /** In pixels, or a CSS length such as `min(640px, 70dvh)`. The hours scroll inside it. */
   height?: number | string;
 }

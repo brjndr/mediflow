@@ -83,6 +83,41 @@ test('one doctor’s calendar, by day and by week where there is room', async ({
   await expect(page.getByRole('heading', { name: 'Appointment', exact: true })).toBeVisible();
 });
 
+test('the doctors of a department side by side, worked with the keyboard (desktop only)', async ({
+  page,
+}) => {
+  await page.goto('/appointments/calendar');
+  const wide = (page.viewportSize()?.width ?? 0) >= 1024;
+  const view = page.getByRole('button', { name: 'Doctors', exact: true });
+  if (!wide) {
+    // A phone or an upright tablet keeps one doctor's day.
+    await expect(page.getByRole('combobox', { name: 'Doctor' })).toBeVisible();
+    await expect(view).toHaveCount(0);
+    return;
+  }
+  await view.focus();
+  await page.keyboard.press('Enter');
+  // Every department: more doctors than fit, so eight are shown and the rest can be chosen.
+  await expect(page.getByText(/At most 8 are shown at once/)).toBeVisible();
+  const columns = page.locator('.rbc-row-resource .rbc-header');
+  await expect(columns).toHaveCount(8);
+  await expect(status(page, /\d+ appointments?/)).toBeVisible();
+
+  await tabIntoGrid(page);
+  const first = await page.evaluate(() => document.activeElement?.getAttribute('data-day'));
+  expect(await focusedName(page)).toMatch(/^9:00\s?am .+, until 9:15\s?am, /i);
+  await page.keyboard.press('ArrowRight');
+  const second = await page.evaluate(() => document.activeElement?.getAttribute('data-day'));
+  expect(second).not.toBe(first);
+  expect(second).toBeTruthy();
+  // Next day with Page Down, staying in the doctor's column.
+  await page.keyboard.press('PageDown');
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText(/^Day: /);
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.getAttribute('data-day')))
+    .toBe(second);
+});
+
 test('cancel an appointment with a reason', async ({ page }) => {
   // Tomorrow at the hospital (Asia/Kolkata), whose appointments have not started.
   const tomorrow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(

@@ -87,6 +87,16 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await page.getByRole('link', { name: 'Calendar', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Appointments calendar' })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // The doctors of a department side by side: desktop width only, where it stays inside the page.
+  const doctorsView = page.getByRole('button', { name: 'Doctors', exact: true });
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    await doctorsView.click();
+    await expect(page.getByRole('group', { name: /^Doctors shown/ })).toBeVisible();
+    await expect(page.locator('.rbc-row-resource .rbc-header').first()).toBeVisible();
+    await expectNoSidewaysScroll(page);
+  } else {
+    await expect(doctorsView).toHaveCount(0);
+  }
   // Booking: one column on a phone, the free times wrapping inside the width.
   await page.getByRole('link', { name: 'Book an appointment' }).click();
   await expect(page.getByRole('heading', { name: 'Book an appointment' })).toBeVisible();
