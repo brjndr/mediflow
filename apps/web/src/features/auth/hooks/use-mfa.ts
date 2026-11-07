@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sessionKey } from '@/app/session';
 import { createTenantKeys, isApiError } from '@/shared/api';
-import { confirmMfa, enrollMfa, fetchMfaRequirement } from '../api';
+import {
+  confirmMfa,
+  disableMfa,
+  enrollMfa,
+  fetchMfaRequirement,
+  regenerateRecoveryCodes,
+} from '../api';
 
 const mfaKeys = createTenantKeys('mfa');
 
@@ -54,4 +60,18 @@ export const useConfirmMfa = () => useMutation({ mutationFn: confirmMfa, gcTime:
 export function useRefreshSession() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: sessionKey });
+}
+
+// `gcTime: 0`: the new recovery codes are shown once and must not outlive the screen.
+export const useRegenerateRecoveryCodes = () =>
+  useMutation({ mutationFn: regenerateRecoveryCodes, gcTime: 0 });
+
+/** Turning the authenticator off reloads the session, so the screens stop asking for a code. */
+export function useDisableMfa() {
+  const refreshSession = useRefreshSession();
+  return useMutation({
+    mutationFn: disableMfa,
+    gcTime: 0,
+    onSuccess: () => refreshSession(),
+  });
 }

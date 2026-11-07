@@ -71,3 +71,21 @@ export async function revokeAccountSession(sessionId: string): Promise<void> {
     fetch: apiFetchOnce,
   });
 }
+
+/**
+ * Replaces the recovery codes, after the password and a code from the authenticator itself (not a
+ * recovery code). Returns the new codes, this once.
+ */
+export async function regenerateRecoveryCodes(input: {
+  password: string;
+  code: string;
+}): Promise<string[]> {
+  return requireData(
+    await api.POST('/auth/mfa/recovery-codes', { body: input, fetch: apiFetchOnce }),
+  ).recoveryCodes;
+}
+
+/** Turns the authenticator off, after the password and a current code. */
+export async function disableMfa(input: { password: string; code: string }): Promise<void> {
+  await api.POST('/auth/mfa/disable', { body: input, fetch: apiFetchOnce });
+}

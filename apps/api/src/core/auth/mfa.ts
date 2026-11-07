@@ -137,6 +137,22 @@ export async function mfaStanding(
   return rows[0] ?? null;
 }
 
+/**
+ * Whether any hospital the user is an active member of requires an authenticator. Switching it
+ * off is refused while that holds, since the next request there would shut the person out.
+ */
+export async function mfaRequiredAnywhere(client: pg.PoolClient, userId: string): Promise<boolean> {
+  const { rowCount } = await client.query(
+    `select 1 from memberships m
+     where m.user_id = $1 and m.status = 'active'
+       and (select count(*) from tenant_features f
+            where f.tenant_id = m.tenant_id and f.enabled and f.feature in ($2, $3)) = 2
+     limit 1`,
+    [userId, MFA_FEATURE, MFA_REQUIRED_FEATURE],
+  );
+  return rowCount === 1;
+}
+
 /** Whether sign-in must ask this user for a code. */
 export async function isMfaEnabled(client: pg.PoolClient, userId: string): Promise<boolean> {
   const { rowCount } = await client.query(

@@ -224,11 +224,9 @@ export function ProfilePage() {
           <p className="text-sm">
             {t(user.mfaEnabled ? 'security.enabled' : 'profile.authenticatorOff')}
           </p>
-          {!user.mfaEnabled && (
-            <Link to="/security" className="text-sm font-medium text-primary hover:underline">
-              {t('security.setUp')}
-            </Link>
-          )}
+          <Link to="/security" className="text-sm font-medium text-primary hover:underline">
+            {t(user.mfaEnabled ? 'security.manage' : 'security.setUp')}
+          </Link>
         </section>
       )}
 
