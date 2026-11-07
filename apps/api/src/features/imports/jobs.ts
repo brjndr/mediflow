@@ -10,7 +10,7 @@ import {
 } from '../../core/imports/registry.js';
 import type { DomainEvent } from '../../core/outbox/events.js';
 import { insertEvent } from '../../core/outbox/plugin.js';
-import { APP_ROLE } from '../../core/tenancy/plugin.js';
+import { withTenantTransaction } from '../../core/tenancy/transaction.js';
 import { convert, minorDigitsOf, type Problem } from './convert.js';
 import { currencyOfHospital, deleteRows, readRows, replaceProblems } from './repository.js';
 
@@ -44,24 +44,11 @@ async function atHospital<T>(
   tenantId: string,
   work: (client: pg.PoolClient) => Promise<T>,
 ): Promise<T> {
-  const client = await pool.connect();
-  let broken: Error | undefined;
   try {
-    await client.query('begin');
-    await client.query(`set local role ${APP_ROLE}`);
-    await client.query("select set_config('app.tenant_id', $1, true)", [tenantId]);
-    const result = await work(client);
-    await client.query('commit');
-    return result;
+    return await withTenantTransaction(pool, tenantId, work);
   } catch (error) {
-    await client.query('rollback').catch((failure: unknown) => {
-      // The connection is in an unknown state: it is destroyed, not given back to the pool.
-      broken = failure instanceof Error ? failure : new Error('rollback failed');
-    });
     if (error instanceof Rollback) return error.value as T;
     throw error;
-  } finally {
-    client.release(broken);
   }
 }
 
