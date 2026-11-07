@@ -583,3 +583,57 @@ describe('the booking form', () => {
     expect(await screen.findByRole('button', { name: 'Change patient' })).toHaveFocus();
   });
 });
+
+describe('booking from the patient screen (#329)', () => {
+  it('starts on the patient whose screen it was opened from, needing no search', async () => {
+    const seen = watchBookings();
+    const day = bookableDay();
+    renderApp({ entry: `/patients/${PATIENT}` });
+    await userEvent.click(await screen.findByRole('link', { name: 'Book appointment' }));
+    await screen.findByRole('heading', HEADING);
+    expect(await screen.findByRole('button', { name: 'Change patient' })).toBeInTheDocument();
+    expect(screen.getByText('MRN MRN-PTH-00001')).toBeInTheDocument();
+    await chooseDoctorAndDay(day);
+    await userEvent.click(timeButtons()[0] as HTMLElement);
+    await submit();
+    expect(await screen.findByRole('heading', { name: 'Appointment booked' })).toBeInTheDocument();
+    expect(seen[0]?.body).toMatchObject({ patientId: PATIENT, doctorId: DOCTOR });
+  });
+
+  it('lets the person change the patient', async () => {
+    await openBooking({ entry: `/appointments/new?patientId=${PATIENT}` });
+    await userEvent.click(await screen.findByRole('button', { name: 'Change patient' }));
+    expect(await screen.findByRole('combobox', { name: /^Patient/ })).toBeInTheDocument();
+  });
+
+  it('says one thing for an unknown patient and one of another hospital', async () => {
+    await openBooking({ entry: '/appointments/new?patientId=pth_99999' });
+    expect(await screen.findByText(/That patient cannot be found/)).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /^Patient/ })).toBeInTheDocument();
+  });
+
+  it('says the same for a patient of another hospital', async () => {
+    await openBooking({ entry: '/appointments/new?patientId=ptc_00001' });
+    expect(await screen.findByText(/That patient cannot be found/)).toBeInTheDocument();
+  });
+
+  it('ignores a malformed patient id in the address', async () => {
+    await openBooking({ entry: '/appointments/new?patientId=%3Cscript%3E' });
+    expect(screen.getByRole('combobox', { name: /^Patient/ })).toBeInTheDocument();
+    expect(screen.queryByText(/cannot be found/)).not.toBeInTheDocument();
+  });
+
+  it('offers no action without appointment:create', async () => {
+    revokePermission(TENANT_IDS.hospital, 'admin', 'appointment:create');
+    renderApp({ entry: `/patients/${PATIENT}` });
+    await screen.findByRole('link', { name: 'Edit' });
+    expect(screen.queryByRole('link', { name: 'Book appointment' })).not.toBeInTheDocument();
+  });
+
+  it('offers no action with appointments switched off', async () => {
+    setTenantFeature(TENANT_IDS.hospital, 'appointments', false);
+    renderApp({ entry: `/patients/${PATIENT}` });
+    await screen.findByRole('link', { name: 'Edit' });
+    expect(screen.queryByRole('link', { name: 'Book appointment' })).not.toBeInTheDocument();
+  });
+});

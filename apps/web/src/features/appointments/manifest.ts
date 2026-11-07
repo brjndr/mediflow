@@ -55,4 +55,13 @@ export const appointmentsFeature: FeatureManifest = {
   ],
   nav: { icon: CalendarClock, order: 25, requires: ['appointment:read'] },
   permissions: ['appointment:read', 'appointment:create', 'appointment:update'],
+  extensions: [
+    // "Book appointment" on the patient's screen (#329), given the patient's id only.
+    {
+      slot: 'patient.detail.actions',
+      component: () => import('./components/BookAction'),
+      requires: ['appointment:create'],
+      order: 20,
+    },
+  ],
 };
