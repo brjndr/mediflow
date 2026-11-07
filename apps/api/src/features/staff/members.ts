@@ -38,6 +38,8 @@ import {
 const READ = 'staff:read';
 const INVITE = 'staff:invite';
 const MANAGE = 'staff:manage';
+/** The least time between two sends of one invitation. */
+const RESEND_GAP_SECONDS = 60;
 
 const person = (row: PersonRow): StaffMember => ({
   id: row.id,
@@ -264,7 +266,7 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['staff'],
         headers: IdempotencyHeaders,
         description:
-          "Sends an open invitation again, for one whose email could not be sent or was lost. A new job gives the invitation a new link and the old link stops working; the invitation is not withdrawn, and keeps its expiry. Its email status goes back to being tried (`delivery` 'sending' on the staff list). An invitation that is not open here (accepted, withdrawn, expired, another hospital's, unknown) answers 404 invite_not_found. The caller must be allowed to give its role (403 role_not_allowed).",
+          "Sends an open invitation again, for one whose email could not be sent or was lost. A new job gives the invitation a new link and the old link stops working; the invitation is not withdrawn, and keeps its expiry. Its email status goes back to being tried (`delivery` 'sending' on the staff list). A second send within a minute of the last answers 429 resend_too_soon with Retry-After. An invitation that is not open here (accepted, withdrawn, expired, another hospital's, unknown) answers 404 invite_not_found. The caller must be allowed to give its role (403 role_not_allowed).",
         params: Type.Object({ inviteId: Type.String({ maxLength: 64 }) }),
         response: { 200: ref(InviteResent), ...errors(401, 403, 404, 409, 422, 429) },
       },
@@ -276,7 +278,17 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!grantsWithin(roles.get(invite.role_id)?.grants ?? [], await heldBy(request))) {
         throw notAllowed();
       }
-      await markInviteRequeued(request.txClient, invite.id);
+      const wait = Math.ceil(RESEND_GAP_SECONDS - (invite.queued_ago ?? RESEND_GAP_SECONDS));
+      if (wait > 0) {
+        throw new HttpError(
+          429,
+          'resend_too_soon',
+          'This invitation was sent a moment ago; try again shortly',
+          { 'retry-after': String(wait) },
+        );
+      }
+      const attempt = randomUUID();
+      await markInviteRequeued(request.txClient, invite.id, attempt);
       request.audit('resend', 'invite', invite.id);
       // The first job took the invitation's id as its own, so this one has a new id. Each job
       // gives the invitation a new token, so only the newest link works.
@@ -284,8 +296,9 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
         queueInviteEmailTracked(
           app.jobs,
           app.database.pool,
-          { tenantId: invite.tenant_id, inviteId: invite.id },
-          randomUUID(),
+          { tenantId: invite.tenant_id, inviteId: invite.id, attempt },
+          attempt,
+          app.log,
         ),
       );
       return { id: invite.id };
