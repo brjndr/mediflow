@@ -18,6 +18,7 @@ import { radiologyFeature } from '@/features/radiology';
 import { inventoryFeature } from '@/features/inventory';
 import { pharmacyFeature } from '@/features/pharmacy';
 import { purchasingFeature } from '@/features/purchasing';
+import { rolesFeature } from '@/features/roles';
 import { servicesFeature } from '@/features/services';
 import { staffFeature } from '@/features/staff';
 import { templatesFeature } from '@/features/templates';
@@ -58,6 +59,7 @@ export const features: FeatureManifest[] = [
   indentsFeature,
   purchasingFeature,
   staffFeature,
+  rolesFeature,
   billingFeature,
   reportsFeature,
 ];

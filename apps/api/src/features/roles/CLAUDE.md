@@ -1,6 +1,6 @@
 # Roles API
 
-What was decided for role management (BE-16, #137). The web screen is not built yet (PL/role matrix issues).
+What was decided for role management (BE-16, #137). The role list is built (#133, `apps/web/src/features/roles/CLAUDE.md`); the permission matrix is not.
 
 - **`features/roles`** has no module flag (like staff). Permissions `role:read` and `role:manage`, defaults to `admin` only. Routes: `GET /roles`, `GET /roles/{roleId}`, `GET /permission-catalog` (every registered permission with its description and module, for the editor; it is not under `/roles/` because a role id may be any slug), `POST /roles`, `PUT /roles/{roleId}` (rename and/or replace the whole set of grants), `DELETE /roles/{roleId}`.
 - **Migration 0076** gives the app role narrow write grants: INSERT of `(tenant_id, id, name)` (so a new role is never built-in), UPDATE of `roles(name, updated_at)` and `role_permissions(scope)`, DELETE. A trigger refuses, for the app role only, renaming, re-identifying or deleting a built-in role, as a backstop behind the API. Migrations, the platform role and the cascade from a deleted hospital are not held back.

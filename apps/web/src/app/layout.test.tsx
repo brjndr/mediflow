@@ -50,6 +50,7 @@ describe('shell', () => {
       'Reports',
       'Import centre',
       'Staff',
+      'Roles',
       'Notices',
     ]);
     expect(within(sidebar()).getByRole('link', { name: 'Home' })).toHaveAttribute(
@@ -103,6 +104,7 @@ describe('shell', () => {
       'Reports',
       'Import centre',
       'Staff',
+      'Roles',
       'Notices',
     ]);
     expect(within(sidebar()).getByRole('link', { name: 'Notices' })).toHaveAttribute(
@@ -184,6 +186,8 @@ describe('keyboard', () => {
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Staff' })).toHaveFocus();
     await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Roles' })).toHaveFocus();
+    await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Notices' })).toHaveFocus();
     await userEvent.tab();
     expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toHaveFocus();
@@ -246,6 +250,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Reports',
       'Import centre',
       'Staff',
+      'Roles',
       'Notices',
     ]);
     await expectNoAxeViolations(drawer());
@@ -308,6 +313,7 @@ describe('system pages', () => {
       'Reports',
       'Import centre',
       'Staff',
+      'Roles',
       'Notices',
     ]);
     await expectNoAxeViolations();

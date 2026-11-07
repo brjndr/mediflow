@@ -1,4 +1,10 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
@@ -19,6 +25,11 @@ import type { InviteRequest, StaffMember } from '../types';
 export const staffKeys = createTenantKeys('staff');
 
 const rolesKey = (tenantId: string) => [...staffKeys.all(tenantId), 'roles'] as const;
+
+/** Role management changed which roles exist: the invite form asks for them again. */
+export function invalidateStaffRoles(queryClient: QueryClient, tenantId: string) {
+  return queryClient.invalidateQueries({ queryKey: rolesKey(tenantId) });
+}
 
 export const STAFF_PAGE_SIZE = 25;
 
