@@ -18,7 +18,8 @@
   },
   "actions": {
     "rename": "Rename",
-    "delete": "Delete"
+    "delete": "Delete",
+    "permissions": "Permissions"
   },
   "form": {
     "addHeading": "Add a role",
@@ -45,5 +46,42 @@
     "inUse": "People or open invitations still use this role. Move them to another role first.",
     "notAllowed": "You cannot change a role that may do more than yours.",
     "notFound": "That role no longer exists."
+  },
+  "matrix": {
+    "back": "Back to roles",
+    "heading": "Permissions of {{name}}",
+    "description": "Choose what people in this role may do. A change reaches open sessions within minutes.",
+    "heldOf": "{{held}} of {{total}}",
+    "scopeOf": "Scope of {{permission}}",
+    "scope": {
+      "all": "All records",
+      "own": "Own records",
+      "department": "Own department"
+    },
+    "notGranted": "not granted",
+    "theySaved": "Saved by someone else: {{value}}",
+    "reason": {
+      "notHeld": "You do not hold this permission, so you cannot give it.",
+      "ownAccess": "You cannot take away your own ability to manage roles."
+    },
+    "viewOnly": "You can see what this role may do but not change it.",
+    "above": "This role may do more than yours does, so only someone with at least its access can change it.",
+    "ownRole": "This is your own role. You cannot remove role management from it.",
+    "noChanges": "No changes.",
+    "unsaved_one": "{{count}} unsaved change.",
+    "unsaved_other": "{{count}} unsaved changes.",
+    "saved": "Saved the permissions of {{name}}.",
+    "conflict_one": "Someone else changed this role while you were editing. Your changes are kept; {{count}} permission you changed was also changed, shown beside it. Review, then save again.",
+    "conflict_other": "Someone else changed this role while you were editing. Your changes are kept; {{count}} permissions you changed were also changed, shown beside them. Review, then save again.",
+    "save": "Save permissions",
+    "discard": "Discard changes",
+    "loading": "Loading permissions",
+    "missingTitle": "Role not found",
+    "errorTitle": "The role could not be loaded",
+    "errors": {
+      "lastAdmin": "Nobody would be left to manage roles or staff. Keep these permissions in a role that people hold.",
+      "ownAccess": "You cannot take away your own ability to manage roles.",
+      "unknown": "A permission in the list is not known to the system. Reload the page."
+    }
   }
 }

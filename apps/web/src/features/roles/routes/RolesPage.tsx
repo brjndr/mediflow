@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Can } from '@/access';
@@ -39,6 +40,7 @@ function Roles() {
   // What was just done, said once in a status line.
   const [done, setDone] = useState<string | null>(null);
   const statusLine = useRef<HTMLParagraphElement>(null);
+  const navigate = useNavigate();
   const roles = useRoles();
   const save = useSaveRole();
   const remove = useDeleteRole();
@@ -99,6 +101,11 @@ function Roles() {
     const unavailable = (row: RoleSummary) => row.builtIn || save.isPending || remove.isPending;
     return [
       {
+        id: 'permissions',
+        label: t('actions.permissions'),
+        onSelect: (row) => void navigate(`/roles/${encodeURIComponent(row.id)}`),
+      },
+      {
         id: 'rename',
         label: t('actions.rename'),
         requires: MANAGE,
@@ -124,7 +131,7 @@ function Roles() {
         },
       },
     ];
-  }, [save, remove, t]);
+  }, [save, remove, t, navigate]);
 
   const saveRefusal = refusal(save.error);
   const formError = save.isError

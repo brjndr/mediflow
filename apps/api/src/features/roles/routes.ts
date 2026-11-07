@@ -174,7 +174,12 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async () => ({
       items: app.permissions
         .all()
-        .map(({ id, description, feature }) => ({ permission: id, description, feature }))
+        .map(({ id, description, feature, scopes }) => ({
+          permission: id,
+          description,
+          feature,
+          scopes: ['all' as const, ...(scopes ?? [])],
+        }))
         .sort((a, b) => a.permission.localeCompare(b.permission)),
     }),
   );

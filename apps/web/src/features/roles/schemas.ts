@@ -1,10 +1,23 @@
 import { z } from 'zod';
 import { PLAIN_TEXT } from '@/shared/utils/text';
-import type { RoleDetail, RoleList } from './types';
+import type { PermissionCatalog, RoleDetail, RoleList } from './types';
 
 const grantSchema = z.object({
   permission: z.string(),
   scope: z.enum(['all', 'own', 'department']).optional(),
+});
+
+const scopeSchema = z.enum(['all', 'own', 'department']);
+
+export const permissionCatalogSchema: z.ZodType<PermissionCatalog> = z.object({
+  items: z.array(
+    z.object({
+      permission: z.string(),
+      description: z.string(),
+      feature: z.string(),
+      scopes: z.array(scopeSchema),
+    }),
+  ),
 });
 
 /** Responses are validated where they enter the app, so screens can trust their shape. */

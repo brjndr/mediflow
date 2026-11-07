@@ -25,6 +25,11 @@ export interface PermissionDefinition {
    * counts.
    */
   defaults?: Partial<Record<BuiltInRole, PermissionScope>>;
+  /**
+   * The scopes narrower than `all` that the routes behind this permission honour. Absent means
+   * the permission is held at `all` only; the role editor offers no other choice for it.
+   */
+  scopes?: readonly Exclude<PermissionScope, 'all'>[];
 }
 
 const PERMISSION_ID = /^[a-z][A-Za-z0-9_.]*:[a-z][A-Za-z0-9_]*$/;

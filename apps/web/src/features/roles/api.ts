@@ -1,6 +1,6 @@
 import { api, requireData } from '@/shared/api';
-import { roleDetailSchema, roleListSchema } from './schemas';
-import type { RoleDetail, RoleSummary } from './types';
+import { permissionCatalogSchema, roleDetailSchema, roleListSchema } from './schemas';
+import type { PermissionCatalog, RoleDetail, RoleGrant, RoleSummary } from './types';
 
 export async function fetchRoles(signal?: AbortSignal): Promise<RoleSummary[]> {
   const result = await api.GET('/roles', { signal });
@@ -30,4 +30,27 @@ export async function renameRole(roleId: string, name: string): Promise<RoleDeta
 
 export async function deleteRole(roleId: string): Promise<void> {
   await api.DELETE('/roles/{roleId}', { params: { path: { roleId } } });
+}
+
+/** Every permission the API knows, with the module that owns it and the scopes it can be held at. */
+export async function fetchPermissionCatalog(signal?: AbortSignal): Promise<PermissionCatalog> {
+  const result = await api.GET('/permission-catalog', { signal });
+  return permissionCatalogSchema.parse(requireData(result));
+}
+
+export async function fetchRole(roleId: string, signal?: AbortSignal): Promise<RoleDetail> {
+  const result = await api.GET('/roles/{roleId}', { params: { path: { roleId } }, signal });
+  return roleDetailSchema.parse(requireData(result));
+}
+
+/** Replaces the whole set of what a role may do. The name is left as it is. */
+export async function saveRoleGrants(
+  roleId: string,
+  permissions: RoleGrant[],
+): Promise<RoleDetail> {
+  const result = await api.PUT('/roles/{roleId}', {
+    params: { path: { roleId } },
+    body: { permissions },
+  });
+  return roleDetailSchema.parse(requireData(result));
 }
