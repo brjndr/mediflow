@@ -1,7 +1,8 @@
 import { api, requireData } from '@/shared/api';
-import { queueTokenPageSchema, queueTokenSchema } from './schemas';
+import { queueDisplaySchema, queueTokenPageSchema, queueTokenSchema } from './schemas';
 import type {
   QueueCancelReason,
+  QueueDisplay,
   QueuePriority,
   QueueToken,
   QueueTokenCreate,
@@ -41,6 +42,12 @@ export async function fetchQueueTokens(
     signal,
   });
   return queueTokenPageSchema.parse(requireData(result));
+}
+
+/** What a waiting-room screen shows: token numbers and where to go, never a patient. */
+export async function fetchQueueDisplay(signal?: AbortSignal): Promise<QueueDisplay> {
+  const result = await api.GET('/queue/display', { signal });
+  return queueDisplaySchema.parse(requireData(result));
 }
 
 /**

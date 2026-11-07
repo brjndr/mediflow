@@ -10,6 +10,7 @@ import { mockPatient } from './patients';
 
 type QueueToken = components['schemas']['QueueToken'];
 type QueueTokenPage = components['schemas']['QueueTokenPage'];
+type QueueDisplay = components['schemas']['QueueDisplay'];
 type QueueTokenStatus = components['schemas']['QueueTokenStatus'];
 type QueuePriority = components['schemas']['QueuePriority'];
 type QueueCancelReason = components['schemas']['QueueCancelReason'];
@@ -311,6 +312,55 @@ function tokenChange(
 }
 
 export const queueHandlers = [
+  // The waiting-room display: numbers, departments and doctors' names, never a patient (#78).
+  http.get('*/api/queue/display', ({ request }) => {
+    const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const todays = tokens.filter(
+      (token) => token.tenantId === tenantId && token.day === today(tenantId),
+    );
+    const byDepartment = new Map<string, QueueDisplay['departments'][number]>();
+    const entry = (departmentId: string) => {
+      const department = mockDepartment(tenantId, departmentId);
+      if (!department) return undefined;
+      let found = byDepartment.get(departmentId);
+      if (!found) {
+        found = {
+          departmentId,
+          departmentName: department.name,
+          serving: [],
+          next: [],
+          waiting: 0,
+        };
+        byDepartment.set(departmentId, found);
+      }
+      return found;
+    };
+    for (const token of todays
+      .filter((candidate) => candidate.status === 'called')
+      .sort(inCallOrder)) {
+      const doctor = token.doctorId ? mockDoctor(tenantId, token.doctorId) : undefined;
+      entry(token.departmentId)?.serving.push({
+        number: token.number,
+        ...(doctor ? { doctorName: doctor.name } : {}),
+      });
+    }
+    for (const token of todays
+      .filter((candidate) => candidate.status === 'waiting')
+      .sort(inCallOrder)) {
+      const found = entry(token.departmentId);
+      if (!found) continue;
+      found.waiting += 1;
+      if (found.next.length < 6) found.next.push(token.number);
+    }
+    return HttpResponse.json<QueueDisplay>({
+      departments: [...byDepartment.values()].sort((a, b) =>
+        a.departmentName.localeCompare(b.departmentName),
+      ),
+    });
+  }),
+
   http.get('*/api/queue/tokens', ({ request }) => {
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;

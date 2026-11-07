@@ -1,8 +1,8 @@
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { createTenantKeys, followEventStream, type EventStreamStatus } from '@/shared/api';
 import { useTenant } from '@/tenancy';
-import { fetchQueueTokens, openQueueEvents, type QueueFilters } from '../api';
+import { fetchQueueDisplay, fetchQueueTokens, openQueueEvents, type QueueFilters } from '../api';
 import { queueEventSchema } from '../schemas';
 
 /** Every key is prefixed with the tenant, so one hospital's queue never shows in another. */
@@ -39,6 +39,21 @@ export function useQueueTokens(
     staleTime: live ? Infinity : 0,
     refetchInterval: live ? false : FALLBACK_REFRESH_MS,
     // The previous filter's rows while the next come, never another hospital's.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === tenantId ? previous : undefined,
+  });
+}
+
+/** The waiting-room display's numbers: read again on each event, or on a timer without them. */
+export function useQueueDisplay({ enabled, live }: { enabled: boolean; live: boolean }) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: queueKeys.detail(tenantId ?? '', 'display'),
+    queryFn: ({ signal }) => fetchQueueDisplay(signal),
+    enabled: enabled && tenantId !== undefined,
+    staleTime: live ? Infinity : 0,
+    refetchInterval: live ? false : FALLBACK_REFRESH_MS,
+    // Another hospital's numbers are never shown while this one's come.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === tenantId ? previous : undefined,
   });

@@ -3788,6 +3788,65 @@
           }
         }
       },
+      "QueueDisplayServing": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["number"],
+        "properties": {
+          "number": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "doctorName": {
+            "description": "The doctor serving it: where the patient goes.",
+            "type": "string"
+          }
+        }
+      },
+      "QueueDisplayDepartment": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["departmentId", "departmentName", "serving", "next", "waiting"],
+        "properties": {
+          "departmentId": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "serving": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueDisplayServing"
+            }
+          },
+          "next": {
+            "description": "The numbers next to be called, in call order.",
+            "type": "array",
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "waiting": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "QueueDisplay": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["departments"],
+        "properties": {
+          "departments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueDisplayDepartment"
+            }
+          }
+        }
+      },
       "Vitals": {
         "additionalProperties": false,
         "description": "One reading of vital signs, append-only: a correction is a new reading that names the one it corrects. Attached to the patient and, when taken at the queue, to the token; encounterId is set once the OPD encounter exists (M7).",
@@ -22739,6 +22798,65 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/display": {
+      "get": {
+        "operationId": "queueDisplay",
+        "tags": ["queue"],
+        "description": "What a waiting-room screen shows of today’s queue (the hospital’s own calendar day): for each department with tokens, the numbers being served with the name of the doctor they go to, the first numbers waiting in call order, and how many are waiting. Token numbers, departments and doctors’ names only: no patient, MRN, priority or reason is read, so a screen in a waiting room holds nothing about anyone, and the response is not audited as a patient read. For signed-in staff only (queue:read and the queue feature flag, within the scope of queue:read), no public link. The screen follows /queue/events and reads this again on each.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueDisplay"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

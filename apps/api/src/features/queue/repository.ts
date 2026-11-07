@@ -206,6 +206,53 @@ export async function listTokens(
   return result;
 }
 
+export interface DisplayRow {
+  department_id: string;
+  department_name: string;
+  number: number;
+  doctor_name: string | null;
+  waiting: number;
+}
+
+/** How many numbers "next" lists on the waiting-room display. */
+export const DISPLAY_NEXT = 6;
+
+/**
+ * Today's queue for the waiting-room display: for each department the numbers being served (with
+ * the doctor they go to) and the first numbers waiting, in call order, with the count waiting.
+ * Selects numbers, departments and doctors' names only: no patient is joined.
+ */
+export async function displayQueue(
+  client: pg.ClientBase,
+  visibility: Visibility,
+): Promise<{ serving: DisplayRow[]; next: DisplayRow[] }> {
+  const where = `t.day = ${TODAY} and ${visible('$1', '$2')}`;
+  const values = [visibility.scope, visibility.userId];
+  const serving = await client.query<DisplayRow>(
+    `select t.department_id, dp.name as department_name, t.number, u.name as doctor_name, 0 as waiting
+       from queue_tokens t
+       join departments dp on dp.id = t.department_id
+       left join doctors d on d.id = t.doctor_id
+       left join users u on u.id = d.user_id
+      where ${where} and t.status = 'called'
+      order by dp.name, t.called_at, t.number`,
+    values,
+  );
+  const next = await client.query<DisplayRow>(
+    `select * from (
+       select t.department_id, dp.name as department_name, t.number, null::text as doctor_name,
+              (count(*) over (partition by t.department_id))::int as waiting,
+              row_number() over (partition by t.department_id order by ${ORDER_KEY}) as place
+         from queue_tokens t
+         join departments dp on dp.id = t.department_id
+        where ${where} and t.status = 'waiting'
+     ) w where place <= ${DISPLAY_NEXT}
+     order by department_name, place`,
+    values,
+  );
+  return { serving: serving.rows, next: next.rows };
+}
+
 /** One token the caller may see, or null. `forUpdate` locks it for a change. */
 export async function findToken(
   client: pg.ClientBase,
