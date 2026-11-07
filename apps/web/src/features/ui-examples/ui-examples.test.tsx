@@ -43,7 +43,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('example pages', () => {
-  it('lists the five building blocks and links to each', async () => {
+  it('lists the six building blocks and links to each', async () => {
     const { router } = renderApp({ entry: '/examples' });
     expect(
       await screen.findByRole('heading', { name: 'Shared building blocks' }),
@@ -55,6 +55,7 @@ describe('example pages', () => {
       'Form kit',
       'Rich text',
       'Calendar',
+      'Dialog',
     ]);
     await expectNoAxeViolations();
 
@@ -204,5 +205,29 @@ describe('calendar example', () => {
 
     await userEvent.click(within(calendar).getByText('Example event 4'));
     expect(screen.getByRole('status')).toHaveTextContent('Chosen: event-4');
+  });
+});
+
+describe('dialog example', () => {
+  it('opens a confirmation on its title, and a form that the footer submits', async () => {
+    renderApp({ entry: '/examples/dialog' });
+    const opener = await screen.findByRole('button', { name: 'Open a confirmation' });
+    await userEvent.click(opener);
+    const dialog = await screen.findByRole('dialog', { name: 'Archive this example?' });
+    await waitFor(() => expect(within(dialog).getByRole('heading')).toHaveFocus());
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Confirmed.');
+    await waitFor(() => expect(opener).toHaveFocus());
+
+    await userEvent.click(screen.getByRole('button', { name: 'Open a short form' }));
+    const form = await screen.findByRole('dialog', { name: 'Cancel the order' });
+    const reason = within(form).getByRole('textbox', { name: /Reason/ });
+    await waitFor(() => expect(reason).toHaveFocus());
+    await userEvent.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(await within(form).findByText('This field is required.')).toBeInTheDocument();
+    await userEvent.type(reason, 'Duplicate');
+    await userEvent.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Saved: Duplicate');
+    await expectNoAxeViolations();
   });
 });
