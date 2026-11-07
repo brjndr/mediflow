@@ -70,3 +70,37 @@ The bundle budgets, code splitting, pagination, virtualization, rendering and as
 - Report Core Web Vitals (LCP, INP, CLS) tagged by tenant and route (no PHI).
 - Track API error rate and p95 latency per tenant.
 - Lighthouse CI and bundle-size checks on every PR.
+
+## Load testing
+
+k6 scenarios in `loadtests/` (#142). k6 is a single binary, free and open source; locally run it from Docker (`docker run --rm -v <path>/loadtests:/s -e BASE_URL=http://host.docker.internal:3000 grafana/k6 run /s/mixed.js`) or install it. They sign in once per sample account in `setup` (the sign-in route allows 10 attempts a minute per address), then read with the session cookie. Environment: `BASE_URL`, `APP_ORIGIN` (must equal the API's `APP_BASE_URL` for writes), `STAFF_PASSWORD`, `VUS`, `DURATION`, `FLOOD_VUS`, `B_VUS`. The accounts are the ones `db:seed` makes, so run them against a seeded dev or staging database, never against production.
+
+- `loadtests/mixed.js`: staff of two hospitals at a steady pace (a request every 3 to 5 seconds each), a read mix of the patient search (40%), the session (25%), the queue board (20%), the stock list (10%) and an OPD census report (5%).
+- `loadtests/noisy-neighbour.js`: hospital A sends requests with no pause while hospital B works normally. Passes when B sees no 429 and the targets below, and A is refused with `Retry-After` and never answered with a 5xx.
+
+### Targets (p95 unless stated, a seeded hospital of 250 patients, one API instance)
+
+| Route                                     | p95       |
+| ----------------------------------------- | --------- |
+| `POST /patients/search` (also p99 < 800)  | < 300 ms  |
+| `GET /session`                            | < 200 ms  |
+| `GET /queue/display`                      | < 300 ms  |
+| `GET /inventory/stock` (a page of 25)     | < 400 ms  |
+| `POST /reports/opd_census` (7 days)       | < 1500 ms |
+| Failed or refused requests at normal pace | < 1%      |
+
+These are thresholds in the scripts, so a run exits non-zero when one is missed. They are for staging on the intended instance size; tighten them from the first staging run. Writes (booking, dispensing, invoices) are not in the mix yet.
+
+### First results (2026-11-07)
+
+Dev laptop (2 cores) with k6 in Docker, the API, Postgres and request logging all on the same machine, 60 seconds each, so these show the shape, not capacity:
+
+- Mixed, 8 users: every target met (search p95 95 ms, session 90 ms, queue board 32 ms, stock 68 ms, report 32 ms).
+- Noisy neighbour, A with 20 clients: A refused 6,143 times with `Retry-After`, no 5xx, B never refused. B's latency still rose to p95 200 ms (search), 320 ms (queue board) and 257 ms (session) from under 100 ms alone, over the targets for two routes.
+
+### Bottlenecks found
+
+- **A refused request still costs the instance's one event loop.** The per-hospital and per-user limits keep B out of the 429s and the database, but a flood of 150 requests a second still slows B on a shared process. Flood protection belongs also at the edge (load balancer or CDN rate rules) before the instance, and the run must be repeated on staging where k6 does not share the CPU. Proposed as an issue.
+- **Limits are per user before they are per hospital.** With `RATE_LIMIT_USER_PER_MINUTE` 240, a flood from a few accounts hits the user limit first, so the hospital limit (1200) is not exercised by these scenarios. A test with many accounts of one hospital needs more seeded users.
+- **Per-request logging** (pino at info) is on the hot path in these runs; measure with the production log level.
+- Not measured yet: writes, the SSE queue board with many listeners (see Live data), report runs by the worker, and a database of a realistic size (the seed has 250 patients; the search index and the replica need 100,000 or more to say anything).
