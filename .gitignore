@@ -33,3 +33,4 @@ Thumbs.db
 # Lighthouse CI
 .lighthouseci/
 .lighthouseci-slow4g/
+.vitest/
