@@ -1,7 +1,7 @@
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { generate } from 'otplib';
 import type pg from 'pg';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addMembership,
   buildTestApp,
@@ -185,43 +185,54 @@ describe('changing the password', () => {
     expect(email?.text).not.toContain(NEW_PASSWORD);
   });
 
-  it('refuses a wrong current password and counts it toward the lockout', async () => {
+  it('refuses a wrong current password without touching the sign-in lockout', async () => {
     const user = await newUser('Guessing Gita');
     const session = await signIn(user);
 
-    for (let attempt = 1; attempt <= 4; attempt++) {
-      const wrong = await request('POST', '/auth/login', undefined, {
-        email: user.email,
-        password: 'not the password at all',
+    for (let attempt = 1; attempt <= 6; attempt++) {
+      const wrong = await change(session, {
+        currentPassword: 'wrong wrong wrong',
+        newPassword: NEW_PASSWORD,
       });
-      expect(wrong.statusCode).toBe(401);
+      // The per-user limit (5 a minute) answers the sixth.
+      expect(wrong.statusCode).toBe(attempt <= 5 ? 403 : 429);
     }
-    // The fifth failure, this time on the account page, locks the account.
-    const fifth = await change(session, {
-      currentPassword: 'wrong wrong wrong',
-      newPassword: NEW_PASSWORD,
-    });
-    expect([fifth.statusCode, errorOf(fifth)]).toEqual([403, 'invalid_password']);
-
-    const locked = await request('POST', '/auth/login', undefined, {
-      email: user.email,
-      password: user.password,
-    });
-    expect(locked.statusCode).toBe(401);
-    const refused = await change(session, {
-      currentPassword: user.password,
-      newPassword: NEW_PASSWORD,
-    });
-    expect([refused.statusCode, errorOf(refused)]).toEqual([429, 'account_locked']);
-    expect(Number(refused.headers['retry-after'])).toBeGreaterThan(0);
-    // The password was not changed.
+    const counted = await pool.query(
+      'select failed_login_count, locked_until from users where id = $1',
+      [user.id],
+    );
+    expect(counted.rows[0]).toEqual({ failed_login_count: 0, locked_until: null });
+    // The owner still signs in.
+    expect((await signInStatus(user.email, user.password)).statusCode).toBe(200);
     const stored = await pool.query(
       "select secret_hash from user_identities where user_id = $1 and provider = 'password'",
       [user.id],
     );
-    expect(stored.rows[0].secret_hash).toMatch(/^\$argon2id/);
-    await pool.query('update users set locked_until = null where id = $1', [user.id]);
-    expect((await signInStatus(user.email, user.password)).statusCode).toBe(200);
+    expect(stored.rows[0].secret_hash).toMatch(/^[$]argon2id/);
+  });
+
+  it('limits one session over a quarter of an hour, whatever the per-minute allowance', async () => {
+    const user = await newUser('Persistent Pia');
+    const session = await signIn(user);
+    const body = { currentPassword: 'wrong wrong wrong', newPassword: NEW_PASSWORD };
+    const statuses: number[] = [];
+    // The per-user window is left out, so only the session limit can answer 429.
+    const real = app.rateLimiter.hit.bind(app.rateLimiter);
+    const spy = vi
+      .spyOn(app.rateLimiter, 'hit')
+      .mockImplementation((key, limit, windowMs) =>
+        key.startsWith('pwchange:')
+          ? Promise.resolve({ allowed: true, retryAfterSeconds: 0 })
+          : real(key, limit, windowMs),
+      );
+    try {
+      for (let attempt = 0; attempt < 11; attempt++)
+        statuses.push((await change(session, body)).statusCode);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(statuses.slice(0, 10).every((status) => status === 403)).toBe(true);
+    expect(statuses[10]).toBe(429);
   });
 
   const signInStatus = (email: string, password: string) =>
@@ -316,7 +327,7 @@ describe('changing the password', () => {
       return { user, session, next };
     }
 
-    it('asks for a code, refuses a wrong one and counts it', async () => {
+    it('asks for a code, refuses a wrong one without counting it toward the lockout', async () => {
       const { user, session, next } = await withAuthenticator('Second Sheela');
       const body = { currentPassword: user.password, newPassword: NEW_PASSWORD };
 
@@ -328,7 +339,14 @@ describe('changing the password', () => {
       const counted = await pool.query('select failed_login_count from users where id = $1', [
         user.id,
       ]);
-      expect(counted.rows[0].failed_login_count).toBe(1);
+      expect(counted.rows[0].failed_login_count).toBe(0);
+
+      // A weak new password is not judged for someone who has not proved the second factor.
+      const weak = { currentPassword: user.password, newPassword: 'short' };
+      const unproven = await change(session, { ...weak, code: '000000' });
+      expect([unproven.statusCode, errorOf(unproven)]).toEqual([400, 'invalid_mfa_code']);
+      const absent = await change(session, weak);
+      expect([absent.statusCode, errorOf(absent)]).toEqual([400, 'mfa_code_required']);
 
       const right = await change(session, { ...body, code: await next() });
       expect(right.statusCode).toBe(204);

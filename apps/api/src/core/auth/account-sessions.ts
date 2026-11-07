@@ -5,7 +5,6 @@ import { HttpError } from '../http/errors.js';
 import { errors, ref } from '../http/schemas.js';
 import { withAuthTransaction } from './db.js';
 import { queuePasswordChangedEmail } from './emails.js';
-import { recordFailure } from './login.js';
 import { checkSecondFactor, isMfaEnabled } from './mfa.js';
 import {
   hashPassword,
@@ -57,6 +56,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_LISTED = 50;
 /** Wrong current passwords or codes, and changes, a user may try in a minute. */
 const CHANGES_PER_MINUTE = 5;
+// Attempts a single session may make in a quarter of an hour, right or wrong. The wrong ones are not
+// counted toward the account lockout, so a stolen session cannot lock the owner out of signing in.
+const ATTEMPTS_PER_SESSION = 10;
+const SESSION_WINDOW_MS = 15 * 60_000;
 
 const PASSWORD_PROBLEMS: Record<PasswordProblem | 'unchanged', [code: string, message: string]> = {
   too_short: ['password_too_short', 'The password needs at least 12 characters'],
@@ -100,7 +103,7 @@ export const accountSessionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'changePassword',
         tags: ['auth'],
         description:
-          "Changes the signed-in user's password. Needs the current password, and a code from the authenticator when the user has one (`code`: 400 mfa_code_required without it). A wrong current password or code counts toward the account lockout, as at sign-in (403 invalid_password; 429 account_locked while locked). Every other session of the user and every outstanding reset link ends; the calling session stays and gets a new token in the cookie. The user is told by email.",
+          "Changes the signed-in user's password. Needs the current password, and a code from the authenticator when the user has one (`code`: 400 mfa_code_required without it). A wrong current password or code is refused (403 invalid_password, 400 invalid_mfa_code) and limited per session and per user (429 rate_limited), but does not count toward the sign-in lockout, so a stolen session cannot lock the owner out; 429 account_locked while the account is locked. The authenticator code is checked before the new password is judged. Every other session of the user and every outstanding reset link ends; the calling session stays and gets a new token in the cookie. The user is told by email.",
         body: Type.Object({
           currentPassword: Type.String({ minLength: 1, maxLength: 1024 }),
           newPassword: Type.String({ minLength: 1, maxLength: 1024 }),
@@ -125,7 +128,18 @@ export const accountSessionRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!userId || !sessionId) throw new HttpError(401, 'unauthenticated', 'No session');
       const { currentPassword, newPassword, code } = request.body;
 
-      // Before any hashing, so guessing is limited whatever the passwords are.
+      // Before any hashing, so guessing is limited whatever the passwords are. Per session first, so
+      // a stolen session cannot use up the owner's own allowance beyond its share.
+      const perSession = await app.rateLimiter.hit(
+        `pwchange-session:${sessionId}`,
+        ATTEMPTS_PER_SESSION,
+        SESSION_WINDOW_MS,
+      );
+      if (!perSession.allowed) {
+        throw new HttpError(429, 'rate_limited', 'Too many attempts. Try again later.', {
+          'retry-after': String(perSession.retryAfterSeconds),
+        });
+      }
       const allowed = await app.rateLimiter.hit(`pwchange:${userId}`, CHANGES_PER_MINUTE, 60_000);
       if (!allowed.allowed) {
         throw new HttpError(429, 'rate_limited', 'Too many attempts. Try again shortly.', {
@@ -170,19 +184,11 @@ export const accountSessionRoutes: FastifyPluginAsyncTypebox = async (app) => {
             currentPassword.length <= MAX_PASSWORD_LENGTH &&
             (await verifyPassword(user.secret_hash, currentPassword));
           if (!matches) {
-            await recordFailure(client, config, userId);
-            // Not a 401: the session is fine, and the web app treats 401 as signed out.
+            // Not counted toward the lockout (see ATTEMPTS_PER_SESSION). Not a 401: the session is fine, and the web app treats 401 as signed out.
             return {
               ok: false,
               failure: new HttpError(403, 'invalid_password', 'The password is not correct'),
             };
-          }
-
-          const problem = passwordProblem(newPassword, { email: user.email });
-          if (problem)
-            return { ok: false, failure: new HttpError(400, ...PASSWORD_PROBLEMS[problem]) };
-          if (newPassword === currentPassword) {
-            return { ok: false, failure: new HttpError(400, ...PASSWORD_PROBLEMS.unchanged) };
           }
 
           // With an authenticator, a stolen session and a guessed password are not enough.
@@ -198,12 +204,19 @@ export const accountSessionRoutes: FastifyPluginAsyncTypebox = async (app) => {
               };
             }
             if (!(await checkSecondFactor(client, config, userId, code))) {
-              await recordFailure(client, config, userId);
               return {
                 ok: false,
                 failure: new HttpError(400, 'invalid_mfa_code', 'That code is not valid'),
               };
             }
+          }
+
+          // Only now, so the policy outcome is not revealed to someone without the second factor.
+          const problem = passwordProblem(newPassword, { email: user.email });
+          if (problem)
+            return { ok: false, failure: new HttpError(400, ...PASSWORD_PROBLEMS[problem]) };
+          if (newPassword === currentPassword) {
+            return { ok: false, failure: new HttpError(400, ...PASSWORD_PROBLEMS.unchanged) };
           }
 
           const updated = await client.query(
