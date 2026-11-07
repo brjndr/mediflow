@@ -63,7 +63,7 @@ export function RolePreview({ roleName, saved, unsaved, descriptions }: RolePrev
         ))}
       </fieldset>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 [overflow-wrap:anywhere] lg:grid-cols-3 [&>*]:min-w-0">
         <div>
           <h3 className="mb-1 text-sm font-semibold">{t('preview.nav')}</h3>
           {preview.nav.length === 0 ? (
