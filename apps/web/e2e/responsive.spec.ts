@@ -208,6 +208,14 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: /^Book the follow-up of / })).toBeVisible();
   await expect(page.getByRole('group', { name: /^Time/ })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // The records desk (#192): incomplete records as cards on a phone, then the request log.
+  await goTo(page, 'Medical records');
+  await expect(page.getByRole('heading', { name: 'Incomplete records', level: 1 })).toBeVisible();
+  await expect(page.getByText('Note not signed, No diagnosis')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'Record requests' }).click();
+  await expect(page.getByText('Sample Insurance Co (Insurer)')).toBeVisible();
+  await expectNoSidewaysScroll(page);
   // The invoice builder (#109): charges as cards on a phone, the line form in one column.
   await goTo(page, 'Consultations');
   await page.getByRole('main').getByRole('link').first().click();

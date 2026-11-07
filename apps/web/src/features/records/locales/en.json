@@ -1,0 +1,136 @@
+{
+  "close": "Close",
+  "cancel": "Cancel",
+  "nav": {
+    "label": "Medical records views",
+    "incomplete": "Incomplete records",
+    "coding": "Coding queue",
+    "requests": "Record requests"
+  },
+  "kind": {
+    "opd": "Outpatient",
+    "ipd": "Inpatient",
+    "er": "Emergency",
+    "daycare": "Day care"
+  },
+  "gap": {
+    "unsigned_note": "Note not signed",
+    "no_diagnosis": "No diagnosis",
+    "no_discharge_summary": "No discharge summary",
+    "missing_consent": "No signed consent"
+  },
+  "state": {
+    "open": "Open",
+    "fulfilled": "Fulfilled",
+    "declined": "Declined"
+  },
+  "requester": {
+    "patient": "Patient",
+    "representative": "Patient's representative",
+    "insurer": "Insurer",
+    "court": "Court or police",
+    "hospital": "Another hospital",
+    "other": "Other"
+  },
+  "incomplete": {
+    "heading": "Incomplete records",
+    "intro": "Closed visits whose record still lacks something, the oldest first. Open the consultation or the patient to finish it.",
+    "gap": "What is missing",
+    "anyGap": "Anything",
+    "kind": "Kind of visit",
+    "anyKind": "All visits",
+    "count_one": "1 incomplete record.",
+    "count_other": "{{count}} incomplete records.",
+    "empty": "Every closed record is complete.",
+    "openEncounter": "Open consultation",
+    "openPatient": "Open patient",
+    "columns": {
+      "patient": "Patient",
+      "mrn": "MRN",
+      "kind": "Visit",
+      "closed": "Closed",
+      "doctor": "Doctor",
+      "gaps": "Missing"
+    }
+  },
+  "coding": {
+    "heading": "Coding queue",
+    "intro": "Diagnoses a doctor wrote as text, the oldest first. Give each its ICD-10 code.",
+    "state": "Show",
+    "uncoded": "Waiting for a code",
+    "coded": "Coded",
+    "count_one": "1 diagnosis.",
+    "count_other": "{{count}} diagnoses.",
+    "emptyUncoded": "No diagnosis is waiting for a code.",
+    "emptyCoded": "No diagnosis has been coded yet.",
+    "none": "No code yet",
+    "code": "Add or change code",
+    "dialogTitle": "Code a diagnosis for {{name}}",
+    "dialogDescription": "Read the diagnosis as the doctor wrote it, then choose the ICD-10 code.",
+    "written": "Written as:",
+    "current": "Current code: {{code}} {{title}}",
+    "search": "ICD-10 code",
+    "chosen": "Chosen: {{code}} {{title}}",
+    "save": "Save code",
+    "saving": "Saving code",
+    "done": "Code saved for {{name}}.",
+    "errors": {
+      "conflict": "This diagnosis was changed by someone else. The list has been read again; open it once more."
+    },
+    "columns": {
+      "patient": "Patient",
+      "mrn": "MRN",
+      "text": "Diagnosis as written",
+      "code": "Code",
+      "recorded": "Recorded",
+      "doctor": "Doctor"
+    }
+  },
+  "requests": {
+    "heading": "Record requests",
+    "intro": "Requests for a copy of a patient's record, with who asked, why, and what became of it.",
+    "state": "Show",
+    "allStates": "All requests",
+    "count_one": "1 request.",
+    "count_other": "{{count}} requests.",
+    "empty": "No requests.",
+    "overdue": "Open, overdue",
+    "new": "Log a request",
+    "newTitle": "Log a record request",
+    "newDescription": "Choose the patient, say who is asking and why.",
+    "patient": "Patient",
+    "patientChosen": "Patient: {{name}}",
+    "changePatient": "Change patient",
+    "patientRequired": "Choose a patient.",
+    "requesterKind": "Who is asking",
+    "requesterName": "Name of the person or body",
+    "purpose": "Purpose",
+    "dueOn": "Due by",
+    "log": "Log request",
+    "logging": "Logging request",
+    "logged": "Request logged for {{name}}.",
+    "close": "Close request",
+    "closeTitle": "Close the request for {{name}}",
+    "closeDescription": "Say how it ended. A closed request cannot be changed.",
+    "outcome": "Outcome",
+    "note": "Note",
+    "closeSubmit": "Close request",
+    "closing": "Closing request",
+    "closed": "Request for {{name}} closed as {{state}}.",
+    "errors": {
+      "conflict": "This request was changed by someone else. The list has been read again; open it once more.",
+      "closed": "This request is already closed.",
+      "merged": "This patient record was merged into another. Choose the other record."
+    },
+    "columns": {
+      "patient": "Patient",
+      "mrn": "MRN",
+      "requester": "Requested by",
+      "purpose": "Purpose",
+      "requested": "Requested",
+      "due": "Due",
+      "state": "Status",
+      "note": "Note"
+    }
+  }
+}

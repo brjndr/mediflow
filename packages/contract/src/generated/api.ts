@@ -4810,6 +4810,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/records/incomplete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). Needs medicalRecord:read and the records feature flag. The server works out each gap from the encounter: an unsigned note, no diagnosis, no discharge summary for an inpatient stay, no signed consent for a procedure. */
+        get: operations["listIncompleteRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/records/coding-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Diagnoses recorded as text that still have no code (state uncoded, the default), or coded ones, the oldest first (MR-04, #192). Needs medicalRecord:read and the records feature flag. */
+        get: operations["listCodingQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/records/coding-queue/{diagnosisId}/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Gives a text diagnosis its ICD-10 code, at the version read. Needs medicalRecord:code. 409 version_conflict when the diagnosis changed, 422 when the code is not an ICD-10 code. Coding again replaces the code and is audited. */
+        post: operations["codeDiagnosis"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/record-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital's requests for copies of a record, the soonest due first (MR-04, #192). Needs recordRequest:read and the records feature flag. */
+        get: operations["listRecordRequests"];
+        put?: never;
+        /** @description Logs a request for a patient's record. Needs recordRequest:manage. */
+        post: operations["createRecordRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/record-requests/{requestId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Closes an open request as fulfilled or declined, with a note, at the version read; once only. Needs recordRequest:manage. 409 version_conflict or already_closed. */
+        post: operations["closeRecordRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9142,6 +9228,90 @@ export interface components {
             fields: {
                 [key: string]: string;
             };
+        };
+        /** @enum {string} */
+        RecordGap: "unsigned_note" | "no_diagnosis" | "no_discharge_summary" | "missing_consent";
+        IncompleteRecord: {
+            encounterId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            kind: components["schemas"]["EncounterType"];
+            /** Format: date-time */
+            closedAt: string;
+            doctorName: string;
+            gaps: components["schemas"]["RecordGap"][];
+        };
+        IncompleteRecordPage: {
+            items: components["schemas"]["IncompleteRecord"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @enum {string} */
+        CodingState: "uncoded" | "coded";
+        CodingItem: {
+            diagnosisId: string;
+            encounterId: string;
+            patientName: string;
+            patientMrn: string;
+            text: string;
+            code?: components["schemas"]["Code"];
+            /** Format: date-time */
+            recordedAt: string;
+            doctorName: string;
+            version: number;
+        };
+        CodingItemPage: {
+            items: components["schemas"]["CodingItem"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        CodeDiagnosis: {
+            codeId: string;
+            version: number;
+        };
+        /** @enum {string} */
+        RecordRequester: "patient" | "representative" | "insurer" | "court" | "hospital" | "other";
+        /** @enum {string} */
+        RecordRequestState: "open" | "fulfilled" | "declined";
+        RecordRequest: {
+            id: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            requesterKind: components["schemas"]["RecordRequester"];
+            requesterName: string;
+            purpose: string;
+            /** Format: date */
+            requestedOn: string;
+            /** Format: date */
+            dueOn?: string;
+            state: components["schemas"]["RecordRequestState"];
+            createdByName: string;
+            /** Format: date-time */
+            closedAt?: string;
+            closedByName?: string;
+            note?: string;
+            version: number;
+        };
+        RecordRequestPage: {
+            items: components["schemas"]["RecordRequest"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        RecordRequestCreate: {
+            patientId: string;
+            requesterKind: components["schemas"]["RecordRequester"];
+            requesterName: string;
+            purpose: string;
+            /** Format: date */
+            dueOn?: string;
+        };
+        RecordRequestClose: {
+            /** @enum {string} */
+            outcome: "fulfilled" | "declined";
+            note: string;
+            version: number;
         };
     };
     responses: {
@@ -34778,6 +34948,196 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listIncompleteRecords: {
+        parameters: {
+            query?: {
+                gap?: components["schemas"]["RecordGap"];
+                kind?: components["schemas"]["EncounterType"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of incomplete records */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncompleteRecordPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listCodingQueue: {
+        parameters: {
+            query?: {
+                state?: components["schemas"]["CodingState"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of diagnoses */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodingItemPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    codeDiagnosis: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                diagnosisId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeDiagnosis"];
+            };
+        };
+        responses: {
+            /** @description The diagnosis with its code */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodingItem"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listRecordRequests: {
+        parameters: {
+            query?: {
+                state?: components["schemas"]["RecordRequestState"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of requests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordRequestPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createRecordRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description The request */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordRequest"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    closeRecordRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordRequestClose"];
+            };
+        };
+        responses: {
+            /** @description The closed request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordRequest"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

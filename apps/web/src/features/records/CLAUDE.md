@@ -1,0 +1,9 @@
+# Medical records desk (web): module notes
+
+What was decided for the records department's tools (MR-04, #192). The root `CLAUDE.md` wins where the two disagree.
+
+- **Three routes, one navigation entry** ("Medical records", `medicalRecord:read`) behind the new `records` switch: `/records` (incomplete records), `/records/coding` (coding queue), `/records/requests` (record request log, `recordRequest:read`). `RecordsNav` switches between them and shows each only to the permission that opens it. Works at every width (`DataGrid`).
+- **API not built.** The endpoints are in the planned contract (`GET /records/incomplete`, `GET /records/coding-queue`, `POST /records/coding-queue/{diagnosisId}/code`, `GET` and `POST /record-requests`, `POST /record-requests/{id}/close`) and run on the mock (`mocks/handlers/records.ts`). The server must work out the gaps itself (unsigned note, no diagnosis, no discharge summary for an inpatient stay, no signed consent for a procedure); the screen only lists them. Permissions to seed: `medicalRecord:read`, `medicalRecord:code`, `recordRequest:read`, `recordRequest:manage` (admin; a records clerk role is a hospital's own to create).
+- **Coding** picks an ICD-10 code from `CodeSearch` (server search, never typed free) and sends the diagnosis version read; a conflict is refused with a message and the list is read again. Coding again replaces the code (API audits it).
+- **Request log:** a closed request (fulfilled or declined, with a note) is never changed; an open one past its due day says "Open, overdue" in words. Names, purposes and notes travel in bodies only, never in an address. Fulfilling a request does not release the record itself: printing or sending a copy is a later step.
+- **Not built:** counts on the dashboard, assigning an incomplete record to a doctor, a deficiency reminder (nothing contacts staff yet), exporting the log, a fee for copies (billing).
