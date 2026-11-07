@@ -38,6 +38,8 @@ export function ManageAuthenticator({ onDisabled }: { onDisabled: () => void }) 
     disable.reset();
     form.reset();
     setMode(next);
+    // The form opens under the button that was pressed: the cursor goes to its first field.
+    if (next !== 'idle') setTimeout(() => form.setFocus('password'), 0);
   };
   const close = () => {
     const back = mode === 'disable' ? 'security-turn-off' : 'security-regenerate';
