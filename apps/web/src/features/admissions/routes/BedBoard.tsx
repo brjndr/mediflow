@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { usePermission } from '@/access';
+import { Button } from '@/shared/ui/button';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { focusIfLost } from '@/shared/lib/focus';
@@ -113,10 +115,15 @@ export default function BedBoard() {
 
   return (
     <div ref={box} className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
-        <p className="text-muted-foreground">{t('description')}</p>
-        <LiveStatus status={events} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
+          <p className="text-muted-foreground">{t('description')}</p>
+          <LiveStatus status={events} />
+        </div>
+        <Button asChild variant="outline">
+          <Link to="/admissions">{t('admissionsLink')}</Link>
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
