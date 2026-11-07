@@ -256,7 +256,7 @@ test('order a lab test and cancel one with the keyboard alone', async ({ page })
     page.getByRole('heading', { name: 'Cancel the order for Complete blood count' }),
   ).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('textbox', { name: /^Why it is cancelled/ })).toBeFocused();
+  await expect(page.getByRole('textbox', { name: /^Why the order for/ })).toBeFocused();
   await page.keyboard.type('Wrong test');
   await page.keyboard.press('Enter');
   await expect(page.getByText('Order cancelled.')).toBeVisible();

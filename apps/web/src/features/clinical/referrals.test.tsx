@@ -117,7 +117,7 @@ describe('referrals', () => {
     );
     await screen.findByRole('heading', { name: 'Cancel the referral to Orthopaedics' });
     await userEvent.type(
-      screen.getByRole('textbox', { name: /^Why it is cancelled/ }),
+      screen.getByRole('textbox', { name: /^Why the referral to/ }),
       'Wrong side',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Cancel referral' }));
