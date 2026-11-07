@@ -37,6 +37,9 @@ test.describe('at desktop width', () => {
     await page.getByLabel('Hospital name').fill('Onboarded Hospital');
     await page.getByLabel('Hospital name').press('Enter');
     await expect(page.getByRole('heading', { name: 'Language, clock and look' })).toBeFocused();
+    await page.getByLabel('Locale').fill('en-IN');
+    await page.getByLabel('Time zone').fill('Asia/Kolkata');
+    await page.getByLabel('Currency').selectOption('INR');
     await page.getByRole('button', { name: 'Next' }).press('Enter');
     await expect(page.getByRole('heading', { name: 'Modules and limits' })).toBeFocused();
     await page.getByRole('button', { name: 'Create hospital' }).press('Enter');
