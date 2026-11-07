@@ -135,6 +135,12 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   ).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // The bed board (#151): beds as cards on a phone, with who is in them.
+  await goTo(page, 'Bed board');
+  await expect(page.getByRole('heading', { name: 'Bed board', exact: true })).toBeVisible();
+  await expect(page.getByText('GW-A-01').first()).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   // The OPD queue: three groups of tokens, cards on a phone, and the form to issue one.
   await goTo(page, 'OPD queue');
   await expect(page.getByRole('heading', { name: 'OPD queue', exact: true })).toBeVisible();

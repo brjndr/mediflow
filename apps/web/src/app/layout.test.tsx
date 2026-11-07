@@ -44,6 +44,7 @@ describe('shell', () => {
       'Drugs and consumables',
       'Lab tests',
       'Wards and beds',
+      'Bed board',
       'Triage',
       'Diagnosis and procedure codes',
       'Document templates',
@@ -98,6 +99,7 @@ describe('shell', () => {
       'Drugs and consumables',
       'Lab tests',
       'Wards and beds',
+      'Bed board',
       'Triage',
       'Diagnosis and procedure codes',
       'Document templates',
@@ -172,6 +174,8 @@ describe('keyboard', () => {
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Wards and beds' })).toHaveFocus();
     await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Bed board' })).toHaveFocus();
+    await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Triage' })).toHaveFocus();
     await userEvent.tab();
     expect(
@@ -244,6 +248,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Drugs and consumables',
       'Lab tests',
       'Wards and beds',
+      'Bed board',
       'Triage',
       'Diagnosis and procedure codes',
       'Document templates',
@@ -307,6 +312,7 @@ describe('system pages', () => {
       'Drugs and consumables',
       'Lab tests',
       'Wards and beds',
+      'Bed board',
       'Triage',
       'Diagnosis and procedure codes',
       'Document templates',

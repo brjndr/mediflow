@@ -1,0 +1,67 @@
+{
+  "heading": "Bed board",
+  "description": "Every bed in use by ward and status, and who is in it. Cleaning, ready and blocked are set here.",
+  "gridLabel": "Beds",
+  "count_one": "{{count}} bed",
+  "count_other": "{{count}} beds",
+  "empty": "No beds match.",
+  "rowLabel": "Bed {{number}}, {{ward}}",
+  "live": {
+    "connecting": "Connecting for live changes…",
+    "on": "Live: changes show within seconds.",
+    "retrying": "Reconnecting. Meanwhile the board refreshes every {{seconds}} seconds.",
+    "off": "Live updates are not available. The board refreshes every {{seconds}} seconds."
+  },
+  "filters": {
+    "ward": "Ward",
+    "allWards": "Every ward",
+    "status": "Status",
+    "allStatuses": "Every status"
+  },
+  "columns": {
+    "bed": "Bed",
+    "ward": "Ward",
+    "room": "Room",
+    "category": "Category",
+    "status": "Status",
+    "patient": "Patient",
+    "mrn": "MRN"
+  },
+  "status": {
+    "available": "Available",
+    "occupied": "Occupied",
+    "cleaning": "Being cleaned",
+    "blocked": "Blocked",
+    "blockedFor": "Blocked: {{reason}}"
+  },
+  "reasons": {
+    "repair": "Repair",
+    "maintenance": "Maintenance",
+    "deep_cleaning": "Deep cleaning",
+    "reserved": "Reserved",
+    "other": "Other"
+  },
+  "actions": {
+    "markCleaning": "Mark being cleaned",
+    "markReady": "Mark ready",
+    "block": "Block",
+    "unblock": "Put back in use"
+  },
+  "blockPanel": {
+    "heading": "Block bed {{number}}",
+    "reason": "Reason",
+    "chooseReason": "Choose a reason",
+    "reasonRequired": "Choose a reason.",
+    "submit": "Block bed",
+    "back": "Cancel"
+  },
+  "done": {
+    "cleaning": "Bed {{number}} is marked as being cleaned.",
+    "ready": "Bed {{number}} is ready.",
+    "blocked": "Bed {{number}} is blocked.",
+    "unblocked": "Bed {{number}} is back in use."
+  },
+  "refused": {
+    "changed": "Someone else changed this bed first. The board has been refreshed; try again."
+  }
+}
