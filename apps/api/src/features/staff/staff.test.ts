@@ -15,7 +15,12 @@ import {
   type TestTenant,
   type TestUser,
 } from '../../../test/helpers.js';
-import { INVITE_EMAIL } from '../../core/auth/emails.js';
+import {
+  deliverInvite,
+  INVITE_EMAIL,
+  markInviteEmailFailed,
+  markInviteEmailSent,
+} from '../../core/auth/emails.js';
 import { MemoryQueue } from '../../core/jobs/queue.js';
 import { createMemoryNotifier } from '../../core/notifier/notifier.js';
 
@@ -562,13 +567,21 @@ async function invitePending(token: string) {
   return { id: response.json<{ id: string }>().id, email };
 }
 
-const resend = (id: string, token: string, key?: string) =>
-  app.inject({
+/** Sends again. The invitation is first aged past the cooldown, unless `fresh` says to test it. */
+const resend = async (id: string, token: string, key?: string, fresh = false) => {
+  if (!fresh) {
+    await pool.query(
+      "update invites set email_queued_at = now() - interval '2 minutes' where id::text = $1",
+      [id],
+    );
+  }
+  return app.inject({
     method: 'POST',
     url: `/invites/${id}/resend`,
     cookies: { [COOKIE]: token },
     headers: { origin: ORIGIN, ...(key ? { 'idempotency-key': key } : {}) },
   });
+};
 
 const failMail = async (work: () => Promise<void>) => {
   const original = notifier.send;
@@ -709,6 +722,56 @@ describe('sending an invitation again', () => {
     expect(await deliveryOf(token, pending)).toEqual(['sending']);
     await queue.drain();
     expect(await deliveryOf(token, pending)).toEqual(['sent']);
+  });
+
+  it('refuses a second send within the cooldown, with how long to wait', async () => {
+    const token = await signIn(admin);
+    const sent = await invite(token);
+    expect((await resend(sent.id, token)).statusCode).toBe(200);
+    const queued = queue.sent.length;
+
+    const again = await resend(sent.id, token, undefined, true);
+
+    expect(errorOf(again)).toEqual([429, 'resend_too_soon']);
+    expect(Number(again.headers['retry-after'])).toBeGreaterThan(0);
+    expect(queue.sent.slice(queued)).toHaveLength(0);
+    await queue.drain();
+  });
+
+  it('lets an old job change nothing once the invitation has been sent again', async () => {
+    const token = await signIn(admin);
+    const pending = await invitePending(token);
+    const { rows: before } = await pool.query('select token_hash from invites where id = $1', [
+      pending.id,
+    ]);
+    expect((await resend(pending.id, token)).statusCode).toBe(200);
+    const stale = { tenantId: hospital.id, inviteId: pending.id };
+
+    await markInviteEmailFailed(pool, stale);
+    expect(await deliveryOf(token, pending)).toEqual(['sending']);
+    await markInviteEmailSent(pool, stale);
+    expect(await deliveryOf(token, pending)).toEqual(['sending']);
+    expect(await deliverInvite(pool, notifier, stale)).toBe(false);
+    const { rows: after } = await pool.query('select token_hash from invites where id = $1', [
+      pending.id,
+    ]);
+    expect(after[0].token_hash).toEqual(before[0].token_hash);
+
+    await queue.drain();
+    expect(await deliveryOf(token, pending)).toEqual(['sent']);
+  });
+
+  it('logs a status that could not be saved, by the invite id only', async () => {
+    const warnings: object[] = [];
+    const broken = { connect: () => Promise.reject(new Error('down for someone@secret.test')) };
+
+    await markInviteEmailSent(
+      broken as unknown as pg.Pool,
+      { tenantId: hospital.id, inviteId: 'invite-1' },
+      { warn: (fields) => warnings.push(fields) },
+    );
+
+    expect(warnings).toEqual([{ event: 'invite_email_status_failed', inviteId: 'invite-1' }]);
   });
 
   it('answers the same key again without a second job', async () => {

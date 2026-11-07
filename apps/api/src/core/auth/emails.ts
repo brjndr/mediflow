@@ -29,6 +29,8 @@ export const PASSWORD_CHANGED_EMAIL = 'email.password_changed';
 export interface InviteEmailJob {
   tenantId: string;
   inviteId: string;
+  /** The attempt this job belongs to (`invites.email_attempt`); none for the first. */
+  attempt?: string;
 }
 
 export interface PasswordResetEmailJob {
@@ -100,30 +102,50 @@ async function atHospital<T>(
 }
 
 const OPEN_INVITE = 'accepted_at is null and revoked_at is null';
+/** Only the invite's current attempt: a job of an earlier one (before a resend) must not write. */
+const CURRENT_ATTEMPT = 'email_attempt is not distinct from $2::uuid';
+
+export interface StatusLog {
+  warn(fields: object, message: string): void;
+}
+
+/** A status write that failed is logged by the invite's id only, and never thrown. */
+function statusWriteFailed(log: StatusLog | undefined, job: InviteEmailJob): () => void {
+  return () =>
+    log?.warn({ event: 'invite_email_status_failed', inviteId: job.inviteId }, 'status not saved');
+}
 
 /** Records that the mail server took an open invite's email. Never throws: the email has gone. */
-export async function markInviteEmailSent(pool: pg.Pool, job: InviteEmailJob): Promise<void> {
+export async function markInviteEmailSent(
+  pool: pg.Pool,
+  job: InviteEmailJob,
+  log?: StatusLog,
+): Promise<void> {
   await atHospital(pool, job.tenantId, (client) =>
     client.query(
       `update invites set email_sent_at = now(), email_failed_at = null
-       where id = $1 and ${OPEN_INVITE}`,
-      [job.inviteId],
+       where id = $1 and ${CURRENT_ATTEMPT} and ${OPEN_INVITE}`,
+      [job.inviteId, job.attempt ?? null],
     ),
-  ).catch(() => undefined);
+  ).catch(statusWriteFailed(log, job));
 }
 
 /**
  * Records that an open invite's email could not be sent: its last attempt failed, or it could not
  * be queued. A time only. Never throws, so it can sit in a failure path.
  */
-export async function markInviteEmailFailed(pool: pg.Pool, job: InviteEmailJob): Promise<void> {
+export async function markInviteEmailFailed(
+  pool: pg.Pool,
+  job: InviteEmailJob,
+  log?: StatusLog,
+): Promise<void> {
   await atHospital(pool, job.tenantId, (client) =>
     client.query(
       `update invites set email_failed_at = now(), email_sent_at = null
-       where id = $1 and ${OPEN_INVITE}`,
-      [job.inviteId],
+       where id = $1 and ${CURRENT_ATTEMPT} and ${OPEN_INVITE}`,
+      [job.inviteId, job.attempt ?? null],
     ),
-  ).catch(() => undefined);
+  ).catch(statusWriteFailed(log, job));
 }
 
 /**
@@ -135,11 +157,12 @@ export async function queueInviteEmailTracked(
   pool: pg.Pool,
   job: InviteEmailJob,
   jobId?: string,
+  log?: StatusLog,
 ): Promise<void> {
   try {
     await queueInviteEmail(jobs, job, jobId);
   } catch (error) {
-    await markInviteEmailFailed(pool, job);
+    await markInviteEmailFailed(pool, job, log);
     throw error;
   }
 }
@@ -154,11 +177,11 @@ export async function deliverInvite(
   const invite = await atHospital(pool, job.tenantId, async (client) => {
     const { rows } = await client.query<{ email: string; hospital_name: string; hours: number }>(
       `update invites set token_hash = $2
-       where id = $1 and accepted_at is null and revoked_at is null and expires_at > now()
+       where id = $1 and email_attempt is not distinct from $3::uuid and accepted_at is null and revoked_at is null and expires_at > now()
          and exists (select from tenants where id = app_tenant_id() and status = 'active')
        returning email, (select name from tenants where id = app_tenant_id()) as hospital_name,
                  greatest(1, round(extract(epoch from expires_at - now()) / 3600))::int as hours`,
-      [job.inviteId, hash],
+      [job.inviteId, hash, job.attempt ?? null],
     );
     return rows[0];
   });
@@ -251,8 +274,8 @@ export const staffEmailsPlugin = fp(
         job.inviteId,
         () => deliverInvite(pool, app.notifier, job),
         final(context),
-        () => markInviteEmailSent(pool, job),
-        () => markInviteEmailFailed(pool, job),
+        () => markInviteEmailSent(pool, job, app.log),
+        () => markInviteEmailFailed(pool, job, app.log),
       ),
     );
     app.jobs.work<PasswordResetEmailJob>(PASSWORD_RESET_EMAIL, (job, context) =>
