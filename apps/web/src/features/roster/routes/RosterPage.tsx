@@ -118,7 +118,7 @@ export default function RosterPage() {
       <p className="text-sm text-muted-foreground">{t('intro')}</p>
       <OnCallPanel />
       <div className="flex flex-wrap items-end gap-3">
-        <div className="inline-flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => setWeekStart(addDays(weekStart, -7))}>
             {t('week.previous')}
           </Button>
@@ -130,7 +130,7 @@ export default function RosterPage() {
           </Button>
         </div>
         {departments.available && (
-          <div className="flex min-w-48 flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col md:min-w-48 gap-1.5">
             <label htmlFor={departmentId} className="text-sm font-medium">
               {t('filter.department')}
             </label>
