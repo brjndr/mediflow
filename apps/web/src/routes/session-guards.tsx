@@ -3,6 +3,7 @@ import { DocumentTitle } from '@/app/DocumentTitle';
 import { Navigate, useLocation } from 'react-router-dom';
 import { ForbiddenPage, usePolicyRefresh } from '@/access';
 import { useSession, useSessionEndReason } from '@/app/session';
+import { safeAppPath } from '@/shared/lib/safe-path';
 import { HospitalPicker, SuspendedPage, useTenant, useTenantSync } from '@/tenancy';
 
 export const LOGIN_PATH = '/login';
@@ -17,8 +18,8 @@ interface LoginRedirectState {
 function intendedPath(state: unknown): string {
   if (typeof state !== 'object' || state === null || !('from' in state)) return '/';
   const { from } = state;
-  if (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//')) return '/';
-  return from.startsWith(LOGIN_PATH) ? '/' : from;
+  const safe = safeAppPath(from);
+  return safe.startsWith(LOGIN_PATH) ? '/' : safe;
 }
 
 /**

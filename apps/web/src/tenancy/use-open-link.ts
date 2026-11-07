@@ -8,6 +8,7 @@ import {
   sessionMutationKey,
   type Session,
 } from '@/app/session';
+import { safeAppPath } from '@/shared/lib/safe-path';
 import { useAppDispatch } from '@/app/store-hooks';
 
 interface LinkTarget {
@@ -39,7 +40,7 @@ export function useOpenLink() {
         announceSessionChange();
       }
       // The route's own guard still decides whether this user may see the screen.
-      navigate(`/${path}`, { replace: true });
+      navigate(safeAppPath(`/${path}`), { replace: true });
     },
   });
 }
