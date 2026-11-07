@@ -83,5 +83,18 @@
       "ownAccess": "You cannot take away your own ability to manage roles.",
       "unknown": "A permission in the list is not known to the system. Reload the page."
     }
+  },
+  "preview": {
+    "heading": "View as {{name}}",
+    "description": "The menu, pages and actions a person in this role would get, worked out the way the app does for them. This is only a preview: nothing is saved and your own access does not change.",
+    "source": "Preview of",
+    "unsaved": "With my unsaved changes",
+    "saved": "As saved",
+    "nav": "Menu",
+    "pages": "Pages",
+    "actions": "Actions",
+    "noNav": "No menu items.",
+    "noPages": "No pages.",
+    "noActions": "No actions."
   }
 }

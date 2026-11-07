@@ -79,6 +79,10 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
       name: /^(Permissions of Doctor|This screen needs a wider display)$/,
     }),
   ).toBeVisible();
+  // The preview of what the role would get is part of the same screen (desktop only).
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    await expect(page.getByRole('heading', { name: 'View as Doctor' })).toBeVisible();
+  }
   await expectNoSidewaysScroll(page);
 
   // Appointments: the filters wrap and the list becomes cards on a phone.
