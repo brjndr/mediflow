@@ -6,6 +6,8 @@
 export const DOMAIN_EVENTS = [
   'patient.registered',
   'patient.updated',
+  // Two records of one person were merged (#194): the merge and both patient ids, nothing else.
+  'patient.merged',
   'appointment.created',
   'appointment.rescheduled',
   'appointment.cancelled',

@@ -27,6 +27,7 @@ import { outboxPlugin } from './core/outbox/plugin.js';
 import { platformPlugin } from './core/platform/plugin.js';
 import { idempotencyPlugin, idempotencyStorePlugin } from './core/idempotency/plugin.js';
 import { importKindsPlugin } from './core/imports/registry.js';
+import { patientMergePlugin } from './core/patient-merge/registry.js';
 import type { LiveBus } from './core/live/bus.js';
 import { livePlugin } from './core/live/plugin.js';
 import type { RateLimiter } from './core/ratelimit/limiter.js';
@@ -45,6 +46,7 @@ import { doctorsFeature } from './features/doctors/index.js';
 import { drugsFeature } from './features/drugs/index.js';
 import { importsFeature } from './features/imports/index.js';
 import { labFeature } from './features/lab/index.js';
+import { documentsFeature } from './features/documents/index.js';
 import { radiologyFeature } from './features/radiology/index.js';
 import { inventoryFeature } from './features/inventory/index.js';
 import { billingFeature } from './features/billing/index.js';
@@ -156,6 +158,8 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(accessRoutes);
   // Before the features: each one that can be loaded from a file registers its kind here.
   await app.register(importKindsPlugin);
+  // Likewise for what a module moves when two patient records are merged (#194).
+  await app.register(patientMergePlugin);
 
   // Features: one line each.
   await app.register(healthFeature);
@@ -177,6 +181,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(clinicalFeature);
   await app.register(labFeature);
   await app.register(radiologyFeature);
+  await app.register(documentsFeature);
   await app.register(inventoryFeature);
   await app.register(pharmacyFeature);
   await app.register(billingFeature);
