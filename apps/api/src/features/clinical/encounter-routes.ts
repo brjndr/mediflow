@@ -301,6 +301,14 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (row.version !== version) {
         throw new HttpError(409, 'conflict', 'The encounter has changed since it was read');
       }
+      // The stay of an admission ends with its discharge (BE-23), not from here.
+      const { rowCount } = await request.txClient.query(
+        'select 1 from admissions where encounter_id = $1',
+        [row.id],
+      );
+      if (rowCount) {
+        throw new HttpError(409, 'managed_by_admission', 'The admission ends this encounter');
+      }
       await change(row);
       request.audit('update', 'encounter', row.id);
     }

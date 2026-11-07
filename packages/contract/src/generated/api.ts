@@ -1448,6 +1448,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital’s admissions, newest first: of one status, of one patient, in one ward (the ward of the bed the patient is in now), or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds admission:read with: `own`, the admissions they made as a doctor; `department`, those of their department. A list nobody types patient facts into, so a GET. Every row names its patient, so every row of a page is audited. `total` comes with the first page only. Requires admission:read and the admissions feature flag. */
+        get: operations["listAdmissions"];
+        put?: never;
+        /** @description Admits a patient: opens the stay’s inpatient encounter and the admission, and gives the patient a bed when `bedId` is sent (otherwise assignBed does later). A patient has one admission not yet discharged (409 `already_admitted`). The bed must be available (409 `bed_not_available`), is looked up in the hospital only (422 `unknown_bed`), and needs the wards module (403 `feature_disabled`). Of two requests for one bed at the same moment, one succeeds and the other is 409: the ward is locked while a bed is given, and an exclusion constraint on the time a bed holds a patient backs it up. The doctor is `doctorId`, else the caller’s own profile; one who does not practise here, or is outside the scope the caller holds admission:create with, is 422 `unknown_doctor`. Requires admission:create and admission:read, and patient:read (checked in the handler, within its scope): a patient the caller may not read and one that does not exist are both 422 `unknown_patient`. The Idempotency-Key header is required: a repeat admits nobody again and answers with the admission. Audited; emits `encounter.opened`, `admission.created` and, with a bed, `bed.assigned` through the outbox, and is announced on `/beds/events`. */
+        post: operations["admitPatient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One admission with the beds the patient has been in, oldest first. 404 `admission_not_found` for one that does not exist, is another hospital’s or is outside the caller’s scope. Audited as a read. */
+        get: operations["getAdmission"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/assign-bed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Gives an admitted patient who has no bed an available one (409 `already_in_bed` for one who has: use transferPatient). The target must be available (409 `bed_not_available`), is looked up in the hospital only (422 `unknown_bed`) and needs the wards module (403 `feature_disabled`). Both wards are locked, in id order, while the move is made. Requires admission:transfer and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
+        post: operations["assignBed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Moves an admitted patient from their bed to another available one (409 `no_bed` for one who has none: use assignBed; 422 `same_bed`). The bed they leave is set to being cleaned, with `bed.released` and `bed.assigned` through the outbox, and the move is one transaction: the patient is never in no bed or two. The target must be available (409 `bed_not_available`), is looked up in the hospital only (422 `unknown_bed`) and needs the wards module (403 `feature_disabled`). Both wards are locked, in id order, while the move is made. Requires admission:transfer and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
+        post: operations["transferPatient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/discharge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. Billing and the discharge summary react to the event; this API does not clear the bill. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
+        post: operations["dischargePatient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/beds/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The beds in use (not archived, in a ward and a room not archived) with their status and, for an occupied bed, the patient in it: by ward name and bed number, filtered by ward and status. The board reads this again on each event of `/beds/events`. Names patients, so the admission of every occupied bed of a page is audited as a read. `total` comes with the first page only. Requires admission:read, the admissions and wards feature flags. */
+        get: operations["listBedBoard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/beds/{bedId}/housekeeping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Marks an available bed being cleaned, or a bed being cleaned ready (available). Only these two moves: an occupied or blocked bed is 409 `invalid_transition` (a patient leaving sets a bed being cleaned by itself; blocking is the wards API). The `version` is the bed’s, from the board, or 409 `conflict`. The ward is locked while the bed changes. 404 `bed_not_found` for a bed this hospital does not have. Needs the wards module (403 `feature_disabled`). The Idempotency-Key header is required. Audited, and announced on `/beds/events`. Requires bed:update. */
+        post: operations["setBedHousekeeping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/beds/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Server-sent events for the beds of the session’s hospital, and of no other. Each `beds` event says only which ward changed (`data: {"wardId":"..."}`), never who is in a bed: the board then reads again through listBedBoard, which is audited. The stream opens with a `retry:` line and holds no database connection while open; a comment line is sent every 20 seconds to keep the connection open, and a client takes 45 seconds without anything as a lost connection. The server ends the stream when the session ends, is revoked, goes idle or switches hospital, and when the session loses admission:read or the hospital the admissions switch or is suspended, checking all of these again at each keep-alive and before sending events. It also ends the stream when it may have missed changes, so the board opens it again and reads afresh. 503 `live_unavailable` when live updates cannot be followed now: the board reads on a timer instead. Requires admission:read and the admissions feature flag. */
+        get: operations["bedEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/codes/search": {
         parameters: {
             query?: never;
@@ -5592,6 +5729,128 @@ export interface components {
             reason: "repair" | "maintenance" | "deep_cleaning" | "reserved" | "other";
             /** @description A few words more: about the bed, never about a patient. Free text, so the API treats it as possibly sensitive: it is not written to logs or to event payloads. */
             note?: string;
+        };
+        /**
+         * @description How the patient came to be admitted.
+         * @enum {string}
+         */
+        AdmissionType: "planned" | "emergency" | "transfer_in";
+        /**
+         * @description admitted -> discharged, final.
+         * @enum {string}
+         */
+        AdmissionStatus: "admitted" | "discharged";
+        /**
+         * @description How the stay ended.
+         * @enum {string}
+         */
+        DischargeType: "routine" | "against_advice" | "referred" | "absconded" | "deceased";
+        /**
+         * @description Why a patient left a bed.
+         * @enum {string}
+         */
+        BedReleaseReason: "transfer" | "discharge";
+        /**
+         * @description available -> occupied (a patient is given the bed) -> cleaning (they leave) -> available (it is ready). blocked is set from the wards API.
+         * @enum {string}
+         */
+        BoardBedStatus: "available" | "occupied" | "cleaning" | "blocked";
+        AdmissionCreate: {
+            patientId: string;
+            admissionType: components["schemas"]["AdmissionType"];
+            /** @description The admitting doctor, a practising one. The caller’s own profile when left out (422 `unknown_doctor` when they have none). The stay’s department is theirs. */
+            doctorId?: string;
+            /** @description An available bed to give the patient now. Left out, the patient is admitted without a bed and given one with assignBed. */
+            bedId?: string;
+        };
+        AdmissionBed: {
+            assignmentId: string;
+            bedId: string;
+            bedNumber: string;
+            wardId: string;
+            wardName: string;
+            roomName: string;
+            /** Format: date-time */
+            assignedAt: string;
+        };
+        Admission: {
+            id: string;
+            tenantId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            /** @description The stay’s inpatient encounter. */
+            encounterId: string;
+            doctorId: string;
+            doctorName: string;
+            departmentId: string;
+            departmentName: string;
+            admissionType: components["schemas"]["AdmissionType"];
+            status: components["schemas"]["AdmissionStatus"];
+            /** Format: date-time */
+            admittedAt: string;
+            /** Format: date-time */
+            dischargedAt?: string;
+            dischargeType?: components["schemas"]["DischargeType"];
+            bed?: components["schemas"]["AdmissionBed"];
+            /** @description Counts the changes, a change of bed too. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        AdmissionPage: {
+            items: components["schemas"]["Admission"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        BedStay: {
+            assignmentId: string;
+            bedId: string;
+            bedNumber: string;
+            wardId: string;
+            wardName: string;
+            /** @description The bed’s category when the patient was given it. */
+            bedCategoryId: string;
+            /** @description The bed-day service of that category then. */
+            serviceId?: string;
+            /** Format: date-time */
+            assignedAt: string;
+            /** Format: date-time */
+            releasedAt?: string;
+            releaseReason?: components["schemas"]["BedReleaseReason"];
+        };
+        AdmissionDetail: {
+            admission: components["schemas"]["Admission"];
+            /** @description Every bed the patient was in, oldest first: the bed history. */
+            stays: components["schemas"]["BedStay"][];
+        };
+        BoardOccupant: {
+            admissionId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            /** Format: date-time */
+            assignedAt: string;
+        };
+        BoardBed: {
+            id: string;
+            number: string;
+            wardId: string;
+            wardName: string;
+            roomId: string;
+            roomName: string;
+            categoryName: string;
+            status: components["schemas"]["BoardBedStatus"];
+            /** @description Why a blocked bed is out of use, from a list. */
+            blockedReason?: string;
+            occupant?: components["schemas"]["BoardOccupant"];
+            /** @description The bed’s, for setBedHousekeeping. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        BoardBedPage: {
+            items: components["schemas"]["BoardBed"][];
+            nextCursor: string | null;
+            total?: number;
         };
         /** @description A diagnosis code (ICD-10) or a procedure code. Reference data shared by every hospital, so it carries no tenant; only `favourite` is the hospital’s own. */
         Code: {
@@ -15617,6 +15876,739 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAdmissions: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["AdmissionStatus"];
+                wardId?: string;
+                patientId?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    admitPatient: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdmissionCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAdmission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    assignBed: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    bedId: string;
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    transferPatient: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    bedId: string;
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    dischargePatient: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dischargeType: components["schemas"]["DischargeType"];
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listBedBoard: {
+        parameters: {
+            query?: {
+                wardId?: string;
+                status?: components["schemas"]["BoardBedStatus"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardBedPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setBedHousekeeping: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                bedId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description `cleaning` from an available bed, `available` (ready) from one being cleaned. 409 `invalid_transition` otherwise.
+                     * @enum {string}
+                     */
+                    status: "cleaning" | "available";
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardBed"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    bedEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description An event stream that stays open */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
                 };
             };
         };
