@@ -10,15 +10,18 @@ export const APPOINTMENT_PERMISSIONS = [
     id: 'appointment:read',
     description: 'See appointments, with the name and MRN of the patient each is for',
     defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
+    scopes: ['own', 'department'],
   },
   {
     id: 'appointment:create',
     description: 'Book appointments',
     defaults: { admin: 'all', receptionist: 'all' },
+    scopes: ['own', 'department'],
   },
   {
     id: 'appointment:update',
     description: 'Move, cancel, complete and mark appointments as a no-show',
     defaults: { admin: 'all', receptionist: 'all' },
+    scopes: ['own', 'department'],
   },
 ] as const satisfies readonly PermissionDefinition[];

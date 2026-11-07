@@ -1,6 +1,7 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import {
+  currentPolicy,
   deleteMockRole,
   mockRoleGrants,
   mockRoleIds,
@@ -33,8 +34,13 @@ const BUILT_IN = new Set([
 
 /** Names given to custom roles, by hospital. A built-in role's name comes from its id. */
 let names = new Map<string, string>();
+/** When a role's permissions last changed: a counter, shown as the role's updatedAt. */
+let touched = new Map<string, number>();
+let touches = 0;
 onMockReset(() => {
   names = new Map();
+  touched = new Map();
+  touches = 0;
 });
 
 const nameKey = (tenantId: string, roleId: string) => `${tenantId}/${roleId}`;
@@ -80,7 +86,9 @@ function detail(tenantId: string, roleId: string): RoleDetail {
     builtIn,
     memberCount,
     permissions: mockRoleGrants(tenantId, roleId),
-    updatedAt: '2026-11-01T09:00:00.000Z',
+    updatedAt: new Date(
+      Date.parse('2026-11-01T09:00:00.000Z') + (touched.get(nameKey(tenantId, roleId)) ?? 0) * 1000,
+    ).toISOString(),
   };
 }
 
@@ -95,6 +103,10 @@ export const rolesHandlers = [
       permission,
       description: `Allows ${permission}`,
       feature: permission.split(':')[0] ?? permission,
+      // Only appointments honour a narrower scope, as in the API.
+      scopes: permission.startsWith('appointment:')
+        ? ['all' as const, 'own' as const, 'department' as const]
+        : ['all' as const],
     }));
     return HttpResponse.json<PermissionCatalog>({ items });
   }),
@@ -150,7 +162,26 @@ export const rolesHandlers = [
         names.set(nameKey(access.tenantId, id), name);
       }
     }
-    if (body.permissions) setRolePermissions(access.tenantId, id, body.permissions as Grants);
+    if (body.permissions) {
+      const wanted = body.permissions as Grants;
+      const caller = currentPolicy();
+      const held = new Map(
+        (caller?.permissions ?? []).map((g) => [g.permission, g.scope ?? 'all']),
+      );
+      const within = (grants: Grants) =>
+        grants.every((g) => {
+          const own = held.get(g.permission);
+          return own === 'all' || (own !== undefined && own === (g.scope ?? 'all'));
+        });
+      if (!within(mockRoleGrants(access.tenantId, id)) || !within(wanted)) {
+        return error(403, 'role_not_allowed', 'That role holds more than you do');
+      }
+      if (caller?.roleId === id && !wanted.some((g) => g.permission === MANAGE)) {
+        return error(409, 'cannot_remove_own_access', 'You cannot take away your own access');
+      }
+      setRolePermissions(access.tenantId, id, wanted);
+      touched.set(nameKey(access.tenantId, id), ++touches);
+    }
     return HttpResponse.json<RoleDetail>(detail(access.tenantId, id));
   }),
 

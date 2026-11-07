@@ -69,6 +69,17 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
     page.getByRole('heading', { name: /^(Roles|This screen needs a wider display)$/ }),
   ).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // A role's permission matrix: also desktop-only, so the same notice below desktop width.
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/roles/doctor');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await expect(
+    page.getByRole('heading', {
+      name: /^(Permissions of Doctor|This screen needs a wider display)$/,
+    }),
+  ).toBeVisible();
+  await expectNoSidewaysScroll(page);
 
   // Appointments: the filters wrap and the list becomes cards on a phone.
   await goTo(page, 'Appointments');

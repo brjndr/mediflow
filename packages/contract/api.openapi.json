@@ -434,7 +434,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["permission", "description", "feature"],
+              "required": ["permission", "description", "feature", "scopes"],
               "properties": {
                 "permission": {
                   "type": "string"
@@ -444,6 +444,14 @@
                 },
                 "feature": {
                   "type": "string"
+                },
+                "scopes": {
+                  "description": "The scopes the permission can be held at; always starts with all",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["all", "own", "department"]
+                  }
                 }
               }
             }

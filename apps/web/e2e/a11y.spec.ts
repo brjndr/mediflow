@@ -77,6 +77,8 @@ function scheduledAppointment(page: Page): Promise<string> {
 const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
   // A row opens the appointment from its row action, not a link.
   appointments: (page) => scheduledAppointment(page),
+  // A role's permission matrix is opened from a row action of the role list, not a link.
+  roles: () => Promise.resolve('doctor'),
   // Triage has no list of its own: a patient of the mock with readings and allergies.
   triage: () => Promise.resolve('pth_00001'),
   // A lab order's results (#91) are opened from a worklist row action: its sample collected,
