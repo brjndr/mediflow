@@ -1,0 +1,80 @@
+{
+  "close": "Close",
+  "cancel": "Cancel shift",
+  "heading": "Duty roster",
+  "intro": "Who is on duty, by day. A person is on one shift at a time. A shift is cancelled, never edited.",
+  "empty": "No shifts this week.",
+  "kind": {
+    "morning": "Morning",
+    "evening": "Evening",
+    "night": "Night",
+    "day": "Day",
+    "on_call": "On call"
+  },
+  "state": {
+    "scheduled": "Scheduled",
+    "cancelled": "Cancelled"
+  },
+  "conflict": {
+    "overlap": "Conflict: overlaps another shift",
+    "rest": "Conflict: less than {{hours}} hours of rest",
+    "count_one": "{{count}} shift has a conflict.",
+    "count_other": "{{count}} shifts have a conflict."
+  },
+  "columns": {
+    "person": "Person",
+    "department": "Department",
+    "kind": "Shift",
+    "starts": "Starts",
+    "ends": "Ends",
+    "state": "Status"
+  },
+  "week": {
+    "previous": "Previous week",
+    "current": "This week",
+    "next": "Next week",
+    "showing": "Showing {{from}} to {{to}}."
+  },
+  "filter": {
+    "department": "Department",
+    "all": "All departments"
+  },
+  "onCall": {
+    "heading": "On call now",
+    "loading": "Loading…",
+    "error": "The people on call could not be loaded.",
+    "none": "Nobody is on call at the moment.",
+    "until": "until {{time}}"
+  },
+  "new": {
+    "open": "Add a shift",
+    "title": "Add a shift",
+    "description": "Put a member of staff on duty. The kind of shift fills the usual hours; change them if needed.",
+    "person": "Person",
+    "choose": "Choose…",
+    "department": "Department",
+    "anyDepartment": "No department",
+    "kind": "Kind of shift",
+    "kindHint": "Fills the start and end with the usual hours.",
+    "day": "Day it starts",
+    "start": "Starts at",
+    "end": "Ends at",
+    "endHint": "At or before the start means the next day. At most 24 hours.",
+    "save": "Add shift",
+    "saving": "Adding…",
+    "done": "{{name}} is on the roster."
+  },
+  "cancelDialog": {
+    "title": "Cancel the shift of {{name}}?",
+    "description": "The shift stays in the record as cancelled and the time is free again.",
+    "confirm": "Cancel shift",
+    "done": "The shift of {{name}} is cancelled.",
+    "failed": "The shift could not be cancelled. It may have changed: check the list."
+  },
+  "errors": {
+    "overlap": "This person is already on duty at that time. Choose another time.",
+    "period": "A shift ends after it starts, within a day.",
+    "user": "This person is not on the staff of this hospital.",
+    "department": "This department does not exist."
+  }
+}

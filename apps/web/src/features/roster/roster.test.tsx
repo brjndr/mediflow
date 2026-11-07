@@ -1,0 +1,178 @@
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  grantPermission,
+  revokePermission,
+  setTenantFeature,
+  signIn,
+  TENANT_IDS,
+  USER_IDS,
+} from '@/mocks/db';
+import { mockStaffOf } from '@/mocks/handlers/staff';
+import { expectNoAxeViolations } from '@/test/axe';
+import { renderApp } from '@/test/render';
+import { rosterConflicts } from './conflicts';
+import type { RosterShift } from './types';
+
+// The duty roster (OP-01, #195). The mock hospital has, around a Wednesday noon: two morning
+// shifts, one person on call, one person with two shifts four hours apart (a rest conflict) and
+// a cancelled shift. Its clinic has one shift. Only Date is faked, so the week is the same on
+// any day the suite runs.
+
+const HOSPITAL = TENANT_IDS.hospital;
+const CLINIC = TENANT_IDS.clinic;
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-11T06:30:00Z'));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+const person = (tenantId: string, index: number) => mockStaffOf(tenantId)[index]?.name ?? '';
+
+describe('the roster', () => {
+  it('lists the week, says which shifts conflict and has no axe violations', async () => {
+    renderApp({ entry: '/roster' });
+    const table = await screen.findByRole('table', { name: 'Duty roster' });
+    expect(await within(table).findAllByText('Conflict: less than 8 hours of rest')).toHaveLength(
+      2,
+    );
+    expect(within(table).getAllByText('Scheduled').length).toBeGreaterThan(0);
+    expect(within(table).queryByText('Cancelled')).not.toBeInTheDocument();
+    expect(await screen.findByText(/2 shifts have a conflict./)).toBeInTheDocument();
+    await expectNoAxeViolations();
+  });
+
+  it('shows who is on call now', async () => {
+    renderApp({ entry: '/roster' });
+    const panel = await screen.findByRole('region', { name: 'On call now' });
+    expect(await within(panel).findByText(person(HOSPITAL, 2))).toBeInTheDocument();
+    expect(within(panel).queryByText(person(HOSPITAL, 0))).not.toBeInTheDocument();
+  });
+
+  it('puts someone on duty, filling the usual hours from the kind of shift', async () => {
+    renderApp({ entry: '/roster' });
+    await screen.findByRole('table', { name: 'Duty roster' });
+    await userEvent.click(screen.getByRole('button', { name: 'Add a shift' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() =>
+      expect(within(dialog).getByRole('combobox', { name: /Person/ })).toHaveTextContent(
+        person(HOSPITAL, 5),
+      ),
+    );
+    await userEvent.selectOptions(within(dialog).getByLabelText(/Person/), person(HOSPITAL, 5));
+    await userEvent.selectOptions(within(dialog).getByLabelText(/Kind of shift/), 'Night');
+    await waitFor(() => expect(within(dialog).getByLabelText(/Starts at/)).toHaveValue('23:00'));
+    expect(within(dialog).getByLabelText(/Ends at/)).toHaveValue('07:00');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add shift' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(
+      await screen.findByText(new RegExp(`${person(HOSPITAL, 5)} is on the roster`)),
+    ).toBeInTheDocument();
+    expect(
+      await within(screen.getByRole('table', { name: 'Duty roster' })).findByText('Night'),
+    ).toBeInTheDocument();
+  });
+
+  it('refuses a second shift at the same time and keeps what was chosen', async () => {
+    renderApp({ entry: '/roster' });
+    await screen.findByRole('table', { name: 'Duty roster' });
+    await userEvent.click(screen.getByRole('button', { name: 'Add a shift' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() =>
+      expect(within(dialog).getByRole('combobox', { name: /Person/ })).toHaveTextContent(
+        person(HOSPITAL, 0),
+      ),
+    );
+    await userEvent.selectOptions(within(dialog).getByLabelText(/Person/), person(HOSPITAL, 0));
+    const day = within(dialog).getByLabelText(/Day it starts/);
+    expect(day).toHaveValue('2026-11-11');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add shift' }));
+    expect(await within(dialog).findByText(/already on duty at that time/)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Person/)).toHaveValue(mockStaffOf(HOSPITAL)[0]?.userId);
+  });
+
+  it('cancels a shift after a confirmation', async () => {
+    renderApp({ entry: '/roster' });
+    const table = await screen.findByRole('table', { name: 'Duty roster' });
+    const row = (await within(table).findAllByText(person(HOSPITAL, 1)))[0]?.closest(
+      'tr',
+    ) as HTMLElement;
+    await userEvent.click(within(row).getByRole('button', { name: /^Cancel shift/ }));
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel shift' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(
+      await screen.findByText(new RegExp(`shift of ${person(HOSPITAL, 1)} is cancelled`)),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(table).queryByText(person(HOSPITAL, 1))).not.toBeInTheDocument(),
+    );
+  });
+
+  it('shows another hospital only its own shifts', async () => {
+    setTenantFeature(CLINIC, 'roster', true);
+    grantPermission(CLINIC, 'doctor', 'roster:read');
+    signIn(USER_IDS.doctor, CLINIC);
+    renderApp({ entry: '/roster' });
+    const table = await screen.findByRole('table', { name: 'Duty roster' });
+    expect(await within(table).findByText(person(CLINIC, 0))).toBeInTheDocument();
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Add a shift' })).not.toBeInTheDocument();
+  });
+
+  it('is unreachable when the hospital has the module off', async () => {
+    setTenantFeature(HOSPITAL, 'roster', false);
+    renderApp({ entry: '/roster' });
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByRole('table', { name: 'Duty roster' })).not.toBeInTheDocument();
+  });
+
+  it('is refused without the permission', async () => {
+    revokePermission(HOSPITAL, 'admin', 'roster:read');
+    renderApp({ entry: '/roster' });
+    expect(await screen.findByRole('heading', { name: /do not have access/i })).toBeInTheDocument();
+  });
+
+  it('does not offer to add or cancel without roster:manage', async () => {
+    revokePermission(HOSPITAL, 'admin', 'roster:manage');
+    renderApp({ entry: '/roster' });
+    const table = await screen.findByRole('table', { name: 'Duty roster' });
+    await within(table).findAllByText('Scheduled');
+    expect(screen.queryByRole('button', { name: 'Add a shift' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: /^Cancel shift/ })).toBeNull();
+  });
+});
+
+describe('rosterConflicts', () => {
+  const shift = (id: string, userId: string, from: string, to: string, status = 'scheduled') =>
+    ({
+      id,
+      tenantId: 't',
+      userId,
+      userName: userId,
+      shiftKind: 'day',
+      startsAt: from,
+      endsAt: to,
+      status,
+      version: 1,
+    }) as RosterShift;
+
+  it('flags overlaps and short rests per person, not across people or cancelled shifts', () => {
+    const flagged = rosterConflicts([
+      shift('a', 'u1', '2026-11-10T08:00:00Z', '2026-11-10T16:00:00Z'),
+      shift('b', 'u1', '2026-11-10T15:00:00Z', '2026-11-10T20:00:00Z'),
+      shift('c', 'u2', '2026-11-10T08:00:00Z', '2026-11-10T16:00:00Z'),
+      shift('d', 'u2', '2026-11-10T18:00:00Z', '2026-11-10T22:00:00Z', 'cancelled'),
+      shift('e', 'u3', '2026-11-10T08:00:00Z', '2026-11-10T16:00:00Z'),
+      shift('f', 'u3', '2026-11-11T08:00:00Z', '2026-11-11T16:00:00Z'),
+    ]);
+    expect(flagged.get('a')).toBe('overlap');
+    expect(flagged.get('b')).toBe('overlap');
+    expect(flagged.has('c')).toBe(false);
+    expect(flagged.has('e')).toBe(false);
+  });
+});

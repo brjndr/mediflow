@@ -17,6 +17,7 @@ import { patientsFeature } from '@/features/patients';
 import { queueFeature } from '@/features/queue';
 import { reportsFeature } from '@/features/reports';
 import { recordsFeature } from '@/features/records';
+import { rosterFeature } from '@/features/roster';
 import { radiologyFeature } from '@/features/radiology';
 import { inventoryFeature } from '@/features/inventory';
 import { pharmacyFeature } from '@/features/pharmacy';
@@ -61,6 +62,7 @@ export const features: FeatureManifest[] = [
   documentsFeature,
   consentsFeature,
   recordsFeature,
+  rosterFeature,
   radiologyFeature,
   pharmacyFeature,
   inventoryFeature,
