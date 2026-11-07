@@ -90,7 +90,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter web exec vitest run --coverage --shard=${{ matrix.shard }}/3 --reporter=default --reporter=blob
+      # Thresholds are zero here: one shard sees a third of the tests. web-coverage enforces them.
+      - run: pnpm --filter web exec vitest run --coverage --shard=${{ matrix.shard }}/3 --reporter=default --reporter=blob --coverage.thresholds.lines=0 --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 --coverage.thresholds.statements=0
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
