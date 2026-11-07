@@ -1,7 +1,8 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import type { FastifyRequest } from 'fastify';
-import { grantsWithin } from '../../core/access/policy.js';
+import { BUILT_IN_ROLES } from '../../core/access/registry.js';
+import { grantsWithin, loadPolicy } from '../../core/access/policy.js';
 import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { tidyWithin } from '../../core/http/text.js';
@@ -38,7 +39,7 @@ const READ = 'role:read';
 const MANAGE = 'role:manage';
 /** Permissions that must never be left with no active holder in a hospital. */
 const KEEP_HELD = [MANAGE, 'staff:manage'] as const;
-const RESERVED_IDS = new Set(['platform_admin']);
+const RESERVED_IDS = new Set<string>(BUILT_IN_ROLES);
 
 const notFound = () => new HttpError(404, 'role_not_found', 'No such role');
 const tooMuch = () => new HttpError(403, 'role_not_allowed', 'That role holds more than you do');
@@ -87,7 +88,13 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
 
   /** Nobody hands on more than they hold: every set given must lie within the caller's policy. */
   async function ceiling(request: FastifyRequest, ...sets: readonly Grant[][]): Promise<void> {
-    const policy = await request.access.policy();
+    // Read again now that the hospital's role changes are held: the policy loaded for the guard
+    // may predate a change another administrator made while this request waited.
+    const policy = await loadPolicy(
+      request.txClient,
+      request.tenant?.id ?? '',
+      request.session?.userId ?? '',
+    );
     if (!policy) throw new HttpError(403, 'permission_denied', 'Not a member of this hospital');
     for (const set of sets) if (!grantsWithin(set, policy.permissions)) throw tooMuch();
   }
@@ -209,22 +216,25 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request, reply) => {
       if (request.replayOf) {
         // A repeat of a create that went through: answer with the role as it is now.
-        const repeated = roleIdFrom(tidyWithin(request.body.name, ROLE_NAME_MAX));
-        const row = repeated ? await findRole(request.txClient, repeated) : null;
+        const row = request.idempotentId
+          ? await findRole(request.txClient, request.idempotentId)
+          : null;
         if (!row) throw notFound();
         return reply.status(201).send(detail(row, await grantsOf(request.txClient, row.id)));
       }
       const name = tidyWithin(request.body.name, ROLE_NAME_MAX);
       const id = roleIdFrom(name);
-      if (id === null || RESERVED_IDS.has(id)) {
+      if (id !== null && RESERVED_IDS.has(id)) throw taken();
+      if (id === null || id === 'platform_admin') {
         throw new HttpError(400, 'validation_failed', 'The name must contain letters or digits');
       }
       const grants = checkGrants(request.body.permissions as RoleGrantInput[]);
-      await ceiling(request, grants);
       await lockRoleChanges(request.txClient);
+      await ceiling(request, grants);
       if (await roleTaken(request.txClient, id, name)) throw taken();
       await insertRole(request.txClient, id, name);
       await replaceGrants(request.txClient, id, grants);
+      request.idempotentId = id;
       request.audit('create', 'role', id);
       const row = await findRole(request.txClient, id);
       if (!row) throw notFound();
@@ -253,6 +263,9 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
         : null;
       const name =
         request.body.name === undefined ? null : tidyWithin(request.body.name, ROLE_NAME_MAX);
+      if (name === '') {
+        throw new HttpError(400, 'validation_failed', 'The name must contain letters or digits');
+      }
       const before = await beginChange(request);
       const row = await findRole(request.txClient, roleId, true);
       if (!row) throw notFound();
@@ -307,7 +320,15 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if ((await usesOfRole(request.txClient, roleId)) > 0) {
         throw new HttpError(409, 'role_in_use', 'Members or invitations still have this role');
       }
-      await deleteRole(request.txClient, roleId);
+      try {
+        await deleteRole(request.txClient, roleId);
+      } catch (error) {
+        // A member or invitation named the role between the check and the delete.
+        if ((error as { code?: string }).code === '23503') {
+          throw new HttpError(409, 'role_in_use', 'Members or invitations still have this role');
+        }
+        throw error;
+      }
       await endChange(request, before, null);
       request.audit('delete', 'role', roleId);
       return reply.status(204).send(null);

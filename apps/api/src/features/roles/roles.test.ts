@@ -299,6 +299,10 @@ describe('creating a role', () => {
       errorOf(await make('Odd', [{ permission: 'patient:read' }, { permission: 'patient:read' }])),
     ).toEqual([400, 'duplicate_permission']);
     expect(errorOf(await make('***', []))).toEqual([400, 'validation_failed']);
+    expect(errorOf(await call('PUT', '/roles/hr_only', admin, { name: '   ' }))).toEqual([
+      400,
+      'validation_failed',
+    ]);
     expect(errorOf(await make('Platform admin', []))).toEqual([400, 'validation_failed']);
   });
 
