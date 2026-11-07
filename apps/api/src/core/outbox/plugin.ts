@@ -2,8 +2,13 @@ import type { FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import type pg from 'pg';
 import type { Database } from '../db/client.js';
-import { dispatchOutbox } from './dispatcher.js';
-import { eventQueue, type DomainEvent, type DomainEventMessage } from './events.js';
+import { dispatchOutbox, purgeDispatchedEvents } from './dispatcher.js';
+import {
+  assertEventPayload,
+  eventQueue,
+  type DomainEvent,
+  type DomainEventMessage,
+} from './events.js';
 import { runAsTenant } from './subscribe.js';
 
 type EventHandler = (message: DomainEventMessage, tx: Database) => Promise<void>;
@@ -19,6 +24,7 @@ export async function insertEvent(
   actorId: string | null,
   payload: Record<string, unknown> = {},
 ): Promise<void> {
+  assertEventPayload(event, payload);
   // The hospital comes from the transaction's setting, never from a value the caller passes.
   await client.query(
     `insert into outbox (tenant_id, event, entity_id, actor_id, payload)
@@ -67,6 +73,12 @@ export const outboxPlugin = fp(
         ),
       dispatch: () => dispatchOutbox(app.database.pool, app.jobs),
     });
+
+    // Dispatched events are only needed until their subscribers have run.
+    app.jobs.work('outbox.purge', async () => {
+      await purgeDispatchedEvents(app.database.pool, app.config.OUTBOX_RETENTION_DAYS);
+    });
+    app.jobs.schedule('outbox.purge', '45 3 * * *');
 
     if (!app.config.JOBS_ENABLED) return;
 

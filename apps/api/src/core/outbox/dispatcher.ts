@@ -72,3 +72,34 @@ export async function dispatchOutbox(
     client.release();
   }
 }
+
+/**
+ * Deletes events dispatched more than `days` days ago, in batches so no run holds a long lock;
+ * returns how many went. Events not yet dispatched, or given up on, are kept for a person to see.
+ */
+export async function purgeDispatchedEvents(pool: pg.Pool, days: number): Promise<number> {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query(`set local role ${WORKER_ROLE}`);
+    let total = 0;
+    for (;;) {
+      const { rowCount } = await client.query(
+        `delete from outbox where id in (
+           select id from outbox
+           where dispatched_at is not null and dispatched_at < now() - make_interval(days => $1)
+           limit 5000)`,
+        [days],
+      );
+      total += rowCount ?? 0;
+      if ((rowCount ?? 0) < 5000) break;
+    }
+    await client.query('commit');
+    return total;
+  } catch (error) {
+    await client.query('rollback').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
