@@ -238,6 +238,72 @@ export function editMockBedCategory(id: string, changes: Partial<StoredCategory>
   Object.assign(category, changes, { version: category.version + 1 });
 }
 
+/** Who hears of a change to a bed's status: the admissions mock's event streams. */
+const bedListeners: ((tenantId: string, wardId: string) => void)[] = [];
+export function onMockBedsChanged(listener: (tenantId: string, wardId: string) => void): void {
+  bedListeners.push(listener);
+}
+const bedsChanged = (tenantId: string, wardId: string) => {
+  for (const listener of bedListeners) listener(tenantId, wardId);
+};
+
+/** A bed as the bed board shows it, without its occupant. */
+export interface MockBoardBed {
+  id: string;
+  number: string;
+  wardId: string;
+  wardName: string;
+  roomId: string;
+  roomName: string;
+  categoryName: string;
+  status: Status;
+  blockedReason?: BlockReason;
+  version: number;
+}
+
+/** The beds in use at a hospital, by ward name and bed number. */
+export function mockBoardBeds(tenantId: string): MockBoardBed[] {
+  const wards = state.wards.filter((ward) => ward.tenantId === tenantId && !ward.archived);
+  return wards
+    .flatMap((ward) =>
+      state.beds
+        .filter((bed) => bed.wardId === ward.id && inUse(bed))
+        .map((bed) => ({
+          id: bed.id,
+          number: bed.number,
+          wardId: ward.id,
+          wardName: ward.name,
+          roomId: bed.roomId,
+          roomName: state.rooms.find((room) => room.id === bed.roomId)?.name ?? '',
+          categoryName: categoryOf(tenantId, bed.bedCategoryId)?.name ?? '',
+          status: bed.status,
+          ...(bed.blockedReason ? { blockedReason: bed.blockedReason } : {}),
+          version: bed.version,
+        })),
+    )
+    .sort(
+      (a, b) => collator.compare(a.wardName, b.wardName) || collator.compare(a.number, b.number),
+    );
+}
+
+/** Housekeeping: available <-> cleaning, checked on the bed as it is. */
+export function housekeepMockBed(
+  tenantId: string,
+  bedId: string,
+  status: 'cleaning' | 'available',
+  version: number,
+): 'ok' | 'not_found' | 'conflict' | 'invalid_transition' {
+  const bed = state.beds.find((candidate) => candidate.id === bedId);
+  const ward = bed && wardOf(tenantId, bed.wardId);
+  if (!bed || !ward || !inUse(bed)) return 'not_found';
+  if (bed.version !== version) return 'conflict';
+  const from = status === 'cleaning' ? 'available' : 'cleaning';
+  if (bed.status !== from) return 'invalid_transition';
+  Object.assign(bed, { status, version: bed.version + 1 });
+  bedsChanged(tenantId, ward.id);
+  return 'ok';
+}
+
 /** What admissions or housekeeping do meanwhile: move a bed to another status. */
 export function setMockBedStatus(id: string, status: Status): void {
   const bed = state.beds.find((candidate) => candidate.id === id);
@@ -780,8 +846,10 @@ export const wardsHandlers = [
       if (action === 'block' && (!reason || note === null)) return invalid();
       const bed = bedOf(found.ward, params.bedId);
       if (!bed) return gone('bed');
-      const touch = (changes: Partial<StoredBed>) =>
+      const touch = (changes: Partial<StoredBed>) => {
         Object.assign(bed, changes, { version: bed.version + 1 });
+        bedsChanged(found.tenantId, found.ward.id);
+      };
       // The transitions, checked on the bed as it is now.
       if (action === 'block') {
         if (bed.archived || bed.status !== 'available') return refuse('bed_not_available');
