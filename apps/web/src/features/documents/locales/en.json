@@ -1,0 +1,83 @@
+{
+  "close": "Close",
+  "tab": "Documents",
+  "heading": "Documents",
+  "rowLabel": "Document {{title}}",
+  "empty": "No documents on this record.",
+  "keptForEver": "Kept for ever",
+  "size": {
+    "kb": "{{value}} KB",
+    "mb": "{{value}} MB"
+  },
+  "category": {
+    "consent": "Consent",
+    "referral_letter": "Referral letter",
+    "outside_report": "Outside report",
+    "id_proof": "ID proof",
+    "insurance": "Insurance",
+    "certificate": "Certificate",
+    "other": "Other"
+  },
+  "status": {
+    "pending": "Waiting for the file",
+    "scanning": "Being scanned",
+    "clean": "Ready",
+    "infected": "Blocked: failed the scan",
+    "failed": "Blocked: could not be scanned",
+    "purged": "Removed after its retention"
+  },
+  "state": {
+    "retired": "Retired: {{reason}}"
+  },
+  "columns": {
+    "title": "Document",
+    "category": "Category",
+    "added": "Added",
+    "size": "Size",
+    "state": "State",
+    "keptUntil": "Kept until"
+  },
+  "filter": {
+    "category": "Category",
+    "all": "All categories",
+    "retired": "Show retired documents"
+  },
+  "open": {
+    "action": "Open",
+    "done": "Opened {{title}}."
+  },
+  "upload": {
+    "action": "Add document",
+    "heading": "Add a document",
+    "file": "File",
+    "fileHint": "A JPEG, PNG or PDF of at most 25 MB. It can be opened once it has been scanned.",
+    "category": "Category",
+    "title": "Title",
+    "submit": "Upload",
+    "submitting": "Uploading",
+    "done": "{{title}} was uploaded. It can be opened once it has been scanned.",
+    "errors": {
+      "none": "Choose a file.",
+      "type": "Only a JPEG, PNG or PDF can be added.",
+      "size": "The file is larger than 25 MB.",
+      "empty": "The file is empty.",
+      "rejected": "The file was not accepted. Check it and try again.",
+      "merged": "This record was merged into another. Add the document there.",
+      "failed": "The file could not be sent. Try again."
+    }
+  },
+  "retire": {
+    "action": "Retire",
+    "heading": "Retire {{title}}",
+    "note": "A retired document stays on the record and is kept for its retention. It leaves the list unless retired documents are shown.",
+    "reason": "Reason",
+    "submit": "Retire",
+    "submitting": "Retiring",
+    "done": "{{title}} was retired.",
+    "errors": {
+      "conflict": "The document changed since it was read. Close this and try again.",
+      "already": "This document was already retired.",
+      "gone": "This document is no longer available."
+    }
+  }
+}
