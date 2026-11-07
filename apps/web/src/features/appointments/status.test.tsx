@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { InfiniteData } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   revokePermission,
   setTenantFeature,
@@ -107,7 +107,15 @@ async function chooseDoctor() {
   await userEvent.selectOptions(doctor, DOCTOR);
 }
 
+/** Only the clock is faked (timers stay real): noon at the hospital, so "five minutes ago" is today (#352). */
+const setClock = (utc: string) => vi.useFakeTimers({ toFake: ['Date'], now: new Date(utc) });
+
+beforeEach(() => {
+  setClock('2026-11-10T06:30:00Z');
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   server.events.removeAllListeners();
 });
 
@@ -121,6 +129,17 @@ const openAppointment = async (id: string, options: Parameters<typeof renderApp>
   await screen.findByRole('heading', { name: 'Appointment', level: 1 });
   return app;
 };
+
+describe('the day at the hospital', () => {
+  it('lists an appointment that started minutes ago just after midnight there', () => {
+    setClock('2026-11-10T18:31:00Z'); // 00:01 on the 11th at the hospital
+    expect(todayIn(HOSPITAL_TZ)).toBe('2026-11-11');
+    const midnight = Date.parse(zonedToUtc(todayIn(HOSPITAL_TZ), '00:00', HOSPITAL_TZ));
+    addStarted('apt_midnight');
+    expect(Math.max(Date.now() - 5 * MINUTE, midnight)).toBe(midnight);
+    expect(todayIn(HOSPITAL_TZ, new Date(midnight))).toBe(todayIn(HOSPITAL_TZ));
+  });
+});
 
 describe('which changes are offered', () => {
   const start = Date.parse('2026-10-14T04:00:00Z');
