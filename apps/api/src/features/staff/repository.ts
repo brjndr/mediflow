@@ -256,10 +256,21 @@ export async function revokeInvitesSentBy(client: pg.ClientBase, userId: string)
 export async function lockOpenInvite(
   client: pg.ClientBase,
   inviteId: string,
-): Promise<{ id: string; tenant_id: string; role_id: string } | null> {
+): Promise<{
+  id: string;
+  tenant_id: string;
+  role_id: string;
+  queued_ago: number | null;
+} | null> {
   if (!UUID.test(inviteId)) return null;
-  const { rows } = await client.query<{ id: string; tenant_id: string; role_id: string }>(
-    `select id, tenant_id, role_id from invites
+  const { rows } = await client.query<{
+    id: string;
+    tenant_id: string;
+    role_id: string;
+    queued_ago: number | null;
+  }>(
+    `select id, tenant_id, role_id,
+            extract(epoch from now() - email_queued_at)::float8 as queued_ago from invites
      where id = $1 and accepted_at is null and revoked_at is null and expires_at > now()
      for update`,
     [inviteId],
@@ -271,11 +282,19 @@ export async function revokeInvite(client: pg.ClientBase, inviteId: string): Pro
   await client.query('update invites set revoked_at = now() where id = $1', [inviteId]);
 }
 
-/** An invitation about to be sent again: nothing is known of its email until the new job runs. */
-export async function markInviteRequeued(client: pg.ClientBase, inviteId: string): Promise<void> {
+/**
+ * An invitation about to be sent again: nothing is known of its email until the new job runs,
+ * and a job of an earlier attempt can no longer write to it.
+ */
+export async function markInviteRequeued(
+  client: pg.ClientBase,
+  inviteId: string,
+  attempt: string,
+): Promise<void> {
   await client.query(
-    `update invites set email_queued_at = now(), email_sent_at = null, email_failed_at = null
+    `update invites set email_queued_at = now(), email_sent_at = null, email_failed_at = null,
+                        email_attempt = $2
      where id = $1`,
-    [inviteId],
+    [inviteId, attempt],
   );
 }
