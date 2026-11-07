@@ -7,6 +7,7 @@ What was decided for the platform admin screens (M13, PL-01 #125). The API is `a
 - **Others get the "no access" page** at `/platform/*` and nothing of the area loads. A platform admin on any hospital address (`/`, `/patients`) is sent to `/platform` (`RedirectPlatformAdmin`), so no patient-data screen is reachable from here, and none is in the navigation.
 - **Authenticator first:** with none confirmed, only `/platform/security` opens (the same `SecurityPage`), as the server refuses every other platform route.
 - Strings are in core `common.json` under `platform` until the screens grow; move them to a feature namespace with PL-02 if they do.
+- **Desktop-only** (the root `CLAUDE.md` lists it): `PlatformShell` wraps the outlet in `DesktopOnly`, so below 1024 px the area shows "This screen needs a wider display" and mounts no screen (#131). `e2e/platform.spec.ts` asserts the notice at tablet and phone and runs the screens at desktop only.
 - Mock: `USER_IDS.platformAdmin` (no memberships; enable `setMockMfa` for it, or start the dev app with `?mockUser=user_platform_admin&mockMfa=on`). The registry-walking specs (`a11y`, `responsive`) do not reach this area, so `e2e/platform.spec.ts` walks its screens at all three widths: add new platform screens there.
 
 ## Hospitals (PL-02, #126)

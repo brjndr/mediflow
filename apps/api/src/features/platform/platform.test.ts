@@ -171,6 +171,23 @@ describe('who may call a platform route', () => {
     const named = await call('GET', '/departments', { as: as(hospital.id, operator.id) });
     expect(named.statusCode).toBe(403);
   });
+
+  it('refuses every patient route to a platform admin, with or without a hospital named', async () => {
+    const hospital = await createHospital();
+    const requests: { method: 'GET' | 'POST'; url: string; payload?: object }[] = [
+      { method: 'POST', url: '/patients/search', payload: { query: 'a' } },
+      { method: 'GET', url: '/patients/00000000-0000-0000-0000-000000000000' },
+      { method: 'POST', url: '/invoices/search', payload: {} },
+    ];
+    for (const { method, url, payload } of requests) {
+      const extra = payload ? { payload } : {};
+      const bare = await call(method, url, extra);
+      expect(bare.statusCode, `${url} without a hospital`).toBe(409);
+      expect(code(bare)).toBe('no_active_tenant');
+      const named = await call(method, url, { ...extra, as: as(hospital.id, operator.id) });
+      expect(named.statusCode, `${url} naming a hospital`).toBe(403);
+    }
+  });
 });
 
 describe('what the platform role can reach in the database', () => {
