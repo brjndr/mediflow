@@ -193,6 +193,15 @@ export const accountRoutes: FastifyPluginAsyncTypebox = async (app) => {
     // Not a 401: the session is fine, and the web app treats 401 as signed out.
     if (!matches) throw new HttpError(403, 'invalid_password', 'The password is not correct');
   }
+  /** Per session, before any hashing: a stolen session guessing the password or code is slowed. */
+  async function limitManage(sessionId: string) {
+    const hit = await app.rateLimiter.hit(`mfamanage:${sessionId}`, 10, 15 * 60_000);
+    if (!hit.allowed) {
+      throw new HttpError(429, 'rate_limited', 'Too many attempts. Try again later.', {
+        'retry-after': String(hit.retryAfterSeconds),
+      });
+    }
+  }
   const INVALID_CODE = () => new HttpError(400, 'invalid_mfa_code', 'That code is not valid');
 
   app.post(
@@ -275,6 +284,7 @@ export const accountRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request, reply) => {
       const userId = request.session?.userId;
       if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
+      await limitManage(request.session?.id ?? userId);
       const { password, code } = request.body;
       const recoveryCodes = await withAuthTransaction(pool, async ({ client, identify }) => {
         await identify(userId);
@@ -307,6 +317,7 @@ export const accountRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request, reply) => {
       const userId = request.session?.userId;
       if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
+      await limitManage(request.session?.id ?? userId);
       const { password, code } = request.body;
       const done = await withAuthTransaction(pool, async ({ client, identify }) => {
         await identify(userId);
@@ -321,6 +332,8 @@ export const accountRoutes: FastifyPluginAsyncTypebox = async (app) => {
         }
         if (!(await checkTotp(client, config, userId, code.trim()))) return false;
         await disableMfa(client, userId);
+        // Other sessions were opened with the second step; they end with it.
+        await revokeOtherSessions(client, userId, request.session?.id, 'replaced');
         return true;
       });
       if (!done) throw INVALID_CODE();
