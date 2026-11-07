@@ -139,7 +139,7 @@ Billing (invoice assembly, claims) must work on a tablet and a desktop. A phone 
 
 Playwright runs every spec at desktop, tablet (768 px, touch) and phone (360 px, touch); a new screen is added to `e2e/responsive.spec.ts`, and specs reach the navigation through `goTo(page, name)`. "Works at phone and tablet width" is in the definition of done of every frontend issue. The detail is in `apps/web/e2e/CLAUDE.md`.
 
-**Dialogs** should fill the screen on a phone; there is no shared dialog yet. A phone Lighthouse run is not checked yet (`docs/STATUS.md`).
+**Dialogs** use `Dialog` from `shared/ui/dialog`, which fills the screen below `md` (`ConfirmDialog` is nearly full width). A phone Lighthouse run is not checked yet (`docs/STATUS.md`).
 
 ## Accessibility
 

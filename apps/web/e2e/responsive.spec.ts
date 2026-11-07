@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectNoSidewaysScroll, goTo, gridIsStacked } from './support';
+import { expectNoAxeViolations, expectNoSidewaysScroll, goTo, gridIsStacked } from './support';
 
 /**
  * The responsive target in CLAUDE.md, checked in a real browser. Every spec runs at a desktop, a
@@ -438,4 +438,36 @@ test('controls are large enough for a finger on a touch screen', async ({ page, 
     (control) => control.height < TOUCH_TARGET || control.width < TOUCH_TARGET,
   );
   expect(tooSmall).toEqual([]);
+});
+
+test('a dialog fills the screen on a phone and is a centred box from a tablet up', async ({
+  page,
+}) => {
+  await page.goto('/examples/dialog');
+  const opener = page.getByRole('button', { name: 'Open a short form' });
+  await opener.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Cancel the order' });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole('textbox', { name: /Reason/ })).toBeFocused();
+
+  const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+  const box = await dialog.boundingBox();
+  if (viewport.width < 768) {
+    expect(box).toMatchObject({ x: 0, y: 0, width: viewport.width, height: viewport.height });
+  } else {
+    expect(box!.width).toBeLessThan(viewport.width);
+    expect(box!.height).toBeLessThan(viewport.height);
+  }
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+
+  // The footer stays in view and has room for a finger.
+  const save = dialog.getByRole('button', { name: 'Save' });
+  await expect(save).toBeInViewport();
+  if (viewport.width < 768) expect((await save.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(opener).toBeFocused();
 });

@@ -19,6 +19,7 @@ export const uiExamplesFeature: FeatureManifest = {
         form: 'Form example',
         editor: 'Rich text example',
         calendar: 'Calendar example',
+        dialog: 'Dialog example',
       },
     },
     load: (language) => import(`./locales/${language}.json`),
@@ -48,6 +49,12 @@ export const uiExamplesFeature: FeatureManifest = {
       path: 'examples/editor',
       titleKey: 'editor',
       lazy: () => import('./routes/EditorExample'),
+      requires: [],
+    },
+    {
+      path: 'examples/dialog',
+      titleKey: 'dialog',
+      lazy: () => import('./routes/DialogExample'),
       requires: [],
     },
     {

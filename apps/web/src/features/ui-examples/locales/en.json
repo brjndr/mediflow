@@ -11,6 +11,8 @@
     "editor": "Rich text",
     "editorSummary": "An editor whose output is a sanitized document, and a lightweight viewer.",
     "calendar": "Calendar",
+    "dialogSummary": "A modal that fills the screen on a phone and is a centred box from a tablet up, with a sticky header and footer.",
+    "dialog": "Dialog",
     "calendarSummary": "A day or week time grid that loads on demand, drawn at the hospital's time whatever the browser's timezone."
   },
   "back": "All examples",
@@ -80,5 +82,22 @@
     "week": "Week",
     "event": "Example event {{number}}",
     "selected": "Chosen: {{id}}"
+  },
+  "dialog": {
+    "heading": "Dialog",
+    "intro": "Full screen on a phone, a centred box from 768 px. Focus moves in, stays in and returns to the button that opened it.",
+    "openConfirm": "Open a confirmation",
+    "openForm": "Open a short form",
+    "close": "Close",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "confirmTitle": "Archive this example?",
+    "confirmDescription": "Nothing is stored. A confirmation has no field, so focus starts on the title.",
+    "confirmed": "Confirmed.",
+    "formTitle": "Cancel the order",
+    "formDescription": "Say why the order is cancelled.",
+    "reason": "Reason",
+    "saved": "Saved: {{reason}}"
   }
 }
