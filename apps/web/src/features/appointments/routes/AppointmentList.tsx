@@ -231,13 +231,18 @@ export default function AppointmentList() {
         ) : null}
       </div>
 
+      {/* Loads the chunks of the row actions while the rows are still on their way. Their buttons
+          appear in today's rows, and a chunk arriving after the rows would push them down (CLS,
+          #460). Given no appointment, every contribution renders nothing. */}
+      <Slot id="appointment.row.actions" context={{}} />
+
       {problem ? (
         <p role="alert" className="text-sm text-destructive">
           {t(problem, { count: MAX_RANGE_DAYS })}
         </p>
       ) : (
         <>
-          <p role="status" className="text-sm text-muted-foreground">
+          <p role="status" className="min-h-5 text-sm text-muted-foreground">
             {/* Not while the previous filter's rows are still shown: the total would be theirs. */}
             {total === undefined || appointments.isPlaceholderData
               ? ''

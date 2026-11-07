@@ -47,3 +47,7 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 ## Mock
 
 `mocks/handlers/appointments.ts` seeds appointments around today at each hospital, deterministic for a given day: six doctors with eight fifteen-minute appointments each morning at the hospital, two doctors with three each at the clinic, from three days ago to a week ahead. It keeps ids only and looks up names when it answers, as the API will join them. Free times come from the doctors mock's working hours (`mockDoctorHours`). A booking is decided by `bookMockAppointment`, also used by the clinical mock to book a follow-up, with nothing awaited between the check and the insert, so two at once are decided one after the other, as the constraint decides them. It refuses any part of `extensions` unless a test calls `acceptMockAppointmentExtension(featureId)`. The changes of #73 follow the API's rules (final statuses, version, the clock, free slots, idempotency keys per appointment) and keep the reason and the cancellation on the stored appointment.
+
+## Layout stability (#460)
+
+- **The list loads the row-action chunks early.** `<Slot id="appointment.row.actions" context={{}} />` sits on the screen outside the grid: every contribution renders nothing without an appointment, but its lazy chunk loads while the rows are on their way. Without it the "Check in" and "Start consultation" buttons arrived after the rows and pushed them down (CLS 0.26). The count line keeps its height (`min-h-5`) while empty. Lighthouse asserts LCP and CLS on `/appointments` as errors.
