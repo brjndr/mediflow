@@ -573,3 +573,33 @@ export async function moveBed(
   );
   return rowCount === 1;
 }
+
+/** A bed as the admission module needs it: where it is, its state, and what it is charged as. */
+export interface AdmissionBed {
+  id: string;
+  ward_id: string;
+  status: BedStatus;
+  archived: boolean;
+  version: number;
+  bed_category_id: string;
+  service_id: string | null;
+}
+
+/**
+ * A bed of this hospital, or null. Read before the ward is locked, to learn which ward to lock,
+ * and again after it, for the state that counts.
+ */
+export async function bedForAdmission(
+  client: pg.ClientBase,
+  bedId: string,
+): Promise<AdmissionBed | null> {
+  if (!UUID.test(bedId)) return null;
+  const { rows } = await client.query<AdmissionBed>(
+    `select b.id, b.ward_id, b.status, b.archived, b.version, b.bed_category_id, c.service_id
+     from beds b
+     join bed_categories c on c.tenant_id = b.tenant_id and c.id = b.bed_category_id
+     where b.id = $1`,
+    [bedId],
+  );
+  return rows[0] ?? null;
+}

@@ -5,6 +5,7 @@ import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { searchTerm, tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { BEDS_TOPIC } from './topic.js';
 import {
   archiveBed,
   archiveBedsOfRoom,
@@ -833,6 +834,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       if (!moved) throw refuse('bed_not_available', 'Only an available bed is blocked');
       request.audit('block', 'bed', bed.id);
+      app.live.bus.publish(request.txClient, BEDS_TOPIC, { wardId: ward.id });
       await request.emit('master.changed', bed.id, {
         kind: 'bed',
         change: 'blocked',
@@ -865,6 +867,7 @@ export const wardRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw refuse('bed_not_blocked', 'The bed is not blocked');
       }
       request.audit('unblock', 'bed', bed.id);
+      app.live.bus.publish(request.txClient, BEDS_TOPIC, { wardId: ward.id });
       await changed(request, 'bed', bed.id, 'unblocked');
       return detail(request, ward.id);
     },
