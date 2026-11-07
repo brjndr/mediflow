@@ -6,4 +6,5 @@ export type QueueTokenPage = components['schemas']['QueueTokenPage'];
 export type QueueTokenStatus = components['schemas']['QueueTokenStatus'];
 export type QueueCancelReason = components['schemas']['QueueCancelReason'];
 export type QueuePriority = components['schemas']['QueuePriority'];
+export type QueueDisplay = components['schemas']['QueueDisplay'];
 export type QueueTokenCreate = components['schemas']['QueueTokenCreate'];

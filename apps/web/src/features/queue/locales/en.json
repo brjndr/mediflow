@@ -155,5 +155,19 @@
     "waiting": "Waiting now",
     "open": "Open the queue",
     "unknown": "not yet known"
+  },
+  "display": {
+    "open": "Waiting-room display",
+    "heading": "Waiting-room display",
+    "description": "Token numbers and where to go, for a screen the waiting patients can see. It shows no names.",
+    "back": "Back to the queue",
+    "nowServing": "Now serving",
+    "next": "Next",
+    "nobodyServing": "Nobody is being served.",
+    "nobodyWaiting": "Nobody is waiting.",
+    "waiting_one": "{{count}} waiting",
+    "waiting_other": "{{count}} waiting",
+    "empty": "No tokens have been issued today.",
+    "token": "Token {{number}}"
   }
 }

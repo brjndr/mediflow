@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { PLAIN_TEXT } from '@/shared/utils/text';
 import type {
   QueueCancelReason,
+  QueueDisplay,
   QueuePriority,
   QueueToken,
   QueueTokenPage,
@@ -61,6 +62,21 @@ export const queueTokenPageSchema: z.ZodType<QueueTokenPage> = z.object({
   items: z.array(queueTokenSchema),
   nextCursor: z.string().nullable(),
   total: z.number().int().optional(),
+});
+
+/** The waiting-room display's answer: numbers, departments and doctors' names, no patient (#78). */
+export const queueDisplaySchema: z.ZodType<QueueDisplay> = z.object({
+  departments: z.array(
+    z.object({
+      departmentId: z.string(),
+      departmentName: z.string(),
+      serving: z.array(
+        z.object({ number: z.number().int().min(1), doctorName: z.string().optional() }),
+      ),
+      next: z.array(z.number().int().min(1)),
+      waiting: z.number().int().min(0),
+    }),
+  ),
 });
 
 /** The event the stream sends when a department's queue changed: which one, never who. */

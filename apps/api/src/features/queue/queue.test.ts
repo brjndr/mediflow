@@ -1243,3 +1243,100 @@ describe('the life of a live stream', () => {
     }
   });
 });
+
+describe('the waiting-room display', () => {
+  interface Display {
+    departments: {
+      departmentId: string;
+      departmentName: string;
+      serving: { number: number; doctorName?: string }[];
+      next: number[];
+      waiting: number;
+    }[];
+  }
+  const display = (options: Options = {}) => get('/queue/display', options);
+
+  it('gives numbers, departments and doctors’ names, in call order, and nothing about a patient', async () => {
+    await issued({ patientId: patients.one, departmentId: departments.general });
+    await issued({ patientId: patients.two, departmentId: departments.general });
+    await issued({
+      patientId: patients.three,
+      departmentId: departments.general,
+      priority: 'pregnancy',
+    });
+    await issued({ patientId: patients.four, departmentId: departments.surgery });
+    expect((await callNext(doctors.a)).statusCode).toBe(200);
+    const response = await display();
+    expect(response.statusCode).toBe(200);
+    const body = response.json<Display>();
+    expect(body.departments.map((department) => department.departmentName)).toEqual([
+      'General Medicine',
+      'Surgery',
+    ]);
+    const general = body.departments[0];
+    // The token with a priority was called first; the other two are next, in order.
+    expect(general?.serving).toEqual([{ number: 3, doctorName: 'Queue Doctor A' }]);
+    expect(general?.next).toEqual([1, 2]);
+    expect(general?.waiting).toBe(2);
+    expect(body.departments[1]).toMatchObject({ serving: [], next: [1], waiting: 1 });
+    // Nothing of a patient, a priority or a reason is in the answer.
+    for (const word of [
+      'Priya',
+      'Sharma',
+      'Ravi',
+      'Meena',
+      'QU-',
+      'pregnancy',
+      'patient',
+      'priority',
+    ]) {
+      expect(response.body).not.toContain(word);
+    }
+  });
+
+  it('lists the first six waiting and counts them all, and leaves cancelled out', async () => {
+    for (const patientId of crowd) await issued({ patientId, departmentId: departments.general });
+    const first = await list('status=waiting&limit=1');
+    await post(`/queue/tokens/${first.items[0]?.id}/cancel`, {
+      version: first.items[0]?.version,
+      reason: 'wrong_department',
+    });
+    const body = (await display()).json<Display>();
+    expect(body.departments[0]?.next).toEqual([2, 3, 4, 5, 6, 7]);
+    expect(body.departments[0]?.waiting).toBe(7);
+  });
+
+  it('is empty when nobody has a token, and never shows another hospital', async () => {
+    await issued(
+      { patientId: patients.clinic, departmentId: departments.clinic },
+      { tenant: clinic, user: clinicDesk },
+    );
+    expect((await display()).json<Display>()).toEqual({ departments: [] });
+    const own = await display({ tenant: clinic, user: clinicDesk });
+    expect(own.json<Display>().departments).toHaveLength(1);
+  });
+
+  it('applies the scope of queue:read', async () => {
+    await issued({ patientId: patients.one, departmentId: departments.general });
+    await issued({ patientId: patients.two, departmentId: departments.surgery });
+    await pool.query(
+      "update role_permissions set scope = 'department' where tenant_id = $1 and role_id = 'doctor' and permission = 'queue:read'",
+      [hospital.id],
+    );
+    try {
+      const body = (await display({ user: docC })).json<Display>();
+      expect(body.departments.map((department) => department.departmentName)).toEqual(['Surgery']);
+    } finally {
+      await pool.query(
+        "update role_permissions set scope = 'all' where tenant_id = $1 and role_id = 'doctor' and permission = 'queue:read'",
+        [hospital.id],
+      );
+    }
+  });
+
+  it('is refused without queue:read and with the queue switched off', async () => {
+    expect((await display({ user: storeKeeper })).statusCode).toBe(403);
+    expect((await display({ tenant: closed, user: admin })).statusCode).toBe(403);
+    expect((await app.inject({ url: '/queue/display' })).statusCode).toBe(401);
+  });
+});

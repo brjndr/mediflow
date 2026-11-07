@@ -120,6 +120,13 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
     page.getByRole('region', { name: 'Waiting' }).getByText('Token 4', { exact: true }),
   ).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // The waiting-room display (#78): numbers only, one column on a phone.
+  await page.getByRole('link', { name: 'Waiting-room display' }).click();
+  await expect(page.getByRole('heading', { name: 'Waiting-room display', level: 1 })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Anaesthesiology' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'Back to the queue' }).click();
+  await expect(page.getByRole('heading', { name: 'OPD queue', exact: true })).toBeVisible();
   // Triage from a token: the form is one column on a phone.
   await page
     .getByRole('link', { name: /^Record vitals for token/ })

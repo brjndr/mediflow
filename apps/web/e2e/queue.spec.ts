@@ -165,3 +165,25 @@ test('check in a booked patient from today’s appointments with the keyboard al
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
 });
+
+test('open the waiting-room display from the board with the keyboard, showing numbers and no patient', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await goTo(page, 'OPD queue');
+  await expect(page.getByRole('heading', { name: 'OPD queue', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Waiting-room display' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Waiting-room display', level: 1 })).toBeVisible();
+  const department = page.getByRole('region', { name: 'Anaesthesiology' });
+  await expect(department.getByText('Token 1')).toBeVisible();
+  await expect(department.getByText('3 waiting')).toBeVisible();
+  // Nothing about a patient is on the page.
+  await expect(page.getByText('Asha Verma')).toHaveCount(0);
+  await expect(page.getByText(/MRN/)).toHaveCount(0);
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+  await page.getByRole('link', { name: 'Back to the queue' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'OPD queue', exact: true })).toBeVisible();
+});

@@ -108,6 +108,36 @@ export type QueueToken = Static<typeof QueueToken>;
 
 export const QueueTokenPage = CursorPage(ref(QueueToken), { $id: 'QueueTokenPage' });
 
+// The waiting-room display (#78): token numbers and where to go, and nothing about a patient.
+// Not built from QueueToken, so a field added there can never reach a screen in a waiting room.
+export const QueueDisplayServing = Type.Object(
+  {
+    number: Type.Integer({ minimum: 1 }),
+    doctorName: Type.Optional(
+      Type.String({ description: 'The doctor serving it: where the patient goes.' }),
+    ),
+  },
+  { $id: 'QueueDisplayServing', additionalProperties: false },
+);
+
+export const QueueDisplayDepartment = Type.Object(
+  {
+    departmentId: Type.String(),
+    departmentName: Type.String(),
+    serving: Type.Array(ref(QueueDisplayServing)),
+    next: Type.Array(Type.Integer({ minimum: 1 }), {
+      description: 'The numbers next to be called, in call order.',
+    }),
+    waiting: Type.Integer({ minimum: 0 }),
+  },
+  { $id: 'QueueDisplayDepartment', additionalProperties: false },
+);
+
+export const QueueDisplay = Type.Object(
+  { departments: Type.Array(ref(QueueDisplayDepartment)) },
+  { $id: 'QueueDisplay', additionalProperties: false },
+);
+
 export const QueueListQuery = Type.Object({
   departmentId: Type.Optional(Type.String({ maxLength: 64 })),
   doctorId: Type.Optional(Type.String({ maxLength: 64 })),
@@ -170,4 +200,7 @@ export const QUEUE_SCHEMAS = [
   QueueCheckIn,
   QueueToken,
   QueueTokenPage,
+  QueueDisplayServing,
+  QueueDisplayDepartment,
+  QueueDisplay,
 ] as const;

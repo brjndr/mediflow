@@ -14,6 +14,7 @@ import {
   cancelToken,
   departmentOpen,
   departmentsInScope,
+  displayQueue,
   findToken,
   findTokenOfAppointment,
   issueToken,
@@ -28,6 +29,7 @@ import {
   QUEUE_SCHEMAS,
   QueueCallNext,
   QueueCheckIn,
+  QueueDisplay,
   QueueListQuery,
   QueueToken,
   NOTE_MAX,
@@ -141,6 +143,63 @@ export const queueRoutes: FastifyPluginAsyncTypebox = async (app) => {
         items: page.rows.map(token),
         nextCursor: page.nextCursor,
         ...(page.total === undefined ? {} : { total: page.total }),
+      };
+    },
+  );
+
+  app.get(
+    '/queue/display',
+    {
+      config: { permissions: [READ], feature: FEATURE },
+      schema: {
+        operationId: 'queueDisplay',
+        tags: ['queue'],
+        description:
+          'What a waiting-room screen shows of today’s queue (the hospital’s own calendar day): for each department with tokens, the numbers being served with the name of the doctor they go to, the first numbers waiting in call order, and how many are waiting. Token numbers, departments and doctors’ names only: no patient, MRN, priority or reason is read, so a screen in a waiting room holds nothing about anyone, and the response is not audited as a patient read. For signed-in staff only (queue:read and the queue feature flag, within the scope of queue:read), no public link. The screen follows /queue/events and reads this again on each.',
+        response: { 200: ref(QueueDisplay), ...errors(401, 403, 409, 429) },
+      },
+    },
+    async (request) => {
+      const { serving, next } = await displayQueue(request.txClient, visibilityFor(request, READ));
+      const departments = new Map<
+        string,
+        {
+          departmentId: string;
+          departmentName: string;
+          serving: { number: number; doctorName?: string }[];
+          next: number[];
+          waiting: number;
+        }
+      >();
+      const of = (row: { department_id: string; department_name: string }) => {
+        let entry = departments.get(row.department_id);
+        if (!entry) {
+          entry = {
+            departmentId: row.department_id,
+            departmentName: row.department_name,
+            serving: [],
+            next: [],
+            waiting: 0,
+          };
+          departments.set(row.department_id, entry);
+        }
+        return entry;
+      };
+      for (const row of serving) {
+        of(row).serving.push({
+          number: row.number,
+          ...(row.doctor_name === null ? {} : { doctorName: row.doctor_name }),
+        });
+      }
+      for (const row of next) {
+        const entry = of(row);
+        entry.next.push(row.number);
+        entry.waiting = row.waiting;
+      }
+      return {
+        departments: [...departments.values()].sort((a, b) =>
+          a.departmentName.localeCompare(b.departmentName),
+        ),
       };
     },
   );
