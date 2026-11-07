@@ -141,10 +141,7 @@ describe('imaging orders on the consultation', () => {
     await userEvent.click(
       within(table).getByRole('button', { name: /^Cancel order: Chest X-ray/ }),
     );
-    await userEvent.type(
-      screen.getByRole('textbox', { name: /^Why it is cancelled/ }),
-      'Not needed',
-    );
+    await userEvent.type(screen.getByRole('textbox', { name: /^Why the order for/ }), 'Not needed');
     await userEvent.click(screen.getByRole('button', { name: 'Cancel the order' }));
     expect(
       await screen.findByText('Radiology has started on it, so it can no longer be cancelled.'),
@@ -174,7 +171,7 @@ describe('procedure orders on the consultation', () => {
       within(table).getByRole('button', { name: /^Cancel order: Wound dressing/ }),
     );
     await userEvent.type(
-      screen.getByRole('textbox', { name: /^Why it is cancelled/ }),
+      screen.getByRole('textbox', { name: /^Why the order for/ }),
       'Done at the dressing room',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Cancel the order' }));
@@ -247,10 +244,7 @@ describe.each([
     await userEvent.click(
       within(table).getByRole('button', { name: new RegExp(`^Cancel order: ${each.name}`) }),
     );
-    await userEvent.type(
-      screen.getByRole('textbox', { name: /^Why it is cancelled/ }),
-      'Not needed',
-    );
+    await userEvent.type(screen.getByRole('textbox', { name: /^Why the order for/ }), 'Not needed');
     await userEvent.click(screen.getByRole('button', { name: 'Cancel the order' }));
     expect(await screen.findByText(each.started)).toBeInTheDocument();
   });

@@ -112,10 +112,7 @@ describe('lab orders on the consultation', () => {
     await screen.findByRole('heading', { name: 'Cancel the order for Complete blood count' });
     await userEvent.click(screen.getByRole('button', { name: 'Cancel the order' }));
     expect(await screen.findByText('This field is required.')).toBeInTheDocument();
-    await userEvent.type(
-      screen.getByRole('textbox', { name: /^Why it is cancelled/ }),
-      'Wrong test',
-    );
+    await userEvent.type(screen.getByRole('textbox', { name: /^Why the order for/ }), 'Wrong test');
     await userEvent.click(screen.getByRole('button', { name: 'Cancel the order' }));
 
     expect(await screen.findByText('Order cancelled.')).toBeInTheDocument();
@@ -137,10 +134,7 @@ describe('lab orders on the consultation', () => {
     await userEvent.click(
       within(grid()).getByRole('button', { name: /^Cancel order: Complete blood count/ }),
     );
-    await userEvent.type(
-      screen.getByRole('textbox', { name: /^Why it is cancelled/ }),
-      'Not needed',
-    );
+    await userEvent.type(screen.getByRole('textbox', { name: /^Why the order for/ }), 'Not needed');
     await userEvent.click(screen.getByRole('button', { name: 'Cancel the order' }));
     expect(await screen.findByText(/^The order changed meanwhile/)).toBeInTheDocument();
     expect(await within(grid()).findByText('Accepted by the laboratory')).toBeInTheDocument();
@@ -156,10 +150,7 @@ describe('lab orders on the consultation', () => {
     await userEvent.click(
       within(grid()).getByRole('button', { name: /^Cancel order: Complete blood count/ }),
     );
-    await userEvent.type(
-      screen.getByRole('textbox', { name: /^Why it is cancelled/ }),
-      'Not needed',
-    );
+    await userEvent.type(screen.getByRole('textbox', { name: /^Why the order for/ }), 'Not needed');
     await userEvent.click(screen.getByRole('button', { name: 'Cancel the order' }));
     expect(
       await screen.findByText(

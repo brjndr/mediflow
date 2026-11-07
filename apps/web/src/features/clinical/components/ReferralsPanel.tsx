@@ -225,7 +225,7 @@ function CancelForm({
       >
         <TextField<ReasonValues>
           name="reason"
-          label={t('referrals.cancelReason')}
+          label={t('referrals.cancelReason', { to: destination(referral) })}
           required
           maxLength={REASON_MAX}
           autoComplete="off"

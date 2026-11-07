@@ -251,7 +251,7 @@ function CancelForm({
       >
         <TextField<ReasonValues>
           name="reason"
-          label={t('orders.cancelReason')}
+          label={t('orders.cancelReason', { name: order.itemName ?? '' })}
           required
           maxLength={REASON_MAX}
           autoComplete="off"
@@ -337,7 +337,7 @@ function OrderForm({
         />
         <SelectField<OrderValues>
           name="priority"
-          label={t('orders.form.priority')}
+          label={t(`${kind}Orders.form.priority`)}
           required
           options={ORDER_PRIORITIES.map((priority) => ({
             value: priority,
@@ -346,7 +346,7 @@ function OrderForm({
         />
         <TextAreaField<OrderValues>
           name="instructions"
-          label={t('orders.form.instructions')}
+          label={t(`${kind}Orders.form.instructions`)}
           hint={t(`${kind}Orders.form.instructionsHint`)}
           maxLength={INSTRUCTIONS_MAX}
         />

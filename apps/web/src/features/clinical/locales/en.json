@@ -333,7 +333,9 @@
       "changeItem": "Change the test, now {{name}}",
       "repeated": "Already ordered in this consultation and still in effect ({{status}}). Order it again only if a second sample is wanted.",
       "instructionsHint": "For the laboratory: fasting, timing, clinical details.",
-      "submit": "Order the test"
+      "submit": "Order the test",
+      "priority": "Priority of the test",
+      "instructions": "Instructions for the laboratory"
     }
   },
   "orders": {
@@ -352,7 +354,7 @@
     "orderedBy": "{{time}} by {{name}}",
     "cancel": "Cancel order",
     "cancelHeading": "Cancel the order for {{name}}",
-    "cancelReason": "Why it is cancelled",
+    "cancelReason": "Why the order for {{name}} is cancelled",
     "cancelSubmit": "Cancel the order",
     "keep": "Keep it",
     "close": "Close",
@@ -365,9 +367,7 @@
     },
     "form": {
       "chosen": "{{name}} ({{code}})",
-      "change": "Change",
-      "priority": "Priority",
-      "instructions": "Instructions"
+      "change": "Change"
     }
   },
   "imagingOrders": {
@@ -394,7 +394,9 @@
       "changeItem": "Change the study, now {{name}}",
       "repeated": "Already ordered in this consultation and still in effect ({{status}}). Order it again only if a second study is wanted.",
       "instructionsHint": "For radiology: the clinical question, side, contrast, pregnancy.",
-      "submit": "Order the study"
+      "submit": "Order the study",
+      "priority": "Priority of the study",
+      "instructions": "Instructions for radiology"
     }
   },
   "procedureOrders": {
@@ -420,7 +422,9 @@
       "changeItem": "Change the procedure, now {{name}}",
       "repeated": "Already ordered in this consultation and still in effect ({{status}}). Order it again only if it is to be done twice.",
       "instructionsHint": "For whoever does it: site, side, timing.",
-      "submit": "Order the procedure"
+      "submit": "Order the procedure",
+      "priority": "Priority of the procedure",
+      "instructions": "Instructions for the procedure"
     }
   },
   "referrals": {
@@ -433,7 +437,7 @@
     "cancelled": "Cancelled by {{name}}, {{time}}: {{reason}}",
     "cancel": "Cancel referral",
     "cancelHeading": "Cancel the referral to {{to}}",
-    "cancelReason": "Why it is cancelled",
+    "cancelReason": "Why the referral to {{to}} is cancelled",
     "cancelSubmit": "Cancel referral",
     "urgency": {
       "routine": "Routine",

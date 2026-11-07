@@ -256,7 +256,7 @@ test('order a lab test and cancel one with the keyboard alone', async ({ page })
     page.getByRole('heading', { name: 'Cancel the order for Complete blood count' }),
   ).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('textbox', { name: /^Why it is cancelled/ })).toBeFocused();
+  await expect(page.getByRole('textbox', { name: /^Why the order for/ })).toBeFocused();
   await page.keyboard.type('Wrong test');
   await page.keyboard.press('Enter');
   await expect(page.getByText('Order cancelled.')).toBeVisible();
@@ -277,7 +277,7 @@ test('order an imaging study with the keyboard alone', async ({ page }) => {
   await expect(imaging.getByText('Chest X-ray')).toBeVisible();
 
   // The study is searched among the imaging services and chosen with the arrows and Enter.
-  const search = imaging.getByRole('combobox', { name: 'Study' });
+  const search = imaging.getByRole('combobox', { name: 'Study', exact: true });
   await search.focus();
   await page.keyboard.press('Shift+Tab');
   await page.keyboard.press('Tab');
@@ -376,7 +376,7 @@ test('a doctor whose hospital took ordering away sees no orders on the consultat
     await expect(page.getByRole('heading', { name: heading })).toHaveCount(0);
   }
   await expect(page.getByRole('combobox', { name: 'Test or panel' })).toHaveCount(0);
-  await expect(page.getByRole('combobox', { name: 'Study' })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Study', exact: true })).toHaveCount(0);
   expect(requests.filter((path) => path.includes('/orders'))).toEqual([]);
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
