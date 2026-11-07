@@ -178,7 +178,7 @@ const errorOf = (response: LightMyRequestResponse) =>
  * permissions. What the real features grant by default is covered in their own tests.
  */
 const OTHER_FEATURES =
-  /^(patient[.:]|department:|doctor:|service:|drug:|labTest:|ward:|code:|template:|import:|appointment:|queue:|vitals:|allergy:|encounter:|clinicalNote:|diagnosis:|order:|prescription:|prescriptionSet:|referral:|followUp:|labSample:|labResult:|labReport:|imagingStudy:|imagingReport:|stock:|stockLocation:|indent:|dispense:|sale:|drugRegister:|charge:|invoice:|payment:|creditNote:|discount:|cashRegister:|taxRate:|package:|report:|supplier:|purchaseOrder:|goodsReceipt:|purchaseReturn:|staff:(read|manage)$)/;
+  /^(patient[.:]|department:|doctor:|service:|drug:|labTest:|ward:|code:|template:|import:|appointment:|queue:|vitals:|allergy:|encounter:|clinicalNote:|diagnosis:|order:|prescription:|prescriptionSet:|referral:|followUp:|labSample:|labResult:|labReport:|imagingStudy:|imagingReport:|stock:|stockLocation:|indent:|dispense:|sale:|drugRegister:|charge:|invoice:|payment:|creditNote:|discount:|cashRegister:|taxRate:|package:|report:|supplier:|purchaseOrder:|goodsReceipt:|purchaseReturn:|role:|staff:(read|manage)$)/;
 const ownPermissions = (policy: AccessPolicy): AccessPolicy => ({
   ...policy,
   permissions: policy.permissions.filter((grant) => !OTHER_FEATURES.test(grant.permission)),
@@ -561,11 +561,12 @@ describe('roles and tenant isolation', () => {
       grants: [{ tenant_id: hospital.id }],
     });
     for (const statement of [
-      "insert into role_permissions (tenant_id, role_id, permission) values (app_tenant_id(), 'nurse', 'probe:write')",
-      "update role_permissions set scope = 'all'",
-      "insert into roles (tenant_id, id, name) values (app_tenant_id(), 'superuser', 'Superuser')",
-      'delete from roles',
+      // Role management (BE-16) lets the app role edit grants, but only through narrow columns.
+      "update role_permissions set permission = 'probe:write'",
+      "update roles set built_in = true, id = 'superuser'",
+      "insert into roles (tenant_id, id, name, built_in) values (app_tenant_id(), 'superuser', 'Superuser', true)",
       'update tenants set policy_revision = 1',
+      "insert into role_default_grants (tenant_id, role_id, permission) values (app_tenant_id(), 'nurse', 'probe:write')",
     ]) {
       await expect(
         asTenantSql(pool, hospital.id, (client) => client.query(statement)),
