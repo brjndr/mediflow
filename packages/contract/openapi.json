@@ -12925,7 +12925,7 @@
       "post": {
         "operationId": "changePassword",
         "tags": ["auth"],
-        "description": "Changes the signed-in user's password. Needs the current password, and a code from the authenticator when the user has one (`code`: 400 mfa_code_required without it). A wrong current password or code counts toward the account lockout, as at sign-in (403 invalid_password; 429 account_locked while locked). Every other session of the user and every outstanding reset link ends; the calling session stays and gets a new token in the cookie. The user is told by email.",
+        "description": "Changes the signed-in user's password. Needs the current password, and a code from the authenticator when the user has one (`code`: 400 mfa_code_required without it). A wrong current password or code is refused (403 invalid_password, 400 invalid_mfa_code) and limited per session and per user (429 rate_limited), but does not count toward the sign-in lockout, so a stolen session cannot lock the owner out; 429 account_locked while the account is locked. The authenticator code is checked before the new password is judged. Every other session of the user and every outstanding reset link ends; the calling session stays and gets a new token in the cookie. The user is told by email.",
         "requestBody": {
           "required": true,
           "content": {
