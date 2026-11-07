@@ -70,6 +70,55 @@ jobs:
           path: ${{ runner.temp }}/bundle-base
           key: bundle-base-${{ github.sha }}
 
+  # The web suite split in three, one runner each (#531). Each shard keeps a blob of its results and
+  # coverage; `web-coverage` merges them and enforces the thresholds for the foundation folders.
+  web-test:
+    name: Web tests (shard ${{ matrix.shard }}/3)
+    needs: plan
+    if: needs.plan.outputs.mode == 'full'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec vitest run --coverage --shard=${{ matrix.shard }}/3 --reporter=default --reporter=blob
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: web-blob-${{ matrix.shard }}
+          path: apps/web/.vitest/blob
+          retention-days: 1
+
+  web-coverage:
+    name: Web coverage thresholds
+    needs: [plan, web-test]
+    if: needs.plan.outputs.mode == 'full'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: web-blob-*
+          path: apps/web/.vitest/blob
+          merge-multiple: true
+      - run: pnpm --filter web exec vitest --merge-reports --coverage
+
   verify:
     name: Lint, typecheck, test, build
     needs: plan
@@ -88,8 +137,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
-      # Runs the whole web suite once, with coverage thresholds for the foundation folders.
-      - run: pnpm test:coverage
+      # The web unit tests run in the `web-test` shards and `web-coverage` (below), in parallel.
       - run: pnpm test:scripts
       - run: pnpm build
 
