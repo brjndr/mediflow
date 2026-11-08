@@ -49,7 +49,8 @@
     "markReady": "Mark ready",
     "block": "Block",
     "unblock": "Put back in use",
-    "bed": "Give or change bed"
+    "bed": "Give or change bed",
+    "history": "Bed history"
   },
   "blockPanel": {
     "heading": "Block bed {{number}}",
@@ -126,5 +127,20 @@
       "board": "Bed board"
     }
   },
-  "admissionsLink": "Admissions"
+  "admissionsLink": "Admissions",
+  "history": {
+    "heading": "Bed history of {{patient}}",
+    "loading": "Loading the bed history",
+    "empty": "This patient has not been in a bed yet.",
+    "list": "Beds, oldest first",
+    "now": "now",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "categoryChanged": "A different bed category than before, so a different day price from this bed.",
+    "close": "Close",
+    "reasons": {
+      "transfer": "moved to another bed",
+      "discharge": "discharged"
+    }
+  }
 }

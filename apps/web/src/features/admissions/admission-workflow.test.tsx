@@ -112,3 +112,29 @@ describe('access to admitting', () => {
     expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
   });
 });
+
+describe('bed history', () => {
+  it('lists every bed after a move, oldest first', async () => {
+    await openForm();
+    await choosePatient('MRN-PTH-00012');
+    await admitFirstDoctor();
+    await userEvent.click(screen.getAllByRole('radio')[0] as HTMLElement);
+    await userEvent.click(screen.getByRole('button', { name: 'Admit patient' }));
+    await screen.findByRole('heading', { name: 'Patient admitted' });
+    await userEvent.click(screen.getByRole('link', { name: 'Admissions' }));
+    const grid = await screen.findByRole('table', { name: 'Admissions' });
+    await waitFor(() => expect(within(grid).getAllByRole('row')).toHaveLength(2));
+    await userEvent.click(within(grid).getByRole('button', { name: /Give or change bed/ }));
+    const panel = await screen.findByRole('region', { name: /Move .* to another bed/ });
+    await userEvent.click(within(panel).getAllByRole('radio')[0] as HTMLElement);
+    await userEvent.click(within(panel).getByRole('button', { name: 'Move patient' }));
+    await screen.findByText(/is now in bed/);
+
+    await userEvent.click(within(grid).getByRole('button', { name: /Bed history/ }));
+    const history = await screen.findByRole('region', { name: /Bed history of/ });
+    const stays = await within(history).findAllByRole('listitem');
+    expect(stays).toHaveLength(2);
+    expect(within(history).getByText('moved to another bed', { exact: false })).toBeInTheDocument();
+    await expectNoAxeViolations();
+  }, 30_000);
+});

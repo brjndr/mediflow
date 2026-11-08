@@ -8,6 +8,7 @@ import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
+import { BedHistoryPanel } from '../components/BedHistoryPanel';
 import { BedPicker } from '../components/BedPicker';
 import { useAdmissions, useChangeBed } from '../hooks/use-admissions';
 import type { Admission } from '../types';
@@ -91,10 +92,11 @@ export default function Admissions() {
 
   const change = useChangeBed();
   const [target, setTarget] = useState<Admission | null>(null);
+  const [history, setHistory] = useState<Admission | null>(null);
   const [done, setDone] = useState('');
   const box = useRef<HTMLDivElement>(null);
   const statusLine = useRef<HTMLParagraphElement>(null);
-  usePanelFocus(target, box, statusLine);
+  usePanelFocus(target ?? history, box, statusLine);
 
   const choose = async (bedId: string) => {
     if (!target) return;
@@ -149,7 +151,17 @@ export default function Admissions() {
       label: t('actions.bed'),
       requires: 'admission:transfer',
       disabled: (row) => row.status !== 'admitted' || target !== null || change.isPending,
-      onSelect: (row) => setTarget(row),
+      onSelect: (row) => {
+        setHistory(null);
+        setTarget(row);
+      },
+    },
+    {
+      id: 'history',
+      label: t('actions.history'),
+      requires: 'admission:read',
+      disabled: () => target !== null,
+      onSelect: (row) => setHistory(row),
     },
   ];
 
@@ -206,6 +218,10 @@ export default function Admissions() {
           onSubmit={(bedId) => void choose(bedId)}
           onBack={() => setTarget(null)}
         />
+      )}
+
+      {history && (
+        <BedHistoryPanel key={history.id} admission={history} onBack={() => setHistory(null)} />
       )}
 
       <DataGrid
