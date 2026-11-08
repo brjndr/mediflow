@@ -1,9 +1,17 @@
 import { api, requireData } from '@/shared/api';
-import { duplicateMatchesSchema, patientPageSchema, patientRecordSchema } from './schemas';
+import {
+  duplicateMatchesSchema,
+  patientMergeListSchema,
+  patientMergeSchema,
+  patientPageSchema,
+  patientRecordSchema,
+} from './schemas';
 import type {
   PatientCreate,
   PatientDuplicateMatches,
   PatientDuplicateQuery,
+  PatientMerge,
+  PatientMergeCreate,
   PatientPage,
   PatientRecord,
   PatientSort,
@@ -72,4 +80,32 @@ export async function fetchPatient(id: string, signal?: AbortSignal): Promise<Pa
 export async function updatePatient(id: string, body: PatientUpdate): Promise<PatientRecord> {
   const result = await api.PATCH('/patients/{id}', { params: { path: { id } }, body });
   return patientRecordSchema.parse(requireData(result));
+}
+
+/**
+ * Merges the record named in the body into `targetId`, which stays (#558). Both versions are the
+ * ones read. The key makes a retry or a double click return the first result.
+ */
+export async function mergePatients(
+  targetId: string,
+  body: PatientMergeCreate,
+  idempotencyKey: string,
+): Promise<PatientMerge> {
+  const result = await api.POST('/patients/{patientId}/merge', {
+    params: { path: { patientId: targetId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return patientMergeSchema.parse(requireData(result));
+}
+
+/** The records merged into this one, newest first (at most 100, no next page). */
+export async function fetchPatientMerges(
+  patientId: string,
+  signal?: AbortSignal,
+): Promise<PatientMerge[]> {
+  const result = await api.GET('/patients/{patientId}/merges', {
+    params: { path: { patientId } },
+    signal,
+  });
+  return patientMergeListSchema.parse(requireData(result)).items;
 }

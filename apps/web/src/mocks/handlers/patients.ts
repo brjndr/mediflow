@@ -7,6 +7,7 @@ import { authorize, error } from '../respond';
 type PatientSummary = components['schemas']['PatientSummary'];
 type PatientPage = components['schemas']['PatientPage'];
 type PatientRecord = components['schemas']['PatientRecord'];
+type PatientMerge = components['schemas']['PatientMerge'];
 
 const FEATURE_FLAG = 'patients';
 const GIVEN = ['Asha', 'Bilal', 'Chen', 'Divya', 'Emeka', 'Farah', 'Gita', 'Hugo', 'Imran', 'Jaya'];
@@ -51,6 +52,10 @@ let registrations = new Map<string, PatientRecord>();
 let counters = new Map<string, number>();
 /** Records registered or changed here, by id. Every other patient's record is derived. */
 let records = new Map<string, PatientRecord>();
+/** Merges made, newest first, by tenant. */
+let merges: Array<PatientMerge & { tenantId: string }> = [];
+/** Merges already carried out, by tenant and idempotency key: a retry returns the first result. */
+let mergeKeys = new Map<string, PatientMerge>();
 
 /**
  * A patient of this hospital as another feature's mock names one (an appointment's patient), or
@@ -172,6 +177,8 @@ onMockReset(() => {
   registrations = new Map();
   counters = new Map();
   records = new Map();
+  merges = [];
+  mergeKeys = new Map();
 });
 
 const fullName = (patient: PatientSummary) => `${patient.firstName} ${patient.lastName}`;
@@ -334,6 +341,72 @@ export const patientsHandlers = [
     patients.push(summary);
     registrations.set(`${access.tenantId}:${key}`, record);
     return HttpResponse.json<PatientRecord>(record, { status: 201 });
+  }),
+
+  http.post('*/api/patients/:id/merge', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'patient:merge', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const key = request.headers.get('Idempotency-Key');
+    if (!key) return error(400, 'validation_failed', 'Idempotency-Key is required');
+    const replay = mergeKeys.get(`${access.tenantId}:${key}`);
+    if (replay) return HttpResponse.json<PatientMerge>(replay, { status: 201 });
+    const body = await readObject(request);
+    if (
+      !body ||
+      !isText(body.sourcePatientId) ||
+      !isText(body.reason) ||
+      typeof body.expectedVersion !== 'number' ||
+      typeof body.expectedSourceVersion !== 'number'
+    ) {
+      return error(400, 'validation_failed', 'Some details are not valid');
+    }
+    const target = recordOf(String(params.id));
+    const source = recordOf(body.sourcePatientId);
+    // One answer for a record that does not exist and one in another hospital.
+    if (
+      !target ||
+      !source ||
+      target.tenantId !== access.tenantId ||
+      source.tenantId !== access.tenantId
+    ) {
+      return error(404, 'not_found', 'No such patient');
+    }
+    if (target.id === source.id) return error(422, 'same_patient', 'Choose two different records');
+    if (target.mergedInto || source.mergedInto) {
+      return error(409, 'patient_merged', 'A record was merged already');
+    }
+    if (target.version !== body.expectedVersion || source.version !== body.expectedSourceVersion) {
+      return error(409, 'conflict', 'A record has changed since it was read');
+    }
+    records.set(source.id, { ...source, mergedInto: target.id, version: source.version + 1 });
+    records.set(target.id, { ...target, version: target.version + 1 });
+    // The merged record leaves search.
+    patients = patients.filter((patient) => patient.id !== source.id);
+    const merge: PatientMerge = {
+      id: `merge_${merges.length + 1}`,
+      sourcePatientId: source.id,
+      targetPatientId: target.id,
+      reason: body.reason,
+      moved: { documents: 0 },
+      mergedBy: currentSession()?.user.id ?? 'unknown',
+      mergedAt: new Date().toISOString(),
+    };
+    merges.unshift({ ...merge, tenantId: access.tenantId });
+    mergeKeys.set(`${access.tenantId}:${key}`, merge);
+    return HttpResponse.json<PatientMerge>(merge, { status: 201 });
+  }),
+
+  http.get('*/api/patients/:id/merges', ({ request, params }) => {
+    const access = authorize(request, { permission: 'patient:merge', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const record = recordOf(String(params.id));
+    if (!record || record.tenantId !== access.tenantId) {
+      return error(404, 'not_found', 'No such patient');
+    }
+    const items = merges
+      .filter((merge) => merge.tenantId === access.tenantId && merge.targetPatientId === record.id)
+      .map(({ tenantId: _tenantId, ...merge }) => merge);
+    return HttpResponse.json({ items, nextCursor: null });
   }),
 
   http.get('*/api/patients/:id', ({ request, params }) => {

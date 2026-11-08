@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { useEffect, useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { createRegistry, type FeatureManifest, type SlotProps } from '@/registry';
@@ -228,6 +228,9 @@ describe('a link to a patient', () => {
 });
 
 describe('what other features add to the patient screen', () => {
+  // These are about other features' tabs: the history tab of patients is tested with merging.
+  beforeEach(() => revokePermission(TENANT_IDS.hospital, 'admin', 'patient:merge'));
+
   it('lets a feature add a tab and an action without this module knowing about it', async () => {
     const { router } = openWithVisits();
     await screen.findByRole('heading', NAME);

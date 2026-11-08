@@ -113,5 +113,48 @@
     "found_other": "{{count}} patients found",
     "details": "MRN {{mrn}} · born {{dob}}",
     "unavailable": "Finding a patient needs access to patient records."
+  },
+  "merge": {
+    "action": "Merge a duplicate",
+    "heading": "Merge a duplicate record",
+    "back": "Back to the patient",
+    "note": "This record stays. The duplicate you choose is marked as merged: it keeps its MRN, leaves search and can no longer be changed, and what was recorded on it moves to this record.",
+    "pick": "Find the duplicate to merge into this record",
+    "keeps": "Record that stays",
+    "merged": "Duplicate to merge",
+    "moves": "What moves to the record that stays",
+    "permanent": "A merge cannot be undone.",
+    "reason": "Why these records are the same patient",
+    "submit": "Merge records",
+    "submitting": "Merging…",
+    "change": "Choose another",
+    "cancel": "Cancel",
+    "confirm": "Merge",
+    "confirmTitle": "Merge these records?",
+    "confirmBody": "{{source}} will be merged into {{target}}. This cannot be undone.",
+    "done": "The records were merged.",
+    "toRecord": "Open the patient",
+    "modules": {
+      "documents": "Documents"
+    },
+    "errors": {
+      "conflict": "One of the records changed since you opened it. Choose the duplicate again to read the latest.",
+      "merged": "One of these records was already merged into another.",
+      "same": "Choose a different record: a record cannot be merged into itself.",
+      "targetMerged": "This record was merged into another and cannot take a merge."
+    },
+    "history": {
+      "tab": "Merge history",
+      "heading": "Records merged into this one",
+      "when": "Merged",
+      "reason": "Reason",
+      "by": "By",
+      "moved": "Moved",
+      "nothing": "Nothing to move",
+      "empty": "No record has been merged into this one.",
+      "rowLabel": "Merge on {{when}}"
+    },
+    "mergedNotice": "This record was merged into another and can no longer be changed.",
+    "toSurvivor": "Open the record to use"
   }
 }

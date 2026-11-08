@@ -169,6 +169,16 @@ export default function PatientDetail() {
         </div>
       </header>
 
+      {/* A duplicate that was merged away (#558): read-only, with the record to use instead. */}
+      {record.mergedInto !== undefined && (
+        <p role="status" className="rounded-md border px-3 py-2 text-sm">
+          {t('merge.mergedNotice')}{' '}
+          <Link to={`/patients/${record.mergedInto}`} className="font-medium underline">
+            {t('merge.toSurvivor')}
+          </Link>
+        </p>
+      )}
+
       {/* An edit that was sent from the edit screen and refused. The typing is kept there. */}
       {draft?.failure && (
         <div
