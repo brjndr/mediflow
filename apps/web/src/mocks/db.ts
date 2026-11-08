@@ -116,6 +116,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'patient:delete' },
   // Patients loaded in bulk from a file, in the import centre.
   { permission: 'patient:import' },
+  // Merges a duplicate record into another (#558); the admin's alone by default.
+  { permission: 'patient:merge' },
   { permission: 'appointment:read' },
   { permission: 'appointment:create' },
   { permission: 'appointment:update' },

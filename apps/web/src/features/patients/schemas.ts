@@ -1,7 +1,9 @@
 import { z } from 'zod';
+import { PLAIN_TEXT } from '@/shared/utils/text';
 import type {
   PatientDuplicateMatch,
   PatientDuplicateMatches,
+  PatientMerge,
   PatientPage,
   PatientRecord,
   PatientSummary,
@@ -31,6 +33,7 @@ export const patientRecordSchema: z.ZodType<PatientRecord> = z.object({
   ...summaryShape,
   email: z.string().optional(),
   address: z.string().optional(),
+  mergedInto: z.string().optional(),
   contactConsent: z
     .object({ given: z.boolean(), at: z.iso.datetime(), recordedBy: z.string() })
     .optional(),
@@ -97,3 +100,31 @@ export const createPatientFormSchema = (today: string, { contact = true } = {}) 
   });
 
 export type PatientFormValues = z.output<ReturnType<typeof createPatientFormSchema>>;
+
+export const patientMergeSchema: z.ZodType<PatientMerge> = z.object({
+  id: z.string(),
+  sourcePatientId: z.string(),
+  targetPatientId: z.string(),
+  reason: z.string(),
+  moved: z.record(z.string(), z.number().int()),
+  mergedBy: z.string(),
+  mergedAt: z.iso.datetime(),
+});
+
+export const patientMergeListSchema = z.object({
+  items: z.array(patientMergeSchema),
+  nextCursor: z.null(),
+});
+
+export const MERGE_REASON_MAX = 500;
+
+/** The reason for a merge: kept with it for ever, so plain text as the API insists. */
+export const mergeFormSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(MERGE_REASON_MAX, 'validation.too_big')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+});
+export type MergeFormValues = z.infer<typeof mergeFormSchema>;
