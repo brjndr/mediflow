@@ -1,0 +1,100 @@
+{
+  "heading": "Ambulances",
+  "description": "Trip requests, dispatch and the hospital's fleet.",
+  "close": "Close",
+  "cancel": "Cancel",
+  "kind": { "basic": "Basic", "advanced": "Advanced life support", "neonatal": "Neonatal" },
+  "tripStatus": {
+    "requested": "Requested",
+    "dispatched": "Dispatched",
+    "picked_up": "Patient picked up",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "ambulanceStatus": {
+    "available": "Available",
+    "on_trip": "On a trip",
+    "out_of_service": "Out of service"
+  },
+  "trips": {
+    "heading": "Trips",
+    "filter": "Show trips",
+    "all": "All trips",
+    "request": "Request a trip",
+    "gridLabel": "Ambulance trips",
+    "count_one": "{{count}} trip",
+    "count_other": "{{count}} trips",
+    "empty": "No trips here.",
+    "rowLabel": "Trip from {{pickup}} to {{destination}}",
+    "pickup": "Pick-up",
+    "destination": "Destination",
+    "patient": "Patient",
+    "onRecord": "Patient on record",
+    "noRecord": "No record",
+    "status": "Status",
+    "ambulance": "Ambulance",
+    "requested": "Requested"
+  },
+  "fleet": {
+    "heading": "Fleet",
+    "add": "Add an ambulance",
+    "gridLabel": "Ambulances",
+    "count_one": "{{count}} ambulance",
+    "count_other": "{{count}} ambulances",
+    "empty": "No ambulances yet.",
+    "registration": "Registration",
+    "kind": "Kind",
+    "status": "Status"
+  },
+  "actions": {
+    "dispatch": "Dispatch",
+    "pickUp": "Patient picked up",
+    "complete": "Complete trip",
+    "cancel": "Cancel trip",
+    "service": "Out of service or back"
+  },
+  "done": {
+    "requested": "Trip requested.",
+    "dispatched": "Trip dispatched with {{registration}}.",
+    "picked_up": "Patient picked up.",
+    "completed": "Trip completed. The ambulance is available.",
+    "cancelled": "Trip cancelled.",
+    "added": "Ambulance {{registration}} added.",
+    "service_available": "Ambulance {{registration}} is back in service.",
+    "service_out_of_service": "Ambulance {{registration}} is out of service."
+  },
+  "request": {
+    "title": "Request a trip",
+    "description": "Where to pick up and where to go. A patient is optional: an emergency may have no record yet.",
+    "patient": "Patient",
+    "patientOptional": "Patient (optional)",
+    "noPatient": "No patient",
+    "pickup": "Pick-up place",
+    "destination": "Destination",
+    "save": "Request trip",
+    "saving": "Requesting..."
+  },
+  "dispatch": {
+    "title": "Dispatch the trip",
+    "description": "From {{pickup}} to {{destination}}.",
+    "ambulance": "Ambulance",
+    "choose": "Choose an ambulance",
+    "none": "No ambulance is available now.",
+    "save": "Dispatch",
+    "saving": "Dispatching..."
+  },
+  "add": {
+    "title": "Add an ambulance",
+    "description": "It is available at once.",
+    "registration": "Registration number",
+    "kind": "Kind",
+    "save": "Add ambulance",
+    "saving": "Adding..."
+  },
+  "errors": {
+    "patient": "That patient is not available to you.",
+    "unavailable": "That ambulance cannot go now. Choose another.",
+    "changed": "Someone else changed this first. The list has been refreshed; try again.",
+    "duplicate": "An ambulance with that registration already exists."
+  }
+}
