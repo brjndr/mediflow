@@ -193,8 +193,9 @@ export const admissionFlowHandlers = [
   }),
 
   http.post('*/api/admissions/:admissionId/:action', async ({ request, params }) => {
+    const discharging = params.action === 'discharge';
     const access = authorize(request, {
-      permission: 'admission:transfer',
+      permission: discharging ? 'admission:discharge' : 'admission:transfer',
       featureFlag: FEATURE_FLAG,
     });
     if ('denied' in access) return access.denied;
@@ -202,7 +203,7 @@ export const admissionFlowHandlers = [
       return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
     }
     const admissionId = String(params.admissionId);
-    if (params.action !== 'assign-bed' && params.action !== 'transfer') {
+    if (params.action !== 'assign-bed' && params.action !== 'transfer' && !discharging) {
       return error(404, 'not_found', 'Not in this mock');
     }
     const admission = admissions.find(
@@ -211,8 +212,44 @@ export const admissionFlowHandlers = [
     if (!admission) return error(404, 'admission_not_found', 'No such admission');
     const body = (await request.json().catch(() => null)) as {
       bedId?: unknown;
+      dischargeType?: unknown;
       version?: unknown;
     } | null;
+    if (discharging) {
+      const types = ['routine', 'against_advice', 'referred', 'absconded', 'deceased'];
+      if (
+        !body ||
+        typeof body.version !== 'number' ||
+        typeof body.dischargeType !== 'string' ||
+        !types.includes(body.dischargeType)
+      ) {
+        return error(400, 'validation_failed', 'The request is not valid');
+      }
+      if (admission.status !== 'admitted') return error(409, 'invalid_transition', 'Discharged');
+      if (admission.version !== body.version) return error(409, 'conflict', 'It has changed');
+      const left = admission.bed?.bedId;
+      const bed = left
+        ? mockBoardBeds(access.tenantId).find((each) => each.id === left)
+        : undefined;
+      if (bed) {
+        setMockBedStatus(bed.id, 'cleaning');
+        sittingIn.delete(bed.id);
+        announce(access.tenantId, bed.wardId);
+        const open = admission.stays?.find((stay) => stay.releasedAt === undefined);
+        if (open) {
+          open.releasedAt = new Date().toISOString();
+          open.releaseReason = 'discharge';
+        }
+      }
+      delete admission.bed;
+      Object.assign(admission, {
+        status: 'discharged',
+        dischargedAt: new Date().toISOString(),
+        dischargeType: body.dischargeType,
+        version: admission.version + 1,
+      });
+      return HttpResponse.json({ admission: shown(admission), stays: admission.stays ?? [] });
+    }
     if (!body || typeof body.bedId !== 'string' || typeof body.version !== 'number') {
       return error(400, 'validation_failed', 'The request is not valid');
     }

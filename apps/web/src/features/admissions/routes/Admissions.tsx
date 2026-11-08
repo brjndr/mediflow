@@ -10,8 +10,9 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import { maskMrn } from '@/shared/utils/mask';
 import { BedHistoryPanel } from '../components/BedHistoryPanel';
 import { BedPicker } from '../components/BedPicker';
-import { useAdmissions, useChangeBed } from '../hooks/use-admissions';
-import type { Admission } from '../types';
+import { DischargePanel } from '../components/DischargePanel';
+import { useAdmissions, useChangeBed, useDischarge } from '../hooks/use-admissions';
+import type { Admission, DischargeType } from '../types';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 
@@ -91,12 +92,14 @@ export default function Admissions() {
   const total = list.data?.pages[0]?.total;
 
   const change = useChangeBed();
+  const discharge = useDischarge();
   const [target, setTarget] = useState<Admission | null>(null);
+  const [leaving, setLeaving] = useState<Admission | null>(null);
   const [history, setHistory] = useState<Admission | null>(null);
   const [done, setDone] = useState('');
   const box = useRef<HTMLDivElement>(null);
   const statusLine = useRef<HTMLParagraphElement>(null);
-  usePanelFocus(target ?? history, box, statusLine);
+  usePanelFocus(target ?? leaving ?? history, box, statusLine);
 
   const choose = async (bedId: string) => {
     if (!target) return;
@@ -110,6 +113,26 @@ export default function Admissions() {
       // Someone else changed the stay or the bed first: the panel closes, the list is read again.
       if (isApiError(error) && ['conflict', 'bed_not_available'].includes(error.serverCode ?? '')) {
         setTarget(null);
+      }
+    }
+  };
+
+  const release = async (type: DischargeType) => {
+    if (!leaving) return;
+    discharge.reset();
+    setDone('');
+    try {
+      const updated = await discharge.mutateAsync({ admission: leaving, type });
+      setLeaving(null);
+      setDone(t('done.discharged', { patient: updated.patientName }));
+    } catch (error) {
+      // Changed first or already over: the panel closes and the list is read again. A refusal
+      // about notes keeps the panel, so the desk can try again once the notes are signed.
+      if (
+        isApiError(error) &&
+        ['conflict', 'invalid_transition'].includes(error.serverCode ?? '')
+      ) {
+        setLeaving(null);
       }
     }
   };
@@ -150,17 +173,30 @@ export default function Admissions() {
       id: 'bed',
       label: t('actions.bed'),
       requires: 'admission:transfer',
-      disabled: (row) => row.status !== 'admitted' || target !== null || change.isPending,
+      disabled: (row) =>
+        row.status !== 'admitted' || target !== null || leaving !== null || change.isPending,
       onSelect: (row) => {
         setHistory(null);
         setTarget(row);
       },
     },
     {
+      id: 'discharge',
+      label: t('actions.discharge'),
+      requires: 'admission:discharge',
+      disabled: (row) =>
+        row.status !== 'admitted' || target !== null || leaving !== null || discharge.isPending,
+      onSelect: (row) => {
+        setHistory(null);
+        discharge.reset();
+        setLeaving(row);
+      },
+    },
+    {
       id: 'history',
       label: t('actions.history'),
       requires: 'admission:read',
-      disabled: () => target !== null,
+      disabled: () => target !== null || leaving !== null,
       onSelect: (row) => setHistory(row),
     },
   ];
@@ -168,6 +204,17 @@ export default function Admissions() {
   const refused =
     isApiError(change.error) &&
     ['conflict', 'bed_not_available'].includes(change.error.serverCode ?? '');
+
+  const dischargeCode = isApiError(discharge.error) ? discharge.error.serverCode : undefined;
+  const dischargeFailure = !discharge.isError
+    ? ''
+    : dischargeCode === 'unsigned_notes'
+      ? t('discharge.unsignedNotes')
+      : dischargeCode === 'encounter_not_open'
+        ? t('discharge.notOpen')
+        : dischargeCode === 'conflict' || dischargeCode === 'invalid_transition'
+          ? t('refused.admission')
+          : tCommon(errorMessageKey(discharge.error));
 
   return (
     <div ref={box} className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
@@ -201,6 +248,11 @@ export default function Admissions() {
           {refused ? t('refused.admission') : tCommon(errorMessageKey(change.error))}
         </p>
       )}
+      {discharge.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {dischargeFailure}
+        </p>
+      )}
       <p
         ref={statusLine}
         tabIndex={-1}
@@ -217,6 +269,16 @@ export default function Admissions() {
           pending={change.isPending}
           onSubmit={(bedId) => void choose(bedId)}
           onBack={() => setTarget(null)}
+        />
+      )}
+
+      {leaving && (
+        <DischargePanel
+          key={leaving.id}
+          admission={leaving}
+          pending={discharge.isPending}
+          onSubmit={(type) => void release(type)}
+          onBack={() => setLeaving(null)}
         />
       )}
 
