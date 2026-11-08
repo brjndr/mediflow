@@ -27,6 +27,8 @@ const open = async () => {
   renderApp({ entry: '/housekeeping' });
   await screen.findByRole('heading', HEADING);
   await waitFor(() => expect(within(grid()).getAllByRole('row').length).toBeGreaterThan(1));
+  // The first rows can show before the bed's own row has arrived: wait for it.
+  await waitFor(() => expect(rowOf('GW-A-03')).toBeDefined());
 };
 
 describe('housekeeping tasks', () => {
