@@ -2,7 +2,13 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useRef } from 'react';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
-import { admitPatient, changeAdmissionBed, fetchAdmissions, fetchBoard } from '../api';
+import {
+  admitPatient,
+  changeAdmissionBed,
+  fetchAdmissions,
+  fetchBedHistory,
+  fetchBoard,
+} from '../api';
 import type { Admission, AdmissionCreate } from '../types';
 import { bedKeys } from './use-board';
 
@@ -85,5 +91,16 @@ export function useChangeBed() {
     mutationFn: ({ admission, bedId }: { admission: Admission; bedId: string }) =>
       changeAdmissionBed(admission, bedId, keyFor([admission.id, admission.version, bedId])),
     onSettled: refresh,
+  });
+}
+
+/** The beds one admission has been in. Read fresh: it grows with every move. */
+export function useBedHistory(admissionId: string | undefined) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: admissionKeys.detail(tenantId ?? '', admissionId ?? ''),
+    queryFn: ({ signal }) => fetchBedHistory(admissionId ?? '', signal),
+    enabled: tenantId !== undefined && admissionId !== undefined,
+    staleTime: 0,
   });
 }

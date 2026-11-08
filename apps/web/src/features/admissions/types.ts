@@ -9,3 +9,4 @@ export type Admission = components['schemas']['Admission'];
 export type AdmissionPage = components['schemas']['AdmissionPage'];
 export type AdmissionType = components['schemas']['AdmissionType'];
 export type AdmissionCreate = components['schemas']['AdmissionCreate'];
+export type BedStay = components['schemas']['BedStay'];

@@ -6,6 +6,7 @@ import type {
   BoardBed,
   BoardBedPage,
   BoardBedStatus,
+  BedStay,
 } from './types';
 
 export const BOARD_STATUSES = [
@@ -136,3 +137,34 @@ export const admitSchema = z.object({
   bedId: z.string().min(1, 'admissions:admit.bedRequired'),
 });
 export type AdmitValues = z.infer<typeof admitSchema>;
+
+export const bedStaySchema: z.ZodType<BedStay> = z.object({
+  assignmentId: z.string(),
+  bedId: z.string(),
+  bedNumber: z.string(),
+  wardId: z.string(),
+  wardName: z.string(),
+  bedCategoryId: z.string(),
+  serviceId: z.string().optional(),
+  assignedAt: z.string(),
+  releasedAt: z.string().optional(),
+  releaseReason: z.enum(['transfer', 'discharge']).optional(),
+});
+
+export const admissionDetailSchema = z.object({
+  admission: admissionSchema,
+  stays: z.array(bedStaySchema),
+});
+
+/**
+ * The days a stay is charged for: the calendar days from the one it started to the one it ended
+ * (or `now`), the day of a move counting once, for the bed the patient was in at the start of it.
+ * A guide on screen; the charges themselves are the billing module's.
+ */
+export function stayDays(stay: BedStay, now: Date, timeZone: string): number {
+  const day = (iso: string | Date) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date(iso));
+  const from = Date.parse(day(stay.assignedAt));
+  const to = Date.parse(day(stay.releasedAt ?? now));
+  return Math.max(1, Math.round((to - from) / 86_400_000) + 1);
+}

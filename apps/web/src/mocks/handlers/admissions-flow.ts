@@ -9,7 +9,8 @@ import { mockBoardBeds, setMockBedStatus } from './wards';
 
 type Admission = components['schemas']['Admission'];
 type AdmissionPage = components['schemas']['AdmissionPage'];
-type Stored = Admission & { key?: string };
+type Stay = components['schemas']['BedStay'];
+type Stored = Admission & { key?: string; stays?: Stay[] };
 
 const FEATURE_FLAG = 'admissions';
 const TYPES = ['planned', 'emergency', 'transfer_in'];
@@ -65,11 +66,42 @@ function bedOf(bed: Bed): NonNullable<Admission['bed']> {
 }
 
 function shown(stored: Stored): Admission {
-  const { key: _key, ...admission } = stored;
+  const { key: _key, stays: _stays, ...admission } = stored;
   return admission;
 }
 
+/** Closes the stay in the bed being left and opens one in the new bed. */
+function recordStay(stored: Stored, bed: Bed, leaving: boolean) {
+  const stays = stored.stays ?? [];
+  const now = new Date().toISOString();
+  const open = stays.find((stay) => stay.releasedAt === undefined);
+  if (open) {
+    open.releasedAt = now;
+    open.releaseReason = leaving ? 'transfer' : 'discharge';
+  }
+  stays.push({
+    assignmentId: `asg_${bed.id}_${stays.length}`,
+    bedId: bed.id,
+    bedNumber: bed.number,
+    wardId: bed.wardId,
+    wardName: bed.wardName,
+    bedCategoryId: bed.categoryName,
+    assignedAt: now,
+  });
+  stored.stays = stays;
+}
+
 export const admissionFlowHandlers = [
+  http.get('*/api/admissions/:admissionId', ({ request, params }) => {
+    const access = authorize(request, { permission: 'admission:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const admission = admissions.find(
+      (each) => each.id === params.admissionId && each.tenantId === access.tenantId,
+    );
+    if (!admission) return error(404, 'admission_not_found', 'No such admission');
+    return HttpResponse.json({ admission: shown(admission), stays: admission.stays ?? [] });
+  }),
+
   http.get('*/api/admissions', ({ request }) => {
     const access = authorize(request, { permission: 'admission:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
@@ -155,6 +187,7 @@ export const admissionFlowHandlers = [
       version: 1,
       key,
     };
+    if (bed) recordStay(admission, bed, false);
     admissions.unshift(admission);
     return HttpResponse.json(shown(admission), { status: 201 });
   }),
@@ -188,6 +221,7 @@ export const admissionFlowHandlers = [
     const bed = takeBed(access.tenantId, body.bedId, admission.patientId, admission.bed?.bedId);
     if (!bed) return error(409, 'bed_not_available', 'The bed is not available');
     counter += 1;
+    recordStay(admission, bed, true);
     Object.assign(admission, { bed: bedOf(bed), version: admission.version + 1 });
     return HttpResponse.json(shown(admission));
   }),

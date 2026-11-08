@@ -1,6 +1,7 @@
 import { api, requireData } from '@/shared/api';
 import {
   admissionPageSchema,
+  admissionDetailSchema,
   admissionSchema,
   boardPageSchema,
   wardOptionsSchema,
@@ -13,6 +14,7 @@ import type {
   BoardBed,
   BoardBedPage,
   BoardBedStatus,
+  BedStay,
   WardOption,
 } from './types';
 
@@ -123,4 +125,16 @@ export async function changeAdmissionBed(
     ? await api.POST('/admissions/{admissionId}/transfer', { params, body })
     : await api.POST('/admissions/{admissionId}/assign-bed', { params, body });
   return admissionSchema.parse(requireData(result));
+}
+
+/** Every bed the patient has been in, oldest first. Audited by the server as a read. */
+export async function fetchBedHistory(
+  admissionId: string,
+  signal?: AbortSignal,
+): Promise<BedStay[]> {
+  const result = await api.GET('/admissions/{admissionId}', {
+    params: { path: { admissionId } },
+    signal,
+  });
+  return admissionDetailSchema.parse(requireData(result)).stays;
 }
