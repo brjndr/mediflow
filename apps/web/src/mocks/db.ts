@@ -260,6 +260,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'ward:read' },
   { permission: 'ward:manage' },
   { permission: 'admission:read' },
+  { permission: 'admission:create' },
+  { permission: 'admission:transfer' },
   { permission: 'bed:update' },
   { permission: 'cleaningTask:read' },
   { permission: 'cleaningTask:work' },

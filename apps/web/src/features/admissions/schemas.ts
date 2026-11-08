@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import type { BoardBed, BoardBedPage, BoardBedStatus } from './types';
+import type {
+  Admission,
+  AdmissionPage,
+  AdmissionType,
+  BoardBed,
+  BoardBedPage,
+  BoardBedStatus,
+} from './types';
 
 export const BOARD_STATUSES = [
   'available',
@@ -76,3 +83,56 @@ export function allowedActions(status: BoardBedStatus) {
     unblock: status === 'blocked',
   };
 }
+
+export const ADMISSION_TYPES = [
+  'planned',
+  'emergency',
+  'transfer_in',
+] as const satisfies readonly AdmissionType[];
+
+export const admissionSchema: z.ZodType<Admission> = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  patientId: z.string(),
+  patientName: z.string(),
+  patientMrn: z.string(),
+  encounterId: z.string(),
+  doctorId: z.string(),
+  doctorName: z.string(),
+  departmentId: z.string(),
+  departmentName: z.string(),
+  admissionType: z.enum(ADMISSION_TYPES),
+  status: z.enum(['admitted', 'discharged']),
+  admittedAt: z.string(),
+  dischargedAt: z.string().optional(),
+  dischargeType: z
+    .enum(['routine', 'against_advice', 'referred', 'absconded', 'deceased'])
+    .optional(),
+  bed: z
+    .object({
+      assignmentId: z.string(),
+      bedId: z.string(),
+      bedNumber: z.string(),
+      wardId: z.string(),
+      wardName: z.string(),
+      roomName: z.string(),
+      assignedAt: z.string(),
+    })
+    .optional(),
+  version: z.number().int().min(1),
+});
+
+export const admissionPageSchema: z.ZodType<AdmissionPage> = z.object({
+  items: z.array(admissionSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+/** What the admit form asks for. The bed is required: the desk does not admit without one. */
+export const admitSchema = z.object({
+  patientId: z.string().min(1, 'admissions:admit.patientRequired'),
+  admissionType: z.enum(ADMISSION_TYPES),
+  doctorId: z.string(),
+  bedId: z.string().min(1, 'admissions:admit.bedRequired'),
+});
+export type AdmitValues = z.infer<typeof admitSchema>;

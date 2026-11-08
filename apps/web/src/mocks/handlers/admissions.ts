@@ -2,6 +2,7 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { onMockReset } from '../db';
 import { authorize, error } from '../respond';
+import { admissionFlowHandlers, announceBedsWith, mockBedPatient } from './admissions-flow';
 import { mockPatient } from './patients';
 import { housekeepMockBed, mockBoardBeds, onMockBedsChanged, setMockBedStatus } from './wards';
 
@@ -64,6 +65,7 @@ function publish(tenantId: string, wardId: string) {
   }
 }
 onMockBedsChanged(publish);
+announceBedsWith(publish);
 
 /** For tests: how many event streams of a hospital were opened since the last reset. */
 export const mockBedStreams = (tenantId: string) => streams.get(tenantId)?.size ?? 0;
@@ -85,7 +87,7 @@ export function changeMockBed(
 function view(tenantId: string, bed: ReturnType<typeof mockBoardBeds>[number]): BoardBed {
   const patient =
     bed.status === 'occupied'
-      ? mockPatient(tenantId, OCCUPANTS[bed.id] ?? FALLBACK_PATIENT)
+      ? mockPatient(tenantId, mockBedPatient(bed.id) ?? OCCUPANTS[bed.id] ?? FALLBACK_PATIENT)
       : undefined;
   return {
     ...bed,
@@ -104,6 +106,7 @@ function view(tenantId: string, bed: ReturnType<typeof mockBoardBeds>[number]): 
 }
 
 export const admissionsHandlers = [
+  ...admissionFlowHandlers,
   http.get('*/api/beds/board', ({ request }) => {
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
