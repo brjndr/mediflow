@@ -12,8 +12,11 @@
   "loaded_one": "{{count}} patient loaded",
   "loaded_other": "{{count}} patients loaded",
   "empty": "No patients are registered yet.",
+  "showMerged": "Show records merged into another",
+  "emptyMerged": "No records have been merged into another.",
   "emptySearch": "No patients match your search.",
   "columns": {
+    "mergedInto": "Replaced by",
     "name": "Name",
     "mrn": "MRN",
     "phone": "Phone",
@@ -103,7 +106,8 @@
   "noResults": {
     "title": "No patient matches “{{term}}”.",
     "hint": "Check the spelling, or search by a different detail: part of the name, the MRN, or the phone number.",
-    "clear": "Clear the search"
+    "clear": "Clear the search",
+    "tryMerged": "Look among merged records"
   },
   "picker": {
     "loading": "Searching…",

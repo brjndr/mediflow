@@ -25,6 +25,8 @@ export interface PatientListQuery {
   cursor?: string;
   limit: number;
   sort?: PatientSort;
+  /** Only the records merged into another (#604), each with the record to use instead. */
+  mergedAway?: boolean;
 }
 
 /**
@@ -32,11 +34,11 @@ export interface PatientListQuery {
  * never appear in a URL (logs, history, proxies). The request only reads data.
  */
 export async function fetchPatients(
-  { q, cursor, limit, sort }: PatientListQuery,
+  { q, cursor, limit, sort, mergedAway }: PatientListQuery,
   signal?: AbortSignal,
 ): Promise<PatientPage> {
   const result = await api.POST('/patients/search', {
-    body: { q: q || undefined, cursor, limit, sort },
+    body: { q: q || undefined, cursor, limit, sort, mergedAway: mergedAway || undefined },
     signal,
   });
   return patientPageSchema.parse(requireData(result));

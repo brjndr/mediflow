@@ -548,6 +548,23 @@ describe('merging two records', () => {
       payload: { q: 'DC-0000020' },
     });
     expect(found.json<{ items: unknown[] }>().items).toHaveLength(0);
+    // Asked for by name (#604), the merged record is found, pointing at its survivor.
+    const away = await app.inject({
+      method: 'POST',
+      url: '/patients/search',
+      headers: headers(),
+      payload: { q: 'DC-0000020', mergedAway: true },
+    });
+    expect(away.json<{ items: { id: string; mergedInto?: string }[] }>().items).toEqual([
+      expect.objectContaining({ id: source, mergedInto: target }),
+    ]);
+    const live = await app.inject({
+      method: 'POST',
+      url: '/patients/search',
+      headers: headers(),
+      payload: { q: 'DC-0000021', mergedAway: true },
+    });
+    expect(live.json<{ items: unknown[] }>().items).toHaveLength(0);
 
     const history = (await get(`/patients/${target}/merges`)).json<{ items: { id: string }[] }>();
     expect(history.items.map((item) => item.id)).toEqual([result.id]);

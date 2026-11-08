@@ -21,11 +21,13 @@ export default function PatientList() {
   // Component state only: patient search text never goes in the URL or browser storage.
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<GridSort | null>(null);
+  // Merged-away records are out of the list unless asked for (#604).
+  const [mergedAway, setMergedAway] = useState(false);
   const [limit, setLimit] = useState<number>(PATIENT_PAGE_SIZES[0]);
   const q = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
   const sortParam = sort ? (`${sort.desc ? '-' : ''}${sort.id}` as PatientSort) : null;
-  const patients = usePatients({ q, sort: sortParam, limit });
+  const patients = usePatients({ q, sort: sortParam, limit, mergedAway });
   const rows = useMemo(
     () => patients.data?.pages.flatMap((page) => page.items) ?? [],
     [patients.data],
@@ -64,6 +66,24 @@ export default function PatientList() {
         mask: maskMrn,
         sortable: true,
       },
+      ...(mergedAway
+        ? [
+            {
+              id: 'mergedInto',
+              header: t('columns.mergedInto'),
+              value: () => t('merge.toSurvivor'),
+              render: (row: PatientSummary, text: string) =>
+                row.mergedInto ? (
+                  <Link
+                    to={`/patients/${row.mergedInto}`}
+                    className="inline-flex items-center rounded-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
+                  >
+                    {text}
+                  </Link>
+                ) : null,
+            },
+          ]
+        : []),
       { id: 'phone', header: t('columns.phone'), value: (row) => row.phone, mask: maskPhone },
       { id: 'gender', header: t('columns.gender'), value: (row) => t(`gender.${row.gender}`) },
       {
@@ -73,7 +93,7 @@ export default function PatientList() {
         value: (row) => format.date(`${row.dob}T12:00:00Z`),
       },
     ],
-    [t, format],
+    [t, format, mergedAway],
   );
 
   return (
@@ -107,6 +127,15 @@ export default function PatientList() {
             />
           </span>
         </label>
+        <label className="flex items-center gap-2 text-sm font-medium pointer-coarse:min-h-11">
+          <input
+            type="checkbox"
+            checked={mergedAway}
+            onChange={(event) => setMergedAway(event.target.checked)}
+            className="h-4 w-4 pointer-coarse:h-6 pointer-coarse:w-6"
+          />
+          {t('showMerged')}
+        </label>
         <label className="flex flex-col gap-1 text-sm font-medium">
           {t('pageSize')}
           <select
@@ -136,7 +165,7 @@ export default function PatientList() {
         status={patients.isPending ? 'loading' : patients.isError ? 'error' : 'ready'}
         errorMessage={patients.isError ? tCommon(errorMessageKey(patients.error)) : undefined}
         onRetry={() => void patients.refetch()}
-        emptyMessage={q.trim() ? t('emptySearch') : t('empty')}
+        emptyMessage={mergedAway ? t('emptyMerged') : q.trim() ? t('emptySearch') : t('empty')}
         sort={sort}
         onSortChange={setSort}
         hasNextPage={patients.hasNextPage}
@@ -154,6 +183,11 @@ export default function PatientList() {
             <Button variant="outline" onClick={() => setSearch('')}>
               {t('noResults.clear')}
             </Button>
+            {!mergedAway && (
+              <Button variant="outline" onClick={() => setMergedAway(true)}>
+                {t('noResults.tryMerged')}
+              </Button>
+            )}
             <Can permission="patient:create">
               <Link
                 to="/patients/new"

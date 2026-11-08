@@ -93,6 +93,8 @@ export interface SearchInput {
   cursor?: string;
   limit: number;
   sort: PatientSort;
+  /** Only the records merged into another (#604), instead of only the live ones. */
+  mergedAway?: boolean;
 }
 
 export async function searchPatients(
@@ -106,7 +108,8 @@ export async function searchPatients(
   const visible = visibilityClause(visibility, params);
   if (visible) where.push(visible);
   // A record merged into another (#194) is out of the list: its survivor is the one to find.
-  where.push('merged_into_id is null');
+  // Asked for by name (#604), they are the only ones listed.
+  where.push(input.mergedAway ? 'merged_into_id is not null' : 'merged_into_id is null');
 
   const term = input.q?.trim().toLowerCase() ?? '';
   if (term !== '') {

@@ -5346,6 +5346,8 @@ export interface components {
             gender: "male" | "female" | "other";
             /** @description Masked to its last four digits for a caller without patient.contact:read. */
             phone: string;
+            /** @description Present when this record was merged into another (#194, #604): the id of the record to use. */
+            mergedInto?: string;
         };
         /** @description Cursor envelope used by every list endpoint. */
         PatientPage: {
@@ -11826,6 +11828,8 @@ export interface operations {
                     limit?: number;
                     /** @enum {string} */
                     sort?: "name" | "-name" | "mrn" | "-mrn";
+                    /** @description True lists only the records merged into another (#604), each with mergedInto; omitted or false lists the live records, as before. */
+                    mergedAway?: boolean;
                 };
             };
         };
