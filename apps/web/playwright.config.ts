@@ -11,6 +11,11 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
   workers: isCI ? 2 : 1,
+  // The CI runner has two shared cores and runs two workers: a step that takes a second here can
+  // take ten there, and the failures seen (#600) were a focus or a link not there yet, never a
+  // wrong result. More time, not more retries.
+  timeout: isCI ? 60_000 : 30_000,
+  expect: { timeout: isCI ? 10_000 : 5_000 },
   reporter: isCI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://localhost:4173',
