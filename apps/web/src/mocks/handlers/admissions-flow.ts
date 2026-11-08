@@ -2,6 +2,7 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { currentSession, onMockReset } from '../db';
 import { authorize, error } from '../respond';
+import { mockNotesOf } from './clinical';
 import { mockDepartment } from './departments';
 import { mockDoctor, mockDoctorOfUser } from './doctors';
 import { mockPatient } from './patients';
@@ -227,6 +228,9 @@ export const admissionFlowHandlers = [
       }
       if (admission.status !== 'admitted') return error(409, 'invalid_transition', 'Discharged');
       if (admission.version !== body.version) return error(409, 'conflict', 'It has changed');
+      if (mockNotesOf(admission.encounterId).some((note) => note.status === 'draft')) {
+        return error(409, 'unsigned_notes', 'A note of the stay is still a draft');
+      }
       const left = admission.bed?.bedId;
       const bed = left
         ? mockBoardBeds(access.tenantId).find((each) => each.id === left)
