@@ -1,0 +1,11 @@
+# Duty roster (web): module notes
+
+What was decided for OP-01 (#195). The root `CLAUDE.md` wins where the two disagree. The API is `apps/api/src/features/operations/` (roster part); read its `CLAUDE.md` too.
+
+- **One route, one nav entry** ("Duty roster", `roster:read`, `/roster`) behind the `roster` switch. It runs on the real operations API (`GET /roster/shifts`, `POST /roster/shifts`, `POST /roster/shifts/{id}/cancel`) and on `mocks/handlers/roster.ts`. Works at every width (`DataGrid`).
+- **A week at a time** on the hospital's clock (Monday to Sunday, `dayBoundsUtc`), filtered by department when the caller may read departments. Cursor paged, 100 a page.
+- **Shifts are added and cancelled, never edited** (API rule). Cancelling asks first and sends the version read. A new shift needs a person from `useStaffOptions` (staff feature, needs `staff:read`, first 100 active members: a hospital with more needs a search, proposed follow-up).
+- **Shift templates** are a fixed table in `schemas.ts` (`SHIFT_TEMPLATES`): choosing the kind fills the usual start and end; an end at or before the start means the next day. They are not a hospital setting yet (needs a settings record in the API).
+- **Conflicts are said in words.** The server refuses an overlap (409 `shift_overlap`, shown in the dialog with the choices kept). `rosterConflicts` (`conflicts.ts`) also flags, over the shifts shown, an overlap and less than `MIN_REST_HOURS` (8) of rest between two shifts of one person; both shifts get "Conflict: ..." in the status column and the status line counts them. A rest conflict is a warning, not a refusal.
+- **On call in scheduling.** `useOnCallNow(departmentId?)` is exported from `index.ts`: the people whose scheduled `on_call` shift covers now (refreshed each minute; `available` is false without `roster:read` or with the switch off). The roster page shows it as a panel. Showing it on the appointment screens is not done (it would touch that module): proposed follow-up.
+- **Not built:** leave requests (no API: a person's absence needs its own table and approval), repeating rosters and shift swaps, a hospital's own templates, a day-by-day grid view of the week, coverage rules (minimum staff per department).
