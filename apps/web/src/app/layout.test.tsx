@@ -48,6 +48,7 @@ describe('shell', () => {
       'Bed board',
       'Housekeeping',
       'Ambulances',
+      'Blood bank',
       'Triage',
       'Diagnosis and procedure codes',
       'Document templates',
@@ -107,6 +108,7 @@ describe('shell', () => {
       'Bed board',
       'Housekeeping',
       'Ambulances',
+      'Blood bank',
       'Triage',
       'Diagnosis and procedure codes',
       'Document templates',
@@ -190,6 +192,8 @@ describe('keyboard', () => {
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Ambulances' })).toHaveFocus();
     await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Blood bank' })).toHaveFocus();
+    await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Triage' })).toHaveFocus();
     await userEvent.tab();
     expect(
@@ -268,6 +272,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Bed board',
       'Housekeeping',
       'Ambulances',
+      'Blood bank',
       'Triage',
       'Diagnosis and procedure codes',
       'Document templates',
@@ -336,6 +341,7 @@ describe('system pages', () => {
       'Bed board',
       'Housekeeping',
       'Ambulances',
+      'Blood bank',
       'Triage',
       'Diagnosis and procedure codes',
       'Document templates',

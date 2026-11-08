@@ -1,0 +1,115 @@
+{
+  "heading": "Blood bank",
+  "description": "Blood units from collection to transfusion, and what can be given now.",
+  "gridLabel": "Blood units",
+  "count_one": "{{count}} unit",
+  "count_other": "{{count}} units",
+  "empty": "No units here.",
+  "rowLabel": "Unit {{number}}, {{group}}",
+  "close": "Close",
+  "cancel": "Cancel",
+  "retry": "Try again",
+  "filters": { "status": "Status", "group": "Blood group", "component": "Component", "any": "Any" },
+  "columns": {
+    "unit": "Unit number",
+    "group": "Blood group",
+    "component": "Component",
+    "volume": "Volume",
+    "status": "Status",
+    "collected": "Collected",
+    "expires": "Expires"
+  },
+  "status": {
+    "collected": "Collected",
+    "testing": "In testing",
+    "available": "Available",
+    "reserved": "Reserved",
+    "issued": "Issued",
+    "transfused": "Transfused",
+    "discarded": "Discarded",
+    "expired": "Expired"
+  },
+  "component": {
+    "whole_blood": "Whole blood",
+    "red_cells": "Red cells",
+    "plasma": "Plasma",
+    "platelets": "Platelets",
+    "cryo": "Cryoprecipitate"
+  },
+  "stock": {
+    "heading": "In stock now",
+    "loading": "Loading stock...",
+    "empty": "No units are available or reserved.",
+    "available_one": "{{count}} available",
+    "available_other": "{{count}} available",
+    "reserved_one": "{{count}} reserved",
+    "reserved_other": "{{count}} reserved",
+    "nextExpiry": "Next expiry {{date}}"
+  },
+  "actions": {
+    "test": "Send to testing",
+    "clear": "Clear for stock",
+    "reserve": "Reserve",
+    "release": "Release reservation",
+    "issue": "Issue",
+    "transfuse": "Record transfusion",
+    "expire": "Record expiry",
+    "discard": "Discard",
+    "history": "History"
+  },
+  "done": {
+    "registered": "Unit {{number}} registered.",
+    "testing": "Unit {{number}} sent to testing.",
+    "available": "Unit {{number}} is available.",
+    "reserved": "Unit {{number}} reserved.",
+    "issued": "Unit {{number}} issued.",
+    "transfused": "Transfusion of unit {{number}} recorded.",
+    "expired": "Unit {{number}} recorded as expired.",
+    "discarded": "Unit {{number}} discarded."
+  },
+  "register": {
+    "open": "Register a unit",
+    "title": "Register a collected unit",
+    "description": "Dates and times are on the hospital clock.",
+    "unitNumber": "Unit number",
+    "volume": "Volume (ml)",
+    "submit": "Register unit",
+    "saving": "Registering..."
+  },
+  "reserve": {
+    "title": "Reserve unit {{number}}",
+    "description": "Hold the unit for a patient.",
+    "patient": "Patient",
+    "chosen": "Patient: {{name}}",
+    "change": "Change patient",
+    "missing": "Choose the patient the unit is for.",
+    "submit": "Reserve",
+    "saving": "Reserving..."
+  },
+  "discard": {
+    "title": "Discard unit {{number}}",
+    "description": "A discarded unit cannot be used again. The reason is kept in its history.",
+    "reason": "Reason",
+    "submit": "Discard unit",
+    "saving": "Discarding..."
+  },
+  "history": {
+    "title": "History of unit {{number}}",
+    "description": "Every move the unit made, oldest first.",
+    "loading": "Loading history...",
+    "first": "Registered as {{to}}",
+    "move": "{{from}} to {{to}}",
+    "patient": "Patient",
+    "reason": "Reason",
+    "loadingPatient": "Loading...",
+    "patientUnavailable": "Not available to you"
+  },
+  "refused": {
+    "changed": "Someone else changed this unit first. The list has been refreshed.",
+    "duplicate": "A unit with that number already exists.",
+    "period": "A unit must expire after it is collected.",
+    "expired": "The unit is past its date.",
+    "notExpired": "The unit is still within its date.",
+    "patient": "That patient could not be found."
+  }
+}

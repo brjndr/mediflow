@@ -32,6 +32,7 @@ import { wardsFeature } from '@/features/wards';
 import { admissionsFeature } from '@/features/admissions';
 import { housekeepingFeature } from '@/features/housekeeping';
 import { ambulancesFeature } from '@/features/ambulances';
+import { bloodBankFeature } from '@/features/blood-bank';
 import type { FeatureManifest } from './types';
 
 /**
@@ -54,6 +55,7 @@ export const features: FeatureManifest[] = [
   admissionsFeature,
   housekeepingFeature,
   ambulancesFeature,
+  bloodBankFeature,
   codesFeature,
   templatesFeature,
   importsFeature,
