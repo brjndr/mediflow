@@ -2,7 +2,7 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
-import { mockPatient } from './patients';
+import { mockPatient, registerMockMergeCounter } from './patients';
 
 type Schemas = components['schemas'];
 type PatientDocument = Schemas['PatientDocument'];
@@ -88,6 +88,13 @@ export function finishMockScan(id: string, status: PatientDocument['status'] = '
   if (!found) throw new Error(`Unknown mock document: ${id}`);
   found.status = status;
 }
+
+registerMockMergeCounter(
+  'documents',
+  (tenantId, patientId) =>
+    state.documents.filter((one) => one.tenantId === tenantId && one.patientId === patientId)
+      .length,
+);
 
 const view = ({ tenantId: _tenantId, ...document }: Stored): PatientDocument => document;
 

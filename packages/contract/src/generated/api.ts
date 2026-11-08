@@ -603,6 +603,23 @@ export interface paths {
         patch: operations["updatePatient"];
         trace?: never;
     };
+    "/patients/{patientId}/merge-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What merging the record in `source` into the one in the path would move (#603): the rows each module would move, by module, and the versions of both records. Reads only, changes nothing. 404 `not_found` for a record that does not exist or is in another hospital; 409 `patient_merged` if either was merged already; 422 `same_patient`. Requires patient:merge with the scope `all`. */
+        get: operations["previewPatientMerge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patients/{patientId}/merge": {
         parameters: {
             query?: never;
@@ -5440,6 +5457,16 @@ export interface components {
         PatientMergeList: {
             items: components["schemas"]["PatientMerge"][];
             nextCursor: null;
+        };
+        PatientMergePreview: {
+            sourcePatientId: string;
+            targetPatientId: string;
+            sourceVersion: number;
+            targetVersion: number;
+            /** @description How many rows each module would move to the survivor, by module; none is zero. */
+            moves: {
+                [key: string]: number;
+            };
         };
         /** @description A department of one hospital. Holds no patient data. */
         Department: {
@@ -12147,6 +12174,93 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    previewPatientMerge: {
+        parameters: {
+            query: {
+                source: string;
+            };
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientMergePreview"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

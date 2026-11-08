@@ -11,4 +11,5 @@ export type PatientDuplicateQuery = components['schemas']['PatientDuplicateQuery
 export type PatientDuplicateMatches = components['schemas']['PatientDuplicateMatches'];
 export type PatientDuplicateMatch = components['schemas']['PatientDuplicateMatch'];
 export type PatientMerge = components['schemas']['PatientMerge'];
+export type PatientMergePreview = components['schemas']['PatientMergePreview'];
 export type PatientMergeCreate = components['schemas']['PatientMergeCreate'];

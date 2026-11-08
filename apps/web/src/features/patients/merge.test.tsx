@@ -35,6 +35,17 @@ async function chooseDuplicate() {
 describe('merging a duplicate patient', () => {
   it('shows both records and what moves, then merges after a confirmation and a reason', async () => {
     const sent = watchMerges();
+    server.use(
+      http.get('*/api/patients/:id/merge-preview', () =>
+        HttpResponse.json({
+          sourcePatientId: SOURCE,
+          targetPatientId: TARGET,
+          sourceVersion: 1,
+          targetVersion: 1,
+          moves: { documents: 3 },
+        }),
+      ),
+    );
     openMerge();
     await chooseDuplicate();
 
@@ -43,9 +54,9 @@ describe('merging a duplicate patient', () => {
     const merged = screen.getByRole('region', { name: 'Duplicate to merge' });
     expect(within(merged).getByText('MRN-PTH-00002')).toBeInTheDocument();
     expect(
-      within(screen.getByRole('region', { name: 'What moves to the record that stays' })).getByText(
-        'Documents',
-      ),
+      await within(
+        screen.getByRole('region', { name: 'What moves to the record that stays' }),
+      ).findByText('Documents: 3'),
     ).toBeInTheDocument();
     await expectNoAxeViolations(document.body);
 
@@ -75,6 +86,14 @@ describe('merging a duplicate patient', () => {
     ]);
   });
 
+  it('says so when nothing would move,', async () => {
+    openMerge();
+    await chooseDuplicate();
+    expect(
+      await screen.findByText('Nothing recorded on the duplicate would move.'),
+    ).toBeInTheDocument();
+  });
+
   it('shows the merge in the history, and the merged record as read-only', async () => {
     openMerge();
     await chooseDuplicate();
@@ -88,7 +107,7 @@ describe('merging a duplicate patient', () => {
     await userEvent.click(await screen.findByRole('tab', { name: 'Merge history' }));
     const history = await screen.findByRole('region', { name: 'Records merged into this one' });
     expect(await within(history).findByText('Same person')).toBeInTheDocument();
-    expect(within(history).getByText(/Documents: 0/)).toBeInTheDocument();
+    expect(within(history).getByText('Nothing to move')).toBeInTheDocument();
   });
 
   it('says so when a record changed since it was read', async () => {

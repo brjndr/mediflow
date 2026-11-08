@@ -58,6 +58,21 @@ const PatientMergeList = Type.Object(
   { $id: 'PatientMergeList' },
 );
 
+const PatientMergePreview = Type.Object(
+  {
+    sourcePatientId: Type.String(),
+    targetPatientId: Type.String(),
+    sourceVersion: Type.Integer(),
+    targetVersion: Type.Integer(),
+    moves: Type.Record(Type.String(), Type.Integer(), {
+      description: 'How many rows each module would move to the survivor, by module; none is zero.',
+    }),
+  },
+  { $id: 'PatientMergePreview' },
+);
+
+const PreviewQuery = Type.Object({ source: Id });
+
 const Params = Type.Object({ patientId: Id });
 
 interface MergeRow {
@@ -99,6 +114,59 @@ export const mergeRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.addSchema(PatientMerge);
   app.addSchema(PatientMergeCreate);
   app.addSchema(PatientMergeList);
+  app.addSchema(PatientMergePreview);
+
+  app.get(
+    '/patients/:patientId/merge-preview',
+    {
+      config: { permissions: [MERGE], feature: FEATURE },
+      schema: {
+        operationId: 'previewPatientMerge',
+        tags: ['patients'],
+        description:
+          'What merging the record in `source` into the one in the path would move (#603): the rows each module would move, by module, and the versions of both records. Reads only, changes nothing. 404 `not_found` for a record that does not exist or is in another hospital; 409 `patient_merged` if either was merged already; 422 `same_patient`. Requires patient:merge with the scope `all`.',
+        params: Params,
+        querystring: PreviewQuery,
+        response: { 200: ref(PatientMergePreview), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request) => {
+      if (request.access.scope(MERGE) !== 'all') throw notFound();
+      const targetId = request.params.patientId;
+      const sourceId = request.query.source;
+      if (sourceId === targetId) {
+        throw new HttpError(422, 'same_patient', 'A record cannot be merged into itself');
+      }
+      const client = request.txClient;
+      const { rows } = await client.query<{
+        id: string;
+        version: number;
+        merged_into_id: string | null;
+      }>('select id, version, merged_into_id from patients where id = any($1::uuid[])', [
+        [sourceId, targetId],
+      ]);
+      const source = rows.find((row) => row.id === sourceId);
+      const target = rows.find((row) => row.id === targetId);
+      if (!source || !target) throw notFound();
+      if (source.merged_into_id || target.merged_into_id) {
+        throw new HttpError(
+          409,
+          'patient_merged',
+          'A record that was merged cannot be merged again',
+        );
+      }
+      const moves = await app.patientMerge.preview(client, { sourceId, targetId });
+      request.audit('read', 'patient', sourceId);
+      request.audit('read', 'patient', targetId);
+      return {
+        sourcePatientId: sourceId,
+        targetPatientId: targetId,
+        sourceVersion: source.version,
+        targetVersion: target.version,
+        moves,
+      };
+    },
+  );
 
   app.post(
     '/patients/:patientId/merge',

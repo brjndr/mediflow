@@ -9,13 +9,10 @@ import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
 import { useFormatters } from '@/tenancy';
 import { PatientSearch } from '../components/PatientSearch';
-import { useMergePatients } from '../hooks/use-merge';
+import { useMergePatients, useMergePreview } from '../hooks/use-merge';
 import { usePatient } from '../hooks/use-patient';
 import { mergeFormSchema, type MergeFormValues } from '../schemas';
 import type { PatientMerge, PatientRecord } from '../types';
-
-/** The modules that move rows to the survivor. A module added later only needs a label. */
-const MOVES = ['documents'] as const;
 
 const REFUSED: Record<string, string> = {
   conflict: 'merge.errors.conflict',
@@ -137,6 +134,7 @@ function MergeForm({
   const [asking, setAsking] = useState(false);
   const source = usePatient(sourceId === target.id ? '' : sourceId);
   const merge = useMergePatients(target);
+  const preview = useMergePreview(target.id, sourceId);
   const form = useZodForm(mergeFormSchema, { reason: '' });
   const sameChoice = sourceId === target.id;
 
@@ -203,11 +201,28 @@ function MergeForm({
           </div>
           <section aria-label={t('merge.moves')} className="text-sm">
             <h2 className="font-semibold">{t('merge.moves')}</h2>
-            <ul className="list-disc pl-5">
-              {MOVES.map((module) => (
-                <li key={module}>{t(`merge.modules.${module}`)}</li>
+            {preview.isPending && (
+              <p role="status" className="text-muted-foreground">
+                {t('merge.movesLoading')}
+              </p>
+            )}
+            {preview.isError && (
+              <p role="alert" className="text-destructive">
+                {tCommon(errorMessageKey(preview.error))}
+              </p>
+            )}
+            {preview.data &&
+              (Object.keys(preview.data.moves).length === 0 ? (
+                <p>{t('merge.movesNothing')}</p>
+              ) : (
+                <ul className="list-disc pl-5">
+                  {Object.entries(preview.data.moves).map(([module, count]) => (
+                    <li key={module}>
+                      {t(`merge.modules.${module}`, { defaultValue: module })}: {count}
+                    </li>
+                  ))}
+                </ul>
               ))}
-            </ul>
             <p className="mt-1 text-muted-foreground">{t('merge.permanent')}</p>
           </section>
           <Form

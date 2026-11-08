@@ -2,6 +2,7 @@ import { api, requireData } from '@/shared/api';
 import {
   duplicateMatchesSchema,
   patientMergeListSchema,
+  patientMergePreviewSchema,
   patientMergeSchema,
   patientPageSchema,
   patientRecordSchema,
@@ -12,6 +13,7 @@ import type {
   PatientDuplicateQuery,
   PatientMerge,
   PatientMergeCreate,
+  PatientMergePreview,
   PatientPage,
   PatientRecord,
   PatientSort,
@@ -96,6 +98,19 @@ export async function mergePatients(
     body,
   });
   return patientMergeSchema.parse(requireData(result));
+}
+
+/** What merging `sourceId` into `targetId` would move, by module. Reads only (#603). */
+export async function fetchMergePreview(
+  targetId: string,
+  sourceId: string,
+  signal?: AbortSignal,
+): Promise<PatientMergePreview> {
+  const result = await api.GET('/patients/{patientId}/merge-preview', {
+    params: { path: { patientId: targetId }, query: { source: sourceId } },
+    signal,
+  });
+  return patientMergePreviewSchema.parse(requireData(result));
 }
 
 /** The records merged into this one, newest first (at most 100, no next page). */

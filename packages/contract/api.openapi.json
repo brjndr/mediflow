@@ -965,6 +965,37 @@
           }
         }
       },
+      "PatientMergePreview": {
+        "type": "object",
+        "required": [
+          "sourcePatientId",
+          "targetPatientId",
+          "sourceVersion",
+          "targetVersion",
+          "moves"
+        ],
+        "properties": {
+          "sourcePatientId": {
+            "type": "string"
+          },
+          "targetPatientId": {
+            "type": "string"
+          },
+          "sourceVersion": {
+            "type": "integer"
+          },
+          "targetVersion": {
+            "type": "integer"
+          },
+          "moves": {
+            "description": "How many rows each module would move to the survivor, by module; none is zero.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          }
+        }
+      },
       "Department": {
         "description": "A department of one hospital. Holds no patient data.",
         "type": "object",
@@ -16412,6 +16443,115 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/merge-preview": {
+      "get": {
+        "operationId": "previewPatientMerge",
+        "tags": ["patients"],
+        "description": "What merging the record in `source` into the one in the path would move (#603): the rows each module would move, by module, and the versions of both records. Reads only, changes nothing. 404 `not_found` for a record that does not exist or is in another hospital; 409 `patient_merged` if either was merged already; 422 `same_patient`. Requires patient:merge with the scope `all`.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "source",
+            "required": true
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientMergePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

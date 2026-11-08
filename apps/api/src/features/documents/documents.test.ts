@@ -560,6 +560,44 @@ describe('merging two records', () => {
     expect(events.rowCount).toBe(1);
   });
 
+  it('previews what a merge would move without changing anything', async () => {
+    const source = await patient(hospital, 'DC-0000070');
+    const target = await patient(hospital, 'DC-0000071');
+    await uploaded(source);
+    await uploaded(source);
+    await queue.drain();
+    const url = `/patients/${target}/merge-preview?source=${source}`;
+    const seen = await get(url);
+    expect(seen.statusCode).toBe(200);
+    expect(seen.json()).toMatchObject({
+      sourcePatientId: source,
+      targetPatientId: target,
+      sourceVersion: await versionOf(source),
+      targetVersion: await versionOf(target),
+      moves: { documents: 2 },
+    });
+    // Nothing moved, nothing merged.
+    const row = await pool.query(
+      'select 1 from patients where id = $1 and merged_into_id is null',
+      [source],
+    );
+    expect(row.rowCount).toBe(1);
+    expect(errorOf(await get(`/patients/${target}/merge-preview?source=${target}`))).toEqual([
+      422,
+      'same_patient',
+    ]);
+    expect(errorOf(await get(url, { user: receptionist }))).toEqual([403, 'permission_denied']);
+    expect(
+      errorOf(await get(`/patients/${target}/merge-preview?source=${ids.clinicPatient}`)),
+    ).toEqual([404, 'not_found']);
+    expect(errorOf(await get(url, { tenant: clinic, user: clinicAdmin }))).toEqual([
+      404,
+      'not_found',
+    ]);
+    expect((await merge(target, source)).statusCode).toBe(201);
+    expect(errorOf(await get(url))).toEqual([409, 'patient_merged']);
+  });
+
   it('does all of it or none: a module that fails undoes the whole merge', async () => {
     const source = await patient(hospital, 'DC-0000030');
     const target = await patient(hospital, 'DC-0000031');

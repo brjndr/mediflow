@@ -8,6 +8,7 @@ type PatientSummary = components['schemas']['PatientSummary'];
 type PatientPage = components['schemas']['PatientPage'];
 type PatientRecord = components['schemas']['PatientRecord'];
 type PatientMerge = components['schemas']['PatientMerge'];
+type PatientMergePreview = components['schemas']['PatientMergePreview'];
 
 const FEATURE_FLAG = 'patients';
 const GIVEN = ['Asha', 'Bilal', 'Chen', 'Divya', 'Emeka', 'Farah', 'Gita', 'Hugo', 'Imran', 'Jaya'];
@@ -56,6 +57,21 @@ let records = new Map<string, PatientRecord>();
 let merges: Array<PatientMerge & { tenantId: string }> = [];
 /** Merges already carried out, by tenant and idempotency key: a retry returns the first result. */
 let mergeKeys = new Map<string, PatientMerge>();
+
+type MergeCounter = (tenantId: string, patientId: string) => number;
+const mergeCounters = new Map<string, MergeCounter>();
+/** A module's mock says how many rows it would move from a patient in a merge (#603). */
+export function registerMockMergeCounter(name: string, count: MergeCounter): void {
+  mergeCounters.set(name, count);
+}
+function mergeMoves(tenantId: string, patientId: string): Record<string, number> {
+  const moves: Record<string, number> = {};
+  for (const [name, count] of mergeCounters) {
+    const n = count(tenantId, patientId);
+    if (n > 0) moves[name] = n;
+  }
+  return moves;
+}
 
 /**
  * A patient of this hospital as another feature's mock names one (an appointment's patient), or
@@ -387,13 +403,41 @@ export const patientsHandlers = [
       sourcePatientId: source.id,
       targetPatientId: target.id,
       reason: body.reason,
-      moved: { documents: 0 },
+      moved: mergeMoves(access.tenantId, source.id),
       mergedBy: currentSession()?.user.id ?? 'unknown',
       mergedAt: new Date().toISOString(),
     };
     merges.unshift({ ...merge, tenantId: access.tenantId });
     mergeKeys.set(`${access.tenantId}:${key}`, merge);
     return HttpResponse.json<PatientMerge>(merge, { status: 201 });
+  }),
+
+  http.get('*/api/patients/:id/merge-preview', ({ request, params }) => {
+    const access = authorize(request, { permission: 'patient:merge', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const sourceId = new URL(request.url).searchParams.get('source');
+    if (!sourceId) return error(400, 'validation_failed', 'source is required');
+    const target = recordOf(String(params.id));
+    const source = recordOf(sourceId);
+    if (
+      !target ||
+      !source ||
+      target.tenantId !== access.tenantId ||
+      source.tenantId !== access.tenantId
+    ) {
+      return error(404, 'not_found', 'No such patient');
+    }
+    if (target.id === source.id) return error(422, 'same_patient', 'Choose two different records');
+    if (target.mergedInto || source.mergedInto) {
+      return error(409, 'patient_merged', 'A record was merged already');
+    }
+    return HttpResponse.json<PatientMergePreview>({
+      sourcePatientId: source.id,
+      targetPatientId: target.id,
+      sourceVersion: source.version,
+      targetVersion: target.version,
+      moves: mergeMoves(access.tenantId, source.id),
+    });
   }),
 
   http.get('*/api/patients/:id/merges', ({ request, params }) => {
