@@ -138,3 +138,57 @@ describe('bed history', () => {
     await expectNoAxeViolations();
   }, 30_000);
 });
+
+const admitAndOpenList = async () => {
+  await openForm();
+  await choosePatient('MRN-PTH-00010');
+  await admitFirstDoctor();
+  await userEvent.click(screen.getAllByRole('radio')[0] as HTMLElement);
+  await userEvent.click(screen.getByRole('button', { name: 'Admit patient' }));
+  await screen.findByRole('heading', { name: 'Patient admitted' });
+  await userEvent.click(screen.getByRole('link', { name: 'Admissions' }));
+  const grid = await screen.findByRole('table', { name: 'Admissions' });
+  await waitFor(() => expect(within(grid).getAllByRole('row')).toHaveLength(2));
+  return grid;
+};
+
+describe('discharging a patient', () => {
+  it('discharges from the list and takes the admission off it', async () => {
+    const grid = await admitAndOpenList();
+    await userEvent.click(within(grid).getByRole('button', { name: /Discharge/ }));
+    const panel = await screen.findByRole('region', { name: /Discharge / });
+    await expectNoAxeViolations();
+    await userEvent.selectOptions(
+      within(panel).getByRole('combobox', { name: 'How the stay ends' }),
+      'referred',
+    );
+    await userEvent.click(within(panel).getByRole('button', { name: 'Discharge patient' }));
+    expect(await screen.findByText(/is discharged\. The bed is being cleaned/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('region', { name: /Discharge / })).toBeNull());
+    expect(await screen.findByText('No admissions match.')).toBeInTheDocument();
+  }, 30_000);
+
+  it('explains an unsigned note and keeps the panel', async () => {
+    server.use(
+      http.post('*/api/admissions/:id/discharge', () =>
+        HttpResponse.json(
+          { error: { code: 'unsigned_notes', message: 'Draft', requestId: 'r' } },
+          { status: 409 },
+        ),
+      ),
+    );
+    const grid = await admitAndOpenList();
+    await userEvent.click(within(grid).getByRole('button', { name: /Discharge/ }));
+    const panel = await screen.findByRole('region', { name: /Discharge / });
+    await userEvent.click(within(panel).getByRole('button', { name: 'Discharge patient' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/still a draft/);
+    expect(screen.getByRole('region', { name: /Discharge / })).toBeInTheDocument();
+  }, 30_000);
+
+  it('offers no discharge without admission:discharge', async () => {
+    revokePermission(TENANT_IDS.hospital, 'admin', 'admission:discharge');
+    renderApp({ entry: '/admissions' });
+    await screen.findByRole('heading', { name: 'Admissions', level: 1 });
+    expect(screen.queryByRole('button', { name: /Discharge/ })).not.toBeInTheDocument();
+  });
+});

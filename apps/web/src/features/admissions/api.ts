@@ -15,6 +15,7 @@ import type {
   BoardBedPage,
   BoardBedStatus,
   BedStay,
+  DischargeType,
   WardOption,
 } from './types';
 
@@ -125,6 +126,19 @@ export async function changeAdmissionBed(
     ? await api.POST('/admissions/{admissionId}/transfer', { params, body })
     : await api.POST('/admissions/{admissionId}/assign-bed', { params, body });
   return admissionSchema.parse(requireData(result));
+}
+
+/** Discharges an admitted patient: closes the stay's encounter and frees the bed for cleaning. */
+export async function dischargeAdmission(
+  admission: Admission,
+  dischargeType: DischargeType,
+  key: string,
+): Promise<Admission> {
+  const result = await api.POST('/admissions/{admissionId}/discharge', {
+    params: { path: { admissionId: admission.id }, header: { 'idempotency-key': key } },
+    body: { dischargeType, version: admission.version },
+  });
+  return admissionDetailSchema.parse(requireData(result)).admission;
 }
 
 /** Every bed the patient has been in, oldest first. Audited by the server as a read. */

@@ -35,5 +35,11 @@ export const admissionsFeature: FeatureManifest = {
     },
   ],
   nav: { icon: BedSingle, order: 81, requires: ['admission:read'] },
-  permissions: ['admission:read', 'admission:create', 'admission:transfer', 'bed:update'],
+  permissions: [
+    'admission:read',
+    'admission:create',
+    'admission:transfer',
+    'admission:discharge',
+    'bed:update',
+  ],
 };
