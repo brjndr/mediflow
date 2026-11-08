@@ -5,6 +5,14 @@ export type BoardBed = components['schemas']['BoardBed'];
 export type BoardBedPage = components['schemas']['BoardBedPage'];
 export type BoardBedStatus = components['schemas']['BoardBedStatus'];
 export type WardOption = { id: string; name: string };
+export const DISCHARGE_TYPES = [
+  'routine',
+  'against_advice',
+  'referred',
+  'absconded',
+  'deceased',
+] as const;
+export type DischargeType = (typeof DISCHARGE_TYPES)[number];
 export type Admission = components['schemas']['Admission'];
 export type AdmissionPage = components['schemas']['AdmissionPage'];
 export type AdmissionType = components['schemas']['AdmissionType'];

@@ -5,11 +5,12 @@ import { useTenant } from '@/tenancy';
 import {
   admitPatient,
   changeAdmissionBed,
+  dischargeAdmission,
   fetchAdmissions,
   fetchBedHistory,
   fetchBoard,
 } from '../api';
-import type { Admission, AdmissionCreate } from '../types';
+import type { Admission, AdmissionCreate, DischargeType } from '../types';
 import { bedKeys } from './use-board';
 
 /** Every key is prefixed with the tenant, so one hospital's admissions never show in another. */
@@ -90,6 +91,18 @@ export function useChangeBed() {
     gcTime: 0,
     mutationFn: ({ admission, bedId }: { admission: Admission; bedId: string }) =>
       changeAdmissionBed(admission, bedId, keyFor([admission.id, admission.version, bedId])),
+    onSettled: refresh,
+  });
+}
+
+/** Discharges an admitted patient. Shown only once the server answers: it may refuse. */
+export function useDischarge() {
+  const keyFor = useAttempt();
+  const refresh = useRefreshAfter();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ admission, type }: { admission: Admission; type: DischargeType }) =>
+      dischargeAdmission(admission, type, keyFor([admission.id, admission.version, type])),
     onSettled: refresh,
   });
 }

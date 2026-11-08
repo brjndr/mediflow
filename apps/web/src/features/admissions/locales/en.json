@@ -50,7 +50,8 @@
     "block": "Block",
     "unblock": "Put back in use",
     "bed": "Give or change bed",
-    "history": "Bed history"
+    "history": "Bed history",
+    "discharge": "Discharge"
   },
   "blockPanel": {
     "heading": "Block bed {{number}}",
@@ -65,7 +66,8 @@
     "ready": "Bed {{number}} is ready.",
     "blocked": "Bed {{number}} is blocked.",
     "unblocked": "Bed {{number}} is back in use.",
-    "bed": "{{patient}} is now in bed {{bed}}."
+    "bed": "{{patient}} is now in bed {{bed}}.",
+    "discharged": "{{patient}} is discharged. The bed is being cleaned."
   },
   "refused": {
     "changed": "Someone else changed this bed first. The board has been refreshed; try again.",
@@ -86,6 +88,22 @@
   "admissionStatus": {
     "admitted": "Admitted",
     "discharged": "Discharged"
+  },
+  "discharge": {
+    "heading": "Discharge {{patient}}",
+    "description": "This ends the inpatient stay and closes its encounter. The bed is set to being cleaned. It cannot be undone.",
+    "type": "How the stay ends",
+    "types": {
+      "routine": "Routine discharge",
+      "against_advice": "Against medical advice",
+      "referred": "Referred elsewhere",
+      "absconded": "Absconded",
+      "deceased": "Deceased"
+    },
+    "submit": "Discharge patient",
+    "back": "Cancel",
+    "unsignedNotes": "A note of this stay is still a draft. Sign or discard every draft in the consultation first, then discharge the patient.",
+    "notOpen": "The stay's encounter is no longer open, so the patient cannot be discharged from here."
   },
   "bedPanel": {
     "giveHeading": "Give {{patient}} a bed",
