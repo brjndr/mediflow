@@ -28,8 +28,8 @@ const open = async () => {
   renderApp({ entry: '/ambulances' });
   await screen.findByRole('heading', HEADING);
   await waitFor(() => {
-    expect(within(tripGrid()).getAllByRole('row').length).toBeGreaterThan(1);
-    expect(within(fleetGrid()).getAllByRole('row').length).toBeGreaterThan(1);
+    expect(rowOf(tripGrid(), 'Main Road junction')).toBeDefined();
+    expect(rowOf(fleetGrid(), 'KA01AB1234')).toBeDefined();
   });
 };
 
