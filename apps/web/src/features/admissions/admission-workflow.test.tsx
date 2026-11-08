@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { revokePermission, setTenantFeature, TENANT_IDS } from '@/mocks/db';
+import { addMockDraftNote } from '@/mocks/handlers/clinical';
 import { server } from '@/mocks/node';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
@@ -169,15 +170,8 @@ describe('discharging a patient', () => {
   }, 30_000);
 
   it('explains an unsigned note and keeps the panel', async () => {
-    server.use(
-      http.post('*/api/admissions/:id/discharge', () =>
-        HttpResponse.json(
-          { error: { code: 'unsigned_notes', message: 'Draft', requestId: 'r' } },
-          { status: 409 },
-        ),
-      ),
-    );
     const grid = await admitAndOpenList();
+    addMockDraftNote(TENANT_IDS.hospital, 'enc_adm_1');
     await userEvent.click(within(grid).getByRole('button', { name: /Discharge/ }));
     const panel = await screen.findByRole('region', { name: /Discharge / });
     await userEvent.click(within(panel).getByRole('button', { name: 'Discharge patient' }));

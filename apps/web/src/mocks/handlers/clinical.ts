@@ -1624,6 +1624,24 @@ export function addPastMockEncounters(
 export const mockNotesOf = (encounterId: string): readonly ClinicalNote[] =>
   state.notes.filter((note) => note.encounterId === encounterId);
 
+/** Leaves a draft note on an encounter id, even one only another mock made (an admission's), for tests. */
+export function addMockDraftNote(tenantId: string, encounterId: string): void {
+  const at = new Date().toISOString();
+  state.notes.push({
+    id: `note_draft_${state.notes.length + 1}`,
+    tenantId,
+    encounterId,
+    patientId: 'unknown',
+    status: 'draft',
+    body: { type: 'doc', content: [] },
+    authorId: 'unknown',
+    authorName: 'Author',
+    createdAt: at,
+    updatedAt: at,
+    version: 1,
+  });
+}
+
 /** Saves a draft behind the screen, as another window of its author would. */
 export function editMockNote(id: string, text: string): void {
   const note = state.notes.find((each) => each.id === id);
