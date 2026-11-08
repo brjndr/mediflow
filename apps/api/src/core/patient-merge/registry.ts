@@ -12,9 +12,20 @@ export type PatientMergeHandler = (
   merge: { sourceId: string; targetId: string },
 ) => Promise<number>;
 
+/** How many rows the handler would move, without changing anything (the merge preview, #603). */
+export type PatientMergeCounter = PatientMergeHandler;
+
 export interface PatientMergeRegistry {
-  /** `name` is the key of the count kept with the merge, e.g. `documents`. */
-  register(name: string, handler: PatientMergeHandler): void;
+  /**
+   * `name` is the key of the count kept with the merge, e.g. `documents`. `count` reads how many
+   * rows `handler` would move and changes nothing: without it the module is left out of a preview.
+   */
+  register(name: string, handler: PatientMergeHandler, count?: PatientMergeCounter): void;
+  /** What a merge would move, by module name, zero ones left out. Read only. */
+  preview(
+    client: pg.PoolClient,
+    merge: { sourceId: string; targetId: string },
+  ): Promise<Record<string, number>>;
   /** Runs every handler in the order registered; the counts by name, zero ones left out. */
   run(
     client: pg.PoolClient,
@@ -31,12 +42,22 @@ declare module 'fastify' {
 export const patientMergePlugin = fp(
   async (app) => {
     const handlers = new Map<string, PatientMergeHandler>();
+    const counters = new Map<string, PatientMergeCounter>();
     app.decorate('patientMerge', {
-      register(name, handler) {
+      register(name, handler, count) {
         if (!/^[a-z][a-z_]{0,39}$/.test(name) || handlers.has(name)) {
           throw new Error(`patient_merge_handler_invalid: ${name}`);
         }
         handlers.set(name, handler);
+        if (count) counters.set(name, count);
+      },
+      async preview(client, merge) {
+        const counts: Record<string, number> = {};
+        for (const [name, count] of counters) {
+          const n = await count(client, merge);
+          if (n > 0) counts[name] = n;
+        }
+        return counts;
       },
       async run(client, merge) {
         const moved: Record<string, number> = {};

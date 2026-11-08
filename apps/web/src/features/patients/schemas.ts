@@ -4,6 +4,7 @@ import type {
   PatientDuplicateMatch,
   PatientDuplicateMatches,
   PatientMerge,
+  PatientMergePreview,
   PatientPage,
   PatientRecord,
   PatientSummary,
@@ -109,6 +110,14 @@ export const patientMergeSchema: z.ZodType<PatientMerge> = z.object({
   moved: z.record(z.string(), z.number().int()),
   mergedBy: z.string(),
   mergedAt: z.iso.datetime(),
+});
+
+export const patientMergePreviewSchema: z.ZodType<PatientMergePreview> = z.object({
+  sourcePatientId: z.string(),
+  targetPatientId: z.string(),
+  sourceVersion: z.number().int(),
+  targetVersion: z.number().int(),
+  moves: z.record(z.string(), z.number().int()),
 });
 
 export const patientMergeListSchema = z.object({

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { useTenant } from '@/tenancy';
-import { fetchPatientMerges, mergePatients } from '../api';
+import { fetchMergePreview, fetchPatientMerges, mergePatients } from '../api';
 import type { PatientRecord } from '../types';
 import { patientKeys } from './use-patients';
 
@@ -15,6 +15,17 @@ export function usePatientMerges(patientId: string) {
     queryKey: mergesKey(tenantId ?? '', patientId),
     queryFn: ({ signal }) => fetchPatientMerges(patientId, signal),
     enabled: tenantId !== undefined && patientId !== '',
+  });
+}
+
+/** What merging `sourceId` into this record would move. Needs `patient:merge`. */
+export function useMergePreview(targetId: string, sourceId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: [...mergesKey(tenantId ?? '', targetId), 'preview', sourceId],
+    queryFn: ({ signal }) => fetchMergePreview(targetId, sourceId, signal),
+    enabled: tenantId !== undefined && targetId !== '' && sourceId !== '' && sourceId !== targetId,
+    gcTime: 0,
   });
 }
 

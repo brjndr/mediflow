@@ -123,6 +123,8 @@
     "keeps": "Record that stays",
     "merged": "Duplicate to merge",
     "moves": "What moves to the record that stays",
+    "movesLoading": "Counting what would move…",
+    "movesNothing": "Nothing recorded on the duplicate would move.",
     "permanent": "A merge cannot be undone.",
     "reason": "Why these records are the same patient",
     "submit": "Merge records",

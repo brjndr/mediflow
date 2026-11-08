@@ -19,13 +19,23 @@ import { documentRoutes } from './routes.js';
 export const documentsFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('documents', DOCUMENT_PERMISSIONS);
   // A merged record's documents go to the survivor, whatever the hospital's switch says.
-  app.patientMerge.register('documents', async (client, { sourceId, targetId }) => {
-    const moved = await client.query(
-      'update patient_documents set patient_id = $2 where patient_id = $1',
-      [sourceId, targetId],
-    );
-    return moved.rowCount ?? 0;
-  });
+  app.patientMerge.register(
+    'documents',
+    async (client, { sourceId, targetId }) => {
+      const moved = await client.query(
+        'update patient_documents set patient_id = $2 where patient_id = $1',
+        [sourceId, targetId],
+      );
+      return moved.rowCount ?? 0;
+    },
+    async (client, { sourceId }) => {
+      const { rows } = await client.query<{ n: string }>(
+        'select count(*) as n from patient_documents where patient_id = $1',
+        [sourceId],
+      );
+      return Number(rows[0]?.n ?? 0);
+    },
+  );
   await app.register(documentRoutes);
   await app.register(documentFileRoutes);
   app.jobs.work<ScanJob>(SCAN_JOB, (job) => scanDocument(app, job));
