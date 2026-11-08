@@ -217,7 +217,13 @@ export const patientsHandlers = [
     const body: unknown = await request.json().catch(() => null);
     const params =
       typeof body === 'object' && body !== null
-        ? (body as { q?: unknown; cursor?: unknown; limit?: unknown; sort?: unknown })
+        ? (body as {
+            q?: unknown;
+            cursor?: unknown;
+            limit?: unknown;
+            sort?: unknown;
+            mergedAway?: unknown;
+          })
         : {};
     const limit = Math.min(Math.max(Number(params.limit ?? 25), 1), 100);
     const sort = typeof params.sort === 'string' ? params.sort : null;
@@ -227,7 +233,23 @@ export const patientsHandlers = [
     }
 
     // Tenant isolation: only rows of the session's tenant are ever considered.
-    let rows = patients.filter((patient) => patient.tenantId === access.tenantId);
+    // Merged-away records are not in `patients`; they are listed only when asked for (#604).
+    let rows =
+      params.mergedAway === true
+        ? [...records.values()]
+            .filter((record) => record.tenantId === access.tenantId && record.mergedInto)
+            .map((record): PatientSummary => ({
+              id: record.id,
+              tenantId: record.tenantId,
+              mrn: record.mrn,
+              firstName: record.firstName,
+              lastName: record.lastName,
+              dob: record.dob,
+              gender: record.gender,
+              phone: record.phone,
+              mergedInto: record.mergedInto,
+            }))
+        : patients.filter((patient) => patient.tenantId === access.tenantId);
 
     // Search happens here, on the "server": name, phone or MRN.
     const q = (typeof params.q === 'string' ? params.q : '').trim().toLowerCase();

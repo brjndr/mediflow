@@ -34,19 +34,24 @@ export interface PatientFilters {
   q: string;
   sort: PatientSort | null;
   limit: number;
+  /** Only the records merged into another (#604). */
+  mergedAway?: boolean;
 }
 
 /**
  * The patient list, one server page at a time. Search and sort are the server's job: any change
  * is a new query that starts from the first page, and the previous request is aborted.
  */
-export function usePatients({ q, sort, limit }: PatientFilters) {
+export function usePatients({ q, sort, limit, mergedAway = false }: PatientFilters) {
   const tenantId = useTenant()?.id;
   const term = q.trim();
   return useInfiniteQuery({
-    queryKey: patientKeys.list(tenantId ?? '', { q: term, sort, limit }),
+    queryKey: patientKeys.list(tenantId ?? '', { q: term, sort, limit, mergedAway }),
     queryFn: ({ pageParam, signal }) =>
-      fetchPatients({ q: term, cursor: pageParam, limit, sort: sort ?? undefined }, signal),
+      fetchPatients(
+        { q: term, cursor: pageParam, limit, sort: sort ?? undefined, mergedAway },
+        signal,
+      ),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: tenantId !== undefined,

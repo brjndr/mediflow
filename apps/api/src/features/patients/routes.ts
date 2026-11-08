@@ -48,12 +48,12 @@ const summary = (row: PatientRow, contact: boolean) => ({
   dob: row.dob,
   gender: row.gender,
   phone: contact ? row.phone : maskPhone(row.phone),
+  ...(row.merged_into_id ? { mergedInto: row.merged_into_id } : {}),
 });
 
 const record = (row: PatientRow, contact: boolean) => ({
   ...summary(row, contact),
   version: row.version,
-  ...(row.merged_into_id ? { mergedInto: row.merged_into_id } : {}),
   ...(contact && row.email !== null ? { email: row.email } : {}),
   ...(contact && row.address !== null ? { address: row.address } : {}),
   ...(row.contact_consent_given !== null &&
@@ -119,7 +119,7 @@ export const patientRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const contact = await seesContact(request);
       const result = await searchPatients(
         request.txClient,
-        { q, cursor, limit, sort, byPhone: contact },
+        { q, cursor, limit, sort, byPhone: contact, mergedAway: request.body.mergedAway === true },
         visibilityFor(request, 'patient:read'),
       );
       // One entry for the search, not one per row: the rows shown are identified by the record

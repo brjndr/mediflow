@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -129,6 +129,28 @@ describe('merging a duplicate patient', () => {
 
     expect(await screen.findByText(/changed since you opened it/)).toBeInTheDocument();
     expect(screen.queryByText('The records were merged.')).not.toBeInTheDocument();
+  });
+
+  it('finds a merged-away record from the list and links to the record to use (#604)', async () => {
+    openMerge();
+    await chooseDuplicate();
+    await userEvent.type(screen.getByLabelText(/^Why these records/), 'Same person');
+    await userEvent.click(screen.getByRole('button', { name: 'Merge records' }));
+    await userEvent.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Merge' }),
+    );
+    await screen.findByText('The records were merged.');
+
+    // In a fresh render of the list: the merged record is out of it until asked for.
+    cleanup();
+    renderApp({ entry: '/patients' });
+    const box = await screen.findByRole('checkbox', { name: 'Show records merged into another' });
+    await userEvent.click(box);
+    const grid = await screen.findByRole('table');
+    await waitFor(() => expect(within(grid).getAllByRole('row')).toHaveLength(2));
+    expect(within(grid).getByText('••••••••••002')).toBeInTheDocument();
+    const link = within(grid).getByRole('link', { name: 'Open the record to use' });
+    expect(link).toHaveAttribute('href', `/patients/${TARGET}`);
   });
 
   it('is offered on the record to patient:merge, and not to a role without it', async () => {

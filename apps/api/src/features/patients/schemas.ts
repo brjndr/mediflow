@@ -24,6 +24,12 @@ export const PatientSummary = Type.Object(
     phone: Type.String({
       description: 'Masked to its last four digits for a caller without patient.contact:read.',
     }),
+    mergedInto: Type.Optional(
+      Type.String({
+        description:
+          'Present when this record was merged into another (#194, #604): the id of the record to use.',
+      }),
+    ),
   },
   {
     $id: 'PatientSummary',
@@ -136,6 +142,12 @@ export const PatientSearch = Type.Object(
       Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
     ),
     sort: Type.Optional(StringEnum(PATIENT_SORTS)),
+    mergedAway: Type.Optional(
+      Type.Boolean({
+        description:
+          'True lists only the records merged into another (#604), each with mergedInto; omitted or false lists the live records, as before.',
+      }),
+    ),
   },
   { additionalProperties: false },
 );

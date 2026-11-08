@@ -20,6 +20,7 @@ const summaryShape = {
   dob: z.iso.date(),
   gender: z.enum(['male', 'female', 'other']),
   phone: z.string(),
+  mergedInto: z.string().optional(),
 };
 
 export const patientSummarySchema: z.ZodType<PatientSummary> = z.object(summaryShape);
@@ -34,7 +35,6 @@ export const patientRecordSchema: z.ZodType<PatientRecord> = z.object({
   ...summaryShape,
   email: z.string().optional(),
   address: z.string().optional(),
-  mergedInto: z.string().optional(),
   contactConsent: z
     .object({ given: z.boolean(), at: z.iso.datetime(), recordedBy: z.string() })
     .optional(),

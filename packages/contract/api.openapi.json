@@ -613,6 +613,10 @@
           "phone": {
             "description": "Masked to its last four digits for a caller without patient.contact:read.",
             "type": "string"
+          },
+          "mergedInto": {
+            "description": "Present when this record was merged into another (#194, #604): the id of the record to use.",
+            "type": "string"
           }
         }
       },
@@ -16026,6 +16030,10 @@
                   "sort": {
                     "type": "string",
                     "enum": ["name", "-name", "mrn", "-mrn"]
+                  },
+                  "mergedAway": {
+                    "description": "True lists only the records merged into another (#604), each with mergedInto; omitted or false lists the live records, as before.",
+                    "type": "boolean"
                   }
                 }
               }
