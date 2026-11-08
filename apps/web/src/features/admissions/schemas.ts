@@ -162,9 +162,19 @@ export const admissionDetailSchema = z.object({
  * A guide on screen; the charges themselves are the billing module's.
  */
 export function stayDays(stay: BedStay, now: Date, timeZone: string): number {
-  const day = (iso: string | Date) =>
-    new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date(iso));
-  const from = Date.parse(day(stay.assignedAt));
-  const to = Date.parse(day(stay.releasedAt ?? now));
+  const day = (iso: string | Date) => {
+    const parts = new Intl.DateTimeFormat(undefined, {
+      timeZone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      numberingSystem: 'latn',
+      calendar: 'gregory',
+    }).formatToParts(new Date(iso));
+    const part = (type: string) => Number(parts.find((each) => each.type === type)?.value);
+    return Date.UTC(part('year'), part('month') - 1, part('day'));
+  };
+  const from = day(stay.assignedAt);
+  const to = day(stay.releasedAt ?? now);
   return Math.max(1, Math.round((to - from) / 86_400_000) + 1);
 }
