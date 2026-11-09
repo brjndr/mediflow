@@ -18,3 +18,4 @@ What was decided for this feature's API (BE-23, #156). Claude Code loads it when
 - **Not here (proposed follow-ups):** admission orders before the admission, bed reservations, discharge clearance and summary, and charging bed days.
 - **The stay's encounter is not closed or cancelled from the clinical routes** (409 `managed_by_admission`): only discharge ends it, so a discharge can never find it already ended.
 - **Decided: `admission:read` implies seeing the patient's name and MRN** on admissions and the board, as `queue:read` does for tokens; grant it with that in mind. The board is not narrowed by an `own` or `department` scope (a bed has no owner); use `all` for those who work it.
+- **Nursing reads the stay through `stayInScope`** (`index.ts`, BE-24, #163): an admission within the scope the caller holds a nursing permission with, as the admission list does (`own` the admitting doctor, `department` theirs). Nursing never reads the admissions table itself.

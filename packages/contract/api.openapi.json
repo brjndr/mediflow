@@ -3426,6 +3426,854 @@
           }
         }
       },
+      "WardVitalFlags": {
+        "additionalProperties": false,
+        "description": "Which values were outside the normal ranges in effect when the reading was taken, for the patient age band that day.",
+        "type": "object",
+        "properties": {
+          "systolic": {
+            "type": "string",
+            "enum": ["low", "high"]
+          },
+          "diastolic": {
+            "type": "string",
+            "enum": ["low", "high"]
+          },
+          "pulse": {
+            "type": "string",
+            "enum": ["low", "high"]
+          },
+          "temperature": {
+            "type": "string",
+            "enum": ["low", "high"]
+          },
+          "spo2": {
+            "type": "string",
+            "enum": ["low", "high"]
+          }
+        }
+      },
+      "WardVital": {
+        "additionalProperties": false,
+        "description": "One set of vital signs taken on the ward, append-only: a correction is a new reading that names the one it corrects, once. Kept apart from the readings triage takes at the queue.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "admissionId",
+          "encounterId",
+          "patientId",
+          "observedAt",
+          "recordedAt",
+          "recordedById",
+          "recordedByName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "admissionId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "observedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "recordedById": {
+            "type": "string"
+          },
+          "recordedByName": {
+            "type": "string"
+          },
+          "systolic": {
+            "minimum": 40,
+            "maximum": 300,
+            "description": "mmHg.",
+            "type": "integer"
+          },
+          "diastolic": {
+            "minimum": 20,
+            "maximum": 200,
+            "description": "mmHg.",
+            "type": "integer"
+          },
+          "pulse": {
+            "minimum": 20,
+            "maximum": 300,
+            "description": "Beats a minute.",
+            "type": "integer"
+          },
+          "temperature": {
+            "minimum": 25,
+            "maximum": 45,
+            "description": "Degrees Celsius, at most one decimal.",
+            "type": "number"
+          },
+          "spo2": {
+            "minimum": 50,
+            "maximum": 100,
+            "description": "Oxygen saturation, %.",
+            "type": "integer"
+          },
+          "weight": {
+            "minimum": 0.3,
+            "maximum": 400,
+            "description": "kg, at most one decimal.",
+            "type": "number"
+          },
+          "height": {
+            "minimum": 20,
+            "maximum": 250,
+            "description": "cm, at most one decimal.",
+            "type": "number"
+          },
+          "flags": {
+            "$ref": "#/components/schemas/WardVitalFlags"
+          },
+          "correctsId": {
+            "type": "string"
+          },
+          "correctionReason": {
+            "type": "string"
+          },
+          "correctedById": {
+            "description": "The reading that corrects this one. Absent while it stands.",
+            "type": "string"
+          }
+        }
+      },
+      "WardVitalPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WardVital"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "WardVitalCreate": {
+        "additionalProperties": false,
+        "description": "At least one measurement. Systolic and diastolic go together, the diastolic below the systolic.",
+        "type": "object",
+        "properties": {
+          "observedAt": {
+            "format": "date-time",
+            "description": "When it was taken: now when not sent, never in the future.",
+            "type": "string"
+          },
+          "systolic": {
+            "minimum": 40,
+            "maximum": 300,
+            "description": "mmHg.",
+            "type": "integer"
+          },
+          "diastolic": {
+            "minimum": 20,
+            "maximum": 200,
+            "description": "mmHg.",
+            "type": "integer"
+          },
+          "pulse": {
+            "minimum": 20,
+            "maximum": 300,
+            "description": "Beats a minute.",
+            "type": "integer"
+          },
+          "temperature": {
+            "minimum": 25,
+            "maximum": 45,
+            "description": "Degrees Celsius, at most one decimal.",
+            "type": "number"
+          },
+          "spo2": {
+            "minimum": 50,
+            "maximum": 100,
+            "description": "Oxygen saturation, %.",
+            "type": "integer"
+          },
+          "weight": {
+            "minimum": 0.3,
+            "maximum": 400,
+            "description": "kg, at most one decimal.",
+            "type": "number"
+          },
+          "height": {
+            "minimum": 20,
+            "maximum": 250,
+            "description": "cm, at most one decimal.",
+            "type": "number"
+          }
+        }
+      },
+      "WardVitalCorrect": {
+        "additionalProperties": false,
+        "description": "The corrected measurements (the whole reading, as it should have read) and why. The time it was taken is the corrected reading one.",
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "systolic": {
+            "minimum": 40,
+            "maximum": 300,
+            "description": "mmHg.",
+            "type": "integer"
+          },
+          "diastolic": {
+            "minimum": 20,
+            "maximum": 200,
+            "description": "mmHg.",
+            "type": "integer"
+          },
+          "pulse": {
+            "minimum": 20,
+            "maximum": 300,
+            "description": "Beats a minute.",
+            "type": "integer"
+          },
+          "temperature": {
+            "minimum": 25,
+            "maximum": 45,
+            "description": "Degrees Celsius, at most one decimal.",
+            "type": "number"
+          },
+          "spo2": {
+            "minimum": 50,
+            "maximum": 100,
+            "description": "Oxygen saturation, %.",
+            "type": "integer"
+          },
+          "weight": {
+            "minimum": 0.3,
+            "maximum": 400,
+            "description": "kg, at most one decimal.",
+            "type": "number"
+          },
+          "height": {
+            "minimum": 20,
+            "maximum": 250,
+            "description": "cm, at most one decimal.",
+            "type": "number"
+          }
+        }
+      },
+      "MarOutcome": {
+        "type": "string",
+        "enum": ["given", "withheld", "refused", "missed"],
+        "description": "What happened at a scheduled dose. Anything but given needs a reason."
+      },
+      "MarOrder": {
+        "additionalProperties": false,
+        "description": "A medication order of the stay, as the ward chart shows it.",
+        "type": "object",
+        "required": [
+          "id",
+          "drugId",
+          "itemName",
+          "dose",
+          "route",
+          "frequency",
+          "status",
+          "placedAt",
+          "dispensed"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "drugId": {
+            "type": "string"
+          },
+          "itemName": {
+            "type": "string"
+          },
+          "dose": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          },
+          "frequency": {
+            "type": "string"
+          },
+          "status": {
+            "description": "The order status: only a cancelled one takes no entry.",
+            "type": "string"
+          },
+          "placedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dispensed": {
+            "description": "Whether the pharmacy has dispensed against it.",
+            "type": "boolean"
+          }
+        }
+      },
+      "MarOrderPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MarOrder"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "MarEntry": {
+        "additionalProperties": false,
+        "description": "One entry on the medication chart, append-only: a correction is a new entry for the same order and time that names the one it corrects, once.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "admissionId",
+          "orderId",
+          "drugId",
+          "scheduledAt",
+          "outcome",
+          "recordedAt",
+          "recordedById",
+          "recordedByName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "admissionId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "drugId": {
+            "type": "string"
+          },
+          "scheduledAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/MarOutcome"
+          },
+          "doseGiven": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "administeredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "recordedById": {
+            "type": "string"
+          },
+          "recordedByName": {
+            "type": "string"
+          },
+          "witnessId": {
+            "type": "string"
+          },
+          "correctsId": {
+            "type": "string"
+          },
+          "correctedById": {
+            "type": "string"
+          },
+          "warnings": {
+            "description": "`not_dispensed`: the pharmacy has dispensed nothing against the order. A warning only; the entry was recorded. Not repeated on a replay.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["not_dispensed"]
+            }
+          }
+        }
+      },
+      "MarEntryPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MarEntry"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "MarEntryCreate": {
+        "additionalProperties": false,
+        "description": "Reason is required unless the dose was given, and for a given dose beyond the order frequency in a day.",
+        "type": "object",
+        "required": ["admissionId", "orderId", "scheduledAt", "outcome"],
+        "properties": {
+          "admissionId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "orderId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "scheduledAt": {
+            "format": "date-time",
+            "description": "The time the dose was due.",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/MarOutcome"
+          },
+          "doseGiven": {
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Only when given; the order dose when not sent.",
+            "type": "string"
+          },
+          "route": {
+            "type": "string",
+            "enum": [
+              "oral",
+              "sublingual",
+              "topical",
+              "inhaled",
+              "nasal",
+              "eye",
+              "ear",
+              "rectal",
+              "vaginal",
+              "intramuscular",
+              "intravenous",
+              "subcutaneous",
+              "other"
+            ]
+          },
+          "administeredAt": {
+            "format": "date-time",
+            "description": "Only when given: now when not sent, never in the future.",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "witnessId": {
+            "maxLength": 64,
+            "description": "A second member of staff who saw it given. Optional; no rule requires one yet.",
+            "type": "string"
+          }
+        }
+      },
+      "MarEntryCorrect": {
+        "additionalProperties": false,
+        "description": "The entry as it should have read, and why it is corrected. The order and the time due are the corrected entry one.",
+        "type": "object",
+        "required": ["outcome", "reason"],
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/MarOutcome"
+          },
+          "doseGiven": {
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "route": {
+            "type": "string",
+            "enum": [
+              "oral",
+              "sublingual",
+              "topical",
+              "inhaled",
+              "nasal",
+              "eye",
+              "ear",
+              "rectal",
+              "vaginal",
+              "intramuscular",
+              "intravenous",
+              "subcutaneous",
+              "other"
+            ]
+          },
+          "administeredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "witnessId": {
+            "maxLength": 64,
+            "description": "A second member of staff who saw it given. Optional; no rule requires one yet.",
+            "type": "string"
+          }
+        }
+      },
+      "ProgressNoteKind": {
+        "type": "string",
+        "enum": ["nursing", "handover", "observation"],
+        "description": "What a progress note is."
+      },
+      "ProgressNote": {
+        "additionalProperties": false,
+        "description": "A nursing note, editable by its author while the patient is admitted; every text it had is kept in its history.",
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "admissionId",
+          "kind",
+          "body",
+          "createdAt",
+          "createdById",
+          "createdByName",
+          "updatedAt",
+          "updatedById",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "admissionId": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ProgressNoteKind"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdById": {
+            "type": "string"
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedById": {
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "ProgressNotePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressNote"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "ProgressNoteCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["kind", "body"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ProgressNoteKind"
+          },
+          "body": {
+            "minLength": 1,
+            "maxLength": 4000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "ProgressNoteUpdate": {
+        "additionalProperties": false,
+        "description": "The new text and the version the edit started from (409 `conflict` if stale).",
+        "type": "object",
+        "required": ["body", "version"],
+        "properties": {
+          "body": {
+            "minLength": 1,
+            "maxLength": 4000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "ProgressNoteVersion": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version", "body", "editedAt", "editedById", "editedByName"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "body": {
+            "type": "string"
+          },
+          "editedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "editedById": {
+            "type": "string"
+          },
+          "editedByName": {
+            "type": "string"
+          }
+        }
+      },
+      "ProgressNoteVersionPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressNoteVersion"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "WardDietOrder": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "status", "priority", "instructions", "placedAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "placedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "WardDiet": {
+        "additionalProperties": false,
+        "description": "The diet orders of the stay that are not cancelled, newest first (at most 50).",
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WardDietOrder"
+            }
+          }
+        }
+      },
+      "WardStockRequestCreate": {
+        "additionalProperties": false,
+        "description": "The ward place (fromLocationId), the store asked (toLocationId) and the items, as an indent.",
+        "type": "object",
+        "required": ["fromLocationId", "toLocationId", "lines"],
+        "properties": {
+          "fromLocationId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "toLocationId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["drugId", "quantity"],
+              "properties": {
+                "drugId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "quantity": {
+                  "minimum": 1,
+                  "maximum": 1000000,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "WardStockRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "admissionId", "indentId", "placeId", "requestedAt", "requestedById"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "admissionId": {
+            "type": "string"
+          },
+          "indentId": {
+            "type": "string"
+          },
+          "placeId": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "requestedById": {
+            "type": "string"
+          }
+        }
+      },
       "Code": {
         "description": "A diagnosis code (ICD-10) or a procedure code. Reference data shared by every hospital, so it carries no tenant; only `favourite` is the hospital’s own.",
         "type": "object",
@@ -23565,6 +24413,1439 @@
             "description": "Standard error body.",
             "content": {
               "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/vitals": {
+      "get": {
+        "operationId": "listWardVitals",
+        "tags": ["nursing"],
+        "description": "The vital signs taken on the ward during a stay, by the time they were taken, newest first, each flagged against the ranges in effect that day. Corrections and the readings they correct are both listed. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every row is audited as a read.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardVitalPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "recordWardVitals",
+        "tags": ["nursing"],
+        "description": "Records a set of vital signs for an admitted patient: at least one measurement, to one decimal within what a body can be, systolic and diastolic together (400 `validation_failed`); `observedAt` is now unless sent, never in the future. Kept apart from the readings triage takes at the queue. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `vitals.recorded` through the outbox (ids only).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WardVitalCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "One set of vital signs taken on the ward, append-only: a correction is a new reading that names the one it corrects, once. Kept apart from the readings triage takes at the queue.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardVital"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/vitals/{vitalId}/correct": {
+      "post": {
+        "operationId": "correctWardVitals",
+        "tags": ["nursing"],
+        "description": "Corrects a reading of the stay with a new one that names it and gives a reason; the original is kept. A reading is corrected once (422 `already_corrected`, decided by a unique index); one of another stay is 404 `vital_not_found`. The correction is taken at the time of the one it corrects. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `vitals.recorded`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WardVitalCorrect"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "vitalId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "One set of vital signs taken on the ward, append-only: a correction is a new reading that names the one it corrects, once. Kept apart from the readings triage takes at the queue.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardVital"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/mar/orders": {
+      "get": {
+        "operationId": "listMarOrders",
+        "tags": ["nursing"],
+        "description": "The medication orders of the stay, oldest first (at most 100), as the ward chart shows them, with whether the pharmacy has dispensed against each. Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every order is audited as a read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarOrderPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/mar": {
+      "get": {
+        "operationId": "listMarEntries",
+        "tags": ["nursing"],
+        "description": "The entries on the stay’s medication chart by the time each dose was due, newest first; optionally those of one order. Corrections and the entries they correct are both listed. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every entry is audited as a read.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "orderId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarEntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mar/entries": {
+      "post": {
+        "operationId": "recordMarEntry",
+        "tags": ["nursing"],
+        "description": "Records what happened at a scheduled dose of a medication order of the stay: given, withheld, refused or missed. The order must be of the stay encounter (422 `unknown_order`) and not cancelled (409 `order_cancelled`); a dose due at a time has one entry (409 `slot_recorded`, then correct it). Anything but given needs a reason (422 `reason_required`) and carries no dose, route or time given (400); a given dose takes the order dose and route unless sent, and one beyond the doses a day the order frequency allows needs a reason (422 `extra_dose_reason_required`; as-needed and unreadable frequencies set no limit). A witness, if named, is another active member of staff (422 `unknown_witness`). The answer warns `not_dispensed` when the pharmacy has dispensed nothing against the order; it does not refuse. This records the administration only: it does not change the order or call the pharmacy. Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `medication.administered` (ids and the outcome, never a reason).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarEntryCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "One entry on the medication chart, append-only: a correction is a new entry for the same order and time that names the one it corrects, once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mar/entries/{entryId}/correct": {
+      "post": {
+        "operationId": "correctMarEntry",
+        "tags": ["nursing"],
+        "description": "Corrects an entry with a new one for the same order and time that names it and gives a reason; the original is kept. An entry is corrected once (422 `already_corrected`). The same rules as recording apply to the new entry. Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `medication.administered` with `correctsId`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarEntryCorrect"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "entryId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "One entry on the medication chart, append-only: a correction is a new entry for the same order and time that names the one it corrects, once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/progress-notes": {
+      "get": {
+        "operationId": "listProgressNotes",
+        "tags": ["nursing"],
+        "description": "The progress notes of the stay, newest first, with the text as it stands. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every note is audited as a read.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressNotePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createProgressNote",
+        "tags": ["nursing"],
+        "description": "Writes a progress note for an admitted patient: a kind (nursing, handover or observation) and plain text of up to 4000 characters. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `progressnote.created` (ids and the kind, never the text).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgressNoteCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A nursing note, editable by its author while the patient is admitted; every text it had is kept in its history.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/progress-notes/{noteId}": {
+      "patch": {
+        "operationId": "updateProgressNote",
+        "tags": ["nursing"],
+        "description": "Changes the text of a note its author wrote, while the patient is admitted, at the version the edit started from (409 `conflict`). Someone else’s note is 403 `not_author`. The new text is added to the note history; earlier texts stay. A note outside the caller scope, or another hospital’s, is 404 `note_not_found`; of a stay that has ended, 409 `admission_not_open`. Audited; emits `progressnote.updated`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgressNoteUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "noteId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A nursing note, editable by its author while the patient is admitted; every text it had is kept in its history.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/progress-notes/{noteId}/history": {
+      "get": {
+        "operationId": "listProgressNoteVersions",
+        "tags": ["nursing"],
+        "description": "Every text a note has had, newest first, with who saved it and when. A note outside the caller scope, or another hospital’s, is 404 `note_not_found`. Audited as a read of the note.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "noteId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressNoteVersionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/diet": {
+      "get": {
+        "operationId": "getWardDiet",
+        "tags": ["nursing"],
+        "description": "The diet orders of the stay that are not cancelled, newest first, read from the unified orders: the ward reads them and never places one (that is order:create, the doctor’s). Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every order is audited as a read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The diet orders of the stay that are not cancelled, newest first (at most 50).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardDiet"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/stock-requests": {
+      "post": {
+        "operationId": "requestWardStock",
+        "tags": ["nursing"],
+        "description": "Asks a store for items for the ward on behalf of an admitted patient: an indent from the ward place (`fromLocationId`) to a store, made in this request transaction with the checks of createStockIndent (400), and linked to the stay. The store keeper approves and issues it through the indents routes as for any indent. Needs the inventory module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `ward.stockrequested` (ids only).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WardStockRequestCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WardStockRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 }

@@ -15,6 +15,11 @@ export interface MedicationOrder {
   quantity: number | null;
   status: OrderStatusValue;
   version: number;
+  /** As prescribed, for the ward's medication chart (BE-24). */
+  dose: string;
+  route: string;
+  frequency: string;
+  itemName: string;
 }
 
 /**
@@ -37,8 +42,13 @@ export async function medicationOrder(
     quantity: number | null;
     status: OrderStatusValue;
     version: number;
+    dose: string;
+    route: string;
+    frequency: string;
+    item_name: string;
   }>(
-    `select id, encounter_id, patient_id, prescription_id, drug_id, quantity, status, version
+    `select id, encounter_id, patient_id, prescription_id, drug_id, quantity, status, version,
+            dose, route, frequency, item_name
      from orders where id = $1 and type = 'medication' ${forUpdate ? 'for update' : ''}`,
     [id],
   );
@@ -53,6 +63,10 @@ export async function medicationOrder(
         quantity: row.quantity,
         status: row.status,
         version: row.version,
+        dose: row.dose,
+        route: row.route,
+        frequency: row.frequency,
+        itemName: row.item_name,
       }
     : null;
 }
@@ -66,3 +80,29 @@ export const moveMedicationOrder = (
   orderId: string,
   to: 'accepted' | 'in_progress' | 'completed',
 ): Promise<void> => moveOrderOf(request, 'medication', orderId, to);
+
+/** A medication order of an encounter, for the ward's medication chart (BE-24). */
+export interface EncounterMedicationOrder extends MedicationOrder {
+  placedAt: Date;
+}
+
+/** The medication orders of an encounter, oldest first, up to `limit` (no more than 200). */
+export async function medicationOrdersOf(
+  client: pg.ClientBase,
+  encounterId: string,
+  limit = 200,
+): Promise<EncounterMedicationOrder[]> {
+  if (!UUID.test(encounterId)) return [];
+  const { rows } = await client.query<{ id: string; placed_at: Date }>(
+    `select id, placed_at from orders
+     where encounter_id = $1 and type = 'medication'
+     order by placed_at, line_number, id limit $2`,
+    [encounterId, Math.min(limit, 200)],
+  );
+  const orders: EncounterMedicationOrder[] = [];
+  for (const row of rows) {
+    const order = await medicationOrder(client, row.id);
+    if (order) orders.push({ ...order, placedAt: row.placed_at });
+  }
+  return orders;
+}

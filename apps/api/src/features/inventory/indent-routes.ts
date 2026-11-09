@@ -5,13 +5,11 @@ import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
-import { stockableDrug } from '../drugs/index.js';
 import {
   approveLines,
   findIndent,
   indentIssues,
   indentLines,
-  insertIndent,
   insertIssue,
   insertIssueLine,
   issueBatches,
@@ -22,13 +20,8 @@ import {
   type IndentLineRow,
   type IndentRow,
 } from './indent-repository.js';
-import {
-  isUuid,
-  isViolation,
-  listLocations,
-  lockLocation,
-  type ItemColumns,
-} from './repository.js';
+import { requestIndent } from './indent-request.js';
+import { isUuid, isViolation, listLocations, type ItemColumns } from './repository.js';
 import {
   NOTE_MAX,
   StockIndent,
@@ -284,15 +277,6 @@ export const indentRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => answer(request, request.params.indentId),
   );
 
-  /** A place that is in use, held so it is not archived meanwhile. */
-  async function placeInUse(request: FastifyRequest, locationId: string, field: string) {
-    const location = await lockLocation(request.txClient, locationId, 'share');
-    if (!location || location.archived) {
-      throw invalid(`${field} is not a place of this hospital that is in use`);
-    }
-    return location;
-  }
-
   app.post(
     '/inventory/indents',
     {
@@ -311,31 +295,7 @@ export const indentRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request, reply) => {
       const body = request.body as StockIndentCreate;
       const requestedBy = userIdOf(request);
-      if (body.fromLocationId.toLowerCase() === body.toLocationId.toLowerCase()) {
-        throw invalid('A place does not indent from itself');
-      }
-      const from = await placeInUse(request, body.fromLocationId, 'fromLocationId');
-      const to = await placeInUse(request, body.toLocationId, 'toLocationId');
-      if (to.kind !== 'store') throw invalid('toLocationId is not a store');
-      const seen = new Set<string>();
-      for (const line of body.lines) {
-        const drug = await stockableDrug(request.txClient, line.drugId);
-        if (!drug) throw invalid('drugId is not an item of this hospital that is in use');
-        if (seen.has(drug.id)) throw invalid('An item is asked for once');
-        seen.add(drug.id);
-      }
-      const number = await nextNumber(request.txClient, 'indent');
-      const id = await insertIndent(request.txClient, {
-        number,
-        fromLocationId: from.id,
-        toLocationId: to.id,
-        note: tidyOptional(body.note, NOTE_MAX),
-        requestedBy,
-        lines: body.lines.map((line) => ({
-          drugId: line.drugId.toLowerCase(),
-          quantity: line.quantity,
-        })),
-      });
+      const { id } = await requestIndent(request, body, requestedBy);
       request.audit('create', 'stock_indent', id);
       return reply.status(201).send(await answer(request, id));
     },

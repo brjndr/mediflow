@@ -13,3 +13,6 @@ export const admissionsFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('admissions', ADMISSION_PERMISSIONS);
   await app.register(admissionRoutes);
 };
+
+/** For nursing (BE-24): the stay a ward record belongs to, within the caller's scope. */
+export { stayInScope, type Stay } from './stay.js';

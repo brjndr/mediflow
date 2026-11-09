@@ -23,7 +23,15 @@ export { labOrder, moveLabOrder, type LabOrder } from './lab.js';
 /** For radiology: an imaging order, and moving it on as it is scheduled, performed and reported. */
 export { imagingOrder, moveImagingOrder, type ImagingOrder } from './imaging.js';
 /** For the pharmacy: a medication order, and moving it on as it is dispensed (#100). */
-export { medicationOrder, moveMedicationOrder, type MedicationOrder } from './medication.js';
+export {
+  medicationOrder,
+  medicationOrdersOf,
+  moveMedicationOrder,
+  type EncounterMedicationOrder,
+  type MedicationOrder,
+} from './medication.js';
+/** For nursing (BE-24): the diet orders of an inpatient encounter, read only. */
+export { dietOrdersOf, type DietOrder } from './diet.js';
 export { OrderPriority, OrderStatus } from './schemas.js';
 
 /** For prescription sets (#394): the limits and routes of a prescription line, kept in one place. */

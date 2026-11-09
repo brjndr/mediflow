@@ -32,3 +32,6 @@ export {
   usableBatches,
   type UsableBatch,
 } from './stock-out.js';
+
+/** For nursing (BE-24): asks a store for items for a ward's place, as an indent. */
+export { requestIndent } from './indent-request.js';
