@@ -147,6 +147,18 @@
     }
   },
   "admissionsLink": "Admissions",
+  "censusLink": "Census",
+  "census": {
+    "heading": "Inpatient census",
+    "description": "Who is in the hospital now by ward and doctor, and how full the beds are.",
+    "boardLink": "Bed board",
+    "occupancy": "Occupancy",
+    "rate": "{{occupied}} of {{usable}} usable beds occupied ({{percent}}%)",
+    "grid": "Admitted patients",
+    "empty": "Nobody is admitted.",
+    "loading": "Counting beds…",
+    "retry": "Try again"
+  },
   "history": {
     "heading": "Bed history of {{patient}}",
     "loading": "Loading the bed history",

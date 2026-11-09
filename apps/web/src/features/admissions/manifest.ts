@@ -13,7 +13,12 @@ export const admissionsFeature: FeatureManifest = {
   titleKey: 'title',
   i18n: {
     titles: {
-      en: { title: 'Bed board', admissions: 'Admissions', admit: 'Admit a patient' },
+      en: {
+        title: 'Bed board',
+        admissions: 'Admissions',
+        admit: 'Admit a patient',
+        census: 'Inpatient census',
+      },
     },
     load: (language) => import(`./locales/${language}.json`),
   },
@@ -25,6 +30,12 @@ export const admissionsFeature: FeatureManifest = {
       path: 'admissions',
       titleKey: 'admissions',
       lazy: () => import('./routes/Admissions'),
+      requires: ['admission:read'],
+    },
+    {
+      path: 'census',
+      titleKey: 'census',
+      lazy: () => import('./routes/Census'),
       requires: ['admission:read'],
     },
     {

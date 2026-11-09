@@ -121,9 +121,14 @@ export default function BedBoard() {
           <p className="text-muted-foreground">{t('description')}</p>
           <LiveStatus status={events} />
         </div>
-        <Button asChild variant="outline">
-          <Link to="/admissions">{t('admissionsLink')}</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link to="/census">{t('censusLink')}</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/admissions">{t('admissionsLink')}</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">

@@ -141,6 +141,14 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByText('GW-A-01').first()).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // The inpatient census (#154): counts by status above the admitted patients.
+  await page.getByRole('main').getByRole('link', { name: 'Census' }).click();
+  await expect(page.getByRole('heading', { name: 'Inpatient census', level: 1 })).toBeVisible();
+  await expect(page.getByText(/usable beds occupied/)).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('main').getByRole('link', { name: 'Bed board' }).click();
+  await expect(page.getByRole('heading', { name: 'Bed board', exact: true })).toBeVisible();
+
   // Admitting (#152): the form is one column with the free beds as choices.
   await page.getByRole('link', { name: 'Admissions' }).click();
   await expect(page.getByRole('heading', { name: 'Admissions', level: 1 })).toBeVisible();
