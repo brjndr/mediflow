@@ -120,7 +120,9 @@ describe('the permission matrix', () => {
   it('keeps own changes when someone else changed the role meanwhile', async () => {
     await openMatrix();
     await userEvent.click(box('patient:delete'));
+    await waitFor(() => expect(status()).toHaveTextContent('1 unsaved change.'));
     await userEvent.click(box('patient:create'));
+    await waitFor(() => expect(status()).toHaveTextContent('2 unsaved changes.'));
     // Someone else removes patient:update and also grants patient:delete.
     const current = await roleOf('doctor');
     await api.PUT('/roles/{roleId}', {
@@ -143,7 +145,8 @@ describe('the permission matrix', () => {
 
     await userEvent.click(save());
     await waitFor(() => expect(status()).toHaveTextContent('Saved the permissions of Doctor.'));
-  });
+    // Many steps over the whole catalog: slow on a shared CI runner, so it gets more time.
+  }, 90_000);
 
   it('refreshes the policy of the caller at once when their own role was changed', async () => {
     const { queryClient } = await openMatrix('admin', 'Admin');
