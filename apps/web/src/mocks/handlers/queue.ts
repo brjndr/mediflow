@@ -121,6 +121,8 @@ let tokens = seed();
 let answered = new Map<string, { body: string; status: number; token: QueueToken }>();
 /** The open event streams of each hospital. */
 const streams = new Map<string, Set<ReadableStreamDefaultController<Uint8Array>>>();
+/** How many event streams each hospital has had opened since the last reset. */
+let opened = new Map<string, number>();
 const encoder = new TextEncoder();
 /** The keep-alive comment of each open stream, as the API sends one every 20 seconds. */
 const KEEP_ALIVE_MS = 20_000;
@@ -152,6 +154,7 @@ function closeStreams(tenantId?: string) {
 onMockReset(() => {
   tokens = seed();
   answered = new Map();
+  opened = new Map();
   closeStreams();
 });
 
@@ -168,10 +171,11 @@ function publish(tenantId: string, departmentId: string) {
 }
 
 /**
- * For tests: how many event streams of a hospital were opened since the last reset. MSW does
- * not pass on a stream the browser closed, so this counts openings, not streams still open.
+ * For tests: how many event streams of a hospital were opened since the last reset. It counts
+ * openings, not streams still open: whether MSW passes on a stream the browser closed depends
+ * on its version.
  */
-export const mockQueueStreams = (tenantId: string) => streams.get(tenantId)?.size ?? 0;
+export const mockQueueStreams = (tenantId: string) => opened.get(tenantId) ?? 0;
 
 /** For tests: the server closes a hospital's streams, as a restart or a proxy timeout does. */
 export const dropMockQueueStreams = (tenantId: string) => closeStreams(tenantId);
@@ -413,6 +417,7 @@ export const queueHandlers = [
         mine = controller;
         if (!streams.has(tenantId)) streams.set(tenantId, new Set());
         streams.get(tenantId)?.add(controller);
+        opened.set(tenantId, (opened.get(tenantId) ?? 0) + 1);
         // A comment first, as the API sends, so the response starts at once.
         controller.enqueue(encoder.encode(': open\n\n'));
         keepAlive.set(
