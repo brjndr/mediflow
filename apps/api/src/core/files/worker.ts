@@ -36,6 +36,8 @@ export function looksLike(type: string, data: Buffer): boolean {
         .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
     case 'application/pdf':
       return data.subarray(0, 5).toString('latin1') === '%PDF-';
+    case 'application/dicom':
+      return data.length > 132 && data.subarray(128, 132).toString('latin1') === 'DICM';
     default:
       return false;
   }
