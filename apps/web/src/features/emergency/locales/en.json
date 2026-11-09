@@ -1,0 +1,117 @@
+{
+  "heading": "Emergency",
+  "description": "Register arrivals in seconds, triage them and watch who is waiting.",
+  "close": "Close",
+  "cancel": "Cancel",
+  "onRecord": "Patient on record",
+  "unidentified": "Unidentified patient",
+  "gridLabel": "Emergency board",
+  "rowLabel": "Emergency case {{id}}",
+  "count_one": "{{count}} patient in the department.",
+  "count_other": "{{count}} patients in the department.",
+  "overdueCount_one": "{{count}} is past the waiting target.",
+  "overdueCount_other": "{{count}} are past the waiting target.",
+  "empty": "Nobody is in the emergency department.",
+  "filter": {
+    "label": "Show",
+    "active": "Everyone in the department"
+  },
+  "status": {
+    "waiting": "Waiting",
+    "in_treatment": "In treatment",
+    "disposed": "Left the department"
+  },
+  "columns": {
+    "patient": "Patient",
+    "tempId": "Temporary ID",
+    "category": "Category",
+    "wait": "Waiting",
+    "complaint": "Complaint",
+    "arrival": "Arrived",
+    "arrived": "Arrival time"
+  },
+  "category": {
+    "none": "Not triaged",
+    "short": {
+      "1": "1 Immediate",
+      "2": "2 Very urgent",
+      "3": "3 Urgent",
+      "4": "4 Less urgent",
+      "5": "5 Non-urgent"
+    },
+    "long": {
+      "1": "1 Immediate",
+      "2": "2 Very urgent",
+      "3": "3 Urgent",
+      "4": "4 Less urgent",
+      "5": "5 Non-urgent"
+    }
+  },
+  "wait": {
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "overdue": "Overdue (target {{minutes}} min)"
+  },
+  "arrival": {
+    "walk_in": "Walked in",
+    "ambulance": "Ambulance",
+    "police": "Brought by police",
+    "referred": "Referred"
+  },
+  "sex": {
+    "male": "Male",
+    "female": "Female",
+    "other": "Other",
+    "unknown": "Not known"
+  },
+  "actions": {
+    "triage": "Set category",
+    "identify": "Identify patient"
+  },
+  "register": {
+    "open": "Register an arrival",
+    "title": "Register an arrival",
+    "description": "Only the complaint is needed. An unidentified patient gets a temporary ID at once.",
+    "who": "Who is arriving",
+    "unidentified": "Unidentified",
+    "onRecord": "Patient on record",
+    "patient": "Patient",
+    "change": "Change",
+    "choosePatient": "Choose the patient, or register them as unidentified.",
+    "sex": "Sex",
+    "age": "Approximate age",
+    "ageHint": "In years, if it can be guessed.",
+    "alias": "Description",
+    "aliasHint": "For example, man in a blue jacket.",
+    "complaint": "Complaint",
+    "arrival": "Arrived",
+    "category": "Triage category",
+    "notTriaged": "Not triaged yet",
+    "save": "Register",
+    "saving": "Registering..."
+  },
+  "triage": {
+    "title": "Set the triage category",
+    "description": "For {{id}}. The waiting target follows the category.",
+    "category": "Category",
+    "target": "seen within {{minutes}} min",
+    "save": "Save category",
+    "saving": "Saving..."
+  },
+  "identify": {
+    "title": "Identify the patient",
+    "description": "Link {{id}} to the patient's record. The temporary ID stays on the case.",
+    "save": "Link to record",
+    "saving": "Linking..."
+  },
+  "done": {
+    "registered": "Registered as {{id}}.",
+    "triaged": "{{id}} is category {{category}}.",
+    "identified": "{{id}} is linked to the patient's record."
+  },
+  "errors": {
+    "patient": "That patient is not available to you.",
+    "identified": "This case already has a patient.",
+    "changed": "Someone else changed this first. The board has been refreshed; try again."
+  }
+}

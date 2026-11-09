@@ -37,7 +37,8 @@ As of 2026-11-08. GitHub issues and milestones are the source of truth (`gh issu
 - **M16 Bed management and admissions (R2):** in progress. The ADT API (#156, `admissions` module: admit, assign bed, transfer, discharge, `GET /beds/board`, housekeeping, a `beds` event stream). The bed board (#151), the admissions list and admit form (#152, a first slice) and the bed history of a stay (#153, partial: no transfer reason, no bed-day charges to split). Open: the census (#154) and the tests (#155), and follow-ups #573 to #582.
 - **M22 Medical records and documents (R4):** started ahead of R2/R3 on request. The documents API with patient merge (#194): signed uploads, malware scan job, retention sweep, `POST /patients/{id}/merge` (no unmerge). Web: the Documents tab (#189), consents and certificates (#190, mock only), the medical records desk (#192, mock only). Skipped: #191 (needs an unmerge and correction-request API). Open: #193 and follow-ups #554 to #572.
 - **M23 Hospital operations (R4):** started ahead of R2/R3 on request. The operations API (#200): rosters, blood bank, ambulances, cleaning tasks. Web: housekeeping (#198), duty roster (#195), ambulances (#197, no charges to the bill yet) and the blood bank (#196, a first slice: no donors, cross-match or trace; #196 stays open). Open: #199, #201 and follow-ups #583 to #594.
-- **M17, M18, M19, M20, M21 and beyond:** not started.
+- **M19 Emergency (R3):** the registration and triage board in the web app (#171), on the mock until the API (#175): quick registration with a temporary ID for an unidentified patient, categories 1 to 5 with waiting timers.
+- **M17, M18, M20, M21 and beyond:** not started.
 
 **What exists**
 

@@ -1,0 +1,12 @@
+# Emergency (web): module notes
+
+What was decided for ER-01 (#171). The root `CLAUDE.md` wins where the two disagree. There is no API yet (BE-26, #175): the screen runs on the mock (`mocks/handlers/emergency.ts`) and the endpoints are in `packages/contract/planned.openapi.json` (`/emergency/cases`, `.../triage`, `.../identify`). When the API implements them, delete them from the planned file.
+
+- **One route, one nav entry** ("Emergency", `emergency:read`, `/emergency`, order 26) behind the `emergency` switch. A `DataGrid` board (cards on a phone) read again every 10 seconds, ordered by the server: untriaged arrivals first, then category 1 to 5, then the longest wait.
+- **Permissions:** `emergency:register` (register an arrival, link an unidentified patient to a record), `emergency:triage` (set or change the category). Row actions use `requires`, so they are absent without the permission.
+- **Quick registration** needs the complaint and how the patient came; everything else has a default (sex "not known", walk-in, not triaged). Two modes: **unidentified** (optional description and approximate age; the server issues a temporary ID, `tempId`, e.g. ER-0042, which stays on the case after identification) and **patient on record** (`PatientSearch`, only the id is sent). The category can be set at the same time.
+- **Identify later** (`/identify`) links an unidentified case to a patient; once only (409 `already_identified`). Merging two records is the patients module's job, not this one's.
+- **Timers:** the waiting time is minutes since arrival, drawn from a clock that ticks every 15 s (`useNow`). `TARGET_MINUTES` (1: immediate, 2: 10, 3: 30, 4: 60, 5: 120) is a fixed default in `schemas.ts`; past it a waiting patient is marked "Overdue" with a word and an icon, never colour alone. A hospital's own targets are a setting for later. Untriaged patients have no target.
+- **Triage fields:** only the category (1 to 5) is captured here. Vitals at triage and the emergency assessment belong to ER-02 (#172); the existing `triage` module's vitals take a queue token, not an emergency case.
+- **Idempotency and conflicts:** every write sends one key per identical body; triage and identify send the `version` read, and a 409 says "someone else changed this first".
+- **Not built:** disposition (leaving the department, `disposed` status has no screen yet, ER-02), medico-legal flags (ER-03), a push stream for the board (it polls), sound alerts, a waiting-room display.

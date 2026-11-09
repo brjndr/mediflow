@@ -5396,6 +5396,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/emergency/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The emergency department's board (ER-01, #171): patients waiting or in treatment, the most urgent category first and then the longest wait. Needs emergency:read and the emergency feature flag. Untriaged arrivals come first. */
+        get: operations["listEmergencyCases"];
+        put?: never;
+        /** @description Registers an arrival in a few fields. With patientId the case is for a patient on record; without it the patient is unidentified and gets a temporary ID (tempId) that stays on the case. Needs emergency:register. 404 unknown_patient. */
+        post: operations["registerEmergencyCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/emergency/cases/{caseId}/triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Sets or changes the triage category (1 immediate to 5 non-urgent) of a case that has not left the department, at the version read. Needs emergency:triage. 409 version_conflict. */
+        post: operations["triageEmergencyCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/emergency/cases/{caseId}/identify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Links an unidentified case to a patient on record once known; the temporary ID stays on the case. Needs emergency:register. 409 already_identified or version_conflict, 404 unknown_patient. */
+        post: operations["identifyEmergencyCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -10412,6 +10464,58 @@ export interface components {
             /** @enum {string} */
             outcome: "fulfilled" | "declined";
             note: string;
+            version: number;
+        };
+        /** @enum {string} */
+        EmergencyCaseStatus: "waiting" | "in_treatment" | "disposed";
+        /** @enum {string} */
+        EmergencyArrivalMode: "walk_in" | "ambulance" | "police" | "referred";
+        /** @enum {string} */
+        EmergencySex: "male" | "female" | "other" | "unknown";
+        EmergencyCase: {
+            id: string;
+            tenantId: string;
+            /** @description The temporary ID issued at arrival, e.g. ER-0042. */
+            tempId: string;
+            /** @description Absent while the patient is unidentified. */
+            patientId?: string;
+            /** @description How an unidentified patient is described, e.g. "Man in blue jacket". */
+            alias?: string;
+            sex: components["schemas"]["EmergencySex"];
+            approximateAge?: number;
+            complaint: string;
+            arrivalMode: components["schemas"]["EmergencyArrivalMode"];
+            /** @description 1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent. */
+            category?: number;
+            status: components["schemas"]["EmergencyCaseStatus"];
+            /** Format: date-time */
+            arrivedAt: string;
+            /** Format: date-time */
+            triagedAt?: string;
+            version: number;
+        };
+        EmergencyCasePage: {
+            items: components["schemas"]["EmergencyCase"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        EmergencyCaseCreate: {
+            patientId?: string;
+            alias?: string;
+            sex?: components["schemas"]["EmergencySex"];
+            approximateAge?: number;
+            complaint: string;
+            arrivalMode: components["schemas"]["EmergencyArrivalMode"];
+            /** @description 1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent. */
+            category?: number;
+        };
+        EmergencyTriage: {
+            /** @description 1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent. */
+            category: number;
+            version: number;
+        };
+        EmergencyIdentify: {
+            patientId: string;
             version: number;
         };
     };
@@ -39083,6 +39187,139 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordRequest"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listEmergencyCases: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["EmergencyCaseStatus"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of cases */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyCasePage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    registerEmergencyCase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmergencyCaseCreate"];
+            };
+        };
+        responses: {
+            /** @description The case */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyCase"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    triageEmergencyCase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmergencyTriage"];
+            };
+        };
+        responses: {
+            /** @description The case */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyCase"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    identifyEmergencyCase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmergencyIdentify"];
+            };
+        };
+        responses: {
+            /** @description The case */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyCase"];
                 };
             };
             400: components["responses"]["Error"];
