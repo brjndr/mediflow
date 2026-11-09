@@ -197,32 +197,66 @@ export async function scanDocument(app: FastifyInstance, job: ScanJob): Promise<
  */
 export async function sweepDocuments(app: FastifyInstance): Promise<string[]> {
   const due = await asWorker(app, async (client) => {
-    const { rows } = await client.query<{ id: string; file_key: string }>(
-      `select id, file_key from patient_documents
-       where status = 'clean' and retain_until < current_date and file_key is not null
-       order by retain_until limit 500`,
+    const { rows } = await client.query<{ id: string }>(
+      `select d.id from patient_documents d
+       where d.status = 'clean' and d.retain_until < current_date and d.file_key is not null
+         and ${NOT_HELD}
+       order by d.retain_until limit 500`,
     );
     return rows;
   });
   const failed: string[] = [];
-  const gone: string[] = [];
-  for (const document of due) {
+  let purged = 0;
+  for (const { id } of due) {
+    // One transaction each: the row is locked, then the holds are looked at. A hold being placed
+    // locks the same rows first, so it is either seen here or waits until this one is done.
     try {
-      await app.files.delete(document.file_key);
-      gone.push(document.id);
+      const done = await asWorker(app, async (client) => {
+        const locked = await client.query<{ tenant_id: string; file_key: string }>(
+          `select d.tenant_id, d.file_key from patient_documents d
+           where d.id = $1 and d.status = 'clean' and d.retain_until < current_date
+             and d.file_key is not null for update`,
+          [id],
+        );
+        const row = locked.rows[0];
+        if (!row) return false;
+        const free = await client.query(
+          `select 1 from patient_documents d where d.id = $1 and ${NOT_HELD}`,
+          [id],
+        );
+        if (free.rows.length === 0) return false;
+        try {
+          await app.files.delete(row.file_key);
+        } catch {
+          failed.push(row.file_key);
+          return false;
+        }
+        await client.query(
+          `update patient_documents set status = 'purged', purged_at = now(), file_key = null
+           where id = $1`,
+          [id],
+        );
+        // One entry in the owning hospital's log for each purge (ids only, no actor: a job).
+        await client.query(
+          `insert into audit_log (tenant_id, actor_id, action, entity, entity_id)
+           values ($1, null, 'purge', 'patient_document', $2)`,
+          [row.tenant_id, id],
+        );
+        return true;
+      });
+      if (done) purged += 1;
     } catch {
-      failed.push(document.file_key);
+      failed.push(id);
     }
   }
-  if (gone.length > 0) {
-    await asWorker(app, (client) =>
-      client.query(
-        `update patient_documents set status = 'purged', purged_at = now(), file_key = null
-         where id = any($1::uuid[]) and status = 'clean' and retain_until < current_date`,
-        [gone],
-      ),
-    );
-    app.log.info({ event: 'documents_purged', count: gone.length }, 'documents past retention');
+  if (purged > 0) {
+    app.log.info({ event: 'documents_purged', count: purged }, 'documents past retention');
   }
   return failed;
 }
+
+/** For a document `d`: no active legal hold on it, or on every document of its patient. */
+const NOT_HELD = `not exists (
+  select 1 from document_legal_holds h
+  where h.tenant_id = d.tenant_id and h.released_at is null
+    and (h.document_id = d.id or (h.document_id is null and h.patient_id = d.patient_id)))`;

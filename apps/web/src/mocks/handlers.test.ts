@@ -104,7 +104,12 @@ describe('mock backend', () => {
       signIn(USER_IDS.billingClerk);
       const { data } = await api.GET('/session/policy');
       expect(data?.roleId).toBe('billing_clerk');
-      expect(permissionsOf(data)).toEqual(['patient:read', 'billing:read', 'billing:create']);
+      expect(permissionsOf(data)).toEqual([
+        'patient:read',
+        'billing:read',
+        'billing:create',
+        'invoice:read',
+      ]);
     });
 
     it('rejects a tenant header that does not match the session tenant', async () => {
