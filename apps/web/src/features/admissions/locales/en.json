@@ -123,6 +123,21 @@
     "note": "Note",
     "back": "Cancel"
   },
+  "relations": {
+    "spouse": "Spouse",
+    "parent": "Parent",
+    "child": "Child",
+    "sibling": "Sibling",
+    "relative": "Other relative",
+    "friend": "Friend",
+    "other": "Other"
+  },
+  "consentTypes": {
+    "admission": "Admission to hospital",
+    "treatment": "Treatment and procedures",
+    "financial": "Financial responsibility",
+    "privacy": "Use of health information"
+  },
   "admit": {
     "open": "Admit a patient",
     "heading": "Admit a patient",
@@ -143,6 +158,19 @@
     "bedRequired": "Choose a free bed.",
     "bedOption": "Bed {{number}}, {{ward}}",
     "dayPrice": "{{price}} a day",
+    "advice": "Doctor's advice",
+    "adviceHint": "Why the patient is to be admitted and what to do first. Optional.",
+    "attendant": "Attendant staying with the patient",
+    "attendantName": "Name",
+    "attendantRelation": "Relation to the patient",
+    "noRelation": "Not stated",
+    "attendantPhone": "Phone",
+    "attendantNameRequired": "Enter the attendant's name.",
+    "phoneShort": "Enter a phone number of at least 5 characters.",
+    "deposit": "Deposit asked for",
+    "depositHint": "The amount only. It is taken at the billing counter.",
+    "depositInvalid": "Enter an amount, for example 5000 or 5,000.50.",
+    "consents": "Consents given",
     "submit": "Admit patient",
     "cancel": "Cancel",
     "refused": {

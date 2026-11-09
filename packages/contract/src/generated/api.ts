@@ -6218,6 +6218,16 @@ export interface components {
          */
         BedMoveReason: "clinical" | "step_down" | "isolation" | "patient_request" | "ward_closure" | "other";
         /**
+         * @description How the attendant is related to the patient.
+         * @enum {string}
+         */
+        AttendantRelation: "spouse" | "parent" | "child" | "sibling" | "relative" | "friend" | "other";
+        /**
+         * @description A consent the patient (or their attendant) gave at admission.
+         * @enum {string}
+         */
+        AdmissionConsent: "admission" | "treatment" | "financial" | "privacy";
+        /**
          * @description available -> occupied (a patient is given the bed) -> cleaning (they leave) -> available (it is ready). blocked is set from the wards API.
          * @enum {string}
          */
@@ -6229,6 +6239,15 @@ export interface components {
             doctorId?: string;
             /** @description An available bed to give the patient now. Left out, the patient is admitted without a bed and given one with assignBed. */
             bedId?: string;
+            /** @description The doctor advice to admit: why, and what to do first. Plain text. */
+            adviceNote?: string;
+            attendantName?: string;
+            attendantRelation?: components["schemas"]["AttendantRelation"];
+            attendantPhone?: string;
+            /** @description The deposit asked for at admission, in minor units. A record only: it is taken through billing. */
+            depositMinor?: number;
+            /** @description The consents given. Kept as they were at admission. */
+            consents?: components["schemas"]["AdmissionConsent"][];
         };
         AdmissionBed: {
             assignmentId: string;
@@ -6263,6 +6282,12 @@ export interface components {
             cancelledAt?: string;
             /** @description Why it was cancelled. */
             cancelReason?: string;
+            adviceNote?: string;
+            attendantName?: string;
+            attendantRelation?: components["schemas"]["AttendantRelation"];
+            attendantPhone?: string;
+            depositMinor?: number;
+            consents: components["schemas"]["AdmissionConsent"][];
             bed?: components["schemas"]["AdmissionBed"];
             /** @description Counts the changes, a change of bed too. */
             version: number;

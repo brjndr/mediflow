@@ -2997,6 +2997,16 @@
         "enum": ["clinical", "step_down", "isolation", "patient_request", "ward_closure", "other"],
         "description": "Why a patient was given a bed other than the one before, from a list."
       },
+      "AttendantRelation": {
+        "type": "string",
+        "enum": ["spouse", "parent", "child", "sibling", "relative", "friend", "other"],
+        "description": "How the attendant is related to the patient."
+      },
+      "AdmissionConsent": {
+        "type": "string",
+        "enum": ["admission", "treatment", "financial", "privacy"],
+        "description": "A consent the patient (or their attendant) gave at admission."
+      },
       "BoardBedStatus": {
         "type": "string",
         "enum": ["available", "occupied", "cleaning", "blocked"],
@@ -3023,6 +3033,42 @@
             "maxLength": 64,
             "description": "An available bed to give the patient now. Left out, the patient is admitted without a bed and given one with assignBed.",
             "type": "string"
+          },
+          "adviceNote": {
+            "minLength": 1,
+            "maxLength": 1000,
+            "description": "The doctor advice to admit: why, and what to do first. Plain text.",
+            "type": "string"
+          },
+          "attendantName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "attendantRelation": {
+            "$ref": "#/components/schemas/AttendantRelation"
+          },
+          "attendantPhone": {
+            "minLength": 5,
+            "maxLength": 20,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "depositMinor": {
+            "minimum": 0,
+            "maximum": 100000000000,
+            "description": "The deposit asked for at admission, in minor units. A record only: it is taken through billing.",
+            "type": "integer"
+          },
+          "consents": {
+            "maxItems": 4,
+            "uniqueItems": true,
+            "description": "The consents given. Kept as they were at admission.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdmissionConsent"
+            }
           }
         }
       },
@@ -3080,6 +3126,7 @@
           "admissionType",
           "status",
           "admittedAt",
+          "consents",
           "version"
         ],
         "properties": {
@@ -3138,6 +3185,28 @@
           "cancelReason": {
             "description": "Why it was cancelled.",
             "type": "string"
+          },
+          "adviceNote": {
+            "type": "string"
+          },
+          "attendantName": {
+            "type": "string"
+          },
+          "attendantRelation": {
+            "$ref": "#/components/schemas/AttendantRelation"
+          },
+          "attendantPhone": {
+            "type": "string"
+          },
+          "depositMinor": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "consents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdmissionConsent"
+            }
           },
           "bed": {
             "$ref": "#/components/schemas/AdmissionBed"

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 import type {
   Admission,
   AdmissionPage,
@@ -103,6 +104,19 @@ export const ADMISSION_TYPES = [
   'transfer_in',
 ] as const satisfies readonly AdmissionType[];
 
+/** As the API lists them; a list, never free text. */
+export const ATTENDANT_RELATIONS = [
+  'spouse',
+  'parent',
+  'child',
+  'sibling',
+  'relative',
+  'friend',
+  'other',
+] as const;
+export const ADMISSION_CONSENTS = ['admission', 'treatment', 'financial', 'privacy'] as const;
+export const ADVICE_MAX = 1000;
+
 export const admissionSchema: z.ZodType<Admission> = z.object({
   id: z.string(),
   tenantId: z.string(),
@@ -132,6 +146,12 @@ export const admissionSchema: z.ZodType<Admission> = z.object({
       assignedAt: z.string(),
     })
     .optional(),
+  adviceNote: z.string().optional(),
+  attendantName: z.string().optional(),
+  attendantRelation: z.enum(ATTENDANT_RELATIONS).optional(),
+  attendantPhone: z.string().optional(),
+  depositMinor: z.number().int().optional(),
+  consents: z.array(z.enum(ADMISSION_CONSENTS)),
   version: z.number().int().min(1),
 });
 
@@ -147,6 +167,26 @@ export const admitSchema = z.object({
   admissionType: z.enum(ADMISSION_TYPES),
   doctorId: z.string(),
   bedId: z.string().min(1, 'admissions:admit.bedRequired'),
+  adviceNote: z
+    .string()
+    .max(ADVICE_MAX, 'validation.too_big')
+    .regex(PLAIN_LINES, 'validation.plain_text'),
+  attendantName: z
+    .string()
+    .max(100, 'validation.too_big')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  attendantRelation: z.union([z.enum(ATTENDANT_RELATIONS), z.literal('')]),
+  attendantPhone: z
+    .string()
+    .max(20, 'validation.too_big')
+    .regex(PLAIN_TEXT, 'validation.plain_text')
+    .refine((value) => value === '' || value.length >= 5, 'admissions:admit.phoneShort'),
+  /** As typed; turned into minor units on submit, where the hospital's currency is known. */
+  deposit: z.string().max(20, 'validation.too_big'),
+  consentAdmission: z.boolean(),
+  consentTreatment: z.boolean(),
+  consentFinancial: z.boolean(),
+  consentPrivacy: z.boolean(),
 });
 export type AdmitValues = z.infer<typeof admitSchema>;
 

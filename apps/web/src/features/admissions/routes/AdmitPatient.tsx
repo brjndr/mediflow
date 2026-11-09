@@ -5,11 +5,16 @@ import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
 import { PatientSearch, usePatientName, type PatientName } from '@/features/patients';
 import { usePermission } from '@/access';
+import { currencyDigits, toMinor } from '@/features/services';
+import { useTenant } from '@/tenancy';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import {
+  CheckboxField,
   Form,
   SelectField,
+  TextAreaField,
+  TextField,
   SubmitButton,
   useFieldError,
   useFieldFocusRef,
@@ -19,7 +24,13 @@ import {
 } from '@/shared/ui/form';
 import { BedPicker } from '../components/BedPicker';
 import { useAdmit } from '../hooks/use-admissions';
-import { ADMISSION_TYPES, admitSchema, type AdmitValues } from '../schemas';
+import {
+  ADMISSION_CONSENTS,
+  ADMISSION_TYPES,
+  ATTENDANT_RELATIONS,
+  admitSchema,
+  type AdmitValues,
+} from '../schemas';
 import type { Admission } from '../types';
 
 /** Refusals this form has words for: the bed or the stay changed under the person. */
@@ -142,6 +153,7 @@ export default function AdmitPatient() {
   const [patient, setPatient] = useState<PatientName>();
   const [admitted, setAdmitted] = useState<Admission>();
   const admit = useAdmit();
+  const digits = currencyDigits(useTenant()?.currency);
   const heading = useRef<HTMLHeadingElement>(null);
 
   const form = useZodForm(admitSchema, {
@@ -149,6 +161,15 @@ export default function AdmitPatient() {
     admissionType: ADMISSION_TYPES.find((type) => type === askedType) ?? 'planned',
     doctorId: '',
     bedId: '',
+    adviceNote: '',
+    attendantName: '',
+    attendantRelation: '',
+    attendantPhone: '',
+    deposit: '',
+    consentAdmission: false,
+    consentTreatment: false,
+    consentFinancial: false,
+    consentPrivacy: false,
   });
 
   if (askedPatient.data && !usedAsked) {
@@ -173,6 +194,23 @@ export default function AdmitPatient() {
 
   const submit = async (values: AdmitValues) => {
     admit.reset();
+    const deposit = values.deposit.trim() === '' ? undefined : toMinor(values.deposit, digits);
+    if (deposit === null) {
+      form.setError('deposit', { message: 'admissions:admit.depositInvalid' });
+      return;
+    }
+    const consents = ADMISSION_CONSENTS.filter(
+      (consent) =>
+        values[`consent${consent[0]?.toUpperCase()}${consent.slice(1)}` as keyof AdmitValues],
+    );
+    const attendantName = values.attendantName.trim();
+    if (
+      attendantName === '' &&
+      (values.attendantRelation !== '' || values.attendantPhone.trim() !== '')
+    ) {
+      form.setError('attendantName', { message: 'admissions:admit.attendantNameRequired' });
+      return;
+    }
     try {
       setAdmitted(
         await admit.mutateAsync({
@@ -180,6 +218,12 @@ export default function AdmitPatient() {
           admissionType: values.admissionType,
           bedId: values.bedId,
           ...(values.doctorId ? { doctorId: values.doctorId } : {}),
+          ...(values.adviceNote.trim() ? { adviceNote: values.adviceNote.trim() } : {}),
+          ...(attendantName ? { attendantName } : {}),
+          ...(values.attendantRelation ? { attendantRelation: values.attendantRelation } : {}),
+          ...(values.attendantPhone.trim() ? { attendantPhone: values.attendantPhone.trim() } : {}),
+          ...(deposit !== undefined ? { depositMinor: deposit } : {}),
+          ...(consents.length > 0 ? { consents } : {}),
         }),
       );
     } catch (error) {
@@ -247,6 +291,52 @@ export default function AdmitPatient() {
           />
         )}
         <BedChoice />
+        <TextAreaField<AdmitValues>
+          name="adviceNote"
+          label={t('admit.advice')}
+          hint={t('admit.adviceHint')}
+        />
+        <fieldset className="flex flex-col gap-3">
+          <legend className="text-sm font-medium">{t('admit.attendant')}</legend>
+          <TextField<AdmitValues>
+            name="attendantName"
+            label={t('admit.attendantName')}
+            autoComplete="off"
+          />
+          <SelectField<AdmitValues>
+            name="attendantRelation"
+            label={t('admit.attendantRelation')}
+            placeholder={t('admit.noRelation')}
+            options={ATTENDANT_RELATIONS.map((value) => ({
+              value,
+              label: t(`relations.${value}`),
+            }))}
+          />
+          <TextField<AdmitValues>
+            name="attendantPhone"
+            label={t('admit.attendantPhone')}
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+          />
+        </fieldset>
+        <TextField<AdmitValues>
+          name="deposit"
+          label={t('admit.deposit')}
+          hint={t('admit.depositHint')}
+          inputMode="decimal"
+          autoComplete="off"
+        />
+        <fieldset className="flex flex-col gap-1">
+          <legend className="text-sm font-medium">{t('admit.consents')}</legend>
+          {ADMISSION_CONSENTS.map((consent) => (
+            <CheckboxField<AdmitValues>
+              key={consent}
+              name={`consent${consent[0]?.toUpperCase()}${consent.slice(1)}` as 'consentAdmission'}
+              label={t(`consentTypes.${consent}`)}
+            />
+          ))}
+        </fieldset>
         <div className="flex flex-wrap gap-2">
           <SubmitButton pending={admit.isPending}>{t('admit.submit')}</SubmitButton>
           <Button asChild variant="outline">
