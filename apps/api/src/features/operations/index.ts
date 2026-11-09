@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { ambulanceRoutes } from './ambulance.js';
 import { bloodBankRoutes } from './bloodbank.js';
+import { BLOOD_EXPIRY_JOB, expireBloodUnitsEverywhere } from './expiry.js';
 import { housekeepingRoutes, subscribeToReleasedBeds } from './housekeeping.js';
 import { OPERATIONS_PERMISSIONS } from './permissions.js';
 import { rosterRoutes } from './roster.js';
@@ -22,4 +23,6 @@ export const operationsFeature: FastifyPluginAsync = async (app) => {
   await app.register(ambulanceRoutes);
   await app.register(housekeepingRoutes);
   subscribeToReleasedBeds(app);
+  app.jobs.work(BLOOD_EXPIRY_JOB, () => expireBloodUnitsEverywhere(app.database.pool));
+  app.jobs.schedule(BLOOD_EXPIRY_JOB, '*/15 * * * *');
 };
