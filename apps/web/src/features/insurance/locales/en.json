@@ -1,0 +1,195 @@
+{
+  "heading": "Insurers, TPAs and corporates",
+  "description": "The organisations this hospital bills instead of the patient: insurers, third-party administrators and corporates, with their plans and rate agreements.",
+  "gridLabel": "Insurers, TPAs and corporates",
+  "add": "Add an insurer, TPA or corporate",
+  "backToList": "Back to the list",
+  "count_one": "{{count}} organisation",
+  "count_other": "{{count}} organisations",
+  "countArchived_one": "{{count}} archived organisation",
+  "countArchived_other": "{{count}} archived organisations",
+  "empty": "No insurers, TPAs or corporates yet.",
+  "emptyArchived": "No archived organisations.",
+  "emptySearch": "Nothing matches this search.",
+  "notGiven": "Not given",
+  "cancel": "Cancel",
+  "close": "Close",
+  "save": "Save",
+  "saving": "Saving…",
+  "kind": {
+    "insurer": "Insurer",
+    "tpa": "TPA",
+    "corporate": "Corporate"
+  },
+  "status": {
+    "active": "In use",
+    "archived": "Archived"
+  },
+  "filters": {
+    "search": "Search",
+    "searchPlaceholder": "Code or name",
+    "kind": "Kind",
+    "anyKind": "Any kind",
+    "showArchived": "Show archived"
+  },
+  "columns": {
+    "name": "Name",
+    "code": "Code",
+    "kind": "Kind",
+    "contact": "Contact person",
+    "plans": "Plans"
+  },
+  "create": {
+    "heading": "Add an insurer, TPA or corporate",
+    "description": "The code is the hospital's own short name for it and cannot be changed later.",
+    "submit": "Add"
+  },
+  "form": {
+    "kind": "Kind",
+    "code": "Code",
+    "codeHint": "Letters, digits, dots, dashes and underscores. Unique among your organisations.",
+    "name": "Name",
+    "contactName": "Contact person",
+    "contactHint": "Someone at the organisation, not a patient.",
+    "phone": "Phone",
+    "email": "Email",
+    "address": "Address"
+  },
+  "details": {
+    "heading": "Details",
+    "loading": "Loading the organisation"
+  },
+  "notFound": {
+    "title": "Organisation not found",
+    "body": "There is no such insurer, TPA or corporate at this hospital.",
+    "errorTitle": "Could not load the organisation"
+  },
+  "actions": {
+    "edit": "Change",
+    "archive": "Archive",
+    "restore": "Restore",
+    "archivePayer": "Archive this organisation",
+    "restorePayer": "Restore this organisation",
+    "endToday": "End today"
+  },
+  "coverage": {
+    "all_except": "Everything except the listed services",
+    "only_listed": "Only the listed services",
+    "all": "Everything",
+    "summary_all_except_one": "Everything except {{count}} service",
+    "summary_all_except_other": "Everything except {{count}} services",
+    "summary_only_listed_one": "{{count}} service only",
+    "summary_only_listed_other": "{{count}} services only"
+  },
+  "plans": {
+    "heading": "Plans",
+    "description": "What each plan covers, how much of a covered charge the patient pays, its limits and who is eligible.",
+    "add": "Add a plan",
+    "gridLabel": "Plans",
+    "showArchived": "Show archived plans",
+    "empty": "No plans yet.",
+    "name": "Plan",
+    "code": "Code",
+    "copay": "Patient pays",
+    "coverage": "Covers",
+    "limits": "Limits",
+    "eligibility": "Eligibility",
+    "status": "Status",
+    "noLimit": "No limit",
+    "none": "No rules",
+    "sumInsuredShort": "sum insured {{amount}}",
+    "roomRentShort": "bed-day {{amount}}",
+    "preAuth": "pre-authorization",
+    "ages": "ages {{from}} to {{to}}",
+    "waiting_one": "waiting {{count}} day",
+    "waiting_other": "waiting {{count}} days"
+  },
+  "plan": {
+    "description": "Amounts are in the hospital's currency. Leave a limit empty for no limit.",
+    "add": { "title": "Add a plan" },
+    "edit": { "title": "Change {{name}}" },
+    "code": "Code",
+    "codeHint": "Unique among this organisation's plans. It cannot be changed later.",
+    "name": "Name",
+    "copayPercent": "Patient's share (percent)",
+    "copayHint": "The part of a covered charge the patient pays, 0 to 100.",
+    "sumInsured": "Sum insured for a year",
+    "roomRentLimit": "Limit for a bed-day",
+    "noLimitHint": "Empty means no limit.",
+    "preAuthRequired": "Needs pre-authorization",
+    "preAuthHint": "Admissions and procedures under this plan wait for the payer's approval.",
+    "eligibility": "Eligibility",
+    "minAge": "Youngest age covered",
+    "maxAge": "Oldest age covered",
+    "waitingPeriodDays": "Waiting period (days)",
+    "waitingHint": "Days after the policy starts before it pays.",
+    "coverageMode": "What the plan covers",
+    "coverageHint": "Choose whether the list below is what is left out or all that is covered.",
+    "services": "Services in the list",
+    "serviceLimit": "Limit for this service",
+    "noServices": "No services in the list.",
+    "errors": {
+      "ageOrder": "The oldest age cannot be below the youngest.",
+      "servicesNeeded": "Add at least one service, or choose to cover everything except the list."
+    }
+  },
+  "services": {
+    "add": "Find a service to add",
+    "remove": "Remove"
+  },
+  "agreements": {
+    "heading": "Rate agreements",
+    "description": "Prices agreed with this organisation for a period. An agreement is never edited: to change a price, end it and add a new one from a later date.",
+    "add": "Add a rate agreement",
+    "gridLabel": "Rate agreements",
+    "empty": "No rate agreements yet.",
+    "name": "Agreement",
+    "from": "From",
+    "to": "Until",
+    "openEnded": "Until ended",
+    "discount": "Discount",
+    "rates": "Agreed rates",
+    "noRates": "None: list prices apply",
+    "status": "Status"
+  },
+  "phase": {
+    "upcoming": "Starts later",
+    "current": "In force",
+    "ended": "Ended"
+  },
+  "agreement": {
+    "description": "Between the two dates, the discount applies to list prices, and an agreed rate replaces the list price of its service.",
+    "add": { "title": "Add a rate agreement" },
+    "name": "Name",
+    "effectiveFrom": "First day",
+    "fromHint": "Today or later.",
+    "effectiveTo": "Last day",
+    "toHint": "Empty until it is ended.",
+    "discountPercent": "Discount on list prices (percent)",
+    "discountHint": "For example 12.5.",
+    "rates": "Agreed rates",
+    "rate": "Rate",
+    "noRates": "No agreed rates: only the discount applies.",
+    "errors": {
+      "endBeforeStart": "The last day cannot be before the first."
+    }
+  },
+  "done": {
+    "saved": "Details saved.",
+    "archived": "Organisation archived.",
+    "restored": "Organisation restored.",
+    "planSaved": "Plan {{name}} saved.",
+    "planArchived": "Plan {{name}} archived.",
+    "planRestored": "Plan {{name}} restored.",
+    "agreementSaved": "Agreement {{name}} added.",
+    "agreementEnded": "Agreement {{name}} ends today."
+  },
+  "errors": {
+    "duplicate_code": "That code is already used. Choose another.",
+    "version_conflict": "Someone else changed this just now. What you typed is kept; check it and save again.",
+    "agreement_overlap": "This period overlaps another agreement with the same organisation. End that one first or choose other dates.",
+    "starts_in_past": "An agreement cannot start in the past.",
+    "payer_archived": "This organisation is archived. Restore it first.",
+    "service_not_found": "A service in the list no longer exists. Remove it and try again."
+  }
+}

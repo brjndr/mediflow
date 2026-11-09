@@ -38,7 +38,8 @@ As of 2026-11-08. GitHub issues and milestones are the source of truth (`gh issu
 - **M22 Medical records and documents (R4):** started ahead of R2/R3 on request. The documents API with patient merge (#194): signed uploads, malware scan job, retention sweep, `POST /patients/{id}/merge` (no unmerge). Web: the Documents tab (#189), consents and certificates (#190, mock only), the medical records desk (#192, mock only). Skipped: #191 (needs an unmerge and correction-request API). Open: #193 and follow-ups #554 to #572.
 - **M23 Hospital operations (R4):** started ahead of R2/R3 on request. The operations API (#200): rosters, blood bank, ambulances, cleaning tasks. Web: housekeeping (#198), duty roster (#195), ambulances (#197, no charges to the bill yet) and the blood bank (#196, a first slice: no donors, cross-match or trace; #196 stays open). Open: #199, #201 and follow-ups #583 to #594.
 - **M19 Emergency (R3):** the registration and triage board in the web app (#171), on the mock until the API (#175): quick registration with a temporary ID for an unidentified patient, categories 1 to 5 with waiting timers.
-- **M17, M18, M20, M21 and beyond:** not started.
+- **M21 Insurance, TPA and claims (R3):** started: insurer, TPA and corporate masters with plans and rate agreements in the web app, on the mock (#181). Open: #182 to #188.
+- **M17, M18, M20 and beyond:** not started (M21 under way, see above).
 
 **What exists**
 
