@@ -33,6 +33,11 @@
     }
   },
   "consent": {
+    "sex": { "male": "Male", "female": "Female", "other": "Other" },
+    "age_one": "{{count}} year",
+    "age_other": "{{count}} years",
+    "ageMonths_one": "{{count}} month",
+    "ageMonths_other": "{{count}} months",
     "section": "Consents",
     "action": "Record a consent",
     "heading": "Record a consent",
