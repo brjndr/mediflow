@@ -3731,7 +3731,7 @@ export interface paths {
         /** @description The emergency department’s board: cases not yet disposed (or those of one `status`), untriaged arrivals first, then category 1 to 5, then the longest wait. `total` comes with the first page. Every case read is audited. Requires emergency:read. */
         get: operations["listEmergencyCases"];
         put?: never;
-        /** @description Registers an arrival in a few fields. With `patientId` the case is for a patient on record (one the caller may read, else 404 `unknown_patient`; needs the patients module); without it the patient is unidentified and gets a temporary ID (`tempId`, ER-0042 and so on, numbered per hospital) that stays on the case for good. A `category` triages the arrival at once. The Idempotency-Key header is required: a repeat registers nobody again. Audited; emits `er.registered` and, with a category, `er.triaged`. Requires emergency:register. */
+        /** @description Registers an arrival in a few fields. With `patientId` the case is for a patient on record (one the caller may read, else 404 `unknown_patient`; needs the patients module); without it the patient is unidentified and gets a temporary ID (`tempId`, ER-0042 and so on, numbered per hospital) that stays on the case for good. A `category` triages the arrival at once and also needs emergency:triage (403 `permission_denied`). The Idempotency-Key header is required: a repeat registers nobody again. Audited; emits `er.registered` and, with a category, `er.triaged`. Requires emergency:register. */
         post: operations["registerEmergencyCase"];
         delete?: never;
         options?: never;

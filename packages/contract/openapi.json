@@ -40973,7 +40973,7 @@
       "post": {
         "operationId": "registerEmergencyCase",
         "tags": ["emergency"],
-        "description": "Registers an arrival in a few fields. With `patientId` the case is for a patient on record (one the caller may read, else 404 `unknown_patient`; needs the patients module); without it the patient is unidentified and gets a temporary ID (`tempId`, ER-0042 and so on, numbered per hospital) that stays on the case for good. A `category` triages the arrival at once. The Idempotency-Key header is required: a repeat registers nobody again. Audited; emits `er.registered` and, with a category, `er.triaged`. Requires emergency:register.",
+        "description": "Registers an arrival in a few fields. With `patientId` the case is for a patient on record (one the caller may read, else 404 `unknown_patient`; needs the patients module); without it the patient is unidentified and gets a temporary ID (`tempId`, ER-0042 and so on, numbered per hospital) that stays on the case for good. A `category` triages the arrival at once and also needs emergency:triage (403 `permission_denied`). The Idempotency-Key header is required: a repeat registers nobody again. Audited; emits `er.registered` and, with a category, `er.triaged`. Requires emergency:register.",
         "requestBody": {
           "required": true,
           "content": {
