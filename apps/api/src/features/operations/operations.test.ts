@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { expireBloodUnits, expireBloodUnitsEverywhere } from './expiry.js';
 import { MemoryQueue } from '../../core/jobs/queue.js';
 import {
   addMembership,
@@ -579,6 +580,51 @@ describe('the blood bank', () => {
       await get('/blood-units?status=available&bloodGroup=O%2B'),
     );
     expect(filtered.items).toHaveLength(2);
+  });
+
+  it('expires units past their date by itself, once, for each hospital alone', async () => {
+    await wipe();
+    const past = {
+      collectedAt: new Date(Date.now() - 3 * 24 * hour).toISOString(),
+      expiresAt: new Date(Date.now() - hour).toISOString(),
+    };
+    const stale = await unitAt('available', past);
+    const held = await unitAt('available', {
+      collectedAt: past.collectedAt,
+      expiresAt: new Date(Date.now() + 2000).toISOString(),
+    });
+    await ok<Unit>(await move(held, 'reserved', { patientId }, { user: nurse }));
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+    const fresh = await unitAt('available');
+    const testing = await unitAt('testing', past);
+    const other = (
+      await pool.query<{ id: string }>(
+        `insert into blood_units (tenant_id, unit_number, blood_group, component, volume_ml, collected_at, expires_at, status, created_by)
+         values ($1, 'CL-1', 'O+', 'red_cells', 350, now() - interval '3 days', now() - interval '1 hour', 'available', $2)
+         returning id`,
+        [clinic.id, clinicAdmin.id],
+      )
+    ).rows[0]!.id;
+    expect(await expireBloodUnits(pool, hospital.id)).toBeGreaterThanOrEqual(2);
+    const status = async (id: string) =>
+      (await pool.query<{ status: string }>('select status from blood_units where id = $1', [id]))
+        .rows[0]!.status;
+    expect(await status(stale.id)).toBe('expired');
+    expect(await status(held.id)).toBe('expired');
+    expect(await status(fresh.id)).toBe('available');
+    expect(await status(testing.id)).toBe('testing');
+    expect(await status(other)).toBe('available');
+    const history = await ok<{ history: { toStatus: string; actorId: string }[] }>(
+      await get(`/blood-units/${stale.id}`),
+    );
+    expect(history.history.at(-1)).toMatchObject({ toStatus: 'expired' });
+    const events = await eventsOf(stale.id);
+    expect(events.filter((e) => e.payload.to === 'expired')).toHaveLength(1);
+    expect(await expireBloodUnits(pool, hospital.id)).toBe(0);
+    expect((await eventsOf(stale.id)).filter((e) => e.payload.to === 'expired')).toHaveLength(1);
+    // the job covers every hospital with the blood bank on, and does not fail
+    await expireBloodUnitsEverywhere(pool);
+    expect(await status(fresh.id)).toBe('available');
   });
 
   it('is enforced by the database too, and by hospital', async () => {
