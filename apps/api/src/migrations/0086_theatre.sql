@@ -124,7 +124,11 @@ CREATE TABLE ot_consumables (
   recorded_by uuid NOT NULL,
   recorded_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ot_consumables_booking FOREIGN KEY (tenant_id, booking_id)
-    REFERENCES ot_bookings (tenant_id, id)
+    REFERENCES ot_bookings (tenant_id, id),
+  CONSTRAINT ot_consumables_batch FOREIGN KEY (tenant_id, batch_id, drug_id)
+    REFERENCES stock_batches (tenant_id, id, drug_id),
+  CONSTRAINT ot_consumables_location FOREIGN KEY (tenant_id, location_id)
+    REFERENCES stock_locations (tenant_id, id)
 );
 CREATE INDEX ot_consumables_booking ON ot_consumables (tenant_id, booking_id, recorded_at, id);
 SELECT enable_tenant_rls('ot_consumables', 'SELECT, INSERT');

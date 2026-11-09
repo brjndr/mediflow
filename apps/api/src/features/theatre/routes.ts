@@ -806,8 +806,8 @@ export const theatreRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const client = request.txClient;
       if (request.replayOf !== null && request.idempotentId) {
         const { rows } = await client.query<ConsumableRow>(
-          `select ${CONSUMABLE_COLUMNS} from ot_consumables c where c.use_id = $1 order by c.recorded_at, c.id`,
-          [request.idempotentId],
+          `select ${CONSUMABLE_COLUMNS} from ot_consumables c where c.use_id = $1 and c.booking_id = $2 order by c.recorded_at, c.id`,
+          [request.idempotentId, request.params.surgeryId],
         );
         request.audit('read', 'surgery', request.params.surgeryId);
         return reply.status(201).send({ items: rows.map(consumableView), nextCursor: null });
