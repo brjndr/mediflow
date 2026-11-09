@@ -421,6 +421,7 @@
     "invalid_format": "This value is not in the expected format.",
     "plain_text": "This text has a character that cannot be seen. Type it again instead of pasting it.",
     "date_too_early": "Choose a later date.",
+    "end_after_start": "The end must be after the start.",
     "invalid_value": "Choose one of the available options.",
     "invalid": "This value is not valid."
   },
