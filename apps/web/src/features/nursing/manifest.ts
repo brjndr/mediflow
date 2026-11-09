@@ -30,9 +30,4 @@ export const nursingFeature: FeatureManifest = {
   ],
   nav: { icon: HeartPulse, order: 82.5, requires: ['admission:read', 'nursingVitals:read'] },
   permissions: ['admission:read', 'nursingVitals:read', 'nursingVitals:record'],
-  settings: {
-    section: 'nursing',
-    schema: () => import('./settings').then((module) => module.nursingSettingsSchema),
-    requires: ['admission:read'],
-  },
 };

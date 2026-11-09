@@ -10,7 +10,7 @@ What was decided for this module in the web app (#157, NR-01). The root `CLAUDE.
 
 ## Decisions and gaps
 
-- **Configurable** means `EwsConfig` is a parameter of the scoring and `nursingSettingsSchema` (`settings.ts`) is declared in the manifest, but tenant settings are not delivered to the web app yet, so `useEwsConfig()` returns the defaults. When the settings reach the tenant config, read them there; nothing else changes.
+- **Configurable** means `EwsConfig` is a parameter of the scoring and `nursingSettingsSchema` (`settings.ts`) is ready, but it is not in the manifest (a `settings` entry adds a section to the admin settings screen, which would show an empty one) and tenant settings are not delivered to the web app yet, so `useEwsConfig()` returns the defaults. When the settings reach the tenant config, read them there; nothing else changes.
 - **No "per nurse" list:** the API has no assignment of patients to a nurse; the worklist is per ward. A proposed follow-up.
 - The mock keeps readings in `mocks/handlers/nursing.ts`, registered before the admissions handlers because `/admissions/:id/:action` there would otherwise answer the POSTs. Tests admit patients with `addMockAdmission` (`mocks/handlers/admissions-flow.ts`) and chart readings with `addMockWardVital`.
 - Idempotency keys come from `hooks/use-nursing.ts`, one per request body.
