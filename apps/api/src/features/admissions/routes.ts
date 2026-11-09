@@ -4,8 +4,13 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Permission, PermissionScope } from '../../core/access/registry.js';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
+import { tidyWithin } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
-import { closeInpatientEncounter, openInpatientEncounter } from '../clinical/index.js';
+import {
+  cancelInpatientEncounter,
+  closeInpatientEncounter,
+  openInpatientEncounter,
+} from '../clinical/index.js';
 import { ownDoctorId, practisingDoctor } from '../doctors/index.js';
 import { patientInScope } from '../patients/index.js';
 import {
@@ -18,6 +23,7 @@ import {
 import {
   activeAdmissionOf,
   boardBed,
+  cancelAdmission,
   dischargeAdmission,
   findAdmission,
   insertAdmission,
@@ -39,6 +45,7 @@ import {
   type BoardBedStatusValue,
   ADMISSION_SCHEMAS,
   AdmissionBedChange,
+  AdmissionCancel,
   AdmissionCreate,
   AdmissionDetail,
   AdmissionDischarge,
@@ -50,6 +57,7 @@ import {
   BoardBed,
   BoardBedPage,
   BoardQuery,
+  CANCEL_REASON_MAX,
 } from './schemas.js';
 
 const FEATURE = 'admissions';
@@ -57,6 +65,7 @@ const READ = 'admission:read';
 const CREATE = 'admission:create';
 const TRANSFER = 'admission:transfer';
 const DISCHARGE = 'admission:discharge';
+const CANCEL = 'admission:cancel';
 const BED_UPDATE = 'bed:update';
 
 const notFound = () => new HttpError(404, 'admission_not_found', 'No such admission');
@@ -110,6 +119,8 @@ const admissionView = (row: AdmissionRow): Admission => ({
   admittedAt: iso(row.admitted_at),
   ...(row.discharged_at === null ? {} : { dischargedAt: iso(row.discharged_at) }),
   ...(row.discharge_type === null ? {} : { dischargeType: row.discharge_type }),
+  ...(row.cancelled_at === null ? {} : { cancelledAt: iso(row.cancelled_at) }),
+  ...(row.cancel_reason === null ? {} : { cancelReason: row.cancel_reason }),
   ...(row.assignment_id === null ||
   row.bed_id === null ||
   row.assigned_at === null ||
@@ -249,7 +260,7 @@ async function placeInBed(
 async function leaveBed(
   request: FastifyRequest,
   admission: { id: string; patientId: string },
-  reason: 'transfer' | 'discharge',
+  reason: 'transfer' | 'discharge' | 'cancelled',
 ): Promise<void> {
   const released = await releaseAssignment(
     request.txClient,
@@ -258,7 +269,16 @@ async function leaveBed(
     userIdOf(request),
   );
   if (!released) return;
-  if (!(await moveBed(request.txClient, released.bed_id, 'occupied', 'cleaning', null))) {
+  if (
+    !(await moveBed(
+      request.txClient,
+      released.bed_id,
+      'occupied',
+      // A bed the patient never needed cleaned is ready again at once.
+      reason === 'cancelled' ? 'available' : 'cleaning',
+      null,
+    ))
+  ) {
     throw new Error('bed of an open assignment was not occupied');
   }
   announce(request, released.ward_id);
@@ -460,7 +480,7 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(409, 'conflict', 'The admission has changed since it was read');
       }
       if (row.status !== 'admitted') {
-        throw new HttpError(409, 'invalid_transition', 'The patient is discharged');
+        throw new HttpError(409, 'invalid_transition', `The admission is ${row.status}`);
       }
       await change(row);
       request.audit('update', 'admission', row.id);
@@ -559,6 +579,62 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
           patientId: row.patient_id,
           encounterId: row.encounter_id,
           dischargeType: body.dischargeType,
+        });
+      });
+    },
+  );
+
+  app.post(
+    '/admissions/:admissionId/cancel',
+    {
+      config: changeConfig(CANCEL),
+      schema: {
+        operationId: 'cancelAdmission',
+        tags: ['admissions'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Cancels an admission made by mistake, with a reason: the stay’s inpatient encounter is cancelled, the bed it held (if any) is set available again and the admission is final. Only while nothing of the stay is on the record: a signed note, a diagnosis that stands, an order not cancelled or a prescription is 409 `has_records` (discharge the patient instead), and a draft note is 409 `unsigned_notes`. Emits `encounter.cancelled`, `bed.released` (reason `cancelled`) and `admission.cancelled` through the outbox, never the reason. Requires admission:cancel and admission:read.' +
+          CHANGE_RULES,
+        params: AdmissionParams,
+        body: AdmissionCancel,
+        response: { 200: ref(AdmissionDetail), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as AdmissionCancel;
+      const reason = tidyWithin(body.reason, CANCEL_REASON_MAX);
+      if (reason === '') throw new HttpError(400, 'validation_failed', 'A reason is needed');
+      return changeAdmission(request, reply, CANCEL, body.version, async (row) => {
+        const client = request.txClient;
+        const admission = { id: row.id, patientId: row.patient_id };
+        const cancelled = await cancelInpatientEncounter(
+          client,
+          row.encounter_id,
+          userIdOf(request),
+          reason,
+        );
+        if (cancelled === 'unsigned_notes') {
+          throw new HttpError(409, 'unsigned_notes', 'A note of the stay is still a draft');
+        }
+        if (cancelled === 'has_records') {
+          throw new HttpError(409, 'has_records', 'The stay has records: discharge instead');
+        }
+        if (cancelled === 'not_open') {
+          throw new HttpError(409, 'encounter_not_open', 'The stay’s encounter is not open');
+        }
+        // The admission is held; the ward is taken after it, as everywhere.
+        const current = await openAssignment(client, row.id);
+        if (current) await lockWard(client, current.ward_id);
+        await leaveBed(request, admission, 'cancelled');
+        await cancelAdmission(client, row.id, reason, userIdOf(request));
+        await request.emit('encounter.cancelled', row.encounter_id, {
+          encounterId: row.encounter_id,
+          patientId: row.patient_id,
+        });
+        await request.emit('admission.cancelled', row.id, {
+          admissionId: row.id,
+          patientId: row.patient_id,
+          encounterId: row.encounter_id,
         });
       });
     },

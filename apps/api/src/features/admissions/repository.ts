@@ -87,6 +87,8 @@ export interface AdmissionRow {
   admitted_at: Date;
   discharged_at: Date | null;
   discharge_type: DischargeTypeValue | null;
+  cancelled_at: Date | null;
+  cancel_reason: string | null;
   assignment_id: string | null;
   bed_id: string | null;
   bed_number: string | null;
@@ -103,6 +105,7 @@ const ADMISSIONS = `
          p.mrn as patient_mrn, a.encounter_id, a.admitting_doctor_id as doctor_id,
          u.name as doctor_name, a.department_id, dp.name as department_name, a.admission_type,
          a.status, a.admitted_at, a.discharged_at, a.discharge_type,
+         a.cancelled_at, a.cancel_reason,
          ba.id as assignment_id, ba.bed_id, b.number as bed_number, ba.ward_id,
          w.name as ward_name, r.name as room_name, ba.assigned_at, a.version,
          to_char(a.admitted_at at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') || '+00' as order_at
@@ -348,6 +351,21 @@ export async function dischargeAdmission(
      set status = 'discharged', discharged_at = now(), discharged_by = $3, discharge_type = $2
      where id = $1`,
     [id, dischargeType, userId],
+  );
+}
+
+/** Cancels an admission made by mistake; final, like a discharge. */
+export async function cancelAdmission(
+  client: pg.ClientBase,
+  id: string,
+  reason: string,
+  userId: string,
+): Promise<void> {
+  await client.query(
+    `update admissions
+     set status = 'cancelled', cancelled_at = now(), cancelled_by = $3, cancel_reason = $2
+     where id = $1`,
+    [id, reason, userId],
   );
 }
 

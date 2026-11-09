@@ -75,6 +75,8 @@ export const DOMAIN_EVENTS = [
   'bed.released',
   'medication.administered',
   'discharge.completed',
+  // An admission made by mistake was cancelled (#573): ids only, never the reason.
+  'admission.cancelled',
   // Operations (#200): ids and codes only.
   'roster.shift_scheduled',
   'roster.shift_cancelled',

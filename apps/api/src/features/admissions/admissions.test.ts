@@ -62,6 +62,7 @@ interface Admission {
   status: string;
   bed?: Bed;
   dischargeType?: string;
+  cancelReason?: string;
   version: number;
 }
 interface Stay {
@@ -128,6 +129,13 @@ const discharge = (detail: Detail, more: object = {}, options: Options = {}) =>
   post(
     `/admissions/${detail.admission.id}/discharge`,
     { dischargeType: 'routine', version: detail.admission.version, ...more },
+    options,
+  );
+
+const cancel = (detail: Detail, more: object = {}, options: Options = {}) =>
+  post(
+    `/admissions/${detail.admission.id}/cancel`,
+    { reason: 'Admitted by mistake', version: detail.admission.version, ...more },
     options,
   );
 
@@ -629,6 +637,116 @@ describe('discharge', () => {
       403,
       'permission_denied',
     ]);
+  });
+});
+
+describe('cancelling an admission made by mistake', () => {
+  it('cancels the stay, frees the bed at once and leaves the patient free to be admitted', async () => {
+    await reset();
+    const detail = await admitted(patient(0), { bedId: bed(0) });
+    const done = await ok<Detail>(await cancel(detail, { reason: '  Wrong patient  ' }));
+    expect(done.admission).toMatchObject({ status: 'cancelled', cancelReason: 'Wrong patient' });
+    expect(done.admission.bed).toBeUndefined();
+    expect(done.stays[0]).toMatchObject({ releaseReason: 'cancelled' });
+    // Ready for the next patient: nothing was used, so nothing needs cleaning.
+    expect(await bedStatus(bed(0))).toBe('available');
+    const { rows } = await pool.query<{ status: string; cancel_reason: string }>(
+      'select status, cancel_reason from encounters where id = $1',
+      [detail.admission.encounterId],
+    );
+    expect(rows[0]).toEqual({ status: 'cancelled', cancel_reason: 'Wrong patient' });
+    expect(await allEvents()).toEqual([
+      'admission.cancelled',
+      'admission.created',
+      'bed.assigned',
+      'bed.released',
+      'encounter.cancelled',
+      'encounter.opened',
+    ]);
+    expect(JSON.stringify(await eventsOf(detail.admission.id))).not.toContain('Wrong patient');
+    expect(await audited('admission', detail.admission.id)).toContain('update');
+    // The same patient and the same bed can be admitted again.
+    const again = await admitted(patient(0), { bedId: bed(0) });
+    expect(again.admission.status).toBe('admitted');
+  });
+
+  it('cancels an admission that never had a bed', async () => {
+    await reset();
+    const detail = await admitted(patient(0));
+    const done = await ok<Detail>(await cancel(detail));
+    expect(done.admission.status).toBe('cancelled');
+    expect(await allEvents()).not.toContain('bed.released');
+  });
+
+  it('is final, and the listing can filter for it', async () => {
+    await reset();
+    const detail = await admitted(patient(0), { bedId: bed(0) });
+    const done = await ok<Detail>(await cancel(detail));
+    expect(errorOf(await cancel(done))).toEqual([409, 'invalid_transition']);
+    expect(errorOf(await discharge(done))).toEqual([409, 'invalid_transition']);
+    expect(errorOf(await transfer(done, bed(1)))).toEqual([409, 'invalid_transition']);
+    await expect(
+      pool.query("update admissions set status = 'admitted' where id = $1", [detail.admission.id]),
+    ).rejects.toThrow(/only discharged or cancelled/);
+    const page = await ok<Page<Admission>>(await get('/admissions?status=cancelled'));
+    expect(page.items.map((item) => item.id)).toEqual([detail.admission.id]);
+  });
+
+  it('answers a repeat of the same key without cancelling twice', async () => {
+    await reset();
+    const detail = await admitted(patient(0), { bedId: bed(0) });
+    const key = fresh();
+    const first = await cancel(detail, {}, { key });
+    const second = await cancel(detail, {}, { key });
+    expect([first.statusCode, second.statusCode]).toEqual([200, 200]);
+    expect(
+      await allEvents().then((all) => all.filter((e) => e === 'admission.cancelled')),
+    ).toHaveLength(1);
+  });
+
+  it('needs a reason and the version it was read at', async () => {
+    await reset();
+    const detail = await admitted(patient(0), { bedId: bed(0) });
+    expect(errorOf(await cancel(detail, { reason: '' }))[0]).toBe(400);
+    expect(errorOf(await cancel(detail, { reason: '   ' }))).toEqual([400, 'validation_failed']);
+    expect(errorOf(await cancel(detail, { version: detail.admission.version + 1 }))).toEqual([
+      409,
+      'conflict',
+    ]);
+    expect(await bedStatus(bed(0))).toBe('occupied');
+  });
+
+  it('refuses a stay that has a draft note or anything on its record', async () => {
+    await reset();
+    const detail = await admitted(patient(0), { bedId: bed(0) });
+    const note = (status: string) =>
+      pool.query(
+        `insert into clinical_notes (tenant_id, encounter_id, patient_id, body, author_id, status, signed_at)
+         values ($1, $2, $3, '{}', $4, $5, case when $5 = 'signed' then now() end)`,
+        [hospital.id, detail.admission.encounterId, patient(0), doctor.id, status],
+      );
+    await note('draft');
+    expect(errorOf(await cancel(detail))).toEqual([409, 'unsigned_notes']);
+    await pool.query('delete from clinical_notes where encounter_id = $1', [
+      detail.admission.encounterId,
+    ]);
+    await note('signed');
+    expect(errorOf(await cancel(detail))).toEqual([409, 'has_records']);
+    // Nothing changed: still admitted, still in the bed, with no event for a cancellation.
+    expect((await read(detail.admission.id)).admission.status).toBe('admitted');
+    expect(await bedStatus(bed(0))).toBe('occupied');
+    expect(await allEvents()).not.toContain('admission.cancelled');
+  });
+
+  it('is for those who hold admission:cancel, and another hospital cannot reach it', async () => {
+    await reset();
+    const detail = await admitted(patient(0));
+    expect(errorOf(await cancel(detail, {}, { user: nurse }))).toEqual([403, 'permission_denied']);
+    expect(errorOf(await cancel(detail, {}, { tenant: clinic, user: clinicDoctor }))).toEqual([
+      404,
+      'admission_not_found',
+    ]);
+    expect((await read(detail.admission.id)).admission.status).toBe('admitted');
   });
 });
 
