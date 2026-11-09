@@ -90,7 +90,11 @@ export const DOMAIN_EVENTS = [
   'ambulance.trip_status_changed',
   'cleaning.task_created',
   'cleaning.task_completed',
+  // Emergency cases (BE-26): ids and the category only, never the complaint.
+  'er.registered',
   'er.triaged',
+  'er.identified',
+  'er.unidentified',
   'surgery.completed',
   'claim.submitted',
   'claim.settled',
