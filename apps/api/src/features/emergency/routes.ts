@@ -13,7 +13,7 @@ import {
   EmergencyTriage,
   EmergencyUnidentify,
 } from './schemas.js';
-import { isUuid, requirePatient, userIdOf } from './util.js';
+import { isUuid, requireGrant, requirePatient, userIdOf } from './util.js';
 
 const FEATURE = 'emergency';
 
@@ -199,7 +199,7 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['emergency'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Registers an arrival in a few fields. With `patientId` the case is for a patient on record (one the caller may read, else 404 `unknown_patient`; needs the patients module); without it the patient is unidentified and gets a temporary ID (`tempId`, ER-0042 and so on, numbered per hospital) that stays on the case for good. A `category` triages the arrival at once. The Idempotency-Key header is required: a repeat registers nobody again. Audited; emits `er.registered` and, with a category, `er.triaged`. Requires emergency:register.',
+          'Registers an arrival in a few fields. With `patientId` the case is for a patient on record (one the caller may read, else 404 `unknown_patient`; needs the patients module); without it the patient is unidentified and gets a temporary ID (`tempId`, ER-0042 and so on, numbered per hospital) that stays on the case for good. A `category` triages the arrival at once and also needs emergency:triage (403 `permission_denied`). The Idempotency-Key header is required: a repeat registers nobody again. Audited; emits `er.registered` and, with a category, `er.triaged`. Requires emergency:register.',
         body: EmergencyCaseCreate,
         response: { 201: ref(EmergencyCase), ...errors(400, 401, 403, 404, 429) },
       },
@@ -211,6 +211,7 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         return reply.status(201).send(await replyWith(client, request.idempotentId));
       }
       const body = request.body;
+      if (body.category !== undefined) await requireGrant(request, 'emergency:triage');
       if (body.patientId !== undefined) await requirePatient(request, body.patientId);
       const counter = await client.query<{ last_no: number }>(
         `insert into er_counters (last_no) values (1)

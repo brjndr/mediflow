@@ -31,3 +31,11 @@ export async function requirePatient(request: FastifyRequest, patientId: string)
     throw new HttpError(404, 'unknown_patient', 'No such patient');
   }
 }
+
+/** 403 unless the caller holds a permission the route itself did not need to declare. */
+export async function requireGrant(request: FastifyRequest, permission: string): Promise<void> {
+  const policy = await request.access.policy();
+  if (!policy?.permissions.some((grant) => grant.permission === permission)) {
+    throw new HttpError(403, 'permission_denied', 'You do not have permission to do that');
+  }
+}

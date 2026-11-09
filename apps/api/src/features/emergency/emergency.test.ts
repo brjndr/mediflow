@@ -225,6 +225,22 @@ describe('registration', () => {
     expect(noKey.statusCode).toBe(400);
   });
 
+  it('needs the triage permission to triage at registration', async () => {
+    const receptionist = await createUser(pool, 'ER Desk', { withPassword: false });
+    await addMembership(pool, receptionist, hospital, 'receptionist');
+    try {
+      expect(errorOf(await register({ category: 2 }, { user: receptionist }))).toEqual([
+        403,
+        'permission_denied',
+      ]);
+      expect((await register({}, { user: receptionist })).statusCode).toBe(201);
+    } finally {
+      await pool.query('delete from outbox where tenant_id = $1', [hospital.id]);
+      await bypass('delete from er_encounters where created_by = $1', [receptionist.id]);
+      await deleteUsers(pool, [receptionist]);
+    }
+  });
+
   it('repeats an Idempotency-Key without a second case', async () => {
     const key = fresh();
     const one = await ok<Case>(await register({ complaint: 'Fall' }, { key }), 201);
