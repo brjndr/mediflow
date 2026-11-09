@@ -41,6 +41,8 @@ beforeAll(() => {
 });
 afterEach(() => {
   server.resetHandlers();
+  // Listeners added with server.events.on (request watchers) would stay for every later test.
+  server.events.removeAllListeners();
   resetMockDb();
   cleanup();
   resetApiConfig();
