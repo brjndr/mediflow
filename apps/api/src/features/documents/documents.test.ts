@@ -185,6 +185,7 @@ afterAll(async () => {
     await client.query('begin');
     await client.query('set local session_replication_role = replica');
     for (const table of [
+      'document_legal_holds',
       'patient_documents',
       'patient_merges',
       'document_retention_rules',

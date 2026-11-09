@@ -11,6 +11,11 @@ import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { patientInScope, patientMergedInto } from '../patients/index.js';
 import {
   CategoryParams,
+  HoldListQuery,
+  HoldParams,
+  LegalHold,
+  LegalHoldCreate,
+  LegalHoldPage,
   DOCUMENT_MAX_BYTES,
   DOCUMENT_SCHEMAS,
   DOCUMENT_TYPES,
@@ -395,6 +400,166 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       request.audit('update', 'document_retention', String(category));
       return { category, years };
+    },
+  );
+
+  // Legal holds: while one is active the retention sweep leaves the document(s) alone.
+  interface HoldRow {
+    id: string;
+    patient_id: string;
+    document_id: string | null;
+    reason: string;
+    placed_at: Date;
+    released_at: Date | null;
+  }
+  const HOLD_COLUMNS = 'id, patient_id, document_id, reason, placed_at, released_at';
+  const holdView = (row: HoldRow) => ({
+    id: row.id,
+    patientId: row.patient_id,
+    ...(row.document_id ? { documentId: row.document_id } : {}),
+    reason: row.reason,
+    placedAt: row.placed_at.toISOString(),
+    ...(row.released_at ? { releasedAt: row.released_at.toISOString() } : {}),
+  });
+
+  async function placeHold(
+    request: FastifyRequest,
+    patientId: string,
+    documentId: string | null,
+    reasonText: string,
+  ) {
+    const reason = tidyWithin(reasonText, 300);
+    if (!reason) throw new HttpError(400, 'validation_failed', 'A reason is needed');
+    // Lock the documents first, so a sweep working on one waits for the hold or sees it.
+    await request.txClient.query(
+      `select id from patient_documents
+       where patient_id = $1 and ($2::uuid is null or id = $2) for update`,
+      [patientId, documentId],
+    );
+    const { rows } = await request.txClient.query<HoldRow>(
+      `insert into document_legal_holds (tenant_id, patient_id, document_id, reason, placed_by)
+       values (app_tenant_id(), $1, $2, $3, $4) returning ${HOLD_COLUMNS}`,
+      [patientId, documentId, reason, userIdOf(request)],
+    );
+    request.audit('create', 'document_legal_hold', rows[0]!.id);
+    return holdView(rows[0]!);
+  }
+
+  app.post(
+    '/patients/:patientId/legal-hold',
+    {
+      config: { permissions: ['documentRetention:manage'], feature: FEATURE },
+      schema: {
+        operationId: 'placePatientLegalHold',
+        tags: ['documents'],
+        description:
+          'Holds every document of a patient (those added later too) out of the retention sweep until the hold is released. Requires documentRetention:manage.',
+        params: PatientParams,
+        body: ref(LegalHoldCreate),
+        response: { 201: ref(LegalHold), ...errors(400, 401, 403, 404, 429) },
+      },
+    },
+    async (request, reply) => {
+      await reachable(request, request.params.patientId, 'documentRetention:manage');
+      reply.code(201);
+      return placeHold(
+        request,
+        request.params.patientId,
+        null,
+        (request.body as LegalHoldCreate).reason,
+      );
+    },
+  );
+
+  app.post(
+    '/documents/:documentId/legal-hold',
+    {
+      config: { permissions: ['documentRetention:manage'], feature: FEATURE },
+      schema: {
+        operationId: 'placeDocumentLegalHold',
+        tags: ['documents'],
+        description:
+          'Holds one document out of the retention sweep until the hold is released. Requires documentRetention:manage.',
+        params: DocumentParams,
+        body: ref(LegalHoldCreate),
+        response: { 201: ref(LegalHold), ...errors(400, 401, 403, 404, 429) },
+      },
+    },
+    async (request, reply) => {
+      const row = await documentOf(request, request.params.documentId, 'documentRetention:manage');
+      reply.code(201);
+      return placeHold(request, row.patient_id, row.id, (request.body as LegalHoldCreate).reason);
+    },
+  );
+
+  app.get(
+    '/legal-holds',
+    {
+      config: { permissions: ['documentRetention:read'], feature: FEATURE },
+      schema: {
+        operationId: 'listDocumentLegalHolds',
+        tags: ['documents'],
+        description:
+          'The active legal holds of the hospital, newest first. Requires documentRetention:read.',
+        querystring: HoldListQuery,
+        response: { 200: ref(LegalHoldPage), ...errors(400, 401, 403, 429) },
+      },
+    },
+    async (request) => {
+      const { cursor, limit } = request.query as { cursor?: string; limit: number };
+      const params: unknown[] = [];
+      let after = '';
+      if (cursor) {
+        const at = decodeCursor(cursor);
+        params.push(at.at, at.id);
+        after = 'and (placed_at, id) < ($1::timestamptz, $2::uuid)';
+      }
+      params.push(limit + 1);
+      const { rows } = await request.txClient.query<HoldRow>(
+        `select ${HOLD_COLUMNS} from document_legal_holds where released_at is null ${after}
+         order by placed_at desc, id desc limit $${params.length}`,
+        params,
+      );
+      const page = rows.slice(0, limit);
+      const last = page[page.length - 1];
+      return {
+        items: page.map(holdView),
+        nextCursor:
+          rows.length > limit && last
+            ? Buffer.from(`${last.placed_at.toISOString()}|${last.id}`).toString('base64url')
+            : null,
+      };
+    },
+  );
+
+  app.post(
+    '/legal-holds/:holdId/release',
+    {
+      config: { permissions: ['documentRetention:manage'], feature: FEATURE },
+      schema: {
+        operationId: 'releaseDocumentLegalHold',
+        tags: ['documents'],
+        description:
+          'Releases a hold; the sweep may purge what it covered once its retention is past. 404 `hold_not_found`; 409 `already_released`. Requires documentRetention:manage.',
+        params: HoldParams,
+        response: { 200: ref(LegalHold), ...errors(401, 403, 404, 409, 429) },
+      },
+    },
+    async (request) => {
+      const { rows } = await request.txClient.query<HoldRow>(
+        `select ${HOLD_COLUMNS} from document_legal_holds where id = $1 for update`,
+        [request.params.holdId],
+      );
+      const hold = rows[0];
+      if (!hold) throw new HttpError(404, 'hold_not_found', 'No such hold');
+      if (hold.released_at) throw new HttpError(409, 'already_released', 'Already released');
+      const done = await request.txClient.query<HoldRow>(
+        `update document_legal_holds set released_at = now(), released_by = $2 where id = $1
+         returning ${HOLD_COLUMNS}`,
+        [hold.id, userIdOf(request)],
+      );
+      request.audit('update', 'document_legal_hold', hold.id);
+      return holdView(done.rows[0]!);
     },
   );
 };
