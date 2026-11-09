@@ -406,7 +406,8 @@ describe('the guard', () => {
   });
 });
 
-describe('starting the app', () => {
+// Each test builds a whole app, which passes the default 5 s on a loaded machine (#553).
+describe('starting the app', { timeout: 30_000 }, () => {
   it('refuses a tenant route that does not say what it requires', async () => {
     await expect(
       buildTestApp({
