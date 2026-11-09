@@ -109,8 +109,6 @@ describe('mock backend', () => {
         'billing:read',
         'billing:create',
         'invoice:read',
-        'charge:read',
-        'encounter:read',
       ]);
     });
 
