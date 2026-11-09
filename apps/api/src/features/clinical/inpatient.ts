@@ -1,5 +1,5 @@
 import type pg from 'pg';
-import { endEncounter, hasDrafts } from './repository.js';
+import { endEncounter, hasDrafts, hasRecords } from './repository.js';
 
 /**
  * What the admission module asks of the encounters (BE-23): an admission has its own inpatient
@@ -42,4 +42,26 @@ export async function closeInpatientEncounter(
   if (await hasDrafts(client, id)) return 'unsigned_notes';
   await endEncounter(client, id, 'closed', userId, null);
   return 'closed';
+}
+
+/**
+ * Cancels the inpatient encounter of an admission made by mistake (#573). 'unsigned_notes' while
+ * a note is a draft, 'has_records' when anything is on the record (close it by discharging
+ * instead), 'not_open' when it already ended; nothing changes then.
+ */
+export async function cancelInpatientEncounter(
+  client: pg.ClientBase,
+  id: string,
+  userId: string,
+  reason: string,
+): Promise<'cancelled' | 'unsigned_notes' | 'has_records' | 'not_open'> {
+  const { rows } = await client.query<{ status: string }>(
+    "select status from encounters where id = $1 and type = 'ipd' for update",
+    [id],
+  );
+  if (rows[0]?.status !== 'open') return 'not_open';
+  if (await hasDrafts(client, id)) return 'unsigned_notes';
+  if (await hasRecords(client, id)) return 'has_records';
+  await endEncounter(client, id, 'cancelled', userId, reason);
+  return 'cancelled';
 }

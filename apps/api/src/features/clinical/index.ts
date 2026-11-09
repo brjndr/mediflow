@@ -30,4 +30,8 @@ export { OrderPriority, OrderStatus } from './schemas.js';
 export { DOSE_MAX, INSTRUCTIONS_MAX, LINES_MAX, ROUTES as MEDICATION_ROUTES } from './schemas.js';
 
 /** For admissions (BE-23): the inpatient encounter an admission opens and a discharge closes. */
-export { closeInpatientEncounter, openInpatientEncounter } from './inpatient.js';
+export {
+  cancelInpatientEncounter,
+  closeInpatientEncounter,
+  openInpatientEncounter,
+} from './inpatient.js';

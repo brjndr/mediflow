@@ -2979,8 +2979,8 @@
       },
       "AdmissionStatus": {
         "type": "string",
-        "enum": ["admitted", "discharged"],
-        "description": "admitted -> discharged, final."
+        "enum": ["admitted", "discharged", "cancelled"],
+        "description": "admitted -> discharged or cancelled (made by mistake), both final."
       },
       "DischargeType": {
         "type": "string",
@@ -2989,7 +2989,7 @@
       },
       "BedReleaseReason": {
         "type": "string",
-        "enum": ["transfer", "discharge"],
+        "enum": ["transfer", "discharge", "cancelled"],
         "description": "Why a patient left a bed."
       },
       "BoardBedStatus": {
@@ -3125,6 +3125,14 @@
           },
           "dischargeType": {
             "$ref": "#/components/schemas/DischargeType"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "cancelReason": {
+            "description": "Why it was cancelled.",
+            "type": "string"
           },
           "bed": {
             "$ref": "#/components/schemas/AdmissionBed"
@@ -23395,6 +23403,143 @@
                 "properties": {
                   "dischargeType": {
                     "$ref": "#/components/schemas/DischargeType"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the change was made from. Another one gives 409 `conflict`.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/cancel": {
+      "post": {
+        "operationId": "cancelAdmission",
+        "tags": ["admissions"],
+        "description": "Cancels an admission made by mistake, with a reason: the stay’s inpatient encounter is cancelled, the bed it held (if any) is set available again and the admission is final. Only while nothing of the stay is on the record: a signed note, a diagnosis that stands, an order not cancelled or a prescription is 409 `has_records` (discharge the patient instead), and a draft note is 409 `unsigned_notes`. Emits `encounter.cancelled`, `bed.released` (reason `cancelled`) and `admission.cancelled` through the outbox, never the reason. Requires admission:cancel and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["reason", "version"],
+                "properties": {
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "description": "Plain text. Why it was cancelled: the admission was made by mistake.",
+                    "type": "string"
                   },
                   "version": {
                     "minimum": 1,

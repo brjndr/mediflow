@@ -26,6 +26,11 @@ export const ADMISSION_PERMISSIONS = [
     defaults: { admin: 'all', doctor: 'all' },
   },
   {
+    id: 'admission:cancel',
+    description: 'Cancel an admission made by mistake, with a reason, freeing its bed',
+    defaults: { admin: 'all', doctor: 'all', receptionist: 'all' },
+  },
+  {
     id: 'bed:update',
     description: 'Mark a bed being cleaned or ready',
     defaults: { admin: 'all', nurse: 'all' },

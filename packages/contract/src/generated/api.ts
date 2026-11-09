@@ -1551,6 +1551,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admissions/{admissionId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cancels an admission made by mistake, with a reason: the stay’s inpatient encounter is cancelled, the bed it held (if any) is set available again and the admission is final. Only while nothing of the stay is on the record: a signed note, a diagnosis that stands, an order not cancelled or a prescription is 409 `has_records` (discharge the patient instead), and a draft note is 409 `unsigned_notes`. Emits `encounter.cancelled`, `bed.released` (reason `cancelled`) and `admission.cancelled` through the outbox, never the reason. Requires admission:cancel and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
+        post: operations["cancelAdmission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/beds/board": {
         parameters: {
             query?: never;
@@ -6113,10 +6130,10 @@ export interface components {
          */
         AdmissionType: "planned" | "emergency" | "transfer_in";
         /**
-         * @description admitted -> discharged, final.
+         * @description admitted -> discharged or cancelled (made by mistake), both final.
          * @enum {string}
          */
-        AdmissionStatus: "admitted" | "discharged";
+        AdmissionStatus: "admitted" | "discharged" | "cancelled";
         /**
          * @description How the stay ended.
          * @enum {string}
@@ -6126,7 +6143,7 @@ export interface components {
          * @description Why a patient left a bed.
          * @enum {string}
          */
-        BedReleaseReason: "transfer" | "discharge";
+        BedReleaseReason: "transfer" | "discharge" | "cancelled";
         /**
          * @description available -> occupied (a patient is given the bed) -> cleaning (they leave) -> available (it is ready). blocked is set from the wards API.
          * @enum {string}
@@ -6169,6 +6186,10 @@ export interface components {
             /** Format: date-time */
             dischargedAt?: string;
             dischargeType?: components["schemas"]["DischargeType"];
+            /** Format: date-time */
+            cancelledAt?: string;
+            /** @description Why it was cancelled. */
+            cancelReason?: string;
             bed?: components["schemas"]["AdmissionBed"];
             /** @description Counts the changes, a change of bed too. */
             version: number;
@@ -17196,6 +17217,103 @@ export interface operations {
             content: {
                 "application/json": {
                     dischargeType: components["schemas"]["DischargeType"];
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelAdmission: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Plain text. Why it was cancelled: the admission was made by mistake. */
+                    reason: string;
                     /** @description The version the change was made from. Another one gives 409 `conflict`. */
                     version: number;
                 };

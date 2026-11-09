@@ -864,15 +864,23 @@ describe('cleaning tasks', () => {
   it('makes a task when a patient leaves a bed, once, and only with housekeeping on', async () => {
     await wipe();
     await pool.query("update beds set status = 'cleaning' where id = $1", [beds[3]]);
-    const release = async (tenant: TestTenant, bedId: string, wardId: string) => {
+    const release = async (
+      tenant: TestTenant,
+      bedId: string,
+      wardId: string,
+      reason = 'discharge',
+    ) => {
       await pool.query(
         `insert into outbox (tenant_id, event, entity_id, actor_id, payload)
          values ($1, 'bed.released', $2, null, $3)`,
-        [tenant.id, bedId, JSON.stringify({ wardId, reason: 'discharge' })],
+        [tenant.id, bedId, JSON.stringify({ wardId, reason })],
       );
       await app.events.dispatch();
       await jobs.drain();
     };
+    // An admission cancelled by mistake makes no task: its bed is ready at once.
+    await release(hospital, beds[3] as string, ward, 'cancelled');
+    expect((await ok<Page<Task>>(await get('/cleaning-tasks'))).items).toEqual([]);
     await release(hospital, beds[3] as string, ward);
     await release(hospital, beds[3] as string, ward);
     const tasks = await ok<Page<Task>>(await get('/cleaning-tasks'));

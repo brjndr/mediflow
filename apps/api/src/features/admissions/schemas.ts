@@ -1,4 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox';
+import { PLAIN_TEXT } from '../../core/http/text.js';
 import { CursorPage, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, ref } from '../../core/http/schemas.js';
 
 // The enums carry an $id, unlike `StringEnum`, so the contract names them as the web app does.
@@ -11,13 +12,13 @@ export const AdmissionType = Type.Unsafe<AdmissionTypeValue>({
   description: 'How the patient came to be admitted.',
 });
 
-export const ADMISSION_STATUSES = ['admitted', 'discharged'] as const;
+export const ADMISSION_STATUSES = ['admitted', 'discharged', 'cancelled'] as const;
 export type AdmissionStatusValue = (typeof ADMISSION_STATUSES)[number];
 export const AdmissionStatus = Type.Unsafe<AdmissionStatusValue>({
   $id: 'AdmissionStatus',
   type: 'string',
   enum: [...ADMISSION_STATUSES],
-  description: 'admitted -> discharged, final.',
+  description: 'admitted -> discharged or cancelled (made by mistake), both final.',
 });
 
 export const DISCHARGE_TYPES = [
@@ -35,7 +36,7 @@ export const DischargeType = Type.Unsafe<DischargeTypeValue>({
   description: 'How the stay ended.',
 });
 
-export const RELEASE_REASONS = ['transfer', 'discharge'] as const;
+export const RELEASE_REASONS = ['transfer', 'discharge', 'cancelled'] as const;
 export type ReleaseReasonValue = (typeof RELEASE_REASONS)[number];
 export const BedReleaseReason = Type.Unsafe<ReleaseReasonValue>({
   $id: 'BedReleaseReason',
@@ -113,6 +114,8 @@ export const Admission = Type.Object(
     admittedAt: Type.String({ format: 'date-time' }),
     dischargedAt: Type.Optional(Type.String({ format: 'date-time' })),
     dischargeType: Type.Optional(ref(DischargeType)),
+    cancelledAt: Type.Optional(Type.String({ format: 'date-time' })),
+    cancelReason: Type.Optional(Type.String({ description: 'Why it was cancelled.' })),
     bed: Type.Optional(ref(AdmissionBed)),
     version: Type.Integer({ minimum: 1, description: 'Counts the changes, a change of bed too.' }),
   },
@@ -173,6 +176,21 @@ export const AdmissionDischarge = Type.Object(
   { additionalProperties: false },
 );
 export type AdmissionDischarge = Static<typeof AdmissionDischarge>;
+
+export const CANCEL_REASON_MAX = 200;
+export const AdmissionCancel = Type.Object(
+  {
+    reason: Type.String({
+      minLength: 1,
+      maxLength: CANCEL_REASON_MAX,
+      pattern: PLAIN_TEXT,
+      description: 'Plain text. Why it was cancelled: the admission was made by mistake.',
+    }),
+    version: Version,
+  },
+  { additionalProperties: false },
+);
+export type AdmissionCancel = Static<typeof AdmissionCancel>;
 
 export const AdmissionParams = Type.Object({ admissionId: Type.String({ maxLength: 64 }) });
 export const BedParams = Type.Object({ bedId: Type.String({ maxLength: 64 }) });

@@ -82,7 +82,7 @@ async function find(client: pg.ClientBase, id: string, lock = false): Promise<Ta
 const notFound = () => new HttpError(404, 'cleaning_task_not_found', 'No such task');
 
 /**
- * A patient leaving a bed (`bed.released`) leaves it being cleaned; this makes the task for it,
+ * A patient leaving a bed (`bed.released`, except a cancelled admission) leaves it being cleaned; this makes the task for it,
  * once. Only for hospitals with housekeeping on, and idempotent: a bed with a task open gets no
  * second one.
  */
@@ -92,6 +92,8 @@ export function subscribeToReleasedBeds(app: FastifyInstance): void {
     const wardId = message.payload.wardId;
     if (typeof bedId !== 'string' || !isUuid(bedId)) return;
     if (typeof wardId !== 'string' || !isUuid(wardId)) return;
+    // An admission cancelled by mistake leaves its bed ready at once: nothing to clean (#573).
+    if (message.payload.reason === 'cancelled') return;
     const on = await tx.execute<{ one: number }>(
       sql`select 1 as one from tenant_features where feature = ${FEATURE} and enabled`,
     );
