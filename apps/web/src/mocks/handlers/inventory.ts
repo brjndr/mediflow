@@ -391,7 +391,13 @@ export function mockStockOut(
   | { refused: string }
   | {
       locationName: string;
-      batches: { batchId: string; batchNumber: string; expiryDate: string; quantity: number }[];
+      batches: {
+        batchId: string;
+        batchNumber: string;
+        expiryDate: string;
+        quantity: number;
+        mrpMinor?: number;
+      }[];
     } {
   const location = state.locations.find(
     (each) => each.id === movement.locationId && each.tenantId === tenantId && !each.archived,
@@ -430,6 +436,7 @@ export function mockStockOut(
         batchNumber: batch.batchNumber,
         expiryDate: batch.expiryDate,
         quantity: line.quantity,
+        ...(batch.mrpMinor === undefined ? {} : { mrpMinor: batch.mrpMinor }),
       };
     }),
   };

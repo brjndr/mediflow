@@ -157,7 +157,62 @@ onMockReset(() => {
   counter = 0;
   issuedCount = 0;
   answered = new Map();
+  postedRefs.clear();
 });
+
+const postedRefs = new Set<string>();
+
+/**
+ * Posts a charge from another module's event, as the API's subscribers do (`posting.ts`): once for
+ * each `sourceRef`, priced from the catalog service when given, void when a package on the visit
+ * covers it. A visit of another hospital, or none, posts nothing.
+ */
+export function postMockCharge(
+  tenantId: string,
+  posting: {
+    encounterId: string;
+    source: Charge['source'];
+    sourceRef: string;
+    serviceId?: string;
+    description?: string;
+    quantity: number;
+    unitPriceMinor?: number;
+  },
+): void {
+  const key = `${tenantId}:${posting.sourceRef}`;
+  if (postedRefs.has(key)) return;
+  const visit = mockEncounter(posting.encounterId);
+  if (!visit || visit.tenantId !== tenantId) return;
+  const service = posting.serviceId ? mockServicePrice(tenantId, posting.serviceId) : undefined;
+  if (posting.serviceId && !service) return;
+  const unit = posting.unitPriceMinor ?? service?.amountMinor ?? 0;
+  counter += 1;
+  const made: Charge = {
+    id: `chg_ev_${counter}`,
+    tenantId,
+    encounterId: visit.id,
+    source: posting.source,
+    description: posting.description || service?.name || '',
+    quantity: posting.quantity,
+    unitPriceMinor: unit,
+    totalMinor: posting.quantity * unit,
+    status: 'pending',
+    postedAt: new Date().toISOString(),
+  };
+  if (posting.serviceId) {
+    state.chargeServices[made.id] = posting.serviceId;
+    const covering = coveringPackageCharge(tenantId, visit.id, posting.serviceId);
+    if (covering) {
+      made.status = 'void';
+      made.flag = 'package_covered';
+      state.coveredBy[made.id] = covering;
+    }
+  } else if (posting.unitPriceMinor === undefined) {
+    made.flag = 'no_price';
+  }
+  postedRefs.add(key);
+  state.charges.push(made);
+}
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);

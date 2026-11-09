@@ -159,10 +159,9 @@ test('a new patient from registration to a paid invoice', async ({ page }) => {
     .click();
   await page.getByRole('link', { name: 'Create invoice' }).click();
   await expect(heading(page, 'New invoice')).toBeVisible();
-  // The billing desk charges a service to the visit, and it joins the bill.
-  await page.getByRole('combobox', { name: 'Service' }).fill('Wound dressing');
-  await page.getByRole('option', { name: /Wound dressing/ }).click();
-  await page.getByRole('button', { name: 'Add charge' }).click();
+  // The verified blood count and the dispensed medicine were charged to the visit by the events.
+  await expect(page.getByText('Paracetamol').first()).toBeVisible();
+  await expect(page.getByText('Complete blood count').first()).toBeVisible();
   await expect(page.getByTestId('invoice-total')).not.toContainText(/\b0\.00$/);
   await page.getByRole('button', { name: 'Issue invoice' }).click();
   await expect(page.getByText(/^Invoice INV-\d+ was issued on /)).toBeVisible();

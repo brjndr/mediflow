@@ -4,8 +4,9 @@ import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 import { todayIn } from '@/shared/utils/timezone';
 import { currentPolicy, currentSession, mockTenantTimezone, onMockReset } from '../db';
 import { authorize, error } from '../respond';
+import { postMockCharge } from './billing';
 import { mockLabOrders, moveMockOrder } from './clinical';
-import { mockLabAnalytes, mockLabTestSample } from './lab-tests';
+import { mockLabAnalytes, mockLabTestSample, mockLabTestServiceId } from './lab-tests';
 import { mockPatient, mockPatientDob, mockPatientSex } from './patients';
 
 type LabSample = components['schemas']['LabSample'];
@@ -493,6 +494,17 @@ export const labHandlers = [
     ) {
       moveMockOrder(order.id, 'completed');
       state.completedAt.set(order.id, now());
+      // A completed lab order is charged as its test's service, as the API's subscriber does.
+      const serviceId = order.labTestId && mockLabTestServiceId(tenantId, order.labTestId);
+      if (serviceId) {
+        postMockCharge(tenantId, {
+          encounterId: order.encounterId,
+          source: 'order',
+          sourceRef: `order:${order.id}`,
+          serviceId,
+          quantity: 1,
+        });
+      }
     }
     remember(sent.keyOf, body, sample.id);
     return HttpResponse.json<LabOrderResults>(orderResultsOf(order));

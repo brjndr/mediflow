@@ -6,6 +6,7 @@ import { authorize, error } from '../respond';
 import { mockMedicationPrescriptions, moveMockOrder } from './clinical';
 import { mockDrug, mockDrugsOf } from './drugs';
 import { mockStockIn, mockStockOut, mockUsableBatches } from './inventory';
+import { postMockCharge } from './billing';
 import { mockPatient } from './patients';
 
 type Drug = components['schemas']['Drug'];
@@ -383,12 +384,26 @@ export const pharmacyHandlers = [
       controlled: item.controlled,
       ...(reason ? { substitutionReason: reason } : {}),
       quantity,
-      batches: taken.batches.map((batch) => ({ ...batch, returnedQuantity: 0 })),
+      batches: taken.batches.map(({ mrpMinor: _mrp, ...batch }) => ({
+        ...batch,
+        returnedQuantity: 0,
+      })),
       returns: [],
       dispensedAt: new Date(Date.now() + state.counter).toISOString(),
       dispensedByName: caller.name,
     };
     state.dispenses.push(dispense);
+    // Charged for each batch it took from, at that batch's price, as the API's subscriber does.
+    for (const batch of taken.batches) {
+      postMockCharge(access.tenantId, {
+        encounterId: rx.encounterId,
+        source: 'dispense',
+        sourceRef: `dispense:${id}:${batch.batchId}`,
+        description: nameOf(item),
+        quantity: batch.quantity,
+        ...(batch.mrpMinor === undefined ? {} : { unitPriceMinor: batch.mrpMinor }),
+      });
+    }
     const completes = order.quantity !== undefined && before + quantity === order.quantity;
     moveTo(order, completes ? 'completed' : 'in_progress');
     return sent.answer(dispense, 201);

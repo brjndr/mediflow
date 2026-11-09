@@ -9,6 +9,7 @@ import {
   TENANT_IDS,
   USER_IDS,
 } from '@/mocks/db';
+import { mockCharges } from '@/mocks/handlers/billing';
 import { mockOrdersOf, moveMockOrder } from '@/mocks/handlers/clinical';
 import { mockStock } from '@/mocks/handlers/inventory';
 import { mockDispenses } from '@/mocks/handlers/pharmacy';
@@ -111,6 +112,15 @@ describe('dispensing', () => {
       expect(mockOrdersOf('enc_h_1').find((each) => each.id === 'ord_h_1')?.status).toBe(
         'completed',
       );
+      // Each batch it took from is charged to the visit at that batch's price (#538).
+      expect(
+        mockCharges().filter(
+          (each) => each.id.startsWith('chg_ev_') && each.encounterId === 'enc_h_1',
+        ),
+      ).toMatchObject([
+        { quantity: 4, status: 'pending' },
+        { quantity: 2, status: 'pending' },
+      ]);
       const rows = within(grid('Medicines')).getAllByRole('row');
       expect(rows.some((row) => /Paracetamol.*Dispensed/.test(row.textContent ?? ''))).toBe(true);
       expect(
