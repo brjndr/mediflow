@@ -4,6 +4,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 import type { Permission } from '../../core/access/registry.js';
+import { asWorker, looksLike } from '../../core/files/worker.js';
 import {
   signImageDownload,
   signImageUpload,
@@ -14,7 +15,6 @@ import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { tidyWithin } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
-import { WORKER_ROLE } from '../../core/outbox/dispatcher.js';
 import { imagingOrder } from '../clinical/index.js';
 import {
   IMAGE_MAX_BYTES,
@@ -66,39 +66,6 @@ const view = (row: ImageRow) => ({
   createdAt: row.created_at.toISOString(),
   ...(row.uploaded_at ? { uploadedAt: row.uploaded_at.toISOString() } : {}),
 });
-
-/** Whether the first bytes are those of the type: the sender's word about it is not enough. */
-export function looksLike(type: ImageType, data: Buffer): boolean {
-  switch (type) {
-    case 'image/jpeg':
-      return data.length > 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
-    case 'image/png':
-      return data
-        .subarray(0, 8)
-        .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-    case 'application/pdf':
-      return data.subarray(0, 5).toString('latin1') === '%PDF-';
-    case 'application/dicom':
-      return data.length > 132 && data.subarray(128, 132).toString('latin1') === 'DICM';
-  }
-}
-
-/** Runs `work` as the worker role in one transaction: link and job work has no session or hospital. */
-async function asWorker<T>(app: FastifyInstance, work: (client: pg.PoolClient) => Promise<T>) {
-  const client = await app.database.pool.connect();
-  try {
-    await client.query('begin');
-    await client.query(`set local role ${WORKER_ROLE}`);
-    const result = await work(client);
-    await client.query('commit');
-    return result;
-  } catch (error) {
-    await client.query('rollback').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 export const fileKeyOf = (tenantId: string, imageId: string) => `imaging/${tenantId}/${imageId}`;
 
