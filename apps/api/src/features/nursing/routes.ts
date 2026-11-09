@@ -9,7 +9,7 @@ import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { stayInScope, type Stay } from '../admissions/index.js';
 import { dietOrdersOf, medicationOrder, medicationOrdersOf } from '../clinical/index.js';
 import { requestIndent } from '../inventory/index.js';
-import { orderDispensed } from '../pharmacy/index.js';
+import { dispensedOrders, orderDispensed } from '../pharmacy/index.js';
 import {
   ageBasis,
   flagsFor,
@@ -125,8 +125,9 @@ const openStay = (stay: Stay): void => {
 
 /** The database refusing a write because the stay ended meanwhile. */
 function stayRefusal(error: unknown): unknown {
-  const { code } = (error ?? {}) as { code?: unknown };
-  return code === '23514' ? notOpen() : error;
+  // Only the nursing_open_stay trigger, not any other CHECK violation (also 23514).
+  const { code, message } = (error ?? {}) as { code?: unknown; message?: unknown };
+  return code === '23514' && message === 'The stay is not open' ? notOpen() : error;
 }
 
 const refusedBy = (error: unknown, constraint: string): boolean => {
@@ -301,11 +302,7 @@ interface EntryFields {
 }
 
 /** What an entry stores, by its outcome; the order fills in what a given dose leaves out. */
-function entryFacts(
-  body: EntryFields,
-  order: { dose: string; route: string },
-  correcting: boolean,
-) {
+function entryFacts(body: EntryFields, order: { dose: string; route: string }) {
   const reason = body.reason === undefined ? null : tidyWithin(body.reason, REASON_MAX);
   if (body.outcome === 'given') {
     return {
@@ -325,7 +322,6 @@ function entryFacts(
   if (reason === null || reason === '') {
     throw new HttpError(422, 'reason_required', 'Say why the dose was not given');
   }
-  void correcting;
   return { doseGiven: null, route: null, administeredAt: null, reason };
 }
 
@@ -502,7 +498,7 @@ export const nursingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         operationId: 'listMarOrders',
         tags: ['nursing'],
-        description: `The medication orders of the stay, oldest first (at most 100), as the ward chart shows them, with whether the pharmacy has dispensed against each. Needs the clinical module.${SCOPE} Every order is audited as a read.`,
+        description: `The medication orders of the stay, oldest first, capped at 100 (a stay with more is cut, not paged), as the ward chart shows them, with whether the pharmacy has dispensed against each. Needs the clinical module.${SCOPE} Every order is audited as a read.`,
         params: AdmissionParams,
         response: { 200: ref(MarOrderPage), ...errors(401, 403, 404, 409, 429) },
       },
@@ -511,6 +507,10 @@ export const nursingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       await requireModules(request, 'clinical');
       const stay = await stayFor(request, request.params.admissionId, MAR_READ);
       const orders = await medicationOrdersOf(request.txClient, stay.encounterId, 100);
+      const dispensed = await dispensedOrders(
+        request.txClient,
+        orders.map((order) => order.id),
+      );
       const items = [];
       for (const order of orders) {
         request.audit('read', 'order', order.id);
@@ -523,7 +523,7 @@ export const nursingRoutes: FastifyPluginAsyncTypebox = async (app) => {
           frequency: order.frequency,
           status: order.status,
           placedAt: iso(order.placedAt),
-          dispensed: await orderDispensed(request.txClient, order.id),
+          dispensed: dispensed.has(order.id),
         });
       }
       return { items, nextCursor: null };
@@ -557,6 +557,7 @@ export const nursingRoutes: FastifyPluginAsyncTypebox = async (app) => {
   );
 
   async function entryReplay(request: FastifyRequest, reply: FastifyReply) {
+    await requireModules(request, 'clinical');
     const row = request.idempotentId
       ? await findMarEntry(request.txClient, request.idempotentId)
       : null;
@@ -576,7 +577,7 @@ export const nursingRoutes: FastifyPluginAsyncTypebox = async (app) => {
     correcting: MarEntryRow | null,
   ) {
     const userId = userIdOf(request);
-    const facts = entryFacts(body, order, correcting !== null);
+    const facts = entryFacts(body, order);
     if (body.witnessId !== undefined) {
       if (body.witnessId.toLowerCase() === userId.toLowerCase()) {
         throw new HttpError(422, 'unknown_witness', 'A witness is someone else');
@@ -657,7 +658,7 @@ export const nursingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'recordMarEntry',
         tags: ['nursing'],
         headers: RequiredIdempotencyHeaders,
-        description: `Records what happened at a scheduled dose of a medication order of the stay: given, withheld, refused or missed. The order must be of the stay encounter (422 \`unknown_order\`) and not cancelled (409 \`order_cancelled\`); a dose due at a time has one entry (409 \`slot_recorded\`, then correct it). Anything but given needs a reason (422 \`reason_required\`) and carries no dose, route or time given (400); a given dose takes the order dose and route unless sent, and one beyond the doses a day the order frequency allows needs a reason (422 \`extra_dose_reason_required\`; as-needed and unreadable frequencies set no limit). A witness, if named, is another active member of staff (422 \`unknown_witness\`). The answer warns \`not_dispensed\` when the pharmacy has dispensed nothing against the order; it does not refuse. This records the administration only: it does not change the order or call the pharmacy. Needs the clinical module.${SCOPE}${REPLAY} Audited; emits \`medication.administered\` (ids and the outcome, never a reason).`,
+        description: `Records what happened at a scheduled dose of a medication order of the stay: given, withheld, refused or missed. The order must be of the stay encounter (422 \`unknown_order\`), the time due after the order was placed and at most 24 hours ahead (422 \`slot_out_of_window\`), and the order not cancelled (409 \`order_cancelled\`); a dose due at a time has one entry (409 \`slot_recorded\`, then correct it). Anything but given needs a reason (422 \`reason_required\`) and carries no dose, route or time given (400); a given dose takes the order dose and route unless sent, and one beyond the doses a day the order frequency allows needs a reason (422 \`extra_dose_reason_required\`; as-needed and unreadable frequencies set no limit). A witness, if named, is another active member of staff (422 \`unknown_witness\`). The answer warns \`not_dispensed\` when the pharmacy has dispensed nothing against the order; it does not refuse. This records the administration only: it does not change the order or call the pharmacy. Needs the clinical module.${SCOPE}${REPLAY} Audited; emits \`medication.administered\` (ids and the outcome, never a reason).`,
         body: ref(MarEntryCreate),
         response: { 201: ref(MarEntry), ...errors(400, 401, 403, 404, 409, 422, 429) },
       },
@@ -677,6 +678,16 @@ export const nursingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       const scheduledAt = new Date(body.scheduledAt);
       if (Number.isNaN(scheduledAt.getTime())) throw invalid('scheduledAt is not a time');
+      if (
+        scheduledAt.getTime() < order.placedAt.getTime() ||
+        scheduledAt.getTime() > Date.now() + 24 * 3_600_000
+      ) {
+        throw new HttpError(
+          422,
+          'slot_out_of_window',
+          'A dose is due after the order was placed and no more than a day ahead',
+        );
+      }
       const id = await writeEntry(request, stay, order, scheduledAt, body, null);
       return reply.status(201).send(await entryAnswer(request, id, order.id));
     },
@@ -702,7 +713,15 @@ export const nursingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const body = request.body as MarEntryCorrect;
       const found = await findMarEntry(request.txClient, request.params.entryId);
       if (!found) throw new HttpError(404, 'entry_not_found', 'No such entry');
-      const stay = await stayFor(request, found.admission_id, MAR_RECORD, true);
+      let stay: Stay;
+      try {
+        stay = await stayFor(request, found.admission_id, MAR_RECORD, true);
+      } catch (error) {
+        if (error instanceof HttpError && error.code === 'admission_not_found') {
+          throw new HttpError(404, 'entry_not_found', 'No such entry');
+        }
+        throw error;
+      }
       openStay(stay);
       const entry = await findMarEntry(request.txClient, found.id);
       if (!entry) throw new HttpError(404, 'entry_not_found', 'No such entry');
@@ -805,7 +824,7 @@ export const nursingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         description: `Changes the text of a note its author wrote, while the patient is admitted, at the version the edit started from (409 \`conflict\`). Someone else’s note is 403 \`not_author\`. The new text is added to the note history; earlier texts stay. A note outside the caller scope, or another hospital’s, is 404 \`note_not_found\`; of a stay that has ended, 409 \`admission_not_open\`. Audited; emits \`progressnote.updated\`.`,
         params: NoteParams,
         body: ref(ProgressNoteUpdate),
-        response: { 200: ref(ProgressNote), ...errors(400, 401, 403, 404, 409, 422, 429) },
+        response: { 200: ref(ProgressNote), ...errors(400, 401, 403, 404, 409, 429) },
       },
     },
     async (request) => {
@@ -942,15 +961,16 @@ export const nursingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) => {
+      await requireModules(request, 'inventory');
       if (request.replayOf !== null) {
         const row = request.idempotentId
           ? await findStockRequest(request.txClient, request.idempotentId)
           : null;
         if (!row) throw stayNotFound();
         await stayFor(request, row.admission_id, 'indent:create');
+        request.audit('read', 'ward_stock_request', row.id);
         return reply.status(201).send(stockRequestView(row));
       }
-      await requireModules(request, 'inventory');
       const body = request.body as WardStockRequestCreate;
       const stay = await stayFor(request, request.params.admissionId, 'indent:create', true);
       openStay(stay);

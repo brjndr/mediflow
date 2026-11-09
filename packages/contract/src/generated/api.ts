@@ -1661,7 +1661,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The medication orders of the stay, oldest first (at most 100), as the ward chart shows them, with whether the pharmacy has dispensed against each. Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every order is audited as a read. */
+        /** @description The medication orders of the stay, oldest first, capped at 100 (a stay with more is cut, not paged), as the ward chart shows them, with whether the pharmacy has dispensed against each. Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every order is audited as a read. */
         get: operations["listMarOrders"];
         put?: never;
         post?: never;
@@ -1697,7 +1697,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Records what happened at a scheduled dose of a medication order of the stay: given, withheld, refused or missed. The order must be of the stay encounter (422 `unknown_order`) and not cancelled (409 `order_cancelled`); a dose due at a time has one entry (409 `slot_recorded`, then correct it). Anything but given needs a reason (422 `reason_required`) and carries no dose, route or time given (400); a given dose takes the order dose and route unless sent, and one beyond the doses a day the order frequency allows needs a reason (422 `extra_dose_reason_required`; as-needed and unreadable frequencies set no limit). A witness, if named, is another active member of staff (422 `unknown_witness`). The answer warns `not_dispensed` when the pharmacy has dispensed nothing against the order; it does not refuse. This records the administration only: it does not change the order or call the pharmacy. Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `medication.administered` (ids and the outcome, never a reason). */
+        /** @description Records what happened at a scheduled dose of a medication order of the stay: given, withheld, refused or missed. The order must be of the stay encounter (422 `unknown_order`), the time due after the order was placed and at most 24 hours ahead (422 `slot_out_of_window`), and the order not cancelled (409 `order_cancelled`); a dose due at a time has one entry (409 `slot_recorded`, then correct it). Anything but given needs a reason (422 `reason_required`) and carries no dose, route or time given (400); a given dose takes the order dose and route unless sent, and one beyond the doses a day the order frequency allows needs a reason (422 `extra_dose_reason_required`; as-needed and unreadable frequencies set no limit). A witness, if named, is another active member of staff (422 `unknown_witness`). The answer warns `not_dispensed` when the pharmacy has dispensed nothing against the order; it does not refuse. This records the administration only: it does not change the order or call the pharmacy. Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `medication.administered` (ids and the outcome, never a reason). */
         post: operations["recordMarEntry"];
         delete?: never;
         options?: never;
@@ -19030,15 +19030,6 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Standard error body. */
-            422: {
                 headers: {
                     [name: string]: unknown;
                 };

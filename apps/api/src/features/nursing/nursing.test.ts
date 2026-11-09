@@ -178,8 +178,9 @@ async function addOrder(
   return one(
     `insert into orders (tenant_id, encounter_id, patient_id, type, drug_id, item_name,
                          prescription_id, line_number, dose, route, frequency, duration_days,
-                         quantity, ordered_by)
-     values ($1, $2, $3, 'medication', $4, 'Paracetamol 500 mg', $5, 1, '500 mg', 'oral', $6, 5, 10, $7)
+                         quantity, ordered_by, placed_at)
+     values ($1, $2, $3, 'medication', $4, 'Paracetamol 500 mg', $5, 1, '500 mg', 'oral', $6, 5, 10, $7,
+             now() - interval '200 hours')
      returning id`,
     [tenant.id, admissionEncounter, patientId, drug, prescription, frequency, doctor.id],
   );
@@ -908,6 +909,178 @@ describe('scope and permissions', () => {
       await setScope('doctor', 'all');
       await setScope('nurse', 'all');
     }
+  });
+});
+
+describe('review fixes', () => {
+  it('bounds the time a dose is due', async () => {
+    const before = await recordMar({
+      admissionId: admissionA,
+      orderId: orderA,
+      scheduledAt: hours(500),
+      outcome: 'given',
+    });
+    expect(errorOf(before)).toEqual([422, 'slot_out_of_window']);
+    const ahead = await recordMar({
+      admissionId: admissionA,
+      orderId: orderA,
+      scheduledAt: hours(-48),
+      outcome: 'missed',
+      reason: 'Too far ahead',
+    });
+    expect(errorOf(ahead)).toEqual([422, 'slot_out_of_window']);
+  });
+
+  it('keeps one of two entries made at once for the same dose', async () => {
+    const body = {
+      admissionId: admissionA,
+      orderId: orderA,
+      scheduledAt: hours(120),
+      outcome: 'given',
+    };
+    const [one, two] = await Promise.all([recordMar(body), recordMar(body)]);
+    expect([one.statusCode, two.statusCode].sort()).toEqual([201, 409]);
+    expect(errorOf(one.statusCode === 409 ? one : two)).toEqual([409, 'slot_recorded']);
+  });
+
+  it('answers a correction outside the scope as an entry not found', async () => {
+    const entry = await ok<Entry>(await given(orderA, 130), 201);
+    const setScope = (scope: string) =>
+      pool.query(
+        "update role_permissions set scope = $2 where tenant_id = $1 and role_id = 'nurse' and permission = 'mar:record'",
+        [hospital.id, scope],
+      );
+    try {
+      await setScope('own');
+      const response = await post(`/mar/entries/${entry.id}/correct`, {
+        outcome: 'missed',
+        reason: 'Not mine',
+      });
+      expect(errorOf(response)).toEqual([404, 'entry_not_found']);
+    } finally {
+      await setScope('all');
+    }
+  });
+
+  it('checks the clinical and inventory modules, also on a repeated key', async () => {
+    const setFlag = (feature: string, enabled: boolean) =>
+      pool.query('update tenant_features set enabled = $3 where tenant_id = $1 and feature = $2', [
+        hospital.id,
+        feature,
+        enabled,
+      ]);
+    const markKey = fresh();
+    const stockKey = fresh();
+    const mark = {
+      admissionId: admissionA,
+      orderId: orderA,
+      scheduledAt: hours(140),
+      outcome: 'given',
+    };
+    const stock = {
+      fromLocationId: wardPlace,
+      toLocationId: store,
+      lines: [{ drugId: drug, quantity: 2 }],
+    };
+    await ok(await recordMar(mark, { key: markKey }), 201);
+    await ok(await post(`/admissions/${admissionA}/stock-requests`, stock, { key: stockKey }), 201);
+    const requestId = (
+      await pool.query<{ id: string }>(
+        'select id from ward_stock_requests order by requested_at desc limit 1',
+      )
+    ).rows[0]?.id;
+    try {
+      await setFlag('clinical', false);
+      expect(errorOf(await recordMar(mark, { key: markKey }))).toEqual([403, 'feature_disabled']);
+      expect(errorOf(await recordMar({ ...mark, scheduledAt: hours(141) }))).toEqual([
+        403,
+        'feature_disabled',
+      ]);
+      expect(errorOf(await get(`/admissions/${admissionA}/diet`))).toEqual([
+        403,
+        'feature_disabled',
+      ]);
+      expect(errorOf(await get(`/admissions/${admissionA}/mar/orders`))).toEqual([
+        403,
+        'feature_disabled',
+      ]);
+      await setFlag('clinical', true);
+      await setFlag('inventory', false);
+      expect(
+        errorOf(await post(`/admissions/${admissionA}/stock-requests`, stock, { key: stockKey })),
+      ).toEqual([403, 'feature_disabled']);
+      expect(errorOf(await post(`/admissions/${admissionA}/stock-requests`, stock))).toEqual([
+        403,
+        'feature_disabled',
+      ]);
+    } finally {
+      await setFlag('clinical', true);
+      await setFlag('inventory', true);
+    }
+    const replay = await post(`/admissions/${admissionA}/stock-requests`, stock, { key: stockKey });
+    expect(replay.statusCode).toBe(201);
+    expect(replay.json<{ id: string }>().id).toBe(requestId);
+    expect(await audited('ward_stock_request', requestId ?? '')).toContain('read');
+  });
+
+  it('refuses a stock request without indent:create', async () => {
+    const response = await post(
+      `/admissions/${admissionA}/stock-requests`,
+      { fromLocationId: wardPlace, toLocationId: store, lines: [{ drugId: drug, quantity: 1 }] },
+      { user: doctor },
+    );
+    expect(errorOf(response)).toEqual([403, 'permission_denied']);
+  });
+
+  it('keeps every new table out of reach of another hospital', async () => {
+    const stay = [admissionA, encounterA, patientA];
+    const inserts: Record<string, [string, unknown[]]> = {
+      ward_vitals: [
+        'insert into ward_vitals (tenant_id, admission_id, encounter_id, patient_id, observed_at, recorded_by, pulse) values ($1, $2, $3, $4, now(), $5, 70)',
+        [hospital.id, ...stay, nurse.id],
+      ],
+      mar_entries: [
+        "insert into mar_entries (tenant_id, admission_id, encounter_id, patient_id, order_id, drug_id, scheduled_at, outcome, reason, recorded_by) values ($1, $2, $3, $4, $5, $6, now(), 'missed', 'x', $7)",
+        [hospital.id, ...stay, orderA, drug, nurse.id],
+      ],
+      progress_notes: [
+        "insert into progress_notes (tenant_id, admission_id, encounter_id, patient_id, kind, body, created_by, updated_by) values ($1, $2, $3, $4, 'nursing', 'x', $5, $5)",
+        [hospital.id, ...stay, nurse.id],
+      ],
+      progress_note_versions: [
+        "insert into progress_note_versions (tenant_id, note_id, version, body, edited_by) select tenant_id, id, 99, 'x', $2 from progress_notes where tenant_id = $1 limit 1",
+        [hospital.id, nurse.id],
+      ],
+      ward_stock_requests: [
+        'insert into ward_stock_requests (tenant_id, indent_id, admission_id, encounter_id, patient_id, place_id, requested_by) values ($1, gen_random_uuid(), $2, $3, $4, $5, $6)',
+        [hospital.id, ...stay, wardPlace, nurse.id],
+      ],
+    };
+    for (const [table, [sql, params]] of Object.entries(inserts)) {
+      await asTenantSql(pool, clinic.id, async (client) => {
+        await client.query('savepoint a');
+        const written = await client.query(sql, params).then(
+          (result) => result.rowCount,
+          () => 0,
+        );
+        expect(written, table).toBe(0);
+        await client.query('rollback to savepoint a');
+        expect(
+          (await client.query(`select 1 from ${table} where tenant_id = $1`, [hospital.id]))
+            .rowCount,
+          table,
+        ).toBe(0);
+      });
+    }
+    await asTenantSql(pool, clinic.id, async (client) => {
+      expect(
+        (
+          await client.query("update progress_notes set body = 'x' where tenant_id = $1", [
+            hospital.id,
+          ])
+        ).rowCount,
+      ).toBe(0);
+    });
   });
 });
 

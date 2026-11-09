@@ -194,8 +194,11 @@ BEGIN
     RAISE EXCEPTION 'Only the text of a progress note changes' USING ERRCODE = '42501';
   END IF;
   IF NOT EXISTS (
-    SELECT 1 FROM admissions a
-    WHERE a.tenant_id = OLD.tenant_id AND a.id = OLD.admission_id AND a.status = 'admitted'
+    SELECT 1
+    FROM admissions a
+    JOIN encounters e ON e.tenant_id = a.tenant_id AND e.id = a.encounter_id
+    WHERE a.tenant_id = OLD.tenant_id AND a.id = OLD.admission_id
+      AND a.status = 'admitted' AND e.type = 'ipd' AND e.status = 'open'
   ) THEN
     RAISE EXCEPTION 'The stay is not open' USING ERRCODE = '23514';
   END IF;

@@ -20,6 +20,7 @@ export interface MedicationOrder {
   route: string;
   frequency: string;
   itemName: string;
+  placedAt: Date;
 }
 
 /**
@@ -46,9 +47,10 @@ export async function medicationOrder(
     route: string;
     frequency: string;
     item_name: string;
+    placed_at: Date;
   }>(
     `select id, encounter_id, patient_id, prescription_id, drug_id, quantity, status, version,
-            dose, route, frequency, item_name
+            dose, route, frequency, item_name, placed_at
      from orders where id = $1 and type = 'medication' ${forUpdate ? 'for update' : ''}`,
     [id],
   );
@@ -67,6 +69,7 @@ export async function medicationOrder(
         route: row.route,
         frequency: row.frequency,
         itemName: row.item_name,
+        placedAt: row.placed_at,
       }
     : null;
 }
@@ -81,28 +84,50 @@ export const moveMedicationOrder = (
   to: 'accepted' | 'in_progress' | 'completed',
 ): Promise<void> => moveOrderOf(request, 'medication', orderId, to);
 
-/** A medication order of an encounter, for the ward's medication chart (BE-24). */
-export interface EncounterMedicationOrder extends MedicationOrder {
-  placedAt: Date;
-}
+/** A medication order of an encounter, for the ward medication chart (BE-24). */
+export type EncounterMedicationOrder = MedicationOrder;
 
-/** The medication orders of an encounter, oldest first, up to `limit` (no more than 200). */
+/** The medication orders of an encounter, oldest first, up to `limit` (no more than 200), in one query. */
 export async function medicationOrdersOf(
   client: pg.ClientBase,
   encounterId: string,
   limit = 200,
 ): Promise<EncounterMedicationOrder[]> {
   if (!UUID.test(encounterId)) return [];
-  const { rows } = await client.query<{ id: string; placed_at: Date }>(
-    `select id, placed_at from orders
-     where encounter_id = $1 and type = 'medication'
+  const { rows } = await client.query<{
+    id: string;
+    encounter_id: string;
+    patient_id: string;
+    prescription_id: string;
+    drug_id: string;
+    quantity: number | null;
+    status: OrderStatusValue;
+    version: number;
+    dose: string;
+    route: string;
+    frequency: string;
+    item_name: string;
+    placed_at: Date;
+  }>(
+    `select id, encounter_id, patient_id, prescription_id, drug_id, quantity, status, version,
+            dose, route, frequency, item_name, placed_at
+     from orders where encounter_id = $1 and type = 'medication'
      order by placed_at, line_number, id limit $2`,
     [encounterId, Math.min(limit, 200)],
   );
-  const orders: EncounterMedicationOrder[] = [];
-  for (const row of rows) {
-    const order = await medicationOrder(client, row.id);
-    if (order) orders.push({ ...order, placedAt: row.placed_at });
-  }
-  return orders;
+  return rows.map((row) => ({
+    id: row.id,
+    encounterId: row.encounter_id,
+    patientId: row.patient_id,
+    prescriptionId: row.prescription_id,
+    drugId: row.drug_id,
+    quantity: row.quantity,
+    status: row.status,
+    version: row.version,
+    dose: row.dose,
+    route: row.route,
+    frequency: row.frequency,
+    itemName: row.item_name,
+    placedAt: row.placed_at,
+  }));
 }

@@ -17,4 +17,4 @@ export const pharmacyFeature: FastifyPluginAsync = async (app) => {
 };
 
 /** For nursing (BE-24): whether a medication order has been dispensed against. */
-export { orderDispensed } from './dispensed.js';
+export { dispensedOrders, orderDispensed } from './dispensed.js';
