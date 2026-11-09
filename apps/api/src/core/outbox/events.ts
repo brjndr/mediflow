@@ -95,7 +95,11 @@ export const DOMAIN_EVENTS = [
   'er.triaged',
   'er.identified',
   'er.unidentified',
+  // Operation theatre (BE-27): ids only, never the procedure or a note.
+  'surgery.scheduled',
+  'surgery.started',
   'surgery.completed',
+  'surgery.cancelled',
   'claim.submitted',
   'claim.settled',
   // A record of a catalog (a service, a price, later a drug, a test, a bed) was added or changed.
