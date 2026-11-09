@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAllowed } from '@/access';
 import { useSession } from '@/app/session';
-import { usePatientName } from '@/features/patients';
+import { usePatientAgeSex, usePatientName } from '@/features/patients';
 import { fillPlaceholders, placeholdersIn, useTemplateChoices } from '@/features/templates';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
@@ -48,6 +48,7 @@ export function ConsentForm({
   const tenant = useTenant();
   const doctorName = useSession()?.user.name;
   const patient = usePatientName(patientId).data;
+  const ageSex = usePatientAgeSex(patientId).data;
   const allowed = useAllowed({ requires: 'template:read', featureFlag: 'templates' });
   const { list, load } = useTemplateChoices('consent', { enabled: allowed });
   const sign = useSignConsent(patientId);
@@ -99,6 +100,12 @@ export function ConsentForm({
     const values: Record<string, string> = {
       'patient.name': patient ? `${patient.firstName} ${patient.lastName}` : '',
       'patient.mrn': patient?.mrn ?? '',
+      'patient.sex': ageSex ? t(`consent.sex.${ageSex.sex}`) : '',
+      'patient.age': ageSex
+        ? ageSex.age.years > 0
+          ? t('consent.age', { count: ageSex.age.years })
+          : t('consent.ageMonths', { count: ageSex.age.months })
+        : '',
       'hospital.name': tenant?.name ?? '',
       'doctor.name': doctorName ?? '',
       'date.today': format.date(new Date().toISOString()),
@@ -110,7 +117,7 @@ export function ConsentForm({
       Object.fromEntries(Object.entries(values).filter(([, value]) => value !== '')),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- format is rebuilt with the tenant.
-  }, [loaded, patient, tenant, doctorName, procedureName]);
+  }, [loaded, patient, ageSex, t, tenant, doctorName, procedureName]);
   const unfilled = filled ? placeholdersIn(filled) : [];
 
   const submit = async (values: ConsentValues) => {

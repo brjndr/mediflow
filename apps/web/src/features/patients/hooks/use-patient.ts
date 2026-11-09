@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
+import { ageOn } from '../age';
+import { todayIn } from '../schemas';
 import { fetchPatient } from '../api';
 import type { PatientSummary } from '../types';
 import { patientKeys } from './use-patients';
@@ -44,4 +46,25 @@ export function usePatientName(id: string) {
   };
   // Not the query itself: its `refetch` would hand out the whole record.
   return { data, isPending, isError, error };
+}
+
+/** Age and sex of a patient, for filling a template's `patient.age` and `patient.sex`. */
+export interface PatientAgeSex {
+  sex: 'male' | 'female' | 'other';
+  /** Whole years, and total months for use under a year. */
+  age: { years: number; months: number };
+}
+
+/**
+ * The age (today, at the hospital) and sex of a patient another feature was given the id of,
+ * and nothing more of the record. The same query as the patient's screen.
+ */
+export function usePatientAgeSex(id: string) {
+  const { data: record, isPending, isError } = usePatient(id);
+  const timeZone = useTenant()?.timezone ?? 'UTC';
+  const data: PatientAgeSex | undefined = record && {
+    sex: record.gender,
+    age: ageOn(record.dob, todayIn(timeZone)),
+  };
+  return { data, isPending, isError };
 }

@@ -9,21 +9,11 @@ import { SystemPage } from '@/shared/ui/system-page';
 import { maskPhone } from '@/shared/utils/mask';
 import { useFormatters, useTenant } from '@/tenancy';
 import { DetailTab, DetailTabs } from '../components/DetailTabs';
+import { ageOn } from '../age';
 import { usePatient } from '../hooks/use-patient';
 import { usePatientDraft } from '../hooks/use-update-patient';
 import { todayIn } from '../schemas';
 import type { PatientRecord } from '../types';
-
-/** Age on a day, both given as YYYY-MM-DD calendar dates: whole years, and months under one. */
-function ageOn(dob: string, today: string): { years: number; months: number } {
-  const [birthYear, birthMonth, birthDay] = dob.split('-').map(Number) as [number, number, number];
-  const [year, month, day] = today.split('-').map(Number) as [number, number, number];
-  const months = Math.max(
-    (year - birthYear) * 12 + (month - birthMonth) - (day < birthDay ? 1 : 0),
-    0,
-  );
-  return { years: Math.floor(months / 12), months };
-}
 
 /** A phone number that is already masked is left as the server sent it. */
 const withheldPhone = (phone: string) =>
