@@ -57,6 +57,7 @@ const initialTenants: Record<string, TenantDto> = {
       admissions: true,
       housekeeping: true,
       ambulance: true,
+      emergency: true,
       bloodbank: true,
       imports: true,
       ui_examples: true,
@@ -275,6 +276,10 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'cleaningTask:read' },
   { permission: 'cleaningTask:work' },
   { permission: 'cleaningTask:manage' },
+  // Emergency (ER-01).
+  { permission: 'emergency:read' },
+  { permission: 'emergency:register' },
+  { permission: 'emergency:triage' },
   // Ambulances (OP-03).
   { permission: 'ambulance:read' },
   { permission: 'ambulance:manage' },

@@ -28,6 +28,7 @@ describe('shell', () => {
       'Home',
       'Patients',
       'Appointments',
+      'Emergency',
       'OPD queue',
       'Consultations',
       'Follow-ups',
@@ -88,6 +89,7 @@ describe('shell', () => {
       'Home',
       'Patients',
       'Appointments',
+      'Emergency',
       'OPD queue',
       'Consultations',
       'Follow-ups',
@@ -151,6 +153,8 @@ describe('keyboard', () => {
     expect(within(sidebar()).getByRole('link', { name: 'Patients' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Appointments' })).toHaveFocus();
+    await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Emergency' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'OPD queue' })).toHaveFocus();
     await userEvent.tab();
@@ -252,6 +256,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Home',
       'Patients',
       'Appointments',
+      'Emergency',
       'OPD queue',
       'Consultations',
       'Follow-ups',
@@ -321,6 +326,7 @@ describe('system pages', () => {
       'Home',
       'Patients',
       'Appointments',
+      'Emergency',
       'OPD queue',
       'Consultations',
       'Follow-ups',
