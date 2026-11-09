@@ -21,6 +21,8 @@ What was decided for this module in the web app. The root `CLAUDE.md` wins where
 
 - **Bed tariff (#578):** `BedPicker` shows "{price} a day" under the category: bed category by name (`useBedCategories`, `ward:read`) -> its bed-day `serviceId` -> the service's `currentPrice` (`useServicePrices('bed')`, `service:read`). The board payload carries only `categoryName`, so the join is by name (unique per hospital). Any missing step leaves the price out, no error.
 
+- **Census (#154):** `/census` (`admission:read`, linked from the bed board, no nav entry): the occupancy summary and the admitted patients (ward, bed, doctor). Counts are the board's own `total` for each status (a page of one bed), so census and board cannot disagree; the rate leaves blocked beds out. The list is `GET /admissions?status=admitted` with the ward filter, paged. Both sit under the `bedKeys` so the bed events refresh them. **Not built, the API has nothing:** expected discharges (no expected-discharge date on an admission) and a filter by doctor (the doctor is a column).
+
 ## Decisions
 
 - The board never keeps a patient in the query cache beyond the list itself; no cache entry is written by an action, which asks for the board again.

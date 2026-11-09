@@ -38,6 +38,18 @@ export async function fetchBoard(
   return boardPageSchema.parse(requireData(result));
 }
 
+/**
+ * How many beds a ward (or every ward) has in one status: the board's own count, read with a
+ * page of one bed so no patient comes with it.
+ */
+export async function fetchBedCount(
+  { wardId, status }: { wardId: string; status: BoardBedStatus },
+  signal?: AbortSignal,
+): Promise<number> {
+  const page = await fetchBoard({ wardId, status, limit: 1 }, signal);
+  return page.total ?? 0;
+}
+
 /** The wards to filter by: names and ids only. A hospital has a few dozen at most. */
 export async function fetchWardOptions(signal?: AbortSignal): Promise<WardOption[]> {
   const result = await api.GET('/wards', { params: { query: { limit: 100 } }, signal });
@@ -93,13 +105,14 @@ export async function openBedEvents(signal: AbortSignal): Promise<ReadableStream
 export async function fetchAdmissions(
   {
     status,
+    wardId,
     cursor,
     limit,
-  }: { status: 'admitted' | 'discharged' | ''; cursor?: string; limit: number },
+  }: { status: 'admitted' | 'discharged' | ''; wardId?: string; cursor?: string; limit: number },
   signal?: AbortSignal,
 ): Promise<AdmissionPage> {
   const result = await api.GET('/admissions', {
-    params: { query: { status: status || undefined, cursor, limit } },
+    params: { query: { status: status || undefined, wardId: wardId || undefined, cursor, limit } },
     signal,
   });
   return admissionPageSchema.parse(requireData(result));
