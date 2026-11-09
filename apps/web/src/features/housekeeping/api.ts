@@ -1,5 +1,5 @@
 import { api, requireData } from '@/shared/api';
-import { cleaningTaskSchema, taskPageSchema } from './schemas';
+import { cleaningTaskSchema, taskPageSchema, wardBedsSchema, wardOptionsSchema } from './schemas';
 import type { CleaningTask, CleaningTaskPage, CleaningTaskStatus } from './types';
 
 /** Oldest first, as the server orders them. */
@@ -26,4 +26,34 @@ export async function moveTask({ task, to }: TaskMove, key: string): Promise<Cle
     body: { to, version: task.version },
   });
   return cleaningTaskSchema.parse(requireData(result));
+}
+
+export interface TaskCreate {
+  bedId: string;
+  assignedTo?: string;
+}
+
+/** Asks for a bed to be cleaned (a routine task). The server refuses a bed that is in use. */
+export async function createTask(body: TaskCreate, key: string): Promise<CleaningTask> {
+  const result = await api.POST('/cleaning-tasks', {
+    params: { header: { 'idempotency-key': key } },
+    body,
+  });
+  return cleaningTaskSchema.parse(requireData(result));
+}
+
+/** The wards to pick a bed from: names and ids only. A hospital has a few dozen at most. */
+export async function fetchWardOptions(signal?: AbortSignal) {
+  const result = await api.GET('/wards', { params: { query: { limit: 100 } }, signal });
+  return wardOptionsSchema.parse(requireData(result)).items;
+}
+
+/** The beds of one ward that a cleaning can be asked for (not in use, not blocked). */
+export async function fetchWardBeds(wardId: string, signal?: AbortSignal) {
+  const result = await api.GET('/wards/{wardId}', { params: { path: { wardId } }, signal });
+  const detail = wardBedsSchema.parse(requireData(result));
+  return detail.rooms
+    .filter((room) => !room.archived)
+    .flatMap((room) => room.beds.map((bed) => ({ ...bed, roomName: room.name })))
+    .filter((bed) => !bed.archived && bed.status === 'available');
 }

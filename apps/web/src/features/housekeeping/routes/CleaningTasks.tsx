@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
+import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import type { TaskMove } from '../api';
+import { RequestCleaning } from '../components/RequestCleaning';
 import { useMoveTask, useTasks } from '../hooks/use-tasks';
 import { allowedMoves, TASK_STATUSES } from '../schemas';
 import type { CleaningTask, CleaningTaskStatus } from '../types';
@@ -30,6 +33,7 @@ export default function CleaningTasks() {
   const tasks = useTasks(status);
   const move = useMoveTask();
   const [done, setDone] = useState<{ text: string; at: number }>();
+  const [requesting, setRequesting] = useState(false);
   const statusLine = useRef<HTMLParagraphElement>(null);
   // A row that moved on has left the filtered list and may have taken focus with it.
   useEffect(() => {
@@ -104,10 +108,24 @@ export default function CleaningTasks() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
-        <p className="text-muted-foreground">{t('description')}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
+          <p className="text-muted-foreground">{t('description')}</p>
+        </div>
+        <Can permission="cleaningTask:manage">
+          <Button onClick={() => setRequesting(true)}>{t('request.open')}</Button>
+        </Can>
       </div>
+      {requesting && (
+        <RequestCleaning
+          onClose={() => setRequesting(false)}
+          onRequested={(number) => {
+            setRequesting(false);
+            setDone({ text: t('done.requested', { number }), at: Date.now() });
+          }}
+        />
+      )}
 
       <label className="flex min-w-52 flex-col gap-1 text-sm font-medium sm:w-60">
         {t('filters.status')}

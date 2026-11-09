@@ -85,6 +85,70 @@ describe('housekeeping tasks', () => {
   });
 });
 
+describe('requesting a routine cleaning', () => {
+  const chooseFreeBed = async (dialog: HTMLElement) => {
+    await within(dialog).findByRole('option', { name: 'General ward A' });
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: /Ward/ }),
+      'General ward A',
+    );
+    const bed = within(dialog).getByRole('combobox', { name: /^Bed/ });
+    await waitFor(() => expect(within(bed).getAllByRole('option').length).toBeGreaterThan(1));
+    const option = within(bed).getAllByRole('option')[1] as HTMLOptionElement;
+    await userEvent.selectOptions(bed, option);
+    return option.textContent?.split(' ')[0] ?? '';
+  };
+  const openRequest = async () => {
+    await open();
+    await userEvent.click(screen.getByRole('button', { name: 'Request a cleaning' }));
+    return screen.findByRole('dialog');
+  };
+
+  it('picks a free bed, assigns a person and lists the new task', async () => {
+    const dialog = await openRequest();
+    const number = await chooseFreeBed(dialog);
+    const person = within(dialog).getByRole('combobox', { name: 'Assign to' });
+    await waitFor(() => expect(within(person).getAllByRole('option').length).toBeGreaterThan(1));
+    await userEvent.selectOptions(
+      person,
+      within(person).getAllByRole('option')[1] as HTMLOptionElement,
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Request cleaning' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(`Cleaning of bed ${number} requested`),
+    );
+    await waitFor(() => expect(rowOf(number)).toBeDefined());
+    expect(within(rowOf(number)).getByText('Routine')).toBeInTheDocument();
+  }, 20_000);
+
+  it('needs a bed before it asks', async () => {
+    const dialog = await openRequest();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Request cleaning' }));
+    expect(await within(dialog).findByText(/required/i)).toBeInTheDocument();
+  });
+
+  it('says so when the bed is taken meanwhile', async () => {
+    server.use(
+      http.post('*/api/cleaning-tasks', () =>
+        HttpResponse.json(
+          { error: { code: 'bed_not_available', message: 'x', requestId: 'r' } },
+          { status: 409 },
+        ),
+      ),
+    );
+    const dialog = await openRequest();
+    await chooseFreeBed(dialog);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Request cleaning' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('in use or blocked');
+  }, 20_000);
+
+  it('is not offered without cleaningTask:manage', async () => {
+    revokePermission(TENANT_IDS.hospital, 'admin', 'cleaningTask:manage');
+    await open();
+    expect(screen.queryByRole('button', { name: 'Request a cleaning' })).not.toBeInTheDocument();
+  });
+});
+
 describe('access to housekeeping', () => {
   it('is closed without cleaningTask:read', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'cleaningTask:read');

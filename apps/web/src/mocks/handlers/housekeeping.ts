@@ -3,6 +3,8 @@ import { http, HttpResponse } from 'msw';
 import { onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { changeMockBed } from './admissions';
+import { mockStaffOf } from './staff';
+import { mockBoardBeds } from './wards';
 
 type CleaningTask = components['schemas']['CleaningTask'];
 type Status = CleaningTask['status'];
@@ -79,6 +81,51 @@ export const housekeepingHandlers = [
       nextCursor: next ? next.id : null,
       ...(cursor ? {} : { total: all.length }),
     });
+  }),
+
+  http.post('*/api/cleaning-tasks', async ({ request }) => {
+    const access = authorize(request, {
+      permission: 'cleaningTask:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const body: unknown = await request.json().catch(() => null);
+    const { bedId, assignedTo } = (body ?? {}) as { bedId?: unknown; assignedTo?: unknown };
+    if (typeof bedId !== 'string' || (assignedTo !== undefined && typeof assignedTo !== 'string')) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const bed = mockBoardBeds(access.tenantId).find((candidate) => candidate.id === bedId);
+    if (!bed) return error(422, 'unknown_bed', 'No such bed');
+    const person = assignedTo
+      ? mockStaffOf(access.tenantId).find((member) => member.userId === assignedTo)
+      : undefined;
+    if (assignedTo && !person) return error(422, 'unknown_user', 'No such person');
+    if (bed.status === 'occupied' || bed.status === 'blocked') {
+      return error(409, 'bed_not_available', 'The bed is in use');
+    }
+    const open = tasks.some(
+      (task) =>
+        task.tenantId === access.tenantId &&
+        task.bedId === bedId &&
+        (task.status === 'open' || task.status === 'in_progress'),
+    );
+    if (open) return error(409, 'task_exists', 'The bed has a task');
+    const task: CleaningTask = {
+      id: `task_${tasks.length + 1}`,
+      tenantId: access.tenantId,
+      bedId,
+      bedNumber: bed.number,
+      wardId: bed.wardId,
+      wardName: bed.wardName,
+      kind: 'routine',
+      status: 'open',
+      ...(person ? { assignedTo: person.userId, assignedToName: person.name } : {}),
+      createdAt: new Date().toISOString(),
+      version: 1,
+    };
+    tasks.push(task);
+    if (bed.status === 'available') changeMockBed(access.tenantId, bedId, bed.wardId, 'cleaning');
+    return HttpResponse.json<CleaningTask>(task, { status: 201 });
   }),
 
   http.post('*/api/cleaning-tasks/:taskId/move', async ({ request, params }) => {

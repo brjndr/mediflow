@@ -41,3 +41,28 @@ export const taskPageSchema: z.ZodType<CleaningTaskPage> = z.object({
   nextCursor: z.string().nullable(),
   total: z.number().int().optional(),
 });
+
+/** Only what the bed picker reads of the wards module's answers. */
+export const wardOptionsSchema = z.object({
+  items: z.array(z.object({ id: z.string(), name: z.string() })),
+});
+
+export const wardBedsSchema = z.object({
+  rooms: z.array(
+    z.object({
+      name: z.string(),
+      archived: z.boolean(),
+      beds: z.array(
+        z.object({ id: z.string(), number: z.string(), status: z.string(), archived: z.boolean() }),
+      ),
+    }),
+  ),
+});
+
+/** The request form. A ward only narrows the beds; it is not sent. */
+export const requestFormSchema = z.object({
+  wardId: z.string(),
+  bedId: z.string().min(1, 'validation.required'),
+  assignedTo: z.string(),
+});
+export type RequestFormValues = z.infer<typeof requestFormSchema>;
