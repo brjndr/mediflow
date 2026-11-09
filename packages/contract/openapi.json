@@ -9470,6 +9470,208 @@
           }
         }
       },
+      "EmergencyCaseStatus": {
+        "type": "string",
+        "enum": ["waiting", "in_treatment", "disposed"]
+      },
+      "EmergencyArrivalMode": {
+        "type": "string",
+        "enum": ["walk_in", "ambulance", "police", "referred"]
+      },
+      "EmergencySex": {
+        "type": "string",
+        "enum": ["male", "female", "other", "unknown"]
+      },
+      "EmergencyCase": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "tempId",
+          "sex",
+          "complaint",
+          "arrivalMode",
+          "status",
+          "arrivedAt",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "tempId": {
+            "description": "The temporary ID issued at arrival, e.g. ER-0042.",
+            "type": "string"
+          },
+          "patientId": {
+            "description": "Absent while the patient is unidentified.",
+            "type": "string"
+          },
+          "alias": {
+            "description": "How an unidentified patient is described, e.g. \"Man in blue jacket\".",
+            "type": "string"
+          },
+          "sex": {
+            "$ref": "#/components/schemas/EmergencySex"
+          },
+          "approximateAge": {
+            "minimum": 0,
+            "maximum": 130,
+            "type": "integer"
+          },
+          "complaint": {
+            "type": "string"
+          },
+          "arrivalMode": {
+            "$ref": "#/components/schemas/EmergencyArrivalMode"
+          },
+          "category": {
+            "minimum": 1,
+            "maximum": 5,
+            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent.",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EmergencyCaseStatus"
+          },
+          "arrivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "triagedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "identifiedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyCasePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmergencyCase"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyCaseCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["complaint", "arrivalMode"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "alias": {
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "sex": {
+            "$ref": "#/components/schemas/EmergencySex"
+          },
+          "approximateAge": {
+            "minimum": 0,
+            "maximum": 130,
+            "type": "integer"
+          },
+          "complaint": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "arrivalMode": {
+            "$ref": "#/components/schemas/EmergencyArrivalMode"
+          },
+          "category": {
+            "minimum": 1,
+            "maximum": 5,
+            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent.",
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyTriage": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["category", "version"],
+        "properties": {
+          "category": {
+            "minimum": 1,
+            "maximum": 5,
+            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent.",
+            "type": "integer"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyIdentify": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "version"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyUnidentify": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version", "reason"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "reason": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
       "StockLocationKind": {
         "type": "string",
         "enum": ["store", "pharmacy", "ward", "department"],
@@ -15143,167 +15345,6 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 500
-          },
-          "version": {
-            "type": "integer"
-          }
-        }
-      },
-      "EmergencyCaseStatus": {
-        "type": "string",
-        "enum": ["waiting", "in_treatment", "disposed"]
-      },
-      "EmergencyArrivalMode": {
-        "type": "string",
-        "enum": ["walk_in", "ambulance", "police", "referred"]
-      },
-      "EmergencySex": {
-        "type": "string",
-        "enum": ["male", "female", "other", "unknown"]
-      },
-      "EmergencyCase": {
-        "type": "object",
-        "required": [
-          "id",
-          "tenantId",
-          "tempId",
-          "sex",
-          "complaint",
-          "arrivalMode",
-          "status",
-          "arrivedAt",
-          "version"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "tempId": {
-            "type": "string",
-            "description": "The temporary ID issued at arrival, e.g. ER-0042."
-          },
-          "patientId": {
-            "type": "string",
-            "description": "Absent while the patient is unidentified."
-          },
-          "alias": {
-            "type": "string",
-            "description": "How an unidentified patient is described, e.g. \"Man in blue jacket\"."
-          },
-          "sex": {
-            "$ref": "#/components/schemas/EmergencySex"
-          },
-          "approximateAge": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 130
-          },
-          "complaint": {
-            "type": "string"
-          },
-          "arrivalMode": {
-            "$ref": "#/components/schemas/EmergencyArrivalMode"
-          },
-          "category": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 5,
-            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent."
-          },
-          "status": {
-            "$ref": "#/components/schemas/EmergencyCaseStatus"
-          },
-          "arrivedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "triagedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "EmergencyCasePage": {
-        "type": "object",
-        "required": ["items", "nextCursor"],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EmergencyCase"
-            }
-          },
-          "nextCursor": {
-            "type": ["string", "null"]
-          },
-          "total": {
-            "type": "integer"
-          }
-        }
-      },
-      "EmergencyCaseCreate": {
-        "type": "object",
-        "required": ["complaint", "arrivalMode"],
-        "properties": {
-          "patientId": {
-            "type": "string"
-          },
-          "alias": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "sex": {
-            "$ref": "#/components/schemas/EmergencySex"
-          },
-          "approximateAge": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 130
-          },
-          "complaint": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300
-          },
-          "arrivalMode": {
-            "$ref": "#/components/schemas/EmergencyArrivalMode"
-          },
-          "category": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 5,
-            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent."
-          }
-        }
-      },
-      "EmergencyTriage": {
-        "type": "object",
-        "required": ["category", "version"],
-        "properties": {
-          "category": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 5,
-            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent."
-          },
-          "version": {
-            "type": "integer"
-          }
-        }
-      },
-      "EmergencyIdentify": {
-        "type": "object",
-        "required": ["patientId", "version"],
-        "properties": {
-          "patientId": {
-            "type": "string"
           },
           "version": {
             "type": "integer"
@@ -40841,6 +40882,595 @@
         }
       }
     },
+    "/emergency/cases": {
+      "get": {
+        "operationId": "listEmergencyCases",
+        "tags": ["emergency"],
+        "description": "The emergency department’s board: cases not yet disposed (or those of one `status`), untriaged arrivals first, then category 1 to 5, then the longest wait. `total` comes with the first page. Every case read is audited. Requires emergency:read.",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/EmergencyCaseStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCasePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "registerEmergencyCase",
+        "tags": ["emergency"],
+        "description": "Registers an arrival in a few fields. With `patientId` the case is for a patient on record (one the caller may read, else 404 `unknown_patient`; needs the patients module); without it the patient is unidentified and gets a temporary ID (`tempId`, ER-0042 and so on, numbered per hospital) that stays on the case for good. A `category` triages the arrival at once. The Idempotency-Key header is required: a repeat registers nobody again. Audited; emits `er.registered` and, with a category, `er.triaged`. Requires emergency:register.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["complaint", "arrivalMode"],
+                "properties": {
+                  "patientId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "alias": {
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "sex": {
+                    "$ref": "#/components/schemas/EmergencySex"
+                  },
+                  "approximateAge": {
+                    "minimum": 0,
+                    "maximum": 130,
+                    "type": "integer"
+                  },
+                  "complaint": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "arrivalMode": {
+                    "$ref": "#/components/schemas/EmergencyArrivalMode"
+                  },
+                  "category": {
+                    "minimum": 1,
+                    "maximum": 5,
+                    "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/triage": {
+      "post": {
+        "operationId": "triageEmergencyCase",
+        "tags": ["emergency"],
+        "description": "Sets or changes the triage category (1 immediate to 5 non-urgent) of a case that has not left the department, at the `version` read (409 `version_conflict`; a case already disposed is 409 `invalid_transition`). The Idempotency-Key header is required. Audited; emits `er.triaged` with the new and previous category. Requires emergency:triage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["category", "version"],
+                "properties": {
+                  "category": {
+                    "minimum": 1,
+                    "maximum": 5,
+                    "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent.",
+                    "type": "integer"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/identify": {
+      "post": {
+        "operationId": "identifyEmergencyCase",
+        "tags": ["emergency"],
+        "description": "Links an unidentified case to a patient on record once known; the temporary ID stays on the case. The link is a row of its own with who made it and when, and can be undone within 24 hours (unidentify). A case with a patient is 409 `already_identified`; a stale `version` 409 `version_conflict`; a patient the caller may not read or that does not exist 404 `unknown_patient`. The Idempotency-Key header is required. Audited; emits `er.identified`. Requires emergency:register.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["patientId", "version"],
+                "properties": {
+                  "patientId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/unidentify": {
+      "post": {
+        "operationId": "unidentifyEmergencyCase",
+        "tags": ["emergency"],
+        "description": "Undoes the link made by identify, within 24 hours of it, when the wrong patient was chosen: the case is unidentified again under its temporary ID, and the link row is closed with who undid it, when and the `reason` (kept, never deleted). A case registered with a patient, or not identified, is 409 `not_reversible`; past the window 409 `window_closed`; a stale `version` 409 `version_conflict`. The Idempotency-Key header is required. Audited; emits `er.unidentified`. Requires emergency:register.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version", "reason"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/inventory/locations": {
       "get": {
         "operationId": "listStockLocations",
@@ -52805,265 +53435,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RecordRequest"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/emergency/cases": {
-      "get": {
-        "operationId": "listEmergencyCases",
-        "description": "The emergency department's board (ER-01, #171): patients waiting or in treatment, the most urgent category first and then the longest wait. Needs emergency:read and the emergency feature flag. Untriaged arrivals come first.",
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/EmergencyCaseStatus"
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "One page of cases",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmergencyCasePage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      },
-      "post": {
-        "operationId": "registerEmergencyCase",
-        "description": "Registers an arrival in a few fields. With patientId the case is for a patient on record; without it the patient is unidentified and gets a temporary ID (tempId) that stays on the case. Needs emergency:register. 404 unknown_patient.",
-        "parameters": [
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmergencyCaseCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The case",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmergencyCase"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/emergency/cases/{caseId}/triage": {
-      "post": {
-        "operationId": "triageEmergencyCase",
-        "description": "Sets or changes the triage category (1 immediate to 5 non-urgent) of a case that has not left the department, at the version read. Needs emergency:triage. 409 version_conflict.",
-        "parameters": [
-          {
-            "name": "caseId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmergencyTriage"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The case",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmergencyCase"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/emergency/cases/{caseId}/identify": {
-      "post": {
-        "operationId": "identifyEmergencyCase",
-        "description": "Links an unidentified case to a patient on record once known; the temporary ID stays on the case. Needs emergency:register. 409 already_identified or version_conflict, 404 unknown_patient.",
-        "parameters": [
-          {
-            "name": "caseId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmergencyIdentify"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The case",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmergencyCase"
                 }
               }
             }
