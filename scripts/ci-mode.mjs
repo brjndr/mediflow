@@ -10,6 +10,19 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+// Which halves of the repository a pull request touches. A change confined to one app lets the
+// other app's jobs be skipped. Anything else (the contract, the lockfile, the workflows, scripts,
+// an unreadable list) counts as both, which is the safe answer.
+export function ciScope({ event, changedFiles = [] }) {
+  const all = { web: true, api: true };
+  if (event !== 'pull_request' || changedFiles.length === 0) return all;
+  const code = changedFiles.filter((file) => !file.endsWith('.md'));
+  if (code.length === 0) return all;
+  if (code.every((file) => file.startsWith('apps/api/'))) return { web: false, api: true };
+  if (code.every((file) => file.startsWith('apps/web/'))) return { web: true, api: false };
+  return all;
+}
+
 export function ciMode({ event, changedFiles = [], mergeTree, branchTree }) {
   if (event === 'pull_request') {
     const docsOnly = changedFiles.length > 0 && changedFiles.every((file) => file.endsWith('.md'));
