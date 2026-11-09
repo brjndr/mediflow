@@ -201,8 +201,14 @@ function seed(): State {
       sampleType,
       container,
       turnaroundHours: hours,
-      ...(code === 'GLU-F'
-        ? { serviceId: mockServiceNamed(TENANT_IDS.hospital, 'Blood glucose fasting')?.id }
+      // A test charged as the service it is priced by: haemoglobin as the blood count.
+      ...(code === 'GLU-F' || code === 'HB'
+        ? {
+            serviceId: mockServiceNamed(
+              TENANT_IDS.hospital,
+              code === 'HB' ? 'Complete blood count' : 'Blood glucose fasting',
+            )?.id,
+          }
         : {}),
     });
     ranges.set(test.id, { ranges: [{ sex: 'any', ageFrom: BIRTH, low, high }], version: 1 });
@@ -365,6 +371,10 @@ const notFound = () => error(404, 'lab_test_not_found', 'No such test');
 /** A test of another hospital does not exist as far as this session is concerned. */
 const find = (tenantId: string, id: unknown) =>
   state.tests.find((candidate) => candidate.id === id && candidate.tenantId === tenantId);
+
+/** The catalog service a test is charged as, when it has one (billing's mock). */
+export const mockLabTestServiceId = (tenantId: string, id: string): string | undefined =>
+  find(tenantId, id)?.serviceId;
 
 /** The test as the API shows it: with the names of its service and of its components. */
 function view(test: Stored): LabTest {

@@ -118,7 +118,7 @@ describe('the catalog', () => {
     // How it is collected, how long it takes, and what it is charged as.
     expect(screen.getAllByText('Whole blood · EDTA tube').length).toBeGreaterThan(0);
     expect(screen.getAllByText('4 hours').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Complete blood count')).toHaveLength(2);
+    expect(screen.getAllByText('Complete blood count')).toHaveLength(3);
 
     await userEvent.click(button('Load more'));
     expect(await screen.findByRole('link', { name: 'Liver function test' })).toBeInTheDocument();
@@ -422,20 +422,19 @@ describe('a test', () => {
     const bodies = sent('PATCH');
     await openTest();
     await userEvent.click(button('Edit details'));
-    await screen.findByRole('option', { name: 'Complete blood count (LAB-001)' });
-    await choose(/^Charged as/, 'Complete blood count (LAB-001)');
+    // Haemoglobin is charged as the blood count to begin with; here it moves to the lipid profile.
+    await screen.findByRole('option', { name: 'Lipid profile (LAB-003)' });
+    await choose(/^Charged as/, 'Lipid profile (LAB-003)');
     await userEvent.click(button('Save test'));
     await waitFor(() => expect(statuses()).toContain('The test was saved.'));
-    expect(screen.getByText('Complete blood count', { selector: 'dd' })).toBeInTheDocument();
+    expect(screen.getByText('Lipid profile', { selector: 'dd' })).toBeInTheDocument();
 
     await userEvent.click(button('Edit details'));
     await choose(/^Charged as/, 'Not linked to a service');
     await userEvent.click(button('Save test'));
-    await waitFor(() =>
-      expect(screen.queryByText('Complete blood count', { selector: 'dd' })).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByText('Lipid profile', { selector: 'dd' })).toBeNull());
     expect(bodies).toEqual([
-      { serviceId: 'svc_h_17', expectedVersion: 1 },
+      { serviceId: 'svc_h_19', expectedVersion: 1 },
       { serviceId: '', expectedVersion: 2 },
     ]);
   });
