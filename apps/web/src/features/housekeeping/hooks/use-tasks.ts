@@ -1,8 +1,16 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
-import { fetchTasks, moveTask, type TaskMove } from '../api';
+import {
+  createTask,
+  fetchTasks,
+  fetchWardBeds,
+  fetchWardOptions,
+  moveTask,
+  type TaskCreate,
+  type TaskMove,
+} from '../api';
 import type { CleaningTaskStatus } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's tasks never show in another. */
@@ -39,6 +47,51 @@ export function useMoveTask() {
       const body = JSON.stringify([move.task.id, move.task.version, move.to]);
       if (attempt.current?.body !== body) attempt.current = { body, key: crypto.randomUUID() };
       return moveTask(move, attempt.current.key);
+    },
+    onSuccess: () => {
+      attempt.current = undefined;
+    },
+    onSettled: () => {
+      if (tenantId) return queryClient.invalidateQueries({ queryKey: taskKeys.all(tenantId) });
+    },
+  });
+}
+
+export function useWardOptions(enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: taskKeys.detail(tenantId ?? '', 'wards'),
+    queryFn: ({ signal }) => fetchWardOptions(signal),
+    enabled: enabled && tenantId !== undefined,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+/** A bed's status changes all day, so a ward's beds are read again each time the form opens. */
+export function useRequestableBeds(wardId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: taskKeys.detail(tenantId ?? '', `beds:${wardId}`),
+    queryFn: ({ signal }) => fetchWardBeds(wardId, signal),
+    enabled: wardId !== '' && tenantId !== undefined,
+    staleTime: 0,
+  });
+}
+
+/** One key per request body, so a double click or a retry asks once. */
+export function useCreateTask() {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  const attempt = useRef<{ body: string; key: string }>(undefined);
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: TaskCreate) => {
+      const serialized = JSON.stringify(body);
+      if (attempt.current?.body !== serialized) {
+        attempt.current = { body: serialized, key: crypto.randomUUID() };
+      }
+      return createTask(body, attempt.current.key);
     },
     onSuccess: () => {
       attempt.current = undefined;

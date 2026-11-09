@@ -6,7 +6,9 @@
   "count_other": "{{count}} tasks",
   "empty": "No tasks here.",
   "rowLabel": "Bed {{number}}, {{ward}}",
-  "filters": { "status": "Status" },
+  "filters": {
+    "status": "Status"
+  },
   "columns": {
     "bed": "Bed",
     "ward": "Ward",
@@ -21,15 +23,47 @@
     "done": "Done",
     "cancelled": "Cancelled"
   },
-  "kind": { "discharge": "After discharge", "routine": "Routine" },
-  "actions": { "start": "Start", "finish": "Finish: bed ready", "cancel": "Cancel task" },
+  "kind": {
+    "discharge": "After discharge",
+    "routine": "Routine"
+  },
+  "actions": {
+    "start": "Start",
+    "finish": "Finish: bed ready",
+    "cancel": "Cancel task"
+  },
   "done": {
     "in_progress": "Cleaning of bed {{number}} started.",
     "done": "Bed {{number}} is clean and available.",
-    "cancelled": "Task for bed {{number}} cancelled."
+    "cancelled": "Task for bed {{number}} cancelled.",
+    "requested": "Cleaning of bed {{number}} requested."
   },
   "refused": {
     "changed": "Someone else changed this task first. The list has been refreshed.",
     "wardsOff": "Beds cannot be updated here: the wards module is off."
+  },
+  "request": {
+    "open": "Request a cleaning",
+    "title": "Request a routine cleaning",
+    "description": "Choose a bed that is free. It is marked as being cleaned until the task is finished.",
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Request cleaning",
+    "saving": "Requesting...",
+    "ward": "Ward",
+    "chooseWard": "Choose a ward",
+    "bed": "Bed",
+    "chooseBed": "Choose a bed",
+    "bedOption": "{{number}} ({{room}})",
+    "noBeds": "No bed in this ward is free.",
+    "assignee": "Assign to",
+    "noAssignee": "Nobody yet",
+    "noWards": "Choosing a bed needs access to the wards.",
+    "refused": {
+      "notAvailable": "That bed is in use or blocked now. Choose another.",
+      "exists": "That bed already has an open cleaning task.",
+      "unknownBed": "That bed no longer exists.",
+      "unknownUser": "That person is not on the staff of this hospital."
+    }
   }
 }

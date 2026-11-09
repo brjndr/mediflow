@@ -8,7 +8,8 @@ What was decided for this module in the web app (#198). The root `CLAUDE.md` win
 
 - **Actions per row:** Start (open to in progress) and "Finish: bed ready" (in progress to done) need `cleaningTask:work`; "Cancel task" needs `cleaningTask:manage`. All use `POST /cleaning-tasks/{taskId}/move` with the task's `version` and an Idempotency-Key. Finishing makes the bed available on the server (it needs `wards` on, else 403 `feature_disabled`, shown as its own message). A move the status does not allow is disabled; `conflict` and `invalid_transition` read "Someone else changed this task first".
 - **No live stream:** the list is read again every 15 s (the bed event stream needs `admission:read`, which a cleaner may not have). After a move the list is read again.
-- **Not here yet:** asking for a routine cleaning (`POST /cleaning-tasks`, needs a bed picker), assigning a task to a person, a ward filter.
+- **Request a cleaning (#583):** "Request a cleaning" (needs `cleaningTask:manage`) opens a dialog: a ward, a bed of it that is `available` (read from `GET /wards/{id}`, so it needs `ward:read` and shows no patient), and optionally a person from `useStaffOptions` (needs `staff:read`; first 100). `POST /cleaning-tasks` with an Idempotency-Key per body; the server refuses a bed in use (`bed_not_available`), one with an open task (`task_exists`), an unknown bed or person, each with its own message. A person is named only when asking: the API has no way to assign an existing task later.
+- **Not here yet:** asking from the bed board, assigning an existing task, a ward filter.
 
 ## Decisions
 
