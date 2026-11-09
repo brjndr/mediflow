@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockDepartment, mockDepartmentNamed } from './departments';
-import { mockServiceNamed } from './services';
+import { mockServiceNamed, mockServicePrice } from './services';
 
 type Schemas = components['schemas'];
 type BedCategory = Schemas['BedCategory'];
@@ -258,8 +258,16 @@ export interface MockBoardBed {
   categoryName: string;
   status: Status;
   blockedReason?: BlockReason;
+  /** The bed-day price today, when its category has a priced service. */
+  dayPriceMinor?: number;
   version: number;
 }
+
+const dayPrice = (tenantId: string, categoryId: string) => {
+  const serviceId = categoryOf(tenantId, categoryId)?.serviceId;
+  const amount = serviceId ? mockServicePrice(tenantId, serviceId)?.amountMinor : null;
+  return amount == null ? {} : { dayPriceMinor: amount };
+};
 
 /** The beds in use at a hospital, by ward name and bed number. */
 export function mockBoardBeds(tenantId: string): MockBoardBed[] {
@@ -278,6 +286,7 @@ export function mockBoardBeds(tenantId: string): MockBoardBed[] {
           categoryName: categoryOf(tenantId, bed.bedCategoryId)?.name ?? '',
           status: bed.status,
           ...(bed.blockedReason ? { blockedReason: bed.blockedReason } : {}),
+          ...dayPrice(tenantId, bed.bedCategoryId),
           version: bed.version,
         })),
     )

@@ -2992,6 +2992,11 @@
         "enum": ["transfer", "discharge", "cancelled"],
         "description": "Why a patient left a bed."
       },
+      "BedMoveReason": {
+        "type": "string",
+        "enum": ["clinical", "step_down", "isolation", "patient_request", "ward_closure", "other"],
+        "description": "Why a patient was given a bed other than the one before, from a list."
+      },
       "BoardBedStatus": {
         "type": "string",
         "enum": ["available", "occupied", "cleaning", "blocked"],
@@ -3207,8 +3212,20 @@
             "description": "The bed-day service of that category then.",
             "type": "string"
           },
+          "dayPriceMinor": {
+            "minimum": 0,
+            "description": "The bed-day price in minor units on the standard list on the day the patient was given the bed, absent when the service has none then.",
+            "type": "integer"
+          },
           "assignedAt": {
             "format": "date-time",
+            "type": "string"
+          },
+          "moveReason": {
+            "$ref": "#/components/schemas/BedMoveReason"
+          },
+          "moveNote": {
+            "description": "Plain text, with the move reason.",
             "type": "string"
           },
           "releasedAt": {
@@ -22581,6 +22598,16 @@
                     "minimum": 1,
                     "description": "The version the change was made from. Another one gives 409 `conflict`.",
                     "type": "integer"
+                  },
+                  "reason": {
+                    "$ref": "#/components/schemas/BedMoveReason"
+                  },
+                  "note": {
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "description": "Plain text, only with a `reason` (400 `validation_failed` without).",
+                    "type": "string"
                   }
                 }
               }
@@ -22715,6 +22742,16 @@
                     "minimum": 1,
                     "description": "The version the change was made from. Another one gives 409 `conflict`.",
                     "type": "integer"
+                  },
+                  "reason": {
+                    "$ref": "#/components/schemas/BedMoveReason"
+                  },
+                  "note": {
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "description": "Plain text, only with a `reason` (400 `validation_failed` without).",
+                    "type": "string"
                   }
                 }
               }

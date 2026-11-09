@@ -105,11 +105,22 @@
     "unsignedNotes": "A note of this stay is still a draft. Sign or discard every draft in the consultation first, then discharge the patient.",
     "notOpen": "The stay's encounter is no longer open, so the patient cannot be discharged from here."
   },
+  "moveReasons": {
+    "clinical": "Clinical need",
+    "step_down": "Stepping down to a lower level of care",
+    "isolation": "Isolation",
+    "patient_request": "Patient request",
+    "ward_closure": "Ward closing or repair",
+    "other": "Other"
+  },
   "bedPanel": {
     "giveHeading": "Give {{patient}} a bed",
     "moveHeading": "Move {{patient}} to another bed",
     "give": "Give bed",
     "move": "Move patient",
+    "reason": "Why (optional)",
+    "noReason": "No reason given",
+    "note": "Note",
     "back": "Cancel"
   },
   "admit": {
@@ -167,11 +178,14 @@
     "now": "now",
     "days_one": "{{count}} day",
     "days_other": "{{count}} days",
+    "price": "{{price}} a day, {{amount}} for the days so far",
+    "arrived": "Moved here: {{reason}}",
     "categoryChanged": "A different bed category than before, so a different day price from this bed.",
     "close": "Close",
     "reasons": {
       "transfer": "moved to another bed",
-      "discharge": "discharged"
+      "discharge": "discharged",
+      "cancelled": "admission cancelled"
     }
   }
 }

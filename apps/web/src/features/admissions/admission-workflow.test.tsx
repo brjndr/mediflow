@@ -141,6 +141,8 @@ describe('bed history', () => {
     await userEvent.click(within(grid).getByRole('button', { name: /Give or change bed/ }));
     const panel = await screen.findByRole('region', { name: /Move .* to another bed/ });
     await userEvent.click(within(panel).getAllByRole('radio')[0] as HTMLElement);
+    await userEvent.selectOptions(within(panel).getByLabelText('Why (optional)'), 'isolation');
+    await userEvent.type(within(panel).getByLabelText('Note'), 'Needs a single room');
     await userEvent.click(within(panel).getByRole('button', { name: 'Move patient' }));
     await screen.findByText(/is now in bed/);
 
@@ -149,6 +151,8 @@ describe('bed history', () => {
     const stays = await within(history).findAllByRole('listitem');
     expect(stays).toHaveLength(2);
     expect(within(history).getByText('moved to another bed', { exact: false })).toBeInTheDocument();
+    expect(within(history).getByText(/Isolation: Needs a single room/)).toBeInTheDocument();
+    expect(within(history).getAllByText(/a day, .* for the days so far/)).not.toHaveLength(0);
     await expectNoAxeViolations();
   }, 30_000);
 });

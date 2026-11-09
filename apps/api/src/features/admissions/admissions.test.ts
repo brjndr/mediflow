@@ -70,6 +70,9 @@ interface Stay {
   releasedAt?: string;
   releaseReason?: string;
   serviceId?: string;
+  dayPriceMinor?: number;
+  moveReason?: string;
+  moveNote?: string;
 }
 interface Detail {
   admission: Admission;
@@ -481,6 +484,42 @@ describe('moving a patient', () => {
     expect((await read(moved.admission.id)).stays).toHaveLength(2);
   });
 
+  it('keeps a reason and note on a transfer and a bed given later', async () => {
+    await reset();
+    const waiting = await admitted(patient(0));
+    const given = await ok<Detail>(
+      await post(`/admissions/${waiting.admission.id}/assign-bed`, {
+        bedId: bed(0),
+        version: waiting.admission.version,
+        reason: 'clinical',
+      }),
+    );
+    expect(given.stays[0]).toMatchObject({ moveReason: 'clinical' });
+    expect(given.stays[0]?.moveNote).toBeUndefined();
+    const moved = await ok<Detail>(
+      await post(`/admissions/${given.admission.id}/transfer`, {
+        bedId: bed(1),
+        version: given.admission.version,
+        reason: 'isolation',
+        note: '  Needs a  single room ',
+      }),
+    );
+    expect(moved.stays[1]).toMatchObject({
+      moveReason: 'isolation',
+      moveNote: 'Needs a single room',
+    });
+    expect(moved.stays[1]?.dayPriceMinor).toBeUndefined();
+    // A note alone, an unknown reason and a control character are refused.
+    const base = { bedId: bed(2), version: moved.admission.version };
+    for (const extra of [{ note: 'x' }, { reason: 'whim' }, { reason: 'other', note: 'ab' }]) {
+      const response = await post(`/admissions/${moved.admission.id}/transfer`, {
+        ...base,
+        ...extra,
+      });
+      expect(response.statusCode).toBe(400);
+    }
+  });
+
   it('keeps the category and the service the bed had when it was given', async () => {
     await reset();
     const service = (
@@ -494,13 +533,21 @@ describe('moving a patient', () => {
       'update bed_categories set service_id = $2 where tenant_id = $1 and name = $3',
       [hospital.id, service, 'General'],
     );
+    await pool.query(
+      `insert into service_prices (tenant_id, service_id, price_list_id, amount_minor, effective_from)
+       select $1, $2, id, 250000, '2020-01-01' from price_lists where tenant_id = $1 and standard`,
+      [hospital.id, service],
+    );
     try {
       const detail = await admitted(patient(0), { bedId: bed(0) });
       await pool.query('update bed_categories set service_id = null where tenant_id = $1', [
         hospital.id,
       ]);
-      expect((await read(detail.admission.id)).stays[0]?.serviceId).toBe(service);
+      const stay = (await read(detail.admission.id)).stays[0];
+      expect(stay?.serviceId).toBe(service);
+      expect(stay?.dayPriceMinor).toBe(250000);
     } finally {
+      await pool.query('delete from service_prices where service_id = $1', [service]);
       await pool.query('update bed_categories set service_id = null where tenant_id = $1', [
         hospital.id,
       ]);

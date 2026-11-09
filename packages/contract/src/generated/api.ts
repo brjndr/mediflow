@@ -6145,6 +6145,11 @@ export interface components {
          */
         BedReleaseReason: "transfer" | "discharge" | "cancelled";
         /**
+         * @description Why a patient was given a bed other than the one before, from a list.
+         * @enum {string}
+         */
+        BedMoveReason: "clinical" | "step_down" | "isolation" | "patient_request" | "ward_closure" | "other";
+        /**
          * @description available -> occupied (a patient is given the bed) -> cleaning (they leave) -> available (it is ready). blocked is set from the wards API.
          * @enum {string}
          */
@@ -6210,8 +6215,13 @@ export interface components {
             bedCategoryId: string;
             /** @description The bed-day service of that category then. */
             serviceId?: string;
+            /** @description The bed-day price in minor units on the standard list on the day the patient was given the bed, absent when the service has none then. */
+            dayPriceMinor?: number;
             /** Format: date-time */
             assignedAt: string;
+            moveReason?: components["schemas"]["BedMoveReason"];
+            /** @description Plain text, with the move reason. */
+            moveNote?: string;
             /** Format: date-time */
             releasedAt?: string;
             releaseReason?: components["schemas"]["BedReleaseReason"];
@@ -17027,6 +17037,9 @@ export interface operations {
                     bedId: string;
                     /** @description The version the change was made from. Another one gives 409 `conflict`. */
                     version: number;
+                    reason?: components["schemas"]["BedMoveReason"];
+                    /** @description Plain text, only with a `reason` (400 `validation_failed` without). */
+                    note?: string;
                 };
             };
         };
@@ -17123,6 +17136,9 @@ export interface operations {
                     bedId: string;
                     /** @description The version the change was made from. Another one gives 409 `conflict`. */
                     version: number;
+                    reason?: components["schemas"]["BedMoveReason"];
+                    /** @description Plain text, only with a `reason` (400 `validation_failed` without). */
+                    note?: string;
                 };
             };
         };
