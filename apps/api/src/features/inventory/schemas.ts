@@ -69,12 +69,13 @@ export const LEDGER_SOURCES = [
   'purchase_return',
   'dispense_return',
   'issue',
+  'theatre',
 ] as const;
 export type LedgerSource = (typeof LEDGER_SOURCES)[number];
 export const StockLedgerSource = named(
   'StockLedgerSource',
   LEDGER_SOURCES,
-  'What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104), an issue voucher against an indent (#105).',
+  'What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104), an issue voucher against an indent (#105), consumables used in a surgery (`theatre`, #180).',
 );
 
 export const LEDGER_REASONS = [
@@ -88,12 +89,13 @@ export const LEDGER_REASONS = [
   'wastage',
   'issue_out',
   'issue_in',
+  'theatre_use',
 ] as const;
 export type LedgerReason = (typeof LEDGER_REASONS)[number];
 export const StockLedgerReason = named(
   'StockLedgerReason',
   LEDGER_REASONS,
-  'Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104), `issue_out` for units issued from a store against an indent and `issue_in` for the same units coming in at the place that asked (#105).',
+  'Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104), `issue_out` for units issued from a store against an indent and `issue_in` for the same units coming in at the place that asked (#105) and `theatre_use` for units used in a surgery (#180).',
 );
 
 const Id = Type.String({ maxLength: 64 });
