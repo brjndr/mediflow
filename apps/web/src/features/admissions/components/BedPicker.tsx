@@ -1,6 +1,9 @@
 import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
+import { useServicePrices } from '@/features/services';
+import { useBedCategories } from '@/features/wards';
+import { useFormatters } from '@/tenancy';
 import { errorMessageKey } from '@/shared/api';
 import { useAvailableBeds } from '../hooks/use-admissions';
 import { useWardOptions } from '../hooks/use-board';
@@ -31,6 +34,15 @@ export function BedPicker({
   const mayWards = usePermission('ward:read');
   const wards = useWardOptions(mayWards);
   const beds = useAvailableBeds(wardId);
+  const format = useFormatters();
+  // The day price of a category: category by name, its bed-day service, that service's price.
+  // Each step needs its own permission; without one the price is left out, never an error.
+  const categoryList = useBedCategories(false, mayWards);
+  const prices = useServicePrices('bed');
+  const priceOf = (categoryName: string): number | undefined => {
+    const serviceId = categoryList.data?.find((c) => c.name === categoryName)?.serviceId;
+    return serviceId ? prices.data?.get(serviceId) : undefined;
+  };
 
   const categories = useMemo(
     () => [...new Set((beds.data ?? []).map((bed) => bed.categoryName))].sort(),
@@ -103,7 +115,7 @@ export function BedPicker({
               return (
                 <li key={bed.id}>
                   {/* The text is in nested spans, which the rule does not follow; the input is inside the label. */}
-                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                  {}
                   <label className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-accent pointer-coarse:min-h-11">
                     <input
                       type="radio"
@@ -119,6 +131,13 @@ export function BedPicker({
                       <span className="block text-muted-foreground">
                         {bed.roomName} · {bed.categoryName}
                       </span>
+                      {priceOf(bed.categoryName) !== undefined && (
+                        <span className="block text-muted-foreground">
+                          {t('admit.dayPrice', {
+                            price: format.money(priceOf(bed.categoryName) ?? 0),
+                          })}
+                        </span>
+                      )}
                     </span>
                   </label>
                 </li>
