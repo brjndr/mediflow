@@ -50,6 +50,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     branchTree: git('rev-parse', '--verify', '--quiet', 'HEAD^2^{tree}'),
   });
 
-  console.log(`CI mode: ${mode}`);
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `mode=${mode}\n`);
+  const scope = ciScope({ event, changedFiles: changed ? changed.split('\n') : [] });
+
+  console.log(`CI mode: ${mode}, web: ${scope.web}, api: ${scope.api}`);
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `mode=${mode}\nweb=${scope.web}\napi=${scope.api}\n`);
+  }
 }
