@@ -16,6 +16,18 @@ export const BOARD_STATUSES = [
   'blocked',
 ] as const satisfies readonly BoardBedStatus[];
 
+/** Why a patient was given another bed, as the API lists them (an optional choice, never free text). */
+export const MOVE_REASONS = [
+  'clinical',
+  'step_down',
+  'isolation',
+  'patient_request',
+  'ward_closure',
+  'other',
+] as const;
+export type MoveReason = (typeof MOVE_REASONS)[number];
+export const MOVE_NOTE_MAX = 200;
+
 /** Why a bed is taken out of use, as the wards API lists them. A list, never free text. */
 export const BLOCK_REASONS = [
   'repair',
@@ -146,9 +158,12 @@ export const bedStaySchema: z.ZodType<BedStay> = z.object({
   wardName: z.string(),
   bedCategoryId: z.string(),
   serviceId: z.string().optional(),
+  dayPriceMinor: z.number().int().optional(),
   assignedAt: z.string(),
+  moveReason: z.enum(MOVE_REASONS).optional(),
+  moveNote: z.string().optional(),
   releasedAt: z.string().optional(),
-  releaseReason: z.enum(['transfer', 'discharge']).optional(),
+  releaseReason: z.enum(['transfer', 'discharge', 'cancelled']).optional(),
 });
 
 export const admissionDetailSchema = z.object({

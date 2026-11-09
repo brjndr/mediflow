@@ -6,6 +6,7 @@ import {
   boardPageSchema,
   wardOptionsSchema,
   type BlockReason,
+  type MoveReason,
 } from './schemas';
 import type {
   Admission,
@@ -132,9 +133,15 @@ export async function changeAdmissionBed(
   admission: Admission,
   bedId: string,
   key: string,
+  why: { reason?: MoveReason; note?: string } = {},
 ): Promise<Admission> {
   const params = { path: { admissionId: admission.id }, header: { 'idempotency-key': key } };
-  const body = { bedId, version: admission.version };
+  const body = {
+    bedId,
+    version: admission.version,
+    ...(why.reason ? { reason: why.reason } : {}),
+    ...(why.reason && why.note ? { note: why.note } : {}),
+  };
   const result = admission.bed
     ? await api.POST('/admissions/{admissionId}/transfer', { params, body })
     : await api.POST('/admissions/{admissionId}/assign-bed', { params, body });

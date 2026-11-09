@@ -12,6 +12,7 @@ import { BedHistoryPanel } from '../components/BedHistoryPanel';
 import { BedPicker } from '../components/BedPicker';
 import { DischargePanel } from '../components/DischargePanel';
 import { useAdmissions, useChangeBed, useDischarge } from '../hooks/use-admissions';
+import { MOVE_NOTE_MAX, MOVE_REASONS, type MoveReason } from '../schemas';
 import type { Admission, DischargeType } from '../types';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
@@ -27,11 +28,13 @@ function BedPanel({
 }: {
   admission: Admission;
   pending: boolean;
-  onSubmit: (bedId: string) => void;
+  onSubmit: (bedId: string, reason?: MoveReason, note?: string) => void;
   onBack: () => void;
 }) {
   const { t } = useTranslation('admissions');
   const [bedId, setBedId] = useState('');
+  const [reason, setReason] = useState<MoveReason | ''>('');
+  const [note, setNote] = useState('');
   const [missing, setMissing] = useState(false);
   const moving = admission.bed !== undefined;
   return (
@@ -56,6 +59,35 @@ function BedPanel({
           setMissing(false);
         }}
       />
+      <div className="flex flex-wrap gap-4">
+        <label className="flex min-w-48 flex-col gap-1 text-sm font-medium">
+          {t('bedPanel.reason')}
+          <select
+            value={reason}
+            onChange={(event) => setReason(event.target.value as MoveReason | '')}
+            className={control}
+          >
+            <option value="">{t('bedPanel.noReason')}</option>
+            {MOVE_REASONS.map((each) => (
+              <option key={each} value={each}>
+                {t(`moveReasons.${each}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {reason !== '' && (
+          <label className="flex min-w-64 flex-1 flex-col gap-1 text-sm font-medium">
+            {t('bedPanel.note')}
+            <input
+              type="text"
+              value={note}
+              maxLength={MOVE_NOTE_MAX}
+              onChange={(event) => setNote(event.target.value)}
+              className={control}
+            />
+          </label>
+        )}
+      </div>
       {missing && (
         <p role="alert" className="text-sm text-destructive">
           {t('admit.bedRequired')}
@@ -68,7 +100,8 @@ function BedPanel({
           onClick={() => {
             if (pending) return;
             if (bedId === '') setMissing(true);
-            else onSubmit(bedId);
+            else
+              onSubmit(bedId, reason || undefined, reason ? note.trim() || undefined : undefined);
           }}
         >
           {t(moving ? 'bedPanel.move' : 'bedPanel.give')}
@@ -101,12 +134,12 @@ export default function Admissions() {
   const statusLine = useRef<HTMLParagraphElement>(null);
   usePanelFocus(target ?? leaving ?? history, box, statusLine);
 
-  const choose = async (bedId: string) => {
+  const choose = async (bedId: string, reason?: MoveReason, note?: string) => {
     if (!target) return;
     change.reset();
     setDone('');
     try {
-      const updated = await change.mutateAsync({ admission: target, bedId });
+      const updated = await change.mutateAsync({ admission: target, bedId, reason, note });
       setTarget(null);
       setDone(t('done.bed', { patient: updated.patientName, bed: updated.bed?.bedNumber ?? '' }));
     } catch (error) {
@@ -267,7 +300,7 @@ export default function Admissions() {
           key={target.id}
           admission={target}
           pending={change.isPending}
-          onSubmit={(bedId) => void choose(bedId)}
+          onSubmit={(bedId, reason, note) => void choose(bedId, reason, note)}
           onBack={() => setTarget(null)}
         />
       )}

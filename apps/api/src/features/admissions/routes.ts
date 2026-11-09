@@ -58,6 +58,8 @@ import {
   BoardBedPage,
   BoardQuery,
   CANCEL_REASON_MAX,
+  MOVE_NOTE_MAX,
+  type MoveReasonValue,
 } from './schemas.js';
 
 const FEATURE = 'admissions';
@@ -179,7 +181,10 @@ async function detailOf(request: FastifyRequest, row: AdmissionRow) {
       wardName: stay.ward_name,
       bedCategoryId: stay.bed_category_id,
       ...(stay.service_id === null ? {} : { serviceId: stay.service_id }),
+      ...(stay.day_price_minor === null ? {} : { dayPriceMinor: Number(stay.day_price_minor) }),
       assignedAt: iso(stay.assigned_at),
+      ...(stay.move_reason === null ? {} : { moveReason: stay.move_reason }),
+      ...(stay.move_note === null ? {} : { moveNote: stay.move_note }),
       ...(stay.released_at === null ? {} : { releasedAt: iso(stay.released_at) }),
       ...(stay.release_reason === null ? {} : { releaseReason: stay.release_reason }),
     })),
@@ -216,6 +221,7 @@ async function placeInBed(
   request: FastifyRequest,
   admission: { id: string; patientId: string },
   bed: AdmissionBed,
+  why: { moveReason?: MoveReasonValue; moveNote?: string } = {},
 ): Promise<void> {
   const client = request.txClient;
   try {
@@ -236,6 +242,7 @@ async function placeInBed(
         wardId: bed.ward_id,
         bedCategoryId: bed.bed_category_id,
         serviceId: bed.service_id,
+        ...why,
       },
       userIdOf(request),
     );
@@ -527,10 +534,17 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
           if (current && current.bed_id === body.bedId) {
             throw new HttpError(422, 'same_bed', 'The patient is in that bed already');
           }
+          if (body.note !== undefined && body.reason === undefined) {
+            throw new HttpError(400, 'validation_failed', 'A note needs a reason');
+          }
+          const note = body.note === undefined ? '' : tidyWithin(body.note, MOVE_NOTE_MAX);
           const bed = await claimBed(request, body.bedId, current ? [current.ward_id] : []);
           const admission = { id: row.id, patientId: row.patient_id };
           await leaveBed(request, admission, 'transfer');
-          await placeInBed(request, admission, bed);
+          await placeInBed(request, admission, bed, {
+            ...(body.reason === undefined ? {} : { moveReason: body.reason }),
+            ...(note === '' ? {} : { moveNote: note }),
+          });
           await touchAdmission(request.txClient, row.id);
         });
       },

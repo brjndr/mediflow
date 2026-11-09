@@ -6,6 +6,7 @@ import type {
   AdmissionTypeValue,
   BoardBedStatusValue,
   DischargeTypeValue,
+  MoveReasonValue,
   ReleaseReasonValue,
 } from './schemas.js';
 
@@ -213,16 +214,33 @@ export interface StayRow {
   assigned_at: Date;
   released_at: Date | null;
   release_reason: ReleaseReasonValue | null;
+  move_reason: MoveReasonValue | null;
+  move_note: string | null;
+  day_price_minor: string | null;
 }
 
 /** The beds an admission was in, oldest first. */
 export async function staysOf(client: pg.ClientBase, admissionId: string): Promise<StayRow[]> {
   const { rows } = await client.query<StayRow>(
     `select ba.id, ba.bed_id, b.number as bed_number, ba.ward_id, w.name as ward_name,
-            ba.bed_category_id, ba.service_id, ba.assigned_at, ba.released_at, ba.release_reason
+            ba.bed_category_id, ba.service_id, ba.assigned_at, ba.released_at, ba.release_reason,
+            ba.move_reason, ba.move_note, price.amount_minor as day_price_minor
      from bed_assignments ba
      join beds b on b.tenant_id = ba.tenant_id and b.id = ba.bed_id
      join wards w on w.tenant_id = ba.tenant_id and w.id = ba.ward_id
+     join tenants t on t.id = ba.tenant_id
+     left join lateral (
+       select sp.amount_minor
+       from service_prices sp
+       join price_lists pl
+         on pl.tenant_id = sp.tenant_id and pl.id = sp.price_list_id and pl.standard
+       where sp.tenant_id = ba.tenant_id and sp.service_id = ba.service_id
+         and sp.withdrawn_at is null
+         and sp.effective_from <= (ba.assigned_at at time zone t.timezone)::date
+         and (sp.effective_to is null
+              or sp.effective_to >= (ba.assigned_at at time zone t.timezone)::date)
+       limit 1
+     ) price on true
      where ba.admission_id = $1
      order by ba.assigned_at, ba.id`,
     [admissionId],
@@ -282,13 +300,15 @@ export async function insertAssignment(
     wardId: string;
     bedCategoryId: string;
     serviceId: string | null;
+    moveReason?: MoveReasonValue | null;
+    moveNote?: string | null;
   },
   userId: string,
 ): Promise<string> {
   const { rows } = await client.query<{ id: string }>(
     `insert into bed_assignments (tenant_id, admission_id, patient_id, bed_id, ward_id,
-                                  bed_category_id, service_id, assigned_by)
-     values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7)
+                                  bed_category_id, service_id, assigned_by, move_reason, move_note)
+     values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9)
      returning id`,
     [
       input.admissionId,
@@ -298,6 +318,8 @@ export async function insertAssignment(
       input.bedCategoryId,
       input.serviceId,
       userId,
+      input.moveReason ?? null,
+      input.moveNote ?? null,
     ],
   );
   const id = rows[0]?.id;

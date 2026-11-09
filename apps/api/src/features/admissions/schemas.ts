@@ -45,6 +45,22 @@ export const BedReleaseReason = Type.Unsafe<ReleaseReasonValue>({
   description: 'Why a patient left a bed.',
 });
 
+export const MOVE_REASONS = [
+  'clinical',
+  'step_down',
+  'isolation',
+  'patient_request',
+  'ward_closure',
+  'other',
+] as const;
+export type MoveReasonValue = (typeof MOVE_REASONS)[number];
+export const BedMoveReason = Type.Unsafe<MoveReasonValue>({
+  $id: 'BedMoveReason',
+  type: 'string',
+  enum: [...MOVE_REASONS],
+  description: 'Why a patient was given a bed other than the one before, from a list.',
+});
+
 export const BOARD_BED_STATUSES = ['available', 'occupied', 'cleaning', 'blocked'] as const;
 export type BoardBedStatusValue = (typeof BOARD_BED_STATUSES)[number];
 export const BoardBedStatus = Type.Unsafe<BoardBedStatusValue>({
@@ -138,7 +154,16 @@ export const BedStay = Type.Object(
     serviceId: Type.Optional(
       Type.String({ description: 'The bed-day service of that category then.' }),
     ),
+    dayPriceMinor: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        description:
+          'The bed-day price in minor units on the standard list on the day the patient was given the bed, absent when the service has none then.',
+      }),
+    ),
     assignedAt: Type.String({ format: 'date-time' }),
+    moveReason: Type.Optional(ref(BedMoveReason)),
+    moveNote: Type.Optional(Type.String({ description: 'Plain text, with the move reason.' })),
     releasedAt: Type.Optional(Type.String({ format: 'date-time' })),
     releaseReason: Type.Optional(ref(BedReleaseReason)),
   },
@@ -165,8 +190,21 @@ export const AdmissionListQuery = Type.Object({
   ),
 });
 
+export const MOVE_NOTE_MAX = 200;
 export const AdmissionBedChange = Type.Object(
-  { bedId: Id, version: Version },
+  {
+    bedId: Id,
+    version: Version,
+    reason: Type.Optional(ref(BedMoveReason)),
+    note: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: MOVE_NOTE_MAX,
+        pattern: PLAIN_TEXT,
+        description: 'Plain text, only with a `reason` (400 `validation_failed` without).',
+      }),
+    ),
+  },
   { additionalProperties: false },
 );
 export type AdmissionBedChange = Static<typeof AdmissionBedChange>;
@@ -256,6 +294,7 @@ export const ADMISSION_SCHEMAS = [
   AdmissionStatus,
   DischargeType,
   BedReleaseReason,
+  BedMoveReason,
   BoardBedStatus,
   AdmissionCreate,
   AdmissionBed,

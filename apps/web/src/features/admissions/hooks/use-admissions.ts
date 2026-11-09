@@ -10,6 +10,7 @@ import {
   fetchBedHistory,
   fetchBoard,
 } from '../api';
+import type { MoveReason } from '../schemas';
 import type { Admission, AdmissionCreate, DischargeType } from '../types';
 import { bedKeys } from './use-board';
 
@@ -89,8 +90,26 @@ export function useChangeBed() {
   const refresh = useRefreshAfter();
   return useMutation({
     gcTime: 0,
-    mutationFn: ({ admission, bedId }: { admission: Admission; bedId: string }) =>
-      changeAdmissionBed(admission, bedId, keyFor([admission.id, admission.version, bedId])),
+    mutationFn: ({
+      admission,
+      bedId,
+      reason,
+      note,
+    }: {
+      admission: Admission;
+      bedId: string;
+      reason?: MoveReason;
+      note?: string;
+    }) =>
+      changeAdmissionBed(
+        admission,
+        bedId,
+        keyFor([admission.id, admission.version, bedId, reason, note]),
+        {
+          reason,
+          note,
+        },
+      ),
     onSettled: refresh,
   });
 }

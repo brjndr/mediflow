@@ -72,7 +72,12 @@ function shown(stored: Stored): Admission {
 }
 
 /** Closes the stay in the bed being left and opens one in the new bed. */
-function recordStay(stored: Stored, bed: Bed, leaving: boolean) {
+function recordStay(
+  stored: Stored,
+  bed: Bed,
+  leaving: boolean,
+  why: { moveReason?: Stay['moveReason']; moveNote?: string } = {},
+) {
   const stays = stored.stays ?? [];
   const now = new Date().toISOString();
   const open = stays.find((stay) => stay.releasedAt === undefined);
@@ -87,7 +92,9 @@ function recordStay(stored: Stored, bed: Bed, leaving: boolean) {
     wardId: bed.wardId,
     wardName: bed.wardName,
     bedCategoryId: bed.categoryName,
+    ...(bed.dayPriceMinor === undefined ? {} : { dayPriceMinor: bed.dayPriceMinor }),
     assignedAt: now,
+    ...why,
   });
   stored.stays = stays;
 }
@@ -216,6 +223,8 @@ export const admissionFlowHandlers = [
     if (!admission) return error(404, 'admission_not_found', 'No such admission');
     const body = (await request.json().catch(() => null)) as {
       bedId?: unknown;
+      reason?: unknown;
+      note?: unknown;
       dischargeType?: unknown;
       version?: unknown;
     } | null;
@@ -262,10 +271,29 @@ export const admissionFlowHandlers = [
     }
     if (admission.status !== 'admitted') return error(409, 'invalid_transition', 'Discharged');
     if (admission.version !== body.version) return error(409, 'conflict', 'It has changed');
+    const reasons = [
+      'clinical',
+      'step_down',
+      'isolation',
+      'patient_request',
+      'ward_closure',
+      'other',
+    ];
+    const reason = typeof body.reason === 'string' ? body.reason : undefined;
+    const note = typeof body.note === 'string' ? body.note.trim() : undefined;
+    if (
+      (body.reason !== undefined && (reason === undefined || !reasons.includes(reason))) ||
+      (body.note !== undefined && (note === undefined || note === '' || reason === undefined))
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
     const bed = takeBed(access.tenantId, body.bedId, admission.patientId, admission.bed?.bedId);
     if (!bed) return error(409, 'bed_not_available', 'The bed is not available');
     counter += 1;
-    recordStay(admission, bed, true);
+    recordStay(admission, bed, true, {
+      ...(reason ? { moveReason: reason as Stay['moveReason'] } : {}),
+      ...(note ? { moveNote: note } : {}),
+    });
     Object.assign(admission, { bed: bedOf(bed), version: admission.version + 1 });
     return HttpResponse.json(shown(admission));
   }),
