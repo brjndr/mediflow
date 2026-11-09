@@ -22,6 +22,9 @@ jobs:
     timeout-minutes: 5
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
+      # false when a pull request stays inside the other app, so that app's jobs are skipped.
+      web: ${{ steps.mode.outputs.web }}
+      api: ${{ steps.mode.outputs.api }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -75,7 +78,7 @@ jobs:
   web-test:
     name: Web tests (shard ${{ matrix.shard }}/3)
     needs: plan
-    if: needs.plan.outputs.mode == 'full'
+    if: needs.plan.outputs.mode == 'full' && needs.plan.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -102,7 +105,7 @@ jobs:
   web-coverage:
     name: Web coverage thresholds
     needs: [plan, web-test]
-    if: needs.plan.outputs.mode == 'full'
+    if: needs.plan.outputs.mode == 'full' && needs.plan.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -192,12 +195,17 @@ jobs:
           git show FETCH_HEAD:packages/contract/openapi.json > "$RUNNER_TEMP/base-openapi.json"
           node scripts/contract-check.mjs "$RUNNER_TEMP/base-openapi.json" packages/contract/openapi.json
 
+  # The API suite split in two, each runner with its own Postgres and Mailpit.
   api:
-    name: API tests (Postgres) and image
+    name: API tests (shard ${{ matrix.shard }}/2)
     needs: plan
-    if: needs.plan.outputs.mode == 'full'
+    if: needs.plan.outputs.mode == 'full' && needs.plan.outputs.api == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     services:
       # The same image and credentials as docker-compose.yml, so tests need no configuration.
       postgres:
@@ -227,19 +235,41 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter api test
-      # Proves the Dockerfile still builds. The image is not pushed anywhere.
+      - run: pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/2
+
+  # Proves the Dockerfile still builds and the container answers, in parallel with the tests.
+  # The image is not pushed anywhere.
+  api-image:
+    name: API image and health check
+    needs: plan
+    if: needs.plan.outputs.mode == 'full' && needs.plan.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mediflow
+          POSTGRES_PASSWORD: mediflow
+          POSTGRES_DB: mediflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mediflow -d mediflow_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
+    steps:
+      - uses: actions/checkout@v7
       - run: docker build -f apps/api/Dockerfile -t mediflow-api:ci .
       - name: Container starts and answers its health check
         run: |
-          docker run -d --name api --network host \
-            -e DATABASE_URL=postgres://mediflow:mediflow@localhost:5432/mediflow_test \
-            -e SMTP_URL=smtp://localhost:1025 \
-            -e "MAIL_FROM=Mediflow <no-reply@mediflow.test>" \
-            -e APP_BASE_URL=http://localhost:5173 \
-            -e MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
-            -e REPORT_URL_SECRET=Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ= \
-            mediflow-api:ci
+          docker run -d --name api --network host             -e DATABASE_URL=postgres://mediflow:mediflow@localhost:5432/mediflow_test             -e SMTP_URL=smtp://localhost:1025             -e "MAIL_FROM=Mediflow <no-reply@mediflow.test>"             -e APP_BASE_URL=http://localhost:5173             -e MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=             -e REPORT_URL_SECRET=Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=             mediflow-api:ci
           for attempt in $(seq 1 20); do
             if curl -fsS http://localhost:3000/health/ready; then exit 0; fi
             sleep 1
@@ -247,12 +277,17 @@ jobs:
           docker logs api
           exit 1
 
+  # Builds the app itself, so it does not wait for `verify`; it runs in three shards, one runner each.
   e2e:
-    name: Playwright (Chromium, WebKit)
+    name: Playwright (shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Skipped whenever verify is, so it follows the same plan.
-    needs: verify
+    needs: plan
+    if: needs.plan.outputs.mode == 'full' && needs.plan.outputs.web == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -269,20 +304,32 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       # WebKit runs the subset named in playwright.config.ts (the webkit-phone project, #334).
       - run: pnpm --filter web exec playwright install --with-deps chromium webkit
-      - run: pnpm e2e
+      - run: pnpm --filter web exec playwright test --shard=${{ matrix.shard }}/3
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: apps/web/playwright-report
           retention-days: 7
 
+  # One job for each of the three configs (desktop, Slow 4G, phone). Each builds and serves the app
+  # itself, so none waits for `verify`. Skipped for a pull request that stays inside apps/api.
   lighthouse:
-    name: Lighthouse (production build, mock API)
+    name: Lighthouse (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    # Skipped whenever verify is, so it follows the same plan.
-    needs: verify
+    needs: plan
+    if: needs.plan.outputs.mode == 'full' && needs.plan.outputs.web == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: desktop
+            config: lighthouserc.cjs
+          - name: slow 4G
+            config: lighthouserc.slow4g.cjs
+          - name: phone
+            config: lighthouserc.mobile.cjs
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -292,11 +339,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # lhci finds Chrome on the runner. See docs/PERFORMANCE.md for the targets.
-      - run: pnpm lighthouse
+      - run: pnpm --filter web exec lhci autorun --config=${{ matrix.config }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: lighthouse-reports
+          name: lighthouse-reports-${{ strategy.job-index }}
           path: |
             apps/web/.lighthouseci
             apps/web/.lighthouseci-slow4g

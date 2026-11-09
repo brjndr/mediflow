@@ -1,7 +1,7 @@
 // Run with: pnpm test:scripts
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ciMode } from './ci-mode.mjs';
+import { ciMode, ciScope } from './ci-mode.mjs';
 
 test('a pull request that changes only Markdown needs the docs run', () => {
   const changedFiles = ['CLAUDE.md', 'docs/WORKFLOW.md', '.claude/skills/phi-check/SKILL.md'];
@@ -35,4 +35,32 @@ test('a push that is not a merge commit needs the full run', () => {
 
 test('an unknown event needs the full run', () => {
   assert.equal(ciMode({ event: 'workflow_dispatch', mergeTree: 'abc', branchTree: 'abc' }), 'full');
+});
+
+test('a pull request inside one app skips the other app', () => {
+  const event = 'pull_request';
+  assert.deepEqual(ciScope({ event, changedFiles: ['apps/api/src/app.ts', 'docs/X.md'] }), {
+    web: false,
+    api: true,
+  });
+  assert.deepEqual(ciScope({ event, changedFiles: ['apps/web/src/main.tsx'] }), {
+    web: true,
+    api: false,
+  });
+});
+
+test('anything that reaches both apps, or cannot be read, runs both', () => {
+  const both = { web: true, api: true };
+  const event = 'pull_request';
+  for (const files of [
+    ['apps/api/src/app.ts', 'apps/web/src/main.tsx'],
+    ['apps/api/src/app.ts', 'packages/contract/openapi.json'],
+    ['pnpm-lock.yaml'],
+    ['.github/workflows/ci.yml'],
+    ['apps/web/package.json', 'scripts/ci-mode.mjs'],
+    [],
+  ]) {
+    assert.deepEqual(ciScope({ event, changedFiles: files }), both, files.join());
+  }
+  assert.deepEqual(ciScope({ event: 'push', changedFiles: ['apps/api/src/app.ts'] }), both);
 });
