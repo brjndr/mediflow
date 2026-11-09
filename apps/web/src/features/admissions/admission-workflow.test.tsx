@@ -52,6 +52,48 @@ describe('admitting a patient', () => {
     expect(screen.queryByRole('heading', { name: 'Patient admitted' })).not.toBeInTheDocument();
   }, 20_000);
 
+  it('sends the advice, attendant, deposit in minor units and the consents given', async () => {
+    let sent: Record<string, unknown> = {};
+    server.use(
+      http.post('*/api/admissions', async ({ request }) => {
+        sent = (await request.clone().json()) as Record<string, unknown>;
+        return undefined;
+      }),
+    );
+    await openForm();
+    await choosePatient('MRN-PTH-00010');
+    await admitFirstDoctor();
+    await userEvent.click(screen.getAllByRole('radio')[0] as HTMLElement);
+    await userEvent.type(screen.getByRole('textbox', { name: /Doctor's advice/ }), 'Observe');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Name' }), 'Ravi Kumar');
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Relation to the patient' }),
+      'spouse',
+    );
+    await userEvent.type(screen.getByRole('textbox', { name: 'Deposit asked for' }), '5,000.50');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Treatment and procedures' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Admit patient' }));
+    expect(await screen.findByRole('heading', { name: 'Patient admitted' })).toBeInTheDocument();
+    expect(sent).toMatchObject({
+      adviceNote: 'Observe',
+      attendantName: 'Ravi Kumar',
+      attendantRelation: 'spouse',
+      depositMinor: 500050,
+      consents: ['treatment'],
+    });
+  }, 30_000);
+
+  it('refuses a deposit that is not an amount and an attendant relation without a name', async () => {
+    await openForm();
+    await choosePatient('MRN-PTH-00010');
+    await admitFirstDoctor();
+    await userEvent.click(screen.getAllByRole('radio')[0] as HTMLElement);
+    await userEvent.type(screen.getByRole('textbox', { name: 'Deposit asked for' }), '12,50');
+    await userEvent.click(screen.getByRole('button', { name: 'Admit patient' }));
+    expect(await screen.findByText(/Enter an amount/)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Patient admitted' })).not.toBeInTheDocument();
+  }, 30_000);
+
   it('says so and cannot admit when no bed is free', async () => {
     server.use(
       http.get('*/api/beds/board', () =>

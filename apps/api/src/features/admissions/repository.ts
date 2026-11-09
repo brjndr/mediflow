@@ -2,7 +2,9 @@ import type pg from 'pg';
 import type { PermissionScope } from '../../core/access/registry.js';
 import { activeDepartmentsOf } from '../doctors/index.js';
 import type {
+  AdmissionConsentValue,
   AdmissionStatusValue,
+  AttendantRelationValue,
   AdmissionTypeValue,
   BoardBedStatusValue,
   DischargeTypeValue,
@@ -90,6 +92,12 @@ export interface AdmissionRow {
   discharge_type: DischargeTypeValue | null;
   cancelled_at: Date | null;
   cancel_reason: string | null;
+  advice_note: string | null;
+  attendant_name: string | null;
+  attendant_relation: AttendantRelationValue | null;
+  attendant_phone: string | null;
+  deposit_minor: string | null;
+  consents: AdmissionConsentValue[];
   assignment_id: string | null;
   bed_id: string | null;
   bed_number: string | null;
@@ -106,7 +114,9 @@ const ADMISSIONS = `
          p.mrn as patient_mrn, a.encounter_id, a.admitting_doctor_id as doctor_id,
          u.name as doctor_name, a.department_id, dp.name as department_name, a.admission_type,
          a.status, a.admitted_at, a.discharged_at, a.discharge_type,
-         a.cancelled_at, a.cancel_reason,
+         a.cancelled_at, a.cancel_reason, a.advice_note, a.attendant_name,
+         a.attendant_relation, a.attendant_phone, a.deposit_minor::text as deposit_minor,
+         a.consents,
          ba.id as assignment_id, ba.bed_id, b.number as bed_number, ba.ward_id,
          w.name as ward_name, r.name as room_name, ba.assigned_at, a.version,
          to_char(a.admitted_at at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') || '+00' as order_at
@@ -268,13 +278,21 @@ export async function insertAdmission(
     doctorId: string;
     departmentId: string;
     admissionType: AdmissionTypeValue;
+    adviceNote?: string;
+    attendantName?: string;
+    attendantRelation?: AttendantRelationValue;
+    attendantPhone?: string;
+    depositMinor?: number;
+    consents?: AdmissionConsentValue[];
   },
   userId: string,
 ): Promise<string> {
   const { rows } = await client.query<{ id: string }>(
     `insert into admissions (tenant_id, patient_id, encounter_id, admitting_doctor_id,
-                             department_id, admission_type, admitted_by)
-     values (app_tenant_id(), $1, $2, $3, $4, $5, $6)
+                             department_id, admission_type, admitted_by, advice_note,
+                             attendant_name, attendant_relation, attendant_phone,
+                             deposit_minor, consents)
+     values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      returning id`,
     [
       input.patientId,
@@ -283,6 +301,12 @@ export async function insertAdmission(
       input.departmentId,
       input.admissionType,
       userId,
+      input.adviceNote ?? null,
+      input.attendantName ?? null,
+      input.attendantRelation ?? null,
+      input.attendantPhone ?? null,
+      input.depositMinor ?? null,
+      input.consents ?? [],
     ],
   );
   const id = rows[0]?.id;

@@ -13,6 +13,9 @@ import type { Config } from '../config/config.js';
 /** Keys that are never written to a log, whatever object they sit in. */
 export const REDACTED_KEYS = [
   // An outside prescriber on a counter sale, tied to a patient and a scheduled drug (#101)
+  'attendantName',
+  'attendantPhone',
+  'adviceNote',
   'prescriberName',
   'prescriberRegistration',
   'prescriber_name',

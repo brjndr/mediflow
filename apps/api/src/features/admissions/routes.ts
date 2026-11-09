@@ -123,6 +123,12 @@ const admissionView = (row: AdmissionRow): Admission => ({
   ...(row.discharge_type === null ? {} : { dischargeType: row.discharge_type }),
   ...(row.cancelled_at === null ? {} : { cancelledAt: iso(row.cancelled_at) }),
   ...(row.cancel_reason === null ? {} : { cancelReason: row.cancel_reason }),
+  ...(row.advice_note === null ? {} : { adviceNote: row.advice_note }),
+  ...(row.attendant_name === null ? {} : { attendantName: row.attendant_name }),
+  ...(row.attendant_relation === null ? {} : { attendantRelation: row.attendant_relation }),
+  ...(row.attendant_phone === null ? {} : { attendantPhone: row.attendant_phone }),
+  ...(row.deposit_minor === null ? {} : { depositMinor: Number(row.deposit_minor) }),
+  consents: row.consents,
   ...(row.assignment_id === null ||
   row.bed_id === null ||
   row.assigned_at === null ||
@@ -406,6 +412,12 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
       ) {
         throw new HttpError(422, 'unknown_patient', 'No such patient');
       }
+      if (
+        body.attendantName === undefined &&
+        (body.attendantPhone !== undefined || body.attendantRelation !== undefined)
+      ) {
+        throw new HttpError(422, 'attendant_name_required', 'Name the attendant');
+      }
       const doctorId = body.doctorId ?? (await ownDoctorId(client, userId));
       const doctor = doctorId
         ? await practisingDoctor(client, doctorId, visibilityFor(request, CREATE))
@@ -436,6 +448,14 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
             doctorId: doctor.id,
             departmentId: doctor.department_id,
             admissionType: body.admissionType,
+            ...(body.adviceNote === undefined ? {} : { adviceNote: body.adviceNote }),
+            ...(body.attendantName === undefined ? {} : { attendantName: body.attendantName }),
+            ...(body.attendantRelation === undefined
+              ? {}
+              : { attendantRelation: body.attendantRelation }),
+            ...(body.attendantPhone === undefined ? {} : { attendantPhone: body.attendantPhone }),
+            ...(body.depositMinor === undefined ? {} : { depositMinor: body.depositMinor }),
+            ...(body.consents === undefined ? {} : { consents: body.consents }),
           },
           userId,
         );

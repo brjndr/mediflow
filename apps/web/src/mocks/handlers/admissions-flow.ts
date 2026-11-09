@@ -151,6 +151,12 @@ export const admissionFlowHandlers = [
       admissionType?: unknown;
       doctorId?: unknown;
       bedId?: unknown;
+      adviceNote?: unknown;
+      attendantName?: unknown;
+      attendantRelation?: unknown;
+      attendantPhone?: unknown;
+      depositMinor?: unknown;
+      consents?: unknown;
     } | null;
     if (
       !body ||
@@ -194,6 +200,14 @@ export const admissionFlowHandlers = [
       admissionType: body.admissionType as Admission['admissionType'],
       status: 'admitted',
       admittedAt: new Date().toISOString(),
+      ...(typeof body.adviceNote === 'string' ? { adviceNote: body.adviceNote } : {}),
+      ...(typeof body.attendantName === 'string' ? { attendantName: body.attendantName } : {}),
+      ...(typeof body.attendantRelation === 'string'
+        ? { attendantRelation: body.attendantRelation as Admission['attendantRelation'] }
+        : {}),
+      ...(typeof body.attendantPhone === 'string' ? { attendantPhone: body.attendantPhone } : {}),
+      ...(typeof body.depositMinor === 'number' ? { depositMinor: body.depositMinor } : {}),
+      consents: Array.isArray(body.consents) ? (body.consents as Admission['consents']) : [],
       ...(bed ? { bed: bedOf(bed) } : {}),
       version: 1,
       key,

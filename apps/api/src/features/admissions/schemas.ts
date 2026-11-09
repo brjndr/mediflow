@@ -71,6 +71,32 @@ export const BoardBedStatus = Type.Unsafe<BoardBedStatusValue>({
     'available -> occupied (a patient is given the bed) -> cleaning (they leave) -> available (it is ready). blocked is set from the wards API.',
 });
 
+export const ATTENDANT_RELATIONS = [
+  'spouse',
+  'parent',
+  'child',
+  'sibling',
+  'relative',
+  'friend',
+  'other',
+] as const;
+export type AttendantRelationValue = (typeof ATTENDANT_RELATIONS)[number];
+export const AttendantRelation = Type.Unsafe<AttendantRelationValue>({
+  $id: 'AttendantRelation',
+  type: 'string',
+  enum: [...ATTENDANT_RELATIONS],
+  description: 'How the attendant is related to the patient.',
+});
+
+export const ADMISSION_CONSENTS = ['admission', 'treatment', 'financial', 'privacy'] as const;
+export type AdmissionConsentValue = (typeof ADMISSION_CONSENTS)[number];
+export const AdmissionConsent = Type.Unsafe<AdmissionConsentValue>({
+  $id: 'AdmissionConsent',
+  type: 'string',
+  enum: [...ADMISSION_CONSENTS],
+  description: 'A consent the patient (or their attendant) gave at admission.',
+});
+
 const Id = Type.String({ maxLength: 64 });
 const Version = Type.Integer({
   minimum: 1,
@@ -93,6 +119,35 @@ export const AdmissionCreate = Type.Object(
         maxLength: 64,
         description:
           'An available bed to give the patient now. Left out, the patient is admitted without a bed and given one with assignBed.',
+      }),
+    ),
+    adviceNote: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 1000,
+        description: 'The doctor advice to admit: why, and what to do first. Plain text.',
+      }),
+    ),
+    attendantName: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 100, pattern: PLAIN_TEXT }),
+    ),
+    attendantRelation: Type.Optional(ref(AttendantRelation)),
+    attendantPhone: Type.Optional(
+      Type.String({ minLength: 5, maxLength: 20, pattern: PLAIN_TEXT }),
+    ),
+    depositMinor: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        maximum: 100000000000,
+        description:
+          'The deposit asked for at admission, in minor units. A record only: it is taken through billing.',
+      }),
+    ),
+    consents: Type.Optional(
+      Type.Array(ref(AdmissionConsent), {
+        maxItems: 4,
+        uniqueItems: true,
+        description: 'The consents given. Kept as they were at admission.',
       }),
     ),
   },
@@ -132,6 +187,12 @@ export const Admission = Type.Object(
     dischargeType: Type.Optional(ref(DischargeType)),
     cancelledAt: Type.Optional(Type.String({ format: 'date-time' })),
     cancelReason: Type.Optional(Type.String({ description: 'Why it was cancelled.' })),
+    adviceNote: Type.Optional(Type.String()),
+    attendantName: Type.Optional(Type.String()),
+    attendantRelation: Type.Optional(ref(AttendantRelation)),
+    attendantPhone: Type.Optional(Type.String()),
+    depositMinor: Type.Optional(Type.Integer({ minimum: 0 })),
+    consents: Type.Array(ref(AdmissionConsent)),
     bed: Type.Optional(ref(AdmissionBed)),
     version: Type.Integer({ minimum: 1, description: 'Counts the changes, a change of bed too.' }),
   },
@@ -295,6 +356,8 @@ export const ADMISSION_SCHEMAS = [
   DischargeType,
   BedReleaseReason,
   BedMoveReason,
+  AttendantRelation,
+  AdmissionConsent,
   BoardBedStatus,
   AdmissionCreate,
   AdmissionBed,

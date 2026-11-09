@@ -63,6 +63,7 @@ interface Admission {
   bed?: Bed;
   dischargeType?: string;
   cancelReason?: string;
+  consents?: string[];
   version: number;
 }
 interface Stay {
@@ -432,6 +433,47 @@ describe('admitting a patient', () => {
       hospital.id,
     ]);
     expect(rows).toHaveLength(1);
+  });
+
+  it('keeps the advice, attendant, deposit and consents given at admission', async () => {
+    await reset();
+    const plain = await admitted(patient(0));
+    expect(plain.admission.consents).toEqual([]);
+    expect(plain.admission).not.toHaveProperty('depositMinor');
+    await ok(await discharge(plain));
+
+    const more = {
+      adviceNote: 'Admit for observation after chest pain',
+      attendantName: 'Ravi Adt',
+      attendantRelation: 'spouse',
+      attendantPhone: '+919800000000',
+      depositMinor: 500000,
+      consents: ['admission', 'treatment'],
+    };
+    const detail = await admitted(patient(0), more);
+    expect(detail.admission).toMatchObject(more);
+    expect((await read(detail.admission.id)).admission).toMatchObject(more);
+    expect(JSON.stringify(await allEvents())).not.toContain('Ravi');
+  });
+
+  it('refuses details that do not fit', async () => {
+    await reset();
+    for (const more of [
+      { depositMinor: -1 },
+      { depositMinor: 1.5 },
+      { consents: ['nonsense'] },
+      { consents: ['treatment', 'treatment'] },
+      { attendantRelation: 'neighbour' },
+      { attendantName: '' },
+      { adviceNote: 'x'.repeat(1001) },
+      { attendantName: 'Bad Name' },
+    ]) {
+      expect(errorOf(await admit(patient(0), more))[0]).toBe(400);
+    }
+    expect(errorOf(await admit(patient(0), { attendantPhone: '+919800000000' }))).toEqual([
+      422,
+      'attendant_name_required',
+    ]);
   });
 
   it('needs a patient the caller reads and a doctor who practises here', async () => {
