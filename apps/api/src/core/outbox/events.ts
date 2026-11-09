@@ -74,6 +74,10 @@ export const DOMAIN_EVENTS = [
   'bed.assigned',
   'bed.released',
   'medication.administered',
+  // Nursing and ward care (BE-24): ids and the kind or outcome, never text.
+  'progressnote.created',
+  'progressnote.updated',
+  'ward.stockrequested',
   'discharge.completed',
   // An admission made by mistake was cancelled (#573): ids only, never the reason.
   'admission.cancelled',

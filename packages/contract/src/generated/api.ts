@@ -1619,6 +1619,195 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admissions/{admissionId}/vitals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The vital signs taken on the ward during a stay, by the time they were taken, newest first, each flagged against the ranges in effect that day. Corrections and the readings they correct are both listed. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every row is audited as a read. */
+        get: operations["listWardVitals"];
+        put?: never;
+        /** @description Records a set of vital signs for an admitted patient: at least one measurement, to one decimal within what a body can be, systolic and diastolic together (400 `validation_failed`); `observedAt` is now unless sent, never in the future. Kept apart from the readings triage takes at the queue. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `vitals.recorded` through the outbox (ids only). */
+        post: operations["recordWardVitals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/vitals/{vitalId}/correct": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Corrects a reading of the stay with a new one that names it and gives a reason; the original is kept. A reading is corrected once (422 `already_corrected`, decided by a unique index); one of another stay is 404 `vital_not_found`. The correction is taken at the time of the one it corrects. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `vitals.recorded`. */
+        post: operations["correctWardVitals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/mar/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The medication orders of the stay, oldest first, capped at 100 (a stay with more is cut, not paged), as the ward chart shows them, with whether the pharmacy has dispensed against each. Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every order is audited as a read. */
+        get: operations["listMarOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/mar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The entries on the stay’s medication chart by the time each dose was due, newest first; optionally those of one order. Corrections and the entries they correct are both listed. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every entry is audited as a read. */
+        get: operations["listMarEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mar/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records what happened at a scheduled dose of a medication order of the stay: given, withheld, refused or missed. The order must be of the stay encounter (422 `unknown_order`), the time due after the order was placed and at most 24 hours ahead (422 `slot_out_of_window`), and the order not cancelled (409 `order_cancelled`); a dose due at a time has one entry (409 `slot_recorded`, then correct it). Anything but given needs a reason (422 `reason_required`) and carries no dose, route or time given (400); a given dose takes the order dose and route unless sent, and one beyond the doses a day the order frequency allows needs a reason (422 `extra_dose_reason_required`; as-needed and unreadable frequencies set no limit). A witness, if named, is another active member of staff (422 `unknown_witness`). The answer warns `not_dispensed` when the pharmacy has dispensed nothing against the order; it does not refuse. This records the administration only: it does not change the order or call the pharmacy. Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `medication.administered` (ids and the outcome, never a reason). */
+        post: operations["recordMarEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mar/entries/{entryId}/correct": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Corrects an entry with a new one for the same order and time that names it and gives a reason; the original is kept. An entry is corrected once (422 `already_corrected`). The same rules as recording apply to the new entry. Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `medication.administered` with `correctsId`. */
+        post: operations["correctMarEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/progress-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The progress notes of the stay, newest first, with the text as it stands. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every note is audited as a read. */
+        get: operations["listProgressNotes"];
+        put?: never;
+        /** @description Writes a progress note for an admitted patient: a kind (nursing, handover or observation) and plain text of up to 4000 characters. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `progressnote.created` (ids and the kind, never the text). */
+        post: operations["createProgressNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/progress-notes/{noteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes the text of a note its author wrote, while the patient is admitted, at the version the edit started from (409 `conflict`). Someone else’s note is 403 `not_author`. The new text is added to the note history; earlier texts stay. A note outside the caller scope, or another hospital’s, is 404 `note_not_found`; of a stay that has ended, 409 `admission_not_open`. Audited; emits `progressnote.updated`. */
+        patch: operations["updateProgressNote"];
+        trace?: never;
+    };
+    "/progress-notes/{noteId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every text a note has had, newest first, with who saved it and when. A note outside the caller scope, or another hospital’s, is 404 `note_not_found`. Audited as a read of the note. */
+        get: operations["listProgressNoteVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/diet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The diet orders of the stay that are not cancelled, newest first, read from the unified orders: the ward reads them and never places one (that is order:create, the doctor’s). Needs the clinical module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every order is audited as a read. */
+        get: operations["getWardDiet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/stock-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Asks a store for items for the ward on behalf of an admitted patient: an indent from the ward place (`fromLocationId`) to a store, made in this request transaction with the checks of createStockIndent (400), and linked to the stay. The store keeper approves and issues it through the indents routes as for any indent. Needs the inventory module. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `ward.stockrequested` (ids only). */
+        post: operations["requestWardStock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/codes/search": {
         parameters: {
             query?: never;
@@ -6352,6 +6541,271 @@ export interface components {
             items: components["schemas"]["BoardBed"][];
             nextCursor: string | null;
             total?: number;
+        };
+        /** @description Which values were outside the normal ranges in effect when the reading was taken, for the patient age band that day. */
+        WardVitalFlags: {
+            /** @enum {string} */
+            systolic?: "low" | "high";
+            /** @enum {string} */
+            diastolic?: "low" | "high";
+            /** @enum {string} */
+            pulse?: "low" | "high";
+            /** @enum {string} */
+            temperature?: "low" | "high";
+            /** @enum {string} */
+            spo2?: "low" | "high";
+        };
+        /** @description One set of vital signs taken on the ward, append-only: a correction is a new reading that names the one it corrects, once. Kept apart from the readings triage takes at the queue. */
+        WardVital: {
+            id: string;
+            tenantId: string;
+            admissionId: string;
+            encounterId: string;
+            patientId: string;
+            /** Format: date-time */
+            observedAt: string;
+            /** Format: date-time */
+            recordedAt: string;
+            recordedById: string;
+            recordedByName: string;
+            /** @description mmHg. */
+            systolic?: number;
+            /** @description mmHg. */
+            diastolic?: number;
+            /** @description Beats a minute. */
+            pulse?: number;
+            /** @description Degrees Celsius, at most one decimal. */
+            temperature?: number;
+            /** @description Oxygen saturation, %. */
+            spo2?: number;
+            /** @description kg, at most one decimal. */
+            weight?: number;
+            /** @description cm, at most one decimal. */
+            height?: number;
+            flags?: components["schemas"]["WardVitalFlags"];
+            correctsId?: string;
+            correctionReason?: string;
+            /** @description The reading that corrects this one. Absent while it stands. */
+            correctedById?: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        WardVitalPage: {
+            items: components["schemas"]["WardVital"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description At least one measurement. Systolic and diastolic go together, the diastolic below the systolic. */
+        WardVitalCreate: {
+            /**
+             * Format: date-time
+             * @description When it was taken: now when not sent, never in the future.
+             */
+            observedAt?: string;
+            /** @description mmHg. */
+            systolic?: number;
+            /** @description mmHg. */
+            diastolic?: number;
+            /** @description Beats a minute. */
+            pulse?: number;
+            /** @description Degrees Celsius, at most one decimal. */
+            temperature?: number;
+            /** @description Oxygen saturation, %. */
+            spo2?: number;
+            /** @description kg, at most one decimal. */
+            weight?: number;
+            /** @description cm, at most one decimal. */
+            height?: number;
+        };
+        /** @description The corrected measurements (the whole reading, as it should have read) and why. The time it was taken is the corrected reading one. */
+        WardVitalCorrect: {
+            reason: string;
+            /** @description mmHg. */
+            systolic?: number;
+            /** @description mmHg. */
+            diastolic?: number;
+            /** @description Beats a minute. */
+            pulse?: number;
+            /** @description Degrees Celsius, at most one decimal. */
+            temperature?: number;
+            /** @description Oxygen saturation, %. */
+            spo2?: number;
+            /** @description kg, at most one decimal. */
+            weight?: number;
+            /** @description cm, at most one decimal. */
+            height?: number;
+        };
+        /**
+         * @description What happened at a scheduled dose. Anything but given needs a reason.
+         * @enum {string}
+         */
+        MarOutcome: "given" | "withheld" | "refused" | "missed";
+        /** @description A medication order of the stay, as the ward chart shows it. */
+        MarOrder: {
+            id: string;
+            drugId: string;
+            itemName: string;
+            dose: string;
+            route: string;
+            frequency: string;
+            /** @description The order status: only a cancelled one takes no entry. */
+            status: string;
+            /** Format: date-time */
+            placedAt: string;
+            /** @description Whether the pharmacy has dispensed against it. */
+            dispensed: boolean;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        MarOrderPage: {
+            items: components["schemas"]["MarOrder"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description One entry on the medication chart, append-only: a correction is a new entry for the same order and time that names the one it corrects, once. */
+        MarEntry: {
+            id: string;
+            tenantId: string;
+            admissionId: string;
+            orderId: string;
+            drugId: string;
+            /** Format: date-time */
+            scheduledAt: string;
+            outcome: components["schemas"]["MarOutcome"];
+            doseGiven?: string;
+            route?: string;
+            reason?: string;
+            /** Format: date-time */
+            administeredAt?: string;
+            /** Format: date-time */
+            recordedAt: string;
+            recordedById: string;
+            recordedByName: string;
+            witnessId?: string;
+            correctsId?: string;
+            correctedById?: string;
+            /** @description `not_dispensed`: the pharmacy has dispensed nothing against the order. A warning only; the entry was recorded. Not repeated on a replay. */
+            warnings?: "not_dispensed"[];
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        MarEntryPage: {
+            items: components["schemas"]["MarEntry"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        /** @description Reason is required unless the dose was given, and for a given dose beyond the order frequency in a day. */
+        MarEntryCreate: {
+            admissionId: string;
+            orderId: string;
+            /**
+             * Format: date-time
+             * @description The time the dose was due.
+             */
+            scheduledAt: string;
+            outcome: components["schemas"]["MarOutcome"];
+            /** @description Only when given; the order dose when not sent. */
+            doseGiven?: string;
+            /** @enum {string} */
+            route?: "oral" | "sublingual" | "topical" | "inhaled" | "nasal" | "eye" | "ear" | "rectal" | "vaginal" | "intramuscular" | "intravenous" | "subcutaneous" | "other";
+            /**
+             * Format: date-time
+             * @description Only when given: now when not sent, never in the future.
+             */
+            administeredAt?: string;
+            reason?: string;
+            /** @description A second member of staff who saw it given. Optional; no rule requires one yet. */
+            witnessId?: string;
+        };
+        /** @description The entry as it should have read, and why it is corrected. The order and the time due are the corrected entry one. */
+        MarEntryCorrect: {
+            outcome: components["schemas"]["MarOutcome"];
+            doseGiven?: string;
+            /** @enum {string} */
+            route?: "oral" | "sublingual" | "topical" | "inhaled" | "nasal" | "eye" | "ear" | "rectal" | "vaginal" | "intramuscular" | "intravenous" | "subcutaneous" | "other";
+            /** Format: date-time */
+            administeredAt?: string;
+            reason: string;
+            /** @description A second member of staff who saw it given. Optional; no rule requires one yet. */
+            witnessId?: string;
+        };
+        /**
+         * @description What a progress note is.
+         * @enum {string}
+         */
+        ProgressNoteKind: "nursing" | "handover" | "observation";
+        /** @description A nursing note, editable by its author while the patient is admitted; every text it had is kept in its history. */
+        ProgressNote: {
+            id: string;
+            tenantId: string;
+            admissionId: string;
+            kind: components["schemas"]["ProgressNoteKind"];
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+            createdById: string;
+            createdByName: string;
+            /** Format: date-time */
+            updatedAt: string;
+            updatedById: string;
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ProgressNotePage: {
+            items: components["schemas"]["ProgressNote"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ProgressNoteCreate: {
+            kind: components["schemas"]["ProgressNoteKind"];
+            body: string;
+        };
+        /** @description The new text and the version the edit started from (409 `conflict` if stale). */
+        ProgressNoteUpdate: {
+            body: string;
+            version: number;
+        };
+        ProgressNoteVersion: {
+            version: number;
+            body: string;
+            /** Format: date-time */
+            editedAt: string;
+            editedById: string;
+            editedByName: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ProgressNoteVersionPage: {
+            items: components["schemas"]["ProgressNoteVersion"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        WardDietOrder: {
+            id: string;
+            status: string;
+            priority: string;
+            instructions: string;
+            /** Format: date-time */
+            placedAt: string;
+        };
+        /** @description The diet orders of the stay that are not cancelled, newest first (at most 50). */
+        WardDiet: {
+            items: components["schemas"]["WardDietOrder"][];
+        };
+        /** @description The ward place (fromLocationId), the store asked (toLocationId) and the items, as an indent. */
+        WardStockRequestCreate: {
+            fromLocationId: string;
+            toLocationId: string;
+            note?: string;
+            lines: {
+                drugId: string;
+                quantity: number;
+            }[];
+        };
+        WardStockRequest: {
+            id: string;
+            admissionId: string;
+            indentId: string;
+            placeId: string;
+            /** Format: date-time */
+            requestedAt: string;
+            requestedById: string;
         };
         /** @description A diagnosis code (ICD-10) or a procedure code. Reference data shared by every hospital, so it carries no tenant; only `favourite` is the hospital’s own. */
         Code: {
@@ -17746,6 +18200,1088 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWardVitals: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardVitalPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recordWardVitals: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WardVitalCreate"];
+            };
+        };
+        responses: {
+            /** @description One set of vital signs taken on the ward, append-only: a correction is a new reading that names the one it corrects, once. Kept apart from the readings triage takes at the queue. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardVital"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    correctWardVitals: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+                vitalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WardVitalCorrect"];
+            };
+        };
+        responses: {
+            /** @description One set of vital signs taken on the ward, append-only: a correction is a new reading that names the one it corrects, once. Kept apart from the readings triage takes at the queue. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardVital"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listMarOrders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarOrderPage"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listMarEntries: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                orderId?: string;
+            };
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarEntryPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recordMarEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarEntryCreate"];
+            };
+        };
+        responses: {
+            /** @description One entry on the medication chart, append-only: a correction is a new entry for the same order and time that names the one it corrects, once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarEntry"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    correctMarEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarEntryCorrect"];
+            };
+        };
+        responses: {
+            /** @description One entry on the medication chart, append-only: a correction is a new entry for the same order and time that names the one it corrects, once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarEntry"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listProgressNotes: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressNotePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createProgressNote: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressNoteCreate"];
+            };
+        };
+        responses: {
+            /** @description A nursing note, editable by its author while the patient is admitted; every text it had is kept in its history. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressNote"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateProgressNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressNoteUpdate"];
+            };
+        };
+        responses: {
+            /** @description A nursing note, editable by its author while the patient is admitted; every text it had is kept in its history. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressNote"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listProgressNoteVersions: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressNoteVersionPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWardDiet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The diet orders of the stay that are not cancelled, newest first (at most 50). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardDiet"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    requestWardStock: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WardStockRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardStockRequest"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

@@ -27,3 +27,7 @@ export const triageFeature: FastifyPluginAsync = async (app) => {
     );
   });
 };
+
+/** For nursing (BE-24): the limits of a measurement and the ranges a reading is flagged against. */
+export { LIMITS as VITAL_LIMITS, MEASURES as VITAL_MEASURES, type Measure } from './schemas.js';
+export { ageBasis, flagsFor, loadRangeRows } from './repository.js';

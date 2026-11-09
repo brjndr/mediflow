@@ -15,3 +15,6 @@ export const pharmacyFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('pharmacy', PHARMACY_PERMISSIONS);
   await app.register(pharmacyRoutes);
 };
+
+/** For nursing (BE-24): whether a medication order has been dispensed against. */
+export { dispensedOrders, orderDispensed } from './dispensed.js';
