@@ -192,6 +192,11 @@ const ROLES = [
     has: ['/inventory'],
     lacks: ['/billing/invoices', '/lab', '/pharmacy/sales'],
   },
+  {
+    user: 'user_billing_clerk',
+    has: ['/billing/invoices'],
+    lacks: ['/queue', '/lab', '/pharmacy', '/inventory'],
+  },
 ];
 
 for (const role of ROLES) {
