@@ -6,6 +6,7 @@ import { grantPermission, revokePermission, signIn, TENANT_IDS, USER_IDS } from 
 import { server } from '@/mocks/node';
 import { apiFetch } from '@/shared/api';
 import { renderApp } from '@/test/render';
+import { box } from './matrix-test-utils';
 
 vi.setConfig({ testTimeout: 30_000 });
 
@@ -85,8 +86,6 @@ describe('the lockout safeguards, as the matrix shows them', () => {
     renderApp({ entry: `/roles/${roleId}` });
     await screen.findByRole('heading', { name: `Permissions of ${name}`, level: 1 });
   };
-  const box = (permission: string) =>
-    screen.getByRole('checkbox', { name: new RegExp(`${permission.replace(/[.:]/g, '\\$&')}$`) });
 
   it.each([
     ['cannot_remove_own_access', 409, 'You cannot take away your own ability to manage roles.'],

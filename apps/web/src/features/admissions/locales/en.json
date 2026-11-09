@@ -131,6 +131,7 @@
     "noBeds": "No bed is free, so nobody can be admitted now.",
     "bedRequired": "Choose a free bed.",
     "bedOption": "Bed {{number}}, {{ward}}",
+    "dayPrice": "{{price}} a day",
     "submit": "Admit patient",
     "cancel": "Cancel",
     "refused": {

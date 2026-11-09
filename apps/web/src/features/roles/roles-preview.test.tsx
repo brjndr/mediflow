@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { server } from '@/mocks/node';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
+import { box } from './matrix-test-utils';
 
 vi.setConfig({ testTimeout: 30_000 });
 
@@ -13,8 +14,6 @@ const openMatrix = async () => {
   await screen.findByRole('heading', { name: 'Permissions of Doctor', level: 1 });
   return app;
 };
-const box = (permission: string) =>
-  screen.getByRole('checkbox', { name: new RegExp(`${permission.replace(/[.:]/g, '\\$&')}$`) });
 const menu = () => within(screen.getByRole('list', { name: 'Menu' }));
 
 describe('the view-as-role preview', () => {

@@ -8,6 +8,7 @@ import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
+import { box } from './matrix-test-utils';
 
 // The whole catalog is drawn as checkboxes: slow on a small machine.
 vi.setConfig({ testTimeout: 30_000 });
@@ -17,8 +18,6 @@ const openMatrix = async (roleId = 'doctor', name = 'Doctor') => {
   await screen.findByRole('heading', { name: `Permissions of ${name}`, level: 1 });
   return app;
 };
-const box = (permission: string) =>
-  screen.getByRole('checkbox', { name: new RegExp(`${permission.replace(/[.:]/g, '\\$&')}$`) });
 const save = () => screen.getByRole('button', { name: 'Save permissions' });
 const status = () => screen.getByRole('status');
 const roleOf = (roleId: string) =>

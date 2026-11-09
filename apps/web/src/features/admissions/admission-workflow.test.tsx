@@ -86,6 +86,19 @@ describe('admitting a patient', () => {
   }, 30_000);
 });
 
+describe('bed day price', () => {
+  it('shows the price of the category beside a free bed', async () => {
+    await openForm();
+    expect((await screen.findAllByText(/ a day$/)).length).toBeGreaterThan(0);
+  });
+
+  it('leaves the price out without service:read', async () => {
+    revokePermission(TENANT_IDS.hospital, 'admin', 'service:read');
+    await openForm();
+    expect(screen.queryByText(/ a day$/)).not.toBeInTheDocument();
+  });
+});
+
 describe('access to admitting', () => {
   it('offers no admit button without admission:create', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'admission:create');

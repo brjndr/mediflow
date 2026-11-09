@@ -17,7 +17,9 @@ What was decided for this module in the web app. The root `CLAUDE.md` wins where
 
 - **Discharge (#577):** a row's "Discharge" (`admission:discharge`, admitted rows only) opens a panel with how the stay ends (`DischargeType`) and `POST /admissions/{id}/discharge` with the admission's `version`. 409 `unsigned_notes` keeps the panel open and says to sign or discard the drafts in the consultation; `encounter_not_open` is explained; `conflict`/`invalid_transition` close the panel and the list is read again. Not built (API has nothing): discharge clearance, summary, bill check.
 
-- **Still open for #152** (the API has nothing for them yet): admission advice from the doctor before the admission, attendant details, deposit and consents, the bed tariff beside the category (the category shows, its price does not), and links from the OPD consultation and the emergency screen that open the form with `patientId` and `type` (the form takes both; no other module links to it yet, so none was edited here).
+- **Still open for #152** (the API has nothing for them yet): admission advice from the doctor before the admission, attendant details, deposit and consents, links from the OPD consultation and the emergency screen that open the form with `patientId` and `type` (the form takes both; no other module links to it yet, so none was edited here).
+
+- **Bed tariff (#578):** `BedPicker` shows "{price} a day" under the category: bed category by name (`useBedCategories`, `ward:read`) -> its bed-day `serviceId` -> the service's `currentPrice` (`useServicePrices('bed')`, `service:read`). The board payload carries only `categoryName`, so the join is by name (unique per hospital). Any missing step leaves the price out, no error.
 
 ## Decisions
 
