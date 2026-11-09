@@ -419,6 +419,7 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
       { permission: 'patient:read' },
       { permission: 'billing:read' },
       { permission: 'billing:create' },
+      { permission: 'invoice:read' },
     ],
   },
 };
