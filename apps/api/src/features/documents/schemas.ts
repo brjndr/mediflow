@@ -137,6 +137,31 @@ export const RetentionRuleSet = Type.Object(
 );
 export type RetentionRuleSet = Static<typeof RetentionRuleSet>;
 
+export const LegalHold = Type.Object(
+  {
+    id: Type.String(),
+    patientId: Type.String(),
+    documentId: Type.Optional(
+      Type.String({ description: 'Absent: the hold covers every document of the patient.' }),
+    ),
+    reason: Type.String(),
+    placedAt: Type.String({ format: 'date-time' }),
+    releasedAt: Type.Optional(Type.String({ format: 'date-time' })),
+  },
+  { $id: 'DocumentLegalHold', description: 'A hold that stops the retention sweep purging files.' },
+);
+export const LegalHoldPage = CursorPage(ref(LegalHold), { $id: 'DocumentLegalHoldPage' });
+export const LegalHoldCreate = Type.Object(
+  { reason: Type.String({ minLength: 1, maxLength: 300, pattern: PLAIN_TEXT }) },
+  { $id: 'DocumentLegalHoldCreate', additionalProperties: false },
+);
+export type LegalHoldCreate = Static<typeof LegalHoldCreate>;
+export const HoldParams = Type.Object({ holdId: Id });
+export const HoldListQuery = Type.Object({
+  cursor: Type.Optional(Type.String()),
+  limit: Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
+});
+
 export const PatientParams = Type.Object({ patientId: Id });
 export const DocumentParams = Type.Object({ documentId: Id });
 export const CategoryParams = Type.Object({ category: Category });
@@ -155,4 +180,7 @@ export const DOCUMENT_SCHEMAS = [
   RetentionRule,
   RetentionRules,
   RetentionRuleSet,
+  LegalHold,
+  LegalHoldPage,
+  LegalHoldCreate,
 ] as const;
