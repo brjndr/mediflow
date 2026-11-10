@@ -25,7 +25,7 @@ export const nursingFeature: FeatureManifest = {
       path: 'nursing/:admissionId/vitals',
       titleKey: 'vitals',
       lazy: () => import('./routes/WardVitals'),
-      requires: ['nursingVitals:read'],
+      requires: ['admission:read', 'nursingVitals:read'],
     },
   ],
   nav: { icon: HeartPulse, order: 82.5, requires: ['admission:read', 'nursingVitals:read'] },

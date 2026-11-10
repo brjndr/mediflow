@@ -1,6 +1,6 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { currentSession, onMockReset } from '../db';
+import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 
 type WardVital = components['schemas']['WardVital'];
@@ -20,7 +20,7 @@ onMockReset(() => {
 /** For tests: a reading already on a stay's chart. */
 export function addMockWardVital(vital: Partial<WardVital> & { id: string; admissionId: string }) {
   readings.push({
-    tenantId: 'tenant_1',
+    tenantId: TENANT_IDS.hospital,
     encounterId: 'enc_x',
     patientId: 'p_seed',
     observedAt: '2026-11-08T10:00:00.000Z',
@@ -85,7 +85,12 @@ export const nursingHandlers = [
     if (key === null) {
       return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
     }
-    const repeat = readings.find((each) => each.key === key);
+    const repeat = readings.find(
+      (each) =>
+        each.key === key &&
+        each.tenantId === access.tenantId &&
+        each.admissionId === params.admissionId,
+    );
     if (repeat) return HttpResponse.json(repeat, { status: 201 });
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     if (!body || !MEASURES.some((name) => typeof body[name] === 'number')) {
@@ -127,7 +132,12 @@ export const nursingHandlers = [
       if (key === null) {
         return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
       }
-      const repeat = readings.find((each) => each.key === key);
+      const repeat = readings.find(
+        (each) =>
+          each.key === key &&
+          each.tenantId === access.tenantId &&
+          each.admissionId === params.admissionId,
+      );
       if (repeat) return HttpResponse.json(repeat, { status: 201 });
       const original = readings.find(
         (each) =>
