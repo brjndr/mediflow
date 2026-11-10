@@ -1,6 +1,7 @@
 import { AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { usePermission } from '@/access';
 import { usePatientName } from '@/features/patients';
 import { errorMessageKey } from '@/shared/api';
@@ -107,7 +108,11 @@ export default function EmergencyBoard() {
         id: 'patient',
         header: t('columns.patient'),
         value: (row) => row.alias ?? (row.patientId ? t('onRecord') : t('unidentified')),
-        render: (row) => <CaseWho row={row} />,
+        render: (row) => (
+          <Link className="underline" to={`/emergency/${row.id}`}>
+            <CaseWho row={row} />
+          </Link>
+        ),
         hideable: false,
       },
       { id: 'tempId', header: t('columns.tempId'), value: (row) => row.tempId },

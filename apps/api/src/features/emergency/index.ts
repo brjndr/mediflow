@@ -7,7 +7,7 @@ import { EMERGENCY_SCHEMAS } from './schemas.js';
  * Emergency (BE-26, #175): arrivals registered in a few fields, an unidentified patient under a
  * temporary ID, triage categories, linking a case to a patient on record later (undone within a
  * window) and the department's board. Behind the `emergency` flag; a patient on record needs the
- * `patients` flag. Publishes `er.registered`, `er.triaged`, `er.identified` and `er.unidentified`.
+ * `patients` flag. Publishes `er.registered`, `er.triaged`, `er.identified`, `er.unidentified`, `er.started` and `er.disposed`.
  */
 export const emergencyFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('emergency', EMERGENCY_PERMISSIONS);

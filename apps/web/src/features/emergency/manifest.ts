@@ -11,7 +11,7 @@ export const emergencyFeature: FeatureManifest = {
   id: 'emergency',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Emergency' } },
+    titles: { en: { title: 'Emergency', care: 'Emergency care' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
@@ -22,7 +22,20 @@ export const emergencyFeature: FeatureManifest = {
       lazy: () => import('./routes/EmergencyBoard'),
       requires: ['emergency:read'],
     },
+    // One patient's care and how they leave (ER-02, #172).
+    {
+      path: 'emergency/:caseId',
+      titleKey: 'care',
+      lazy: () => import('./routes/CaseCare'),
+      requires: ['emergency:read'],
+    },
   ],
   nav: { icon: Siren, order: 26, requires: ['emergency:read'] },
-  permissions: ['emergency:read', 'emergency:register', 'emergency:triage'],
+  permissions: [
+    'emergency:read',
+    'emergency:register',
+    'emergency:triage',
+    'emergency:care',
+    'emergency:dispose',
+  ],
 };

@@ -99,6 +99,53 @@ function recordStay(
   stored.stays = stays;
 }
 
+/**
+ * Admits a patient from the emergency department, as the admissions API does for a disposition
+ * (ER-02): an admission of type `emergency` without a bed, under the caller's doctor profile.
+ * Gives the admission's id, or the code the API refuses with.
+ */
+export function admitMockFromEmergency(
+  tenantId: string,
+  patientId: string,
+  adviceNote?: string,
+  doctorId?: string,
+): { id: string } | { code: 'already_admitted' | 'unknown_doctor' | 'unknown_patient' } {
+  const patient = mockPatient(tenantId, patientId);
+  if (!patient) return { code: 'unknown_patient' };
+  const doctor = doctorId
+    ? mockDoctor(tenantId, doctorId)
+    : mockDoctorOfUser(tenantId, currentSession()?.user.id ?? '');
+  if (!doctor) return { code: 'unknown_doctor' };
+  if (
+    admissions.some(
+      (each) =>
+        each.tenantId === tenantId && each.patientId === patientId && each.status === 'admitted',
+    )
+  ) {
+    return { code: 'already_admitted' };
+  }
+  counter += 1;
+  admissions.unshift({
+    id: `adm_${counter}`,
+    tenantId,
+    patientId,
+    patientName: patient.name,
+    patientMrn: patient.mrn,
+    encounterId: `enc_adm_${counter}`,
+    doctorId: doctor.id,
+    doctorName: doctor.name,
+    departmentId: doctor.departmentId,
+    departmentName: mockDepartment(tenantId, doctor.departmentId)?.name ?? '',
+    admissionType: 'emergency',
+    status: 'admitted',
+    admittedAt: new Date().toISOString(),
+    ...(adviceNote ? { adviceNote } : {}),
+    consents: [],
+    version: 1,
+  });
+  return { id: `adm_${counter}` };
+}
+
 /** For tests: a patient already admitted, as if the desk had admitted them. */
 export function addMockAdmission(admission: Partial<Admission> & { id: string }): void {
   counter += 1;

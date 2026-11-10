@@ -20,4 +20,14 @@ export const EMERGENCY_PERMISSIONS = [
     description: 'Set or change the triage category of a case',
     defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
   },
+  {
+    id: 'emergency:care',
+    description: 'Start treatment, write observation notes and open the encounter orders go on',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
+  },
+  {
+    id: 'emergency:dispose',
+    description: 'Decide how a patient leaves the department: discharge, admit, refer or expired',
+    defaults: { admin: 'all', doctor: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];

@@ -43,3 +43,5 @@ export {
   closeInpatientEncounter,
   openInpatientEncounter,
 } from './inpatient.js';
+/** For emergency (ER-02, #172): the `er` encounter of a case, opened with care and closed at disposition. */
+export { closeEmergencyEncounter, openEmergencyEncounter } from './inpatient.js';

@@ -204,7 +204,8 @@ describe('registration', () => {
     expect(made.patientId).toBe(patientId);
     expect(made.category).toBe(2);
     const events = await eventsOf(made.id);
-    expect(events.map((row) => row.event)).toEqual(['er.registered', 'er.triaged']);
+    // Both are written at the transaction's one instant, so their order is not defined.
+    expect(events.map((row) => row.event).sort()).toEqual(['er.registered', 'er.triaged']);
     expect(JSON.stringify(events)).not.toContain('Chest pain');
   });
 
@@ -287,10 +288,10 @@ describe('triage', () => {
 
   it('refuses a case that has left, an unknown case and a caller without the permission', async () => {
     const made = await ok<Case>(await register({}), 201);
-    await bypass("update er_encounters set status = 'disposed' where id = $1 and tenant_id = $2", [
-      made.id,
-      hospital.id,
-    ]);
+    await bypass(
+      "update er_encounters set status = 'disposed', disposition = 'discharge', disposed_at = now(), disposed_by = gen_random_uuid() where id = $1 and tenant_id = $2",
+      [made.id, hospital.id],
+    );
     expect(
       errorOf(await post(`/emergency/cases/${made.id}/triage`, { category: 2, version: 1 })),
     ).toEqual([409, 'invalid_transition']);
@@ -446,7 +447,10 @@ describe('the board', () => {
     const d = await ok<Case>(await register({ complaint: 'd', category: 4 }), 201);
     const e = await ok<Case>(await register({ complaint: 'e', category: 2 }), 201);
     const gone = await ok<Case>(await register({ complaint: 'gone' }), 201);
-    await bypass("update er_encounters set status = 'disposed' where id = $1", [gone.id]);
+    await bypass(
+      "update er_encounters set status = 'disposed', disposition = 'discharge', disposed_at = now(), disposed_by = gen_random_uuid() where id = $1",
+      [gone.id],
+    );
     await bypass("update er_encounters set arrived_at = now() - interval '1 hour' where id = $1", [
       d.id,
     ]);

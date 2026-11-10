@@ -112,6 +112,72 @@
   "errors": {
     "patient": "That patient is not available to you.",
     "identified": "This case already has a patient.",
-    "changed": "Someone else changed this first. The board has been refreshed; try again."
+    "changed": "Someone else changed this first. The board has been refreshed; try again.",
+    "left": "This patient has already left the department.",
+    "identifyFirst": "Link the patient to a record first.",
+    "admitted": "This patient is already admitted.",
+    "drafts": "A note on the patient’s record is still a draft. Sign or discard it first.",
+    "destination": "Say where the patient is referred to.",
+    "deathTime": "Give the time of death.",
+    "deathFuture": "The time of death cannot be in the future.",
+    "permission": "You do not have permission to do that.",
+    "module": "That part of the hospital system is switched off.",
+    "doctor": "There is no doctor to admit under. Ask a doctor to do this, or choose one."
+  },
+  "care": {
+    "back": "Back to the board",
+    "unavailable": "This case is not available.",
+    "start": "Start treatment",
+    "started": "{{id}} is now in treatment.",
+    "openOrders": "Prepare orders",
+    "ordersReady": "Orders can be placed now."
+  },
+  "notes": {
+    "heading": "Observation notes",
+    "empty": "No notes yet.",
+    "added": "Note added.",
+    "type": "Type",
+    "body": "Note",
+    "add": "Add note",
+    "more": "Show more notes",
+    "kind": {
+      "observation": "Observation",
+      "assessment": "Assessment"
+    }
+  },
+  "orders": {
+    "heading": "Rapid orders",
+    "notOpen": "Choose “Prepare orders” to place lab, imaging and procedure orders for this patient.",
+    "needsPatient": "Link the patient to a record to place orders. Notes can be written meanwhile."
+  },
+  "disposition": {
+    "open": "Decide disposition",
+    "title": "How the patient leaves",
+    "description": "For {{id}}.",
+    "type": "Disposition",
+    "types": {
+      "discharge": "Discharge",
+      "admit": "Admit to the hospital",
+      "refer": "Refer elsewhere",
+      "expired": "Expired"
+    },
+    "destination": "Referred to",
+    "deathAt": "Time of death",
+    "note": "Note",
+    "adviceNote": "Reason for admission",
+    "needsPatient": "Link the patient to a record before admitting.",
+    "final": "This cannot be changed afterwards.",
+    "save": "Confirm",
+    "saving": "Saving...",
+    "done": "{{id}} has left the department.",
+    "doctor": "Admitting doctor",
+    "doctorHint": "Leave empty to admit under your own profile.",
+    "ownDoctor": "Me"
+  },
+  "left": {
+    "heading": "Left the department",
+    "destination": "Referred to {{destination}}.",
+    "deathAt": "Time of death: {{at}}.",
+    "admission": "See the admissions list"
   }
 }

@@ -9550,6 +9550,32 @@
             "format": "date-time",
             "type": "string"
           },
+          "encounterId": {
+            "description": "The emergency encounter orders are placed on (ER-02).",
+            "type": "string"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/EmergencyDispositionType"
+          },
+          "disposedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dispositionNote": {
+            "type": "string"
+          },
+          "destination": {
+            "description": "Where a referred patient went.",
+            "type": "string"
+          },
+          "deathAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "admissionId": {
+            "description": "The inpatient admission an admit disposition made.",
+            "type": "string"
+          },
           "version": {
             "minimum": 1,
             "type": "integer"
@@ -9668,6 +9694,132 @@
             "minLength": 1,
             "maxLength": 300,
             "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "EmergencyDispositionType": {
+        "type": "string",
+        "enum": ["discharge", "admit", "refer", "expired"],
+        "description": "How the patient left the department."
+      },
+      "EmergencyNoteKind": {
+        "type": "string",
+        "enum": ["observation", "assessment"]
+      },
+      "EmergencyStart": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyDisposition": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version", "type"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "type": {
+            "$ref": "#/components/schemas/EmergencyDispositionType"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "destination": {
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Required to refer.",
+            "type": "string"
+          },
+          "deathAt": {
+            "format": "date-time",
+            "description": "Required when expired; not in the future.",
+            "type": "string"
+          },
+          "doctorId": {
+            "maxLength": 64,
+            "description": "To admit: the admitting doctor, else the caller’s own profile.",
+            "type": "string"
+          }
+        }
+      },
+      "EmergencyNote": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "caseId", "kind", "body", "authorName", "createdAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "caseId": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EmergencyNoteKind"
+          },
+          "body": {
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "EmergencyNotePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmergencyNote"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyNoteCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["kind", "body"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/EmergencyNoteKind"
+          },
+          "body": {
+            "minLength": 1,
+            "maxLength": 2000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
             "type": "string"
           }
         }
@@ -41289,6 +41441,701 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}": {
+      "get": {
+        "operationId": "getEmergencyCase",
+        "tags": ["emergency"],
+        "description": "One case of the department, with its emergency encounter once care has begun and, after the patient left, how. Audited as a read. Requires emergency:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/start": {
+      "post": {
+        "operationId": "startEmergencyTreatment",
+        "tags": ["emergency"],
+        "description": "Moves a waiting case to `in_treatment` at the `version` read (409 `version_conflict`; a case already in treatment or disposed is 409 `invalid_transition`). The Idempotency-Key header is required. Audited; emits `er.started`. Requires emergency:care.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/encounter": {
+      "post": {
+        "operationId": "openEmergencyEncounter",
+        "tags": ["emergency"],
+        "description": "Opens the case’s emergency encounter (type `er`) so orders can be placed on it through the clinical orders routes, and moves a waiting case to `in_treatment`. Needs the patient on record (409 `identify_first`); once open it is the same encounter (the case is answered unchanged). The attending doctor is the caller’s own profile when there is one. The Idempotency-Key header is required. Audited; emits `encounter.opened`. Requires emergency:care, encounter:create (403 `permission_denied`) and the clinical module (403 `feature_disabled`).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/notes": {
+      "get": {
+        "operationId": "listEmergencyNotes",
+        "tags": ["emergency"],
+        "description": "The observation notes and assessments of a case, oldest first, in pages. Every note read is audited. Requires emergency:care.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyNotePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addEmergencyNote",
+        "tags": ["emergency"],
+        "description": "Adds an observation note or assessment to a case that has not left the department (409 `invalid_transition`). A note is never changed or removed: a correction is a new note. The Idempotency-Key header is required: a repeat adds nothing. Audited. Requires emergency:care.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["kind", "body"],
+                "properties": {
+                  "kind": {
+                    "$ref": "#/components/schemas/EmergencyNoteKind"
+                  },
+                  "body": {
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/disposition": {
+      "post": {
+        "operationId": "disposeEmergencyCase",
+        "tags": ["emergency"],
+        "description": "Decides how the patient leaves the department, once, at the `version` read (409 `version_conflict`; a case already disposed is 409 `invalid_transition`): `discharge`, `admit`, `refer` (needs a `destination`, 422 `destination_required`) or `expired` (needs `deathAt`, not in the future, 422 `death_time_required` / `death_in_future`). The emergency encounter, if open, is closed with it (409 `unsigned_notes` while a note of it is a draft). `admit` needs the patient on record (409 `identify_first`), the admissions module and admission:create (403), and opens the inpatient admission of type `emergency` with its own encounter and no bed: its id is kept on the case (`admissionId`), and the emergency encounter, orders and notes stay where they were, so the history is preserved. 409 `already_admitted` when the patient is. The Idempotency-Key header is required. Audited; emits `er.disposed` (the type and ids only) and, for admit, `encounter.opened` and `admission.created`. Requires emergency:dispose.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version", "type"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/EmergencyDispositionType"
+                  },
+                  "note": {
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "destination": {
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "description": "Required to refer.",
+                    "type": "string"
+                  },
+                  "deathAt": {
+                    "format": "date-time",
+                    "description": "Required when expired; not in the future.",
+                    "type": "string"
+                  },
+                  "doctorId": {
+                    "maxLength": 64,
+                    "description": "To admit: the admitting doctor, else the caller’s own profile.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
