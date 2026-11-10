@@ -49,6 +49,7 @@ describe('shell', () => {
       'Bed board',
       'Housekeeping',
       'Ambulances',
+      'Operation theatre',
       'Blood bank',
       'Triage',
       'Insurers and TPAs',
@@ -111,6 +112,7 @@ describe('shell', () => {
       'Bed board',
       'Housekeeping',
       'Ambulances',
+      'Operation theatre',
       'Blood bank',
       'Triage',
       'Insurers and TPAs',
@@ -198,6 +200,8 @@ describe('keyboard', () => {
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Ambulances' })).toHaveFocus();
     await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Operation theatre' })).toHaveFocus();
+    await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Blood bank' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Triage' })).toHaveFocus();
@@ -281,6 +285,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Bed board',
       'Housekeeping',
       'Ambulances',
+      'Operation theatre',
       'Blood bank',
       'Triage',
       'Insurers and TPAs',
@@ -352,6 +357,7 @@ describe('system pages', () => {
       'Bed board',
       'Housekeeping',
       'Ambulances',
+      'Operation theatre',
       'Blood bank',
       'Triage',
       'Insurers and TPAs',

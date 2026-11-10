@@ -1,0 +1,120 @@
+{
+  "heading": "Operation theatre",
+  "description": "The day's surgeries, by theatre. The server refuses a theatre, surgeon or patient booked twice.",
+  "close": "Close",
+  "cancel": "Cancel",
+  "status": {
+    "scheduled": "Scheduled",
+    "in_progress": "In progress",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "day": {
+    "label": "Day",
+    "previous": "Previous day",
+    "next": "Next day",
+    "today": "Today"
+  },
+  "surgeries": {
+    "heading": "Surgeries",
+    "gridLabel": "Surgeries of the day",
+    "count_one": "{{count}} surgery",
+    "count_other": "{{count}} surgeries",
+    "empty": "No surgeries on this day.",
+    "rowLabel": "Surgery: {{procedure}}",
+    "filterRoom": "Theatre",
+    "allRooms": "All theatres",
+    "time": "Time",
+    "procedure": "Procedure",
+    "room": "Theatre",
+    "surgeon": "Surgeon",
+    "surgeonUnknown": "Surgeon",
+    "patient": "Patient",
+    "onRecord": "Patient on record",
+    "status": "Status"
+  },
+  "rooms": {
+    "heading": "Theatres",
+    "add": "Add a theatre",
+    "gridLabel": "Operation theatres",
+    "empty": "No theatres yet.",
+    "name": "Name",
+    "state": "State",
+    "inUse": "In use",
+    "archived": "Archived"
+  },
+  "actions": {
+    "start": "Start surgery",
+    "complete": "Complete surgery",
+    "reschedule": "Reschedule",
+    "cancel": "Cancel surgery",
+    "rename": "Rename",
+    "archive": "Archive or restore"
+  },
+  "done": {
+    "booked": "Surgery booked.",
+    "rescheduled": "Surgery rescheduled.",
+    "cancelled": "Surgery cancelled.",
+    "start": "Surgery started: {{procedure}}.",
+    "complete": "Surgery completed: {{procedure}}.",
+    "roomAdded": "Theatre {{name}} added.",
+    "roomRenamed": "Theatre renamed to {{name}}.",
+    "archived": "Theatre {{name}} archived.",
+    "restored": "Theatre {{name}} is in use again."
+  },
+  "book": {
+    "open": "Book a surgery",
+    "title": "Book a surgery",
+    "description": "Choose the patient, theatre, surgeon and time. Times are the hospital's.",
+    "patient": "Patient",
+    "changePatient": "Change patient",
+    "choosePatient": "Choose the patient first.",
+    "room": "Theatre",
+    "chooseRoom": "Choose a theatre",
+    "surgeon": "Surgeon",
+    "chooseSurgeon": "Choose a surgeon",
+    "procedure": "Procedure",
+    "serviceSearch": "Procedure service (optional)",
+    "service": "Service: {{name}}",
+    "day": "Day",
+    "start": "Starts",
+    "end": "Ends",
+    "notes": "Notes",
+    "save": "Book surgery",
+    "saving": "Booking..."
+  },
+  "reschedule": {
+    "title": "Reschedule the surgery",
+    "description": "Move {{procedure}} to another time, theatre or surgeon.",
+    "save": "Reschedule",
+    "saving": "Moving..."
+  },
+  "cancelSurgery": {
+    "title": "Cancel the surgery",
+    "description": "Cancel {{procedure}}. The time is freed.",
+    "reason": "Reason",
+    "keep": "Keep it",
+    "save": "Cancel surgery",
+    "saving": "Cancelling..."
+  },
+  "room": {
+    "addTitle": "Add a theatre",
+    "renameTitle": "Rename the theatre",
+    "name": "Name",
+    "save": "Save",
+    "saving": "Saving..."
+  },
+  "errors": {
+    "room_taken": "That theatre is booked at that time.",
+    "surgeon_busy": "That surgeon is booked at that time.",
+    "patient_busy": "That patient is booked for another surgery at that time.",
+    "patient": "That patient is not available to you.",
+    "room": "That theatre is not in use.",
+    "surgeon": "That doctor is not in practice here.",
+    "service": "That procedure service is not available.",
+    "past": "That time has already passed.",
+    "time": "The time is not valid. A surgery ends after it starts, within a day.",
+    "changed": "Someone else changed this first. The list has been refreshed; try again.",
+    "roomName": "A theatre with that name already exists."
+  }
+}
