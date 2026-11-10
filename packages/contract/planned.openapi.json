@@ -821,6 +821,488 @@
           }
         }
       }
+    },
+    "/payers": {
+      "get": {
+        "operationId": "listPayers",
+        "description": "Insurers, TPAs and corporates of the hospital, by name (IN-01, #181). Needs payer:read and the insurance feature flag. Archived ones only when asked for.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["insurer", "tpa", "corporate"]
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of payers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayerPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPayer",
+        "description": "Adds an insurer, a TPA or a corporate. The code is the hospital's own and unique among its payers (409 duplicate_code). Needs payer:manage.",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayerCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The payer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payer"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/payers/{payerId}": {
+      "get": {
+        "operationId": "getPayer",
+        "description": "One payer with its plans and rate agreements. Needs payer:read.",
+        "parameters": [
+          {
+            "name": "payerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The payer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayerDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updatePayer",
+        "description": "Changes the fields sent, or archives and restores, from the version the edit started from (409 version_conflict). The code does not change. Needs payer:manage. Nothing past is changed by archiving.",
+        "parameters": [
+          {
+            "name": "payerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayerUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The payer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payer"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/payers/{payerId}/plans": {
+      "post": {
+        "operationId": "createPayerPlan",
+        "description": "Adds a plan to a payer: what it covers, the patient's share, its limits and eligibility rules. The code is unique among the payer's plans (409 duplicate_code). Needs payer:manage.",
+        "parameters": [
+          {
+            "name": "payerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayerPlanWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayerPlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/payer-plans/{planId}": {
+      "patch": {
+        "operationId": "updatePayerPlan",
+        "description": "Changes a plan's terms from the version the edit started from, or archives it. Cover that applied to a past charge was kept with it. Needs payer:manage.",
+        "parameters": [
+          {
+            "name": "planId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayerPlanUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayerPlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/payers/{payerId}/rate-agreements": {
+      "post": {
+        "operationId": "createRateAgreement",
+        "description": "Adds a rate agreement for a period: a discount on the price list and rates for named services. Agreements of one payer never overlap (409 agreement_overlap), and a start in the past is refused (422 starts_in_past). Needs payer:manage.",
+        "parameters": [
+          {
+            "name": "payerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateAgreementCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The agreement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateAgreement"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/rate-agreements/{agreementId}": {
+      "patch": {
+        "operationId": "endRateAgreement",
+        "description": "Ends an agreement on a date, or opens its end again. Its rates are never edited: a change is a new agreement from a later date, so a bill priced under the old terms stays explainable. Needs payer:manage.",
+        "parameters": [
+          {
+            "name": "agreementId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateAgreementEnd"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The agreement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateAgreement"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1370,6 +1852,580 @@
           },
           "version": {
             "type": "integer"
+          }
+        }
+      },
+      "Payer": {
+        "description": "An insurer, a TPA (which administers claims for insurers) or a corporate with a credit arrangement. Contact details are the organisation's, never a patient's.",
+        "type": "object",
+        "required": ["id", "tenantId", "kind", "code", "name", "planCount", "archived", "version"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["insurer", "tpa", "corporate"]
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "contactName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "address": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "planCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PayerPage": {
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Payer"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "PayerCreate": {
+        "type": "object",
+        "required": ["kind", "code", "name"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["insurer", "tpa", "corporate"]
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "contactName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "address": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        }
+      },
+      "PayerUpdate": {
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "contactName": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 30
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PayerPlan": {
+        "type": "object",
+        "required": [
+          "id",
+          "payerId",
+          "code",
+          "name",
+          "coverageMode",
+          "copayPercent",
+          "preAuthRequired",
+          "services",
+          "archived",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "payerId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "coverageMode": {
+            "type": "string",
+            "enum": ["all_except", "only_listed"],
+            "description": "all_except: everything is covered but the listed services. only_listed: only the listed services are."
+          },
+          "copayPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "The patient's share of a covered charge, in percent."
+          },
+          "sumInsuredMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The most the plan pays in a policy year, in minor units. Absent: no limit."
+          },
+          "roomRentLimitMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The most it pays for a bed-day, in minor units. Absent: no limit."
+          },
+          "preAuthRequired": {
+            "type": "boolean"
+          },
+          "minAge": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120
+          },
+          "maxAge": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120
+          },
+          "waitingPeriodDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["serviceId", "serviceName"],
+              "properties": {
+                "serviceId": {
+                  "type": "string"
+                },
+                "serviceName": {
+                  "type": "string"
+                },
+                "limitMinor": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PayerPlanWrite": {
+        "type": "object",
+        "required": ["code", "name", "coverageMode", "copayPercent", "preAuthRequired", "services"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "coverageMode": {
+            "type": "string",
+            "enum": ["all_except", "only_listed"],
+            "description": "all_except: everything is covered but the listed services. only_listed: only the listed services are."
+          },
+          "copayPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "The patient's share of a covered charge, in percent."
+          },
+          "sumInsuredMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The most the plan pays in a policy year, in minor units. Absent: no limit."
+          },
+          "roomRentLimitMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The most it pays for a bed-day, in minor units. Absent: no limit."
+          },
+          "preAuthRequired": {
+            "type": "boolean"
+          },
+          "minAge": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120
+          },
+          "maxAge": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120
+          },
+          "waitingPeriodDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "services": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "type": "object",
+              "required": ["serviceId"],
+              "properties": {
+                "serviceId": {
+                  "type": "string"
+                },
+                "limitMinor": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      },
+      "PayerPlanUpdate": {
+        "description": "The plan's terms as they should be (the code does not change), or only archived. The services listed replace the old list.",
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "coverageMode": {
+            "type": "string",
+            "enum": ["all_except", "only_listed"],
+            "description": "all_except: everything is covered but the listed services. only_listed: only the listed services are."
+          },
+          "copayPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "The patient's share of a covered charge, in percent."
+          },
+          "sumInsuredMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The most the plan pays in a policy year, in minor units. Absent: no limit."
+          },
+          "roomRentLimitMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The most it pays for a bed-day, in minor units. Absent: no limit."
+          },
+          "preAuthRequired": {
+            "type": "boolean"
+          },
+          "minAge": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120
+          },
+          "maxAge": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120
+          },
+          "waitingPeriodDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "services": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "type": "object",
+              "required": ["serviceId"],
+              "properties": {
+                "serviceId": {
+                  "type": "string"
+                },
+                "limitMinor": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "RateAgreement": {
+        "description": "Prices a payer's patients are charged between two dates: a discount on the price list, and a rate for a service that replaces the list price.",
+        "type": "object",
+        "required": ["id", "payerId", "name", "effectiveFrom", "discountBp", "rates", "version"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "payerId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "effectiveTo": {
+            "type": "string",
+            "format": "date",
+            "description": "The last day it applies. Absent: until ended."
+          },
+          "discountBp": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Discount on the price list in basis points (100 = 1%)."
+          },
+          "rates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["serviceId", "serviceName", "rateMinor"],
+              "properties": {
+                "serviceId": {
+                  "type": "string"
+                },
+                "serviceName": {
+                  "type": "string"
+                },
+                "rateMinor": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "RateAgreementCreate": {
+        "type": "object",
+        "required": ["name", "effectiveFrom", "discountBp", "rates"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "effectiveTo": {
+            "type": "string",
+            "format": "date"
+          },
+          "discountBp": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "rates": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "type": "object",
+              "required": ["serviceId", "rateMinor"],
+              "properties": {
+                "serviceId": {
+                  "type": "string"
+                },
+                "rateMinor": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      },
+      "RateAgreementEnd": {
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "effectiveTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PayerDetail": {
+        "type": "object",
+        "required": ["payer", "plans", "agreements"],
+        "properties": {
+          "payer": {
+            "$ref": "#/components/schemas/Payer"
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PayerPlan"
+            }
+          },
+          "agreements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateAgreement"
+            }
           }
         }
       }

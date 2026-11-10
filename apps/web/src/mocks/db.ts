@@ -61,6 +61,7 @@ const initialTenants: Record<string, TenantDto> = {
       theatre: true,
       emergency: true,
       bloodbank: true,
+      insurance: true,
       imports: true,
       ui_examples: true,
     },
@@ -297,6 +298,9 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'bloodUnit:read' },
   { permission: 'bloodUnit:manage' },
   { permission: 'bloodUnit:issue' },
+  // Insurers, TPAs and corporates (IN-01).
+  { permission: 'payer:read' },
+  { permission: 'payer:manage' },
   { permission: 'code:read' },
   { permission: 'code:manage' },
   { permission: 'template:read' },

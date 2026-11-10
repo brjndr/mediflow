@@ -5621,6 +5621,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/payers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Insurers, TPAs and corporates of the hospital, by name (IN-01, #181). Needs payer:read and the insurance feature flag. Archived ones only when asked for. */
+        get: operations["listPayers"];
+        put?: never;
+        /** @description Adds an insurer, a TPA or a corporate. The code is the hospital's own and unique among its payers (409 duplicate_code). Needs payer:manage. */
+        post: operations["createPayer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payers/{payerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One payer with its plans and rate agreements. Needs payer:read. */
+        get: operations["getPayer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes the fields sent, or archives and restores, from the version the edit started from (409 version_conflict). The code does not change. Needs payer:manage. Nothing past is changed by archiving. */
+        patch: operations["updatePayer"];
+        trace?: never;
+    };
+    "/payers/{payerId}/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a plan to a payer: what it covers, the patient's share, its limits and eligibility rules. The code is unique among the payer's plans (409 duplicate_code). Needs payer:manage. */
+        post: operations["createPayerPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payer-plans/{planId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes a plan's terms from the version the edit started from, or archives it. Cover that applied to a past charge was kept with it. Needs payer:manage. */
+        patch: operations["updatePayerPlan"];
+        trace?: never;
+    };
+    "/payers/{payerId}/rate-agreements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a rate agreement for a period: a discount on the price list and rates for named services. Agreements of one payer never overlap (409 agreement_overlap), and a start in the past is refused (422 starts_in_past). Needs payer:manage. */
+        post: operations["createRateAgreement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rate-agreements/{agreementId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Ends an agreement on a date, or opens its end again. Its rates are never edited: a change is a new agreement from a later date, so a bill priced under the old terms stays explainable. Needs payer:manage. */
+        patch: operations["endRateAgreement"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -10809,6 +10913,164 @@ export interface components {
             outcome: "fulfilled" | "declined";
             note: string;
             version: number;
+        };
+        /** @description An insurer, a TPA (which administers claims for insurers) or a corporate with a credit arrangement. Contact details are the organisation's, never a patient's. */
+        Payer: {
+            id: string;
+            tenantId: string;
+            /** @enum {string} */
+            kind: "insurer" | "tpa" | "corporate";
+            code: string;
+            name: string;
+            contactName?: string;
+            phone?: string;
+            email?: string;
+            address?: string;
+            planCount: number;
+            archived: boolean;
+            version: number;
+        };
+        PayerPage: {
+            items: components["schemas"]["Payer"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        PayerCreate: {
+            /** @enum {string} */
+            kind: "insurer" | "tpa" | "corporate";
+            code: string;
+            name: string;
+            contactName?: string;
+            phone?: string;
+            email?: string;
+            address?: string;
+        };
+        PayerUpdate: {
+            name?: string;
+            contactName?: string | null;
+            phone?: string | null;
+            email?: string | null;
+            address?: string | null;
+            archived?: boolean;
+            version: number;
+        };
+        PayerPlan: {
+            id: string;
+            payerId: string;
+            code: string;
+            name: string;
+            /**
+             * @description all_except: everything is covered but the listed services. only_listed: only the listed services are.
+             * @enum {string}
+             */
+            coverageMode: "all_except" | "only_listed";
+            /** @description The patient's share of a covered charge, in percent. */
+            copayPercent: number;
+            /** @description The most the plan pays in a policy year, in minor units. Absent: no limit. */
+            sumInsuredMinor?: number;
+            /** @description The most it pays for a bed-day, in minor units. Absent: no limit. */
+            roomRentLimitMinor?: number;
+            preAuthRequired: boolean;
+            minAge?: number;
+            maxAge?: number;
+            waitingPeriodDays?: number;
+            services: {
+                serviceId: string;
+                serviceName: string;
+                limitMinor?: number;
+            }[];
+            archived: boolean;
+            version: number;
+        };
+        PayerPlanWrite: {
+            code: string;
+            name: string;
+            /**
+             * @description all_except: everything is covered but the listed services. only_listed: only the listed services are.
+             * @enum {string}
+             */
+            coverageMode: "all_except" | "only_listed";
+            /** @description The patient's share of a covered charge, in percent. */
+            copayPercent: number;
+            /** @description The most the plan pays in a policy year, in minor units. Absent: no limit. */
+            sumInsuredMinor?: number;
+            /** @description The most it pays for a bed-day, in minor units. Absent: no limit. */
+            roomRentLimitMinor?: number;
+            preAuthRequired: boolean;
+            minAge?: number;
+            maxAge?: number;
+            waitingPeriodDays?: number;
+            services: {
+                serviceId: string;
+                limitMinor?: number;
+            }[];
+        };
+        /** @description The plan's terms as they should be (the code does not change), or only archived. The services listed replace the old list. */
+        PayerPlanUpdate: {
+            name?: string;
+            /**
+             * @description all_except: everything is covered but the listed services. only_listed: only the listed services are.
+             * @enum {string}
+             */
+            coverageMode?: "all_except" | "only_listed";
+            /** @description The patient's share of a covered charge, in percent. */
+            copayPercent?: number;
+            /** @description The most the plan pays in a policy year, in minor units. Absent: no limit. */
+            sumInsuredMinor?: number;
+            /** @description The most it pays for a bed-day, in minor units. Absent: no limit. */
+            roomRentLimitMinor?: number;
+            preAuthRequired?: boolean;
+            minAge?: number;
+            maxAge?: number;
+            waitingPeriodDays?: number;
+            services?: {
+                serviceId: string;
+                limitMinor?: number;
+            }[];
+            archived?: boolean;
+            version: number;
+        };
+        /** @description Prices a payer's patients are charged between two dates: a discount on the price list, and a rate for a service that replaces the list price. */
+        RateAgreement: {
+            id: string;
+            payerId: string;
+            name: string;
+            /** Format: date */
+            effectiveFrom: string;
+            /**
+             * Format: date
+             * @description The last day it applies. Absent: until ended.
+             */
+            effectiveTo?: string;
+            /** @description Discount on the price list in basis points (100 = 1%). */
+            discountBp: number;
+            rates: {
+                serviceId: string;
+                serviceName: string;
+                rateMinor: number;
+            }[];
+            version: number;
+        };
+        RateAgreementCreate: {
+            name: string;
+            /** Format: date */
+            effectiveFrom: string;
+            /** Format: date */
+            effectiveTo?: string;
+            discountBp: number;
+            rates: {
+                serviceId: string;
+                rateMinor: number;
+            }[];
+        };
+        RateAgreementEnd: {
+            effectiveTo?: string | null;
+            version: number;
+        };
+        PayerDetail: {
+            payer: components["schemas"]["Payer"];
+            plans: components["schemas"]["PayerPlan"][];
+            agreements: components["schemas"]["RateAgreement"][];
         };
     };
     responses: {
@@ -40855,6 +41117,264 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordRequest"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listPayers: {
+        parameters: {
+            query?: {
+                q?: string;
+                kind?: "insurer" | "tpa" | "corporate";
+                archived?: boolean;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of payers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createPayer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayerCreate"];
+            };
+        };
+        responses: {
+            /** @description The payer */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payer"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getPayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The payer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayerUpdate"];
+            };
+        };
+        responses: {
+            /** @description The payer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payer"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createPayerPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayerPlanWrite"];
+            };
+        };
+        responses: {
+            /** @description The plan */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerPlan"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePayerPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayerPlanUpdate"];
+            };
+        };
+        responses: {
+            /** @description The plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerPlan"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createRateAgreement: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateAgreementCreate"];
+            };
+        };
+        responses: {
+            /** @description The agreement */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateAgreement"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    endRateAgreement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agreementId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateAgreementEnd"];
+            };
+        };
+        responses: {
+            /** @description The agreement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateAgreement"];
                 };
             };
             400: components["responses"]["Error"];
