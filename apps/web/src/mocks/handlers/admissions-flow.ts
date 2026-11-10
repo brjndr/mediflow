@@ -1,6 +1,6 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { currentSession, onMockReset } from '../db';
+import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockNotesOf } from './clinical';
 import { mockDepartment } from './departments';
@@ -144,6 +144,28 @@ export function admitMockFromEmergency(
     version: 1,
   });
   return { id: `adm_${counter}` };
+}
+
+/** For tests: a patient already admitted, as if the desk had admitted them. */
+export function addMockAdmission(admission: Partial<Admission> & { id: string }): void {
+  counter += 1;
+  admissions.unshift({
+    tenantId: TENANT_IDS.hospital,
+    patientId: 'p_seed',
+    patientName: 'Seeded Patient',
+    patientMrn: 'MRN-0001',
+    encounterId: `enc_${admission.id}`,
+    doctorId: 'doc_seed',
+    doctorName: 'Dr Seed',
+    departmentId: 'dep_seed',
+    departmentName: 'Medicine',
+    admissionType: 'planned',
+    status: 'admitted',
+    admittedAt: '2026-11-08T09:00:00.000Z',
+    consents: [],
+    version: 1,
+    ...admission,
+  });
 }
 
 export const admissionFlowHandlers = [

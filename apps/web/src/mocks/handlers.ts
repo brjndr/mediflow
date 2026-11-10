@@ -42,6 +42,7 @@ import { templatesHandlers } from './handlers/templates';
 import { wardsHandlers } from './handlers/wards';
 import { admissionsHandlers } from './handlers/admissions';
 import { housekeepingHandlers } from './handlers/housekeeping';
+import { nursingHandlers } from './handlers/nursing';
 import { ambulanceHandlers } from './handlers/ambulances';
 import { theatreHandlers } from './handlers/theatre';
 import { emergencyHandlers } from './handlers/emergency';
@@ -162,6 +163,8 @@ export const handlers = [
   ...drugsHandlers,
   ...labTestsHandlers,
   ...wardsHandlers,
+  // Before the admissions routes: their `/admissions/:id/:action` would answer these.
+  ...nursingHandlers,
   ...admissionsHandlers,
   ...housekeepingHandlers,
   ...ambulanceHandlers,
