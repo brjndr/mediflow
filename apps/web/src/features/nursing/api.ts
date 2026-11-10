@@ -6,7 +6,13 @@ import {
   wardVitalPageSchema,
   wardVitalSchema,
 } from './schemas';
+import { marEntryPageSchema, marEntrySchema, marOrderPageSchema } from './mar-schemas';
 import type {
+  MarEntry,
+  MarEntryCorrect,
+  MarEntryCreate,
+  MarEntryPage,
+  MarOrderPage,
   StayPage,
   StayRow,
   WardOption,
@@ -76,4 +82,50 @@ export async function correctVitals(
     body,
   });
   return wardVitalSchema.parse(requireData(result));
+}
+
+// --- the medication chart (#158) -----------------------------------------------------------------
+
+/** The medication orders of the stay (the API caps them at 100). */
+export async function fetchMarOrders(
+  admissionId: string,
+  signal?: AbortSignal,
+): Promise<MarOrderPage> {
+  const result = await api.GET('/admissions/{admissionId}/mar/orders', {
+    params: { path: { admissionId } },
+    signal,
+  });
+  return marOrderPageSchema.parse(requireData(result));
+}
+
+/** The entries on the chart by the time each dose was due, newest first. */
+export async function fetchMarEntries(
+  { admissionId, cursor, limit }: { admissionId: string; cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<MarEntryPage> {
+  const result = await api.GET('/admissions/{admissionId}/mar', {
+    params: { path: { admissionId }, query: { cursor, limit } },
+    signal,
+  });
+  return marEntryPageSchema.parse(requireData(result));
+}
+
+export async function recordMarEntry(body: MarEntryCreate, key: string): Promise<MarEntry> {
+  const result = await api.POST('/mar/entries', {
+    params: { header: { 'idempotency-key': key } },
+    body,
+  });
+  return marEntrySchema.parse(requireData(result));
+}
+
+export async function correctMarEntry(
+  entryId: string,
+  body: MarEntryCorrect,
+  key: string,
+): Promise<MarEntry> {
+  const result = await api.POST('/mar/entries/{entryId}/correct', {
+    params: { path: { entryId }, header: { 'idempotency-key': key } },
+    body,
+  });
+  return marEntrySchema.parse(requireData(result));
 }

@@ -286,6 +286,8 @@ const ADMIN: PermissionGrantDto[] = [
   // Nursing and ward care (NR-01).
   { permission: 'nursingVitals:read' },
   { permission: 'nursingVitals:record' },
+  { permission: 'mar:read' },
+  { permission: 'mar:record' },
   // Ambulances (OP-03).
   { permission: 'ambulance:read' },
   { permission: 'ambulance:manage' },

@@ -55,6 +55,12 @@ export default function Worklist() {
       requires: 'nursingVitals:read',
       onSelect: (row) => navigate(`/nursing/${row.id}/vitals`),
     },
+    {
+      id: 'mar',
+      label: t('actions.mar'),
+      requires: 'mar:read',
+      onSelect: (row) => navigate(`/nursing/${row.id}/mar`),
+    },
   ];
 
   return (
