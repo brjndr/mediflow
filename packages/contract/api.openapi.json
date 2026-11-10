@@ -41666,7 +41666,7 @@
       "post": {
         "operationId": "openEmergencyEncounter",
         "tags": ["emergency"],
-        "description": "Opens the case’s emergency encounter (type `er`) so orders can be placed on it through the clinical orders routes, and moves a waiting case to `in_treatment`. Needs the patient on record (409 `identify_first`); once open it is the same encounter (the case is answered unchanged). The attending doctor is the caller’s own profile when there is one. The Idempotency-Key header is required. Audited; emits `encounter.opened`. Requires emergency:care and the clinical module (403 `feature_disabled`).",
+        "description": "Opens the case’s emergency encounter (type `er`) so orders can be placed on it through the clinical orders routes, and moves a waiting case to `in_treatment`. Needs the patient on record (409 `identify_first`); once open it is the same encounter (the case is answered unchanged). The attending doctor is the caller’s own profile when there is one. The Idempotency-Key header is required. Audited; emits `encounter.opened`. Requires emergency:care, encounter:create (403 `permission_denied`) and the clinical module (403 `feature_disabled`).",
         "requestBody": {
           "required": true,
           "content": {
