@@ -281,6 +281,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'emergency:read' },
   { permission: 'emergency:register' },
   { permission: 'emergency:triage' },
+  { permission: 'emergency:care' },
+  { permission: 'emergency:dispose' },
   // Ambulances (OP-03).
   { permission: 'ambulance:read' },
   { permission: 'ambulance:manage' },

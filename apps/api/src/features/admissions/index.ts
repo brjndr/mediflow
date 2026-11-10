@@ -16,3 +16,6 @@ export const admissionsFeature: FastifyPluginAsync = async (app) => {
 
 /** For nursing (BE-24): the stay a ward record belongs to, within the caller's scope. */
 export { stayInScope, type Stay } from './stay.js';
+
+/** For emergency (ER-02, #172): admitting a patient from the department. */
+export { admitFromEmergency } from './from-emergency.js';

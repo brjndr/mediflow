@@ -65,3 +65,44 @@ export async function cancelInpatientEncounter(
   await endEncounter(client, id, 'cancelled', userId, reason);
   return 'cancelled';
 }
+
+/**
+ * What the emergency module asks of the encounters (ER-02, #172): a case of a known patient has
+ * an encounter of type `er`, opened when care begins so orders can be placed on it, and closed
+ * with the disposition. The doctor is the caller's own profile when there is one.
+ */
+export async function openEmergencyEncounter(
+  client: pg.ClientBase,
+  input: { patientId: string; doctorId: string | null; departmentId: string | null },
+  userId: string,
+): Promise<string> {
+  const { rows } = await client.query<{ id: string }>(
+    `insert into encounters (tenant_id, patient_id, type, attending_doctor_id, department_id,
+                             opened_by)
+     values (app_tenant_id(), $1, 'er', $2, $3, $4)
+     returning id`,
+    [input.patientId, input.doctorId, input.departmentId, userId],
+  );
+  const id = rows[0]?.id;
+  if (!id) throw new Error('encounter was not inserted');
+  return id;
+}
+
+/**
+ * Closes the encounter of an emergency case at disposition. 'unsigned_notes' while any note of it
+ * is a draft, 'not_open' when it already ended; nothing changes then.
+ */
+export async function closeEmergencyEncounter(
+  client: pg.ClientBase,
+  id: string,
+  userId: string,
+): Promise<'closed' | 'unsigned_notes' | 'not_open'> {
+  const { rows } = await client.query<{ status: string }>(
+    "select status from encounters where id = $1 and type = 'er' for update",
+    [id],
+  );
+  if (rows[0]?.status !== 'open') return 'not_open';
+  if (await hasDrafts(client, id)) return 'unsigned_notes';
+  await endEncounter(client, id, 'closed', userId, null);
+  return 'closed';
+}

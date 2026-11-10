@@ -1,15 +1,19 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { onMockReset, TENANT_IDS } from '../db';
+import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
+import { admitMockFromEmergency } from './admissions-flow';
+import { closeMockEmergencyEncounter, openMockEmergencyEncounter } from './clinical';
 import { mockPatient } from './patients';
 
 type Case = components['schemas']['EmergencyCase'];
 type Create = components['schemas']['EmergencyCaseCreate'];
+type Note = components['schemas']['EmergencyNote'];
 
 const FEATURE_FLAG = 'emergency';
 const SEXES = ['male', 'female', 'other', 'unknown'];
 const MODES = ['walk_in', 'ambulance', 'police', 'referred'];
+const DISPOSITIONS = ['discharge', 'admit', 'refer', 'expired'];
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
@@ -80,11 +84,15 @@ const seed = (): Case[] => [
 
 let cases = seed();
 let created = 0;
+let notes: Note[] = [];
+const noteReplies = new Map<string, string>();
 /** What each Idempotency-Key was answered with, by hospital and key. */
 const replies = new Map<string, string>();
 onMockReset(() => {
   cases = seed();
   created = 0;
+  notes = [];
+  noteReplies.clear();
   replies.clear();
 });
 
@@ -215,6 +223,169 @@ export const emergencyHandlers = [
       return error(404, 'unknown_patient', 'No such patient');
     }
     Object.assign(row, { patientId: body.patientId, version: row.version + 1 });
+    return HttpResponse.json(row);
+  }),
+  http.get('*/api/emergency/cases/:caseId', ({ request, params }) => {
+    const access = authorize(request, { permission: 'emergency:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
+    return row ? HttpResponse.json(row) : error(404, 'case_not_found', 'No such case');
+  }),
+
+  http.post('*/api/emergency/cases/:caseId/start', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'emergency:care', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const body = (await request.json().catch(() => null)) as { version?: unknown } | null;
+    if (typeof body?.version !== 'number') {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
+    if (!row) return error(404, 'case_not_found', 'No such case');
+    if (row.version !== body.version) return error(409, 'version_conflict', 'It has changed');
+    if (row.status !== 'waiting') return error(409, 'invalid_transition', 'Already started');
+    Object.assign(row, { status: 'in_treatment', version: row.version + 1 });
+    return HttpResponse.json(row);
+  }),
+
+  http.post('*/api/emergency/cases/:caseId/encounter', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'emergency:care', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const body = (await request.json().catch(() => null)) as { version?: unknown } | null;
+    if (typeof body?.version !== 'number') {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
+    if (!row) return error(404, 'case_not_found', 'No such case');
+    if (row.version !== body.version) return error(409, 'version_conflict', 'It has changed');
+    if (row.status === 'disposed') return error(409, 'invalid_transition', 'The patient has left');
+    if (row.encounterId) return HttpResponse.json(row);
+    if (!row.patientId) return error(409, 'identify_first', 'Link the patient to a record first');
+    Object.assign(row, {
+      encounterId: openMockEmergencyEncounter(access.tenantId, row.patientId),
+      status: 'in_treatment',
+      version: row.version + 1,
+    });
+    return HttpResponse.json(row);
+  }),
+
+  http.get('*/api/emergency/cases/:caseId/notes', ({ request, params }) => {
+    const access = authorize(request, { permission: 'emergency:care', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
+    if (!row) return error(404, 'case_not_found', 'No such case');
+    const all = notes.filter((note) => note.caseId === row.id);
+    const query = new URL(request.url).searchParams;
+    const limit = Math.min(Number(query.get('limit') ?? 25) || 25, 100);
+    const cursor = query.get('cursor');
+    const start = cursor ? all.findIndex((note) => note.id === cursor) : 0;
+    if (start < 0) return error(400, 'invalid_cursor', 'Unknown cursor');
+    const next = all[start + limit];
+    return HttpResponse.json({
+      items: all.slice(start, start + limit),
+      nextCursor: next ? next.id : null,
+    });
+  }),
+
+  http.post('*/api/emergency/cases/:caseId/notes', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'emergency:care', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const key = withKey(request);
+    if (!key) return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    const body = (await request.json().catch(() => null)) as {
+      kind?: unknown;
+      body?: unknown;
+    } | null;
+    if (
+      (body?.kind !== 'observation' && body?.kind !== 'assessment') ||
+      typeof body.body !== 'string' ||
+      body.body.trim() === ''
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
+    if (!row) return error(404, 'case_not_found', 'No such case');
+    const replyKey = `${access.tenantId}:${key}`;
+    const known = noteReplies.get(replyKey);
+    const existing = known ? notes.find((note) => note.id === known) : undefined;
+    if (existing) return HttpResponse.json(existing, { status: 201 });
+    if (row.status === 'disposed') return error(409, 'invalid_transition', 'The patient has left');
+    const made: Note = {
+      id: `ern_${notes.length + 1}`,
+      caseId: row.id,
+      kind: body.kind,
+      body: body.body.trim(),
+      authorName: currentSession()?.user.name ?? '',
+      createdAt: new Date().toISOString(),
+    };
+    notes.push(made);
+    noteReplies.set(replyKey, made.id);
+    return HttpResponse.json(made, { status: 201 });
+  }),
+
+  http.post('*/api/emergency/cases/:caseId/disposition', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'emergency:dispose',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const body = (await request.json().catch(() => null)) as {
+      version?: unknown;
+      type?: unknown;
+      note?: unknown;
+      destination?: unknown;
+      deathAt?: unknown;
+      doctorId?: unknown;
+    } | null;
+    if (
+      typeof body?.version !== 'number' ||
+      !DISPOSITIONS.includes(body.type as string) ||
+      (body.note !== undefined && typeof body.note !== 'string')
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
+    if (!row) return error(404, 'case_not_found', 'No such case');
+    if (row.version !== body.version) return error(409, 'version_conflict', 'It has changed');
+    if (row.status === 'disposed') return error(409, 'invalid_transition', 'The patient has left');
+    const type = body.type as NonNullable<Case['disposition']>;
+    if (type === 'refer' && (typeof body.destination !== 'string' || !body.destination.trim())) {
+      return error(422, 'destination_required', 'Say where the patient is referred to');
+    }
+    if (type === 'expired') {
+      if (typeof body.deathAt !== 'string') {
+        return error(422, 'death_time_required', 'Give the time of death');
+      }
+      if (Date.parse(body.deathAt) > Date.now() + 60_000) {
+        return error(422, 'death_in_future', 'The time of death is in the future');
+      }
+    }
+    let admissionId: string | undefined;
+    if (type === 'admit') {
+      if (!row.patientId) return error(409, 'identify_first', 'Link the patient to a record first');
+      const admitted = admitMockFromEmergency(
+        access.tenantId,
+        row.patientId,
+        typeof body.note === 'string' ? body.note : undefined,
+        typeof body.doctorId === 'string' ? body.doctorId : undefined,
+      );
+      if ('code' in admitted) {
+        return error(admitted.code === 'unknown_doctor' ? 422 : 409, admitted.code, 'Not admitted');
+      }
+      admissionId = admitted.id;
+    }
+    if (row.encounterId) closeMockEmergencyEncounter(row.encounterId);
+    Object.assign(row, {
+      status: 'disposed',
+      disposition: type,
+      disposedAt: new Date().toISOString(),
+      ...(typeof body.note === 'string' && body.note.trim()
+        ? { dispositionNote: body.note.trim() }
+        : {}),
+      ...(type === 'refer' ? { destination: String(body.destination).trim() } : {}),
+      ...(type === 'expired' ? { deathAt: String(body.deathAt) } : {}),
+      ...(admissionId ? { admissionId } : {}),
+      version: row.version + 1,
+    });
     return HttpResponse.json(row);
   }),
 ];

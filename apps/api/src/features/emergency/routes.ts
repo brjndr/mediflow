@@ -1,5 +1,8 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type pg from 'pg';
+import { closeEmergencyEncounter, openEmergencyEncounter } from '../clinical/index.js';
+import { admitFromEmergency } from '../admissions/index.js';
+import { ownDoctorId, practisingDoctor } from '../doctors/index.js';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
@@ -7,6 +10,12 @@ import {
   EmergencyCase,
   EmergencyCaseCreate,
   EmergencyCasePage,
+  EmergencyDisposition,
+  EmergencyNote,
+  EmergencyNoteCreate,
+  EmergencyNoteListQuery,
+  EmergencyNotePage,
+  EmergencyStart,
   EmergencyIdentify,
   EmergencyListQuery,
   EmergencyParams,
@@ -35,11 +44,19 @@ interface CaseRow {
   arrived_at: Date;
   triaged_at: Date | null;
   identified_at: Date | null;
+  encounter_id: string | null;
+  disposition: EmergencyCase['disposition'] | null;
+  disposed_at: Date | null;
+  disposition_note: string | null;
+  destination: string | null;
+  death_at: Date | null;
+  admission_id: string | null;
   version: number;
 }
 const COLUMNS = `x.id, x.tenant_id, x.temp_no, x.patient_id, x.alias, x.sex, x.approximate_age,
        x.complaint, x.arrival_mode, x.category, x.status, x.arrived_at, x.triaged_at,
-       x.identified_at, x.version`;
+       x.identified_at, x.encounter_id, x.disposition, x.disposed_at, x.disposition_note,
+       x.destination, x.death_at, x.admission_id, x.version`;
 
 const tempIdOf = (no: number) => `ER-${String(no).padStart(4, '0')}`;
 const view = (row: CaseRow): EmergencyCase => ({
@@ -57,6 +74,13 @@ const view = (row: CaseRow): EmergencyCase => ({
   arrivedAt: row.arrived_at.toISOString(),
   ...(row.triaged_at === null ? {} : { triagedAt: row.triaged_at.toISOString() }),
   ...(row.identified_at === null ? {} : { identifiedAt: row.identified_at.toISOString() }),
+  ...(row.encounter_id === null ? {} : { encounterId: row.encounter_id }),
+  ...(row.disposition === null ? {} : { disposition: row.disposition }),
+  ...(row.disposed_at === null ? {} : { disposedAt: row.disposed_at.toISOString() }),
+  ...(row.disposition_note === null ? {} : { dispositionNote: row.disposition_note }),
+  ...(row.destination === null ? {} : { destination: row.destination }),
+  ...(row.death_at === null ? {} : { deathAt: row.death_at.toISOString() }),
+  ...(row.admission_id === null ? {} : { admissionId: row.admission_id }),
   version: row.version,
 });
 
@@ -67,6 +91,16 @@ async function findCase(client: pg.ClientBase, id: string, lock = false): Promis
     [id],
   );
   return rows[0] ?? null;
+}
+
+interface NoteRow {
+  id: string;
+  case_id: string;
+  kind: EmergencyNote['kind'];
+  body: string;
+  author_name: string;
+  created_at: Date;
+  created_text: string;
 }
 
 const caseGone = () => new HttpError(404, 'case_not_found', 'No such case');
@@ -358,6 +392,9 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         return replyWith(client, request.params.caseId);
       }
       const row = await lockedCase(client, request.params.caseId, request.body.version);
+      if (row.encounter_id !== null) {
+        throw new HttpError(409, 'has_encounter', 'Care has started on the patient’s record');
+      }
       const { rows } = await client.query<{ id: string; patient_id: string; in_window: boolean }>(
         `select id, patient_id, linked_at > now() - make_interval(hours => $2) as in_window
            from er_case_links
@@ -382,6 +419,320 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
       );
       request.audit('update', 'er_case', row.id);
       await request.emit('er.unidentified', row.id, { patientId: link.patient_id });
+      return replyWith(client, row.id);
+    },
+  );
+  app.get(
+    '/emergency/cases/:caseId',
+    {
+      config: { permissions: ['emergency:read'], feature: FEATURE },
+      schema: {
+        operationId: 'getEmergencyCase',
+        tags: ['emergency'],
+        description:
+          'One case of the department, with its emergency encounter once care has begun and, after the patient left, how. Audited as a read. Requires emergency:read.',
+        params: EmergencyParams,
+        response: { 200: ref(EmergencyCase), ...errors(400, 401, 403, 404, 429) },
+      },
+    },
+    async (request) => {
+      const row = await findCase(request.txClient, request.params.caseId);
+      if (!row) throw caseGone();
+      request.audit('read', 'er_case', row.id);
+      return view(row);
+    },
+  );
+
+  app.post(
+    '/emergency/cases/:caseId/start',
+    {
+      config: {
+        permissions: ['emergency:care'],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'startEmergencyTreatment',
+        tags: ['emergency'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Moves a waiting case to `in_treatment` at the `version` read (409 `version_conflict`; a case already in treatment or disposed is 409 `invalid_transition`). The Idempotency-Key header is required. Audited; emits `er.started`. Requires emergency:care.',
+        params: EmergencyParams,
+        body: EmergencyStart,
+        response: { 200: ref(EmergencyCase), ...errors(400, 401, 403, 404, 409, 429) },
+      },
+    },
+    async (request) => {
+      const client = request.txClient;
+      if (request.replayOf !== null) {
+        request.audit('read', 'er_case', request.params.caseId);
+        return replyWith(client, request.params.caseId);
+      }
+      const row = await lockedCase(client, request.params.caseId, request.body.version);
+      if (row.status !== 'waiting') {
+        throw new HttpError(409, 'invalid_transition', 'Treatment has already started');
+      }
+      await client.query("update er_encounters set status = 'in_treatment' where id = $1", [
+        row.id,
+      ]);
+      request.audit('update', 'er_case', row.id);
+      await request.emit('er.started', row.id, {});
+      return replyWith(client, row.id);
+    },
+  );
+
+  app.post(
+    '/emergency/cases/:caseId/encounter',
+    {
+      config: {
+        permissions: ['emergency:care'],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'openEmergencyEncounter',
+        tags: ['emergency'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Opens the case’s emergency encounter (type `er`) so orders can be placed on it through the clinical orders routes, and moves a waiting case to `in_treatment`. Needs the patient on record (409 `identify_first`); once open it is the same encounter (the case is answered unchanged). The attending doctor is the caller’s own profile when there is one. The Idempotency-Key header is required. Audited; emits `encounter.opened`. Requires emergency:care and the clinical module (403 `feature_disabled`).',
+        params: EmergencyParams,
+        body: EmergencyStart,
+        response: { 200: ref(EmergencyCase), ...errors(400, 401, 403, 404, 409, 429) },
+      },
+    },
+    async (request) => {
+      const client = request.txClient;
+      if (request.replayOf !== null) {
+        request.audit('read', 'er_case', request.params.caseId);
+        return replyWith(client, request.params.caseId);
+      }
+      if ((await request.access.policy())?.features['clinical'] !== true) {
+        throw new HttpError(403, 'feature_disabled', 'The clinical module is off');
+      }
+      const row = await lockedCase(client, request.params.caseId, request.body.version);
+      if (row.encounter_id !== null) return view(row);
+      if (row.patient_id === null) {
+        throw new HttpError(409, 'identify_first', 'Link the patient to a record first');
+      }
+      const userId = userIdOf(request);
+      const doctorId = await ownDoctorId(client, userId);
+      const doctor = doctorId ? await practisingDoctor(client, doctorId) : null;
+      const encounterId = await openEmergencyEncounter(
+        client,
+        {
+          patientId: row.patient_id,
+          doctorId: doctor?.id ?? null,
+          departmentId: doctor?.department_id ?? null,
+        },
+        userId,
+      );
+      await client.query(
+        "update er_encounters set encounter_id = $2, status = 'in_treatment' where id = $1",
+        [row.id, encounterId],
+      );
+      request.audit('update', 'er_case', row.id);
+      request.audit('create', 'encounter', encounterId);
+      await request.emit('encounter.opened', encounterId, {
+        encounterId,
+        patientId: row.patient_id,
+        type: 'er',
+        doctorId: doctor?.id ?? null,
+        departmentId: doctor?.department_id ?? null,
+      });
+      return replyWith(client, row.id);
+    },
+  );
+
+  const noteView = (row: NoteRow): EmergencyNote => ({
+    id: row.id,
+    caseId: row.case_id,
+    kind: row.kind,
+    body: row.body,
+    authorName: row.author_name,
+    createdAt: row.created_at.toISOString(),
+  });
+  const NOTE_SELECT = `select n.id, n.case_id, n.kind, n.body, coalesce(u.name, '') as author_name,
+                              n.created_at,
+                              to_char(n.created_at at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') || '+00' as created_text
+                         from er_notes n left join users u on u.id = n.created_by`;
+
+  app.get(
+    '/emergency/cases/:caseId/notes',
+    {
+      config: { permissions: ['emergency:care'], feature: FEATURE },
+      schema: {
+        operationId: 'listEmergencyNotes',
+        tags: ['emergency'],
+        description:
+          'The observation notes and assessments of a case, oldest first, in pages. Every note read is audited. Requires emergency:care.',
+        params: EmergencyParams,
+        querystring: EmergencyNoteListQuery,
+        response: { 200: ref(EmergencyNotePage), ...errors(400, 401, 403, 404, 429) },
+      },
+    },
+    async (request) => {
+      const client = request.txClient;
+      const row = await findCase(client, request.params.caseId);
+      if (!row) throw caseGone();
+      const limit = request.query.limit ?? DEFAULT_PAGE_SIZE;
+      const params: unknown[] = [row.id];
+      let after = '';
+      if (request.query.cursor) {
+        const cursor = decode(request.query.cursor);
+        params.push(cursor.a, cursor.i);
+        after = 'and (n.created_at, n.id) > ($2::timestamptz, $3::uuid)';
+      }
+      params.push(limit + 1);
+      const { rows } = await client.query<NoteRow>(
+        `${NOTE_SELECT}
+          where n.case_id = $1 ${after}
+          order by n.created_at, n.id limit $${params.length}`,
+        params,
+      );
+      const more = rows.length > limit;
+      const page = more ? rows.slice(0, limit) : rows;
+      const last = page[page.length - 1];
+      for (const note of page) request.audit('read', 'er_note', note.id);
+      return {
+        items: page.map(noteView),
+        nextCursor:
+          more && last
+            ? Buffer.from(JSON.stringify({ c: 0, a: last.created_text, i: last.id })).toString(
+                'base64url',
+              )
+            : null,
+      };
+    },
+  );
+
+  app.post(
+    '/emergency/cases/:caseId/notes',
+    {
+      config: {
+        permissions: ['emergency:care'],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'addEmergencyNote',
+        tags: ['emergency'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Adds an observation note or assessment to a case that has not left the department (409 `invalid_transition`). A note is never changed or removed: a correction is a new note. The Idempotency-Key header is required: a repeat adds nothing. Audited. Requires emergency:care.',
+        params: EmergencyParams,
+        body: EmergencyNoteCreate,
+        response: { 201: ref(EmergencyNote), ...errors(400, 401, 403, 404, 409, 429) },
+      },
+    },
+    async (request, reply) => {
+      const client = request.txClient;
+      const noteById = async (id: string) => {
+        const { rows } = await client.query<NoteRow>(`${NOTE_SELECT} where n.id = $1`, [id]);
+        const note = rows[0];
+        if (!note) throw caseGone();
+        return noteView(note);
+      };
+      if (request.replayOf !== null && request.idempotentId) {
+        request.audit('read', 'er_note', request.idempotentId);
+        return reply.status(201).send(await noteById(request.idempotentId));
+      }
+      const probe = await findCase(client, request.params.caseId);
+      if (!probe) throw caseGone();
+      const row = (await findCase(client, probe.id, true)) as CaseRow;
+      if (row.status === 'disposed') {
+        throw new HttpError(409, 'invalid_transition', 'The patient has left the department');
+      }
+      const { rows } = await client.query<{ id: string }>(
+        `insert into er_notes (case_id, kind, body, created_by) values ($1, $2, $3, $4)
+         returning id`,
+        [row.id, request.body.kind, request.body.body.trim(), userIdOf(request)],
+      );
+      const id = (rows[0] as { id: string }).id;
+      request.idempotentId = id;
+      request.audit('create', 'er_note', id);
+      return reply.status(201).send(await noteById(id));
+    },
+  );
+
+  app.post(
+    '/emergency/cases/:caseId/disposition',
+    {
+      config: {
+        permissions: ['emergency:dispose'],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'disposeEmergencyCase',
+        tags: ['emergency'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Decides how the patient leaves the department, once, at the `version` read (409 `version_conflict`; a case already disposed is 409 `invalid_transition`): `discharge`, `admit`, `refer` (needs a `destination`, 422 `destination_required`) or `expired` (needs `deathAt`, not in the future, 422 `death_time_required` / `death_in_future`). The emergency encounter, if open, is closed with it (409 `unsigned_notes` while a note of it is a draft). `admit` needs the patient on record (409 `identify_first`), the admissions module and admission:create (403), and opens the inpatient admission of type `emergency` with its own encounter and no bed: its id is kept on the case (`admissionId`), and the emergency encounter, orders and notes stay where they were, so the history is preserved. 409 `already_admitted` when the patient is. The Idempotency-Key header is required. Audited; emits `er.disposed` (the type and ids only) and, for admit, `encounter.opened` and `admission.created`. Requires emergency:dispose.',
+        params: EmergencyParams,
+        body: EmergencyDisposition,
+        response: { 200: ref(EmergencyCase), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request) => {
+      const client = request.txClient;
+      if (request.replayOf !== null) {
+        request.audit('read', 'er_case', request.params.caseId);
+        return replyWith(client, request.params.caseId);
+      }
+      const body = request.body;
+      const row = await lockedCase(client, request.params.caseId, body.version);
+      const userId = userIdOf(request);
+      if (body.type === 'refer' && !body.destination?.trim()) {
+        throw new HttpError(422, 'destination_required', 'Say where the patient is referred to');
+      }
+      if (body.type === 'expired') {
+        if (body.deathAt === undefined) {
+          throw new HttpError(422, 'death_time_required', 'Give the time of death');
+        }
+        if (Date.parse(body.deathAt) > Date.now() + 60_000) {
+          throw new HttpError(422, 'death_in_future', 'The time of death is in the future');
+        }
+      }
+      let admissionId: string | null = null;
+      if (body.type === 'admit') {
+        if (row.patient_id === null) {
+          throw new HttpError(409, 'identify_first', 'Link the patient to a record first');
+        }
+        const admitted = await admitFromEmergency(request, {
+          patientId: row.patient_id,
+          ...(body.doctorId === undefined ? {} : { doctorId: body.doctorId }),
+          ...(body.note === undefined ? {} : { adviceNote: body.note.trim() }),
+        });
+        admissionId = admitted.admissionId;
+      }
+      if (row.encounter_id !== null) {
+        const closed = await closeEmergencyEncounter(client, row.encounter_id, userId);
+        if (closed === 'unsigned_notes') {
+          throw new HttpError(409, 'unsigned_notes', 'A note of the encounter is still a draft');
+        }
+        request.audit('update', 'encounter', row.encounter_id);
+      }
+      await client.query(
+        `update er_encounters
+            set status = 'disposed', disposition = $2, disposed_at = now(), disposed_by = $3,
+                disposition_note = $4, destination = $5, death_at = $6, admission_id = $7
+          where id = $1`,
+        [
+          row.id,
+          body.type,
+          userId,
+          body.note?.trim() || null,
+          body.type === 'refer' ? (body.destination?.trim() ?? null) : null,
+          body.type === 'expired' ? (body.deathAt ?? null) : null,
+          admissionId,
+        ],
+      );
+      request.audit('update', 'er_case', row.id);
+      await request.emit('er.disposed', row.id, {
+        disposition: body.type,
+        ...(admissionId === null ? {} : { admissionId }),
+        ...(row.encounter_id === null ? {} : { encounterId: row.encounter_id }),
+      });
       return replyWith(client, row.id);
     },
   );

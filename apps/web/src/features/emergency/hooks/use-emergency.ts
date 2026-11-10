@@ -1,10 +1,27 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
-import { fetchCases, identifyCase, registerCase, triageCase } from '../api';
+import {
+  addNote,
+  disposeCase,
+  fetchCase,
+  fetchCases,
+  fetchNotes,
+  identifyCase,
+  openEncounter,
+  registerCase,
+  startTreatment,
+  triageCase,
+} from '../api';
 import { PAGE_SIZE } from '../schemas';
-import type { EmergencyCase, EmergencyCaseCreate, EmergencyCaseStatus } from '../types';
+import type {
+  EmergencyCase,
+  EmergencyCaseCreate,
+  EmergencyCaseStatus,
+  EmergencyDisposition,
+  EmergencyNoteKind,
+} from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's board never shows in another. */
 export const emergencyKeys = createTenantKeys('emergency-cases');
@@ -92,6 +109,79 @@ export function useIdentifyCase() {
     gcTime: 0,
     mutationFn: (change: { row: EmergencyCase; patientId: string }) =>
       identifyCase(change, attempt.keyFor([change.row.id, change.row.version, change.patientId])),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+/** One case, read again while its screen is open: others work on it too. */
+export function useCase(caseId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: emergencyKeys.detail(tenantId ?? '', caseId),
+    queryFn: ({ signal }) => fetchCase(caseId, signal),
+    enabled: tenantId !== undefined,
+    refetchInterval: REFRESH_MS,
+  });
+}
+
+const NOTES_PAGE_SIZE = 50;
+export function useNotes(caseId: string, enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: emergencyKeys.list(tenantId ?? '', { notesOf: caseId, limit: NOTES_PAGE_SIZE }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchNotes({ caseId, cursor: pageParam, limit: NOTES_PAGE_SIZE }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: enabled && tenantId !== undefined,
+    refetchInterval: REFRESH_MS,
+  });
+}
+
+export function useStartTreatment() {
+  const attempt = useAttempt();
+  const refresh = useRefresh();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (row: EmergencyCase) =>
+      startTreatment(row, attempt.keyFor([row.id, row.version, 'start'])),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+export function useOpenEncounter() {
+  const attempt = useAttempt();
+  const refresh = useRefresh();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (row: EmergencyCase) =>
+      openEncounter(row, attempt.keyFor([row.id, row.version, 'encounter'])),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+export function useAddNote() {
+  const attempt = useAttempt();
+  const refresh = useRefresh();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (note: { caseId: string; kind: EmergencyNoteKind; body: string }) =>
+      addNote(note, attempt.keyFor(note)),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+export function useDisposeCase() {
+  const attempt = useAttempt();
+  const refresh = useRefresh();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (change: { row: EmergencyCase } & Omit<EmergencyDisposition, 'version'>) =>
+      disposeCase(change, attempt.keyFor([change.row.id, change.row.version, change])),
     onSuccess: () => attempt.done(),
     onSettled: refresh,
   });

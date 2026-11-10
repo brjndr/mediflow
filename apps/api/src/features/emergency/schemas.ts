@@ -1,6 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { CursorPage, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, ref } from '../../core/http/schemas.js';
-import { PLAIN_TEXT } from '../../core/http/text.js';
+import { PLAIN_LINES, PLAIN_TEXT } from '../../core/http/text.js';
 
 function Enum<const Values extends readonly [string, ...string[]]>(
   id: string,
@@ -18,10 +18,20 @@ function Enum<const Values extends readonly [string, ...string[]]>(
 export const CASE_STATUSES = ['waiting', 'in_treatment', 'disposed'] as const;
 export const ARRIVAL_MODES = ['walk_in', 'ambulance', 'police', 'referred'] as const;
 export const SEXES = ['male', 'female', 'other', 'unknown'] as const;
+export const DISPOSITIONS = ['discharge', 'admit', 'refer', 'expired'] as const;
+export const NOTE_KINDS = ['observation', 'assessment'] as const;
+export const NOTE_MAX = 2000;
+export const DISPOSITION_NOTE_MAX = 500;
 
 export const EmergencyCaseStatus = Enum('EmergencyCaseStatus', CASE_STATUSES);
 export const EmergencyArrivalMode = Enum('EmergencyArrivalMode', ARRIVAL_MODES);
 export const EmergencySex = Enum('EmergencySex', SEXES);
+export const EmergencyDispositionType = Enum(
+  'EmergencyDispositionType',
+  DISPOSITIONS,
+  'How the patient left the department.',
+);
+export const EmergencyNoteKind = Enum('EmergencyNoteKind', NOTE_KINDS);
 
 const Category = Type.Integer({
   minimum: 1,
@@ -52,6 +62,17 @@ export const EmergencyCase = Type.Object(
     arrivedAt: Type.String({ format: 'date-time' }),
     triagedAt: Type.Optional(Type.String({ format: 'date-time' })),
     identifiedAt: Type.Optional(Type.String({ format: 'date-time' })),
+    encounterId: Type.Optional(
+      Type.String({ description: 'The emergency encounter orders are placed on (ER-02).' }),
+    ),
+    disposition: Type.Optional(ref(EmergencyDispositionType)),
+    disposedAt: Type.Optional(Type.String({ format: 'date-time' })),
+    dispositionNote: Type.Optional(Type.String()),
+    destination: Type.Optional(Type.String({ description: 'Where a referred patient went.' })),
+    deathAt: Type.Optional(Type.String({ format: 'date-time' })),
+    admissionId: Type.Optional(
+      Type.String({ description: 'The inpatient admission an admit disposition made.' }),
+    ),
     version: Version,
   },
   { $id: 'EmergencyCase', additionalProperties: false },
@@ -90,6 +111,70 @@ export const EmergencyUnidentify = Type.Object(
   { $id: 'EmergencyUnidentify', additionalProperties: false },
 );
 
+export const EmergencyStart = Type.Object(
+  { version: Version },
+  { $id: 'EmergencyStart', additionalProperties: false },
+);
+export const EmergencyDisposition = Type.Object(
+  {
+    version: Version,
+    type: ref(EmergencyDispositionType),
+    note: Type.Optional(
+      Type.String({ minLength: 1, maxLength: DISPOSITION_NOTE_MAX, pattern: PLAIN_LINES }),
+    ),
+    destination: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 120,
+        pattern: PLAIN_TEXT,
+        description: 'Required to refer.',
+      }),
+    ),
+    deathAt: Type.Optional(
+      Type.String({
+        format: 'date-time',
+        description: 'Required when expired; not in the future.',
+      }),
+    ),
+    doctorId: Type.Optional(
+      Type.String({
+        maxLength: 64,
+        description: 'To admit: the admitting doctor, else the caller’s own profile.',
+      }),
+    ),
+  },
+  { $id: 'EmergencyDisposition', additionalProperties: false },
+);
+export type EmergencyDisposition = Static<typeof EmergencyDisposition>;
+
+export const EmergencyNote = Type.Object(
+  {
+    id: Type.String(),
+    caseId: Type.String(),
+    kind: ref(EmergencyNoteKind),
+    body: Type.String(),
+    authorName: Type.String(),
+    createdAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'EmergencyNote', additionalProperties: false },
+);
+export type EmergencyNote = Static<typeof EmergencyNote>;
+export const EmergencyNotePage = CursorPage(ref(EmergencyNote), { $id: 'EmergencyNotePage' });
+export const EmergencyNoteCreate = Type.Object(
+  {
+    kind: ref(EmergencyNoteKind),
+    body: Type.String({ minLength: 1, maxLength: NOTE_MAX, pattern: PLAIN_LINES }),
+  },
+  { $id: 'EmergencyNoteCreate', additionalProperties: false },
+);
+export type EmergencyNoteCreate = Static<typeof EmergencyNoteCreate>;
+export const EmergencyNoteListQuery = Type.Object({
+  cursor: Type.Optional(Type.String({ maxLength: 300 })),
+  limit: Type.Optional(
+    Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
+  ),
+});
+
 export const EmergencyParams = Type.Object({ caseId: Type.String({ maxLength: 64 }) });
 export const EmergencyListQuery = Type.Object({
   status: Type.Optional(ref(EmergencyCaseStatus)),
@@ -109,4 +194,11 @@ export const EMERGENCY_SCHEMAS = [
   EmergencyTriage,
   EmergencyIdentify,
   EmergencyUnidentify,
+  EmergencyDispositionType,
+  EmergencyNoteKind,
+  EmergencyStart,
+  EmergencyDisposition,
+  EmergencyNote,
+  EmergencyNotePage,
+  EmergencyNoteCreate,
 ] as const;

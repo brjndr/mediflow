@@ -309,6 +309,10 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (rowCount) {
         throw new HttpError(409, 'managed_by_admission', 'The admission ends this encounter');
       }
+      // So is the emergency department's, ended by the disposition (ER-02).
+      if (row.type === 'er') {
+        throw new HttpError(409, 'managed_by_emergency', 'The disposition ends this encounter');
+      }
       await change(row);
       request.audit('update', 'encounter', row.id);
     }

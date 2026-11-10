@@ -253,6 +253,11 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Emergency', level: 1 })).toBeVisible();
   await expect(page.getByText('Road accident')).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // One case (ER-02, #172): notes, orders and the disposition in one column on a phone.
+  await page.getByRole('link', { name: 'Man in blue jacket' }).click();
+  await expect(page.getByRole('heading', { name: /ER-0002/, level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Observation notes' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
   // The invoice builder (#109): charges as cards on a phone, the line form in one column.
   await goTo(page, 'Consultations');
   await page.getByRole('main').getByRole('link').first().click();

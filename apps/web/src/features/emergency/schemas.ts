@@ -1,7 +1,11 @@
 import { z } from 'zod';
-import { PLAIN_TEXT } from '@/shared/utils/text';
+import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 import type {
   ArrivalMode,
+  DispositionType,
+  EmergencyNote,
+  EmergencyNoteKind,
+  EmergencyNotePage,
   EmergencyCase,
   EmergencyCasePage,
   EmergencyCaseStatus,
@@ -23,6 +27,18 @@ export const SEXES = [
   'other',
   'unknown',
 ] as const satisfies readonly EmergencySex[];
+export const DISPOSITIONS = [
+  'discharge',
+  'admit',
+  'refer',
+  'expired',
+] as const satisfies readonly DispositionType[];
+export const NOTE_KINDS = [
+  'observation',
+  'assessment',
+] as const satisfies readonly EmergencyNoteKind[];
+export const NOTE_MAX = 2000;
+export const DISPOSITION_NOTE_MAX = 500;
 export const STATUSES = [
   'waiting',
   'in_treatment',
@@ -80,6 +96,14 @@ export const caseSchema: z.ZodType<EmergencyCase> = z.object({
   status: z.enum(STATUSES),
   arrivedAt: z.string(),
   triagedAt: z.string().optional(),
+  identifiedAt: z.string().optional(),
+  encounterId: z.string().optional(),
+  disposition: z.enum(DISPOSITIONS).optional(),
+  disposedAt: z.string().optional(),
+  dispositionNote: z.string().optional(),
+  destination: z.string().optional(),
+  deathAt: z.string().optional(),
+  admissionId: z.string().optional(),
   version: z.number().int().min(1),
 });
 export const casePageSchema: z.ZodType<EmergencyCasePage> = z.object({
@@ -87,3 +111,52 @@ export const casePageSchema: z.ZodType<EmergencyCasePage> = z.object({
   nextCursor: z.string().nullable(),
   total: z.number().int().optional(),
 });
+
+export const noteSchema: z.ZodType<EmergencyNote> = z.object({
+  id: z.string(),
+  caseId: z.string(),
+  kind: z.enum(NOTE_KINDS),
+  body: z.string(),
+  authorName: z.string(),
+  createdAt: z.string(),
+});
+export const notePageSchema: z.ZodType<EmergencyNotePage> = z.object({
+  items: z.array(noteSchema),
+  nextCursor: z.string().nullable(),
+});
+
+export const noteFormSchema = z.object({
+  kind: z.enum(NOTE_KINDS),
+  body: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(NOTE_MAX, 'validation.invalid_value')
+    .regex(PLAIN_LINES, 'validation.plain_text'),
+});
+export type NoteFormValues = z.infer<typeof noteFormSchema>;
+
+export const dispositionFormSchema = z
+  .object({
+    type: z.enum(DISPOSITIONS),
+    note: z
+      .string()
+      .trim()
+      .max(DISPOSITION_NOTE_MAX, 'validation.invalid_value')
+      .regex(PLAIN_LINES, 'validation.plain_text'),
+    destination: plain(120),
+    /** To admit: the admitting doctor; empty is the caller's own profile. */
+    doctorId: z.string().max(64),
+    /** A local date and time, as a datetime-local field gives it. */
+    deathAt: z.string(),
+  })
+  .superRefine((value, context) => {
+    if (value.type === 'refer' && value.destination === '') {
+      context.addIssue({ code: 'custom', path: ['destination'], message: 'validation.required' });
+    }
+    // Not in the future is the server's to say, on the hospital's clock.
+    if (value.type === 'expired' && value.deathAt === '') {
+      context.addIssue({ code: 'custom', path: ['deathAt'], message: 'validation.required' });
+    }
+  });
+export type DispositionFormValues = z.infer<typeof dispositionFormSchema>;

@@ -86,6 +86,7 @@ interface StoredEncounter {
   id: string;
   tenantId: string;
   patientId: string;
+  type?: Encounter['type'];
   status: Encounter['status'];
   appointmentId?: string;
   queueTokenId?: string;
@@ -363,7 +364,7 @@ function viewOf(stored: StoredEncounter): Encounter {
     patientId: stored.patientId,
     patientName: patient?.name ?? '',
     patientMrn: patient?.mrn ?? '',
-    type: 'opd',
+    type: stored.type ?? 'opd',
     status: stored.status,
     ...(stored.appointmentId ? { appointmentId: stored.appointmentId } : {}),
     ...(stored.queueTokenId ? { queueTokenId: stored.queueTokenId } : {}),
@@ -1618,6 +1619,38 @@ export function addPastMockEncounters(
       version: 2,
     });
   }
+}
+
+/**
+ * Opens the emergency encounter of a case, as the emergency API does through the clinical module
+ * (ER-02): type `er`, attended by the caller's doctor profile when they have one. Gives its id.
+ */
+export function openMockEmergencyEncounter(tenantId: string, patientId: string): string {
+  const id = `enc_er_${state.encounters.length + 1}`;
+  state.encounters.push({
+    id,
+    tenantId,
+    patientId,
+    type: 'er',
+    status: 'open',
+    doctorId: mockDoctorOfUser(tenantId, caller().id)?.id ?? 'doc_h_01',
+    openedAt: new Date().toISOString(),
+    openedByName: caller().name,
+    version: 1,
+  });
+  return id;
+}
+
+/** Closes an emergency encounter at the disposition. */
+export function closeMockEmergencyEncounter(id: string): void {
+  const found = state.encounters.find((each) => each.id === id);
+  if (!found) return;
+  Object.assign(found, {
+    status: 'closed',
+    endedAt: new Date().toISOString(),
+    endedByName: caller().name,
+    version: found.version + 1,
+  });
 }
 
 /** The notes of an encounter as the mock holds them (every author's drafts included), for tests. */
