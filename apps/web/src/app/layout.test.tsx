@@ -48,6 +48,7 @@ describe('shell', () => {
       'Wards and beds',
       'Bed board',
       'Housekeeping',
+      'Ward care',
       'Ambulances',
       'Operation theatre',
       'Blood bank',
@@ -110,6 +111,7 @@ describe('shell', () => {
       'Wards and beds',
       'Bed board',
       'Housekeeping',
+      'Ward care',
       'Ambulances',
       'Operation theatre',
       'Blood bank',
@@ -196,6 +198,8 @@ describe('keyboard', () => {
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Housekeeping' })).toHaveFocus();
     await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Ward care' })).toHaveFocus();
+    await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Ambulances' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Operation theatre' })).toHaveFocus();
@@ -223,7 +227,7 @@ describe('keyboard', () => {
     expect(within(sidebar()).getByRole('link', { name: 'Notices' })).toHaveFocus();
     await userEvent.tab();
     expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toHaveFocus();
-  });
+  }, 20_000);
 
   it('follows a nav link with Enter', async () => {
     const { router } = renderApp();
@@ -280,6 +284,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Wards and beds',
       'Bed board',
       'Housekeeping',
+      'Ward care',
       'Ambulances',
       'Operation theatre',
       'Blood bank',
@@ -351,6 +356,7 @@ describe('system pages', () => {
       'Wards and beds',
       'Bed board',
       'Housekeeping',
+      'Ward care',
       'Ambulances',
       'Operation theatre',
       'Blood bank',

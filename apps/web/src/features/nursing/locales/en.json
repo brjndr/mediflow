@@ -1,0 +1,94 @@
+{
+  "heading": "Ward care",
+  "description": "The patients now on the wards. Open one to chart vital signs.",
+  "gridLabel": "Admitted patients",
+  "count_one": "{{count}} patient",
+  "count_other": "{{count}} patients",
+  "empty": "Nobody is admitted.",
+  "noBed": "No bed",
+  "rowLabel": "{{patient}}",
+  "filters": { "ward": "Ward", "allWards": "All wards" },
+  "columns": {
+    "patient": "Patient",
+    "mrn": "MRN",
+    "bed": "Bed",
+    "ward": "Ward",
+    "doctor": "Doctor",
+    "admittedAt": "Admitted",
+    "observedAt": "Taken",
+    "pressure": "Blood pressure",
+    "pulse": "Pulse",
+    "temperature": "Temperature",
+    "spo2": "SpO2",
+    "score": "Warning score",
+    "by": "Recorded by",
+    "note": "Note"
+  },
+  "actions": { "vitals": "Chart vitals", "correct": "Correct" },
+  "back": "Back to ward care",
+  "vitalsLoading": "Vital signs",
+  "vitalsHeading": "Vital signs: {{patient}}",
+  "stayLine": "MRN {{mrn}}, bed {{bed}} {{ward}}",
+  "vitalsGrid": "Vital sign readings",
+  "vitalsRowLabel": "Reading taken {{time}}",
+  "vitalsEmpty": "No readings yet.",
+  "corrected": "Corrected",
+  "correction": "Correction: {{reason}}",
+  "flag": { "low": "low", "high": "high" },
+  "form": {
+    "heading": "Record vital signs",
+    "correctHeading": "Correct the reading of {{time}}",
+    "systolic": "Systolic (mmHg)",
+    "diastolic": "Diastolic (mmHg)",
+    "pulse": "Pulse (per minute)",
+    "temperature": "Temperature (°C)",
+    "spo2": "SpO2 (%)",
+    "reason": "Reason for the correction",
+    "record": "Record",
+    "correct": "Save correction",
+    "cancel": "Cancel"
+  },
+  "errors": {
+    "empty": "Enter at least one measurement.",
+    "systolic": "Systolic pressure is a whole number from 40 to 300.",
+    "diastolic": "Diastolic pressure is a whole number from 20 to 200.",
+    "pulse": "Pulse is a whole number from 20 to 300.",
+    "temperature": "Temperature is from 25 to 45, with at most one decimal.",
+    "spo2": "SpO2 is a whole number from 50 to 100.",
+    "pressurePair": "Enter systolic and diastolic pressure together.",
+    "pressureOrder": "Diastolic pressure must be lower than systolic."
+  },
+  "done": {
+    "recorded": "Vital signs recorded.",
+    "corrected": "Correction saved. The earlier reading is kept."
+  },
+  "refused": {
+    "notOpen": "This patient is no longer admitted, so nothing can be recorded.",
+    "alreadyCorrected": "This reading was already corrected."
+  },
+  "score": {
+    "heading": "Early warning score",
+    "badge": "Score {{score}}, {{level}}",
+    "level": { "normal": "normal", "attention": "needs attention", "urgent": "urgent" },
+    "advice": {
+      "attention": "Tell the nurse in charge and check again soon.",
+      "urgent": "Ask a doctor to review the patient now."
+    },
+    "measured_one": "From {{count}} measurement",
+    "measured_other": "From {{count}} measurements",
+    "worsening": "The score is rising across the latest readings.",
+    "none": "No scored measurements yet.",
+    "note": "Scored from blood pressure, pulse, temperature and SpO2 with the hospital's bands. Respiratory rate and consciousness are not charted, so use clinical judgement."
+  },
+  "trend": {
+    "heading": "Trend",
+    "measure": "Show",
+    "title": "{{measure}} over the stay",
+    "none": "Nothing to chart yet.",
+    "score": "Warning score",
+    "systolic": "Systolic pressure",
+    "pulse": "Pulse",
+    "temperature": "Temperature",
+    "spo2": "SpO2"
+  }
+}

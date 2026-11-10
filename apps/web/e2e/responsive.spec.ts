@@ -135,6 +135,11 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   ).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // The nursing worklist (#157): admitted patients as cards on a phone.
+  await goTo(page, 'Ward care');
+  await expect(page.getByRole('heading', { name: 'Ward care', level: 1 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   // The bed board (#151): beds as cards on a phone, with who is in them.
   await goTo(page, 'Bed board');
   await expect(page.getByRole('heading', { name: 'Bed board', exact: true })).toBeVisible();

@@ -31,6 +31,7 @@ import { uiExamplesFeature } from '@/features/ui-examples';
 import { wardsFeature } from '@/features/wards';
 import { admissionsFeature } from '@/features/admissions';
 import { housekeepingFeature } from '@/features/housekeeping';
+import { nursingFeature } from '@/features/nursing';
 import { ambulancesFeature } from '@/features/ambulances';
 import { theatreFeature } from '@/features/theatre';
 import { emergencyFeature } from '@/features/emergency';
@@ -56,6 +57,7 @@ export const features: FeatureManifest[] = [
   wardsFeature,
   admissionsFeature,
   housekeepingFeature,
+  nursingFeature,
   ambulancesFeature,
   theatreFeature,
   emergencyFeature,

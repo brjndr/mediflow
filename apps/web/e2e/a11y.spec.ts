@@ -81,6 +81,24 @@ const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
   roles: () => Promise.resolve('doctor'),
   // Triage has no list of its own: a patient of the mock with readings and allergies.
   triage: () => Promise.resolve('pth_00001'),
+  // The nursing chart (#157) is opened from a worklist row action: a patient of the mock is
+  // admitted without a bed, under the first doctor.
+  nursing: (page) =>
+    page.evaluate(async () => {
+      const doctors = (await (await fetch('/api/doctors?limit=1')).json()) as {
+        items: { id: string }[];
+      };
+      const answer = await fetch('/api/admissions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+        body: JSON.stringify({
+          patientId: 'pth_00001',
+          admissionType: 'planned',
+          doctorId: doctors.items[0]?.id,
+        }),
+      });
+      return ((await answer.json()) as { id?: string }).id ?? '';
+    }),
   // A lab order's results (#91) are opened from a worklist row action: its sample collected,
   // received and one result entered, so entry and verifying are both on the screen.
   'lab/orders': (page) =>
