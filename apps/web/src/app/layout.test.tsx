@@ -53,6 +53,7 @@ describe('shell', () => {
       'Operation theatre',
       'Blood bank',
       'Triage',
+      'Insurers and TPAs',
       'Diagnosis and procedure codes',
       'Document templates',
       'Reports',
@@ -116,6 +117,7 @@ describe('shell', () => {
       'Operation theatre',
       'Blood bank',
       'Triage',
+      'Insurers and TPAs',
       'Diagnosis and procedure codes',
       'Document templates',
       'Reports',
@@ -208,6 +210,8 @@ describe('keyboard', () => {
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Triage' })).toHaveFocus();
     await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Insurers and TPAs' })).toHaveFocus();
+    await userEvent.tab();
     expect(
       within(sidebar()).getByRole('link', { name: 'Diagnosis and procedure codes' }),
     ).toHaveFocus();
@@ -289,6 +293,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Operation theatre',
       'Blood bank',
       'Triage',
+      'Insurers and TPAs',
       'Diagnosis and procedure codes',
       'Document templates',
       'Reports',
@@ -361,6 +366,7 @@ describe('system pages', () => {
       'Operation theatre',
       'Blood bank',
       'Triage',
+      'Insurers and TPAs',
       'Diagnosis and procedure codes',
       'Document templates',
       'Reports',

@@ -36,6 +36,7 @@ import { ambulancesFeature } from '@/features/ambulances';
 import { theatreFeature } from '@/features/theatre';
 import { emergencyFeature } from '@/features/emergency';
 import { bloodBankFeature } from '@/features/blood-bank';
+import { insuranceFeature } from '@/features/insurance';
 import type { FeatureManifest } from './types';
 
 /**
@@ -84,4 +85,5 @@ export const features: FeatureManifest[] = [
   rolesFeature,
   billingFeature,
   reportsFeature,
+  insuranceFeature,
 ];

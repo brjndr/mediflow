@@ -47,6 +47,7 @@ import { ambulanceHandlers } from './handlers/ambulances';
 import { theatreHandlers } from './handlers/theatre';
 import { emergencyHandlers } from './handlers/emergency';
 import { bloodBankHandlers } from './handlers/blood-bank';
+import { insuranceHandlers } from './handlers/insurance';
 import { rolesHandlers } from './handlers/roles';
 import { staffHandlers } from './handlers/staff';
 import { patientsHandlers } from './handlers/patients';
@@ -171,6 +172,7 @@ export const handlers = [
   ...theatreHandlers,
   ...emergencyHandlers,
   ...bloodBankHandlers,
+  ...insuranceHandlers,
   ...codesHandlers,
   ...templatesHandlers,
   ...documentsHandlers,
