@@ -31,7 +31,14 @@ const FIELDS: PayerField[] = ['name', 'contactName', 'phone', 'email', 'address'
 /** Today as a calendar date on the hospital's clock. */
 function todayAt(timeZone: string | undefined): string {
   try {
-    return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+    const parts = new Intl.DateTimeFormat('en', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
   } catch {
     return new Date().toISOString().slice(0, 10);
   }
