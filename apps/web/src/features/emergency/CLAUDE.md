@@ -1,6 +1,6 @@
 # Emergency (web): module notes
 
-What was decided for ER-01 (#171). The root `CLAUDE.md` wins where the two disagree. There is no API yet (BE-26, #175): the screen runs on the mock (`mocks/handlers/emergency.ts`) and the endpoints are in `packages/contract/planned.openapi.json` (`/emergency/cases`, `.../triage`, `.../identify`). When the API implements them, delete them from the planned file.
+What was decided for ER-01 (#171). The root `CLAUDE.md` wins where the two disagree. The API exists (BE-26, #175, `apps/api/src/features/emergency/CLAUDE.md`); the mock in `mocks/handlers/emergency.ts` follows it. The API also has `POST .../unidentify` (undo a link within 24 hours) with no screen yet.
 
 - **One route, one nav entry** ("Emergency", `emergency:read`, `/emergency`, order 26) behind the `emergency` switch. A `DataGrid` board (cards on a phone) read again every 10 seconds, ordered by the server: untriaged arrivals first, then category 1 to 5, then the longest wait.
 - **Permissions:** `emergency:register` (register an arrival, link an unidentified patient to a record), `emergency:triage` (set or change the category). Row actions use `requires`, so they are absent without the permission.

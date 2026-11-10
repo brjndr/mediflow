@@ -248,6 +248,11 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Ambulances', level: 1 })).toBeVisible();
   await expect(page.getByText('Main Road junction')).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // Operation theatre (#176): the day's surgeries and the theatres as cards on a phone.
+  await goTo(page, 'Operation theatre');
+  await expect(page.getByRole('heading', { name: 'Operation theatre', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Theatres', level: 2 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
   // The emergency board (#171): cases as cards on a phone, with the waiting timers.
   await goTo(page, 'Emergency');
   await expect(page.getByRole('heading', { name: 'Emergency', level: 1 })).toBeVisible();

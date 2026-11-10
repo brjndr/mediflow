@@ -50,6 +50,7 @@ describe('shell', () => {
       'Housekeeping',
       'Ward care',
       'Ambulances',
+      'Operation theatre',
       'Blood bank',
       'Triage',
       'Diagnosis and procedure codes',
@@ -112,6 +113,7 @@ describe('shell', () => {
       'Housekeeping',
       'Ward care',
       'Ambulances',
+      'Operation theatre',
       'Blood bank',
       'Triage',
       'Diagnosis and procedure codes',
@@ -200,6 +202,8 @@ describe('keyboard', () => {
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Ambulances' })).toHaveFocus();
     await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Operation theatre' })).toHaveFocus();
+    await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Blood bank' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Triage' })).toHaveFocus();
@@ -282,6 +286,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Housekeeping',
       'Ward care',
       'Ambulances',
+      'Operation theatre',
       'Blood bank',
       'Triage',
       'Diagnosis and procedure codes',
@@ -353,6 +358,7 @@ describe('system pages', () => {
       'Housekeeping',
       'Ward care',
       'Ambulances',
+      'Operation theatre',
       'Blood bank',
       'Triage',
       'Diagnosis and procedure codes',

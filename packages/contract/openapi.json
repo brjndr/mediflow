@@ -9470,6 +9470,606 @@
           }
         }
       },
+      "EmergencyCaseStatus": {
+        "type": "string",
+        "enum": ["waiting", "in_treatment", "disposed"]
+      },
+      "EmergencyArrivalMode": {
+        "type": "string",
+        "enum": ["walk_in", "ambulance", "police", "referred"]
+      },
+      "EmergencySex": {
+        "type": "string",
+        "enum": ["male", "female", "other", "unknown"]
+      },
+      "EmergencyCase": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "tempId",
+          "sex",
+          "complaint",
+          "arrivalMode",
+          "status",
+          "arrivedAt",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "tempId": {
+            "description": "The temporary ID issued at arrival, e.g. ER-0042.",
+            "type": "string"
+          },
+          "patientId": {
+            "description": "Absent while the patient is unidentified.",
+            "type": "string"
+          },
+          "alias": {
+            "description": "How an unidentified patient is described, e.g. \"Man in blue jacket\".",
+            "type": "string"
+          },
+          "sex": {
+            "$ref": "#/components/schemas/EmergencySex"
+          },
+          "approximateAge": {
+            "minimum": 0,
+            "maximum": 130,
+            "type": "integer"
+          },
+          "complaint": {
+            "type": "string"
+          },
+          "arrivalMode": {
+            "$ref": "#/components/schemas/EmergencyArrivalMode"
+          },
+          "category": {
+            "minimum": 1,
+            "maximum": 5,
+            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent.",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EmergencyCaseStatus"
+          },
+          "arrivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "triagedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "identifiedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyCasePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmergencyCase"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyCaseCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["complaint", "arrivalMode"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "alias": {
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "sex": {
+            "$ref": "#/components/schemas/EmergencySex"
+          },
+          "approximateAge": {
+            "minimum": 0,
+            "maximum": 130,
+            "type": "integer"
+          },
+          "complaint": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "arrivalMode": {
+            "$ref": "#/components/schemas/EmergencyArrivalMode"
+          },
+          "category": {
+            "minimum": 1,
+            "maximum": 5,
+            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent.",
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyTriage": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["category", "version"],
+        "properties": {
+          "category": {
+            "minimum": 1,
+            "maximum": 5,
+            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent.",
+            "type": "integer"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyIdentify": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "version"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "EmergencyUnidentify": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version", "reason"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "reason": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "SurgeryStatus": {
+        "type": "string",
+        "enum": ["scheduled", "in_progress", "completed", "cancelled"],
+        "description": "scheduled -> in_progress -> completed, or scheduled -> cancelled. Completed and cancelled are final."
+      },
+      "OtRoom": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "tenantId", "name", "archived", "version"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "OtRoomPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OtRoom"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "OtRoomCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "OtRoomUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "Surgery": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "roomId",
+          "surgeonId",
+          "patientId",
+          "procedure",
+          "startsAt",
+          "endsAt",
+          "status",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "roomId": {
+            "type": "string"
+          },
+          "surgeonId": {
+            "description": "The doctor operating (a doctor profile id).",
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "serviceId": {
+            "description": "The procedure service, when chosen.",
+            "type": "string"
+          },
+          "procedure": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SurgeryStatus"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "completedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "SurgeryPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Surgery"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "SurgeryCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "roomId", "surgeonId", "procedure", "startsAt", "endsAt"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "roomId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "surgeonId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "serviceId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "procedure": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "notes": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "maxLength": 40,
+            "type": "string"
+          }
+        }
+      },
+      "SurgeryReschedule": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["startsAt", "endsAt", "version"],
+        "properties": {
+          "roomId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "surgeonId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "SurgeryCancel": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason", "version"],
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "SurgeryProgress": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "SurgeryConsumable": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "useId",
+          "drugId",
+          "batchId",
+          "locationId",
+          "quantity",
+          "ledgerEntryId",
+          "recordedBy",
+          "recordedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "useId": {
+            "description": "Groups the batches taken by one recording.",
+            "type": "string"
+          },
+          "drugId": {
+            "type": "string"
+          },
+          "batchId": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "ledgerEntryId": {
+            "description": "The stock ledger entry that took the units out.",
+            "type": "string"
+          },
+          "recordedBy": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "SurgeryConsumablePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SurgeryConsumable"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "SurgeryConsumableCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["drugId", "locationId", "lines"],
+        "properties": {
+          "drugId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "locationId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["batchId", "quantity"],
+              "properties": {
+                "batchId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "quantity": {
+                  "minimum": 1,
+                  "maximum": 100000,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
       "StockLocationKind": {
         "type": "string",
         "enum": ["store", "pharmacy", "ward", "department"],
@@ -9500,9 +10100,10 @@
           "receipt",
           "purchase_return",
           "dispense_return",
-          "issue"
+          "issue",
+          "theatre"
         ],
-        "description": "What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104), an issue voucher against an indent (#105)."
+        "description": "What made a ledger entry: an approved adjustment, a dispense of the pharmacy (#100), a counter sale or its return (#101), a goods receipt or a return to the supplier (#103), a return of a dispense (#104), an issue voucher against an indent (#105), consumables used in a surgery (`theatre`, #180)."
       },
       "StockLedgerReason": {
         "type": "string",
@@ -9520,9 +10121,10 @@
           "dispense_return",
           "wastage",
           "issue_out",
-          "issue_in"
+          "issue_in",
+          "theatre_use"
         ],
-        "description": "Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104), `issue_out` for units issued from a store against an indent and `issue_in` for the same units coming in at the place that asked (#105)."
+        "description": "Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104), `issue_out` for units issued from a store against an indent and `issue_in` for the same units coming in at the place that asked (#105) and `theatre_use` for units used in a surgery (#180)."
       },
       "StockLocation": {
         "description": "A place of the hospital that keeps stock.",
@@ -15143,167 +15745,6 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 500
-          },
-          "version": {
-            "type": "integer"
-          }
-        }
-      },
-      "EmergencyCaseStatus": {
-        "type": "string",
-        "enum": ["waiting", "in_treatment", "disposed"]
-      },
-      "EmergencyArrivalMode": {
-        "type": "string",
-        "enum": ["walk_in", "ambulance", "police", "referred"]
-      },
-      "EmergencySex": {
-        "type": "string",
-        "enum": ["male", "female", "other", "unknown"]
-      },
-      "EmergencyCase": {
-        "type": "object",
-        "required": [
-          "id",
-          "tenantId",
-          "tempId",
-          "sex",
-          "complaint",
-          "arrivalMode",
-          "status",
-          "arrivedAt",
-          "version"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "tempId": {
-            "type": "string",
-            "description": "The temporary ID issued at arrival, e.g. ER-0042."
-          },
-          "patientId": {
-            "type": "string",
-            "description": "Absent while the patient is unidentified."
-          },
-          "alias": {
-            "type": "string",
-            "description": "How an unidentified patient is described, e.g. \"Man in blue jacket\"."
-          },
-          "sex": {
-            "$ref": "#/components/schemas/EmergencySex"
-          },
-          "approximateAge": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 130
-          },
-          "complaint": {
-            "type": "string"
-          },
-          "arrivalMode": {
-            "$ref": "#/components/schemas/EmergencyArrivalMode"
-          },
-          "category": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 5,
-            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent."
-          },
-          "status": {
-            "$ref": "#/components/schemas/EmergencyCaseStatus"
-          },
-          "arrivedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "triagedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "EmergencyCasePage": {
-        "type": "object",
-        "required": ["items", "nextCursor"],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EmergencyCase"
-            }
-          },
-          "nextCursor": {
-            "type": ["string", "null"]
-          },
-          "total": {
-            "type": "integer"
-          }
-        }
-      },
-      "EmergencyCaseCreate": {
-        "type": "object",
-        "required": ["complaint", "arrivalMode"],
-        "properties": {
-          "patientId": {
-            "type": "string"
-          },
-          "alias": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "sex": {
-            "$ref": "#/components/schemas/EmergencySex"
-          },
-          "approximateAge": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 130
-          },
-          "complaint": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300
-          },
-          "arrivalMode": {
-            "$ref": "#/components/schemas/EmergencyArrivalMode"
-          },
-          "category": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 5,
-            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent."
-          }
-        }
-      },
-      "EmergencyTriage": {
-        "type": "object",
-        "required": ["category", "version"],
-        "properties": {
-          "category": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 5,
-            "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent."
-          },
-          "version": {
-            "type": "integer"
-          }
-        }
-      },
-      "EmergencyIdentify": {
-        "type": "object",
-        "required": ["patientId", "version"],
-        "properties": {
-          "patientId": {
-            "type": "string"
           },
           "version": {
             "type": "integer"
@@ -40841,6 +41282,2023 @@
         }
       }
     },
+    "/emergency/cases": {
+      "get": {
+        "operationId": "listEmergencyCases",
+        "tags": ["emergency"],
+        "description": "The emergency department’s board: cases not yet disposed (or those of one `status`), untriaged arrivals first, then category 1 to 5, then the longest wait. `total` comes with the first page. Every case read is audited. Requires emergency:read.",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/EmergencyCaseStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCasePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "registerEmergencyCase",
+        "tags": ["emergency"],
+        "description": "Registers an arrival in a few fields. With `patientId` the case is for a patient on record (one the caller may read, else 404 `unknown_patient`; needs the patients module); without it the patient is unidentified and gets a temporary ID (`tempId`, ER-0042 and so on, numbered per hospital) that stays on the case for good. A `category` triages the arrival at once and also needs emergency:triage (403 `permission_denied`). The Idempotency-Key header is required: a repeat registers nobody again. Audited; emits `er.registered` and, with a category, `er.triaged`. Requires emergency:register.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["complaint", "arrivalMode"],
+                "properties": {
+                  "patientId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "alias": {
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "sex": {
+                    "$ref": "#/components/schemas/EmergencySex"
+                  },
+                  "approximateAge": {
+                    "minimum": 0,
+                    "maximum": 130,
+                    "type": "integer"
+                  },
+                  "complaint": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "arrivalMode": {
+                    "$ref": "#/components/schemas/EmergencyArrivalMode"
+                  },
+                  "category": {
+                    "minimum": 1,
+                    "maximum": 5,
+                    "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/triage": {
+      "post": {
+        "operationId": "triageEmergencyCase",
+        "tags": ["emergency"],
+        "description": "Sets or changes the triage category (1 immediate to 5 non-urgent) of a case that has not left the department, at the `version` read (409 `version_conflict`; a case already disposed is 409 `invalid_transition`). The Idempotency-Key header is required. Audited; emits `er.triaged` with the new and previous category. Requires emergency:triage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["category", "version"],
+                "properties": {
+                  "category": {
+                    "minimum": 1,
+                    "maximum": 5,
+                    "description": "1 immediate, 2 very urgent, 3 urgent, 4 less urgent, 5 non-urgent.",
+                    "type": "integer"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/identify": {
+      "post": {
+        "operationId": "identifyEmergencyCase",
+        "tags": ["emergency"],
+        "description": "Links an unidentified case to a patient on record once known; the temporary ID stays on the case. The link is a row of its own with who made it and when, and can be undone within 24 hours (unidentify). A case with a patient is 409 `already_identified`; a stale `version` 409 `version_conflict`; a patient the caller may not read or that does not exist 404 `unknown_patient`. The Idempotency-Key header is required. Audited; emits `er.identified`. Requires emergency:register.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["patientId", "version"],
+                "properties": {
+                  "patientId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/unidentify": {
+      "post": {
+        "operationId": "unidentifyEmergencyCase",
+        "tags": ["emergency"],
+        "description": "Undoes the link made by identify, within 24 hours of it, when the wrong patient was chosen: the case is unidentified again under its temporary ID, and the link row is closed with who undid it, when and the `reason` (kept, never deleted). A case registered with a patient, or not identified, is 409 `not_reversible`; past the window 409 `window_closed`; a stale `version` 409 `version_conflict`. The Idempotency-Key header is required. Audited; emits `er.unidentified`. Requires emergency:register.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version", "reason"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/rooms": {
+      "get": {
+        "operationId": "listTheatreRooms",
+        "tags": ["theatre"],
+        "description": "The hospital’s operation theatres by name. Archived ones only with `archived=true`. Requires theatre:read.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "archived",
+            "required": false,
+            "description": "Include archived theatres (default: only those in use)."
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtRoomPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createTheatreRoom",
+        "tags": ["theatre"],
+        "description": "Adds an operation theatre. A name already in use (any letter case) is 409 `name_taken`. The Idempotency-Key header is required. Audited. Requires theatre:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtRoom"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/rooms/{roomId}": {
+      "patch": {
+        "operationId": "updateTheatreRoom",
+        "tags": ["theatre"],
+        "description": "Renames a theatre or retires it (`archived`), at the `version` read (409 `version_conflict`). A retired theatre keeps its past surgeries and takes no new booking. Archiving one with a surgery still scheduled or in progress is 409 `in_use`. Audited. Requires theatre:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "archived": {
+                    "type": "boolean"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "roomId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtRoom"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries": {
+      "get": {
+        "operationId": "listSurgeries",
+        "tags": ["theatre"],
+        "description": "The surgeries that overlap the time between `from` and `to` (at most 62 days, else 422 `range_too_wide`), by start, for the theatre calendar; narrowed by theatre, surgeon or status. Cancelled ones are included only with `status=cancelled`. Every surgery listed is audited as a read. Requires theatre:read.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "date-time",
+              "maxLength": 40,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "from",
+            "required": true
+          },
+          {
+            "schema": {
+              "format": "date-time",
+              "maxLength": 40,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "to",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "roomId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "surgeonId",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/SurgeryStatus"
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurgeryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "scheduleSurgery",
+        "tags": ["theatre"],
+        "description": "Books a theatre and a surgeon for a patient between `startsAt` and `endsAt` (half-open, at most 24 hours, not already over). A theatre, a surgeon and a patient each hold one live booking (scheduled or in progress) at a time: database exclusion constraints decide between simultaneous requests, and the loser is 409 `room_taken`, `surgeon_busy` or `patient_busy`. An unknown or retired theatre is 422 `unknown_room`, a doctor not in practice 422 `unknown_surgeon`, a procedure service that is not one 422 `unknown_service`, and a patient the caller may not read (needs patient:read) or that does not exist 422 `unknown_patient`. The Idempotency-Key header is required: a repeat books nothing again. Audited; emits `surgery.scheduled`. Requires surgery:schedule.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["patientId", "roomId", "surgeonId", "procedure", "startsAt", "endsAt"],
+                "properties": {
+                  "patientId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "roomId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "surgeonId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "serviceId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "procedure": {
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "notes": {
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "startsAt": {
+                    "format": "date-time",
+                    "maxLength": 40,
+                    "type": "string"
+                  },
+                  "endsAt": {
+                    "format": "date-time",
+                    "maxLength": 40,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Surgery"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries/{surgeryId}": {
+      "get": {
+        "operationId": "getSurgery",
+        "tags": ["theatre"],
+        "description": "One surgery. Audited as a read. Requires theatre:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Surgery"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries/{surgeryId}/reschedule": {
+      "post": {
+        "operationId": "rescheduleSurgery",
+        "tags": ["theatre"],
+        "description": "Moves a scheduled surgery to another time and, optionally, another theatre or surgeon. The surgery’s own old time never counts against it; the refusals are those of scheduling (409 `room_taken`, `surgeon_busy`, `patient_busy`; 422 `unknown_room`, `unknown_surgeon`, `invalid_time`, `in_the_past`). Only a scheduled surgery moves (409 `invalid_transition`), at the `version` read (409 `version_conflict`). The Idempotency-Key header is required. Audited; emits `surgery.scheduled`. Requires surgery:schedule.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["startsAt", "endsAt", "version"],
+                "properties": {
+                  "roomId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "surgeonId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "startsAt": {
+                    "format": "date-time",
+                    "maxLength": 40,
+                    "type": "string"
+                  },
+                  "endsAt": {
+                    "format": "date-time",
+                    "maxLength": 40,
+                    "type": "string"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Surgery"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries/{surgeryId}/cancel": {
+      "post": {
+        "operationId": "cancelSurgery",
+        "tags": ["theatre"],
+        "description": "Cancels a scheduled surgery with a reason, which frees the theatre, the surgeon and the patient for the time. A surgery already started cannot be cancelled (409 `invalid_transition`); a stale `version` is 409 `version_conflict`. The Idempotency-Key header is required. Audited; emits `surgery.cancelled` (the reason is kept on the surgery, never in the event). Requires surgery:schedule.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["reason", "version"],
+                "properties": {
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Surgery"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries/{surgeryId}/start": {
+      "post": {
+        "operationId": "startSurgery",
+        "tags": ["theatre"],
+        "description": "The surgery begins: scheduled to in progress, at the `version` read (409 `version_conflict`; any other status 409 `invalid_transition`). The Idempotency-Key header is required. Audited; emits `surgery.started`. Requires surgery:perform.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Surgery"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries/{surgeryId}/complete": {
+      "post": {
+        "operationId": "completeSurgery",
+        "tags": ["theatre"],
+        "description": "The surgery is over: in progress to completed, final, at the `version` read (409 `version_conflict`; any other status 409 `invalid_transition`). The Idempotency-Key header is required. Audited; emits `surgery.completed` with the patient, surgeon, theatre and procedure service, for billing and records to react to. Requires surgery:perform.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Surgery"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries/{surgeryId}/consumables": {
+      "get": {
+        "operationId": "listSurgeryConsumables",
+        "tags": ["theatre"],
+        "description": "The stock used in a surgery, oldest first: each batch taken, with the ledger entry that moved the stock. Audited as a read of the surgery. Requires theatre:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurgeryConsumablePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "recordSurgeryConsumables",
+        "tags": ["theatre"],
+        "description": "Records an item used in a surgery that is in progress or completed, from named batches at a stock place, and takes the units out of stock through the inventory ledger in the same transaction (source `theatre`): more than a batch holds is 409 `insufficient_stock`, an expired batch 409 `batch_expired`, a batch that is not the item’s 422 `unknown_batch`, a place not in use 422 `unknown_location`, an item that is not in use 422 `unknown_item`. A scheduled or cancelled surgery is 409 `invalid_transition`. Needs the inventory module (403 `feature_disabled`). Emits `stock.low` when the item falls to its reorder level. The Idempotency-Key header is required: a repeat takes nothing out again and answers with what was recorded. Audited. Requires surgery:perform.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["drugId", "locationId", "lines"],
+                "properties": {
+                  "drugId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "locationId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "lines": {
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["batchId", "quantity"],
+                      "properties": {
+                        "batchId": {
+                          "maxLength": 64,
+                          "type": "string"
+                        },
+                        "quantity": {
+                          "minimum": 1,
+                          "maximum": 100000,
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurgeryConsumablePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/inventory/locations": {
       "get": {
         "operationId": "listStockLocations",
@@ -52805,265 +55263,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RecordRequest"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/emergency/cases": {
-      "get": {
-        "operationId": "listEmergencyCases",
-        "description": "The emergency department's board (ER-01, #171): patients waiting or in treatment, the most urgent category first and then the longest wait. Needs emergency:read and the emergency feature flag. Untriaged arrivals come first.",
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/EmergencyCaseStatus"
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "One page of cases",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmergencyCasePage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      },
-      "post": {
-        "operationId": "registerEmergencyCase",
-        "description": "Registers an arrival in a few fields. With patientId the case is for a patient on record; without it the patient is unidentified and gets a temporary ID (tempId) that stays on the case. Needs emergency:register. 404 unknown_patient.",
-        "parameters": [
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmergencyCaseCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The case",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmergencyCase"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/emergency/cases/{caseId}/triage": {
-      "post": {
-        "operationId": "triageEmergencyCase",
-        "description": "Sets or changes the triage category (1 immediate to 5 non-urgent) of a case that has not left the department, at the version read. Needs emergency:triage. 409 version_conflict.",
-        "parameters": [
-          {
-            "name": "caseId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmergencyTriage"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The case",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmergencyCase"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/emergency/cases/{caseId}/identify": {
-      "post": {
-        "operationId": "identifyEmergencyCase",
-        "description": "Links an unidentified case to a patient on record once known; the temporary ID stays on the case. Needs emergency:register. 409 already_identified or version_conflict, 404 unknown_patient.",
-        "parameters": [
-          {
-            "name": "caseId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmergencyIdentify"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The case",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmergencyCase"
                 }
               }
             }
