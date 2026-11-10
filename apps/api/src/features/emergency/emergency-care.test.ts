@@ -268,6 +268,7 @@ describe('the emergency encounter', () => {
     const unknown = await arrive();
     expect(errorOf(await startOf(unknown))).toEqual([409, 'identify_first']);
     const row = await arrive(await addPatient(hospital));
+    expect((await startOf(row, { user: nurse })).statusCode).toBe(403);
     const opened = await ok<Case>(await startOf(row, { user: doctor }));
     expect(opened.encounterId).toBeDefined();
     expect(opened.status).toBe('in_treatment');

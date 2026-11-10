@@ -494,7 +494,7 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['emergency'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Opens the case’s emergency encounter (type `er`) so orders can be placed on it through the clinical orders routes, and moves a waiting case to `in_treatment`. Needs the patient on record (409 `identify_first`); once open it is the same encounter (the case is answered unchanged). The attending doctor is the caller’s own profile when there is one. The Idempotency-Key header is required. Audited; emits `encounter.opened`. Requires emergency:care and the clinical module (403 `feature_disabled`).',
+          'Opens the case’s emergency encounter (type `er`) so orders can be placed on it through the clinical orders routes, and moves a waiting case to `in_treatment`. Needs the patient on record (409 `identify_first`); once open it is the same encounter (the case is answered unchanged). The attending doctor is the caller’s own profile when there is one. The Idempotency-Key header is required. Audited; emits `encounter.opened`. Requires emergency:care, encounter:create (403 `permission_denied`) and the clinical module (403 `feature_disabled`).',
         params: EmergencyParams,
         body: EmergencyStart,
         response: { 200: ref(EmergencyCase), ...errors(400, 401, 403, 404, 409, 429) },
@@ -509,6 +509,7 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if ((await request.access.policy())?.features['clinical'] !== true) {
         throw new HttpError(403, 'feature_disabled', 'The clinical module is off');
       }
+      await requireGrant(request, 'encounter:create');
       const row = await lockedCase(client, request.params.caseId, request.body.version);
       if (row.encounter_id !== null) return view(row);
       if (row.patient_id === null) {
