@@ -24,3 +24,11 @@ export interface WardOption {
   id: string;
   name: string;
 }
+
+export type MarOrder = components['schemas']['MarOrder'];
+export type MarOrderPage = components['schemas']['MarOrderPage'];
+export type MarEntry = components['schemas']['MarEntry'];
+export type MarEntryPage = components['schemas']['MarEntryPage'];
+export type MarEntryCreate = components['schemas']['MarEntryCreate'];
+export type MarEntryCorrect = components['schemas']['MarEntryCorrect'];
+export type MarOutcome = components['schemas']['MarOutcome'];

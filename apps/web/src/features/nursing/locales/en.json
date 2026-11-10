@@ -7,7 +7,10 @@
   "empty": "Nobody is admitted.",
   "noBed": "No bed",
   "rowLabel": "{{patient}}",
-  "filters": { "ward": "Ward", "allWards": "All wards" },
+  "filters": {
+    "ward": "Ward",
+    "allWards": "All wards"
+  },
   "columns": {
     "patient": "Patient",
     "mrn": "MRN",
@@ -24,7 +27,11 @@
     "by": "Recorded by",
     "note": "Note"
   },
-  "actions": { "vitals": "Chart vitals", "correct": "Correct" },
+  "actions": {
+    "vitals": "Chart vitals",
+    "correct": "Correct",
+    "mar": "Medication chart"
+  },
   "back": "Back to ward care",
   "vitalsLoading": "Vital signs",
   "vitalsHeading": "Vital signs: {{patient}}",
@@ -34,7 +41,10 @@
   "vitalsEmpty": "No readings yet.",
   "corrected": "Corrected",
   "correction": "Correction: {{reason}}",
-  "flag": { "low": "low", "high": "high" },
+  "flag": {
+    "low": "low",
+    "high": "high"
+  },
   "form": {
     "heading": "Record vital signs",
     "correctHeading": "Correct the reading of {{time}}",
@@ -69,7 +79,11 @@
   "score": {
     "heading": "Early warning score",
     "badge": "Score {{score}}, {{level}}",
-    "level": { "normal": "normal", "attention": "needs attention", "urgent": "urgent" },
+    "level": {
+      "normal": "normal",
+      "attention": "needs attention",
+      "urgent": "urgent"
+    },
     "advice": {
       "attention": "Tell the nurse in charge and check again soon.",
       "urgent": "Ask a doctor to review the patient now."
@@ -90,5 +104,90 @@
     "pulse": "Pulse",
     "temperature": "Temperature",
     "spo2": "SpO2"
+  },
+  "mar": {
+    "heading": "Medication chart: {{patient}}",
+    "loading": "Medication chart",
+    "schedule": "Doses due",
+    "day": "Day",
+    "scheduleGrid": "Doses due",
+    "scheduleEmpty": "No medication orders to give.",
+    "history": "Entries on the chart",
+    "historyGrid": "Chart entries",
+    "historyEmpty": "Nothing has been charted yet.",
+    "rowLabel": "{{medicine}}, {{time}}",
+    "asNeeded": "As needed",
+    "ordered": "{{dose}} {{route}}, {{frequency}}",
+    "amended": "Amended",
+    "amendment": "Amendment",
+    "close": "Close",
+    "columns": {
+      "medicine": "Medicine",
+      "ordered": "Ordered",
+      "due": "Due",
+      "state": "Status",
+      "by": "Charted by",
+      "outcome": "Outcome",
+      "dose": "Dose given",
+      "administeredAt": "Given at"
+    },
+    "state": {
+      "recorded": "Charted",
+      "due": "Due now",
+      "overdue": "Overdue",
+      "later": "Later"
+    },
+    "outcomes": {
+      "given": "Given",
+      "withheld": "Withheld",
+      "refused": "Refused by the patient",
+      "missed": "Missed"
+    },
+    "actions": {
+      "record": "Chart dose",
+      "amend": "Amend"
+    },
+    "recordTitle": "Chart a dose",
+    "amendTitle": "Amend an entry",
+    "dialogLine": "{{medicine}}, due {{time}}",
+    "outcome": "What happened",
+    "doseGiven": "Dose given",
+    "route": "Route",
+    "routeOrder": "As ordered",
+    "reason": "Reason",
+    "doseDiffers": "This is not the ordered dose ({{dose}}). Say why.",
+    "allergyWarning": "The patient has a recorded allergy that may cover this medicine: {{allergies}}.",
+    "allergyChecked": "I have checked the allergy and it is safe to give this dose",
+    "notDispensedWarning": "The pharmacy has not dispensed this medicine yet.",
+    "save": "Chart dose",
+    "saveAmendment": "Save amendment",
+    "allergies": {
+      "heading": "Allergies",
+      "hidden": "You may not see the allergies of this patient.",
+      "loading": "Loading allergies.",
+      "error": "The allergies could not be loaded.",
+      "unknown": "Allergies have not been asked about.",
+      "none": "No allergies recorded."
+    },
+    "errors": {
+      "reason": "Say why the dose was not given.",
+      "amendReason": "Say why the entry is amended.",
+      "doseReason": "The dose is not the ordered one. Say why.",
+      "extraDose": "This is more doses than the order allows in a day. Say why.",
+      "allergy": "Confirm that you have checked the allergy."
+    },
+    "done": {
+      "recorded": "Dose charted.",
+      "amended": "Amendment saved. The earlier entry is kept.",
+      "notDispensed": "The pharmacy has not dispensed this medicine."
+    },
+    "refused": {
+      "notOpen": "This patient is no longer admitted, so nothing can be charted.",
+      "slotRecorded": "This dose was already charted. Amend that entry instead.",
+      "orderCancelled": "This order was cancelled.",
+      "slotOutOfWindow": "This dose is not due within the time that can be charted.",
+      "alreadyCorrected": "This entry was already amended.",
+      "reason": "A reason is needed."
+    }
   }
 }
