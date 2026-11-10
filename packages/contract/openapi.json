@@ -9494,6 +9494,7 @@
           "arrivalMode",
           "status",
           "arrivedAt",
+          "medicoLegal",
           "version"
         ],
         "properties": {
@@ -9575,6 +9576,10 @@
           "admissionId": {
             "description": "The inpatient admission an admit disposition made.",
             "type": "string"
+          },
+          "medicoLegal": {
+            "description": "Flagged medico-legal. The details need medicoLegal:read.",
+            "type": "boolean"
           },
           "version": {
             "minimum": 1,
@@ -9820,6 +9825,113 @@
             "minLength": 1,
             "maxLength": 2000,
             "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "EmergencyMlcCategory": {
+        "type": "string",
+        "enum": [
+          "road_accident",
+          "assault",
+          "firearm_injury",
+          "burns",
+          "poisoning",
+          "sexual_assault",
+          "suspected_abuse",
+          "suspicious_death",
+          "other"
+        ],
+        "description": "Why the case is medico-legal."
+      },
+      "EmergencyMlc": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "caseId",
+          "revision",
+          "category",
+          "narrative",
+          "policeInformed",
+          "recordedByName",
+          "recordedAt"
+        ],
+        "properties": {
+          "caseId": {
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1,
+            "description": "Every change is a new revision.",
+            "type": "integer"
+          },
+          "category": {
+            "$ref": "#/components/schemas/EmergencyMlcCategory"
+          },
+          "narrative": {
+            "description": "The injury and the history as given.",
+            "type": "string"
+          },
+          "broughtBy": {
+            "type": "string"
+          },
+          "policeInformed": {
+            "type": "boolean"
+          },
+          "policeStation": {
+            "type": "string"
+          },
+          "policeReference": {
+            "type": "string"
+          },
+          "recordedByName": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "EmergencyMlcSave": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["revision", "category", "narrative", "policeInformed"],
+        "properties": {
+          "revision": {
+            "minimum": 0,
+            "description": "The revision read; 0 to flag a case that has no record yet.",
+            "type": "integer"
+          },
+          "category": {
+            "$ref": "#/components/schemas/EmergencyMlcCategory"
+          },
+          "narrative": {
+            "minLength": 1,
+            "maxLength": 2000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "broughtBy": {
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "policeInformed": {
+            "type": "boolean"
+          },
+          "policeStation": {
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Required when the police are informed.",
+            "type": "string"
+          },
+          "policeReference": {
+            "minLength": 1,
+            "maxLength": 60,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
             "type": "string"
           }
         }
@@ -43115,6 +43227,245 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/medico-legal": {
+      "get": {
+        "operationId": "getEmergencyMedicoLegal",
+        "tags": ["emergency"],
+        "description": "The current medico-legal record of a case (404 `not_medico_legal` when the case is not flagged). Every view is audited, also a repeat. Requires medicoLegal:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyMlc"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveEmergencyMedicoLegal",
+        "tags": ["emergency"],
+        "description": "Flags a case as medico-legal (`revision` 0) or revises the record at the `revision` read (409 `version_conflict`); nothing is overwritten, each save is a new revision. Also allowed after the patient has left. The category and the account of the injury are required, and a police station when the police are informed (422 `police_station_required`). The Idempotency-Key header is required. Audited; emits `er.medico_legal` (ids and the revision only). Requires medicoLegal:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["revision", "category", "narrative", "policeInformed"],
+                "properties": {
+                  "revision": {
+                    "minimum": 0,
+                    "description": "The revision read; 0 to flag a case that has no record yet.",
+                    "type": "integer"
+                  },
+                  "category": {
+                    "$ref": "#/components/schemas/EmergencyMlcCategory"
+                  },
+                  "narrative": {
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "broughtBy": {
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "policeInformed": {
+                    "type": "boolean"
+                  },
+                  "policeStation": {
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "description": "Required when the police are informed.",
+                    "type": "string"
+                  },
+                  "policeReference": {
+                    "minLength": 1,
+                    "maxLength": 60,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyMlc"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

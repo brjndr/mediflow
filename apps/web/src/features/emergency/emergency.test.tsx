@@ -45,6 +45,7 @@ describe('waiting targets', () => {
     arrivalMode: 'walk_in',
     status: 'waiting',
     arrivedAt: '2026-11-09T10:00:00.000Z',
+    medicoLegal: false,
     version: 1,
   };
   const at = (minutes: number) => Date.parse(base.arrivedAt) + minutes * 60_000;

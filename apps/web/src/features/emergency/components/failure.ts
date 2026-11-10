@@ -15,6 +15,7 @@ const REFUSED: Record<string, string> = {
   permission_denied: 'errors.permission',
   feature_disabled: 'errors.module',
   unknown_doctor: 'errors.doctor',
+  police_station_required: 'errors.policeStation',
 };
 
 /** What to tell the person about a refused request: the module's words, else the common ones. */

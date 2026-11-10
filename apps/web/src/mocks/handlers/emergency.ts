@@ -9,6 +9,8 @@ import { mockPatient } from './patients';
 type Case = components['schemas']['EmergencyCase'];
 type Create = components['schemas']['EmergencyCaseCreate'];
 type Note = components['schemas']['EmergencyNote'];
+type Mlc = components['schemas']['EmergencyMlc'];
+type MlcSave = components['schemas']['EmergencyMlcSave'];
 
 const FEATURE_FLAG = 'emergency';
 const SEXES = ['male', 'female', 'other', 'unknown'];
@@ -35,6 +37,7 @@ const seed = (): Case[] => [
     status: 'waiting',
     arrivedAt: minutesAgo(25),
     triagedAt: minutesAgo(24),
+    medicoLegal: false,
     version: 2,
   },
   {
@@ -48,6 +51,7 @@ const seed = (): Case[] => [
     arrivalMode: 'police',
     status: 'waiting',
     arrivedAt: minutesAgo(3),
+    medicoLegal: false,
     version: 1,
   },
   {
@@ -63,6 +67,7 @@ const seed = (): Case[] => [
     status: 'waiting',
     arrivedAt: minutesAgo(10),
     triagedAt: minutesAgo(8),
+    medicoLegal: false,
     version: 2,
   },
   {
@@ -78,6 +83,7 @@ const seed = (): Case[] => [
     status: 'in_treatment',
     arrivedAt: minutesAgo(50),
     triagedAt: minutesAgo(48),
+    medicoLegal: false,
     version: 3,
   },
 ];
@@ -85,6 +91,8 @@ const seed = (): Case[] => [
 let cases = seed();
 let created = 0;
 let notes: Note[] = [];
+/** The revisions of each case's medico-legal record, oldest first. */
+let mlcRevisions = new Map<string, Mlc[]>();
 const noteReplies = new Map<string, string>();
 /** What each Idempotency-Key was answered with, by hospital and key. */
 const replies = new Map<string, string>();
@@ -92,6 +100,7 @@ onMockReset(() => {
   cases = seed();
   created = 0;
   notes = [];
+  mlcRevisions = new Map();
   noteReplies.clear();
   replies.clear();
 });
@@ -170,6 +179,7 @@ export const emergencyHandlers = [
       ...(body.category !== undefined ? { category: body.category, triagedAt: arrivedAt } : {}),
       status: 'waiting',
       arrivedAt,
+      medicoLegal: false,
       version: 1,
     };
     cases.push(made);
@@ -320,6 +330,68 @@ export const emergencyHandlers = [
     notes.push(made);
     noteReplies.set(replyKey, made.id);
     return HttpResponse.json(made, { status: 201 });
+  }),
+
+  http.get('*/api/emergency/cases/:caseId/medico-legal', ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'medicoLegal:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
+    if (!row) return error(404, 'case_not_found', 'No such case');
+    const latest = mlcRevisions.get(row.id)?.at(-1);
+    return latest
+      ? HttpResponse.json(latest)
+      : error(404, 'not_medico_legal', 'The case is not medico-legal');
+  }),
+
+  http.put('*/api/emergency/cases/:caseId/medico-legal', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'medicoLegal:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    if (!withKey(request)) {
+      return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    }
+    const body = (await request.json().catch(() => null)) as Partial<MlcSave> | null;
+    if (
+      !body ||
+      typeof body.revision !== 'number' ||
+      typeof body.category !== 'string' ||
+      typeof body.narrative !== 'string' ||
+      body.narrative.trim() === '' ||
+      typeof body.policeInformed !== 'boolean'
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
+    if (!row) return error(404, 'case_not_found', 'No such case');
+    if (body.policeInformed && !body.policeStation?.trim()) {
+      return error(422, 'police_station_required', 'Name the police station informed');
+    }
+    const history = mlcRevisions.get(row.id) ?? [];
+    if (history.length !== body.revision) {
+      return error(409, 'version_conflict', 'The record has changed since it was read');
+    }
+    const made: Mlc = {
+      caseId: row.id,
+      revision: history.length + 1,
+      category: body.category as Mlc['category'],
+      narrative: body.narrative.trim(),
+      ...(body.broughtBy ? { broughtBy: body.broughtBy.trim() } : {}),
+      policeInformed: body.policeInformed,
+      ...(body.policeInformed && body.policeStation
+        ? { policeStation: body.policeStation.trim() }
+        : {}),
+      ...(body.policeReference ? { policeReference: body.policeReference.trim() } : {}),
+      recordedByName: currentSession()?.user.name ?? '',
+      recordedAt: new Date().toISOString(),
+    };
+    mlcRevisions.set(row.id, [...history, made]);
+    row.medicoLegal = true;
+    return HttpResponse.json(made);
   }),
 
   http.post('*/api/emergency/cases/:caseId/disposition', async ({ request, params }) => {

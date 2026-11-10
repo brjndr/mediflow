@@ -122,7 +122,8 @@
     "deathFuture": "The time of death cannot be in the future.",
     "permission": "You do not have permission to do that.",
     "module": "That part of the hospital system is switched off.",
-    "doctor": "There is no doctor to admit under. Ask a doctor to do this, or choose one."
+    "doctor": "There is no doctor to admit under. Ask a doctor to do this, or choose one.",
+    "policeStation": "Name the police station that was informed."
   },
   "care": {
     "back": "Back to the board",
@@ -179,5 +180,44 @@
     "destination": "Referred to {{destination}}.",
     "deathAt": "Time of death: {{at}}.",
     "admission": "See the admissions list"
+  },
+  "mlc": {
+    "heading": "Medico-legal record",
+    "badge": "Medico-legal",
+    "notFlagged": "This case is not marked medico-legal.",
+    "flag": "Mark as medico-legal",
+    "flagTitle": "Mark as medico-legal",
+    "reviseTitle": "Revise the medico-legal record",
+    "dialogDescription": "For {{id}}.",
+    "restricted": "This case is medico-legal. The details are restricted to those with access to them.",
+    "category": "Category",
+    "categories": {
+      "road_accident": "Road accident",
+      "assault": "Assault",
+      "firearm_injury": "Firearm injury",
+      "burns": "Burns",
+      "poisoning": "Poisoning",
+      "sexual_assault": "Sexual assault",
+      "suspected_abuse": "Suspected abuse",
+      "suspicious_death": "Suspicious death",
+      "other": "Other"
+    },
+    "narrative": "Injury and history",
+    "narrativeHint": "What was found and what was said about how it happened.",
+    "broughtBy": "Brought by",
+    "policeInformed": "The police have been informed",
+    "police": "Police",
+    "informed": "Informed, {{station}}",
+    "notInformed": "Not informed",
+    "policeStation": "Police station",
+    "reference": "Police reference",
+    "recorded": "Recorded",
+    "recordedBy": "{{name}}, {{at}} (revision {{revision}})",
+    "revise": "Revise",
+    "save": "Save",
+    "saving": "Saving...",
+    "flagged": "{{id}} is marked medico-legal.",
+    "revised": "The medico-legal record of {{id}} was revised.",
+    "history": "Every revision is kept; nothing is overwritten. Every view of this record is logged."
   }
 }

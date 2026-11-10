@@ -3859,6 +3859,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/emergency/cases/{caseId}/medico-legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The current medico-legal record of a case (404 `not_medico_legal` when the case is not flagged). Every view is audited, also a repeat. Requires medicoLegal:read. */
+        get: operations["getEmergencyMedicoLegal"];
+        /** @description Flags a case as medico-legal (`revision` 0) or revises the record at the `revision` read (409 `version_conflict`); nothing is overwritten, each save is a new revision. Also allowed after the patient has left. The category and the account of the injury are required, and a police station when the police are informed (422 `police_station_required`). The Idempotency-Key header is required. Audited; emits `er.medico_legal` (ids and the revision only). Requires medicoLegal:manage. */
+        put: operations["saveEmergencyMedicoLegal"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/emergency/cases/{caseId}/disposition": {
         parameters: {
             query?: never;
@@ -9075,6 +9093,8 @@ export interface components {
             deathAt?: string;
             /** @description The inpatient admission an admit disposition made. */
             admissionId?: string;
+            /** @description Flagged medico-legal. The details need medicoLegal:read. */
+            medicoLegal: boolean;
             version: number;
         };
         /** @description Cursor envelope used by every list endpoint. */
@@ -9148,6 +9168,37 @@ export interface components {
         EmergencyNoteCreate: {
             kind: components["schemas"]["EmergencyNoteKind"];
             body: string;
+        };
+        /**
+         * @description Why the case is medico-legal.
+         * @enum {string}
+         */
+        EmergencyMlcCategory: "road_accident" | "assault" | "firearm_injury" | "burns" | "poisoning" | "sexual_assault" | "suspected_abuse" | "suspicious_death" | "other";
+        EmergencyMlc: {
+            caseId: string;
+            /** @description Every change is a new revision. */
+            revision: number;
+            category: components["schemas"]["EmergencyMlcCategory"];
+            /** @description The injury and the history as given. */
+            narrative: string;
+            broughtBy?: string;
+            policeInformed: boolean;
+            policeStation?: string;
+            policeReference?: string;
+            recordedByName: string;
+            /** Format: date-time */
+            recordedAt: string;
+        };
+        EmergencyMlcSave: {
+            /** @description The revision read; 0 to flag a case that has no record yet. */
+            revision: number;
+            category: components["schemas"]["EmergencyMlcCategory"];
+            narrative: string;
+            broughtBy?: string;
+            policeInformed: boolean;
+            /** @description Required when the police are informed. */
+            policeStation?: string;
+            policeReference?: string;
         };
         /**
          * @description scheduled -> in_progress -> completed, or scheduled -> cancelled. Completed and cancelled are final.
@@ -31674,6 +31725,175 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getEmergencyMedicoLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyMlc"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    saveEmergencyMedicoLegal: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The revision read; 0 to flag a case that has no record yet. */
+                    revision: number;
+                    category: components["schemas"]["EmergencyMlcCategory"];
+                    narrative: string;
+                    broughtBy?: string;
+                    policeInformed: boolean;
+                    /** @description Required when the police are informed. */
+                    policeStation?: string;
+                    policeReference?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyMlc"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

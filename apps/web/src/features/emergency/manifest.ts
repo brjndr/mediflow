@@ -37,5 +37,7 @@ export const emergencyFeature: FeatureManifest = {
     'emergency:triage',
     'emergency:care',
     'emergency:dispose',
+    'medicoLegal:read',
+    'medicoLegal:manage',
   ],
 };

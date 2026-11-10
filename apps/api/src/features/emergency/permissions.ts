@@ -30,4 +30,14 @@ export const EMERGENCY_PERMISSIONS = [
     description: 'Decide how a patient leaves the department: discharge, admit, refer or expired',
     defaults: { admin: 'all', doctor: 'all' },
   },
+  {
+    id: 'medicoLegal:read',
+    description: 'Read the medico-legal record of an emergency case (every view is audited)',
+    defaults: { admin: 'all', doctor: 'all' },
+  },
+  {
+    id: 'medicoLegal:manage',
+    description: 'Flag an emergency case as medico-legal and record or revise its details',
+    defaults: { admin: 'all', doctor: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];

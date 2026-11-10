@@ -20,6 +20,17 @@ export const ARRIVAL_MODES = ['walk_in', 'ambulance', 'police', 'referred'] as c
 export const SEXES = ['male', 'female', 'other', 'unknown'] as const;
 export const DISPOSITIONS = ['discharge', 'admit', 'refer', 'expired'] as const;
 export const NOTE_KINDS = ['observation', 'assessment'] as const;
+export const MLC_CATEGORIES = [
+  'road_accident',
+  'assault',
+  'firearm_injury',
+  'burns',
+  'poisoning',
+  'sexual_assault',
+  'suspected_abuse',
+  'suspicious_death',
+  'other',
+] as const;
 export const NOTE_MAX = 2000;
 export const DISPOSITION_NOTE_MAX = 500;
 
@@ -32,6 +43,11 @@ export const EmergencyDispositionType = Enum(
   'How the patient left the department.',
 );
 export const EmergencyNoteKind = Enum('EmergencyNoteKind', NOTE_KINDS);
+export const EmergencyMlcCategory = Enum(
+  'EmergencyMlcCategory',
+  MLC_CATEGORIES,
+  'Why the case is medico-legal.',
+);
 
 const Category = Type.Integer({
   minimum: 1,
@@ -73,6 +89,9 @@ export const EmergencyCase = Type.Object(
     admissionId: Type.Optional(
       Type.String({ description: 'The inpatient admission an admit disposition made.' }),
     ),
+    medicoLegal: Type.Boolean({
+      description: 'Flagged medico-legal. The details need medicoLegal:read.',
+    }),
     version: Version,
   },
   { $id: 'EmergencyCase', additionalProperties: false },
@@ -175,6 +194,48 @@ export const EmergencyNoteListQuery = Type.Object({
   ),
 });
 
+export const EmergencyMlc = Type.Object(
+  {
+    caseId: Type.String(),
+    revision: Type.Integer({ minimum: 1, description: 'Every change is a new revision.' }),
+    category: ref(EmergencyMlcCategory),
+    narrative: Type.String({ description: 'The injury and the history as given.' }),
+    broughtBy: Type.Optional(Type.String()),
+    policeInformed: Type.Boolean(),
+    policeStation: Type.Optional(Type.String()),
+    policeReference: Type.Optional(Type.String()),
+    recordedByName: Type.String(),
+    recordedAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'EmergencyMlc', additionalProperties: false },
+);
+export type EmergencyMlc = Static<typeof EmergencyMlc>;
+export const EmergencyMlcSave = Type.Object(
+  {
+    revision: Type.Integer({
+      minimum: 0,
+      description: 'The revision read; 0 to flag a case that has no record yet.',
+    }),
+    category: ref(EmergencyMlcCategory),
+    narrative: Type.String({ minLength: 1, maxLength: 2000, pattern: PLAIN_LINES }),
+    broughtBy: Type.Optional(Type.String({ minLength: 1, maxLength: 120, pattern: PLAIN_TEXT })),
+    policeInformed: Type.Boolean(),
+    policeStation: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 120,
+        pattern: PLAIN_TEXT,
+        description: 'Required when the police are informed.',
+      }),
+    ),
+    policeReference: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 60, pattern: PLAIN_TEXT }),
+    ),
+  },
+  { $id: 'EmergencyMlcSave', additionalProperties: false },
+);
+export type EmergencyMlcSave = Static<typeof EmergencyMlcSave>;
+
 export const EmergencyParams = Type.Object({ caseId: Type.String({ maxLength: 64 }) });
 export const EmergencyListQuery = Type.Object({
   status: Type.Optional(ref(EmergencyCaseStatus)),
@@ -201,4 +262,7 @@ export const EMERGENCY_SCHEMAS = [
   EmergencyNote,
   EmergencyNotePage,
   EmergencyNoteCreate,
+  EmergencyMlcCategory,
+  EmergencyMlc,
+  EmergencyMlcSave,
 ] as const;

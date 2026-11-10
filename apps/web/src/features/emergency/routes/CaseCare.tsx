@@ -11,6 +11,7 @@ import { useFormatters } from '@/tenancy';
 import { IdentifyDialog } from '../components/CaseDialogs';
 import { DispositionDialog } from '../components/DispositionDialog';
 import { failureText } from '../components/failure';
+import { MedicoLegalBadge, MedicoLegalPanel } from '../components/MedicoLegalPanel';
 import { NotesPanel } from '../components/NotesPanel';
 import { useCase, useOpenEncounter, useStartTreatment } from '../hooks/use-emergency';
 import type { EmergencyCase } from '../types';
@@ -110,6 +111,7 @@ function Care({ row }: { row: EmergencyCase }) {
           {format.dateTime(row.arrivedAt)}
         </p>
         <p>{row.complaint}</p>
+        {row.medicoLegal && <MedicoLegalBadge />}
       </div>
 
       <p
@@ -179,6 +181,8 @@ function Care({ row }: { row: EmergencyCase }) {
           )}
         </div>
       )}
+
+      <MedicoLegalPanel row={row} />
 
       <NotesPanel row={row} />
 
