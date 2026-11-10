@@ -158,6 +158,8 @@
     "doseDiffers": "This is not the ordered dose ({{dose}}). Say why.",
     "allergyWarning": "The patient has a recorded allergy that may cover this medicine: {{allergies}}.",
     "allergyChecked": "I have checked the allergy and it is safe to give this dose",
+    "allergiesUnchecked": "The allergies of this patient could not be read here.",
+    "allergyCheckedElsewhere": "I have checked the patient's allergies another way",
     "notDispensedWarning": "The pharmacy has not dispensed this medicine yet.",
     "save": "Chart dose",
     "saveAmendment": "Save amendment",

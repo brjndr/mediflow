@@ -13,7 +13,7 @@ const SCHEDULE = { name: 'Doses due' };
 const HISTORY = { name: 'Chart entries' };
 
 beforeEach(() => {
-  addMockAdmission({ id: 'adm_m1', patientName: 'Asha Verma' });
+  addMockAdmission({ id: 'adm_m1', patientId: 'pth_00001', patientName: 'Asha Verma' });
   addMockMarOrder({ id: 'ord_1', admissionId: 'adm_m1' });
 });
 
@@ -220,6 +220,18 @@ describe('the medication chart', () => {
     const history = await screen.findByRole('table', HISTORY);
     expect(await within(history).findByText('Missed: Patient off the ward')).toBeInTheDocument();
   });
+
+  it('asks for a confirmation when the allergies cannot be read', async () => {
+    revokePermission(TENANT_IDS.hospital, 'admin', 'allergy:read');
+    const row = await firstRow();
+    await userEvent.click(within(row).getByRole('button', { name: /Chart dose/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Chart a dose' });
+    expect(within(dialog).getByText(/could not be read here/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Chart dose' }));
+    expect(
+      await within(dialog).findByText('Confirm that you have checked the allergy.'),
+    ).toBeInTheDocument();
+  }, 30_000);
 
   it('offers no charting without mar:record', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'mar:record');

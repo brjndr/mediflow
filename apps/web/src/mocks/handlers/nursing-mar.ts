@@ -221,7 +221,9 @@ export const marHandlers = [
     if (!body || typeof body.reason !== 'string' || body.reason === '') {
       return error(400, 'validation_failed', 'The request is not valid');
     }
-    const order = orders.find((each) => each.id === original.orderId);
+    const order = orders.find(
+      (each) => each.id === original.orderId && each.tenantId === access.tenantId,
+    );
     if (!order) return error(404, 'entry_not_found', 'No such entry');
     const correction = entryFrom(
       body,

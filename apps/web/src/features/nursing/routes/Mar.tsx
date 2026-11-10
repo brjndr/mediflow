@@ -378,6 +378,7 @@ export default function Mar() {
           target={target}
           admissionId={admissionId}
           allergies={allergiesFor(target.order)}
+          unchecked={!canSeeAllergies || allergies.isError}
           onClose={() => {
             setTarget(undefined);
             setTimeout(() => focusIfLost(statusLine.current), 0);

@@ -47,6 +47,7 @@ export function MarDialog({
   target,
   admissionId,
   allergies,
+  unchecked,
   onClose,
   onSaved,
 }: {
@@ -54,6 +55,8 @@ export function MarDialog({
   admissionId: string;
   /** The patient's recorded allergies that cover this medicine, as the patient has them listed. */
   allergies: string[];
+  /** The allergies could not be read (no permission or an error): the nurse must say so. */
+  unchecked: boolean;
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
@@ -67,7 +70,7 @@ export function MarDialog({
   const schema = marFormSchema({
     orderDose: order.dose,
     amending: entry !== undefined,
-    allergyHit,
+    allergyHit: allergyHit || unchecked,
     extraDose,
   });
   const form = useZodForm(schema, blankMar(order, entry));
@@ -149,6 +152,11 @@ export function MarDialog({
           {t('mar.allergyWarning', { allergies: allergies.join(', ') })}
         </p>
       )}
+      {unchecked && (
+        <p role="alert" className="text-sm font-medium text-amber-900 dark:text-amber-200">
+          {t('mar.allergiesUnchecked')}
+        </p>
+      )}
       {!order.dispensed && (
         <p className="text-sm text-amber-900 dark:text-amber-200">{t('mar.notDispensedWarning')}</p>
       )}
@@ -187,8 +195,11 @@ export function MarDialog({
           autoComplete="off"
           required={outcome !== 'given' || entry !== undefined || doseDiffers || extraDose}
         />
-        {allergyHit && outcome === 'given' && (
-          <CheckboxField<MarValues> name="allergyChecked" label={t('mar.allergyChecked')} />
+        {(allergyHit || unchecked) && outcome === 'given' && (
+          <CheckboxField<MarValues>
+            name="allergyChecked"
+            label={t(allergyHit ? 'mar.allergyChecked' : 'mar.allergyCheckedElsewhere')}
+          />
         )}
         {message && (
           <p role="alert" className="text-sm text-destructive">
