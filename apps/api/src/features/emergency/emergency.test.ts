@@ -204,7 +204,8 @@ describe('registration', () => {
     expect(made.patientId).toBe(patientId);
     expect(made.category).toBe(2);
     const events = await eventsOf(made.id);
-    expect(events.map((row) => row.event)).toEqual(['er.registered', 'er.triaged']);
+    // Both are written at the transaction's one instant, so their order is not defined.
+    expect(events.map((row) => row.event).sort()).toEqual(['er.registered', 'er.triaged']);
     expect(JSON.stringify(events)).not.toContain('Chest pain');
   });
 
