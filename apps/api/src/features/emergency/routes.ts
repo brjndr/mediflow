@@ -11,6 +11,8 @@ import {
   EmergencyCaseCreate,
   EmergencyCasePage,
   EmergencyDisposition,
+  EmergencyMlc,
+  EmergencyMlcSave,
   EmergencyNote,
   EmergencyNoteCreate,
   EmergencyNoteListQuery,
@@ -51,12 +53,14 @@ interface CaseRow {
   destination: string | null;
   death_at: Date | null;
   admission_id: string | null;
+  medico_legal: boolean;
   version: number;
 }
 const COLUMNS = `x.id, x.tenant_id, x.temp_no, x.patient_id, x.alias, x.sex, x.approximate_age,
        x.complaint, x.arrival_mode, x.category, x.status, x.arrived_at, x.triaged_at,
        x.identified_at, x.encounter_id, x.disposition, x.disposed_at, x.disposition_note,
-       x.destination, x.death_at, x.admission_id, x.version`;
+       x.destination, x.death_at, x.admission_id, x.version,
+       exists (select 1 from er_medico_legal m where m.case_id = x.id) as medico_legal`;
 
 const tempIdOf = (no: number) => `ER-${String(no).padStart(4, '0')}`;
 const view = (row: CaseRow): EmergencyCase => ({
@@ -81,6 +85,7 @@ const view = (row: CaseRow): EmergencyCase => ({
   ...(row.destination === null ? {} : { destination: row.destination }),
   ...(row.death_at === null ? {} : { deathAt: row.death_at.toISOString() }),
   ...(row.admission_id === null ? {} : { admissionId: row.admission_id }),
+  medicoLegal: row.medico_legal,
   version: row.version,
 });
 
@@ -652,6 +657,129 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
       request.idempotentId = id;
       request.audit('create', 'er_note', id);
       return reply.status(201).send(await noteById(id));
+    },
+  );
+
+  interface MlcRow {
+    case_id: string;
+    revision: number;
+    category: EmergencyMlc['category'];
+    narrative: string;
+    brought_by: string | null;
+    police_informed: boolean;
+    police_station: string | null;
+    police_reference: string | null;
+    recorded_by_name: string;
+    recorded_at: Date;
+  }
+  const latestMlc = async (client: pg.ClientBase, caseId: string): Promise<MlcRow | null> => {
+    const { rows } = await client.query<MlcRow>(
+      `select m.case_id, m.revision, m.category, m.narrative, m.brought_by, m.police_informed,
+              m.police_station, m.police_reference, coalesce(u.name, '') as recorded_by_name,
+              m.recorded_at
+         from er_medico_legal m left join users u on u.id = m.recorded_by
+        where m.case_id = $1 order by m.revision desc limit 1`,
+      [caseId],
+    );
+    return rows[0] ?? null;
+  };
+  const mlcView = (row: MlcRow): EmergencyMlc => ({
+    caseId: row.case_id,
+    revision: row.revision,
+    category: row.category,
+    narrative: row.narrative,
+    ...(row.brought_by === null ? {} : { broughtBy: row.brought_by }),
+    policeInformed: row.police_informed,
+    ...(row.police_station === null ? {} : { policeStation: row.police_station }),
+    ...(row.police_reference === null ? {} : { policeReference: row.police_reference }),
+    recordedByName: row.recorded_by_name,
+    recordedAt: row.recorded_at.toISOString(),
+  });
+
+  app.get(
+    '/emergency/cases/:caseId/medico-legal',
+    {
+      config: { permissions: ['medicoLegal:read'], feature: FEATURE },
+      schema: {
+        operationId: 'getEmergencyMedicoLegal',
+        tags: ['emergency'],
+        description:
+          'The current medico-legal record of a case (404 `not_medico_legal` when the case is not flagged). Every view is audited, also a repeat. Requires medicoLegal:read.',
+        params: EmergencyParams,
+        response: { 200: ref(EmergencyMlc), ...errors(400, 401, 403, 404, 429) },
+      },
+    },
+    async (request) => {
+      const client = request.txClient;
+      const row = await findCase(client, request.params.caseId);
+      if (!row) throw caseGone();
+      const record = await latestMlc(client, row.id);
+      if (!record) throw new HttpError(404, 'not_medico_legal', 'The case is not medico-legal');
+      request.audit('read', 'er_medico_legal', row.id);
+      return mlcView(record);
+    },
+  );
+
+  app.put(
+    '/emergency/cases/:caseId/medico-legal',
+    {
+      config: {
+        permissions: ['medicoLegal:manage'],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'saveEmergencyMedicoLegal',
+        tags: ['emergency'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Flags a case as medico-legal (`revision` 0) or revises the record at the `revision` read (409 `version_conflict`); nothing is overwritten, each save is a new revision. Also allowed after the patient has left. The category and the account of the injury are required, and a police station when the police are informed (422 `police_station_required`). The Idempotency-Key header is required. Audited; emits `er.medico_legal` (ids and the revision only). Requires medicoLegal:manage.',
+        params: EmergencyParams,
+        body: EmergencyMlcSave,
+        response: { 200: ref(EmergencyMlc), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request) => {
+      const client = request.txClient;
+      const body = request.body;
+      const probe = await findCase(client, request.params.caseId);
+      if (!probe) throw caseGone();
+      if (request.replayOf !== null) {
+        request.audit('read', 'er_medico_legal', probe.id);
+        const record = await latestMlc(client, probe.id);
+        if (!record) throw caseGone();
+        return mlcView(record);
+      }
+      if (body.policeInformed && !body.policeStation?.trim()) {
+        throw new HttpError(422, 'police_station_required', 'Name the police station informed');
+      }
+      // Serialises two people saving the same case.
+      await client.query('select 1 from er_encounters where id = $1 for update', [probe.id]);
+      const current = await latestMlc(client, probe.id);
+      if ((current?.revision ?? 0) !== body.revision) {
+        throw new HttpError(409, 'version_conflict', 'The record has changed since it was read');
+      }
+      const revision = body.revision + 1;
+      await client.query(
+        `insert into er_medico_legal (case_id, revision, category, narrative, brought_by,
+                police_informed, police_station, police_reference, recorded_by)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          probe.id,
+          revision,
+          body.category,
+          body.narrative.trim(),
+          body.broughtBy?.trim() ?? null,
+          body.policeInformed,
+          body.policeInformed ? (body.policeStation?.trim() ?? null) : null,
+          body.policeReference?.trim() ?? null,
+          userIdOf(request),
+        ],
+      );
+      request.audit(revision === 1 ? 'create' : 'update', 'er_medico_legal', probe.id);
+      await request.emit('er.medico_legal', probe.id, { revision });
+      const saved = await latestMlc(client, probe.id);
+      return mlcView(saved as MlcRow);
     },
   );
 

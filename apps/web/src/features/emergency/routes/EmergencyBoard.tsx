@@ -11,6 +11,7 @@ import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { IdentifyDialog, TriageDialog } from '../components/CaseDialogs';
+import { MedicoLegalBadge } from '../components/MedicoLegalPanel';
 import { RegisterDialog } from '../components/RegisterDialog';
 import { useCases, useNow } from '../hooks/use-emergency';
 import { isOverdue, minutesSince, TARGET_MINUTES, type Category } from '../schemas';
@@ -109,9 +110,12 @@ export default function EmergencyBoard() {
         header: t('columns.patient'),
         value: (row) => row.alias ?? (row.patientId ? t('onRecord') : t('unidentified')),
         render: (row) => (
-          <Link className="underline" to={`/emergency/${row.id}`}>
-            <CaseWho row={row} />
-          </Link>
+          <span className="flex flex-wrap items-center gap-2">
+            <Link className="underline" to={`/emergency/${row.id}`}>
+              <CaseWho row={row} />
+            </Link>
+            {row.medicoLegal && <MedicoLegalBadge />}
+          </span>
         ),
         hideable: false,
       },

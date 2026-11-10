@@ -285,6 +285,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'emergency:triage' },
   { permission: 'emergency:care' },
   { permission: 'emergency:dispose' },
+  { permission: 'medicoLegal:read' },
+  { permission: 'medicoLegal:manage' },
   // Nursing and ward care (NR-01).
   { permission: 'nursingVitals:read' },
   { permission: 'nursingVitals:record' },

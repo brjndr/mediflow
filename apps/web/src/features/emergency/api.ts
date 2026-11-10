@@ -1,11 +1,13 @@
 import { api, requireData } from '@/shared/api';
-import { casePageSchema, caseSchema, notePageSchema, noteSchema } from './schemas';
+import { casePageSchema, caseSchema, mlcSchema, notePageSchema, noteSchema } from './schemas';
 import type {
   EmergencyCase,
   EmergencyCaseCreate,
   EmergencyCasePage,
   EmergencyCaseStatus,
   EmergencyDisposition,
+  EmergencyMlc,
+  EmergencyMlcSave,
   EmergencyNote,
   EmergencyNoteKind,
   EmergencyNotePage,
@@ -110,4 +112,25 @@ export async function disposeCase(
     body: { ...body, version: row.version },
   });
   return caseSchema.parse(requireData(result));
+}
+
+/** The medico-legal record of a case; every view is audited on the server. */
+export async function fetchMlc(caseId: string, signal?: AbortSignal): Promise<EmergencyMlc> {
+  const result = await api.GET('/emergency/cases/{caseId}/medico-legal', {
+    params: { path: { caseId } },
+    signal,
+  });
+  return mlcSchema.parse(requireData(result));
+}
+
+/** Flags the case (revision 0) or revises the record: each save is a new revision. */
+export async function saveMlc(
+  { caseId, ...body }: { caseId: string } & EmergencyMlcSave,
+  key: string,
+): Promise<EmergencyMlc> {
+  const result = await api.PUT('/emergency/cases/{caseId}/medico-legal', {
+    params: { path: { caseId }, header: { 'idempotency-key': key } },
+    body,
+  });
+  return mlcSchema.parse(requireData(result));
 }

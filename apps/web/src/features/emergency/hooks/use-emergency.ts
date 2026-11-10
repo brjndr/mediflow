@@ -7,10 +7,12 @@ import {
   disposeCase,
   fetchCase,
   fetchCases,
+  fetchMlc,
   fetchNotes,
   identifyCase,
   openEncounter,
   registerCase,
+  saveMlc,
   startTreatment,
   triageCase,
 } from '../api';
@@ -20,6 +22,7 @@ import type {
   EmergencyCaseCreate,
   EmergencyCaseStatus,
   EmergencyDisposition,
+  EmergencyMlcSave,
   EmergencyNoteKind,
 } from '../types';
 
@@ -182,6 +185,34 @@ export function useDisposeCase() {
     gcTime: 0,
     mutationFn: (change: { row: EmergencyCase } & Omit<EmergencyDisposition, 'version'>) =>
       disposeCase(change, attempt.keyFor([change.row.id, change.row.version, change])),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+/**
+ * The medico-legal record. Not retried and not refreshed on a timer: every read is audited, so it
+ * is read when the panel opens and after a save, not in the background.
+ */
+export function useMlc(caseId: string, enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: emergencyKeys.detail(tenantId ?? '', `${caseId}:medico-legal`),
+    queryFn: ({ signal }) => fetchMlc(caseId, signal),
+    enabled: enabled && tenantId !== undefined,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
+  });
+}
+
+export function useSaveMlc() {
+  const attempt = useAttempt();
+  const refresh = useRefresh();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (change: { caseId: string } & EmergencyMlcSave) =>
+      saveMlc(change, attempt.keyFor(change)),
     onSuccess: () => attempt.done(),
     onSettled: refresh,
   });

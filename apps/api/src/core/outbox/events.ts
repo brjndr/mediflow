@@ -97,6 +97,7 @@ export const DOMAIN_EVENTS = [
   'er.unidentified',
   'er.started',
   'er.disposed',
+  'er.medico_legal',
   // Operation theatre (BE-27): ids only, never the procedure or a note.
   'surgery.scheduled',
   'surgery.started',

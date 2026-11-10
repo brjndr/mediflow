@@ -3,6 +3,7 @@ import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
 import type {
   ArrivalMode,
   DispositionType,
+  EmergencyMlc,
   EmergencyNote,
   EmergencyNoteKind,
   EmergencyNotePage,
@@ -10,6 +11,7 @@ import type {
   EmergencyCasePage,
   EmergencyCaseStatus,
   EmergencySex,
+  MlcCategory,
 } from './types';
 
 export const PAGE_SIZE = 50;
@@ -37,6 +39,17 @@ export const NOTE_KINDS = [
   'observation',
   'assessment',
 ] as const satisfies readonly EmergencyNoteKind[];
+export const MLC_CATEGORIES = [
+  'road_accident',
+  'assault',
+  'firearm_injury',
+  'burns',
+  'poisoning',
+  'sexual_assault',
+  'suspected_abuse',
+  'suspicious_death',
+  'other',
+] as const satisfies readonly MlcCategory[];
 export const NOTE_MAX = 2000;
 export const DISPOSITION_NOTE_MAX = 500;
 export const STATUSES = [
@@ -104,6 +117,7 @@ export const caseSchema: z.ZodType<EmergencyCase> = z.object({
   destination: z.string().optional(),
   deathAt: z.string().optional(),
   admissionId: z.string().optional(),
+  medicoLegal: z.boolean(),
   version: z.number().int().min(1),
 });
 export const casePageSchema: z.ZodType<EmergencyCasePage> = z.object({
@@ -124,6 +138,40 @@ export const notePageSchema: z.ZodType<EmergencyNotePage> = z.object({
   items: z.array(noteSchema),
   nextCursor: z.string().nullable(),
 });
+
+export const mlcSchema: z.ZodType<EmergencyMlc> = z.object({
+  caseId: z.string(),
+  revision: z.number().int().min(1),
+  category: z.enum(MLC_CATEGORIES),
+  narrative: z.string(),
+  broughtBy: z.string().optional(),
+  policeInformed: z.boolean(),
+  policeStation: z.string().optional(),
+  policeReference: z.string().optional(),
+  recordedByName: z.string(),
+  recordedAt: z.string(),
+});
+
+export const mlcFormSchema = z
+  .object({
+    category: z.enum(MLC_CATEGORIES),
+    narrative: z
+      .string()
+      .trim()
+      .min(1, 'validation.required')
+      .max(2000, 'validation.invalid_value')
+      .regex(PLAIN_LINES, 'validation.plain_text'),
+    broughtBy: plain(120),
+    policeInformed: z.boolean(),
+    policeStation: plain(120),
+    policeReference: plain(60),
+  })
+  .superRefine((value, context) => {
+    if (value.policeInformed && value.policeStation === '') {
+      context.addIssue({ code: 'custom', path: ['policeStation'], message: 'validation.required' });
+    }
+  });
+export type MlcFormValues = z.infer<typeof mlcFormSchema>;
 
 export const noteFormSchema = z.object({
   kind: z.enum(NOTE_KINDS),
