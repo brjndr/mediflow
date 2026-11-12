@@ -28,7 +28,8 @@
     "mrn": "MRN",
     "doctor": "Doctor",
     "type": "Type",
-    "admittedAt": "Admitted"
+    "admittedAt": "Admitted",
+    "deposit": "Deposit"
   },
   "status": {
     "available": "Available",
@@ -51,6 +52,7 @@
     "unblock": "Put back in use",
     "bed": "Give or change bed",
     "history": "Bed history",
+    "details": "Admission details",
     "discharge": "Discharge"
   },
   "blockPanel": {
@@ -197,6 +199,14 @@
     "empty": "Nobody is admitted.",
     "loading": "Counting beds…",
     "retry": "Try again"
+  },
+  "details": {
+    "heading": "Admission details of {{patient}}",
+    "advice": "Doctor's advice",
+    "attendant": "Attendant",
+    "deposit": "Deposit asked for",
+    "consents": "Consents given",
+    "none": "Not recorded"
   },
   "history": {
     "heading": "Bed history of {{patient}}",

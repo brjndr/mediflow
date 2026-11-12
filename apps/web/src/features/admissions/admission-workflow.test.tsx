@@ -245,3 +245,29 @@ describe('discharging a patient', () => {
     expect(screen.queryByRole('button', { name: /Discharge/ })).not.toBeInTheDocument();
   });
 });
+
+describe('admission details', () => {
+  it('shows the advice, attendant, deposit and consents given at admission', async () => {
+    await openForm();
+    await choosePatient('MRN-PTH-00013');
+    await admitFirstDoctor();
+    await userEvent.click(screen.getAllByRole('radio')[0] as HTMLElement);
+    await userEvent.type(screen.getByLabelText(/Doctor's advice/), 'Observe overnight');
+    await userEvent.type(screen.getByLabelText('Name'), 'Asha Rao');
+    await userEvent.type(screen.getByLabelText(/Deposit asked for/), '5000');
+    await userEvent.click(screen.getByLabelText('Admission to hospital'));
+    await userEvent.click(screen.getByRole('button', { name: 'Admit patient' }));
+    await screen.findByRole('heading', { name: 'Patient admitted' });
+    await userEvent.click(screen.getByRole('link', { name: 'Admissions' }));
+    const grid = await screen.findByRole('table', { name: 'Admissions' });
+    await waitFor(() => expect(within(grid).getAllByRole('row')).toHaveLength(2));
+    expect(within(grid).getByText(/5,000/)).toBeInTheDocument();
+    await userEvent.click(within(grid).getByRole('button', { name: /Admission details/ }));
+    const panel = await screen.findByRole('region', { name: /Admission details of/ });
+    expect(within(panel).getByText('Observe overnight')).toBeInTheDocument();
+    expect(within(panel).getByText(/Asha Rao/)).toBeInTheDocument();
+    expect(within(panel).getByText(/5,000/)).toBeInTheDocument();
+    expect(within(panel).getByText('Admission to hospital')).toBeInTheDocument();
+    await expectNoAxeViolations();
+  }, 30_000);
+});
