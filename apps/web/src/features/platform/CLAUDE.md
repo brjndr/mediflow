@@ -23,7 +23,7 @@ What was decided for the platform admin screens (M13, PL-01 #125). The API is `a
 
 - **Page** `/platform/hospitals/:hospitalId` (`HospitalDetail`), opened from the hospital's name in the list. `HospitalModules` and `HospitalLimits` are separate forms with separate saves; later platform screens (status, invite) add sections to this page.
 - **Modules:** a checklist saved with `PUT .../features`, sending only the flags that changed. A flag the hospital holds that the web list does not know is shown too, named by its id, so none is hidden. `mfa_required` can only be ticked while `mfa` is on, and goes off with it. A change reaches the hospital's staff at their next policy refresh; nothing here signs anyone out.
-- Module names for `records`, `roles` and `consents` are in `platform.modules` and the mock lists them (#572); `records` and `consents` are mock-only until their API exists, so the real API does not offer them yet.
+- Module names for the flags the web app uses (admissions, ambulance, bloodbank, documents, emergency, housekeeping, insurance, nursing, roster, theatre, #670) are in `platform.modules` too, as are `records`, `roles` and `consents` and the mock lists them (#572); `records` and `consents` are mock-only until their API exists, so the real API does not offer them yet.
 - **Limits:** `maxUsers` and `storageMb`, empty for none, saved with `PATCH` and `version`; only changed fields are sent. On a `version_conflict` the typed values stay, the hospital is read again, and a field both changed shows the other value. The limits are **stored, not enforced** (API notes).
 - The saved hospital replaces the cached one (`platformKeys.hospital(id)`) and the list is read again.
 

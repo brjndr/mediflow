@@ -386,7 +386,19 @@
       "notices": "Notices",
       "records": "Medical records",
       "roles": "Roles and permissions",
-      "consents": "Consents and certificates"
+      "consents": "Consents and certificates",
+      "admissions": "Admissions and beds",
+      "ambulance": "Ambulances",
+      "bloodbank": "Blood bank",
+      "documents": "Patient documents",
+      "emergency": "Emergency",
+      "follow_ups": "Follow-ups",
+      "housekeeping": "Housekeeping",
+      "indents": "Store indents",
+      "insurance": "Insurance and claims",
+      "nursing": "Nursing",
+      "roster": "Duty roster",
+      "theatre": "Operation theatre"
     }
   },
   "access": {
