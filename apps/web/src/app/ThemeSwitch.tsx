@@ -48,7 +48,7 @@ export function ThemeSwitch() {
       >
         <Icon aria-hidden className="size-4" />
       </Button>
-      <span role="status" className="sr-only">
+      <span aria-live="polite" className="sr-only">
         {announce}
       </span>
     </>
