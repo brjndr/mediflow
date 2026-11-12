@@ -1,0 +1,16 @@
+{
+  "collected": {
+    "title": "Collected today",
+    "empty": "Nothing taken yet today.",
+    "open": "Register sessions"
+  },
+  "payment": {
+    "methods": {
+      "cash": "Cash",
+      "card": "Card",
+      "upi": "UPI",
+      "bank": "Bank transfer",
+      "other": "Other"
+    }
+  }
+}

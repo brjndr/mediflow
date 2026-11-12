@@ -150,12 +150,6 @@
       "patients": "Issuing a token needs finding a patient, which you cannot do here. Ask an administrator."
     }
   },
-  "widget": {
-    "title": "OPD queue",
-    "waiting": "Waiting now",
-    "open": "Open the queue",
-    "unknown": "not yet known"
-  },
   "display": {
     "open": "Waiting-room display",
     "heading": "Waiting-room display",

@@ -258,12 +258,5 @@
       "conflict": "It changed since it was shown. Close and try again.",
       "gone": "That place is no longer there."
     }
-  },
-  "widget": {
-    "title": "Stock alerts",
-    "low": "Low stock",
-    "expiring": "Expiring soon",
-    "open": "Open stock",
-    "unknown": "not yet known"
   }
 }

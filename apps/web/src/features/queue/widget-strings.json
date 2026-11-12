@@ -1,0 +1,8 @@
+{
+  "widget": {
+    "title": "OPD queue",
+    "waiting": "Waiting now",
+    "open": "Open the queue",
+    "unknown": "not yet known"
+  }
+}

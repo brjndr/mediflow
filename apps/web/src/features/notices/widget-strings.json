@@ -1,0 +1,7 @@
+{
+  "widget": {
+    "title": "Latest notices",
+    "empty": "No notices."
+  },
+  "loading": "Loading notices…"
+}
