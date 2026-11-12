@@ -83,5 +83,24 @@
       "already": "This document was already retired.",
       "gone": "This document is no longer available."
     }
+  },
+  "retention": {
+    "heading": "Document retention",
+    "note": "How long each kind of document is kept. A change applies to documents attached from now on; documents already kept keep their date.",
+    "columns": {
+      "kept": "Kept for"
+    },
+    "years_one": "{{value}} year",
+    "years_other": "{{value}} years",
+    "change": "Change",
+    "rowLabel": "Retention of {{category}}",
+    "empty": "No categories.",
+    "formHeading": "Retention of {{category}}",
+    "yearsLabel": "Years kept",
+    "yearsHint": "A whole number from 1 to {{max}}.",
+    "forever": "Keep for ever",
+    "save": "Save",
+    "saving": "Saving...",
+    "done": "Retention of {{category}} saved."
   }
 }

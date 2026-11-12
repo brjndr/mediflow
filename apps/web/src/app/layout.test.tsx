@@ -59,6 +59,7 @@ describe('shell', () => {
       'Reports',
       'Import centre',
       'Duty roster',
+      'Document retention',
       'Staff',
       'Roles',
       'Notices',
@@ -123,6 +124,7 @@ describe('shell', () => {
       'Reports',
       'Import centre',
       'Duty roster',
+      'Document retention',
       'Staff',
       'Roles',
       'Notices',
@@ -224,6 +226,8 @@ describe('keyboard', () => {
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Duty roster' })).toHaveFocus();
     await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Document retention' })).toHaveFocus();
+    await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Staff' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Roles' })).toHaveFocus();
@@ -299,6 +303,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Reports',
       'Import centre',
       'Duty roster',
+      'Document retention',
       'Staff',
       'Roles',
       'Notices',
@@ -372,6 +377,7 @@ describe('system pages', () => {
       'Reports',
       'Import centre',
       'Duty roster',
+      'Document retention',
       'Staff',
       'Roles',
       'Notices',

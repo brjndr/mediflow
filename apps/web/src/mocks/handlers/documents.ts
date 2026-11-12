@@ -17,6 +17,8 @@ interface Stored extends PatientDocument {
 interface State {
   documents: Stored[];
   created: number;
+  /** Years kept by hospital and category; absent means for ever. */
+  retention: Map<string, number>;
   /** What each Idempotency-Key was answered with, by hospital and key. */
   replies: Map<string, string>;
   /** Every view of a file, as the API's audit log would hold it: the id and what was done. */
@@ -67,6 +69,7 @@ function seed(): State {
       },
     ],
     created: 0,
+    retention: new Map([[H + ':consent', 10]]),
     replies: new Map(),
     audited: [],
   };
@@ -98,7 +101,52 @@ registerMockMergeCounter(
 
 const view = ({ tenantId: _tenantId, ...document }: Stored): PatientDocument => document;
 
+const CATEGORIES = [
+  'consent',
+  'referral_letter',
+  'outside_report',
+  'id_proof',
+  'insurance',
+  'certificate',
+  'other',
+];
+
 export const documentsHandlers = [
+  http.get('*/api/document-retention', ({ request }) => {
+    const access = authorize(request, {
+      permission: 'documentRetention:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    return HttpResponse.json({
+      items: CATEGORIES.map((category) => ({
+        category,
+        years: state.retention.get(access.tenantId + ':' + category) ?? null,
+      })),
+    });
+  }),
+
+  http.put('*/api/document-retention/:category', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'documentRetention:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const category = String(params.category);
+    const body = (await request.json().catch(() => null)) as { years?: unknown } | null;
+    const years = body?.years;
+    const valid =
+      years === null ||
+      (typeof years === 'number' && Number.isInteger(years) && years >= 1 && years <= 100);
+    if (!CATEGORIES.includes(category) || !valid) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const key = access.tenantId + ':' + category;
+    if (years === null) state.retention.delete(key);
+    else state.retention.set(key, years);
+    return HttpResponse.json({ category, years });
+  }),
+
   http.get('*/api/patients/:patientId/documents', ({ request, params }) => {
     const access = authorize(request, { permission: 'document:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
