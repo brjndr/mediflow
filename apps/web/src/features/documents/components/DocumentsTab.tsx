@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
 import { DetailTab } from '@/features/patients';
@@ -53,6 +53,8 @@ function PatientDocuments({ patientId }: { patientId: string }) {
     () => documents.data?.pages.flatMap((page) => page.items) ?? [],
     [documents.data],
   );
+  // A file seen waiting for its scan that comes back blocked is told to the uploader.
+  const waiting = useRef(new Set<string>());
   const box = useRef<HTMLDivElement>(null);
   const status = useRef<HTMLParagraphElement>(null);
   const [panel, setPanel] = useState<Panel>(null);
@@ -63,6 +65,18 @@ function PatientDocuments({ patientId }: { patientId: string }) {
     box,
     status,
   );
+  useEffect(() => {
+    for (const row of rows) {
+      if (row.status === 'pending' || row.status === 'scanning') {
+        waiting.current.add(row.id);
+      } else if (
+        waiting.current.delete(row.id) &&
+        (row.status === 'infected' || row.status === 'failed')
+      ) {
+        say(t(`blocked.${row.status}`, { title: row.title }));
+      }
+    }
+  }, [rows, t]);
   useLayoutEffect(() => {
     if (message.count > 0) focusIfLost(status.current);
   }, [message]);

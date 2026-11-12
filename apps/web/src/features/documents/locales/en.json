@@ -26,6 +26,10 @@
     "failed": "Blocked: could not be scanned",
     "purged": "Removed after its retention"
   },
+  "blocked": {
+    "infected": "{{title}} was blocked: it failed the virus scan and was deleted. Upload a clean copy.",
+    "failed": "{{title}} was blocked: it could not be scanned. Upload it again."
+  },
   "state": {
     "retired": "Retired: {{reason}}"
   },

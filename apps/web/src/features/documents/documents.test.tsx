@@ -62,6 +62,18 @@ describe('the documents tab', () => {
     finishMockScan('doc_h_3');
   });
 
+  it('tells the uploader when a file waiting for its scan comes back blocked', async () => {
+    const table = await openTab();
+    await within(table).findByText('Being scanned');
+    finishMockScan('doc_h_3', 'infected');
+    expect(
+      await screen.findByText(/Insurance card was blocked: it failed the virus scan/, undefined, {
+        timeout: 9000,
+      }),
+    ).toBeInTheDocument();
+    finishMockScan('doc_h_3');
+  }, 15000);
+
   it('filters by category on the server', async () => {
     const table = await openTab();
     await within(table).findByText('Insurance card');

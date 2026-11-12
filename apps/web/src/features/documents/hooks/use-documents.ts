@@ -16,7 +16,7 @@ import {
   sendFile,
   type DocumentFilters,
 } from '../api';
-import { DOCUMENT_PAGE_SIZE } from '../schemas';
+import { DOCUMENT_PAGE_SIZE, SCAN_POLL_MS } from '../schemas';
 import type { PatientDocument, PatientDocumentCreate } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's documents never show in another. */
@@ -58,6 +58,13 @@ export function usePatientDocuments(patientId: string, filters: DocumentFilters)
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
+    // While a file waits for its scan the list is read again, so the uploader sees the outcome.
+    refetchInterval: (query) =>
+      query.state.data?.pages.some((page) =>
+        page.items.some((one) => one.status === 'pending' || one.status === 'scanning'),
+      )
+        ? SCAN_POLL_MS
+        : false,
     enabled: tenantId !== undefined && patientId !== '',
   });
 }
