@@ -11,6 +11,7 @@ import { NavDrawer } from './NavDrawer';
 import { NoticeBanner } from './NoticeBanner';
 import { useAppDispatch, useAppSelector } from './store-hooks';
 import { SignOutButton } from './SignOutButton';
+import { ThemeSwitch } from './ThemeSwitch';
 import { setSidebarCollapsed } from './ui-slice';
 import { UserIdentity } from './UserIdentity';
 
@@ -90,6 +91,7 @@ export function AppShell() {
           <TenantSwitcher />
           <div className="ml-auto flex min-w-0 items-center gap-2">
             <UserIdentity />
+            <ThemeSwitch />
             <SignOutButton />
           </div>
         </header>

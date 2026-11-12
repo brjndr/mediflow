@@ -52,18 +52,14 @@ async function registeredRoutes(): Promise<string[]> {
 const routes = await registeredRoutes();
 
 /**
- * The app has no theme switch yet; `.dark` on the root is what the dark tokens answer to
- * (index.css). `A11Y_DARK=1 pnpm e2e a11y` runs this whole file in dark, as the visual refresh
- * check (#714) did. CI runs light only, to keep the job's time.
+ * The theme switch keeps its choice in `localStorage` (`mediflow.theme`, shared/lib/color-scheme.ts)
+ * and the page applies it before first paint. `A11Y_DARK=1 pnpm e2e a11y` saves "dark" first and
+ * runs this whole file in dark, as the visual refresh check (#714) did. CI runs light only, to
+ * keep the job's time.
  */
 if (process.env.A11Y_DARK) {
   test.beforeEach(async ({ page }) => {
-    // The root does not exist yet when the script runs, so it is added once the document has one.
-    await page.addInitScript(() => {
-      const set = () => document.documentElement?.classList.add('dark');
-      set();
-      new MutationObserver(set).observe(document, { childList: true });
-    });
+    await page.addInitScript(() => window.localStorage.setItem('mediflow.theme', 'dark'));
   });
 }
 

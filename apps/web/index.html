@@ -5,6 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
+    <script>
+      // Applies the saved light / dark choice before first paint (shared/lib/color-scheme.ts).
+      try {
+        var c = localStorage.getItem('mediflow.theme');
+        var d =
+          c === 'dark' || (c !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        if (d) document.documentElement.classList.add('dark');
+        document.documentElement.style.colorScheme = d ? 'dark' : 'light';
+      } catch (e) {}
+    </script>
     <title>Mediflow</title>
   </head>
   <body>
