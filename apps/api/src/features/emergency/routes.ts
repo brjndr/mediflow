@@ -62,6 +62,8 @@ const COLUMNS = `x.id, x.tenant_id, x.temp_no, x.patient_id, x.alias, x.sex, x.a
        x.destination, x.death_at, x.admission_id, x.version,
        exists (select 1 from er_medico_legal m where m.case_id = x.id) as medico_legal`;
 
+/** A query placeholder by position. */
+const ph = (n: number) => '$' + String(n);
 const tempIdOf = (no: number) => `ER-${String(no).padStart(4, '0')}`;
 const view = (row: CaseRow): EmergencyCase => ({
   id: row.id,
@@ -168,7 +170,7 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listEmergencyCases',
         tags: ['emergency'],
         description:
-          'The emergency department’s board: cases not yet disposed (or those of one `status`), untriaged arrivals first, then category 1 to 5, then the longest wait. `total` comes with the first page. Every case read is audited. Requires emergency:read.',
+          'The emergency department’s board: cases not yet disposed (or those of one `status`), untriaged arrivals first, then category 1 to 5, then the longest wait. `total` comes with the first page. With `medicoLegal=true` it is the register of medico-legal cases instead: only flagged cases, of every status unless one `status` is given, newest arrival first. Every case read is audited. Requires emergency:read.',
         querystring: EmergencyListQuery,
         response: { 200: ref(EmergencyCasePage), ...errors(400, 401, 403, 429) },
       },
@@ -177,12 +179,14 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const q = request.query;
       const params: unknown[] = [];
       const where: string[] = [];
+      const register = q.medicoLegal === true;
       if (q.status) {
         params.push(q.status);
-        where.push(`x.status = $${params.length}`);
-      } else {
+        where.push(`x.status = ${ph(params.length)}`);
+      } else if (!register) {
         where.push("x.status <> 'disposed'");
       }
+      if (register) where.push('exists (select 1 from er_medico_legal m where m.case_id = x.id)');
       let total: number | undefined;
       if (!q.cursor) {
         const { rows } = await request.txClient.query<{ n: string }>(
@@ -192,9 +196,12 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         total = Number((rows[0] as { n: string }).n);
       } else {
         const cursor = decode(q.cursor);
-        params.push(cursor.c, cursor.a, cursor.i);
+        if (register) params.push(cursor.a, cursor.i);
+        else params.push(cursor.c, cursor.a, cursor.i);
         where.push(
-          `(coalesce(x.category, 0), x.arrived_at, x.id) > ($${params.length - 2}::int, $${params.length - 1}::timestamptz, $${params.length}::uuid)`,
+          register
+            ? `(x.arrived_at, x.id) < (${ph(params.length - 1)}::timestamptz, ${ph(params.length)}::uuid)`
+            : `(coalesce(x.category, 0), x.arrived_at, x.id) > (${ph(params.length - 2)}::int, ${ph(params.length - 1)}::timestamptz, ${ph(params.length)}::uuid)`,
         );
       }
       const limit = q.limit ?? DEFAULT_PAGE_SIZE;
@@ -204,7 +211,7 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
                 to_char(x.arrived_at at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') || '+00' as arrived_text
            from er_encounters x
           where ${where.join(' and ')}
-          order by coalesce(x.category, 0), x.arrived_at, x.id
+          order by ${register ? 'x.arrived_at desc, x.id desc' : 'coalesce(x.category, 0), x.arrived_at, x.id'}
           limit $${params.length}`,
         params,
       );

@@ -11,7 +11,9 @@ export const emergencyFeature: FeatureManifest = {
   id: 'emergency',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Emergency', care: 'Emergency care' } },
+    titles: {
+      en: { title: 'Emergency', care: 'Emergency care', mlcRegister: 'Medico-legal cases' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
@@ -21,6 +23,13 @@ export const emergencyFeature: FeatureManifest = {
       path: 'emergency',
       lazy: () => import('./routes/EmergencyBoard'),
       requires: ['emergency:read'],
+    },
+    // The register of medico-legal cases (#676); a fixed path outranks :caseId.
+    {
+      path: 'emergency/medico-legal',
+      titleKey: 'mlcRegister',
+      lazy: () => import('./routes/MedicoLegalCases'),
+      requires: ['emergency:read', 'medicoLegal:read'],
     },
     // One patient's care and how they leave (ER-02, #172).
     {

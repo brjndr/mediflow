@@ -125,13 +125,15 @@ export const emergencyHandlers = [
     if ('denied' in access) return access.denied;
     const query = new URL(request.url).searchParams;
     const status = query.get('status');
+    const register = query.get('medicoLegal') === 'true';
     const all = cases
       .filter(
         (row) =>
           row.tenantId === access.tenantId &&
-          (status ? row.status === status : row.status !== 'disposed'),
+          (!register || row.medicoLegal) &&
+          (status ? row.status === status : register || row.status !== 'disposed'),
       )
-      .sort(byUrgency);
+      .sort(register ? (a, b) => b.arrivedAt.localeCompare(a.arrivedAt) : byUrgency);
     const limit = Math.min(Number(query.get('limit') ?? 25) || 25, 100);
     const cursor = query.get('cursor');
     const start = cursor ? all.findIndex((row) => row.id === cursor) : 0;

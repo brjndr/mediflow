@@ -16,11 +16,16 @@ import type {
 // Every address holds ids only: nothing about the patient is in a URL.
 
 export async function fetchCases(
-  { status, cursor, limit }: { status?: EmergencyCaseStatus; cursor?: string; limit: number },
+  {
+    status,
+    medicoLegal,
+    cursor,
+    limit,
+  }: { status?: EmergencyCaseStatus; medicoLegal?: boolean; cursor?: string; limit: number },
   signal?: AbortSignal,
 ): Promise<EmergencyCasePage> {
   const result = await api.GET('/emergency/cases', {
-    params: { query: { status, cursor, limit } },
+    params: { query: { status, medicoLegal, cursor, limit } },
     signal,
   });
   return casePageSchema.parse(requireData(result));
