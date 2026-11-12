@@ -36,7 +36,6 @@
   },
   "theme": {
     "button": "Theme: {{current}}. Change to {{next}}",
-    "changed": "Theme: {{current}}",
     "light": "light",
     "dark": "dark",
     "system": "system"
