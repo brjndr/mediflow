@@ -16,10 +16,12 @@ export const REPORT_KINDS = [
   'lab_turnaround',
   'pharmacy_sales',
   'stock',
+  'collections',
+  'outstanding',
 ] as const satisfies readonly ReportKind[];
 
 /** A report that is a snapshot of now: it takes no days. */
-export const SNAPSHOT_KINDS: readonly ReportKind[] = ['stock'];
+export const SNAPSHOT_KINDS: readonly ReportKind[] = ['stock', 'outstanding'];
 
 /** The API's limits (`apps/api/src/features/reports`): days answered on the spot, and stored. */
 export const SPOT_MAX_DAYS = 31;

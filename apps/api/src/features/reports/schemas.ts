@@ -8,6 +8,8 @@ export const REPORT_KINDS = [
   'lab_turnaround',
   'pharmacy_sales',
   'stock',
+  'collections',
+  'outstanding',
 ] as const;
 export type ReportKind = (typeof REPORT_KINDS)[number];
 

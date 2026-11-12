@@ -115,6 +115,21 @@ describe('showing a report now', () => {
     expect(within(sales).getByText(/1,850.00/)).toBeInTheDocument();
   });
 
+  it('shows collections with the payment method in words, and outstanding invoices by age', async () => {
+    await open();
+    await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'collections');
+    await userEvent.click(screen.getByRole('button', { name: 'Show report' }));
+    const money = await screen.findByRole('table', { name: 'Collections by payment method' });
+    expect(within(money).getByText('Cash')).toBeInTheDocument();
+    expect(within(money).getByText('UPI')).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'outstanding');
+    expect(screen.queryByLabelText(/^From/)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Show report' }));
+    const owed = await screen.findByRole('table', { name: 'Outstanding invoices' });
+    expect(within(owed).getByText('Over 30 days')).toBeInTheDocument();
+  });
+
   it('takes no days for a snapshot', async () => {
     await open();
     await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'stock');

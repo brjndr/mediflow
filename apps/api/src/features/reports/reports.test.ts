@@ -250,6 +250,22 @@ async function plantHospitalData(tenant: TestTenant, by: TestUser, scale: number
        values ($1, $2, 'refund', $3, 'upi', $4, 'overcharged', $5, '2026-03-10T15:00:00+05:30')`,
       [tenant.id, paid, 2_000 * scale, payment, by.id],
     );
+    // The next day the issued invoice is part paid in cash through a register session that
+    // is settled with exactly that cash: opening 1,000, expected 1,000 + 3,000.
+    const session = randomUUID();
+    await client.query(
+      `insert into cash_register_sessions (id, tenant_id, opened_by, opened_at, opening_minor,
+                                           closed_by, closed_at, expected_minor, counted_minor)
+       values ($1, $2, $3, '2026-03-11T09:00:00+05:30', $4, $3, '2026-03-11T18:00:00+05:30', $5, $5)`,
+      [session, tenant.id, by.id, 1_000 * scale, 4_000 * scale],
+    );
+    await client.query(
+      `insert into payments (tenant_id, invoice_id, kind, amount_minor, method, session_id,
+                             recorded_by, at)
+       select $1, id, 'payment', $2, 'cash', $3, $4, '2026-03-11T11:00:00+05:30'
+       from invoices where tenant_id = $1 and status = 'issued'`,
+      [tenant.id, 3_000 * scale, session, by.id],
+    );
     await client.query(
       `insert into credit_notes (tenant_id, invoice_id, number, fiscal_year, amount_minor, reason,
                                  created_by, created_at)
@@ -338,6 +354,7 @@ async function removeHospitalData(tenants: TestTenant[]): Promise<void> {
       'lab_samples',
       'credit_notes',
       'payments',
+      'cash_register_sessions',
       'invoices',
       'encounters',
       'departments',
@@ -431,6 +448,43 @@ describe('the reports answered on the spot', () => {
     expect(report.rows).toEqual([['2026-03-10', 15_000, 1_000, 12_000, 2_000, 10_000]]);
   });
 
+  it('splits collections by day, method and person, and agrees with revenue', async () => {
+    const report = (await runSync('collections', MARCH_10)).json<ReportResult>();
+    const revenue = (await runSync('revenue', MARCH_10)).json<ReportResult>();
+
+    expect(report.rows).toEqual([['2026-03-10', 'upi', 'Reports Admin', 12_000, 2_000, 10_000]]);
+    // Net collected is the revenue report's collected less refunded for the same day.
+    expect(report.totals[5]).toBe(revenue.rows[0]?.[5]);
+  });
+
+  it('shows the cash of a day as the cash register settlements of that day', async () => {
+    const day = { from: '2026-03-11', to: '2026-03-11' };
+    const report = (await runSync('collections', day)).json<ReportResult>();
+
+    expect(report.rows).toEqual([['2026-03-11', 'cash', 'Reports Admin', 3_000, 0, 3_000]]);
+    // The session opened with 1,000 and was expected to hold 4,000: 3,000 of cash taken.
+    const { rows } = await pool.query<{ taken: string }>(
+      'select (expected_minor - opening_minor)::text as taken from cash_register_sessions where tenant_id = $1',
+      [hospital.id],
+    );
+    expect(Number(rows[0]?.taken)).toBe(report.rows[0]?.[5]);
+  });
+
+  it('lists issued invoices not fully paid by age, with no patient', async () => {
+    const response = await runSync('outstanding', {});
+
+    expect(response.statusCode).toBe(200);
+    const report = response.json<ReportResult>();
+    expect(report.from).toBeNull();
+    // Planted rows leave the invoice's paid amount at 0, so all 5,000 is due, long past 30 days.
+    expect(report.rows).toEqual([
+      ['days_0_7', 0, 0],
+      ['days_8_30', 0, 0],
+      ['over_30', 1, 5_000],
+    ]);
+    expect(report.columns.map((c) => c.key)).toEqual(['ageBucket', 'invoices', 'dueMinor']);
+  });
+
   it('measures laboratory turnaround from collection to the verified result', async () => {
     const report = (await runSync('lab_turnaround', MARCH_10)).json<ReportResult>();
 
@@ -456,6 +510,12 @@ describe('the reports answered on the spot', () => {
     expect(sales.rows).toEqual([['2026-03-10', 2, 3_000, 400, 2_600, 2, 12]]);
     const stock = (await runSync('stock', {}, clinic, clinicAdmin)).json<ReportResult>();
     expect(stock.rows[0]?.[1]).toBe(30);
+    const money = (
+      await runSync('collections', MARCH_10, clinic, clinicAdmin)
+    ).json<ReportResult>();
+    expect(money.rows).toEqual([['2026-03-10', 'upi', 'Clinic Admin', 24_000, 4_000, 20_000]]);
+    const owed = (await runSync('outstanding', {}, clinic, clinicAdmin)).json<ReportResult>();
+    expect(owed.rows[2]).toEqual(['over_30', 1, 10_000]);
   });
 
   it('is refused for a day range that is missing, wrong or too long', async () => {
