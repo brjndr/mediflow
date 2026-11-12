@@ -383,7 +383,10 @@
       "codes": "Diagnosis codes",
       "templates": "Templates",
       "imports": "Import centre",
-      "notices": "Notices"
+      "notices": "Notices",
+      "records": "Medical records",
+      "roles": "Roles and permissions",
+      "consents": "Consents and certificates"
     }
   },
   "access": {
