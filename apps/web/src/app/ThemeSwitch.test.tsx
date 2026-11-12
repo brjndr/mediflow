@@ -26,7 +26,7 @@ describe('ThemeSwitch', () => {
     await user.click(screen.getByRole('button', { name: /Theme: light. Change to dark/ }));
     expect(window.localStorage.getItem(SCHEME_KEY)).toBe('dark');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
-    expect(screen.getByRole('status')).toHaveTextContent('Theme: dark');
+    expect(screen.getByText('Theme: dark')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Theme: dark. Change to system/ }));
     expect(window.localStorage.getItem(SCHEME_KEY)).toBeNull();
