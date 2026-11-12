@@ -1,6 +1,17 @@
 import { api, requireData } from '@/shared/api';
-import { rosterShiftPageSchema, rosterShiftSchema } from './schemas';
-import type { RosterShift, RosterShiftCreate, RosterShiftPage } from './types';
+import {
+  rosterLeavePageSchema,
+  rosterLeaveSchema,
+  rosterShiftPageSchema,
+  rosterShiftSchema,
+} from './schemas';
+import type {
+  RosterLeave,
+  RosterLeavePage,
+  RosterShift,
+  RosterShiftCreate,
+  RosterShiftPage,
+} from './types';
 
 // Addresses hold ids, instants and a page cursor only. Every POST carries an idempotency key.
 
@@ -42,4 +53,45 @@ export async function cancelShift(
     body: { version },
   });
   return rosterShiftSchema.parse(requireData(result));
+}
+
+export async function fetchLeaves(
+  { cursor, limit, from }: { cursor?: string; limit: number; from?: string },
+  signal?: AbortSignal,
+): Promise<RosterLeavePage> {
+  const result = await api.GET('/roster/leaves', {
+    params: { query: { from, cursor, limit } },
+    signal,
+  });
+  return rosterLeavePageSchema.parse(requireData(result));
+}
+
+export async function requestLeave(
+  body: { startsAt: string; endsAt: string },
+  idempotencyKey: string,
+): Promise<RosterLeave> {
+  const result = await api.POST('/roster/leaves', {
+    params: { header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return rosterLeaveSchema.parse(requireData(result));
+}
+
+export type LeaveMove = 'approve' | 'reject' | 'cancel';
+
+export async function moveLeave(
+  move: LeaveMove,
+  leaveId: string,
+  version: number,
+  idempotencyKey: string,
+): Promise<RosterLeave> {
+  const params = { path: { leaveId }, header: { 'idempotency-key': idempotencyKey } };
+  const body = { version };
+  const result =
+    move === 'approve'
+      ? await api.POST('/roster/leaves/{leaveId}/approve', { params, body })
+      : move === 'reject'
+        ? await api.POST('/roster/leaves/{leaveId}/reject', { params, body })
+        : await api.POST('/roster/leaves/{leaveId}/cancel', { params, body });
+  return rosterLeaveSchema.parse(requireData(result));
 }

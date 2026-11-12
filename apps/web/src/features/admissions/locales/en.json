@@ -18,6 +18,18 @@
     "status": "Status",
     "allStatuses": "Every status"
   },
+  "wardSearch": {
+    "placeholder": "Search wards by name or code",
+    "unavailable": "Wards cannot be searched here.",
+    "typeToSearch": "Type part of a ward's name or code.",
+    "loading": "Searching wards…",
+    "failed": "Wards could not be searched. Try again.",
+    "none": "No ward matches.",
+    "found_one": "{{count}} ward found.",
+    "found_other": "{{count}} wards found.",
+    "chosen": "Ward: {{name}}",
+    "clear": "Every ward"
+  },
   "columns": {
     "bed": "Bed",
     "ward": "Ward",

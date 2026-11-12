@@ -5,12 +5,21 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useFeatureFlag, usePermission } from '@/access';
 import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
-import { cancelShift, createShift, fetchShifts, type ShiftFilters } from '../api';
+import {
+  cancelShift,
+  createShift,
+  fetchLeaves,
+  fetchShifts,
+  moveLeave,
+  requestLeave,
+  type LeaveMove,
+  type ShiftFilters,
+} from '../api';
 import { ROSTER_PAGE_SIZE } from '../schemas';
 import type { RosterShiftCreate } from '../types';
 
@@ -145,4 +154,65 @@ export function useOnCallNow(departmentId?: string) {
         })),
   });
   return { ...query, available };
+}
+
+/** Leaves that have not ended yet, oldest first (`from` is read once, so the key is stable). */
+export function useLeaves() {
+  const tenantId = useTenant()?.id;
+  const from = useMemo(() => new Date().toISOString(), []);
+  return useInfiniteQuery({
+    queryKey: rosterKeys.list(tenantId ?? '', { as: 'leaves', limit: ROSTER_PAGE_SIZE }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchLeaves({ cursor: pageParam, limit: ROSTER_PAGE_SIZE, from }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: tenantId !== undefined,
+  });
+}
+
+export function useRequestLeave() {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const attempt = useAttempt();
+  return useMutation({
+    mutationFn: async (body: { startsAt: string; endsAt: string }) => {
+      const made = await requestLeave(body, attempt.keyFor(body));
+      attempt.done();
+      return made;
+    },
+    onSuccess: () => {
+      const tenantId = stillHere();
+      if (tenantId) void queryClient.invalidateQueries({ queryKey: rosterKeys.all(tenantId) });
+    },
+  });
+}
+
+export function useMoveLeave() {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const attempt = useAttempt();
+  return useMutation({
+    mutationFn: async ({
+      leaveId,
+      move,
+      version,
+    }: {
+      leaveId: string;
+      move: LeaveMove;
+      version: number;
+    }) => {
+      const moved = await moveLeave(
+        move,
+        leaveId,
+        version,
+        attempt.keyFor({ move, leaveId, version }),
+      );
+      attempt.done();
+      return moved;
+    },
+    onSettled: () => {
+      const tenantId = stillHere();
+      if (tenantId) void queryClient.invalidateQueries({ queryKey: rosterKeys.all(tenantId) });
+    },
+  });
 }

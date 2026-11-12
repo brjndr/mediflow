@@ -3,8 +3,11 @@ import { PLAIN_TEXT } from '@/shared/utils/text';
 import type {
   DocumentCategory,
   DocumentStatus,
+  LegalHold,
+  LegalHoldPage,
   PatientDocument,
   PatientDocumentPage,
+  RetentionRule,
 } from './types';
 
 export const DOCUMENT_CATEGORIES = [
@@ -95,3 +98,56 @@ export type RetireValues = z.infer<typeof retireFormSchema>;
 
 /** How often the list is read again while a file waits for its malware scan. */
 export const SCAN_POLL_MS = 5000;
+
+export const RETENTION_MAX_YEARS = 100;
+
+export const retentionRulesSchema: z.ZodType<{ items: RetentionRule[] }> = z.object({
+  items: z.array(
+    z.object({
+      category: z.enum(DOCUMENT_CATEGORIES),
+      years: z.number().int().nullable(),
+    }),
+  ),
+});
+
+export const retentionSetSchema = z.object({
+  category: z.enum(DOCUMENT_CATEGORIES),
+  years: z.number().int().nullable(),
+});
+
+/** Years typed as digits, or "keep for ever"; the number is worked out on submit. */
+export const retentionFormSchema = z
+  .object({ years: z.string().trim(), forever: z.boolean() })
+  .superRefine((value, ctx) => {
+    if (value.forever) return;
+    if (value.years === '') {
+      ctx.addIssue({ code: 'custom', path: ['years'], message: 'validation.required' });
+    } else if (
+      !/^\d+$/.test(value.years) ||
+      Number(value.years) < 1 ||
+      Number(value.years) > RETENTION_MAX_YEARS
+    ) {
+      ctx.addIssue({ code: 'custom', path: ['years'], message: 'validation.invalid_format' });
+    }
+  });
+export type RetentionValues = z.infer<typeof retentionFormSchema>;
+
+export const HOLD_PAGE_SIZE = 25;
+
+export const holdSchema: z.ZodType<LegalHold> = z.object({
+  id: z.string(),
+  patientId: z.string(),
+  documentId: z.string().optional(),
+  reason: z.string(),
+  placedAt: z.string(),
+  releasedAt: z.string().optional(),
+});
+
+export const holdPageSchema: z.ZodType<LegalHoldPage> = z.object({
+  items: z.array(holdSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+export const holdFormSchema = retireFormSchema;
+export type HoldValues = RetireValues;

@@ -17,6 +17,9 @@ interface Stored extends PatientDocument {
 interface State {
   documents: Stored[];
   created: number;
+  /** Years kept by hospital and category; absent means for ever. */
+  retention: Map<string, number>;
+  holds: (Schemas['DocumentLegalHold'] & { tenantId: string })[];
   /** What each Idempotency-Key was answered with, by hospital and key. */
   replies: Map<string, string>;
   /** Every view of a file, as the API's audit log would hold it: the id and what was done. */
@@ -67,6 +70,8 @@ function seed(): State {
       },
     ],
     created: 0,
+    retention: new Map([[H + ':consent', 10]]),
+    holds: [],
     replies: new Map(),
     audited: [],
   };
@@ -98,7 +103,74 @@ registerMockMergeCounter(
 
 const view = ({ tenantId: _tenantId, ...document }: Stored): PatientDocument => document;
 
+const CATEGORIES = [
+  'consent',
+  'referral_letter',
+  'outside_report',
+  'id_proof',
+  'insurance',
+  'certificate',
+  'other',
+];
+
+async function placeMockHold(
+  request: Request,
+  tenantId: string,
+  patientId: string,
+  documentId?: string,
+) {
+  const body = (await request.json().catch(() => null)) as { reason?: unknown } | null;
+  if (!body || typeof body.reason !== 'string' || !body.reason.trim()) {
+    return error(400, 'validation_failed', 'A reason is needed');
+  }
+  state.holds.push({
+    id: 'hold_' + String(state.holds.length + 1),
+    tenantId,
+    patientId,
+    ...(documentId ? { documentId } : {}),
+    reason: body.reason.trim(),
+    placedAt: new Date().toISOString(),
+  });
+  const { tenantId: _tenantId, ...hold } = state.holds[state.holds.length - 1]!;
+  return HttpResponse.json(hold, { status: 201 });
+}
+
 export const documentsHandlers = [
+  http.get('*/api/document-retention', ({ request }) => {
+    const access = authorize(request, {
+      permission: 'documentRetention:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    return HttpResponse.json({
+      items: CATEGORIES.map((category) => ({
+        category,
+        years: state.retention.get(access.tenantId + ':' + category) ?? null,
+      })),
+    });
+  }),
+
+  http.put('*/api/document-retention/:category', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'documentRetention:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const category = String(params.category);
+    const body = (await request.json().catch(() => null)) as { years?: unknown } | null;
+    const years = body?.years;
+    const valid =
+      years === null ||
+      (typeof years === 'number' && Number.isInteger(years) && years >= 1 && years <= 100);
+    if (!CATEGORIES.includes(category) || !valid) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const key = access.tenantId + ':' + category;
+    if (years === null) state.retention.delete(key);
+    else state.retention.set(key, years);
+    return HttpResponse.json({ category, years });
+  }),
+
   http.get('*/api/patients/:patientId/documents', ({ request, params }) => {
     const access = authorize(request, { permission: 'document:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
@@ -220,6 +292,60 @@ export const documentsHandlers = [
   http.get('*/api/document-files/:documentId', () =>
     HttpResponse.text('%PDF-1.4 mock', { headers: { 'Content-Type': 'application/pdf' } }),
   ),
+
+  http.get('*/api/legal-holds', ({ request }) => {
+    const access = authorize(request, {
+      permission: 'documentRetention:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const items = state.holds
+      .filter((one) => one.tenantId === access.tenantId && !one.releasedAt)
+      .map(({ tenantId: _tenantId, ...hold }) => hold)
+      .reverse();
+    return HttpResponse.json({ items, nextCursor: null });
+  }),
+
+  http.post('*/api/documents/:documentId/legal-hold', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'documentRetention:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const found = state.documents.find(
+      (one) => one.id === params.documentId && one.tenantId === access.tenantId,
+    );
+    if (!found) return error(404, 'document_not_found', 'No such document');
+    return placeMockHold(request, access.tenantId, found.patientId, found.id);
+  }),
+
+  http.post('*/api/patients/:patientId/legal-hold', ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'documentRetention:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    if (!mockPatient(access.tenantId, String(params.patientId))) {
+      return error(404, 'patient_not_found', 'No such patient');
+    }
+    return placeMockHold(request, access.tenantId, String(params.patientId));
+  }),
+
+  http.post('*/api/legal-holds/:holdId/release', ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'documentRetention:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const hold = state.holds.find(
+      (one) => one.id === params.holdId && one.tenantId === access.tenantId,
+    );
+    if (!hold) return error(404, 'hold_not_found', 'No such hold');
+    if (hold.releasedAt) return error(409, 'already_released', 'Already released');
+    hold.releasedAt = new Date().toISOString();
+    const { tenantId: _tenantId, ...view } = hold;
+    return HttpResponse.json(view);
+  }),
 
   http.post('*/api/documents/:documentId/retire', async ({ request, params }) => {
     const access = authorize(request, { permission: 'document:retire', featureFlag: FEATURE_FLAG });

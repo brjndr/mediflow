@@ -12,6 +12,7 @@ import { useFormatters } from '@/tenancy';
 import { useDocumentLink, usePatientDocuments } from '../hooks/use-documents';
 import { DOCUMENT_CATEGORIES } from '../schemas';
 import type { DocumentCategory, PatientDocument } from '../types';
+import { HoldForm } from './HoldForm';
 import { RetireForm } from './RetireForm';
 import { UploadForm } from './UploadForm';
 
@@ -36,7 +37,11 @@ export default function DocumentsTab({ context }: SlotProps) {
   );
 }
 
-type Panel = { kind: 'upload' } | { kind: 'retire'; document: PatientDocument } | null;
+type Panel =
+  | { kind: 'upload' }
+  | { kind: 'hold-patient' }
+  | { kind: 'retire' | 'hold'; document: PatientDocument }
+  | null;
 
 function PatientDocuments({ patientId }: { patientId: string }) {
   const { t } = useTranslation('documents');
@@ -45,6 +50,7 @@ function PatientDocuments({ patientId }: { patientId: string }) {
   const headingId = useId();
   const categoryId = useId();
   const canUpload = usePermission('document:upload');
+  const canHold = usePermission('documentRetention:manage');
   const [category, setCategory] = useState<DocumentCategory | ''>('');
   const [includeRetired, setIncludeRetired] = useState(false);
   const documents = usePatientDocuments(patientId, { category, includeRetired });
@@ -61,7 +67,7 @@ function PatientDocuments({ patientId }: { patientId: string }) {
   const [message, setMessage] = useState({ text: '', count: 0 });
   const say = (text: string) => setMessage((now) => ({ text, count: now.count + 1 }));
   usePanelFocus(
-    panel ? `${panel.kind}:${panel.kind === 'retire' ? panel.document.id : ''}` : null,
+    panel ? `${panel.kind}:${'document' in panel ? panel.document.id : ''}` : null,
     box,
     status,
   );
@@ -159,6 +165,12 @@ function PatientDocuments({ patientId }: { patientId: string }) {
         if (row.retiredAt === undefined) setPanel({ kind: 'retire', document: row });
       },
     },
+    {
+      id: 'hold',
+      label: t('hold.action'),
+      requires: 'documentRetention:manage',
+      onSelect: (row) => setPanel({ kind: 'hold', document: row }),
+    },
   ];
 
   return (
@@ -167,11 +179,22 @@ function PatientDocuments({ patientId }: { patientId: string }) {
         <h2 id={headingId} className="text-lg font-semibold">
           {t('heading')}
         </h2>
-        {canUpload && panel?.kind !== 'upload' && (
-          <Button type="button" onClick={() => setPanel({ kind: 'upload' })}>
-            {t('upload.action')}
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {canHold && panel?.kind !== 'hold-patient' && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPanel({ kind: 'hold-patient' })}
+            >
+              {t('hold.actionPatient')}
+            </Button>
+          )}
+          {canUpload && panel?.kind !== 'upload' && (
+            <Button type="button" onClick={() => setPanel({ kind: 'upload' })}>
+              {t('upload.action')}
+            </Button>
+          )}
+        </div>
       </div>
       <div className="flex flex-wrap items-end gap-4">
         <div className="flex flex-col gap-1">
@@ -229,6 +252,17 @@ function PatientDocuments({ patientId }: { patientId: string }) {
             onRetired={(document) => {
               setPanel(null);
               say(t('retire.done', { title: document.title }));
+            }}
+          />
+        )}
+        {canHold && (panel?.kind === 'hold' || panel?.kind === 'hold-patient') && (
+          <HoldForm
+            patientId={patientId}
+            document={panel.kind === 'hold' ? panel.document : undefined}
+            onClose={() => setPanel(null)}
+            onPlaced={(hold) => {
+              setPanel(null);
+              say(t(hold.documentId ? 'hold.done' : 'hold.donePatient'));
             }}
           />
         )}

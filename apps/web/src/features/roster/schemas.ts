@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import type { RosterShift, RosterShiftPage, ShiftKind } from './types';
+import type {
+  LeaveStatus,
+  RosterLeave,
+  RosterLeavePage,
+  RosterShift,
+  RosterShiftPage,
+  ShiftKind,
+} from './types';
 
 export const ROSTER_PAGE_SIZE = 100;
 export const SHIFT_KINDS = [
@@ -62,3 +69,43 @@ export const rosterShiftPageSchema: z.ZodType<RosterShiftPage> = z.object({
   nextCursor: z.string().nullable(),
   total: z.number().int().optional(),
 });
+
+export const LEAVE_STATUSES = [
+  'requested',
+  'approved',
+  'rejected',
+  'cancelled',
+] as const satisfies readonly LeaveStatus[];
+
+export const rosterLeaveSchema: z.ZodType<RosterLeave> = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  userId: z.string(),
+  userName: z.string(),
+  startsAt: z.string(),
+  endsAt: z.string(),
+  status: z.enum(LEAVE_STATUSES),
+  decidedByName: z.string().optional(),
+  decidedAt: z.string().optional(),
+  version: z.number().int(),
+});
+
+export const rosterLeavePageSchema: z.ZodType<RosterLeavePage> = z.object({
+  items: z.array(rosterLeaveSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Whole days on the hospital's clock: the first and the last day away, both counted. */
+export const leaveFormSchema = z
+  .object({
+    firstDay: z.string().regex(DAY, 'validation.required'),
+    lastDay: z.string().regex(DAY, 'validation.required'),
+  })
+  .refine((v) => v.lastDay >= v.firstDay, {
+    path: ['lastDay'],
+    message: 'validation.invalid_value',
+  });
+export type LeaveFormValues = z.infer<typeof leaveFormSchema>;

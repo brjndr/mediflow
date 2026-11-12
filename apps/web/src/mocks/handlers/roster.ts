@@ -1,12 +1,13 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { onMockReset, TENANT_IDS } from '../db';
+import { currentPolicy, currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockDepartment } from './departments';
 import { mockStaffOf } from './staff';
 
 type Shift = components['schemas']['RosterShift'];
 type Create = components['schemas']['RosterShiftCreate'];
+type Leave = components['schemas']['RosterLeave'];
 
 const FEATURE_FLAG = 'roster';
 const HOUR = 3_600_000;
@@ -16,6 +17,7 @@ interface StoredShift extends Shift {
 }
 interface State {
   shifts: StoredShift[];
+  leaves: Leave[];
   created: number;
   replies: Map<string, string>;
 }
@@ -62,7 +64,25 @@ function seed(): State {
   add(H, 3, 'evening', at(-12), at(-4), 'dep_h_01');
   add(H, 4, 'day', at(2), at(14), 'dep_h_02', 'cancelled');
   add(TENANT_IDS.clinic, 0, 'day', at(-1), at(11));
-  return { shifts, created: 0, replies: new Map() };
+  const leaves: Leave[] = [];
+  const ask = (index: number, from: number, to: number, status: Leave['status']) => {
+    const person = mockStaffOf(H)[index];
+    if (!person) return;
+    leaves.push({
+      id: `leave_${leaves.length + 1}`,
+      tenantId: H,
+      userId: person.userId,
+      userName: person.name,
+      startsAt: at(from),
+      endsAt: at(to),
+      status,
+      ...(status === 'approved' ? { decidedByName: 'Admin', decidedAt: at(-5) } : {}),
+      version: status === 'requested' ? 1 : 2,
+    });
+  };
+  ask(3, 72, 120, 'requested');
+  ask(4, 200, 272, 'approved');
+  return { shifts, leaves, created: 0, replies: new Map() };
 }
 
 let state: State | undefined;
@@ -139,6 +159,15 @@ export const rosterHandlers = [
         Date.parse(one.endsAt) > start,
     );
     if (clash) return error(409, 'shift_overlap', 'The person is already on duty then');
+    const away = current().leaves.some(
+      (one) =>
+        one.tenantId === access.tenantId &&
+        one.userId === body.userId &&
+        one.status === 'approved' &&
+        Date.parse(one.startsAt) < end &&
+        Date.parse(one.endsAt) > start,
+    );
+    if (away) return error(409, 'on_leave', 'The person is on approved leave then');
     const s = current();
     s.created += 1;
     const made: StoredShift = {
@@ -176,4 +205,123 @@ export const rosterHandlers = [
     found.version += 1;
     return HttpResponse.json(found);
   }),
+  http.get('*/api/roster/leaves', ({ request }) => {
+    const access = authorize(request, { permission: 'roster:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const query = new URL(request.url).searchParams;
+    const from = query.get('from');
+    const to = query.get('to');
+    const limit = Math.min(Math.max(Number(query.get('limit')) || 25, 1), 100);
+    const rows = current()
+      .leaves.filter(
+        (one) =>
+          one.tenantId === access.tenantId &&
+          (!from || one.endsAt > from) &&
+          (!to || one.startsAt < to) &&
+          (!query.get('status') || one.status === query.get('status')),
+      )
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.id.localeCompare(b.id));
+    const cursor = query.get('cursor');
+    const start = cursor ? rows.findIndex((one) => one.id === cursor) : 0;
+    if (start < 0) return error(400, 'invalid_cursor', 'Unknown cursor');
+    return HttpResponse.json({
+      items: rows.slice(start, start + limit),
+      nextCursor: rows[start + limit]?.id ?? null,
+    });
+  }),
+
+  http.post('*/api/roster/leaves', async ({ request }) => {
+    const access = authorize(request, {
+      permission: 'roster:requestLeave',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    if (!request.headers.get('Idempotency-Key')) {
+      return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    }
+    const body = (await request.json()) as { startsAt: string; endsAt: string };
+    const start = Date.parse(body.startsAt);
+    const end = Date.parse(body.endsAt);
+    if (!(end > start) || end - start > 90 * 24 * HOUR || end <= Date.now()) {
+      return error(422, 'invalid_period', 'A leave ends after it starts, within 90 days');
+    }
+    const user = currentSession()?.user;
+    if (!user) return error(401, 'unauthenticated', 'No session');
+    const clash = current().leaves.some(
+      (one) =>
+        one.tenantId === access.tenantId &&
+        one.userId === user.id &&
+        (one.status === 'requested' || one.status === 'approved') &&
+        Date.parse(one.startsAt) < end &&
+        Date.parse(one.endsAt) > start,
+    );
+    if (clash) return error(409, 'leave_overlap', 'You already have a leave then');
+    const s = current();
+    s.created += 1;
+    const made: Leave = {
+      id: `leave_new_${s.created}`,
+      tenantId: access.tenantId,
+      userId: user.id,
+      userName: user.name,
+      startsAt: new Date(start).toISOString(),
+      endsAt: new Date(end).toISOString(),
+      status: 'requested',
+      version: 1,
+    };
+    s.leaves.push(made);
+    return HttpResponse.json(made, { status: 201 });
+  }),
+
+  ...(['approve', 'reject', 'cancel'] as const).map((verb) =>
+    http.post(`*/api/roster/leaves/:leaveId/${verb}`, async ({ request, params }) => {
+      const access = authorize(request, {
+        permission: verb === 'cancel' ? 'roster:read' : 'roster:manage',
+        featureFlag: FEATURE_FLAG,
+      });
+      if ('denied' in access) return access.denied;
+      const body = (await request.json()) as { version: number };
+      const found = current().leaves.find(
+        (one) => one.id === params.leaveId && one.tenantId === access.tenantId,
+      );
+      if (!found) return error(404, 'leave_not_found', 'No such leave');
+      if (found.version !== body.version) {
+        return error(409, 'conflict', 'The leave has changed since it was read');
+      }
+      const user = currentSession()?.user;
+      const own = found.userId === user?.id;
+      if (verb === 'cancel') {
+        const needed = own ? 'roster:requestLeave' : 'roster:manage';
+        if (!currentPolicy()?.permissions.some((grant) => grant.permission === needed)) {
+          return error(403, 'permission_denied', `Missing ${needed}`);
+        }
+        if (found.status !== 'requested' && found.status !== 'approved') {
+          return error(409, 'invalid_transition', 'The leave is already decided or withdrawn');
+        }
+        found.status = 'cancelled';
+      } else {
+        if (own) return error(403, 'own_request', 'A second person decides on your leave');
+        if (found.status !== 'requested') {
+          return error(409, 'invalid_transition', 'The leave is not waiting for a decision');
+        }
+        if (verb === 'approve') {
+          const shifts = current().shifts.some(
+            (one) =>
+              one.tenantId === access.tenantId &&
+              one.userId === found.userId &&
+              one.status === 'scheduled' &&
+              one.startsAt < found.endsAt &&
+              one.endsAt > found.startsAt,
+          );
+          if (shifts) {
+            return error(409, 'shifts_in_leave', 'The person still has shifts in that time');
+          }
+        }
+        found.status = verb === 'approve' ? 'approved' : 'rejected';
+        found.decidedByName = user?.name ?? '';
+        found.decidedAt = new Date().toISOString();
+      }
+      found.version += 1;
+      return HttpResponse.json(found);
+    }),
+  ),
 ];

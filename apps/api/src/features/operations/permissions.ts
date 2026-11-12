@@ -26,6 +26,20 @@ export const OPERATIONS_PERMISSIONS = [
     defaults: { admin: 'all' },
   },
   {
+    id: 'roster:requestLeave',
+    description: 'Ask for leave for yourself, and withdraw your own request',
+    defaults: {
+      admin: 'all',
+      doctor: 'all',
+      nurse: 'all',
+      receptionist: 'all',
+      pharmacist: 'all',
+      lab_technician: 'all',
+      radiologist: 'all',
+      store_keeper: 'all',
+    },
+  },
+  {
     id: 'bloodUnit:read',
     description: 'See the blood units in stock and the history of each',
     defaults: { admin: 'all', doctor: 'all', nurse: 'all', lab_technician: 'all' },

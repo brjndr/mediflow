@@ -184,6 +184,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'document:read' },
   { permission: 'document:upload' },
   { permission: 'document:retire' },
+  { permission: 'documentRetention:read' },
+  { permission: 'documentRetention:manage' },
   // Consents and certificates (MR-02).
   { permission: 'consent:read' },
   { permission: 'consent:sign' },
@@ -192,6 +194,7 @@ const ADMIN: PermissionGrantDto[] = [
   // Duty roster (OP-01).
   { permission: 'roster:read' },
   { permission: 'roster:manage' },
+  { permission: 'roster:requestLeave' },
   // The records desk (MR-04).
   { permission: 'medicalRecord:read' },
   { permission: 'medicalRecord:code' },

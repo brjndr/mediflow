@@ -7,3 +7,8 @@ export type RosterShift = Schemas['RosterShift'];
 export type RosterShiftPage = Schemas['RosterShiftPage'];
 export type RosterShiftCreate = Schemas['RosterShiftCreate'];
 export type ShiftKind = Schemas['ShiftKind'];
+
+/** A request for time off (#591): asked by the person, decided by someone else. Staff only. */
+export type RosterLeave = Schemas['RosterLeave'];
+export type RosterLeavePage = Schemas['RosterLeavePage'];
+export type LeaveStatus = Schemas['LeaveStatus'];

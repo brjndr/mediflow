@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -154,6 +154,101 @@ describe('the roster', () => {
     await within(table).findAllByText('Scheduled');
     expect(screen.queryByRole('button', { name: 'Add a shift' })).not.toBeInTheDocument();
     expect(within(table).queryByRole('button', { name: /^Cancel shift/ })).toBeNull();
+  });
+});
+
+describe('leave requests', () => {
+  const leaveTable = () => screen.findByRole('table', { name: 'Leave' });
+  const rowOf = async (name: string) =>
+    (await within(await leaveTable()).findByText(name)).closest('tr') as HTMLElement;
+
+  it('lists requests with who decided, and has no axe violations', async () => {
+    renderApp({ entry: '/roster' });
+    const table = await leaveTable();
+    expect(await within(table).findByText(person(HOSPITAL, 3))).toBeInTheDocument();
+    expect(within(table).getByText('Waiting for a decision')).toBeInTheDocument();
+    expect(within(table).getByText('Approved by Admin')).toBeInTheDocument();
+    await expectNoAxeViolations();
+  });
+
+  it('lets a manager approve a request, then says so', async () => {
+    renderApp({ entry: '/roster' });
+    const row = await rowOf(person(HOSPITAL, 3));
+    await userEvent.click(within(row).getByRole('button', { name: /^Approve/ }));
+    expect(
+      await screen.findByText(new RegExp(`leave of ${person(HOSPITAL, 3)} is approved`)),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(within(row).getByText(/^Approved by/)).toBeInTheDocument());
+  });
+
+  it('asks for leave for oneself, and cannot decide on it', async () => {
+    renderApp({ entry: '/roster' });
+    await leaveTable();
+    await userEvent.click(screen.getByRole('button', { name: 'Ask for leave' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText(/First day/), {
+      target: { value: '2026-12-01' },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/Last day/), {
+      target: { value: '2026-12-03' },
+    });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send request' }));
+    expect(await screen.findByText('Your leave request is sent.')).toBeInTheDocument();
+    const mine = (await within(await leaveTable()).findAllByText('Waiting for a decision')).length;
+    expect(mine).toBe(2);
+    const own = within(await leaveTable())
+      .getAllByRole('button', { name: /^Approve/ })
+      .filter((button) => button.getAttribute('aria-disabled') === 'true');
+    // The approved row and the new request of the signed-in person.
+    expect(own).toHaveLength(2);
+  });
+
+  it('refuses a last day before the first', async () => {
+    renderApp({ entry: '/roster' });
+    await leaveTable();
+    await userEvent.click(screen.getByRole('button', { name: 'Ask for leave' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText(/First day/), {
+      target: { value: '2026-12-05' },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/Last day/), {
+      target: { value: '2026-12-03' },
+    });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send request' }));
+    expect(
+      await within(dialog).findByText('Choose one of the available options.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Your leave request is sent.')).not.toBeInTheDocument();
+  });
+
+  it('keeps a person off new shifts while their leave is approved', async () => {
+    renderApp({ entry: '/roster' });
+    await screen.findByRole('table', { name: 'Duty roster' });
+    await userEvent.click(screen.getByRole('button', { name: 'Add a shift' }));
+    const dialog = await screen.findByRole('dialog');
+    await choosePerson(dialog, person(HOSPITAL, 4));
+    fireEvent.change(within(dialog).getByLabelText(/Day it starts/), {
+      target: { value: '2026-11-20' },
+    });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add shift' }));
+    expect(await within(dialog).findByText(/on approved leave/)).toBeInTheDocument();
+  });
+
+  it('is not offered without roster:requestLeave', async () => {
+    revokePermission(HOSPITAL, 'admin', 'roster:requestLeave');
+    renderApp({ entry: '/roster' });
+    await leaveTable();
+    expect(screen.queryByRole('button', { name: 'Ask for leave' })).not.toBeInTheDocument();
+  });
+
+  it('shows another hospital none of the first one’s requests', async () => {
+    setTenantFeature(CLINIC, 'roster', true);
+    grantPermission(CLINIC, 'doctor', 'roster:read');
+    signIn(USER_IDS.doctor, CLINIC);
+    renderApp({ entry: '/roster' });
+    const table = await leaveTable();
+    expect(await within(table).findByText('No leave requested or coming up.')).toBeInTheDocument();
+    expect(within(table).queryByText(person(HOSPITAL, 3))).not.toBeInTheDocument();
   });
 });
 

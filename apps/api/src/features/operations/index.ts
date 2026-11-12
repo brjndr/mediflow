@@ -4,6 +4,7 @@ import { bloodBankRoutes } from './bloodbank.js';
 import { BLOOD_EXPIRY_JOB, expireBloodUnitsEverywhere } from './expiry.js';
 import { housekeepingRoutes, subscribeToReleasedBeds } from './housekeeping.js';
 import { OPERATIONS_PERMISSIONS } from './permissions.js';
+import { leaveRoutes } from './leave.js';
 import { rosterRoutes } from './roster.js';
 import { OPERATIONS_SCHEMAS } from './schemas.js';
 
@@ -19,6 +20,7 @@ export const operationsFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('operations', OPERATIONS_PERMISSIONS);
   for (const schema of OPERATIONS_SCHEMAS) app.addSchema(schema);
   await app.register(rosterRoutes);
+  await app.register(leaveRoutes);
   await app.register(bloodBankRoutes);
   await app.register(ambulanceRoutes);
   await app.register(housekeepingRoutes);
