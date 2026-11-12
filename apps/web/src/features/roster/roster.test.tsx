@@ -31,6 +31,13 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/** Finds a member of staff by typing the name into the search and choosing the match. */
+async function choosePerson(dialog: HTMLElement, name: string) {
+  await userEvent.type(within(dialog).getByRole('combobox', { name: /Person/ }), name);
+  await userEvent.click(await within(dialog).findByRole('option', { name }));
+  expect(await within(dialog).findByText(`Chosen: ${name}`)).toBeInTheDocument();
+}
+
 const person = (tenantId: string, index: number) => mockStaffOf(tenantId)[index]?.name ?? '';
 
 describe('the roster', () => {
@@ -58,12 +65,7 @@ describe('the roster', () => {
     await screen.findByRole('table', { name: 'Duty roster' });
     await userEvent.click(screen.getByRole('button', { name: 'Add a shift' }));
     const dialog = await screen.findByRole('dialog');
-    await waitFor(() =>
-      expect(within(dialog).getByRole('combobox', { name: /Person/ })).toHaveTextContent(
-        person(HOSPITAL, 5),
-      ),
-    );
-    await userEvent.selectOptions(within(dialog).getByLabelText(/Person/), person(HOSPITAL, 5));
+    await choosePerson(dialog, person(HOSPITAL, 5));
     await userEvent.selectOptions(within(dialog).getByLabelText(/Kind of shift/), 'Night');
     await waitFor(() => expect(within(dialog).getByLabelText(/Starts at/)).toHaveValue('23:00'));
     expect(within(dialog).getByLabelText(/Ends at/)).toHaveValue('07:00');
@@ -82,17 +84,25 @@ describe('the roster', () => {
     await screen.findByRole('table', { name: 'Duty roster' });
     await userEvent.click(screen.getByRole('button', { name: 'Add a shift' }));
     const dialog = await screen.findByRole('dialog');
-    await waitFor(() =>
-      expect(within(dialog).getByRole('combobox', { name: /Person/ })).toHaveTextContent(
-        person(HOSPITAL, 0),
-      ),
-    );
-    await userEvent.selectOptions(within(dialog).getByLabelText(/Person/), person(HOSPITAL, 0));
+    await choosePerson(dialog, person(HOSPITAL, 0));
     const day = within(dialog).getByLabelText(/Day it starts/);
     expect(day).toHaveValue('2026-11-11');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Add shift' }));
     expect(await within(dialog).findByText(/already on duty at that time/)).toBeInTheDocument();
-    expect(within(dialog).getByLabelText(/Person/)).toHaveValue(mockStaffOf(HOSPITAL)[0]?.userId);
+    expect(within(dialog).getByText(`Chosen: ${person(HOSPITAL, 0)}`)).toBeInTheDocument();
+  });
+
+  it('asks for a person before adding a shift, and lets the choice be changed', async () => {
+    renderApp({ entry: '/roster' });
+    await screen.findByRole('table', { name: 'Duty roster' });
+    await userEvent.click(screen.getByRole('button', { name: 'Add a shift' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add shift' }));
+    expect(await within(dialog).findByText('This field is required.')).toBeInTheDocument();
+    await choosePerson(dialog, person(HOSPITAL, 3));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Choose someone else' }));
+    expect(within(dialog).getByRole('combobox', { name: /Person/ })).toHaveValue('');
+    await choosePerson(dialog, person(HOSPITAL, 4));
   });
 
   it('cancels a shift after a confirmation', async () => {
