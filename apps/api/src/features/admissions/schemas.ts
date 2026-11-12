@@ -121,6 +121,13 @@ export const AdmissionCreate = Type.Object(
           'An available bed to give the patient now. Left out, the patient is admitted without a bed and given one with assignBed.',
       }),
     ),
+    sourceEncounterId: Type.Optional(
+      Type.String({
+        maxLength: 64,
+        description:
+          'The visit (OPD, daycare or emergency encounter) of this patient the admission came from. A reference only; 422 `unknown_encounter` when it is not one of theirs.',
+      }),
+    ),
     adviceNote: Type.Optional(
       Type.String({
         minLength: 1,
@@ -187,6 +194,7 @@ export const Admission = Type.Object(
     dischargeType: Type.Optional(ref(DischargeType)),
     cancelledAt: Type.Optional(Type.String({ format: 'date-time' })),
     cancelReason: Type.Optional(Type.String({ description: 'Why it was cancelled.' })),
+    sourceEncounterId: Type.Optional(Type.String()),
     adviceNote: Type.Optional(Type.String()),
     attendantName: Type.Optional(Type.String()),
     attendantRelation: Type.Optional(ref(AttendantRelation)),

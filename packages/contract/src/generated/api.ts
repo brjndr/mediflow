@@ -6947,6 +6947,8 @@ export interface components {
             doctorId?: string;
             /** @description An available bed to give the patient now. Left out, the patient is admitted without a bed and given one with assignBed. */
             bedId?: string;
+            /** @description The visit (OPD, daycare or emergency encounter) of this patient the admission came from. A reference only; 422 `unknown_encounter` when it is not one of theirs. */
+            sourceEncounterId?: string;
             /** @description The doctor advice to admit: why, and what to do first. Plain text. */
             adviceNote?: string;
             attendantName?: string;
@@ -6990,6 +6992,7 @@ export interface components {
             cancelledAt?: string;
             /** @description Why it was cancelled. */
             cancelReason?: string;
+            sourceEncounterId?: string;
             adviceNote?: string;
             attendantName?: string;
             attendantRelation?: components["schemas"]["AttendantRelation"];

@@ -220,6 +220,7 @@ export const admissionFlowHandlers = [
       admissionType?: unknown;
       doctorId?: unknown;
       bedId?: unknown;
+      sourceEncounterId?: unknown;
       adviceNote?: unknown;
       attendantName?: unknown;
       attendantRelation?: unknown;
@@ -269,6 +270,9 @@ export const admissionFlowHandlers = [
       admissionType: body.admissionType as Admission['admissionType'],
       status: 'admitted',
       admittedAt: new Date().toISOString(),
+      ...(typeof body.sourceEncounterId === 'string'
+        ? { sourceEncounterId: body.sourceEncounterId }
+        : {}),
       ...(typeof body.adviceNote === 'string' ? { adviceNote: body.adviceNote } : {}),
       ...(typeof body.attendantName === 'string' ? { attendantName: body.attendantName } : {}),
       ...(typeof body.attendantRelation === 'string'

@@ -58,6 +58,7 @@ interface Bed {
 interface Admission {
   id: string;
   encounterId: string;
+  sourceEncounterId?: string;
   patientName: string;
   status: string;
   bed?: Bed;
@@ -454,6 +455,28 @@ describe('admitting a patient', () => {
     expect(detail.admission).toMatchObject(more);
     expect((await read(detail.admission.id)).admission).toMatchObject(more);
     expect(JSON.stringify(await allEvents())).not.toContain('Ravi');
+  });
+
+  it('records the visit an admission came from, one of the patient’s own (#678)', async () => {
+    await reset();
+    const visit = async (patientId: string, tenant: TestTenant, type = 'opd') =>
+      (
+        await pool.query<{ id: string }>(
+          `insert into encounters (tenant_id, patient_id, type, opened_by)
+           values ($1, $2, $3, $4) returning id`,
+          [tenant.id, patientId, type, doctor.id],
+        )
+      ).rows[0]?.id ?? '';
+    const opd = await visit(patient(0), hospital);
+    const other = await visit(patient(1), hospital);
+    const stay = await visit(patient(0), hospital, 'ipd');
+    for (const sourceEncounterId of [other, stay, 'not-an-encounter']) {
+      expect(errorOf(await admit(patient(0), { sourceEncounterId }))[1]).toBe('unknown_encounter');
+    }
+    const detail = await admitted(patient(0), { sourceEncounterId: opd });
+    expect(detail.admission.sourceEncounterId).toBe(opd);
+    expect(detail.admission.encounterId).not.toBe(opd);
+    expect((await read(detail.admission.id)).admission.sourceEncounterId).toBe(opd);
   });
 
   it('refuses details that do not fit', async () => {

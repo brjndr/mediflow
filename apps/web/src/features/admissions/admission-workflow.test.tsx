@@ -43,6 +43,23 @@ describe('admitting a patient', () => {
     expect(within(grid).getByText('Planned')).toBeInTheDocument();
   }, 20_000);
 
+  it('sends the visit it was linked from, for the linked patient only (#678)', async () => {
+    let sent: Record<string, unknown> = {};
+    server.use(
+      http.post('*/api/admissions', async ({ request }) => {
+        sent = (await request.clone().json()) as Record<string, unknown>;
+        return undefined;
+      }),
+    );
+    renderApp({ entry: '/admissions/new?patientId=pth_00010&encounterId=enc_opd_1' });
+    await screen.findByRole('button', { name: 'Change patient' });
+    await admitFirstDoctor();
+    await userEvent.click(screen.getAllByRole('radio')[0] as HTMLElement);
+    await userEvent.click(screen.getByRole('button', { name: 'Admit patient' }));
+    await screen.findByRole('heading', { name: 'Patient admitted' });
+    expect(sent).toMatchObject({ patientId: 'pth_00010', sourceEncounterId: 'enc_opd_1' });
+  }, 20_000);
+
   it('does not admit without a bed', async () => {
     await openForm();
     await choosePatient('MRN-PTH-00010');
