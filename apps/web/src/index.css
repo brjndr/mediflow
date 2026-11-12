@@ -149,6 +149,44 @@
 }
 
 /*
+ * App shell (#709). The page wash is a soft tint of --primary at low alpha over --page, so each
+ * hospital gets its own, in light and dark. The sidebar is the only glass: from lg up, once, over
+ * this static wash and never over scrolling content (it is sticky beside the page, not over it).
+ * Solid --card where backdrop-filter is missing or the user asks for less transparency.
+ */
+.shell-bg {
+  background-color: var(--page);
+  background-image:
+    radial-gradient(
+      60rem 28rem at 100% 0%,
+      color-mix(in oklab, var(--primary) 9%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      40rem 24rem at 0% 100%,
+      color-mix(in oklab, var(--primary) 6%, transparent),
+      transparent 70%
+    );
+  background-attachment: fixed;
+}
+.shell-sidebar {
+  background-color: var(--card);
+}
+@supports (backdrop-filter: blur(1px)) {
+  @media (min-width: 64rem) and (prefers-reduced-transparency: no-preference) {
+    .shell-sidebar {
+      background-color: color-mix(in oklab, var(--card) 72%, transparent);
+      backdrop-filter: blur(12px) saturate(1.1);
+    }
+  }
+}
+@media print {
+  .shell-bg {
+    background: none;
+  }
+}
+
+/*
  * Reduced motion (WCAG 2.3.3, and comfort for anyone who asks their system for it): drawers,
  * dialogs, toasts and placeholders appear without moving. Every animation and transition is cut
  * to an instant rather than removed, so code waiting for one to end still hears that it did.

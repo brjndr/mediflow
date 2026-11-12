@@ -20,6 +20,7 @@ Tokens in `index.css`, exposed to Tailwind in `@theme inline`; all derived with 
 
 - **Base:** soft cards and bento layouts. `bg-page` for the page tint (opt in; `bg-background` is unchanged), `shadow-soft` for a card, `shadow-raised` for something lifted.
 - **Neumorphism** (`shadow-raised` with `shadow-inset`) only on the switch, the search field and the ring gauge. Never on forms, tables or clinical data.
+- **App shell (#709):** `.shell-bg` (page wash from `--primary` at 6 to 9%) on the shell root, `.shell-sidebar` (glass at `lg` and up: blur 12 px behind `@supports`, solid `--card` under `prefers-reduced-transparency`), active nav item `bg-primary/10` with an inset bar (not color alone: bold and `aria-current`). The shell has no search, so no `SearchInput` in the header.
 - **Glass** (translucent, blurred) only on the desktop sidebar, with a solid `bg-card` fallback where `backdrop-filter` is missing or the user asks for less transparency.
 - **Status** is always color plus icon plus word. Tones: `bg-success-soft text-success-soft-foreground`, likewise `warning`, `destructive` and `info`; each pair is at least 4.5:1 in light and dark.
 - **Brand gradient:** `bg-brand-gradient` with `text-primary-foreground`. The second stop moves away from the text color, so contrast with `--primary-foreground` can only rise from the first stop (itself guaranteed by `themeFromBrandColor`); no flat fallback is needed.

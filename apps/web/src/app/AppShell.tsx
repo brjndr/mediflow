@@ -41,7 +41,7 @@ export function AppShell() {
   const CollapseIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
 
   return (
-    <div className="flex min-h-dvh">
+    <div className="shell-bg flex min-h-dvh">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-2 focus:z-10 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm"
@@ -52,7 +52,7 @@ export function AppShell() {
       <aside
         className={cn(
           // Stays in view while a long page scrolls.
-          'sticky top-0 hidden h-dvh shrink-0 flex-col gap-4 self-start overflow-y-auto border-r p-3 lg:flex',
+          'shell-sidebar sticky top-0 hidden h-dvh shrink-0 flex-col gap-4 self-start overflow-y-auto border-r p-3 lg:flex',
           collapsed ? 'w-16' : 'w-60',
         )}
       >
@@ -76,7 +76,7 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center gap-3 border-b px-4">
+        <header className="flex h-14 items-center gap-3 border-b bg-card/70 px-4 shadow-soft">
           <Button
             className="lg:hidden"
             size="icon"
