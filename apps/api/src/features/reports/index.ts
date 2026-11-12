@@ -16,7 +16,7 @@ export const reportsFeature: FastifyPluginAsync = async (app) => {
     runReport(app.database, app.files, app.config.REPORT_RUN_TIMEOUT_MS, job),
   );
   app.jobs.work(SWEEP_JOB, async () => {
-    const failed = await sweepReports(app.database.pool, app.files);
+    const failed = await sweepReports(app, app.files);
     if (failed.length > 0) {
       app.log.warn(
         { event: 'report_file_delete_failed', count: failed.length },
