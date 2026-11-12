@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
+import { closeMockBedStreams, mockBedStreams } from '@/mocks/handlers/admissions';
 import { revokePermission, setTenantFeature, TENANT_IDS } from '@/mocks/db';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
@@ -22,6 +23,15 @@ const openCensus = async () => {
   return app;
 };
 
+/**
+ * Closes the screen's live stream before leaving it: a stream the browser aborts and the mock
+ * closes afterwards trips an assertion in Node's fetch (undici, #740).
+ */
+const closeStreamBeforeLeaving = async () => {
+  await waitFor(() => expect(mockBedStreams(TENANT_IDS.hospital)).toBe(1));
+  closeMockBedStreams(TENANT_IDS.hospital);
+};
+
 describe('the inpatient census', () => {
   it('counts the beds by status and says how full the hospital is', async () => {
     await openCensus();
@@ -38,6 +48,7 @@ describe('the inpatient census', () => {
   it('matches the bed board: the occupied count is the board’s occupied beds', async () => {
     await openCensus();
     const occupied = countOf('Occupied');
+    await closeStreamBeforeLeaving();
     await userEvent.click(
       within(screen.getByRole('main')).getByRole('link', { name: 'Bed board' }),
     );
@@ -61,7 +72,9 @@ describe('the inpatient census', () => {
 
   it('is reached from the bed board', async () => {
     renderApp({ entry: '/beds' });
-    await userEvent.click(await screen.findByRole('link', { name: 'Census' }));
+    const census = await screen.findByRole('link', { name: 'Census' });
+    await closeStreamBeforeLeaving();
+    await userEvent.click(census);
     expect(await screen.findByRole('heading', HEADING)).toBeInTheDocument();
   });
 });
