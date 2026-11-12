@@ -136,11 +136,17 @@ function stopKeepAlive(controller: ReadableStreamDefaultController<Uint8Array>) 
   keepAlive.delete(controller);
 }
 
+/** The request of each open stream, to see whether the browser has already aborted it. */
+const requests = new WeakMap<ReadableStreamDefaultController<Uint8Array>, AbortSignal>();
+
 function closeStreams(tenantId?: string) {
   for (const [id, open] of streams) {
     if (tenantId !== undefined && id !== tenantId) continue;
     for (const controller of open) {
       stopKeepAlive(controller);
+      // An aborted request is left alone: closing its stream while the fetch is tearing it down
+      // trips undici's `assert(!this.aborted)` (#632).
+      if (requests.get(controller)?.aborted) continue;
       try {
         controller.close();
       } catch {
@@ -162,6 +168,11 @@ onMockReset(() => {
 function publish(tenantId: string, departmentId: string) {
   const message = encoder.encode(`event: queue\ndata: ${JSON.stringify({ departmentId })}\n\n`);
   for (const controller of streams.get(tenantId) ?? []) {
+    if (requests.get(controller)?.aborted) {
+      stopKeepAlive(controller);
+      streams.get(tenantId)?.delete(controller);
+      continue;
+    }
     try {
       controller.enqueue(message);
     } catch {
@@ -415,6 +426,7 @@ export const queueHandlers = [
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         mine = controller;
+        requests.set(controller, request.signal);
         if (!streams.has(tenantId)) streams.set(tenantId, new Set());
         streams.get(tenantId)?.add(controller);
         opened.set(tenantId, (opened.get(tenantId) ?? 0) + 1);
