@@ -72,6 +72,7 @@ export const bedEventSchema = z.object({ wardId: z.string() });
 
 export const wardOptionsSchema = z.object({
   items: z.array(z.object({ id: z.string(), name: z.string() })),
+  nextCursor: z.string().nullish(),
 });
 
 export const blockSchema = z

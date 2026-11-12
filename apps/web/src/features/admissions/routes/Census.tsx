@@ -1,26 +1,22 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { usePermission } from '@/access';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
 import { LiveStatus } from '../components/LiveStatus';
-import { useBedEvents, useWardOptions } from '../hooks/use-board';
+import { WardFilter } from '../components/WardFilter';
+import { useBedEvents } from '../hooks/use-board';
 import { useAdmittedPatients, useOccupancy } from '../hooks/use-census';
 import type { Admission } from '../types';
-
-const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function Census() {
   const { t } = useTranslation('admissions');
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
-  const mayWards = usePermission('ward:read');
-  const wards = useWardOptions(mayWards);
   const [wardId, setWardId] = useState('');
   const events = useBedEvents(true, wardId);
   const live = events === 'live';
@@ -71,23 +67,7 @@ export default function Census() {
         </Button>
       </div>
 
-      {mayWards && wards.isSuccess && (
-        <label className="flex min-w-52 max-w-xs flex-col gap-1 text-sm font-medium">
-          {t('filters.ward')}
-          <select
-            value={wardId}
-            onChange={(event) => setWardId(event.target.value)}
-            className={control}
-          >
-            <option value="">{t('filters.allWards')}</option>
-            {wards.data.map((ward) => (
-              <option key={ward.id} value={ward.id}>
-                {ward.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <WardFilter value={wardId} onChange={setWardId} />
 
       <section aria-labelledby="occupancy-heading" className="flex flex-col gap-2">
         <h2 id="occupancy-heading" className="text-lg font-semibold">

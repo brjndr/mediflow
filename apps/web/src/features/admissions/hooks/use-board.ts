@@ -44,15 +44,23 @@ export function useBoard(filters: BoardFilters, live: boolean) {
   });
 }
 
-/** The wards to filter by. Without `ward:read` the filter is left out (`available` is false). */
-export function useWardOptions(enabled: boolean) {
+/** As many wards as the plain list shows; a hospital with more gets a search. */
+export const WARD_LIST_LIMIT = 100;
+
+/**
+ * The wards to filter by, matching `q` (empty: the first page). Without `ward:read` the filter
+ * is left out. Under the bed keys, so it is dropped with the tenant.
+ */
+export function useWardOptions(q: string, enabled: boolean, limit = WARD_LIST_LIMIT) {
   const tenantId = useTenant()?.id;
   return useQuery({
-    queryKey: bedKeys.detail(tenantId ?? '', 'wards'),
-    queryFn: ({ signal }) => fetchWardOptions(signal),
+    queryKey: bedKeys.detail(tenantId ?? '', `wards:${limit}:${q}`),
+    queryFn: ({ signal }) => fetchWardOptions({ q, limit }, signal),
     enabled: enabled && tenantId !== undefined,
     staleTime: 60_000,
     retry: false,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === tenantId ? previous : undefined,
   });
 }
 

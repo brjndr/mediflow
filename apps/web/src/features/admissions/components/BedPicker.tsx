@@ -6,7 +6,7 @@ import { useBedCategories } from '@/features/wards';
 import { useFormatters } from '@/tenancy';
 import { errorMessageKey } from '@/shared/api';
 import { useAvailableBeds } from '../hooks/use-admissions';
-import { useWardOptions } from '../hooks/use-board';
+import { WardFilter } from './WardFilter';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 
@@ -32,7 +32,6 @@ export function BedPicker({
   const [wardId, setWardId] = useState('');
   const [category, setCategory] = useState('');
   const mayWards = usePermission('ward:read');
-  const wards = useWardOptions(mayWards);
   const beds = useAvailableBeds(wardId);
   const format = useFormatters();
   // The day price of a category: category by name, its bed-day service, that service's price.
@@ -54,27 +53,14 @@ export function BedPicker({
     <fieldset className="flex flex-col gap-3">
       <legend className="text-sm font-medium">{t('admit.bed')}</legend>
       <div className="flex flex-wrap gap-4">
-        {mayWards && wards.isSuccess && (
-          <label className="flex min-w-48 flex-col gap-1 text-sm font-medium">
-            {t('filters.ward')}
-            <select
-              value={wardId}
-              onChange={(event) => {
-                setWardId(event.target.value);
-                setCategory('');
-                onChange('');
-              }}
-              className={control}
-            >
-              <option value="">{t('filters.allWards')}</option>
-              {wards.data.map((ward) => (
-                <option key={ward.id} value={ward.id}>
-                  {ward.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        <WardFilter
+          value={wardId}
+          onChange={(id) => {
+            setWardId(id);
+            setCategory('');
+            onChange('');
+          }}
+        />
         <label className="flex min-w-48 flex-col gap-1 text-sm font-medium">
           {t('admit.category')}
           <select

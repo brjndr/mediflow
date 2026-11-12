@@ -74,6 +74,33 @@ describe('the bed board', () => {
     expect(rowOf('ICU-01')).toBeDefined();
   });
 
+  it('searches wards on the server when the hospital has more than one page of them', async () => {
+    const asked: string[] = [];
+    server.use(
+      http.get('*/api/wards', ({ request }) => {
+        const q = new URL(request.url).searchParams.get('q') ?? '';
+        asked.push(q);
+        const items =
+          q === ''
+            ? [{ id: 'ward_h_gw-a', name: 'General ward A' }]
+            : [{ id: 'ward_h_icu', name: 'Intensive care unit' }];
+        return HttpResponse.json({ items, nextCursor: q === '' ? 'more' : null });
+      }),
+    );
+    await openBoard();
+    expect(screen.queryByRole('combobox', { name: 'Ward' })).not.toHaveAttribute(
+      'aria-haspopup',
+      'false',
+    );
+    await userEvent.type(await screen.findByRole('combobox', { name: 'Ward' }), 'intensive');
+    await userEvent.click(await screen.findByRole('option', { name: 'Intensive care unit' }));
+    expect(await screen.findByText('Ward: Intensive care unit')).toBeInTheDocument();
+    expect(asked).toContain('intensive');
+    await waitFor(() => expect(within(grid()).getAllByRole('row').length).toBeGreaterThan(1));
+    await userEvent.click(screen.getByRole('button', { name: 'Every ward' }));
+    expect(screen.queryByText('Ward: Intensive care unit')).not.toBeInTheDocument();
+  });
+
   it('marks a bed being cleaned and ready again, and says so', async () => {
     await openBoard();
     await userEvent.click(
