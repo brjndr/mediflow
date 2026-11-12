@@ -51,6 +51,7 @@ export const inventoryFeature: FeatureManifest = {
       id: 'alerts',
       component: () => import('./components/AlertsWidget'),
       requires: ['stock:read'],
+      size: 'md',
     },
   ],
 };

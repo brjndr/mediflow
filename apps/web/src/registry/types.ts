@@ -60,12 +60,16 @@ export interface SlotContribution {
   order?: number;
 }
 
+export type WidgetSize = 'sm' | 'md' | 'lg';
+
 export interface DashboardWidget {
   /** Unique within the feature. */
   id: string;
   component: LazyComponent<SlotProps>;
   requires?: Permission[];
   order?: number;
+  /** Width of the tile on the landing page's grid: `sm`, `md` or `lg`. Defaults to `sm`. */
+  size?: WidgetSize;
 }
 
 /**

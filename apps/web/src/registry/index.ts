@@ -19,6 +19,7 @@ export { RegistryProvider } from './RegistryProvider';
 export { Slot } from './Slot';
 export type {
   DashboardWidget,
+  WidgetSize,
   FeatureI18n,
   FeatureLink,
   FeatureManifest,
