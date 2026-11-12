@@ -39,6 +39,11 @@ export const Tenant = Type.Object(
           "The hospital's registration or licence number as a clinical establishment, printed on the letterhead.",
       }),
     ),
+    gstin: Type.Optional(
+      Type.String({
+        description: "The hospital's GST identification number, printed on invoices.",
+      }),
+    ),
     features: Type.Unsafe<Record<string, boolean>>({
       type: 'object',
       additionalProperties: { type: 'boolean' },
@@ -126,6 +131,7 @@ export function toTenant(
     ...(tenant.address ? { address: tenant.address } : {}),
     ...(tenant.phone ? { phone: tenant.phone } : {}),
     ...(tenant.registrationNumber ? { registrationNumber: tenant.registrationNumber } : {}),
+    ...(tenant.gstin ? { gstin: tenant.gstin } : {}),
     features: Object.fromEntries(flags.map((flag) => [flag.feature, flag.enabled])),
     auth: { mode: tenant.authMode, idleTimeoutMinutes },
     status: tenant.status,

@@ -85,6 +85,12 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   }
   await expectNoSidewaysScroll(page);
 
+  // The hospital profile: one column on a phone, the letterhead details in plain fields.
+  await goTo(page, 'Hospital profile');
+  await expect(page.getByRole('heading', { name: 'Hospital profile', level: 1 })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: /^Address/ })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   // Appointments: the filters wrap and the list becomes cards on a phone.
   await goTo(page, 'Appointments');
   await expect(page.getByRole('heading', { name: 'Appointments', exact: true })).toBeVisible();

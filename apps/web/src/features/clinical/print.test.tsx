@@ -68,7 +68,9 @@ describe('printing a prescription', () => {
       // The letterhead and the prescriber as the NMC asks (#397), and nothing said missing.
       expect(within(sheet).getByText(/12 Sample Road, Indiranagar/)).toBeInTheDocument();
       expect(
-        within(sheet).getByText('Phone: +91 80 4000 0000 · Registration no. KA-CE-0000'),
+        within(sheet).getByText(
+          'Phone: +91 80 4000 0000 · Registration no. KA-CE-0000 · GSTIN 29ABCDE1234F1Z5',
+        ),
       ).toBeInTheDocument();
       expect(within(sheet).getByText('Signature')).toBeInTheDocument();
       expect(within(sheet).getByText(/, MBBS, MD \(General Medicine\)$/)).toBeInTheDocument();
