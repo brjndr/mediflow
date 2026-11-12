@@ -41,23 +41,20 @@ services:
 
   minio:
     profiles: [full]
-    image: minio/minio:latest
+    # RustFS (Apache-2.0, S3-compatible) stands in for a bucket; the service keeps its old name.
+    # MinIO no longer publishes images. Keys are `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD`.
+    image: rustfs/rustfs:latest
     restart: unless-stopped
-    command: server /data --console-address ':9001'
+    command: ['/data']
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-mediflow}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-mediflow-dev-secret}
+      RUSTFS_ACCESS_KEY: ${MINIO_ROOT_USER:-mediflow}
+      RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-mediflow-dev-secret}
     ports:
       - '${MINIO_API_PORT:-9000}:9000'
       - '${MINIO_CONSOLE_PORT:-9001}:9001'
     volumes:
       - miniodata:/data
     mem_limit: 512m
-    healthcheck:
-      test: ['CMD', 'mc', 'ready', 'local']
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   redis:
     profiles: [full]

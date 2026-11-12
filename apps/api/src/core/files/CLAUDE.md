@@ -1,0 +1,13 @@
+# core/files
+
+`FileStore` (`put`, `get`, `delete`) keeps report exports, imaging files and patient documents. Two adapters, chosen by `FILE_STORE`:
+
+- `local` (default): a folder (`FILE_STORE_DIR`). Development and tests only; **production refuses to start with it** (`core/config`), since a container loses its disk on redeploy and several containers would each have their own.
+- `s3` (#695): `S3FileStore`, any S3-compatible service. Needs `S3_BUCKET` and `S3_REGION`; `S3_ENDPOINT` for a service other than AWS (path-style addressing is then used); `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` both or neither (neither means the task or instance role); `S3_SERVER_SIDE_ENCRYPTION` (`AES256` or `aws:kms`) when the bucket does not encrypt by default.
+
+Decisions:
+
+- Objects are never public and never reached by the browser directly. The API reads and writes them and serves downloads and accepts uploads through its own HMAC-signed, expiring links (`signing.ts`), so size and type limits, the malware status and the hospital check stay in one place. For that reason the adapter has no `presign`; the optional method stays on the interface for a later move to direct-to-bucket links.
+- Keys start with the hospital's id; a signed link names a record id, and the record is read under the caller's hospital (or the worker role by id), so a link for one hospital's file cannot serve another's.
+- Bucket setup (infrastructure, #145): block all public access, default encryption (SSE-S3 or KMS), versioning off, a lifecycle rule for aborted uploads, and a policy that lets only the API's role read and write.
+- Tests: `s3-store.test.ts` runs when `S3_TEST_ENDPOINT` is set (CI starts RustFS; locally `docker compose --profile full up -d minio`, the service name kept, then `S3_TEST_ENDPOINT=http://localhost:9000`). MinIO no longer publishes images, so the compose service runs RustFS.
