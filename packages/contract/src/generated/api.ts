@@ -3955,7 +3955,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Answers the latest revision of the medico-legal record for printing and records the print in the audit log (action `print`, entity `er_medico_legal`, entity id `<caseId>:<revision>`, with the actor). The web app makes the page from this answer and opens the print dialog once it arrives, so the revision printed is the revision recorded. The Idempotency-Key header is required, one per press: a repeat records nothing more. 404 `not_medico_legal` when the case is not flagged. Requires medicoLegal:read. */
+        /** @description Answers the latest revision of the medico-legal record for printing and records the print in the audit log (action `print`, entity `er_medico_legal`, entity id the case, detail `revision:<n>`, with the actor). The web app makes the page from this answer and opens the print dialog once it arrives, so the revision printed is the revision recorded. The Idempotency-Key header is required, one per press: a repeat records nothing more. 404 `not_medico_legal` when the case is not flagged. Requires medicoLegal:read. */
         post: operations["printEmergencyMedicoLegal"];
         delete?: never;
         options?: never;
