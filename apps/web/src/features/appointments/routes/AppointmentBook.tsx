@@ -395,7 +395,9 @@ export default function AppointmentBook() {
             min={days.first}
             max={days.last}
           />
-          <OnCallNote />
+          <OnCallNote
+            departmentId={doctors.data?.find((d) => d.id === form.watch('doctorId'))?.departmentId}
+          />
           <SlotPicker
             refused={refusal?.kind === 'slot' ? refusal : undefined}
             preferred={preferred}
