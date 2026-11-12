@@ -21,13 +21,25 @@ export const reportsFeature: FeatureManifest = {
     { path: 'reports', lazy: () => import('./routes/ReportsPage'), requires: ['report:read'] },
   ],
   nav: { icon: BarChart3, order: 700, requires: ['report:read'] },
-  permissions: ['report:read', 'report:export'],
+  permissions: ['report:read', 'report:export', 'invoice:read'],
   dashboardWidgets: [
     {
       id: 'flow',
       component: () => import('./components/PatientFlowWidget'),
       requires: ['report:read'],
       size: 'lg',
+    },
+    {
+      id: 'visits',
+      component: () => import('./components/VisitsTodayWidget'),
+      requires: ['report:read'],
+      size: 'md',
+    },
+    {
+      id: 'unpaid',
+      component: () => import('./components/UnpaidInvoicesWidget'),
+      requires: ['report:read', 'invoice:read'],
+      size: 'md',
     },
   ],
 };

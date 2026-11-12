@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Can } from '@/access';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
@@ -27,7 +27,11 @@ export default function InvoiceList() {
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<Invoice['status'] | null>(null);
+  const [params] = useSearchParams();
+  const [status, setStatus] = useState<Invoice['status'] | null>(() => {
+    const wanted = params.get('status');
+    return STATUSES.find((each) => each === wanted) ?? null;
+  });
   const [limit, setLimit] = useState<number>(INVOICE_PAGE_SIZES[0]);
   const q = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const invoices = useInvoices({ q, status, limit });
