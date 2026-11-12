@@ -18,5 +18,5 @@ export const rosterFeature: FeatureManifest = {
     { path: 'roster', lazy: () => import('./routes/RosterPage'), requires: ['roster:read'] },
   ],
   nav: { icon: CalendarClock, order: 795, requires: ['roster:read'] },
-  permissions: ['roster:read', 'roster:manage'],
+  permissions: ['roster:read', 'roster:manage', 'roster:requestLeave'],
 };

@@ -87,6 +87,51 @@ export const VersionBody = Type.Object({ version: Version }, { additionalPropert
 export type VersionBody = Static<typeof VersionBody>;
 export const ShiftParams = Type.Object({ shiftId: Id });
 
+// --- leave -------------------------------------------------------------------------------------
+
+export const LeaveStatus = Enum(
+  'LeaveStatus',
+  ['requested', 'approved', 'rejected', 'cancelled'] as const,
+  'requested -> approved | rejected | cancelled; approved -> cancelled.',
+);
+
+export const RosterLeave = Obj('RosterLeave', {
+  id: Type.String(),
+  tenantId: Type.String(),
+  userId: Type.String(),
+  userName: Type.String(),
+  startsAt: When,
+  endsAt: When,
+  status: ref(LeaveStatus),
+  decidedByName: Type.Optional(Type.String()),
+  decidedAt: Type.Optional(When),
+  version: Type.Integer({ minimum: 1 }),
+});
+export type RosterLeave = Static<typeof RosterLeave>;
+export const RosterLeavePage = CursorPage(ref(RosterLeave), { $id: 'RosterLeavePage' });
+
+export const RosterLeaveCreate = Type.Object(
+  {
+    startsAt: When,
+    endsAt: Type.String({
+      format: 'date-time',
+      description: 'After the start, and at most 90 days later.',
+    }),
+  },
+  { $id: 'RosterLeaveCreate', additionalProperties: false },
+);
+export type RosterLeaveCreate = Static<typeof RosterLeaveCreate>;
+
+export const RosterLeaveListQuery = Type.Object({
+  from: Type.Optional(When),
+  to: Type.Optional(When),
+  userId: Type.Optional(Id),
+  status: Type.Optional(ref(LeaveStatus)),
+  cursor: Cursor,
+  limit: Limit,
+});
+export const LeaveParams = Type.Object({ leaveId: Id });
+
 // --- blood bank --------------------------------------------------------------------------------
 
 export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
@@ -369,6 +414,10 @@ export const OPERATIONS_SCHEMAS = [
   RosterShift,
   RosterShiftPage,
   RosterShiftCreate,
+  LeaveStatus,
+  RosterLeave,
+  RosterLeavePage,
+  RosterLeaveCreate,
   BloodGroup,
   BloodComponent,
   BloodUnitStatus,
