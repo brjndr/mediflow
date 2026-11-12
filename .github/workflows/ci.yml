@@ -235,7 +235,19 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # RustFS stands in for S3 in the file store tests (a service cannot take a command).
+      - name: Start S3-compatible storage
+        run: |
+          docker run -d --name s3 -p 9000:9000 -e RUSTFS_ACCESS_KEY=mediflow -e RUSTFS_SECRET_KEY=mediflow-dev-secret rustfs/rustfs:latest /data
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:9000/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs s3
+          exit 1
       - run: pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/2
+        env:
+          S3_TEST_ENDPOINT: http://localhost:9000
 
   # Proves the Dockerfile still builds and the container answers, in parallel with the tests.
   # The image is not pushed anywhere.
@@ -269,7 +281,7 @@ jobs:
       - run: docker build -f apps/api/Dockerfile -t mediflow-api:ci .
       - name: Container starts and answers its health check
         run: |
-          docker run -d --name api --network host             -e DATABASE_URL=postgres://mediflow:mediflow@localhost:5432/mediflow_test             -e SMTP_URL=smtp://localhost:1025             -e "MAIL_FROM=Mediflow <no-reply@mediflow.test>"             -e APP_BASE_URL=http://localhost:5173             -e MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=             -e REPORT_URL_SECRET=Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=             mediflow-api:ci
+          docker run -d --name api --network host             -e DATABASE_URL=postgres://mediflow:mediflow@localhost:5432/mediflow_test             -e SMTP_URL=smtp://localhost:1025             -e "MAIL_FROM=Mediflow <no-reply@mediflow.test>"             -e APP_BASE_URL=http://localhost:5173             -e MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=             -e REPORT_URL_SECRET=Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=             -e FILE_STORE=s3 -e S3_BUCKET=mediflow-ci -e S3_REGION=us-east-1             mediflow-api:ci
           for attempt in $(seq 1 20); do
             if curl -fsS http://localhost:3000/health/ready; then exit 0; fi
             sleep 1
