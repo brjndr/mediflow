@@ -26,6 +26,15 @@ export const documentsFeature: FastifyPluginAsync = async (app) => {
         'update patient_documents set patient_id = $2 where patient_id = $1',
         [sourceId, targetId],
       );
+      // A hold on the whole record follows its documents to the survivor (#629). The source's own
+      // hold stays as it was, so placing and releasing keep their history.
+      await client.query(
+        `insert into document_legal_holds (tenant_id, patient_id, reason, placed_by, placed_at)
+         select h.tenant_id, $2, h.reason, h.placed_by, h.placed_at
+           from document_legal_holds h
+          where h.patient_id = $1 and h.document_id is null and h.released_at is null`,
+        [sourceId, targetId],
+      );
       return moved.rowCount ?? 0;
     },
     async (client, { sourceId }) => {

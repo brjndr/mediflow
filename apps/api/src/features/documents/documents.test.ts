@@ -497,6 +497,27 @@ describe('retention', () => {
 });
 
 describe('merging two records', () => {
+  it('carries a patient legal hold to the survivor so the sweep skips the moved documents', async () => {
+    const source = await patient(hospital, 'DC-0000930');
+    const target = await patient(hospital, 'DC-0000931');
+    const doc = await uploaded(source);
+    await queue.drain();
+    const hold = await post(`/patients/${source}/legal-hold`, { reason: 'Inquiry' });
+    expect(hold.statusCode).toBe(201);
+    expect((await merge(target, source)).statusCode).toBe(201);
+
+    const active = await pool.query(
+      'select 1 from document_legal_holds where patient_id = $1 and document_id is null and released_at is null',
+      [target],
+    );
+    expect(active.rowCount).toBe(1);
+    await pool.query('update patient_documents set retain_until = current_date - 1 where id = $1', [
+      doc.document.id,
+    ]);
+    expect(await sweepDocuments(app)).toEqual([]);
+    expect(await statusOf(doc.document.id)).toBe('clean');
+  });
+
   it('moves the documents, hides the source and records who did it', async () => {
     const source = await patient(hospital, 'DC-0000020');
     const target = await patient(hospital, 'DC-0000021');
