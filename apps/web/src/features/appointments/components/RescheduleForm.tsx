@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
+import { OnCallNote } from './OnCallNote';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import {
@@ -114,6 +115,7 @@ export function RescheduleForm({
         min={days.first}
         max={days.last}
       />
+      <OnCallNote departmentId={doctors.data?.find((d) => d.id === doctorId)?.departmentId} />
       <SlotPicker
         refused={
           // Only while the doctor and the day are those it was about: changed while the request

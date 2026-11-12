@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { revokePermission, setTenantFeature, TENANT_IDS } from '@/mocks/db';
 import { renderApp } from '@/test/render';
@@ -26,5 +27,17 @@ describe('on call on the booking screen', () => {
     await screen.findByRole('heading', HEADING);
     await screen.findByRole('combobox', { name: /^Doctor/ });
     expect(screen.queryByRole('heading', { name: 'On call now' })).not.toBeInTheDocument();
+  });
+
+  it('lists only the department of the chosen doctor', async () => {
+    renderApp({ entry: '/appointments/new' });
+    await screen.findByRole('heading', HEADING);
+    const doctor = await screen.findByRole('combobox', { name: /^Doctor/ });
+    await userEvent.selectOptions(doctor, 'doc_h_02');
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'On call now' })).not.toBeInTheDocument(),
+    );
+    await userEvent.selectOptions(doctor, 'doc_h_01');
+    expect(await screen.findByRole('heading', { name: 'On call now' })).toBeInTheDocument();
   });
 });

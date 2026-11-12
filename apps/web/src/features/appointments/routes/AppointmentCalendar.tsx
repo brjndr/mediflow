@@ -13,6 +13,7 @@ import { Calendar, type CalendarEventItem, type CalendarView } from '@/shared/ui
 import { addDays, visibleDays, weekStartFor } from '@/shared/ui/calendar/zoned';
 import { todayIn, utcToZoned, type DayString } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
+import { OnCallNote } from '../components/OnCallNote';
 import { DoctorsPicker } from '../components/DoctorsPicker';
 import { ViewSwitch } from '../components/ViewSwitch';
 import {
@@ -194,6 +195,12 @@ export default function AppointmentCalendar() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
       {header}
+      <OnCallNote
+        plain
+        departmentId={
+          sideBySide ? departmentId : doctors.data?.find((d) => d.id === doctorId)?.departmentId
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-4">
         {sideBySide ? (
