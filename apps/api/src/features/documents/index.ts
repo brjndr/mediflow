@@ -8,6 +8,7 @@ import {
   type ScanJob,
 } from './files.js';
 import { DOCUMENT_PERMISSIONS } from './permissions.js';
+import { CONSENT_PERMISSIONS, RECORDS_PERMISSIONS } from './records-permissions.js';
 import { documentRoutes } from './routes.js';
 
 /**
@@ -18,6 +19,8 @@ import { documentRoutes } from './routes.js';
  */
 export const documentsFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('documents', DOCUMENT_PERMISSIONS);
+  app.permissions.register('consents', CONSENT_PERMISSIONS);
+  app.permissions.register('records', RECORDS_PERMISSIONS);
   // A merged record's documents go to the survivor, whatever the hospital's switch says.
   app.patientMerge.register(
     'documents',

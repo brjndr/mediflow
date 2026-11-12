@@ -390,6 +390,7 @@ describe('the modules a hospital can be given', () => {
       'mfa_required',
     ]);
     expect(items.length).toBeGreaterThan(2);
+    expect(items.map((i) => i.id)).toEqual(expect.arrayContaining(['records', 'consents']));
 
     // Every listed id is accepted, and a hospital can be created with all of them.
     const hospital = await createHospital({ features: items.map((i) => i.id) });
