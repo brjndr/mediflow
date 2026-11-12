@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useCandidates } from '../hooks/use-doctors';
 import type { DoctorCandidate } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
+import { SearchInput } from '@/shared/ui/search-input';
 
 interface StaffPickerProps {
   selected: DoctorCandidate | null;
@@ -46,12 +47,10 @@ export function StaffPicker({ selected, onSelect, error }: StaffPickerProps) {
       <label htmlFor={searchId} className="sr-only">
         {t('create.staffSearch')}
       </label>
-      <input
+      <SearchInput
         id={searchId}
-        type="search"
         value={search}
         maxLength={100}
-        autoComplete="off"
         placeholder={t('create.staffSearchPlaceholder')}
         aria-describedby={error ? errorId : undefined}
         aria-invalid={error ? true : undefined}
@@ -60,7 +59,6 @@ export function StaffPicker({ selected, onSelect, error }: StaffPickerProps) {
         onKeyDown={(event) => {
           if (event.key === 'Enter') event.preventDefault();
         }}
-        className="h-9 w-full rounded-md border bg-background px-3 text-base md:text-sm pointer-coarse:h-11"
       />
       {/* Always there, so a screen reader reads what is put in it as the search moves on. */}
       <p role="status" className="text-sm text-muted-foreground empty:sr-only">

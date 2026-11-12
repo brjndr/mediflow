@@ -1,4 +1,3 @@
-import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -11,6 +10,7 @@ import { INVOICE_PAGE_SIZES, useInvoices } from '../hooks/use-billing';
 import { INVOICE_TONE } from '../lib/status-tone';
 import type { Invoice } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
+import { SearchInput } from '@/shared/ui/search-input';
 
 const LINK =
   'inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
@@ -122,21 +122,12 @@ export default function InvoiceList() {
       <div className="flex flex-wrap items-end gap-4">
         <label className="flex min-w-64 flex-1 flex-col gap-1 text-sm font-medium">
           {t('list.search.label')}
-          <span className="relative">
-            <Search
-              aria-hidden="true"
-              className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"
-            />
-            <input
-              type="search"
-              value={search}
-              maxLength={100}
-              autoComplete="off"
-              placeholder={t('list.search.placeholder')}
-              onChange={(event) => setSearch(event.target.value)}
-              className="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-base md:text-sm pointer-coarse:h-11"
-            />
-          </span>
+          <SearchInput
+            value={search}
+            maxLength={100}
+            placeholder={t('list.search.placeholder')}
+            onChange={(event) => setSearch(event.target.value)}
+          />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium">
           {t('list.statusFilter')}
