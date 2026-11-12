@@ -16,7 +16,7 @@ const TONES: Record<StatusTone, { className: string; icon: LucideIcon }> = {
   warning: { className: 'bg-warning-soft text-warning-soft-foreground', icon: TriangleAlert },
   danger: { className: 'bg-destructive-soft text-destructive-soft-foreground', icon: CircleAlert },
   info: { className: 'bg-info-soft text-info-soft-foreground', icon: Info },
-  neutral: { className: 'bg-muted text-muted-foreground', icon: Circle },
+  neutral: { className: 'bg-muted text-foreground', icon: Circle },
 };
 
 interface StatusBadgeProps extends Omit<ComponentProps<'span'>, 'children'> {
