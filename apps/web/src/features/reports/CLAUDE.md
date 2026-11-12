@@ -17,3 +17,7 @@ What was decided for the web screen of reports (#121). The API is `apps/api/src/
 - No sorting, and no chart: the reports are tables. All six reports (#124) share this one screen; a new kind is a locale entry, the schema list and a mock case.
 - A run the person did not wait for is found in the list; nothing tells them it finished while they are elsewhere.
 - The mock's download is the browser's own request to `/api/report-files/…`, which the service worker does not see, so in `pnpm dev` against the mock the file route is unanswered (the unit and Playwright tests stub or ignore it).
+
+## Dashboard widget (#712)
+
+`PatientFlowWidget` (`dashboard.widgets`, `report:read`, size `lg`) draws OPD visits opened on each of the last 7 days from the `opd_census` report (one 7-day request, counts only). It is by day, not by hour: the reports hold no hourly figure, so an hourly flow needs a new report in the API. The admissions `CapacityWidget` (`admission:read`) reads the census bed counts; the billing `CollectedTodayWidget` (`cashRegister:read`) sums the net of the register sessions opened today by payment mode, so a drawer left open from yesterday counts on its own day.

@@ -46,6 +46,14 @@ export const admissionsFeature: FeatureManifest = {
     },
   ],
   nav: { icon: BedSingle, order: 81, requires: ['admission:read'] },
+  dashboardWidgets: [
+    {
+      id: 'capacity',
+      component: () => import('./components/CapacityWidget'),
+      requires: ['admission:read'],
+      size: 'sm',
+    },
+  ],
   extensions: [
     // "Admit to hospital" (#576), given ids and the visit's status only.
     {
