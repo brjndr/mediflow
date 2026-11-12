@@ -6,12 +6,14 @@ import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
+import { StatusBadge } from '@/shared/ui/status-badge';
 import { useFormatters } from '@/tenancy';
 import { InvoiceBuilder } from '../components/InvoiceBuilder';
 import { CreditNotePanel } from '../components/CreditNotePanel';
 import { PaymentPanel } from '../components/PaymentPanel';
 import { PrintInvoiceButton } from '../components/PrintInvoiceButton';
 import { useInvoice } from '../hooks/use-billing';
+import { INVOICE_TONE } from '../lib/status-tone';
 import { bpToPercent } from '../lib/tax';
 import type { Invoice, InvoiceLine } from '../types';
 
@@ -77,7 +79,12 @@ function Body({ invoice }: { invoice: Invoice }) {
         </p>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
           <dt className="text-muted-foreground">{t('detail.status')}</dt>
-          <dd className="font-medium">{t(`status.${invoice.status}`)}</dd>
+          <dd>
+            <StatusBadge
+              tone={INVOICE_TONE[invoice.status]}
+              label={t(`status.${invoice.status}`)}
+            />
+          </dd>
           {invoice.number && (
             <>
               <dt className="text-muted-foreground">{t('detail.number')}</dt>

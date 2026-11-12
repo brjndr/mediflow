@@ -9,10 +9,11 @@ import { Slot } from '@/registry';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
+import { StatusBadge } from '@/shared/ui/status-badge';
 import { maskMrn } from '@/shared/utils/mask';
 import { todayIn, utcToZoned, type DayString } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
-import { STATUS_STYLE } from '../components/status';
+import { STATUS_TONE } from '../components/status';
 import { ViewSwitch } from '../components/ViewSwitch';
 import { useAppointments } from '../hooks/use-appointments';
 import { APPOINTMENT_STATUSES, MAX_RANGE_DAYS } from '../schemas';
@@ -123,9 +124,7 @@ export default function AppointmentList() {
         hideable: false,
         render: (row, text) => (
           <span className="inline-flex flex-wrap items-center gap-1">
-            <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[row.status]}`}>
-              {text}
-            </span>
+            <StatusBadge tone={STATUS_TONE[row.status]} label={text} />
             {/* Other features' badges for the appointment, given its id and nothing else. */}
             <Slot id="appointment.row.badges" context={{ appointmentId: row.id }} />
           </span>
