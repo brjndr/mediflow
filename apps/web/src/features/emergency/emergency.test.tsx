@@ -112,9 +112,14 @@ describe('emergency board', () => {
   it('registers a patient on record, triaged at once', async () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'Register an arrival' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Patient on record' }));
+    // The dialog ignores clicks (pointer-events none) while it animates in: retry until it takes one.
+    await waitFor(async () => {
+      await userEvent.click(await screen.findByRole('button', { name: 'Patient on record' }));
+    });
     await userEvent.type(screen.getByRole('textbox', { name: /Complaint/ }), 'High fever');
-    await userEvent.click(screen.getByRole('button', { name: 'Register' }));
+    await waitFor(async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Register' }));
+    });
     expect(
       await screen.findByText('Choose the patient, or register them as unidentified.'),
     ).toBeInTheDocument();

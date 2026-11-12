@@ -364,7 +364,12 @@ test('a doctor whose hospital took ordering away sees no orders on the consultat
   await page.getByRole('button', { name: 'Riverside Clinic' }).click();
   await goTo(page, 'Consultations');
   // The list opens on the doctor's own visits; the clinic's open one is another doctor's.
+  const everyDoctor = page.waitForResponse(
+    (answer) => answer.url().includes('/api/encounters') && answer.request().method() === 'GET',
+  );
   await page.getByRole('combobox', { name: 'Doctor' }).selectOption({ label: 'Every doctor' });
+  await everyDoctor;
+  await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
   await page.getByRole('main').getByRole('link').first().click();
   await expect(page.getByRole('heading', { name: 'Consultation', exact: true })).toBeVisible();
   // What they may do is there.

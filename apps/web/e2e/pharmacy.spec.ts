@@ -85,14 +85,13 @@ test('sell an item at the counter with the keyboard alone', async ({ page }) => 
   await page.keyboard.type('CetiCare');
   const wanted = page.getByRole('option', { name: 'Cetirizine 10 mg Tablet (CetiCare)' });
   await expect(wanted).toBeVisible();
-  for (
-    let step = 0;
-    step < 30 && (await wanted.getAttribute('aria-selected')) !== 'true';
-    step += 1
-  ) {
-    await page.keyboard.press('ArrowDown');
-  }
-  await expect(wanted).toHaveAttribute('aria-selected', 'true');
+  // The list can still be refreshing under the first arrows: press until the option is chosen.
+  await expect(async () => {
+    if ((await wanted.getAttribute('aria-selected')) !== 'true') {
+      await page.keyboard.press('ArrowDown');
+    }
+    await expect(wanted).toHaveAttribute('aria-selected', 'true', { timeout: 500 });
+  }).toPass({ timeout: 15_000 });
   await page.keyboard.press('Enter');
   const units = page.getByRole('textbox', { name: /^Units of Cetirizine/ });
   await expect(units).toBeFocused();

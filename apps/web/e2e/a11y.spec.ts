@@ -259,6 +259,7 @@ const desktopOnlyNotice = (page: Page) =>
 async function settled(page: Page): Promise<void> {
   await expect(page.locator('main [data-loading]')).toHaveCount(0);
   await expect(page.locator('main h1').first()).toBeVisible();
+  await expect(page.locator('main h1').first()).not.toHaveText('');
   await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0);
 }
 
