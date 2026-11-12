@@ -147,6 +147,7 @@ export const admissionSchema: z.ZodType<Admission> = z.object({
       assignedAt: z.string(),
     })
     .optional(),
+  sourceEncounterId: z.string().optional(),
   adviceNote: z.string().optional(),
   attendantName: z.string().optional(),
   attendantRelation: z.enum(ATTENDANT_RELATIONS).optional(),

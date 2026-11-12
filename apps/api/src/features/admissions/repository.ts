@@ -92,6 +92,7 @@ export interface AdmissionRow {
   discharge_type: DischargeTypeValue | null;
   cancelled_at: Date | null;
   cancel_reason: string | null;
+  source_encounter_id: string | null;
   advice_note: string | null;
   attendant_name: string | null;
   attendant_relation: AttendantRelationValue | null;
@@ -114,7 +115,7 @@ const ADMISSIONS = `
          p.mrn as patient_mrn, a.encounter_id, a.admitting_doctor_id as doctor_id,
          u.name as doctor_name, a.department_id, dp.name as department_name, a.admission_type,
          a.status, a.admitted_at, a.discharged_at, a.discharge_type,
-         a.cancelled_at, a.cancel_reason, a.advice_note, a.attendant_name,
+         a.cancelled_at, a.cancel_reason, a.source_encounter_id, a.advice_note, a.attendant_name,
          a.attendant_relation, a.attendant_phone, a.deposit_minor::text as deposit_minor,
          a.consents,
          ba.id as assignment_id, ba.bed_id, b.number as bed_number, ba.ward_id,
@@ -278,6 +279,7 @@ export async function insertAdmission(
     doctorId: string;
     departmentId: string;
     admissionType: AdmissionTypeValue;
+    sourceEncounterId?: string;
     adviceNote?: string;
     attendantName?: string;
     attendantRelation?: AttendantRelationValue;
@@ -291,8 +293,8 @@ export async function insertAdmission(
     `insert into admissions (tenant_id, patient_id, encounter_id, admitting_doctor_id,
                              department_id, admission_type, admitted_by, advice_note,
                              attendant_name, attendant_relation, attendant_phone,
-                             deposit_minor, consents)
-     values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                             deposit_minor, consents, source_encounter_id)
+     values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      returning id`,
     [
       input.patientId,
@@ -307,6 +309,7 @@ export async function insertAdmission(
       input.attendantPhone ?? null,
       input.depositMinor ?? null,
       input.consents ?? [],
+      input.sourceEncounterId ?? null,
     ],
   );
   const id = rows[0]?.id;

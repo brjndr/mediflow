@@ -3034,6 +3034,11 @@
             "description": "An available bed to give the patient now. Left out, the patient is admitted without a bed and given one with assignBed.",
             "type": "string"
           },
+          "sourceEncounterId": {
+            "maxLength": 64,
+            "description": "The visit (OPD, daycare or emergency encounter) of this patient the admission came from. A reference only; 422 `unknown_encounter` when it is not one of theirs.",
+            "type": "string"
+          },
           "adviceNote": {
             "minLength": 1,
             "maxLength": 1000,
@@ -3184,6 +3189,9 @@
           },
           "cancelReason": {
             "description": "Why it was cancelled.",
+            "type": "string"
+          },
+          "sourceEncounterId": {
             "type": "string"
           },
           "adviceNote": {

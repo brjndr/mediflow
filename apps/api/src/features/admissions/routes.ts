@@ -7,6 +7,7 @@ import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { tidyWithin } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
+  admissionSource,
   cancelInpatientEncounter,
   closeInpatientEncounter,
   openInpatientEncounter,
@@ -123,6 +124,7 @@ const admissionView = (row: AdmissionRow): Admission => ({
   ...(row.discharge_type === null ? {} : { dischargeType: row.discharge_type }),
   ...(row.cancelled_at === null ? {} : { cancelledAt: iso(row.cancelled_at) }),
   ...(row.cancel_reason === null ? {} : { cancelReason: row.cancel_reason }),
+  ...(row.source_encounter_id === null ? {} : { sourceEncounterId: row.source_encounter_id }),
   ...(row.advice_note === null ? {} : { adviceNote: row.advice_note }),
   ...(row.attendant_name === null ? {} : { attendantName: row.attendant_name }),
   ...(row.attendant_relation === null ? {} : { attendantRelation: row.attendant_relation }),
@@ -418,6 +420,12 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
       ) {
         throw new HttpError(422, 'attendant_name_required', 'Name the attendant');
       }
+      if (
+        body.sourceEncounterId !== undefined &&
+        !(await admissionSource(client, body.sourceEncounterId, body.patientId))
+      ) {
+        throw new HttpError(422, 'unknown_encounter', 'No such visit');
+      }
       const doctorId = body.doctorId ?? (await ownDoctorId(client, userId));
       const doctor = doctorId
         ? await practisingDoctor(client, doctorId, visibilityFor(request, CREATE))
@@ -448,6 +456,9 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
             doctorId: doctor.id,
             departmentId: doctor.department_id,
             admissionType: body.admissionType,
+            ...(body.sourceEncounterId === undefined
+              ? {}
+              : { sourceEncounterId: body.sourceEncounterId }),
             ...(body.adviceNote === undefined ? {} : { adviceNote: body.adviceNote }),
             ...(body.attendantName === undefined ? {} : { attendantName: body.attendantName }),
             ...(body.attendantRelation === undefined

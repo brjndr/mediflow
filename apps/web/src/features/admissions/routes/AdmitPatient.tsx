@@ -148,6 +148,10 @@ export default function AdmitPatient() {
     return /^[\w-]{1,64}$/.test(id) ? id : '';
   });
   const askedType = params.get('type');
+  const [askedVisit] = useState(() => {
+    const id = params.get('encounterId') ?? '';
+    return /^[\w-]{1,64}$/.test(id) ? id : '';
+  });
   const [usedAsked, setUsedAsked] = useState(false);
   const askedPatient = usePatientName(mayFindPatients ? askedId : '');
   const [patient, setPatient] = useState<PatientName>();
@@ -215,6 +219,8 @@ export default function AdmitPatient() {
       setAdmitted(
         await admit.mutateAsync({
           patientId: values.patientId,
+          // The visit is the patient's only while the patient is the one it was linked for.
+          ...(askedVisit && values.patientId === askedId ? { sourceEncounterId: askedVisit } : {}),
           admissionType: values.admissionType,
           bedId: values.bedId,
           ...(values.doctorId ? { doctorId: values.doctorId } : {}),

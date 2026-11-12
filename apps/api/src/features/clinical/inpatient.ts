@@ -7,6 +7,23 @@ import { endEncounter, hasDrafts, hasRecords } from './repository.js';
  * encounters table.
  */
 
+/**
+ * Whether an encounter can be named as the visit an admission came from (#678): one of this
+ * patient's that is not itself inpatient and not cancelled.
+ */
+export async function admissionSource(
+  client: pg.ClientBase,
+  encounterId: string,
+  patientId: string,
+): Promise<boolean> {
+  const { rows } = await client.query(
+    `select 1 from encounters
+     where id::text = $1 and patient_id::text = $2 and type <> 'ipd' and status <> 'cancelled'`,
+    [encounterId, patientId],
+  );
+  return rows.length > 0;
+}
+
 /** Opens the inpatient encounter of an admission and answers its id. */
 export async function openInpatientEncounter(
   client: pg.ClientBase,

@@ -39,6 +39,7 @@ export { DOSE_MAX, INSTRUCTIONS_MAX, LINES_MAX, ROUTES as MEDICATION_ROUTES } fr
 
 /** For admissions (BE-23): the inpatient encounter an admission opens and a discharge closes. */
 export {
+  admissionSource,
   cancelInpatientEncounter,
   closeInpatientEncounter,
   openInpatientEncounter,
