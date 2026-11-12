@@ -7,6 +7,6 @@ import { hospitalProfileRoutes } from './routes.js';
  * details are printed by modules that each have their own switch.
  */
 export const hospitalProfileFeature: FastifyPluginAsync = async (app) => {
-  app.permissions.register('hospital-profile', HOSPITAL_PROFILE_PERMISSIONS);
+  app.permissions.register('hospital_profile', HOSPITAL_PROFILE_PERMISSIONS);
   await app.register(hospitalProfileRoutes);
 };
