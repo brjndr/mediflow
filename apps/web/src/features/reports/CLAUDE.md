@@ -21,3 +21,7 @@ What was decided for the web screen of reports (#121). The API is `apps/api/src/
 ## Dashboard widget (#712)
 
 `PatientFlowWidget` (`dashboard.widgets`, `report:read`, size `lg`) draws OPD visits opened on each of the last 7 days from the `opd_census` report (one 7-day request, counts only). It is by day, not by hour: the reports hold no hourly figure, so an hourly flow needs a new report in the API. The admissions `CapacityWidget` (`admission:read`) reads the census bed counts; the billing `CollectedTodayWidget` (`cashRegister:read`) sums the net of the register sessions opened today by payment mode, so a drawer left open from yesterday counts on its own day.
+
+## Owner panels (#690)
+
+`VisitsTodayWidget` (`report:read`; OPD opened and closed today, `opd_census` for the hospital's day) and `UnpaidInvoicesWidget` (`report:read` and `invoice:read`; count and amount due from the `outstanding` snapshot, linking to `/billing/invoices?status=issued`) sit beside `PatientFlowWidget`. No new endpoint: the reports API already gives these. `invoice:read` is listed in this manifest's permissions only so the widget can require it. "Collected today" is the billing `CollectedTodayWidget` (register sessions, `cashRegister:read`). `InvoiceList` starts its status filter from `?status=` (the status is not patient data).

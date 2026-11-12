@@ -6,5 +6,17 @@
     "empty": "No visits in the last 7 days.",
     "summary_one": "Busiest on {{day}}, {{count}} visit",
     "summary_other": "Busiest on {{day}}, {{count}} visits"
+  },
+  "visits": {
+    "title": "OPD visits today",
+    "opened": "Opened",
+    "closed": "Closed"
+  },
+  "unpaid": {
+    "title": "Unpaid invoices",
+    "empty": "Nothing is due.",
+    "count_one": "{{count}} invoice due",
+    "count_other": "{{count}} invoices due",
+    "open": "Open unpaid invoices"
   }
 }
