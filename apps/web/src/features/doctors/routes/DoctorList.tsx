@@ -1,4 +1,3 @@
-import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -9,6 +8,7 @@ import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useDoctors } from '../hooks/use-doctors';
 import type { Doctor } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
+import { SearchInput } from '@/shared/ui/search-input';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 const link =
@@ -76,21 +76,12 @@ export default function DoctorList() {
       <div className="flex flex-wrap items-end gap-4">
         <label className="flex min-w-56 flex-1 flex-col gap-1 text-sm font-medium">
           {t('filters.search')}
-          <span className="relative">
-            <Search
-              aria-hidden="true"
-              className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"
-            />
-            <input
-              type="search"
-              value={search}
-              maxLength={100}
-              autoComplete="off"
-              placeholder={t('filters.searchPlaceholder')}
-              onChange={(event) => setSearch(event.target.value)}
-              className={`${control} w-full pl-8 pr-3`}
-            />
-          </span>
+          <SearchInput
+            value={search}
+            maxLength={100}
+            placeholder={t('filters.searchPlaceholder')}
+            onChange={(event) => setSearch(event.target.value)}
+          />
         </label>
         {departments.available && (
           <label className="flex min-w-44 flex-col gap-1 text-sm font-medium">

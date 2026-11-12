@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react';
-import type { ComponentProps } from 'react';
+import { forwardRef, type ComponentProps } from 'react';
 import { cn } from '@/shared/lib/utils';
 
 type SearchInputProps = Omit<ComponentProps<'input'>, 'type'>;
@@ -9,7 +9,10 @@ type SearchInputProps = Omit<ComponentProps<'input'>, 'type'>;
  * list screens' own search boxes are. Name it with a wrapping `<label>`, `htmlFor` or `aria-label`.
  * Text is 16 px on a phone so the browser does not zoom on focus, and 44 px high for a finger.
  */
-export function SearchInput({ className, ...props }: SearchInputProps) {
+export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(function SearchInput(
+  { className, ...props },
+  ref,
+) {
   return (
     <span className="relative block">
       <Search
@@ -25,7 +28,8 @@ export function SearchInput({ className, ...props }: SearchInputProps) {
           className,
         )}
         {...props}
+        ref={ref}
       />
     </span>
   );
-}
+});

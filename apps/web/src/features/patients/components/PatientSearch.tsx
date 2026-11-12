@@ -5,6 +5,7 @@ import { useFormatters } from '@/tenancy';
 import { usePatientSuggestions } from '../hooks/use-patients';
 import type { PatientSummary } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
+import { SearchInput } from '@/shared/ui/search-input';
 
 /**
  * A search box to choose a patient in another feature's screen (whom to book an appointment
@@ -108,10 +109,9 @@ export function PatientSearch({
           </span>
         )}
       </label>
-      <input
+      <SearchInput
         ref={input}
         id={inputId}
-        type="search"
         role="combobox"
         aria-expanded={open && searching}
         aria-controls={open && searching ? listId : undefined}
@@ -122,7 +122,6 @@ export function PatientSearch({
         }
         value={text}
         maxLength={100}
-        autoComplete="off"
         disabled={!available}
         aria-describedby={describedByIds}
         placeholder={available ? t('search.placeholder') : ''}
@@ -135,7 +134,6 @@ export function PatientSearch({
         // After a tap on an option has had its turn.
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
-        className="h-9 w-full rounded-md border bg-background px-3 text-base outline-none md:text-sm focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11"
       />
       {!available && (
         <p id={`${inputId}-unavailable`} className="text-xs text-muted-foreground">

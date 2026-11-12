@@ -1,4 +1,3 @@
-import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -11,6 +10,7 @@ import { useFormatters } from '@/tenancy';
 import { PATIENT_PAGE_SIZES, usePatients } from '../hooks/use-patients';
 import type { PatientSort, PatientSummary } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
+import { SearchInput } from '@/shared/ui/search-input';
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function PatientList() {
@@ -111,21 +111,12 @@ export default function PatientList() {
       <div className="flex flex-wrap items-end gap-4">
         <label className="flex min-w-64 flex-1 flex-col gap-1 text-sm font-medium">
           {t('search.label')}
-          <span className="relative">
-            <Search
-              aria-hidden="true"
-              className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"
-            />
-            <input
-              type="search"
-              value={search}
-              maxLength={100}
-              autoComplete="off"
-              placeholder={t('search.placeholder')}
-              onChange={(event) => setSearch(event.target.value)}
-              className="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-base md:text-sm pointer-coarse:h-11"
-            />
-          </span>
+          <SearchInput
+            value={search}
+            maxLength={100}
+            placeholder={t('search.placeholder')}
+            onChange={(event) => setSearch(event.target.value)}
+          />
         </label>
         <label className="flex items-center gap-2 text-sm font-medium pointer-coarse:min-h-11">
           <input

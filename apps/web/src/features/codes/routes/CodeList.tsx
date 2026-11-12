@@ -1,4 +1,3 @@
-import { Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
@@ -10,6 +9,7 @@ import { useCodeFavourite, useCodes } from '../hooks/use-codes';
 import { CODE_SYSTEMS } from '../schemas';
 import type { Code, CodeSystem } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
+import { SearchInput } from '@/shared/ui/search-input';
 
 const MANAGE = 'code:manage';
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
@@ -104,21 +104,12 @@ function Codes() {
         </label>
         <label className="flex min-w-56 flex-1 flex-col gap-1 text-sm font-medium">
           {t('filters.search')}
-          <span className="relative">
-            <Search
-              aria-hidden="true"
-              className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"
-            />
-            <input
-              type="search"
-              value={search}
-              maxLength={100}
-              autoComplete="off"
-              placeholder={t('filters.searchPlaceholder')}
-              onChange={(event) => setSearch(event.target.value)}
-              className={`${control} w-full pl-8 pr-3`}
-            />
-          </span>
+          <SearchInput
+            value={search}
+            maxLength={100}
+            placeholder={t('filters.searchPlaceholder')}
+            onChange={(event) => setSearch(event.target.value)}
+          />
         </label>
         <label className="flex h-9 items-center gap-2 text-sm font-medium pointer-coarse:h-11">
           <input
