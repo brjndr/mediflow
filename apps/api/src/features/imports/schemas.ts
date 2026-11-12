@@ -21,7 +21,7 @@ export type BatchStatus = (typeof BATCH_STATUSES)[number];
 
 const KindName = Type.String({
   pattern: '^[a-z][a-z_]{0,39}$',
-  description: 'A kind of record: `services`, `drugs`, `lab_tests` or `patients`.',
+  description: 'A kind of record: `services`, `drugs`, `lab_tests`, `patients` or `opening_stock`.',
 });
 
 export const ImportColumnInfo = Type.Object(
