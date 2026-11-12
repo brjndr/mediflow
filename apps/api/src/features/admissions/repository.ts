@@ -521,3 +521,32 @@ export async function listBoard(
   }
   return result;
 }
+
+/**
+ * The beds in use (as the board counts them) by status, of one ward or of every ward. Counts
+ * only: no patient is read. Every status is present, with 0 when none.
+ */
+export async function countBeds(
+  client: pg.ClientBase,
+  wardId?: string,
+): Promise<Record<BoardBedStatusValue, number>> {
+  const result: Record<BoardBedStatusValue, number> = {
+    available: 0,
+    occupied: 0,
+    cleaning: 0,
+    blocked: 0,
+  };
+  if (wardId !== undefined && !UUID.test(wardId)) return result;
+  const { rows } = await client.query<{ status: BoardBedStatusValue; count: number }>(
+    `select b.status, count(*)::int as count
+     from beds b
+     join wards w on w.tenant_id = b.tenant_id and w.id = b.ward_id
+     join rooms r on r.tenant_id = b.tenant_id and r.id = b.room_id
+     where not b.archived and not w.archived and not r.archived
+       ${wardId === undefined ? '' : 'and b.ward_id = $1::uuid'}
+     group by b.status`,
+    wardId === undefined ? [] : [wardId],
+  );
+  for (const row of rows) result[row.status] = row.count;
+  return result;
+}

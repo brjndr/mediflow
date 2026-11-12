@@ -65,6 +65,21 @@ describe('dashboard widgets: flow, capacity, collected today', () => {
     expect(within(collected).getByText('UPI')).toBeInTheDocument();
   });
 
+  it('reads the bed counts in one request and never the board', async () => {
+    const seen: string[] = [];
+    server.events.on('request:start', ({ request }) => {
+      const path = new URL(request.url).pathname;
+      if (path.includes('/beds/')) seen.push(path);
+    });
+    signIn(USER_IDS.admin);
+    renderApp();
+    await home();
+    expect(await screen.findByRole('img', { name: /Beds occupied: \d+%/ })).toBeInTheDocument();
+    server.events.removeAllListeners();
+    expect(seen.filter((path) => path.endsWith('/beds/counts'))).toHaveLength(1);
+    expect(seen.filter((path) => path.endsWith('/beds/board'))).toHaveLength(0);
+  });
+
   it('shows a dash-free empty line when nothing was taken today', async () => {
     signIn(USER_IDS.admin);
     renderApp();

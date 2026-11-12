@@ -1,35 +1,33 @@
-import { useInfiniteQuery, useQueries } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useTenant } from '@/tenancy';
-import { fetchAdmissions, fetchBedCount } from '../api';
+import { fetchAdmissions, fetchBedCounts } from '../api';
 import { BOARD_STATUSES } from '../schemas';
 import { bedKeys } from './use-board';
 
 export const CENSUS_PAGE_SIZE = 50;
 
 /**
- * Beds by status, counted by the bed board's own query, so the census and the board cannot
- * disagree. Kept under the board's keys: the board's events read both again together.
+ * Beds by status, from the one counts request, which counts the beds in use as the board lists
+ * them. Kept under the board's keys: the board's events read both again together.
  */
 export function useOccupancy(wardId: string, live: boolean) {
   const tenantId = useTenant()?.id;
-  return useQueries({
-    queries: BOARD_STATUSES.map((status) => ({
-      queryKey: bedKeys.list(tenantId ?? '', { view: 'count', wardId, status }),
-      queryFn: ({ signal }: { signal: AbortSignal }) => fetchBedCount({ wardId, status }, signal),
-      enabled: tenantId !== undefined,
-      staleTime: live ? Infinity : 0,
-    })),
-    combine: (results) => ({
-      isPending: results.some((result) => result.isPending),
-      isError: results.some((result) => result.isError),
-      error: results.find((result) => result.error)?.error ?? null,
-      counts: BOARD_STATUSES.map((status, index) => ({
-        status,
-        count: results[index]?.data ?? 0,
-      })),
-      refetch: () => results.forEach((result) => void result.refetch()),
-    }),
+  const query = useQuery({
+    queryKey: bedKeys.list(tenantId ?? '', { view: 'count', wardId }),
+    queryFn: ({ signal }) => fetchBedCounts({ wardId }, signal),
+    enabled: tenantId !== undefined,
+    staleTime: live ? Infinity : 0,
   });
+  return {
+    isPending: query.isPending,
+    isError: query.isError,
+    error: query.error,
+    counts: BOARD_STATUSES.map((status) => ({
+      status,
+      count: query.data?.counts.find((each) => each.status === status)?.count ?? 0,
+    })),
+    refetch: () => void query.refetch(),
+  };
 }
 
 /** The patients in the hospital now, newest first, of one ward or of every ward. */

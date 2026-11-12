@@ -107,6 +107,19 @@ function view(tenantId: string, bed: ReturnType<typeof mockBoardBeds>[number]): 
 
 export const admissionsHandlers = [
   ...admissionFlowHandlers,
+  http.get('*/api/beds/counts', ({ request }) => {
+    const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const wardId = new URL(request.url).searchParams.get('wardId');
+    const beds = mockBoardBeds(access.tenantId).filter((bed) => !wardId || bed.wardId === wardId);
+    return HttpResponse.json({
+      counts: STATUSES.map((status) => ({
+        status,
+        count: beds.filter((bed) => bed.status === status).length,
+      })),
+    });
+  }),
+
   http.get('*/api/beds/board', ({ request }) => {
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;

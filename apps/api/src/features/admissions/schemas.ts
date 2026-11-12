@@ -344,6 +344,25 @@ export const BoardQuery = Type.Object({
   ),
 });
 
+export const BedCount = Type.Object(
+  { status: ref(BoardBedStatus), count: Type.Integer({ minimum: 0 }) },
+  { $id: 'BedCount', additionalProperties: false },
+);
+
+export const BedCounts = Type.Object(
+  {
+    counts: Type.Array(ref(BedCount), {
+      description:
+        'One entry for each status, in the order available, occupied, cleaning, blocked.',
+    }),
+  },
+  { $id: 'BedCounts', additionalProperties: false },
+);
+
+export const BedCountsQuery = Type.Object({
+  wardId: Type.Optional(Type.String({ maxLength: 64 })),
+});
+
 export const BedHousekeeping = Type.Object(
   {
     status: Type.Unsafe<'cleaning' | 'available'>({
@@ -376,4 +395,6 @@ export const ADMISSION_SCHEMAS = [
   BoardOccupant,
   BoardBed,
   BoardBedPage,
+  BedCount,
+  BedCounts,
 ] as const;

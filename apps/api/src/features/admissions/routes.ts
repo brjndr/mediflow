@@ -25,6 +25,7 @@ import {
   activeAdmissionOf,
   boardBed,
   cancelAdmission,
+  countBeds,
   dischargeAdmission,
   findAdmission,
   insertAdmission,
@@ -54,6 +55,8 @@ import {
   AdmissionPage,
   AdmissionParams,
   BedHousekeeping,
+  BedCounts,
+  BedCountsQuery,
   BedParams,
   BoardBed,
   BoardBedPage,
@@ -716,6 +719,31 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         items,
         nextCursor: page.nextCursor,
         ...(page.total === undefined ? {} : { total: page.total }),
+      };
+    },
+  );
+
+  app.get(
+    '/beds/counts',
+    {
+      config: { permissions: [READ], feature: FEATURE },
+      schema: {
+        operationId: 'getBedCounts',
+        tags: ['admissions'],
+        description:
+          'How many beds in use (as `/beds/board` lists them) are in each status, of one ward or of every ward, in one request for the capacity widget and the census. Counts only: no patient is read or named, so nothing is audited. Requires admission:read, the admissions and wards feature flags.',
+        querystring: BedCountsQuery,
+        response: { 200: ref(BedCounts), ...errors(400, 401, 403, 409, 429) },
+      },
+    },
+    async (request) => {
+      await requireWards(request);
+      const counts = await countBeds(request.txClient, request.query.wardId);
+      return {
+        counts: (['available', 'occupied', 'cleaning', 'blocked'] as const).map((status) => ({
+          status,
+          count: counts[status],
+        })),
       };
     },
   );

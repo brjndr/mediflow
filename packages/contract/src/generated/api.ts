@@ -1585,6 +1585,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/beds/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description How many beds in use (as `/beds/board` lists them) are in each status, of one ward or of every ward, in one request for the capacity widget and the census. Counts only: no patient is read or named, so nothing is audited. Requires admission:read, the admissions and wards feature flags. */
+        get: operations["getBedCounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/beds/{bedId}/housekeeping": {
         parameters: {
             query?: never;
@@ -7063,6 +7080,14 @@ export interface components {
             items: components["schemas"]["BoardBed"][];
             nextCursor: string | null;
             total?: number;
+        };
+        BedCount: {
+            status: components["schemas"]["BoardBedStatus"];
+            count: number;
+        };
+        BedCounts: {
+            /** @description One entry for each status, in the order available, occupied, cleaning, blocked. */
+            counts: components["schemas"]["BedCount"][];
         };
         /** @description Which values were outside the normal ranges in effect when the reading was taken, for the patient age band that day. */
         WardVitalFlags: {
@@ -18975,6 +19000,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BoardBedPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getBedCounts: {
+        parameters: {
+            query?: {
+                wardId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BedCounts"];
                 };
             };
             /** @description Standard error body. */
