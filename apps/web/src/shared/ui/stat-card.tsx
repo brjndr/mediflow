@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Card } from './card';
 
 interface StatCardProps {
   /** Id for the heading, unique on the page. */
@@ -14,20 +15,22 @@ interface StatCardProps {
 /** A dashboard widget's frame: a titled section with an optional link to the full screen. */
 export function StatCard({ id, title, to, linkLabel, children }: StatCardProps) {
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-2 rounded-lg border p-4">
-      <h2 id={id} className="text-sm font-medium">
-        {title}
-      </h2>
-      {children}
-      {to && linkLabel && (
-        <Link
-          to={to}
-          className="mt-auto inline-flex text-sm text-primary underline-offset-4 hover:underline pointer-coarse:min-h-11 pointer-coarse:items-center"
-        >
-          {linkLabel}
-        </Link>
-      )}
-    </section>
+    <Card asChild>
+      <section aria-labelledby={id} className="flex flex-col gap-2">
+        <h2 id={id} className="text-sm font-medium">
+          {title}
+        </h2>
+        {children}
+        {to && linkLabel && (
+          <Link
+            to={to}
+            className="mt-auto inline-flex text-sm text-primary underline-offset-4 hover:underline pointer-coarse:min-h-11 pointer-coarse:items-center"
+          >
+            {linkLabel}
+          </Link>
+        )}
+      </section>
+    </Card>
   );
 }
 

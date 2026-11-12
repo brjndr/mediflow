@@ -56,6 +56,7 @@ describe('example pages', () => {
       'Rich text',
       'Calendar',
       'Dialog',
+      'Visual components',
     ]);
     await expectNoAxeViolations();
 
