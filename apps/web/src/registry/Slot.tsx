@@ -1,6 +1,7 @@
-import { Component, Suspense, type ReactNode } from 'react';
+import { Component, Fragment, Suspense, type ReactNode } from 'react';
 import { reportError } from '@/app/observability';
 import { useSlotContributions } from './registry-context';
+import type { ResolvedContribution } from './registry';
 import type { SlotId, SlotProps } from './types';
 
 /**
@@ -32,6 +33,8 @@ interface SlotComponentProps extends SlotProps {
   fallback?: ReactNode;
   /** Shown in place of a contribution that failed. Nothing by default. */
   errorFallback?: ReactNode;
+  /** Wraps each contribution (boundary included), for a host that lays them out itself. */
+  frame?: (contribution: ResolvedContribution, node: ReactNode) => ReactNode;
 }
 
 /**
@@ -42,13 +45,17 @@ interface SlotComponentProps extends SlotProps {
  *
  * The slot adds no markup of its own, so the host decides the layout.
  */
-export function Slot({ id, context, fallback = null, errorFallback }: SlotComponentProps) {
+export function Slot({ id, context, fallback = null, errorFallback, frame }: SlotComponentProps) {
   const contributions = useSlotContributions(id);
-  return contributions.map(({ key, Component: Contribution }) => (
-    <ContributionBoundary key={key} fallback={errorFallback}>
-      <Suspense fallback={fallback}>
-        <Contribution context={context} />
-      </Suspense>
-    </ContributionBoundary>
-  ));
+  return contributions.map((contribution) => {
+    const { key, Component: Contribution } = contribution;
+    const node = (
+      <ContributionBoundary key={key} fallback={errorFallback}>
+        <Suspense fallback={fallback}>
+          <Contribution context={context} />
+        </Suspense>
+      </ContributionBoundary>
+    );
+    return frame ? <Fragment key={key}>{frame(contribution, node)}</Fragment> : node;
+  });
 }

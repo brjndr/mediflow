@@ -31,6 +31,7 @@ export const noticesFeature: FeatureManifest = {
       id: 'latest',
       component: () => import('./components/LatestNoticesWidget'),
       requires: ['notice:read'],
+      size: 'lg',
     },
   ],
   settings: {

@@ -47,6 +47,7 @@ export const queueFeature: FeatureManifest = {
       id: 'waiting',
       component: () => import('./components/WaitingWidget'),
       requires: ['queue:read'],
+      size: 'md',
     },
   ],
   extensions: [

@@ -2,6 +2,7 @@ import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import { isAllowed, isFeatureEnabled } from '@/access';
 import type { AccessPolicy, Permission } from '@/shared/types';
 import type {
+  WidgetSize,
   FeatureI18n,
   FeatureManifest,
   FeatureNav,
@@ -51,6 +52,8 @@ export interface ResolvedContribution {
   key: string;
   featureId: string;
   Component: LazyExoticComponent<ComponentType<SlotProps>>;
+  /** Only dashboard widgets: the tile's size. */
+  size?: WidgetSize;
 }
 
 export interface SettingsSection extends FeatureSettings {
@@ -231,6 +234,7 @@ export function createRegistry(manifests: readonly FeatureManifest[]): Registry 
       slot: 'dashboard.widgets' as const,
       requires: widget.requires ?? [],
       order: widget.order ?? 0,
+      size: widget.size ?? ('sm' as const),
       Component: lazy(widget.component),
     })),
   ]);
@@ -292,7 +296,12 @@ export function createRegistry(manifests: readonly FeatureManifest[]): Registry 
         )
         // Array.prototype.sort is stable, so equal orders keep registration order.
         .sort((a, b) => a.order - b.order)
-        .map(({ key, featureId, Component }) => ({ key, featureId, Component })),
+        .map(({ key, featureId, Component, size }) => ({
+          key,
+          featureId,
+          Component,
+          ...(size ? { size } : {}),
+        })),
     settingsSections: (policy) =>
       manifests.flatMap((feature) => {
         const { settings } = feature;
