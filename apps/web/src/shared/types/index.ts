@@ -55,6 +55,8 @@ export interface Tenant {
   phone?: string;
   /** The hospital's registration or licence number as a clinical establishment. */
   registrationNumber?: string;
+  /** The hospital's GST identification number, printed on invoices. */
+  gstin?: string;
   features: Record<string, boolean>;
   /** idleTimeoutMinutes: a session unused for this long is signed out. Absent means the app default. */
   auth: { mode: 'password' | 'sso'; idleTimeoutMinutes?: number };

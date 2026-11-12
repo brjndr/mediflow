@@ -52,3 +52,5 @@ The mock also answers `GET`/`PUT /billing/discount-settings` and `POST /invoices
 ## The mock posts charges from events (#538)
 
 `postMockCharge` (`mocks/handlers/billing.ts`) is what the API's subscribers in `posting.ts` do: a verified lab order that completes is charged as its test's service (`order:<id>`), a dispense is charged per batch at the batch's MRP (`dispense:<id>:<batch>`). Once per source reference, and void when a package covers the service.
+
+- **Letterhead details (#696):** the printed invoice header (`Letterhead`) shows the hospital's address, phone, registration number and GSTIN from the session's tenant; an admin sets them at `/hospital-profile` (`apps/web/src/features/hospital-profile/CLAUDE.md`).

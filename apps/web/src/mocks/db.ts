@@ -26,6 +26,7 @@ const initialTenants: Record<string, TenantDto> = {
     address: '12 Sample Road, Indiranagar\nBengaluru 560038, Karnataka',
     phone: '+91 80 4000 0000',
     registrationNumber: 'KA-CE-0000',
+    gstin: '29ABCDE1234F1Z5',
     features: {
       patients: true,
       appointments: true,
@@ -260,6 +261,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'user:manage' },
   { permission: 'role:read' },
   { permission: 'role:manage' },
+  { permission: 'hospitalProfile:read' },
+  { permission: 'hospitalProfile:manage' },
   { permission: 'notice:read' },
   { permission: 'notice:manage' },
   { permission: 'department:read' },
@@ -790,7 +793,7 @@ export function setTenantLocale(tenantId: string, locale: string): void {
 /** What a platform admin does: change what the letterhead prints. Undefined removes one. */
 export function setTenantLetterhead(
   tenantId: string,
-  details: Partial<Pick<TenantDto, 'address' | 'phone' | 'registrationNumber'>>,
+  details: Partial<Pick<TenantDto, 'address' | 'phone' | 'registrationNumber' | 'gstin'>>,
 ): void {
   const tenant = tenants[tenantId];
   if (!tenant) throw new Error(`Unknown mock tenant: ${tenantId}`);

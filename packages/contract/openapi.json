@@ -253,6 +253,10 @@
             "description": "The hospital's registration or licence number as a clinical establishment, printed on the letterhead.",
             "type": "string"
           },
+          "gstin": {
+            "description": "The hospital's GST identification number, printed on invoices.",
+            "type": "string"
+          },
           "features": {
             "type": "object",
             "additionalProperties": {
@@ -455,6 +459,58 @@
                 }
               }
             }
+          }
+        }
+      },
+      "HospitalProfile": {
+        "description": "What the hospital prints on its letterhead and invoices. A detail that is not set is absent. Holds no patient data.",
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "registrationNumber": {
+            "type": "string"
+          },
+          "gstin": {
+            "type": "string"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion.",
+            "type": "integer"
+          }
+        }
+      },
+      "HospitalProfileUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expectedVersion"],
+        "properties": {
+          "address": {
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 50,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "registrationNumber": {
+            "maxLength": 50,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "gstin": {
+            "pattern": "^[0-9]{2}[A-Za-z0-9]{13}$|^$",
+            "type": "string"
+          },
+          "expectedVersion": {
+            "type": "integer"
           }
         }
       },
@@ -18394,6 +18450,152 @@
         "responses": {
           "204": {
             "description": "Deleted"
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hospital-profile": {
+      "get": {
+        "operationId": "getHospitalProfile",
+        "tags": ["hospital-profile"],
+        "description": "The active hospital’s address, phone, registration number and GSTIN, as printed on its letterhead and invoices.",
+        "responses": {
+          "200": {
+            "description": "What the hospital prints on its letterhead and invoices. A detail that is not set is absent. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalProfile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateHospitalProfile",
+        "tags": ["hospital-profile"],
+        "description": "Changes the details sent; those left out stay as they are, and an empty text removes one. Send the version the change was made from: 409 conflict when the profile has changed since. The GSTIN is stored in capitals. Sending what the hospital already has changes nothing.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HospitalProfileUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What the hospital prints on its letterhead and invoices. A detail that is not set is absent. Holds no patient data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "401": {
             "description": "Standard error body.",

@@ -10,6 +10,7 @@ import {
 } from './db';
 import { accountHandlers } from './handlers/auth';
 import { departmentsHandlers } from './handlers/departments';
+import { hospitalProfileHandlers } from './handlers/hospital-profile';
 import {
   appointmentChangeHandlers,
   appointmentsHandlers,
@@ -143,6 +144,7 @@ export const handlers = [
   ...patientsHandlers,
   ...departmentsHandlers,
   ...rolesHandlers,
+  ...hospitalProfileHandlers,
   ...doctorsHandlers,
   ...appointmentsHandlers,
   ...bookingHandlers,

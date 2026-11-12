@@ -1,0 +1,24 @@
+{
+  "heading": "Hospital profile",
+  "description": "The details printed under the hospital's name on prescriptions, invoices and other documents. The name, logo and colour are set by the platform team.",
+  "loading": "Loading the hospital profile",
+  "address": "Address",
+  "addressHint": "As it should be printed. Line breaks are kept.",
+  "phone": "Phone",
+  "registrationNumber": "Registration number",
+  "registrationNumberHint": "Your registration or licence number as a clinical establishment.",
+  "gstin": "GSTIN",
+  "gstinHint": "Fifteen characters, for example 29ABCDE1234F1Z5. Printed on invoices.",
+  "gstinInvalid": "A GSTIN has fifteen letters and digits, and starts with two digits.",
+  "save": "Save details",
+  "cancel": "Discard changes",
+  "saved": "The hospital profile was saved.",
+  "readOnly": "You can see these details but not change them.",
+  "notSet": "Not set",
+  "theySaved": "Someone else saved a different value for these. Saving now replaces it:",
+  "tryAgain": "Try again",
+  "errors": {
+    "loadFailed": "The hospital profile could not be loaded.",
+    "conflict": "Someone else changed the hospital profile while you were editing. It has been updated: check it and save again."
+  }
+}
