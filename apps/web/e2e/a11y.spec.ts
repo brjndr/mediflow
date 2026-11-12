@@ -52,6 +52,22 @@ async function registeredRoutes(): Promise<string[]> {
 const routes = await registeredRoutes();
 
 /**
+ * The app has no theme switch yet; `.dark` on the root is what the dark tokens answer to
+ * (index.css). `A11Y_DARK=1 pnpm e2e a11y` runs this whole file in dark, as the visual refresh
+ * check (#714) did. CI runs light only, to keep the job's time.
+ */
+if (process.env.A11Y_DARK) {
+  test.beforeEach(async ({ page }) => {
+    // The root does not exist yet when the script runs, so it is added once the document has one.
+    await page.addInitScript(() => {
+      const set = () => document.documentElement?.classList.add('dark');
+      set();
+      new MutationObserver(set).observe(document, { childList: true });
+    });
+  });
+}
+
+/**
  * An appointment of the mock that is still to come, so every change of status is offered on it.
  * The days start from tomorrow in UTC, which is no earlier than today at any hospital east of
  * UTC (the mock's are), and run a week, inside the days the mock books.
@@ -347,6 +363,41 @@ test.describe('screens in other states pass axe', () => {
     await expect(page.locator('main [aria-invalid="true"]').first()).toBeVisible();
     await expectNoAxeViolations(page);
   });
+});
+
+/**
+ * A hospital's brand colour (#714): the landing page, its sidebar and its widgets, with the
+ * tokens `applyTheme` writes for that colour, pass axe with contrast on.
+ */
+test.describe('a hospital brand colour passes axe', () => {
+  test.skip(isTablet, 'The tablet shows the desktop content: checked at desktop width.');
+  // A brand colour is accepted by its contrast on white only (themeFromBrandColor), so on the dark
+  // page the links in the primary colour can fall short. Dark has no switch yet; see the notes.
+  test.skip(!!process.env.A11Y_DARK, 'A brand colour is only guaranteed on the light page.');
+
+  // What themeFromBrandColor makes of each colour (the e2e project cannot import app code); the
+  // function itself, and the colour it refuses, are tested in tenancy/theming.test.tsx.
+  for (const [label, colour, text] of [
+    ['a standard one', '#0f766e', '#ffffff'],
+    ['a very dark one', '#0b1020', '#ffffff'],
+    ['a low-chroma one', '#5b6470', '#ffffff'],
+    ['one that takes black text', '#757575', '#000000'],
+  ] as const) {
+    test(label, async ({ page }) => {
+      await page.goto('/');
+      await settled(page);
+      await page.evaluate(
+        ({ primary, foreground }) => {
+          const root = document.documentElement.style;
+          root.setProperty('--primary', primary);
+          root.setProperty('--ring', primary);
+          root.setProperty('--primary-foreground', foreground);
+        },
+        { primary: colour, foreground: text },
+      );
+      await expectNoAxeViolations(page);
+    });
+  }
 });
 
 /** The desktop project only: these set their own window size, so one run is enough. */
