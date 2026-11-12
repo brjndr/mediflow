@@ -442,6 +442,8 @@
   },
   "chart": {
     "showTable": "Show as table",
+    "highlighted": "Highlighted: {{label}}.",
+    "highlightedMark": "(highlighted)",
     "empty": "No values to show.",
     "summary_one": "1 value: {{maxLabel}}, {{max}}.",
     "summary_other": "{{count}} values. Highest: {{maxLabel}}, {{max}}. Lowest: {{minLabel}}, {{min}}."
