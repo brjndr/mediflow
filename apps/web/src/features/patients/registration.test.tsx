@@ -87,6 +87,20 @@ describe('patient registration', () => {
     expect(seen.checks[0]?.body).toMatchObject({ lastName: 'Kapoor', dob: '1990-05-17' });
   });
 
+  it('sends the old registration number when one is typed, and none when not', async () => {
+    const seen = watchRegistration();
+    renderApp({ entry: '/patients/new' });
+    await screen.findByRole('heading', HEADING);
+
+    await fill();
+    await userEvent.type(screen.getByLabelText(/Old registration number/), 'REG/1998/0042');
+    await submit();
+
+    expect(await screen.findByText('MRN-PTH-12001')).toBeInTheDocument();
+    expect(seen.creates[0]?.body).toMatchObject({ legacyId: 'REG/1998/0042' });
+    expect(seen.creates[0]?.search).toBe('');
+  });
+
   it('shows validation errors and sends nothing', async () => {
     const seen = watchRegistration();
     renderApp({ entry: '/patients/new' });

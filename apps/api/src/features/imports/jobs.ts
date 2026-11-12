@@ -228,6 +228,7 @@ async function eachRow(
   const minorDigits = minorDigitsOf(await currencyOfHospital(writer.txClient));
   const problems: LineProblem[] = [];
   const keys = new Set<string>();
+  const uniques = new Set<string>();
   let after = 0;
   let done = 0;
   for (;;) {
@@ -241,9 +242,14 @@ async function eachRow(
       } else {
         try {
           const prepared = await kind.prepare(writer, converted.body);
-          if (keys.has(prepared.key)) problems.push({ line: row.line, code: 'duplicate_in_file' });
-          else {
+          const repeated = prepared.unique?.find((u) => uniques.has(`${u.field} ${u.value}`));
+          if (repeated) {
+            problems.push({ line: row.line, field: repeated.field, code: 'duplicate_in_file' });
+          } else if (keys.has(prepared.key)) {
+            problems.push({ line: row.line, code: 'duplicate_in_file' });
+          } else {
             keys.add(prepared.key);
+            for (const u of prepared.unique ?? []) uniques.add(`${u.field} ${u.value}`);
             if (write) await kind.write(writer, prepared.value, claimed.actorId);
           }
         } catch (error) {

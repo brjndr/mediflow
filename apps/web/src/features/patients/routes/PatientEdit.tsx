@@ -20,7 +20,7 @@ import type { PatientRecord, PatientUpdate } from '../types';
 /** Contact details: shown, and sent, only to a role that may see them. */
 const CONTACT_FIELDS = ['phone', 'email', 'address'] as const;
 const PLAIN_FIELDS = ['firstName', 'lastName', 'dob', 'gender'] as const;
-const FIELDS = [...PLAIN_FIELDS, ...CONTACT_FIELDS, 'contactConsent'] as const;
+const FIELDS = [...PLAIN_FIELDS, ...CONTACT_FIELDS, 'legacyId', 'contactConsent'] as const;
 type Field = (typeof FIELDS)[number];
 type Changes = Omit<PatientUpdate, 'expectedVersion'>;
 
@@ -35,6 +35,7 @@ function toValues(record: PatientRecord, contact: boolean): PatientFormValues {
     phone: contact ? record.phone : '',
     email: contact ? (record.email ?? '') : '',
     address: contact ? (record.address ?? '') : '',
+    legacyId: record.legacyId ?? '',
     contactConsent: record.contactConsent?.given ?? false,
   };
 }
@@ -52,6 +53,7 @@ function changesFrom(values: PatientFormValues, record: PatientRecord, contact: 
     if (values.email !== before.email) changes.email = values.email || null;
     if (values.address !== before.address) changes.address = values.address || null;
   }
+  if (values.legacyId !== before.legacyId) changes.legacyId = values.legacyId || null;
   if (values.contactConsent !== before.contactConsent) {
     changes.contactConsent = { given: values.contactConsent };
   }
@@ -60,8 +62,12 @@ function changesFrom(values: PatientFormValues, record: PatientRecord, contact: 
 
 /** The record as it will read once the changes are saved, to show at once. */
 function applied(record: PatientRecord, changes: Changes): PatientRecord {
-  const { email, address, contactConsent, ...plain } = changes;
+  const { email, address, legacyId, contactConsent, ...plain } = changes;
   const next: PatientRecord = { ...record, ...plain };
+  if (legacyId !== undefined) {
+    if (legacyId === null) delete next.legacyId;
+    else next.legacyId = legacyId;
+  }
   if (email !== undefined) {
     if (email === null) delete next.email;
     else next.email = email;

@@ -670,6 +670,10 @@
             "description": "Masked to its last four digits for a caller without patient.contact:read.",
             "type": "string"
           },
+          "legacyId": {
+            "description": "The registration number from the older register (#694).",
+            "type": "string"
+          },
           "mergedInto": {
             "description": "Present when this record was merged into another (#194, #604): the id of the record to use.",
             "type": "string"
@@ -768,6 +772,10 @@
               }
             }
           },
+          "legacyId": {
+            "description": "The registration number from the older register (#694).",
+            "type": "string"
+          },
           "mergedInto": {
             "description": "Present when this record was merged into another (#194): the id of the record to use. A merged record cannot be changed.",
             "type": "string"
@@ -813,6 +821,12 @@
           },
           "address": {
             "maxLength": 500,
+            "type": "string"
+          },
+          "legacyId": {
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
             "type": "string"
           },
           "contactConsent": {
@@ -868,6 +882,12 @@
           "address": {
             "type": ["string", "null"],
             "maxLength": 500
+          },
+          "legacyId": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
           },
           "contactConsent": {
             "type": "object",
@@ -18235,7 +18255,7 @@
                 "properties": {
                   "q": {
                     "maxLength": 100,
-                    "description": "Search text: name, phone or MRN.",
+                    "description": "Search text: name, phone or MRN. A term equal to a legacy registration number also finds that patient.",
                     "type": "string"
                   },
                   "cursor": {

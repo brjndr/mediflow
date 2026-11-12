@@ -38,6 +38,7 @@ const EMPTY: DefaultValues<PatientFormValues> = {
   phone: '',
   email: '',
   address: '',
+  legacyId: '',
   contactConsent: false,
 };
 
@@ -130,6 +131,12 @@ export function PatientForm({
           autoComplete="off"
         />
       )}
+      <TextField
+        name="legacyId"
+        label={t('form.legacyId')}
+        hint={hints.legacyId ?? t('form.legacyIdHint')}
+        autoComplete="off"
+      />
       <CheckboxField
         name="contactConsent"
         label={t('form.contactConsent')}

@@ -1098,3 +1098,59 @@ describe('two people changing the same record', () => {
     expect(await versionOf(patient.id)).toBe(2);
   });
 });
+
+describe('the legacy registration number (#694)', () => {
+  const legacy = (id: string) => ({ legacyId: id });
+
+  it('is kept, found by an exact search, unique per hospital and optional', async () => {
+    const created = await register({
+      ...asha,
+      firstName: 'Oldfile',
+      phone: '95000 11111',
+      ...legacy('REG/1998/0042'),
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json<Summary & { legacyId?: string }>().legacyId).toBe('REG/1998/0042');
+    const id = created.json<Summary>().id;
+
+    const found = (await search({ q: 'REG/1998/0042' })).json<Page>();
+    expect(found.items.map((item) => item.id)).toContain(id);
+    // Exact only: a part of it finds nothing.
+    expect((await search({ q: 'REG/1998' })).json<Page>().items).toEqual([]);
+
+    const again = await register({ ...asha, firstName: 'Other', ...legacy('REG/1998/0042') });
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toMatchObject({ error: { code: 'legacy_id_taken' } });
+
+    // Without one, nothing changes; the number can be changed and removed.
+    const plain = await register({ ...asha, firstName: 'Plain', phone: '95000 22222' });
+    expect(plain.statusCode).toBe(201);
+    expect(plain.json()).not.toHaveProperty('legacyId');
+    const taken = await change(plain.json<Summary>().id, legacy('REG/1998/0042'));
+    expect(taken.statusCode).toBe(409);
+    const moved = await change(id, legacy('REG/1998/0043'));
+    expect(moved.json()).toMatchObject({ legacyId: 'REG/1998/0043' });
+    const cleared = await change(id, { legacyId: null });
+    expect(cleared.json()).not.toHaveProperty('legacyId');
+    // The event names the field, never the number.
+    const { rows } = await pool.query<{ payload: unknown }>(
+      "select payload from outbox where tenant_id = $1 and entity_id = $2 and event = 'patient.updated'",
+      [hospital.id, id],
+    );
+    expect(JSON.stringify(rows)).not.toContain('REG/1998');
+  });
+
+  it('may repeat in another hospital, which never finds the first one’s patient', async () => {
+    const mine = await register({ ...asha, firstName: 'Mine', ...legacy('X-777') });
+    const theirs = await register(
+      { ...asha, firstName: 'Theirs', phone: '95000 33333', ...legacy('X-777') },
+      { tenant: clinic },
+    );
+    expect(mine.statusCode).toBe(201);
+    expect(theirs.statusCode).toBe(201);
+    const fromHospital = (await search({ q: 'X-777' })).json<Page>();
+    expect(fromHospital.items.map((item) => item.id)).toEqual([mine.json<Summary>().id]);
+    const fromClinic = (await search({ q: 'X-777' }, { tenant: clinic })).json<Page>();
+    expect(fromClinic.items.map((item) => item.id)).toEqual([theirs.json<Summary>().id]);
+  });
+});

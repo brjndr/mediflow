@@ -51,6 +51,8 @@ export interface Prepared<T> {
   value: T;
   /** Two rows with the same key are the same record: the second is a duplicate within the file. */
   key: string;
+  /** Fields whose value may appear in one row only; the second is reported on its field. */
+  unique?: { field: string; value: string }[];
 }
 
 /**

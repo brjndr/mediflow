@@ -1,6 +1,7 @@
 import type pg from 'pg';
 import type { PermissionScope } from '../../core/access/registry.js';
 import { HttpError } from '../../core/http/errors.js';
+import { tidy } from '../../core/http/text.js';
 import type { PatientCreate, PatientSort, PatientUpdate } from './schemas.js';
 
 /**
@@ -29,11 +30,12 @@ export interface PatientRow {
   contact_consent_at: Date | null;
   contact_consent_recorded_by: string | null;
   version: number;
+  legacy_id: string | null;
   merged_into_id: string | null;
 }
 
 const COLUMNS = `id, tenant_id, mrn, first_name, last_name, dob::text as dob, gender, phone, email,
-  address, contact_consent_given, contact_consent_at, contact_consent_recorded_by, version, merged_into_id`;
+  address, contact_consent_given, contact_consent_at, contact_consent_recorded_by, version, merged_into_id, legacy_id`;
 
 /** Who may the caller see, given the scope their role holds the permission with. */
 export interface Visibility {
@@ -119,6 +121,9 @@ export async function searchPatients(
       return `search_text like $${params.length}`;
     });
     const matches = [`(${words.join(' and ')})`];
+    // An exact legacy registration number (#694), on the plain column and its tenant-first index.
+    params.push(tidy(input.q ?? ''));
+    matches.push(`legacy_id = $${params.length}`);
     // Only something that looks like a phone number is tried as one, so the digits of an MRN
     // do not bring in everyone whose phone happens to contain them.
     const digits = term.replace(/\D/g, '');
@@ -218,6 +223,20 @@ export async function patientInScope(
   return rowCount === 1;
 }
 
+/** Whether a legacy registration number is already on a patient of the hospital (#694). */
+export async function legacyIdTaken(client: pg.ClientBase, legacyId: string): Promise<boolean> {
+  const { rowCount } = await client.query('select 1 from patients where legacy_id = $1', [
+    legacyId,
+  ]);
+  return rowCount === 1;
+}
+
+async function assertLegacyIdFree(client: pg.ClientBase, legacyId: string): Promise<void> {
+  if (await legacyIdTaken(client, legacyId)) {
+    throw new HttpError(409, 'legacy_id_taken', 'That registration number is already in use');
+  }
+}
+
 /** Today's date where the hospital is, as YYYY-MM-DD. A birth date cannot be after it. */
 export async function todayAtHospital(client: pg.PoolClient): Promise<string> {
   const { rows } = await client.query<{ today: string }>(
@@ -269,14 +288,15 @@ export async function insertPatient(
   input: PatientCreate,
   userId: string,
 ): Promise<PatientRow> {
+  if (input.legacyId) await assertLegacyIdFree(client, input.legacyId);
   const mrn = await nextMrn(client);
   const consent = input.contactConsent;
   const { rows } = await client.query<PatientRow>(
     `insert into patients (tenant_id, mrn, first_name, last_name, dob, gender, phone, email, address,
-       contact_consent_given, contact_consent_at, contact_consent_recorded_by, created_by)
+       contact_consent_given, contact_consent_at, contact_consent_recorded_by, created_by, legacy_id)
      values (app_tenant_id(), $1, $2, $3, $4::date, $5, $6, $7, $8, $9,
        case when $9::boolean is null then null else now() end,
-       case when $9::boolean is null then null else $10 end, $10)
+       case when $9::boolean is null then null else $10 end, $10, $11)
      returning ${COLUMNS}`,
     [
       mrn,
@@ -289,6 +309,7 @@ export async function insertPatient(
       input.address ?? null,
       consent ? consent.given : null,
       userId,
+      input.legacyId ?? null,
     ],
   );
   const row = rows[0];
@@ -304,6 +325,7 @@ const UPDATABLE = {
   phone: 'phone',
   email: 'email',
   address: 'address',
+  legacyId: 'legacy_id',
 } as const;
 
 /**
@@ -317,6 +339,9 @@ export async function updatePatient(
   changes: Omit<PatientUpdate, 'expectedVersion'>,
   userId: string,
 ): Promise<{ row: PatientRow; fields: string[] }> {
+  if (typeof changes.legacyId === 'string' && changes.legacyId !== existing.legacy_id) {
+    await assertLegacyIdFree(client, changes.legacyId);
+  }
   const params: unknown[] = [existing.id];
   const sets: string[] = [];
   const fields: string[] = [];

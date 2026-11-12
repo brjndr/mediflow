@@ -48,6 +48,7 @@ const summary = (row: PatientRow, contact: boolean) => ({
   dob: row.dob,
   gender: row.gender,
   phone: contact ? row.phone : maskPhone(row.phone),
+  ...(row.legacy_id === null ? {} : { legacyId: row.legacy_id }),
   ...(row.merged_into_id ? { mergedInto: row.merged_into_id } : {}),
 });
 
