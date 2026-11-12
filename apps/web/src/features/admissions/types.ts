@@ -4,6 +4,7 @@ import type { components } from '@mediflow/contract';
 export type BoardBed = components['schemas']['BoardBed'];
 export type BoardBedPage = components['schemas']['BoardBedPage'];
 export type BoardBedStatus = components['schemas']['BoardBedStatus'];
+export type BedCounts = components['schemas']['BedCounts'];
 export type WardOption = { id: string; name: string };
 export const DISCHARGE_TYPES = [
   'routine',

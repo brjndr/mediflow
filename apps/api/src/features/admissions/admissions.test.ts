@@ -885,6 +885,41 @@ describe('the bed board and housekeeping', () => {
     expect(errorOf(await get('/beds/board?cursor=nonsense'))).toEqual([400, 'invalid_cursor']);
   });
 
+  it('counts the beds by status in one request, of a ward or of every ward', async () => {
+    await reset();
+    await admitted(patient(0), { bedId: bed(0) });
+    type Counts = { counts: { status: string; count: number }[] };
+    const all = await ok<Counts>(await get('/beds/counts'));
+    expect(all.counts.map((each) => each.status)).toEqual([
+      'available',
+      'occupied',
+      'cleaning',
+      'blocked',
+    ]);
+    expect(all.counts.find((each) => each.status === 'occupied')?.count).toBe(1);
+    expect(all.counts.reduce((sum, each) => sum + each.count, 0)).toBe(
+      (await ok<Page<BoardBed>>(await get('/beds/board?limit=1'))).total,
+    );
+    const one = await ok<Counts>(await get(`/beds/counts?wardId=${ward}`));
+    expect(one.counts.find((each) => each.status === 'occupied')?.count).toBe(1);
+    const none = await ok<Counts>(await get('/beds/counts?wardId=not-a-ward'));
+    expect(none.counts.every((each) => each.count === 0)).toBe(true);
+    // Another hospital counts its own beds only.
+    const theirs = await ok<Counts>(
+      await get('/beds/counts', { tenant: clinic, user: clinicDoctor }),
+    );
+    expect(theirs.counts.find((each) => each.status === 'occupied')?.count).toBe(0);
+    expect(theirs.counts.reduce((sum, each) => sum + each.count, 0)).toBe(1);
+    expect(errorOf(await get('/beds/counts', { tenant: closed }))).toEqual([
+      403,
+      'feature_disabled',
+    ]);
+    expect(errorOf(await get('/beds/counts', { user: pharmacist }))).toEqual([
+      403,
+      'permission_denied',
+    ]);
+  });
+
   it('marks a bed being cleaned and ready, checked against its version', async () => {
     await reset();
     const board = async () =>

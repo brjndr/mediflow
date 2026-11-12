@@ -3,6 +3,7 @@ import {
   admissionPageSchema,
   admissionDetailSchema,
   admissionSchema,
+  bedCountsSchema,
   boardPageSchema,
   wardOptionsSchema,
   type BlockReason,
@@ -12,6 +13,7 @@ import type {
   Admission,
   AdmissionCreate,
   AdmissionPage,
+  BedCounts,
   BoardBed,
   BoardBedPage,
   BoardBedStatus,
@@ -40,15 +42,18 @@ export async function fetchBoard(
 }
 
 /**
- * How many beds a ward (or every ward) has in one status: the board's own count, read with a
- * page of one bed so no patient comes with it.
+ * How many beds a ward (or every ward) has in each status, in one request. Counts only, so
+ * no patient comes with it.
  */
-export async function fetchBedCount(
-  { wardId, status }: { wardId: string; status: BoardBedStatus },
+export async function fetchBedCounts(
+  { wardId }: { wardId: string },
   signal?: AbortSignal,
-): Promise<number> {
-  const page = await fetchBoard({ wardId, status, limit: 1 }, signal);
-  return page.total ?? 0;
+): Promise<BedCounts> {
+  const result = await api.GET('/beds/counts', {
+    params: { query: { wardId: wardId || undefined } },
+    signal,
+  });
+  return bedCountsSchema.parse(requireData(result));
 }
 
 /**

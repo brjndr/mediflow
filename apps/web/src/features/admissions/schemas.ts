@@ -4,6 +4,7 @@ import type {
   Admission,
   AdmissionPage,
   AdmissionType,
+  BedCounts,
   BoardBed,
   BoardBedPage,
   BoardBedStatus,
@@ -59,6 +60,10 @@ export const boardBedSchema: z.ZodType<BoardBed> = z.object({
     })
     .optional(),
   version: z.number().int().min(1),
+});
+
+export const bedCountsSchema: z.ZodType<BedCounts> = z.object({
+  counts: z.array(z.object({ status: z.enum(BOARD_STATUSES), count: z.number().int().min(0) })),
 });
 
 export const boardPageSchema: z.ZodType<BoardBedPage> = z.object({

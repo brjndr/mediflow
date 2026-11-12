@@ -3434,6 +3434,34 @@
           }
         }
       },
+      "BedCount": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["status", "count"],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/BoardBedStatus"
+          },
+          "count": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "BedCounts": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["counts"],
+        "properties": {
+          "counts": {
+            "description": "One entry for each status, in the order available, occupied, cleaning, blocked.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BedCount"
+            }
+          }
+        }
+      },
       "WardVitalFlags": {
         "additionalProperties": false,
         "description": "Which values were outside the normal ranges in effect when the reading was taken, for the patient age band that day.",
@@ -25147,6 +25175,86 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BoardBedPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/beds/counts": {
+      "get": {
+        "operationId": "getBedCounts",
+        "tags": ["admissions"],
+        "description": "How many beds in use (as `/beds/board` lists them) are in each status, of one ward or of every ward, in one request for the capacity widget and the census. Counts only: no patient is read or named, so nothing is audited. Requires admission:read, the admissions and wards feature flags.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "wardId",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BedCounts"
                 }
               }
             }
