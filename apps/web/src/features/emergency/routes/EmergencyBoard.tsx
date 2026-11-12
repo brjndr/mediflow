@@ -63,6 +63,7 @@ export default function EmergencyBoard() {
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const canRegister = usePermission('emergency:register');
+  const canReadMlc = usePermission('medicoLegal:read');
   const now = useNow();
 
   const [status, setStatus] = useState<EmergencyCaseStatus | typeof ACTIVE>(ACTIVE);
@@ -196,7 +197,16 @@ export default function EmergencyBoard() {
             <option value="in_treatment">{t('status.in_treatment')}</option>
           </select>
         </label>
-        {canRegister && <Button onClick={() => setDialog('register')}>{t('register.open')}</Button>}
+        <div className="flex flex-wrap items-center gap-3">
+          {canReadMlc && (
+            <Link className="text-sm underline" to="/emergency/medico-legal">
+              {t('mlcRegister.link')}
+            </Link>
+          )}
+          {canRegister && (
+            <Button onClick={() => setDialog('register')}>{t('register.open')}</Button>
+          )}
+        </div>
       </div>
 
       <p className="text-sm text-muted-foreground">

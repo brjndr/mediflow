@@ -49,6 +49,19 @@ export function useCases(status: EmergencyCaseStatus | undefined) {
   });
 }
 
+/** The register of medico-legal cases: every status, newest first. Read on demand, not on a timer. */
+export function useMlcRegister() {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: emergencyKeys.list(tenantId ?? '', { medicoLegal: true, limit: PAGE_SIZE }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchCases({ medicoLegal: true, cursor: pageParam, limit: PAGE_SIZE }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: tenantId !== undefined,
+  });
+}
+
 /** The clock the waiting times are drawn from, moved on every `everyMs`. */
 export function useNow(everyMs = 15_000): number {
   const [now, setNow] = useState(() => Date.now());

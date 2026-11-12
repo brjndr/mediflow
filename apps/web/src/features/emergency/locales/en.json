@@ -12,6 +12,16 @@
   "overdueCount_one": "{{count}} is past the waiting target.",
   "overdueCount_other": "{{count}} are past the waiting target.",
   "empty": "Nobody is in the emergency department.",
+  "mlcRegister": {
+    "link": "Medico-legal cases",
+    "heading": "Medico-legal cases",
+    "description": "Every case marked medico-legal, newest first, also those who have left. Open a case to see its record.",
+    "gridLabel": "Medico-legal cases",
+    "status": "Status",
+    "empty": "No case is marked medico-legal.",
+    "count_one": "{{count}} medico-legal case.",
+    "count_other": "{{count}} medico-legal cases."
+  },
   "filter": {
     "label": "Show",
     "active": "Everyone in the department"

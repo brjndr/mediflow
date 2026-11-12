@@ -239,6 +239,7 @@ export type EmergencyMlcSave = Static<typeof EmergencyMlcSave>;
 export const EmergencyParams = Type.Object({ caseId: Type.String({ maxLength: 64 }) });
 export const EmergencyListQuery = Type.Object({
   status: Type.Optional(ref(EmergencyCaseStatus)),
+  medicoLegal: Type.Optional(Type.Boolean()),
   cursor: Type.Optional(Type.String({ maxLength: 300 })),
   limit: Type.Optional(
     Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),

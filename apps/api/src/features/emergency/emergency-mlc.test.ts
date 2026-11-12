@@ -286,3 +286,30 @@ describe('hospital boundary', () => {
     expect(rows).toHaveLength(0);
   });
 });
+
+describe('the register of medico-legal cases (#676)', () => {
+  type Page = { items: Case[]; nextCursor: string | null; total?: number };
+  const register = async (query: string, options: Options = {}) =>
+    (await get(`/emergency/cases?medicoLegal=true${query}`, options)).json<Page>();
+
+  it('lists only flagged cases, newest first, in pages, and nothing of another hospital', async () => {
+    const plain = await arrive();
+    const first = await arrive();
+    const second = await arrive();
+    await save(first.id, {});
+    await save(second.id, {});
+    const other = await arrive({ tenant: clinic, user: clinicAdmin });
+    await save(other.id, {}, { tenant: clinic, user: clinicAdmin });
+
+    const page = await register('&limit=1', { user: nurse });
+    expect(page.items.map((item) => item.id)).toEqual([second.id]);
+    expect(page.nextCursor).not.toBeNull();
+    const next = await register(`&limit=100&cursor=${page.nextCursor}`, { user: nurse });
+    const ids = next.items.map((item) => item.id);
+    expect(ids).toContain(first.id);
+    expect(ids).not.toContain(plain.id);
+    expect(ids).not.toContain(other.id);
+    expect(next.items.every((item) => item.medicoLegal)).toBe(true);
+    expect(page.total).toBeGreaterThanOrEqual(2);
+  });
+});
