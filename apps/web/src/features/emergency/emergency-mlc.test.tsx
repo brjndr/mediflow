@@ -1,8 +1,9 @@
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { revokePermission, setTenantFeature, TENANT_IDS } from '@/mocks/db';
 import { expectNoAxeViolations } from '@/test/axe';
+import { mockMlcPrints } from '@/mocks/handlers/emergency';
 import { renderApp } from '@/test/render';
 
 // ER-0002 is an unidentified arrival (a road accident brought by the police).
@@ -70,6 +71,54 @@ describe('medico-legal case', () => {
     await userEvent.click(within(again).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(said('The medico-legal record of ER-0002 was revised.')).toBe(true));
     expect(await screen.findByText(/revision 2/)).toBeInTheDocument();
+  }, 30_000);
+});
+
+describe('printing', () => {
+  let print: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    print = vi.fn();
+    vi.stubGlobal('print', print);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('records the print, then prints the latest revision on a sheet of its own', async () => {
+    await open();
+    const dialog = await fillAndFlag();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await screen.findByText('Hit by a truck, head injury');
+    expect(mockMlcPrints()).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Print' }));
+    await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+    expect(mockMlcPrints()).toMatchObject([
+      { tenantId: TENANT_IDS.hospital, caseId: 'er_2', revision: 1 },
+    ]);
+    const sheet = document.querySelector<HTMLElement>('[data-print-sheet]');
+    expect(sheet).not.toBeNull();
+    expect(within(sheet!).getByText('Medico-legal record, ER-0002')).toBeInTheDocument();
+    expect(within(sheet!).getByText('Hit by a truck, head injury')).toBeInTheDocument();
+    expect(within(sheet!).getByText(/revision 1. This print is logged/)).toBeInTheDocument();
+    // Nothing of the record is in the address.
+    expect(window.location.search).toBe('');
+    window.dispatchEvent(new Event('afterprint'));
+    await waitFor(() => expect(document.querySelector('[data-print-sheet]')).toBeNull());
+  }, 30_000);
+
+  it('offers no print without medicoLegal:read, and prints nothing', async () => {
+    await open();
+    const dialog = await fillAndFlag();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await screen.findByText('Hit by a truck, head injury');
+    cleanup();
+    revokePermission(TENANT_IDS.hospital, 'admin', 'medicoLegal:read');
+    renderApp({ entry: '/emergency/er_2' });
+    await screen.findByText(/The details are restricted/);
+    expect(screen.queryByRole('button', { name: 'Print' })).not.toBeInTheDocument();
+    expect(print).not.toHaveBeenCalled();
+    expect(mockMlcPrints()).toHaveLength(0);
   }, 30_000);
 });
 

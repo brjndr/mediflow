@@ -2,10 +2,12 @@ import { Scale } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
+import { useSession } from '@/app/session';
 import { errorMessageKey } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { Dialog } from '@/shared/ui/dialog';
+import { PrintSheet } from '@/shared/ui/print-sheet';
 import {
   CheckboxField,
   Form,
@@ -14,8 +16,8 @@ import {
   TextField,
   useZodForm,
 } from '@/shared/ui/form';
-import { useFormatters } from '@/tenancy';
-import { useMlc, useSaveMlc } from '../hooks/use-emergency';
+import { Letterhead, useFormatters } from '@/tenancy';
+import { useMlc, useMlcPrinting, useSaveMlc } from '../hooks/use-emergency';
 import { MLC_CATEGORIES, mlcFormSchema, type MlcFormValues } from '../schemas';
 import type { EmergencyCase, EmergencyMlc } from '../types';
 import { failureText } from './failure';
@@ -42,8 +44,10 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const headingId = useId();
+  const printErrorId = useId();
   const canRead = usePermission('medicoLegal:read');
   const canManage = usePermission('medicoLegal:manage');
+  const printing = useMlcPrinting(row.id);
   const record = useMlc(row.id, row.medicoLegal && canRead);
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState('');
@@ -109,10 +113,30 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
             />
           </dl>
           <p className="whitespace-pre-wrap break-words">{record.data.narrative}</p>
-          {canManage && (
-            <Button variant="outline" className="self-start" onClick={() => setEditing(true)}>
-              {t('mlc.revise')}
+          <div className="flex flex-wrap gap-2">
+            {canManage && (
+              <Button variant="outline" onClick={() => setEditing(true)}>
+                {t('mlc.revise')}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              aria-disabled={printing.busy || undefined}
+              aria-describedby={printing.error ? printErrorId : undefined}
+              onClick={printing.print}
+            >
+              {t('mlc.print')}
             </Button>
+          </div>
+          {printing.error && (
+            <p id={printErrorId} role="alert" className="text-sm text-destructive">
+              {tCommon(errorMessageKey(printing.error))}
+            </p>
+          )}
+          {printing.job && (
+            <PrintSheet key={printing.job.id} onDone={printing.done}>
+              <MlcDocument row={row} record={printing.job.value} />
+            </PrintSheet>
           )}
         </>
       )}
@@ -130,6 +154,63 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
         />
       )}
     </section>
+  );
+}
+
+/**
+ * The record on paper: the letterhead, the case, the category, who brought the patient, the police
+ * and the account of the injury, then who printed it, when and which revision. Drawn from the
+ * answer of the print request, so it is the revision the server recorded.
+ */
+function MlcDocument({ row, record }: { row: EmergencyCase; record: EmergencyMlc }) {
+  const { t } = useTranslation('emergency');
+  const format = useFormatters();
+  const printedBy = useSession()?.user.name ?? '';
+  return (
+    <>
+      <Letterhead />
+      <h1 className="mb-3 text-lg font-semibold">{t('mlc.printTitle', { id: row.tempId })}</h1>
+      <dl className="mb-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1">
+        <PrintItem label={t('mlc.category')} value={t(`mlc.categories.${record.category}`)} />
+        <PrintItem label={t('mlc.broughtBy')} value={record.broughtBy} />
+        <PrintItem
+          label={t('mlc.police')}
+          value={
+            record.policeInformed
+              ? t('mlc.informed', { station: record.policeStation ?? '' })
+              : t('mlc.notInformed')
+          }
+        />
+        <PrintItem label={t('mlc.reference')} value={record.policeReference} />
+        <PrintItem
+          label={t('mlc.recorded')}
+          value={t('mlc.recordedBy', {
+            name: record.recordedByName,
+            at: format.dateTime(record.recordedAt),
+            revision: record.revision,
+          })}
+        />
+      </dl>
+      <h2 className="font-medium">{t('mlc.narrative')}</h2>
+      <p className="whitespace-pre-wrap break-words">{record.narrative}</p>
+      <p className="mt-8 border-t border-black pt-2 text-xs">
+        {t('mlc.printedBy', {
+          time: format.dateTime(new Date().toISOString()),
+          name: printedBy,
+          revision: record.revision,
+        })}
+      </p>
+    </>
+  );
+}
+
+function PrintItem({ label, value }: { label: string; value: string | undefined }) {
+  if (!value) return null;
+  return (
+    <>
+      <dt className="font-medium">{label}</dt>
+      <dd className="break-words">{value}</dd>
+    </>
   );
 }
 

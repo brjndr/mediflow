@@ -3877,6 +3877,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/emergency/cases/{caseId}/medico-legal/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Answers the latest revision of the medico-legal record for printing and records the print in the audit log (action `print`, entity `er_medico_legal`, entity id `<caseId>:<revision>`, with the actor). The web app makes the page from this answer and opens the print dialog once it arrives, so the revision printed is the revision recorded. The Idempotency-Key header is required, one per press: a repeat records nothing more. 404 `not_medico_legal` when the case is not flagged. Requires medicoLegal:read. */
+        post: operations["printEmergencyMedicoLegal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/emergency/cases/{caseId}/disposition": {
         parameters: {
             query?: never;
@@ -31894,6 +31911,76 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    printEmergencyMedicoLegal: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyMlc"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

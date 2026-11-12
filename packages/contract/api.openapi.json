@@ -42354,6 +42354,97 @@
         }
       }
     },
+    "/emergency/cases/{caseId}/medico-legal/print": {
+      "post": {
+        "operationId": "printEmergencyMedicoLegal",
+        "tags": ["emergency"],
+        "description": "Answers the latest revision of the medico-legal record for printing and records the print in the audit log (action `print`, entity `er_medico_legal`, entity id `<caseId>:<revision>`, with the actor). The web app makes the page from this answer and opens the print dialog once it arrives, so the revision printed is the revision recorded. The Idempotency-Key header is required, one per press: a repeat records nothing more. 404 `not_medico_legal` when the case is not flagged. Requires medicoLegal:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyMlc"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/emergency/cases/{caseId}/disposition": {
       "post": {
         "operationId": "disposeEmergencyCase",

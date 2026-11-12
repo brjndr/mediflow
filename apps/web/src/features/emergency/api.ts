@@ -123,6 +123,22 @@ export async function fetchMlc(caseId: string, signal?: AbortSignal): Promise<Em
   return mlcSchema.parse(requireData(result));
 }
 
+/**
+ * The latest revision for printing; the server records the print in the audit log before it
+ * answers, so what is printed is what was recorded.
+ */
+export async function printMlc(
+  caseId: string,
+  key: string,
+  signal?: AbortSignal,
+): Promise<EmergencyMlc> {
+  const result = await api.POST('/emergency/cases/{caseId}/medico-legal/print', {
+    params: { path: { caseId }, header: { 'idempotency-key': key } },
+    signal,
+  });
+  return mlcSchema.parse(requireData(result));
+}
+
 /** Flags the case (revision 0) or revises the record: each save is a new revision. */
 export async function saveMlc(
   { caseId, ...body }: { caseId: string } & EmergencyMlcSave,

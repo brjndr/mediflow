@@ -93,6 +93,10 @@ let created = 0;
 let notes: Note[] = [];
 /** The revisions of each case's medico-legal record, oldest first. */
 let mlcRevisions = new Map<string, Mlc[]>();
+let mlcPrints: { tenantId: string; caseId: string; revision: number }[] = [];
+/** The prints of medico-legal records recorded so far, for tests. */
+export const mockMlcPrints = () => mlcPrints;
+const mlcPrintKeys = new Set<string>();
 const noteReplies = new Map<string, string>();
 /** What each Idempotency-Key was answered with, by hospital and key. */
 const replies = new Map<string, string>();
@@ -101,6 +105,8 @@ onMockReset(() => {
   created = 0;
   notes = [];
   mlcRevisions = new Map();
+  mlcPrints = [];
+  mlcPrintKeys.clear();
   noteReplies.clear();
   replies.clear();
 });
@@ -344,6 +350,26 @@ export const emergencyHandlers = [
     return latest
       ? HttpResponse.json(latest)
       : error(404, 'not_medico_legal', 'The case is not medico-legal');
+  }),
+
+  http.post('*/api/emergency/cases/:caseId/medico-legal/print', ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'medicoLegal:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const key = withKey(request);
+    if (!key) return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
+    if (!row) return error(404, 'case_not_found', 'No such case');
+    const latest = mlcRevisions.get(row.id)?.at(-1);
+    if (!latest) return error(404, 'not_medico_legal', 'The case is not medico-legal');
+    const keyOf = `${access.tenantId}:${key}`;
+    if (!mlcPrintKeys.has(keyOf)) {
+      mlcPrintKeys.add(keyOf);
+      mlcPrints.push({ tenantId: access.tenantId, caseId: row.id, revision: latest.revision });
+    }
+    return HttpResponse.json(latest);
   }),
 
   http.put('*/api/emergency/cases/:caseId/medico-legal', async ({ request, params }) => {
