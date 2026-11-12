@@ -1,10 +1,11 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
-import { useStaffOptions } from '@/features/staff';
+import { StaffSearch } from '@/features/staff';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { Dialog } from '@/shared/ui/dialog';
-import { Form, SelectField, useZodForm } from '@/shared/ui/form';
+import { Form, SelectField, useFieldValue, useSetFieldValue, useZodForm } from '@/shared/ui/form';
 import { useCreateTask, useRequestableBeds, useWardOptions } from '../hooks/use-tasks';
 import { requestFormSchema, type RequestFormValues } from '../schemas';
 
@@ -16,6 +17,44 @@ const REFUSALS: Record<string, string> = {
   unknown_user: 'request.refused.unknownUser',
   feature_disabled: 'refused.wardsOff',
 };
+
+/** The person who will do it, found by searching the server (a hospital can have thousands). */
+function Assignee() {
+  const { t } = useTranslation('housekeeping');
+  const setValue = useSetFieldValue();
+  const assignedTo = useFieldValue('assignedTo') as string;
+  const [name, setName] = useState('');
+  if (assignedTo === '') {
+    return (
+      <StaffSearch
+        label={t('request.assignee')}
+        onSelect={(person) => {
+          setName(person.name);
+          setValue('assignedTo', person.id);
+        }}
+      />
+    );
+  }
+  return (
+    <div className="space-y-1">
+      <p className="text-sm font-medium">{t('request.assignee')}</p>
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        <span>{t('request.assigneeChosen', { name })}</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setValue('assignedTo', '');
+            setName('');
+          }}
+        >
+          {t('request.assigneeChange')}
+        </Button>
+      </p>
+    </div>
+  );
+}
 
 /**
  * Asks for a routine cleaning of a bed that is not in use, from a ward and its free beds, and
@@ -34,7 +73,6 @@ export function RequestCleaning({
   const create = useCreateTask();
   const mayWards = usePermission('ward:read');
   const wards = useWardOptions(mayWards);
-  const staff = useStaffOptions();
   const form = useZodForm(requestFormSchema, { wardId: '', bedId: '', assignedTo: '' });
   const wardId = form.watch('wardId');
   const beds = useRequestableBeds(wardId);
@@ -106,17 +144,7 @@ export function RequestCleaning({
             />
           </>
         )}
-        {staff.available && (
-          <SelectField<RequestFormValues>
-            name="assignedTo"
-            label={t('request.assignee')}
-            placeholder={t('request.noAssignee')}
-            options={(staff.data ?? []).map((person) => ({
-              value: person.id,
-              label: person.name,
-            }))}
-          />
-        )}
+        <Assignee />
         {failure && (
           <p role="alert" className="text-sm text-destructive">
             {failure}

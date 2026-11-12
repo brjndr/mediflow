@@ -107,18 +107,54 @@ describe('requesting a routine cleaning', () => {
   it('picks a free bed, assigns a person and lists the new task', async () => {
     const dialog = await openRequest();
     const number = await chooseFreeBed(dialog);
-    const person = within(dialog).getByRole('combobox', { name: 'Assign to' });
-    await waitFor(() => expect(within(person).getAllByRole('option').length).toBeGreaterThan(1));
-    await userEvent.selectOptions(
-      person,
-      within(person).getAllByRole('option')[1] as HTMLOptionElement,
+    await userEvent.type(
+      within(dialog).getByRole('combobox', { name: 'Assign to' }),
+      'Sample Admin',
     );
+    await userEvent.click(await within(dialog).findByRole('option', { name: 'Sample Admin' }));
+    expect(await within(dialog).findByRole('button', { name: 'Change' })).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Request cleaning' }));
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(`Cleaning of bed ${number} requested`),
     );
     await waitFor(() => expect(rowOf(number)).toBeDefined());
     expect(within(rowOf(number)).getByText('Routine')).toBeInTheDocument();
+  }, 20_000);
+
+  it('finds a person past the first hundred by searching', async () => {
+    const people = Array.from({ length: 150 }, (_, index) => ({
+      id: `stf_big_${index}`,
+      tenantId: TENANT_IDS.hospital,
+      name: `Person ${String(index).padStart(3, '0')}`,
+      email: `p${index}@sample-hospital.test`,
+      roleId: 'nurse',
+      roleName: 'Nurse',
+      status: 'active',
+    }));
+    let body: { assignedTo?: string } = {};
+    server.use(
+      http.get('*/api/staff', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        const q = (params.get('q') ?? '').toLowerCase();
+        const items = people
+          .filter((person) => person.name.toLowerCase().includes(q))
+          .slice(0, Math.min(Number(params.get('limit') ?? 25), 100));
+        return HttpResponse.json({ items, nextCursor: null, total: items.length });
+      }),
+      http.post('*/api/cleaning-tasks', async ({ request }) => {
+        body = (await request.json()) as { assignedTo?: string };
+        return HttpResponse.json(
+          { error: { code: 'bed_not_available', message: 'x', requestId: 'r' } },
+          { status: 409 },
+        );
+      }),
+    );
+    const dialog = await openRequest();
+    await chooseFreeBed(dialog);
+    await userEvent.type(within(dialog).getByRole('combobox', { name: 'Assign to' }), 'Person 140');
+    await userEvent.click(await within(dialog).findByRole('option', { name: 'Person 140' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Request cleaning' }));
+    await waitFor(() => expect(body.assignedTo).toBe('stf_big_140'));
   }, 20_000);
 
   it('needs a bed before it asks', async () => {

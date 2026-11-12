@@ -57,7 +57,8 @@
     "bedOption": "{{number}} ({{room}})",
     "noBeds": "No bed in this ward is free.",
     "assignee": "Assign to",
-    "noAssignee": "Nobody yet",
+    "assigneeChosen": "{{name}}",
+    "assigneeChange": "Change",
     "noWards": "Choosing a bed needs access to the wards.",
     "refused": {
       "notAvailable": "That bed is in use or blocked now. Choose another.",
