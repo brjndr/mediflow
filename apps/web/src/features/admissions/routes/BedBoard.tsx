@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { usePermission } from '@/access';
 import { Button } from '@/shared/ui/button';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
@@ -11,7 +10,8 @@ import type { BedAction } from '../api';
 import { BedGrid } from '../components/BedGrid';
 import { BlockPanel } from '../components/BlockPanel';
 import { LiveStatus } from '../components/LiveStatus';
-import { useBedAction, useBedEvents, useWardOptions } from '../hooks/use-board';
+import { WardFilter } from '../components/WardFilter';
+import { useBedAction, useBedEvents } from '../hooks/use-board';
 import { allowedActions, BOARD_STATUSES } from '../schemas';
 import type { BoardBed, BoardBedStatus } from '../types';
 
@@ -37,8 +37,6 @@ export default function BedBoard() {
   const { t } = useTranslation('admissions');
   // Error messages come from the API client and live in core `common`.
   const { t: tCommon } = useTranslation();
-  const mayWards = usePermission('ward:read');
-  const wards = useWardOptions(mayWards);
 
   const [wardId, setWardId] = useState('');
   const [status, setStatus] = useState<BoardBedStatus | ''>('');
@@ -132,23 +130,7 @@ export default function BedBoard() {
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
-        {mayWards && wards.isSuccess && (
-          <label className={field}>
-            {t('filters.ward')}
-            <select
-              value={wardId}
-              onChange={(event) => setWardId(event.target.value)}
-              className={control}
-            >
-              <option value="">{t('filters.allWards')}</option>
-              {wards.data.map((ward) => (
-                <option key={ward.id} value={ward.id}>
-                  {ward.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        <WardFilter value={wardId} onChange={setWardId} />
         <label className={field}>
           {t('filters.status')}
           <select

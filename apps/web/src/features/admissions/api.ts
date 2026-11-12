@@ -51,10 +51,21 @@ export async function fetchBedCount(
   return page.total ?? 0;
 }
 
-/** The wards to filter by: names and ids only. A hospital has a few dozen at most. */
-export async function fetchWardOptions(signal?: AbortSignal): Promise<WardOption[]> {
-  const result = await api.GET('/wards', { params: { query: { limit: 100 } }, signal });
-  return wardOptionsSchema.parse(requireData(result)).items;
+/**
+ * The wards to filter by: names and ids only. `more` says the hospital has wards beyond this
+ * page, so the screen searches instead of listing. `q` is a ward's code or name (a ward is not
+ * patient data, so it stays a GET).
+ */
+export async function fetchWardOptions(
+  { q, limit }: { q: string; limit: number },
+  signal?: AbortSignal,
+): Promise<{ items: WardOption[]; more: boolean }> {
+  const result = await api.GET('/wards', {
+    params: { query: { limit, q: q || undefined } },
+    signal,
+  });
+  const page = wardOptionsSchema.parse(requireData(result));
+  return { items: page.items, more: Boolean(page.nextCursor) };
 }
 
 export type BedAction =
