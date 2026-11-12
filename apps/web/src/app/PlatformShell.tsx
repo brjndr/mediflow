@@ -6,6 +6,7 @@ import { cn } from '@/shared/lib/utils';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SignOutButton } from './SignOutButton';
+import { ThemeSwitch } from './ThemeSwitch';
 import { UserIdentity } from './UserIdentity';
 
 function PlatformNav() {
@@ -76,6 +77,7 @@ export function PlatformShell() {
         <header className="flex h-14 items-center gap-3 border-b px-4">
           <div className="ml-auto flex min-w-0 items-center gap-2">
             <UserIdentity to="/platform/security" />
+            <ThemeSwitch />
             <SignOutButton />
           </div>
         </header>
