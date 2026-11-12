@@ -108,7 +108,7 @@ export const rosterRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['roster'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Puts a member of the hospital on duty. The end is after the start and at most 24 hours later (422 `invalid_period`). A person is on one shift at a time: an overlap with another scheduled shift is 409 `shift_overlap`, whatever the department. 422 `unknown_user` for someone who is not a member here, 422 `unknown_department`. The Idempotency-Key header is required. Audited; emits `roster.shift_scheduled`. Requires roster:manage.',
+          'Puts a member of the hospital on duty. The end is after the start and at most 24 hours later (422 `invalid_period`). A person is on one shift at a time: an overlap with another scheduled shift is 409 `shift_overlap`, whatever the department. 409 `on_leave` while the person has an approved leave then. 422 `unknown_user` for someone who is not a member here, 422 `unknown_department`. The Idempotency-Key header is required. Audited; emits `roster.shift_scheduled`. Requires roster:manage.',
         body: RosterShiftCreate,
         response: { 201: ref(RosterShift), ...errors(400, 401, 403, 409, 422, 429) },
       },
@@ -137,6 +137,9 @@ export const rosterRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (!created) throw new HttpError(422, 'unknown_user', 'No such member');
         id = created.id;
       } catch (error) {
+        if (isCode(error, '23P01', 'roster_shift_on_leave')) {
+          throw new HttpError(409, 'on_leave', 'The person is on approved leave then');
+        }
         if (isCode(error, '23P01')) {
           throw new HttpError(409, 'shift_overlap', 'The person is already on duty then');
         }

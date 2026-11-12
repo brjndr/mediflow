@@ -99,6 +99,7 @@ const audited = async (entity: string, entityId: string) =>
 
 const tenants = () => [hospital, clinic, closed].map((tenant) => tenant.id);
 const TABLES = [
+  'roster_leaves',
   'roster_shifts',
   'blood_unit_events',
   'blood_units',
@@ -375,6 +376,148 @@ describe('the roster', () => {
       hospital.id,
     ]);
     expect(rows).toHaveLength(1);
+  });
+});
+
+// --- leave -------------------------------------------------------------------------------------
+
+interface Leave {
+  id: string;
+  userId: string;
+  status: string;
+  version: number;
+  decidedByName?: string;
+}
+const leave = (more: object = {}, options: Options = {}) =>
+  post('/roster/leaves', { startsAt: at(0), endsAt: at(48), ...more }, options);
+
+describe('leave requests', () => {
+  it('are asked by the person, decided by someone else, audited, with events', async () => {
+    await wipe();
+    const made = await ok<Leave>(await leave({}, { user: nurse }), 201);
+    expect(made).toMatchObject({ userId: nurse.id, status: 'requested', version: 1 });
+    expect(await audited('roster_leave', made.id)).toEqual(['create']);
+    expect(
+      errorOf(await post(`/roster/leaves/${made.id}/approve`, { version: 1 }, { user: nurse })),
+    ).toEqual([403, 'permission_denied']);
+    expect(errorOf(await post(`/roster/leaves/${made.id}/approve`, { version: 7 }))).toEqual([
+      409,
+      'conflict',
+    ]);
+    const approved = await ok<Leave>(
+      await post(`/roster/leaves/${made.id}/approve`, { version: 1 }),
+    );
+    expect(approved).toMatchObject({ status: 'approved', decidedByName: 'Ops Admin', version: 2 });
+    expect(errorOf(await post(`/roster/leaves/${made.id}/reject`, { version: 2 }))).toEqual([
+      409,
+      'invalid_transition',
+    ]);
+    expect((await eventsOf(made.id)).map((event) => event.event)).toEqual([
+      'roster.leave_requested',
+      'roster.leave_approved',
+    ]);
+  });
+
+  it('are never decided by the person who asked', async () => {
+    await wipe();
+    const made = await ok<Leave>(await leave(), 201);
+    expect(errorOf(await post(`/roster/leaves/${made.id}/approve`, { version: 1 }))).toEqual([
+      403,
+      'own_request',
+    ]);
+    expect(errorOf(await post(`/roster/leaves/${made.id}/reject`, { version: 1 }))).toEqual([
+      403,
+      'own_request',
+    ]);
+  });
+
+  it('refuse a bad period and an overlap with the same person’s leave', async () => {
+    await wipe();
+    expect(errorOf(await leave({ startsAt: at(5), endsAt: at(5) }, { user: nurse }))).toEqual([
+      422,
+      'invalid_period',
+    ]);
+    expect(errorOf(await leave({ endsAt: at(24 * 91) }, { user: nurse }))).toEqual([
+      422,
+      'invalid_period',
+    ]);
+    await ok<Leave>(await leave({}, { user: nurse }), 201);
+    expect(errorOf(await leave({ startsAt: at(10), endsAt: at(60) }, { user: nurse }))).toEqual([
+      409,
+      'leave_overlap',
+    ]);
+    // Another person may take the same days; a rejected request frees them.
+    await ok<Leave>(await leave({}, { user: labTech }), 201);
+  });
+
+  it('cannot be approved over a scheduled shift, and then block shifts', async () => {
+    await wipe();
+    const planned = await ok<Shift>(await shift(), 201);
+    const made = await ok<Leave>(await leave({}, { user: nurse }), 201);
+    expect(errorOf(await post(`/roster/leaves/${made.id}/approve`, { version: 1 }))).toEqual([
+      409,
+      'shifts_in_leave',
+    ]);
+    await ok<Shift>(await post(`/roster/shifts/${planned.id}/cancel`, { version: 1 }));
+    await ok<Leave>(await post(`/roster/leaves/${made.id}/approve`, { version: 1 }));
+    expect(errorOf(await shift())).toEqual([409, 'on_leave']);
+    // A shift for someone else, or outside the leave, is fine.
+    await ok<Shift>(await shift({ userId: labTech.id }), 201);
+    await ok<Shift>(await shift({ startsAt: at(60), endsAt: at(68) }), 201);
+    // Withdrawing the leave frees the days.
+    await ok<Leave>(
+      await post(`/roster/leaves/${made.id}/cancel`, { version: 2 }, { user: nurse }),
+    );
+    await ok<Shift>(await shift(), 201);
+  });
+
+  it('are withdrawn by their owner or a manager, not by someone else', async () => {
+    await wipe();
+    const made = await ok<Leave>(await leave({}, { user: nurse }), 201);
+    expect(
+      errorOf(await post(`/roster/leaves/${made.id}/cancel`, { version: 1 }, { user: labTech })),
+    ).toEqual([403, 'permission_denied']);
+    const withdrawn = await ok<Leave>(
+      await post(`/roster/leaves/${made.id}/cancel`, { version: 1 }),
+    );
+    expect(withdrawn.status).toBe('cancelled');
+    expect(
+      errorOf(await post(`/roster/leaves/${made.id}/cancel`, { version: 2 }, { user: nurse })),
+    ).toEqual([409, 'invalid_transition']);
+    expect(errorOf(await post('/roster/leaves/not-an-id/cancel', { version: 1 }))).toEqual([
+      404,
+      'leave_not_found',
+    ]);
+  });
+
+  it('are listed by window and status, for one hospital only, with the module on', async () => {
+    await wipe();
+    const mine = await ok<Leave>(await leave({}, { user: nurse }), 201);
+    await ok<Leave>(await leave({ startsAt: at(100), endsAt: at(120) }, { user: labTech }), 201);
+    await ok<Leave>(await post(`/roster/leaves/${mine.id}/reject`, { version: 1 }));
+    const inWindow = await ok<Page<Leave>>(await get(`/roster/leaves?from=${at(0)}&to=${at(50)}`));
+    expect(inWindow.items.map((one) => one.id)).toEqual([mine.id]);
+    const rejected = await ok<Page<Leave>>(await get('/roster/leaves?status=rejected'));
+    expect(rejected.items).toHaveLength(1);
+    const paged = await ok<Page<Leave>>(await get('/roster/leaves?limit=1', { user: pharmacist }));
+    expect(paged.nextCursor).not.toBeNull();
+    expect(
+      (await ok<Page<Leave>>(await get('/roster/leaves', { tenant: clinic, user: clinicAdmin })))
+        .items,
+    ).toEqual([]);
+    expect(
+      (
+        await post(
+          `/roster/leaves/${mine.id}/cancel`,
+          { version: 2 },
+          { tenant: clinic, user: clinicAdmin },
+        )
+      ).statusCode,
+    ).toBe(404);
+    expect(errorOf(await get('/roster/leaves', { tenant: closed }))).toEqual([
+      403,
+      'feature_disabled',
+    ]);
   });
 });
 
@@ -959,6 +1102,7 @@ describe('row-level security', () => {
   it('shows a hospital none of another’s operations rows', async () => {
     await wipe();
     await ok(await shift(), 201);
+    await ok(await leave({ startsAt: at(200), endsAt: at(220) }), 201);
     await ok(await register(), 201);
     await ok(await addAmbulance(), 201);
     await ok(await requestTrip(), 201);

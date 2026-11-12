@@ -84,6 +84,10 @@ export const DOMAIN_EVENTS = [
   // Operations (#200): ids and codes only.
   'roster.shift_scheduled',
   'roster.shift_cancelled',
+  'roster.leave_requested',
+  'roster.leave_approved',
+  'roster.leave_rejected',
+  'roster.leave_cancelled',
   'blood.unit_registered',
   'blood.unit_status_changed',
   'ambulance.trip_requested',

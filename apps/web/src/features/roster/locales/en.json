@@ -74,8 +74,51 @@
   },
   "errors": {
     "overlap": "This person is already on duty at that time. Choose another time.",
+    "onLeave": "This person is on approved leave then.",
     "period": "A shift ends after it starts, within a day.",
     "user": "This person is not on the staff of this hospital.",
     "department": "This department does not exist."
+  },
+  "leave": {
+    "heading": "Leave",
+    "intro": "Ask for days off. A second person with the right to manage the roster approves or rejects the request. Approved leave keeps you off new shifts. No reason is kept.",
+    "empty": "No leave requested or coming up.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "withdraw": "Withdraw",
+    "decidedBy": "{{state}} by {{name}}",
+    "columns": {
+      "from": "First day",
+      "to": "Last day"
+    },
+    "state": {
+      "requested": "Waiting for a decision",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Withdrawn"
+    },
+    "done": {
+      "approve": "The leave of {{name}} is approved.",
+      "reject": "The leave of {{name}} is rejected.",
+      "cancel": "The leave of {{name}} is withdrawn."
+    },
+    "new": {
+      "open": "Ask for leave",
+      "title": "Ask for leave",
+      "description": "Choose the days you will be away. Someone else decides on the request.",
+      "first": "First day",
+      "last": "Last day",
+      "lastHint": "The day you are back at work is the one after.",
+      "save": "Send request",
+      "saving": "Sending…",
+      "done": "Your leave request is sent."
+    },
+    "errors": {
+      "overlap": "You already have leave requested or approved in these days.",
+      "period": "Leave ends after it starts, within 90 days, and has not already passed.",
+      "shifts": "This person still has shifts in those days. Cancel them first, then approve.",
+      "own": "Someone else decides on your leave.",
+      "changed": "The request has changed. Check the list and try again."
+    }
   }
 }

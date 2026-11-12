@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { dayBoundsUtc, todayIn } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
+import { LeavePanel } from '../components/LeavePanel';
 import { OnCallPanel } from '../components/OnCallPanel';
 import { ShiftDialog } from '../components/ShiftDialog';
 import { useCancelShift, useShifts } from '../hooks/use-roster';
@@ -182,6 +183,7 @@ export default function RosterPage() {
         loadingMore={shifts.isFetchingNextPage}
         onLoadMore={() => void shifts.fetchNextPage()}
       />
+      <LeavePanel today={todayIn(timezone)} />
       {adding && (
         <ShiftDialog
           day={

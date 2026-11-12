@@ -26,6 +26,7 @@ const REFUSED: Record<string, string> = {
   invalid_period: 'errors.period',
   unknown_user: 'errors.user',
   unknown_department: 'errors.department',
+  on_leave: 'errors.onLeave',
 };
 
 /** Fills the times from the template of the chosen kind of shift, when the kind changes. */
