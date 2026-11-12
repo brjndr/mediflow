@@ -215,6 +215,58 @@ describe('restricted access and audit', () => {
   });
 });
 
+describe('printing (#646)', () => {
+  const print = (caseId: string, options: Options = {}, key = fresh()) =>
+    app.inject({
+      method: 'POST',
+      url: `/emergency/cases/${caseId}/medico-legal/print`,
+      headers: headers(options, key),
+    });
+  const printsOf = async (caseId: string, tenantId = hospital.id) =>
+    (
+      await pool.query<{ entity_id: string; actor_id: string }>(
+        "select entity_id, actor_id from audit_log where tenant_id = $1 and action = 'print' and entity = 'er_medico_legal' and entity_id like $2 order by at, id",
+        [tenantId, `${caseId}:%`],
+      )
+    ).rows;
+
+  it('answers the latest revision and audits the print with actor and revision', async () => {
+    const row = await arrive();
+    await save(row.id, {});
+    await save(row.id, { revision: 1, narrative: 'Corrected account of the injury.' });
+    const response = await print(row.id, { user: doctor });
+    expect(response.statusCode).toBe(200);
+    expect(response.json<Mlc>()).toMatchObject({ revision: 2 });
+    expect(await printsOf(row.id)).toEqual([{ entity_id: `${row.id}:2`, actor_id: doctor.id }]);
+  });
+
+  it('records a press once, and a new press again', async () => {
+    const row = await arrive();
+    await save(row.id, {});
+    await print(row.id, {}, 'er-mlc-print-same');
+    await print(row.id, {}, 'er-mlc-print-same');
+    expect(await printsOf(row.id)).toHaveLength(1);
+    await print(row.id);
+    expect(await printsOf(row.id)).toHaveLength(2);
+  });
+
+  it('refuses a nurse, and a case that is not medico-legal, and records nothing', async () => {
+    const row = await arrive();
+    expect(errorOf(await print(row.id))).toEqual([404, 'not_medico_legal']);
+    await save(row.id, {});
+    expect(errorOf(await print(row.id, { user: nurse }))).toEqual([403, 'permission_denied']);
+    expect(await printsOf(row.id)).toHaveLength(0);
+  });
+
+  it('does not print a case of another hospital', async () => {
+    const row = await arrive();
+    await save(row.id, {});
+    const other = { tenant: clinic, user: clinicAdmin };
+    expect(errorOf(await print(row.id, other))).toEqual([404, 'case_not_found']);
+    expect(await printsOf(row.id, clinic.id)).toHaveLength(0);
+  });
+});
+
 describe('hospital boundary', () => {
   it('does not show a case or its record to another hospital', async () => {
     const row = await arrive();

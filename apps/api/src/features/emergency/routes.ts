@@ -720,6 +720,37 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
+  app.post(
+    '/emergency/cases/:caseId/medico-legal/print',
+    {
+      config: {
+        permissions: ['medicoLegal:read'],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'printEmergencyMedicoLegal',
+        tags: ['emergency'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Answers the latest revision of the medico-legal record for printing and records the print in the audit log (action `print`, entity `er_medico_legal`, entity id `<caseId>:<revision>`, with the actor). The web app makes the page from this answer and opens the print dialog once it arrives, so the revision printed is the revision recorded. The Idempotency-Key header is required, one per press: a repeat records nothing more. 404 `not_medico_legal` when the case is not flagged. Requires medicoLegal:read.',
+        params: EmergencyParams,
+        response: { 200: ref(EmergencyMlc), ...errors(400, 401, 403, 404, 429) },
+      },
+    },
+    async (request) => {
+      const client = request.txClient;
+      const row = await findCase(client, request.params.caseId);
+      if (!row) throw caseGone();
+      const record = await latestMlc(client, row.id);
+      if (!record) throw new HttpError(404, 'not_medico_legal', 'The case is not medico-legal');
+      if (request.replayOf === null) {
+        request.audit('print', 'er_medico_legal', `${row.id}:${record.revision}`);
+      }
+      return mlcView(record);
+    },
+  );
+
   app.put(
     '/emergency/cases/:caseId/medico-legal',
     {

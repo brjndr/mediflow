@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
@@ -11,6 +11,7 @@ import {
   fetchNotes,
   identifyCase,
   openEncounter,
+  printMlc,
   registerCase,
   saveMlc,
   startTreatment,
@@ -22,6 +23,7 @@ import type {
   EmergencyCaseCreate,
   EmergencyCaseStatus,
   EmergencyDisposition,
+  EmergencyMlc,
   EmergencyMlcSave,
   EmergencyNoteKind,
 } from '../types';
@@ -216,4 +218,31 @@ export function useSaveMlc() {
     onSuccess: () => attempt.done(),
     onSettled: refresh,
   });
+}
+
+/**
+ * A print of the medico-legal record: the server records it and answers the revision to print,
+ * with a new idempotency key per press; the page is shown (`job`) only then, and held in memory
+ * only. `done` drops it when the print dialog closes. Leaving the page aborts the request.
+ */
+export function useMlcPrinting(caseId: string) {
+  const abort = useRef<AbortController>(undefined);
+  useEffect(() => () => abort.current?.abort(), []);
+  const [job, setJob] = useState<{ id: number; value: EmergencyMlc } | null>(null);
+  const mutation = useMutation({
+    gcTime: 0,
+    mutationFn: () => {
+      abort.current = new AbortController();
+      return printMlc(caseId, crypto.randomUUID(), abort.current.signal);
+    },
+    onSuccess: (value) => {
+      if (!abort.current?.signal.aborted) setJob((now) => ({ id: (now?.id ?? 0) + 1, value }));
+    },
+  });
+  const { isPending, mutate } = mutation;
+  const print = useCallback(() => {
+    if (!isPending) mutate();
+  }, [isPending, mutate]);
+  const done = useCallback(() => setJob(null), []);
+  return { print, busy: isPending, error: mutation.error, job, done };
 }
