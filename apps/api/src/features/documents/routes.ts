@@ -54,13 +54,18 @@ export interface DocumentRow {
   retain_until: string | null;
   retired_at: Date | null;
   retired_reason: string | null;
+  held: boolean;
   version: number;
   created_at: Date;
 }
 
 export const COLUMNS = `id, patient_id, encounter_id, category, title, file_name, content_type,
   size_bytes, status, retain_until::text as retain_until, retired_at, retired_reason, version,
-  created_at`;
+  created_at,
+  exists (select 1 from document_legal_holds h
+    where h.tenant_id = patient_documents.tenant_id and h.released_at is null
+      and (h.document_id = patient_documents.id
+        or (h.document_id is null and h.patient_id = patient_documents.patient_id))) as held`;
 
 export const view = (row: DocumentRow) => ({
   id: row.id,
@@ -75,6 +80,7 @@ export const view = (row: DocumentRow) => ({
   ...(row.retain_until ? { retainUntil: row.retain_until } : {}),
   ...(row.retired_at ? { retiredAt: row.retired_at.toISOString() } : {}),
   ...(row.retired_reason ? { retiredReason: row.retired_reason } : {}),
+  held: row.held,
   version: row.version,
   createdAt: row.created_at.toISOString(),
 });

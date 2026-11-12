@@ -11,7 +11,7 @@ const FEATURE_FLAG = 'documents';
 const TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const MAX_BYTES = 25 * 1024 * 1024;
 
-interface Stored extends PatientDocument {
+interface Stored extends Omit<PatientDocument, 'held'> {
   tenantId: string;
 }
 interface State {
@@ -94,6 +94,18 @@ export function finishMockScan(id: string, status: PatientDocument['status'] = '
   found.status = status;
 }
 
+/** A hold placed straight in the mock, as another hospital's staff would (tests). */
+export function holdMockDocument(tenantId: string, patientId: string, documentId?: string): void {
+  state.holds.push({
+    id: 'hold_x' + String(state.holds.length + 1),
+    tenantId,
+    patientId,
+    ...(documentId ? { documentId } : {}),
+    reason: 'Test',
+    placedAt: new Date().toISOString(),
+  });
+}
+
 registerMockMergeCounter(
   'documents',
   (tenantId, patientId) =>
@@ -101,7 +113,17 @@ registerMockMergeCounter(
       .length,
 );
 
-const view = ({ tenantId: _tenantId, ...document }: Stored): PatientDocument => document;
+/** Held while an active hold covers the document or every document of its patient (#672). */
+const view = ({ tenantId, ...document }: Stored): PatientDocument => ({
+  ...document,
+  held: state.holds.some(
+    (hold) =>
+      hold.tenantId === tenantId &&
+      !hold.releasedAt &&
+      (hold.documentId === document.id ||
+        (!hold.documentId && hold.patientId === document.patientId)),
+  ),
+});
 
 const CATEGORIES = [
   'consent',

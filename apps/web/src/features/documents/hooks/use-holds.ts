@@ -22,11 +22,11 @@ export function useLegalHolds() {
 function useRefreshHolds() {
   const queryClient = useQueryClient();
   const tenantId = useTenant()?.id;
-  // Harmless after a switch: the key holds the hospital it was made for.
+  // Documents too: their held badge follows the holds. Harmless after a switch (the key holds the hospital).
   return () =>
     tenantId === undefined
       ? undefined
-      : queryClient.invalidateQueries({ queryKey: holdsKey(tenantId) });
+      : queryClient.invalidateQueries({ queryKey: documentKeys.all(tenantId) });
 }
 
 export function usePlaceHold() {

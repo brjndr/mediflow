@@ -49,6 +49,7 @@ export const documentSchema: z.ZodType<PatientDocument> = z.object({
   retainUntil: z.string().optional(),
   retiredAt: z.string().optional(),
   retiredReason: z.string().optional(),
+  held: z.boolean(),
   version: z.number().int(),
   createdAt: z.string(),
 });
