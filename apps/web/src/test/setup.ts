@@ -52,3 +52,12 @@ afterEach(() => {
   expect(missing, 'translation keys with no text in any language').toEqual([]);
 });
 afterAll(() => server.close());
+
+// jsdom has no ResizeObserver; Radix (the switch inside a form) needs one to exist.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}

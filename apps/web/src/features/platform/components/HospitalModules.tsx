@@ -1,18 +1,18 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
+import { Switch } from '@/shared/ui/switch';
 import { useModules, useSetHospitalFeatures } from '../hooks/use-hospitals';
 import { MFA_REQUIRED_SWITCH, MFA_SWITCH, useModuleName } from '../modules';
 import type { Hospital } from '../types';
 
-const box =
-  'size-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-6';
-const row = 'flex min-h-8 items-center gap-2 text-sm pointer-coarse:min-h-11';
+const row = 'flex min-h-8 items-center gap-3 text-sm pointer-coarse:min-h-11';
 
 /** The module flags and the authenticator switches of one hospital. */
 export function HospitalModules({ hospital }: { hospital: Hospital }) {
   const { t } = useTranslation();
+  const uid = useId();
   const save = useSetHospitalFeatures(hospital.id);
   const modules = useModules();
   const moduleName = useModuleName();
@@ -78,41 +78,40 @@ export function HospitalModules({ hospital }: { hospital: Hospital }) {
           )}
           <div className="grid gap-x-4 sm:grid-cols-2">
             {[...known, ...others].map((feature) => (
-              <label key={feature} className={row}>
-                <input
-                  type="checkbox"
-                  className={box}
+              <div key={feature} className={row}>
+                <Switch
+                  id={`${uid}-${feature}`}
                   checked={isOn(feature)}
-                  onChange={(event) => set(feature, event.target.checked)}
+                  aria-disabled={save.isPending || undefined}
+                  onCheckedChange={(on) => set(feature, on)}
                 />
-                {name(feature)}
-              </label>
+                <label htmlFor={`${uid}-${feature}`}>{name(feature)}</label>
+              </div>
             ))}
           </div>
         </fieldset>
         <fieldset className="flex flex-col gap-1">
           <legend className="text-sm font-medium">{t('platform.detail.mfa')}</legend>
-          <label className={row}>
-            <input
-              type="checkbox"
-              className={box}
+          <div className={row}>
+            <Switch
+              id={`${uid}-mfa`}
               checked={mfaOn}
-              onChange={(event) => set(MFA_SWITCH, event.target.checked)}
+              aria-disabled={save.isPending || undefined}
+              onCheckedChange={(on) => set(MFA_SWITCH, on)}
             />
-            {t('platform.detail.mfaOffer')}
-          </label>
-          <label className={row}>
-            <input
-              type="checkbox"
-              className={box}
+            <label htmlFor={`${uid}-mfa`}>{t('platform.detail.mfaOffer')}</label>
+          </div>
+          <div className={row}>
+            <Switch
+              id={`${uid}-mfa-required`}
               checked={mfaOn && isOn(MFA_REQUIRED_SWITCH)}
-              aria-disabled={!mfaOn || undefined}
-              onChange={(event) => {
-                if (mfaOn) set(MFA_REQUIRED_SWITCH, event.target.checked);
+              aria-disabled={!mfaOn || save.isPending || undefined}
+              onCheckedChange={(on) => {
+                if (mfaOn) set(MFA_REQUIRED_SWITCH, on);
               }}
             />
-            {t('platform.detail.mfaRequired')}
-          </label>
+            <label htmlFor={`${uid}-mfa-required`}>{t('platform.detail.mfaRequired')}</label>
+          </div>
         </fieldset>
         {save.isError && (
           <p role="alert" className="text-sm text-destructive">
