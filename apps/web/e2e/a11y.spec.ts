@@ -371,29 +371,28 @@ test.describe('screens in other states pass axe', () => {
  */
 test.describe('a hospital brand colour passes axe', () => {
   test.skip(isTablet, 'The tablet shows the desktop content: checked at desktop width.');
-  // A brand colour is accepted by its contrast on white only (themeFromBrandColor), so on the dark
-  // page the links in the primary colour can fall short. Dark has no switch yet; see the notes.
-  test.skip(!!process.env.A11Y_DARK, 'A brand colour is only guaranteed on the light page.');
 
   // What themeFromBrandColor makes of each colour (the e2e project cannot import app code); the
   // function itself, and the colour it refuses, are tested in tenancy/theming.test.tsx.
-  for (const [label, colour, text] of [
-    ['a standard one', '#0f766e', '#ffffff'],
-    ['a very dark one', '#0b1020', '#ffffff'],
-    ['a low-chroma one', '#5b6470', '#ffffff'],
-    ['one that takes black text', '#757575', '#000000'],
+  for (const [label, colour, text, dark] of [
+    ['a standard one', '#0f766e', '#ffffff', '#3f918b'],
+    ['a very dark one', '#0b1020', '#ffffff', '#858890'],
+    ['a low-chroma one', '#5b6470', '#ffffff', '#7c838d'],
+    ['one that takes black text', '#757575', '#000000', '#838383'],
   ] as const) {
     test(label, async ({ page }) => {
       await page.goto('/');
       await settled(page);
       await page.evaluate(
-        ({ primary, foreground }) => {
+        ({ primary, foreground, dark }) => {
           const root = document.documentElement.style;
           root.setProperty('--primary', primary);
           root.setProperty('--ring', primary);
           root.setProperty('--primary-foreground', foreground);
+          root.setProperty('--primary-dark', dark);
+          root.setProperty('--primary-dark-foreground', '#000000');
         },
-        { primary: colour, foreground: text },
+        { primary: colour, foreground: text, dark },
       );
       await expectNoAxeViolations(page);
     });

@@ -48,8 +48,8 @@ function evaluate(expr: string, vars: Record<string, string>): Lab {
   const e = expr.trim();
   if (e === 'black') return [0, 0, 0];
   if (e === 'white') return [1, 0, 0];
-  const v = /^var\((--[\w-]+)\)$/.exec(e);
-  if (v?.[1]) return evaluate(vars[v[1]] ?? '', vars);
+  const v = /^var\((--[\w-]+)(?:,\s*(.+))?\)$/s.exec(e.replace(/\s*!important$/, ''));
+  if (v?.[1]) return evaluate(vars[v[1]] ?? v[2] ?? '', vars);
   const o = /^oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)$/.exec(e);
   if (o) return fromOklch(Number(o[1]), Number(o[2]), Number(o[3]));
   const mix = /^color-mix\(in oklab,(.*)\)$/s.exec(e);
@@ -136,12 +136,15 @@ describe('visual language tokens', () => {
     expect(visual).not.toMatch(/\brgba?\(/);
   });
 
-  it('adds no name to what a hospital can set', () => {
+  it('adds no name but the dark counterpart to what a hospital can set', () => {
     expect([...THEME_TOKENS]).toEqual([
       'radius',
       'primary',
       'primary-foreground',
       'ring',
+      // The dark counterpart of the brand colour (#729).
+      'primary-dark',
+      'primary-dark-foreground',
       'accent',
       'accent-foreground',
       'background',
