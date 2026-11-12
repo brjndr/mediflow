@@ -46,6 +46,27 @@ export const admissionsFeature: FeatureManifest = {
     },
   ],
   nav: { icon: BedSingle, order: 81, requires: ['admission:read'] },
+  extensions: [
+    // "Admit to hospital" (#576), given ids and the visit's status only.
+    {
+      slot: 'patient.detail.actions',
+      component: () => import('./components/AdmitAction'),
+      requires: ['admission:create'],
+      order: 30,
+    },
+    {
+      slot: 'encounter.detail.actions',
+      component: () => import('./components/AdmitAction'),
+      requires: ['admission:create'],
+      order: 30,
+    },
+    {
+      slot: 'emergency.case.actions',
+      component: () => import('./components/AdmitAction'),
+      requires: ['admission:create'],
+      order: 30,
+    },
+  ],
   permissions: [
     'admission:read',
     'admission:create',
