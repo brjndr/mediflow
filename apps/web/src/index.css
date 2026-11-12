@@ -71,8 +71,6 @@
   --card-foreground: oklch(0.97 0.01 250);
   --popover: oklch(0.21 0.03 265);
   --popover-foreground: oklch(0.97 0.01 250);
-  --primary: oklch(0.7 0.11 186);
-  --primary-foreground: oklch(0.2 0.03 186);
   --secondary: oklch(0.28 0.03 260);
   --secondary-foreground: oklch(0.97 0.01 250);
   --muted: oklch(0.28 0.03 260);
@@ -83,7 +81,11 @@
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.7 0.11 186);
+  /* A hospital's brand colour is written inline on the root (theme.ts), which beats the rules
+     above, so its dark counterpart takes over under .dark with !important (#729). */
+  --primary: var(--primary-dark, oklch(0.7 0.11 186)) !important;
+  --ring: var(--primary-dark, oklch(0.7 0.11 186)) !important;
+  --primary-foreground: var(--primary-dark-foreground, oklch(0.2 0.03 186)) !important;
   --info: oklch(0.72 0.12 245);
   --shadow-edge-dark: color-mix(in oklab, var(--background) 40%, black);
   --shadow-edge-light: color-mix(in oklab, var(--background) 92%, white);

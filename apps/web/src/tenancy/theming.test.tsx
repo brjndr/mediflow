@@ -3,7 +3,7 @@ import { plainSpaces } from '@/test/text';
 import userEvent from '@testing-library/user-event';
 import { sessionFor, signIn, signOut, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
-import { contrastRatio, themeFromBrandColor } from '@/shared/lib/theme';
+import { contrastRatio, darkCounterpart, themeFromBrandColor } from '@/shared/lib/theme';
 import { renderApp, renderWithProviders } from '@/test/render';
 import { http, HttpResponse } from 'msw';
 import { useFormatters } from '.';
@@ -124,6 +124,24 @@ describe('theme', () => {
     expect(cssVar('--primary')).toBe('');
     expect(cssVar('--ring')).toBe('');
     expect(themeFromBrandColor(primary)).toBeNull();
+  });
+
+  it.each(['#0f766e', '#0b1020', '#5b6470', '#757575'])(
+    'gives %s a dark counterpart that reads on the dark page',
+    (brand) => {
+      const dark = darkCounterpart(brand);
+      expect(dark).not.toBeNull();
+      expect(contrastRatio(dark ?? '', '#111826')).toBeGreaterThanOrEqual(4.5);
+      const theme = themeFromBrandColor(brand);
+      expect(theme?.['primary-dark']).toBe(dark);
+      expect(theme?.['primary-dark-foreground']).toMatch(/^#(000000|ffffff)$/);
+    },
+  );
+
+  it('keeps a colour that already reads on the dark page, and refuses one that is not a colour', () => {
+    expect(darkCounterpart('#ffffff')).toBe('#ffffff');
+    expect(darkCounterpart('oklch(0.5 0.1 200)')).toBeNull();
+    expect(darkCounterpart('#07c')).toBeNull();
   });
 
   it('measures contrast the WCAG way', () => {
