@@ -31,7 +31,8 @@
     "failed": "{{title}} was blocked: it could not be scanned. Upload it again."
   },
   "state": {
-    "retired": "Retired: {{reason}}"
+    "retired": "Retired: {{reason}}",
+    "held": "On legal hold"
   },
   "columns": {
     "title": "Document",

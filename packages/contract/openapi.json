@@ -8436,6 +8436,7 @@
           "contentType",
           "size",
           "status",
+          "held",
           "version",
           "createdAt"
         ],
@@ -8489,6 +8490,10 @@
           },
           "retiredReason": {
             "type": "string"
+          },
+          "held": {
+            "description": "True while an active legal hold covers the document, on it or on every document of the patient (#672).",
+            "type": "boolean"
           },
           "version": {
             "type": "integer"
