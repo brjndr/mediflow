@@ -48,7 +48,7 @@ test.describe('at desktop width', () => {
     await expect(page.getByRole('heading', { name: 'Onboarded Hospital', level: 1 })).toBeVisible();
 
     // On the new hospital's page: switch a module on, then invite its first admin.
-    const lab = page.getByRole('checkbox', { name: 'Laboratory' });
+    const lab = page.getByRole('switch', { name: 'Laboratory' });
     await expect(lab).not.toBeChecked();
     await lab.check();
     await page.getByRole('button', { name: 'Save modules' }).click();
@@ -126,7 +126,7 @@ test.describe('at desktop width', () => {
     await expectNoSidewaysScroll(page);
     await expectNoAxeViolations(page);
 
-    const lab = page.getByRole('checkbox', { name: 'Laboratory' });
+    const lab = page.getByRole('switch', { name: 'Laboratory' });
     await lab.focus();
     await lab.press('Space');
     await expect(lab).toBeChecked();

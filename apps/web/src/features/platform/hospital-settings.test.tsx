@@ -24,8 +24,8 @@ describe('hospital modules and limits (platform)', () => {
     expect(
       await screen.findByRole('heading', { name: 'Riverside Clinic', level: 1 }),
     ).toBeInTheDocument();
-    expect(await screen.findByRole('checkbox', { name: 'Patients' })).toBeChecked();
-    expect(await screen.findByRole('checkbox', { name: 'Laboratory' })).not.toBeChecked();
+    expect(await screen.findByRole('switch', { name: 'Patients' })).toBeChecked();
+    expect(await screen.findByRole('switch', { name: 'Laboratory' })).not.toBeChecked();
     await expectNoAxeViolations();
   });
 
@@ -44,10 +44,10 @@ describe('hospital modules and limits (platform)', () => {
     );
     renderApp({ entry: '/platform/hospitals/hosp_city' });
 
-    expect(await screen.findByRole('checkbox', { name: 'new_thing' })).not.toBeChecked();
-    expect(await screen.findByRole('checkbox', { name: 'Patients' })).toBeChecked();
+    expect(await screen.findByRole('switch', { name: 'new_thing' })).not.toBeChecked();
+    expect(await screen.findByRole('switch', { name: 'Patients' })).toBeChecked();
     // Only what the API lists, so no stale web list: Laboratory is not offered.
-    expect(screen.queryByRole('checkbox', { name: 'Laboratory' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Laboratory' })).not.toBeInTheDocument();
   });
 
   it('offers the records, roles and consents switches by name', async () => {
@@ -56,11 +56,22 @@ describe('hospital modules and limits (platform)', () => {
     renderApp({ entry: '/platform/hospitals/hosp_city' });
 
     for (const name of ['Medical records', 'Roles and permissions', 'Consents and certificates']) {
-      const box = await screen.findByRole('checkbox', { name });
+      const box = await screen.findByRole('switch', { name });
       expect(box).not.toBeChecked();
       await user.click(box);
       expect(box).toBeChecked();
     }
+  });
+
+  it('toggles the roles switch with Space', async () => {
+    asPlatformAdmin();
+    const user = userEvent.setup();
+    renderApp({ entry: '/platform/hospitals/hosp_city' });
+
+    const roles = await screen.findByRole('switch', { name: 'Roles and permissions' });
+    roles.focus();
+    await user.keyboard(' ');
+    expect(roles).toBeChecked();
   });
 
   it('switches a module on and keeps it after a reload of the hospital', async () => {
@@ -68,7 +79,7 @@ describe('hospital modules and limits (platform)', () => {
     const user = userEvent.setup();
     renderApp({ entry: '/platform/hospitals/hosp_city' });
 
-    await user.click(await screen.findByRole('checkbox', { name: 'Laboratory' }));
+    await user.click(await screen.findByRole('switch', { name: 'Laboratory' }));
     await user.click(screen.getByRole('button', { name: 'Save modules' }));
 
     expect(await screen.findByText('Modules saved.')).toBeInTheDocument();
@@ -81,18 +92,18 @@ describe('hospital modules and limits (platform)', () => {
     const user = userEvent.setup();
     renderApp({ entry: '/platform/hospitals/hosp_city' });
 
-    const required = await screen.findByRole('checkbox', { name: 'Make it compulsory' });
+    const required = await screen.findByRole('switch', { name: 'Make it compulsory' });
     // Without the authenticator offered, it cannot be ticked.
     await user.click(required);
     expect(required).not.toBeChecked();
 
-    await user.click(screen.getByRole('checkbox', { name: 'Offer the authenticator to staff' }));
+    await user.click(screen.getByRole('switch', { name: 'Offer the authenticator to staff' }));
     await user.click(required);
     expect(required).toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Save modules' }));
     await screen.findByText('Modules saved.');
 
-    await user.click(screen.getByRole('checkbox', { name: 'Offer the authenticator to staff' }));
+    await user.click(screen.getByRole('switch', { name: 'Offer the authenticator to staff' }));
     await user.click(screen.getByRole('button', { name: 'Save modules' }));
     await waitFor(async () => {
       const h = await fetchHospital('hosp_city');
@@ -106,9 +117,9 @@ describe('hospital modules and limits (platform)', () => {
     const user = userEvent.setup();
     renderApp({ entry: '/platform/hospitals/hosp_clinic' });
 
-    const offer = await screen.findByRole('checkbox', { name: 'Offer the authenticator to staff' });
+    const offer = await screen.findByRole('switch', { name: 'Offer the authenticator to staff' });
     await user.click(offer);
-    await user.click(screen.getByRole('checkbox', { name: 'Make it compulsory' }));
+    await user.click(screen.getByRole('switch', { name: 'Make it compulsory' }));
     // Both ticked, then the authenticator is unticked again before saving.
     await user.click(offer);
     await user.click(screen.getByRole('button', { name: 'Save modules' }));
@@ -122,10 +133,10 @@ describe('hospital modules and limits (platform)', () => {
   it('shows a flag the web list does not know, by its id', async () => {
     asPlatformAdmin();
     renderApp({ entry: '/platform/hospitals/hosp_city' });
-    await screen.findByRole('checkbox', { name: 'Patients' });
+    await screen.findByRole('switch', { name: 'Patients' });
     await setHospitalFeatures('hosp_city', [{ feature: 'telehealth', enabled: true }]);
     renderApp({ entry: '/platform/hospitals/hosp_city' });
-    expect((await screen.findAllByRole('checkbox', { name: 'telehealth' }))[0]).toBeChecked();
+    expect((await screen.findAllByRole('switch', { name: 'telehealth' }))[0]).toBeChecked();
   });
 
   it('saves limits and refuses a value that is not a whole number', async () => {
