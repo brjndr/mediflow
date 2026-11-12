@@ -150,6 +150,10 @@ Playwright runs every spec at desktop, tablet (768 px, touch) and phone (360 px,
 
 **Dialogs** use `Dialog` from `shared/ui/dialog`, which fills the screen below `md` (`ConfirmDialog` is nearly full width). A phone Lighthouse run is not checked yet (`docs/STATUS.md`).
 
+### Visual language
+
+Soft UI cards and bento layouts are the base. Neumorphism only on the switch, the search field and the ring gauge, never on forms, tables or clinical data. Glass only on the desktop sidebar, with a solid fallback. Status is always color plus icon plus word. Colors are tokens derived from `--primary` and `--background` with `color-mix()`, never fixed, so a hospital's brand color re-themes them. The tokens and utilities are in `apps/web/src/shared/ui/CLAUDE.md` (Visual language).
+
 ## Accessibility
 
 The target is **WCAG 2.2 AA** (decided 2026-10-14, #337), for every screen at every width. Screens are built accessible, not fixed at the end: the hardening audit (H-02, #139) confirms, it does not catch up.

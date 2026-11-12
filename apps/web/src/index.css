@@ -31,6 +31,37 @@
   --border: oklch(0.93 0.01 255);
   --input: oklch(0.93 0.01 255);
   --ring: oklch(0.51 0.09 186);
+
+  /*
+   * Visual language (#707). Everything below is derived from --background, --primary and the
+   * status colors with color-mix(), so a hospital that sets only its primary color re-themes it
+   * all. None of these names is in THEME_TOKENS.
+   */
+  --info: oklch(0.55 0.14 245);
+  --page: color-mix(in oklab, var(--background) 96%, var(--primary));
+  --shadow-edge-dark: color-mix(in oklab, var(--background) 82%, black);
+  --shadow-edge-light: color-mix(in oklab, var(--background) 40%, white);
+  --elevation-soft: 0 1px 2px var(--shadow-edge-dark), 0 4px 12px -2px var(--shadow-edge-dark);
+  --elevation-raised:
+    0 2px 4px var(--shadow-edge-dark), 0 10px 24px -4px var(--shadow-edge-dark),
+    -4px -4px 10px var(--shadow-edge-light);
+  --elevation-inset:
+    inset 2px 2px 5px var(--shadow-edge-dark), inset -2px -2px 5px var(--shadow-edge-light);
+  --success-soft: color-mix(in oklab, var(--success) 14%, var(--background));
+  --success-soft-foreground: color-mix(in oklab, var(--success) 45%, var(--foreground));
+  --warning-soft: color-mix(in oklab, var(--warning) 18%, var(--background));
+  --warning-soft-foreground: color-mix(in oklab, var(--warning) 35%, var(--foreground));
+  --destructive-soft: color-mix(in oklab, var(--destructive) 12%, var(--background));
+  --destructive-soft-foreground: color-mix(in oklab, var(--destructive) 50%, var(--foreground));
+  --info-soft: color-mix(in oklab, var(--info) 12%, var(--background));
+  --info-soft-foreground: color-mix(in oklab, var(--info) 50%, var(--foreground));
+  /* The second stop moves away from the text color (black for white text and the reverse), so
+     contrast with --primary-foreground can only rise along the gradient. */
+  --brand-gradient: linear-gradient(
+    135deg,
+    var(--primary),
+    color-mix(in oklab, var(--primary) 85%, oklch(from var(--primary-foreground) calc(1 - l) 0 0))
+  );
 }
 
 .dark {
@@ -53,6 +84,17 @@
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.7 0.11 186);
+  --info: oklch(0.72 0.12 245);
+  --shadow-edge-dark: color-mix(in oklab, var(--background) 40%, black);
+  --shadow-edge-light: color-mix(in oklab, var(--background) 92%, white);
+  --success-soft: color-mix(in oklab, var(--success) 22%, var(--background));
+  --success-soft-foreground: color-mix(in oklab, var(--success) 55%, var(--foreground));
+  --warning-soft: color-mix(in oklab, var(--warning) 22%, var(--background));
+  --warning-soft-foreground: color-mix(in oklab, var(--warning) 55%, var(--foreground));
+  --destructive-soft: color-mix(in oklab, var(--destructive) 22%, var(--background));
+  --destructive-soft-foreground: color-mix(in oklab, var(--destructive) 55%, var(--foreground));
+  --info-soft: color-mix(in oklab, var(--info) 22%, var(--background));
+  --info-soft-foreground: color-mix(in oklab, var(--info) 55%, var(--foreground));
 }
 
 @theme inline {
@@ -81,6 +123,20 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-info: var(--info);
+  --color-page: var(--page);
+  --color-success-soft: var(--success-soft);
+  --color-success-soft-foreground: var(--success-soft-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-foreground: var(--warning-soft-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-soft-foreground: var(--destructive-soft-foreground);
+  --color-info-soft: var(--info-soft);
+  --color-info-soft-foreground: var(--info-soft-foreground);
+  --shadow-soft: var(--elevation-soft);
+  --shadow-raised: var(--elevation-raised);
+  --shadow-inset: var(--elevation-inset);
+  --background-image-brand-gradient: var(--brand-gradient);
 }
 
 @layer base {
