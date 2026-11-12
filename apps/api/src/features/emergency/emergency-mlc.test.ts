@@ -224,9 +224,9 @@ describe('printing (#646)', () => {
     });
   const printsOf = async (caseId: string, tenantId = hospital.id) =>
     (
-      await pool.query<{ entity_id: string; actor_id: string }>(
-        "select entity_id, actor_id from audit_log where tenant_id = $1 and action = 'print' and entity = 'er_medico_legal' and entity_id like $2 order by at, id",
-        [tenantId, `${caseId}:%`],
+      await pool.query<{ entity_id: string; detail: string; actor_id: string }>(
+        "select entity_id, detail, actor_id from audit_log where tenant_id = $1 and action = 'print' and entity = 'er_medico_legal' and entity_id = $2 order by at, id",
+        [tenantId, caseId],
       )
     ).rows;
 
@@ -237,7 +237,9 @@ describe('printing (#646)', () => {
     const response = await print(row.id, { user: doctor });
     expect(response.statusCode).toBe(200);
     expect(response.json<Mlc>()).toMatchObject({ revision: 2 });
-    expect(await printsOf(row.id)).toEqual([{ entity_id: `${row.id}:2`, actor_id: doctor.id }]);
+    expect(await printsOf(row.id)).toEqual([
+      { entity_id: row.id, detail: 'revision:2', actor_id: doctor.id },
+    ]);
   });
 
   it('records a press once, and a new press again', async () => {

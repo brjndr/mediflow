@@ -54,6 +54,8 @@ export interface AuditEntry {
   action: string;
   entity: string;
   entityId: string | null;
+  /** A short code or id that says more than the record (e.g. `revision:2`), never a field value. */
+  detail?: string | null;
 }
 
 /**
@@ -70,9 +72,9 @@ export async function insertAuditEntries(
   for (let start = 0; start < entries.length; start += 1000) {
     // The hospital comes from the transaction's setting, never from a value the caller passes.
     await client.query(
-      `insert into audit_log (tenant_id, actor_id, action, entity, entity_id, request_id)
-       select app_tenant_id(), $1, e.action, e.entity, e.entity_id, $2
-       from jsonb_to_recordset($3::jsonb) as e(action text, entity text, entity_id text)`,
+      `insert into audit_log (tenant_id, actor_id, action, entity, entity_id, request_id, detail)
+       select app_tenant_id(), $1, e.action, e.entity, e.entity_id, $2, e.detail
+       from jsonb_to_recordset($3::jsonb) as e(action text, entity text, entity_id text, detail text)`,
       [
         actorId,
         requestId,
@@ -81,6 +83,7 @@ export async function insertAuditEntries(
             action: entry.action,
             entity: entry.entity,
             entity_id: entry.entityId,
+            detail: entry.detail ?? null,
           })),
         ),
       ],
@@ -106,7 +109,7 @@ declare module 'fastify' {
      * Adds an audit entry for something this request did (several records, or an action the
      * route config cannot express). Written in the request's transaction, only if it commits.
      */
-    audit(action: string, entity: string, entityId?: string): void;
+    audit(action: string, entity: string, entityId?: string, detail?: string): void;
   }
 }
 
@@ -159,9 +162,9 @@ async function recordDenied(app: FastifyInstance, request: FastifyRequest): Prom
  */
 export const auditPlugin = fp(
   async (app) => {
-    app.decorateRequest('audit', function (this: FastifyRequest, action, entity, entityId) {
+    app.decorateRequest('audit', function (this: FastifyRequest, action, entity, entityId, detail) {
       const entries = pending.get(this) ?? [];
-      entries.push({ action, entity, entityId: entityId ?? null });
+      entries.push({ action, entity, entityId: entityId ?? null, detail: detail ?? null });
       pending.set(this, entries);
     });
 
