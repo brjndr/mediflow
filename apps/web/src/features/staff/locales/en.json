@@ -128,5 +128,15 @@
       "roleAmbiguous": "More than one role matches: use the role's id",
       "duplicate": "The same address is on an earlier line"
     }
+  },
+  "picker": {
+    "placeholder": "Name or email",
+    "unavailable": "The staff list is not open to you at this hospital.",
+    "typeToSearch": "Type part of a name to find a member of staff.",
+    "loading": "Searching…",
+    "failed": "Staff could not be searched. Type again to retry.",
+    "none": "No member of staff matches.",
+    "found_one": "{{count}} member of staff. More are found by typing more.",
+    "found_other": "{{count}} members of staff. More are found by typing more."
   }
 }

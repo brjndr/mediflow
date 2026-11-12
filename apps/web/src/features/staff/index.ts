@@ -3,3 +3,4 @@ export { staffFeature } from './manifest';
 export type { StaffMember } from './types';
 export { invalidateStaffRoles } from './hooks/use-staff';
 export { useStaffOptions, type StaffOption } from './hooks/use-staff-options';
+export { StaffSearch } from './components/StaffSearch';

@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDepartmentOptions } from '@/features/departments';
-import { useStaffOptions } from '@/features/staff';
+import { StaffSearch } from '@/features/staff';
+import { focusIfLost } from '@/shared/lib/focus';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { Dialog } from '@/shared/ui/dialog';
@@ -9,6 +10,7 @@ import {
   Form,
   SelectField,
   TextField,
+  useFieldError,
   useFieldValue,
   useSetFieldValue,
   useZodForm,
@@ -43,6 +45,69 @@ function TemplateTimes() {
 }
 
 /**
+ * The person on the shift, found by a search on the server (a hospital may have far more staff
+ * than a list can hold). The chosen name stays shown, with a way to search again; the form holds
+ * only the id.
+ */
+function PersonField() {
+  const { t } = useTranslation('roster');
+  const setValue = useSetFieldValue();
+  const userId = useFieldValue('userId') as string;
+  const error = useFieldError('userId');
+  const [name, setName] = useState('');
+  const empty = userId === '';
+  const errorId = 'roster-person-error';
+  const box = useRef<HTMLDivElement>(null);
+  const first = useRef(true);
+  // The box or the name goes away when the other shows: keep the keyboard where it was.
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    focusIfLost(box.current?.querySelector<HTMLElement>('input, button'));
+  }, [empty]);
+  return (
+    <div ref={box} className="space-y-2">
+      {!empty ? (
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{t('new.person')}</p>
+          <p className="flex flex-wrap items-center gap-2 text-sm">
+            <span>{t('new.chosen', { name })}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setValue('userId', '');
+                setName('');
+              }}
+            >
+              {t('new.change')}
+            </Button>
+          </p>
+        </div>
+      ) : (
+        <StaffSearch
+          label={t('new.person')}
+          invalid={error !== undefined}
+          describedBy={error ? errorId : undefined}
+          onSelect={(person) => {
+            setName(person.name);
+            setValue('userId', person.id);
+          }}
+        />
+      )}
+      {error && (
+        <p id={errorId} role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * Puts a member of staff on duty (OP-01, #195). The kind of shift fills the usual hours; an end
  * at or before the start means the next morning. A person already on duty then is refused by the
  * server and said so here, with the choices kept.
@@ -60,7 +125,6 @@ export function ShiftDialog({
   const { t: tCommon } = useTranslation();
   const timezone = useTenant()?.timezone ?? 'UTC';
   const create = useCreateShift();
-  const staff = useStaffOptions();
   const departments = useDepartmentOptions();
   const form = useZodForm(shiftFormSchema, {
     userId: '',
@@ -115,13 +179,7 @@ export function ShiftDialog({
     >
       <Form form={form} id="roster-shift-form" onSubmit={submit}>
         <TemplateTimes />
-        <SelectField<ShiftFormValues>
-          name="userId"
-          label={t('new.person')}
-          required
-          placeholder={t('new.choose')}
-          options={(staff.data ?? []).map((one) => ({ value: one.id, label: one.name }))}
-        />
+        <PersonField />
         {departments.available && (
           <SelectField<ShiftFormValues>
             name="departmentId"
