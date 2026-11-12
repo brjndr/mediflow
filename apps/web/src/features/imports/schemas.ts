@@ -22,7 +22,7 @@ export const STATUSES = [
 export const WORKING: readonly ImportBatch['status'][] = ['checking', 'queued', 'running'];
 
 /** The kinds the app has words for. A kind the API offers that is not here is not shown. */
-export const KINDS = ['services', 'drugs', 'lab_tests', 'patients'] as const;
+export const KINDS = ['services', 'drugs', 'lab_tests', 'patients', 'opening_stock'] as const;
 export type KnownKind = (typeof KINDS)[number];
 export const isKnownKind = (kind: string): kind is KnownKind =>
   (KINDS as readonly string[]).includes(kind);

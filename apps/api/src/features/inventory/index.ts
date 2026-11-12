@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { EXPIRY_JOB, announceExpiringEverywhere } from './expiry.js';
+import { openingStockImport } from './opening-import.js';
 import { INVENTORY_PERMISSIONS } from './permissions.js';
 import { inventoryRoutes } from './routes.js';
 
@@ -13,6 +14,7 @@ import { inventoryRoutes } from './routes.js';
  */
 export const inventoryFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('inventory', INVENTORY_PERMISSIONS);
+  app.importKinds.register(openingStockImport);
   await app.register(inventoryRoutes);
   app.jobs.work(EXPIRY_JOB, () => announceExpiringEverywhere(app.database.pool));
   app.jobs.schedule(EXPIRY_JOB, '15 2 * * *');
