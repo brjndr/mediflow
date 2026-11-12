@@ -496,6 +496,44 @@ describe('retention', () => {
   });
 });
 
+describe('the held flag', () => {
+  type Listed = { items: { id: string; held: boolean }[] };
+  const heldOf = async (patientId: string, id: string, options: Options = {}) =>
+    (await get(`/patients/${patientId}/documents`, options))
+      .json<Listed>()
+      .items.find((item) => item.id === id)?.held;
+
+  it('shows a hold on one document, or on the whole patient, until it is released', async () => {
+    const patientId = await patient(hospital, 'DC-0000940');
+    const first = await uploaded(patientId);
+    const second = await uploaded(patientId);
+    expect(await heldOf(patientId, first.document.id)).toBe(false);
+
+    const one = await post(`/documents/${first.document.id}/legal-hold`, { reason: 'Inquiry' });
+    expect(one.statusCode).toBe(201);
+    expect(await heldOf(patientId, first.document.id)).toBe(true);
+    expect(await heldOf(patientId, second.document.id)).toBe(false);
+
+    const all = await post(`/patients/${patientId}/legal-hold`, { reason: 'Case' });
+    expect(await heldOf(patientId, second.document.id)).toBe(true);
+    await post(`/legal-holds/${one.json<{ id: string }>().id}/release`, {});
+    expect(await heldOf(patientId, first.document.id)).toBe(true);
+    await post(`/legal-holds/${all.json<{ id: string }>().id}/release`, {});
+    expect(await heldOf(patientId, first.document.id)).toBe(false);
+  });
+
+  it('does not show a hold of another hospital', async () => {
+    const patientId = await patient(hospital, 'DC-0000941');
+    const doc = await uploaded(patientId);
+    await post(`/patients/${patientId}/legal-hold`, { reason: 'Case' });
+    expect(await heldOf(patientId, doc.document.id)).toBe(true);
+    const other = { tenant: clinic, user: clinicAdmin };
+    const clinicPatient = await patient(clinic, 'DC-0000942');
+    const clinicDoc = await uploaded(clinicPatient, PDF, {}, other);
+    expect(await heldOf(clinicPatient, clinicDoc.document.id, other)).toBe(false);
+  });
+});
+
 describe('merging two records', () => {
   it('carries a patient legal hold to the survivor so the sweep skips the moved documents', async () => {
     const source = await patient(hospital, 'DC-0000930');

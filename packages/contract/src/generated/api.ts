@@ -8807,6 +8807,8 @@ export interface components {
             /** Format: date-time */
             retiredAt?: string;
             retiredReason?: string;
+            /** @description True while an active legal hold covers the document, on it or on every document of the patient (#672). */
+            held: boolean;
             version: number;
             /** Format: date-time */
             createdAt: string;

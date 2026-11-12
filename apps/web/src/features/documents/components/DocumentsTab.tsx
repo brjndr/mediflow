@@ -128,6 +128,16 @@ function PatientDocuments({ patientId }: { patientId: string }) {
           row.retiredAt
             ? t('state.retired', { reason: row.retiredReason ?? '' })
             : t(`status.${row.status}`),
+        render: (row, text) => (
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span>{text}</span>
+            {row.held && (
+              <span className="rounded-md border border-amber-600 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-900">
+                {t('state.held')}
+              </span>
+            )}
+          </span>
+        ),
       },
       {
         id: 'keptUntil',

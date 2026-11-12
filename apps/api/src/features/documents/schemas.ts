@@ -53,6 +53,10 @@ export const PatientDocument = Type.Object(
     ),
     retiredAt: Type.Optional(Type.String({ format: 'date-time' })),
     retiredReason: Type.Optional(Type.String()),
+    held: Type.Boolean({
+      description:
+        'True while an active legal hold covers the document, on it or on every document of the patient (#672).',
+    }),
     version: Type.Integer(),
     createdAt: Type.String({ format: 'date-time' }),
   },

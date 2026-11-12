@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { revokePermission, TENANT_IDS } from '@/mocks/db';
+import { holdMockDocument } from '@/mocks/handlers/documents';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 
@@ -61,6 +62,40 @@ describe('placing a legal hold', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Place hold' }));
     expect(await screen.findByText('This field is required.')).toBeInTheDocument();
   });
+});
+
+describe('the held badge (#672)', () => {
+  it('marks only the held document', async () => {
+    await holdOneDocument('Court order 12');
+    const documents = () => screen.getByRole('table', { name: 'Documents' });
+    await waitFor(
+      () =>
+        expect(
+          within(rowOf(documents(), 'Signed consent for surgery')).getByText('On legal hold'),
+        ).toBeInTheDocument(),
+      { timeout: 8000 },
+    );
+    expect(within(rowOf(documents(), 'Insurance card')).queryByText('On legal hold')).toBeNull();
+  }, 20000);
+
+  it('marks every document of a patient held, and ignores another hospital’s hold', async () => {
+    holdMockDocument(TENANT_IDS.clinic, 'pth_00001');
+    renderApp({ entry: '/patients/pth_00001?tab=documents' });
+    const table = await screen.findByRole('table', { name: 'Documents' });
+    await within(table).findByText('Insurance card');
+    expect(within(table).queryByText('On legal hold')).toBeNull();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Hold all documents' }));
+    await userEvent.type(await screen.findByLabelText(/Reason/), 'Investigation');
+    await userEvent.click(screen.getByRole('button', { name: 'Place hold' }));
+    await waitFor(
+      () =>
+        expect(
+          within(screen.getByRole('table', { name: 'Documents' })).getAllByText('On legal hold'),
+        ).toHaveLength(3),
+      { timeout: 8000 },
+    );
+  }, 20000);
 });
 
 describe('who sees what', () => {
