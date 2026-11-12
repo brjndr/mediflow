@@ -206,7 +206,7 @@ beforeAll(async () => {
     );
   patientId = await patient(hospital, 'OP-0000001');
   clinicPatientId = await patient(clinic, 'OP-0000002');
-});
+}, 60_000); // builds a whole app and migrated tenants: over the 10 s default on a fresh database (#631)
 
 afterAll(async () => {
   try {

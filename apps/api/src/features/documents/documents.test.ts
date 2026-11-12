@@ -177,7 +177,7 @@ beforeAll(async () => {
   ids.b = await patient(hospital, 'DC-0000002');
   ids.c = await patient(hospital, 'DC-0000003');
   ids.clinicPatient = await patient(clinic, 'DC-0000001');
-});
+}, 60_000); // builds a whole app: over the 10 s default on a fresh database (#631)
 
 afterAll(async () => {
   const client = await pool.connect();
