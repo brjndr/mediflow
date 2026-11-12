@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
+import widgetStrings from '../widget-strings.json';
 import { errorMessageKey } from '@/shared/api';
 import { useLatestNotices } from '../hooks/use-notices';
 
@@ -6,7 +8,7 @@ const WIDGET_COUNT = 3;
 
 // Default export: contributed to the `dashboard.widgets` slot through the manifest.
 export default function LatestNoticesWidget() {
-  const { t } = useTranslation('notices');
+  const { t } = useWidgetStrings('notices-widget', widgetStrings);
   const { t: tCommon } = useTranslation();
   const latest = useLatestNotices(WIDGET_COUNT);
 

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
+import widgetStrings from '../widget-strings.json';
 import { errorMessageKey } from '@/shared/api';
 import { Card } from '@/shared/ui/card';
 import { Skeleton } from '@/shared/ui/skeleton';
@@ -19,7 +21,7 @@ const METHODS: RegisterTotal['method'][] = ['cash', 'card', 'upi', 'bank', 'othe
  * contribution. A drawer opened on an earlier day is counted on that day.
  */
 export default function CollectedTodayWidget() {
-  const { t } = useTranslation('billing');
+  const { t } = useWidgetStrings('billing-widget', widgetStrings);
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const timezone = useTenant()?.timezone ?? 'UTC';

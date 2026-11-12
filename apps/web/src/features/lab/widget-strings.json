@@ -1,0 +1,11 @@
+{
+  "widget": {
+    "title": "Laboratory",
+    "open": "Open the worklist",
+    "unknown": "not yet known"
+  },
+  "stage": {
+    "to_collect": "To collect",
+    "received": "Received"
+  }
+}

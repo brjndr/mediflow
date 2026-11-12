@@ -8,9 +8,5 @@
   "archiveLabel": "Archive “{{title}}”",
   "loadMore": "Load more",
   "loadingMore": "Loading more…",
-  "retry": "Try again",
-  "widget": {
-    "title": "Latest notices",
-    "empty": "No notices."
-  }
+  "retry": "Try again"
 }

@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
+import widgetStrings from '../widget-strings.json';
 import { errorMessageKey } from '@/shared/api';
 import { RingGauge } from '@/shared/ui/ring-gauge';
 import { Skeleton } from '@/shared/ui/skeleton';
@@ -11,7 +13,7 @@ import { useOccupancy } from '../hooks/use-census';
  * contribution.
  */
 export default function CapacityWidget() {
-  const { t } = useTranslation('admissions');
+  const { t } = useWidgetStrings('admissions-widget', widgetStrings);
   const { t: tCommon } = useTranslation();
   // Read when it opens: the bed events stream belongs to the board, not to the landing page.
   const occupancy = useOccupancy('', false);

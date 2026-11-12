@@ -1,0 +1,9 @@
+{
+  "widget": {
+    "title": "Stock alerts",
+    "low": "Low stock",
+    "expiring": "Expiring soon",
+    "open": "Open stock",
+    "unknown": "not yet known"
+  }
+}

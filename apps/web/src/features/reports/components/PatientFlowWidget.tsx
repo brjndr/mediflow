@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
+import widgetStrings from '../widget-strings.json';
 import { errorMessageKey } from '@/shared/api';
 import { todayIn } from '@/shared/utils/timezone';
 import { Card } from '@/shared/ui/card';
@@ -23,7 +25,7 @@ const daysBefore = (day: string, back: number) =>
  * Default export: contributed to the `dashboard.widgets` slot through the manifest.
  */
 export default function PatientFlowWidget() {
-  const { t } = useTranslation('reports');
+  const { t } = useWidgetStrings('reports-widget', widgetStrings);
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const tenant = useTenant();

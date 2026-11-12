@@ -335,10 +335,5 @@
       "notWithPartner": "This sample is no longer with a partner laboratory.",
       "gone": "This sample is no longer on the worklist."
     }
-  },
-  "widget": {
-    "title": "Laboratory",
-    "open": "Open the worklist",
-    "unknown": "not yet known"
   }
 }

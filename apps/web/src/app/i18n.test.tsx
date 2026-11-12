@@ -174,7 +174,7 @@ describe('missing keys', () => {
     for (const [path, source] of Object.entries(sources)) {
       if (/\.test\.|\/test\/|\/mocks\//.test(path)) continue;
       // Screens with their own namespace are checked by their feature's tests.
-      if (/useTranslation\(\s*['"]/.test(source)) continue;
+      if (/use(?:Translation|WidgetStrings)\(\s*['"]/.test(source)) continue;
       // Usage examples in comments are not code.
       const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
       for (const [, key] of code.matchAll(/\bt\(\s*['"]([\w.-]+)['"]/g)) {

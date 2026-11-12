@@ -1,0 +1,9 @@
+{
+  "widget": {
+    "title": "Bed capacity",
+    "open": "Open the census",
+    "gauge": "Beds occupied",
+    "detail": "{{occupied}} of {{usable}} beds in use are occupied.",
+    "empty": "No beds are set up."
+  }
+}
