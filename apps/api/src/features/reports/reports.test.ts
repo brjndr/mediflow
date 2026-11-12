@@ -763,7 +763,7 @@ describe('the hourly sweep', () => {
       );
     });
 
-    const failed = await sweepReports(pool, store);
+    const failed = await sweepReports(app, store);
 
     expect(failed).toEqual([]);
     const { rows } = await pool.query<{ id: string; status: string; failure: string | null }>(
@@ -890,7 +890,7 @@ describe('jobs and limits under pressure', () => {
       );
     });
 
-    expect(await sweepReports(pool, store)).toEqual([]);
+    expect(await sweepReports(app, store)).toEqual([]);
 
     expect(await store.get(key)).toBeNull();
     expect(await statusOf(id)).toBeUndefined();
@@ -913,10 +913,10 @@ describe('jobs and limits under pressure', () => {
       delete: () => Promise.reject(new Error('locked')),
     };
 
-    expect(await sweepReports(pool, stuck)).toContain(fileKeyOf(hospital.id, id));
+    expect(await sweepReports(app, stuck)).toContain(fileKeyOf(hospital.id, id));
     expect(await statusOf(id)).toBe('failed');
 
-    expect(await sweepReports(pool, new LocalFileStore(folder))).not.toContain(
+    expect(await sweepReports(app, new LocalFileStore(folder))).not.toContain(
       fileKeyOf(hospital.id, id),
     );
     expect(await statusOf(id)).toBeUndefined();

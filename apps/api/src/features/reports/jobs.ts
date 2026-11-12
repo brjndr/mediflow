@@ -1,6 +1,7 @@
+import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import type { FileStore } from '../../core/files/store.js';
-import { WORKER_ROLE } from '../../core/outbox/dispatcher.js';
+import { asWorker } from '../../core/files/worker.js';
 import { withTenantTransaction } from '../../core/tenancy/transaction.js';
 import { computeReport, readAtHospital, RUN_MAX_ROWS, TooLarge } from './compute.js';
 import { toCsv } from './csv.js';
@@ -114,25 +115,11 @@ export async function runReport(
  * running for an hour (`stalled`, so the hospital's quota is not held for ever) and deletes the
  * runs past their retention with their files.
  */
-export async function sweepReports(pool: pg.Pool, files: FileStore): Promise<string[]> {
-  /** One short transaction as the worker role. */
-  const asWorker = async <T>(work: (client: pg.PoolClient) => Promise<T>): Promise<T> => {
-    const client = await pool.connect();
-    try {
-      await client.query('begin');
-      await client.query(`set local role ${WORKER_ROLE}`);
-      const result = await work(client);
-      await client.query('commit');
-      return result;
-    } catch (error) {
-      await client.query('rollback').catch(() => undefined);
-      throw error;
-    } finally {
-      client.release();
-    }
-  };
-
-  const expired = await asWorker(async (client) => {
+export async function sweepReports(
+  app: Pick<FastifyInstance, 'database'>,
+  files: FileStore,
+): Promise<string[]> {
+  const expired = await asWorker(app, async (client) => {
     await client.query(
       `update report_runs set status = 'failed', failure = 'stalled', finished_at = now()
        where status in ('queued', 'running') and requested_at < now() - interval '1 hour'`,
@@ -158,7 +145,7 @@ export async function sweepReports(pool: pg.Pool, files: FileStore): Promise<str
     }
   }
   if (gone.length > 0) {
-    await asWorker((client) =>
+    await asWorker(app, (client) =>
       client.query('delete from report_runs where id = any($1::uuid[]) and expires_at < now()', [
         gone,
       ]),
