@@ -41,11 +41,13 @@ export function HomePage() {
           <Slot
             id="dashboard.widgets"
             frame={(contribution, node) => (
-              <div className={`min-w-0 [&>*]:h-full ${TILE_SPAN[contribution.size ?? 'sm']}`}>
+              <div
+                className={`min-h-44 min-w-0 [&>*]:h-full ${TILE_SPAN[contribution.size ?? 'sm']}`}
+              >
                 {node}
               </div>
             )}
-            fallback={<Skeleton className="h-28 border" />}
+            fallback={<Skeleton className="h-full min-h-44 border" />}
             errorFallback={
               <p role="alert" className="rounded-lg border p-4 text-sm text-muted-foreground">
                 {t('home.widgetFailed')}
