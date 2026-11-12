@@ -77,7 +77,7 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center gap-3 border-b bg-card/70 px-4 shadow-soft">
+        <header className="flex h-14 items-center gap-2 border-b bg-card/70 px-3 shadow-soft sm:gap-3 sm:px-4">
           <Button
             className="lg:hidden"
             size="icon"
@@ -89,7 +89,7 @@ export function AppShell() {
           </Button>
           <TenantBrand className="lg:hidden" />
           <TenantSwitcher />
-          <div className="ml-auto flex min-w-0 items-center gap-2">
+          <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
             <UserIdentity />
             <ThemeSwitch />
             <SignOutButton />
