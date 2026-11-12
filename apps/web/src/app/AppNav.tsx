@@ -28,7 +28,7 @@ export function AppNav({ collapsed = false, onNavigate }: AppNavProps) {
 
   return (
     <nav aria-label={t('nav.label')}>
-      <ul className="flex flex-col gap-1">
+      <ul className="flex flex-col gap-1.5">
         {items.map(({ key, to, label, icon: Icon, end }) => (
           <li key={key}>
             <NavLink
@@ -38,9 +38,10 @@ export function AppNav({ collapsed = false, onNavigate }: AppNavProps) {
               onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  'flex h-9 items-center gap-3 rounded-md px-3 text-sm pointer-coarse:h-11 outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                  'flex h-10 items-center gap-3 rounded-lg px-3 text-sm pointer-coarse:h-11 outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
                   collapsed && 'justify-center px-0',
-                  isActive && 'bg-accent font-medium',
+                  isActive &&
+                    'bg-primary/10 font-medium shadow-[inset_3px_0_0_var(--primary)] hover:bg-primary/15',
                 )
               }
             >
