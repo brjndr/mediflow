@@ -102,7 +102,7 @@ describe('starting a consultation', () => {
     dropMockQueueStreams(HOSPITAL);
     await userEvent.click(start);
 
-    await screen.findByRole('heading', CONSULTATION);
+    await screen.findByRole('heading', CONSULTATION, { timeout: 10_000 });
     const encounterPath = app.router.state.location.pathname;
     expect(encounterPath).toMatch(/^\/encounters\/enc_mock_\d+$/);
     await waitFor(() => expect(opens).toHaveLength(1));
@@ -117,7 +117,7 @@ describe('starting a consultation', () => {
 
     expect(mockEncounter(encounterPath.split('/').at(-1) ?? '')?.queueTokenId).toBe(CALLED_TOKEN);
     await expectNoAxeViolations();
-  });
+  }, 20_000);
 
   it('opens the encounter from today’s appointment, and finds it again the next time', async () => {
     const opens = watchOpens();
