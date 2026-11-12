@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { CheckboxField, Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { useFormatters } from '@/tenancy';
+import { HoldsSection } from '../components/HoldsSection';
 import { useRetentionRules, useSetRetention } from '../hooks/use-retention';
 import { RETENTION_MAX_YEARS, retentionFormSchema, type RetentionValues } from '../schemas';
 import type { RetentionRule } from '../types';
@@ -101,6 +102,7 @@ export default function RetentionPage() {
           emptyMessage={t('retention.empty')}
         />
       </div>
+      <HoldsSection />
     </section>
   );
 }

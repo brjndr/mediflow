@@ -3,6 +3,8 @@ import { env } from '@/shared/config/env';
 import {
   documentPageSchema,
   documentSchema,
+  holdPageSchema,
+  holdSchema,
   downloadSchema,
   retentionRulesSchema,
   retentionSetSchema,
@@ -10,6 +12,8 @@ import {
 } from './schemas';
 import type {
   DocumentCategory,
+  LegalHold,
+  LegalHoldPage,
   PatientDocument,
   PatientDocumentCreate,
   PatientDocumentPage,
@@ -121,4 +125,37 @@ export async function setRetention(
     body: { years },
   });
   return retentionSetSchema.parse(requireData(result));
+}
+
+/** Places a hold on one document, or on every document of a patient (`documentId` absent). */
+export async function placeHold(
+  target: { patientId: string; documentId?: string },
+  reason: string,
+): Promise<LegalHold> {
+  const result = target.documentId
+    ? await api.POST('/documents/{documentId}/legal-hold', {
+        params: { path: { documentId: target.documentId } },
+        body: { reason },
+      })
+    : await api.POST('/patients/{patientId}/legal-hold', {
+        params: { path: { patientId: target.patientId } },
+        body: { reason },
+      });
+  return holdSchema.parse(requireData(result));
+}
+
+/** The active holds of the hospital, newest first. */
+export async function fetchHolds(
+  { cursor, limit }: { cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<LegalHoldPage> {
+  const result = await api.GET('/legal-holds', { params: { query: { cursor, limit } }, signal });
+  return holdPageSchema.parse(requireData(result));
+}
+
+export async function releaseHold(holdId: string): Promise<LegalHold> {
+  const result = await api.POST('/legal-holds/{holdId}/release', {
+    params: { path: { holdId } },
+  });
+  return holdSchema.parse(requireData(result));
 }

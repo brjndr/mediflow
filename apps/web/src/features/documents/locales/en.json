@@ -102,5 +102,36 @@
     "save": "Save",
     "saving": "Saving...",
     "done": "Retention of {{category}} saved."
+  },
+  "hold": {
+    "action": "Hold",
+    "actionPatient": "Hold all documents",
+    "heading": "Legal hold on {{title}}",
+    "headingPatient": "Legal hold on every document of this patient",
+    "note": "While a hold is active the document is never removed after its retention. Release the hold to let the retention run on.",
+    "notePatient": "Covers every document of this patient, those added later too, until the hold is released.",
+    "reason": "Reason",
+    "submit": "Place hold",
+    "submitting": "Placing...",
+    "done": "Legal hold placed on the document.",
+    "donePatient": "Legal hold placed on the documents of this patient."
+  },
+  "holds": {
+    "heading": "Legal holds",
+    "note": "Documents under a hold are kept past their retention until the hold is released. A hold is placed from the Documents tab of a patient.",
+    "columns": {
+      "covers": "Covers",
+      "patient": "Patient",
+      "reason": "Reason",
+      "placed": "Placed"
+    },
+    "oneDocument": "One document",
+    "allDocuments": "All documents of the patient",
+    "rowLabel": "Legal hold: {{covers}}",
+    "release": "Release",
+    "empty": "No active legal holds.",
+    "confirmTitle": "Release this hold?",
+    "confirmDescription": "The document or documents may be removed once their retention has passed.",
+    "released": "Legal hold released."
   }
 }
