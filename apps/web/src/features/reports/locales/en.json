@@ -1,5 +1,13 @@
 {
   "heading": "Reports",
+  "flow": {
+    "title": "OPD visits, last 7 days",
+    "day": "Day",
+    "visits": "Visits opened",
+    "empty": "No visits in the last 7 days.",
+    "summary_one": "Busiest on {{day}}, {{count}} visit",
+    "summary_other": "Busiest on {{day}}, {{count}} visits"
+  },
   "kinds": {
     "opd_census": "OPD census",
     "revenue": "Revenue and collections",

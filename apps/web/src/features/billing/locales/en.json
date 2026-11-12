@@ -1,4 +1,9 @@
 {
+  "collected": {
+    "title": "Collected today",
+    "empty": "Nothing taken yet today.",
+    "open": "Register sessions"
+  },
   "action": {
     "create": "Create invoice"
   },

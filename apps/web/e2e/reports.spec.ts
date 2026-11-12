@@ -26,11 +26,14 @@ test('below desktop width a report is its notice, with nothing asked of the serv
   page,
 }) => {
   test.skip(isDesktop(page), 'Checked below desktop width.');
+  await page.goto('/');
+  // The landing page's patient-flow widget reads a report (#712); let it finish, then count only
+  // what the Reports screen itself asks.
+  await page.waitForLoadState('networkidle');
   const asked: string[] = [];
   page.on('request', (request) => {
     if (request.url().includes('/api/reports')) asked.push(request.url());
   });
-  await page.goto('/');
   await goTo(page, 'Reports');
   await expect(
     page.getByRole('heading', { name: 'This screen needs a wider display' }),

@@ -55,7 +55,7 @@ module.exports = {
               'error',
               { maxNumericValue: 8000, aggregationMethod: 'median' },
             ],
-            'resource-summary:total:count': ['error', { maxNumericValue: 70 }],
+            'resource-summary:total:count': ['error', { maxNumericValue: 90 }],
           },
         },
       ],

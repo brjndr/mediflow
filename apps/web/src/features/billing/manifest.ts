@@ -114,4 +114,12 @@ export const billingFeature: FeatureManifest = {
     'discount:manage',
     'encounter:read',
   ],
+  dashboardWidgets: [
+    {
+      id: 'collected',
+      component: () => import('./components/CollectedTodayWidget'),
+      requires: ['cashRegister:read'],
+      size: 'md',
+    },
+  ],
 };

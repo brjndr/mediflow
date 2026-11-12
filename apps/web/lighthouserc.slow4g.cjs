@@ -28,7 +28,7 @@ module.exports = {
         ],
         'cumulative-layout-shift': ['error', { maxNumericValue: 0.1, aggregationMethod: 'median' }],
         'total-blocking-time': ['error', { maxNumericValue: 8000, aggregationMethod: 'median' }],
-        'resource-summary:total:count': ['error', { maxNumericValue: 70 }],
+        'resource-summary:total:count': ['error', { maxNumericValue: 90 }],
       },
     },
     upload: { target: 'filesystem', outputDir: '.lighthouseci-slow4g' },

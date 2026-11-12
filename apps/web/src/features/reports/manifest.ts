@@ -22,4 +22,12 @@ export const reportsFeature: FeatureManifest = {
   ],
   nav: { icon: BarChart3, order: 700, requires: ['report:read'] },
   permissions: ['report:read', 'report:export'],
+  dashboardWidgets: [
+    {
+      id: 'flow',
+      component: () => import('./components/PatientFlowWidget'),
+      requires: ['report:read'],
+      size: 'lg',
+    },
+  ],
 };

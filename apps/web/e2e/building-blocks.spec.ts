@@ -19,15 +19,15 @@ function trackScripts(page: Page) {
 test('heavy libraries are downloaded only on the pages that use them', async ({ page }) => {
   const loaded = trackScripts(page);
 
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
-  expect(loaded('charts')).toBe(false);
-  expect(loaded('editor')).toBe(false);
-
-  // The index of the examples and the form page need neither.
+  // The form page needs neither.
   await page.goto('/examples/form');
   await expect(page.getByRole('heading', { name: 'Form kit', level: 1 })).toBeVisible();
   expect(loaded('charts')).toBe(false);
+  expect(loaded('editor')).toBe(false);
+
+  // The landing page draws the patient-flow chart (#712), so charts load there; the editor not.
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
   expect(loaded('editor')).toBe(false);
 
   await page.goto('/examples/charts');
