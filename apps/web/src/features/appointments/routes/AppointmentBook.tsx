@@ -22,6 +22,7 @@ import {
 } from '@/shared/ui/form';
 import { todayIn, zonedToUtc, type DayString } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
+import { LeaveNote } from '../components/LeaveNote';
 import { OnCallNote } from '../components/OnCallNote';
 import { SlotPicker, type SlotRefusal } from '../components/SlotPicker';
 import { useBookAppointment } from '../hooks/use-book-appointment';
@@ -394,6 +395,11 @@ export default function AppointmentBook() {
             required
             min={days.first}
             max={days.last}
+          />
+          <LeaveNote
+            userId={doctors.data?.find((d) => d.id === form.watch('doctorId'))?.userId}
+            name={doctors.data?.find((d) => d.id === form.watch('doctorId'))?.name}
+            day={String(form.watch('day'))}
           />
           <OnCallNote
             departmentId={doctors.data?.find((d) => d.id === form.watch('doctorId'))?.departmentId}

@@ -12,7 +12,7 @@ import { useFormatters, useTenant } from '@/tenancy';
 import { LeavePanel } from '../components/LeavePanel';
 import { OnCallPanel } from '../components/OnCallPanel';
 import { ShiftDialog } from '../components/ShiftDialog';
-import { useCancelShift, useShifts } from '../hooks/use-roster';
+import { useApprovedLeaves, useCancelShift, useShifts } from '../hooks/use-roster';
 import { rosterConflicts } from '../conflicts';
 import { MIN_REST_HOURS } from '../schemas';
 import type { RosterShift } from '../types';
@@ -54,6 +54,8 @@ export default function RosterPage() {
     [weekStart, timezone],
   );
   const shifts = useShifts({ ...range, ...(department ? { departmentId: department } : {}) });
+  const leaves = useApprovedLeaves(range);
+  const leaveList = useMemo(() => leaves.data ?? [], [leaves.data]);
   const rows = useMemo(() => shifts.data?.pages.flatMap((page) => page.items) ?? [], [shifts.data]);
   const conflicts = useMemo(() => rosterConflicts(rows), [rows]);
   const [adding, setAdding] = useState(false);
@@ -84,12 +86,20 @@ export default function RosterPage() {
         header: t('columns.state'),
         value: (row) => {
           if (row.status === 'cancelled') return t('state.cancelled');
+          if (
+            leaveList.some(
+              (one) =>
+                one.userId === row.userId && one.startsAt < row.endsAt && one.endsAt > row.startsAt,
+            )
+          ) {
+            return t('state.onLeave');
+          }
           const flag = conflicts.get(row.id);
           return flag ? t(`conflict.${flag}`, { hours: MIN_REST_HOURS }) : t('state.scheduled');
         },
       },
     ],
-    [t, format, conflicts],
+    [t, format, conflicts, leaveList],
   );
 
   const actions = useMemo<GridAction<RosterShift>[]>(
@@ -183,6 +193,25 @@ export default function RosterPage() {
         loadingMore={shifts.isFetchingNextPage}
         onLoadMore={() => void shifts.fetchNextPage()}
       />
+      {leaveList.length > 0 && (
+        <section aria-labelledby="roster-week-leave" className="rounded-md border p-4">
+          <h2 id="roster-week-leave" className="text-base font-semibold">
+            {t('weekLeave.heading')}
+          </h2>
+          <ul className="mt-2 flex flex-col gap-1 text-sm">
+            {leaveList.map((one) => (
+              <li key={one.id}>
+                <span className="font-medium">{one.userName}</span>
+                {' · '}
+                {t('weekLeave.period', {
+                  from: format.dateTime(one.startsAt),
+                  to: format.dateTime(one.endsAt),
+                })}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <LeavePanel today={todayIn(timezone)} />
       {adding && (
         <ShiftDialog

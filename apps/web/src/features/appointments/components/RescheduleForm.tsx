@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
+import { LeaveNote } from './LeaveNote';
 import { OnCallNote } from './OnCallNote';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
@@ -114,6 +115,11 @@ export function RescheduleForm({
         required
         min={days.first}
         max={days.last}
+      />
+      <LeaveNote
+        userId={doctors.data?.find((d) => d.id === doctorId)?.userId}
+        name={doctors.data?.find((d) => d.id === doctorId)?.name}
+        day={day}
       />
       <OnCallNote departmentId={doctors.data?.find((d) => d.id === doctorId)?.departmentId} />
       <SlotPicker

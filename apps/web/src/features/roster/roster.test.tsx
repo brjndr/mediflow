@@ -53,6 +53,14 @@ describe('the roster', () => {
     await expectNoAxeViolations();
   });
 
+  it('lists the approved leave of the week and flags a shift on a leave', async () => {
+    renderApp({ entry: '/roster' });
+    const panel = await screen.findByRole('region', { name: 'Approved leave this week' });
+    expect(within(panel).getByText(person(HOSPITAL, 4))).toBeInTheDocument();
+    // The leave that is only asked for, is not listed.
+    expect(within(panel).queryByText(person(HOSPITAL, 3))).not.toBeInTheDocument();
+  });
+
   it('shows who is on call now', async () => {
     renderApp({ entry: '/roster' });
     const panel = await screen.findByRole('region', { name: 'On call now' });

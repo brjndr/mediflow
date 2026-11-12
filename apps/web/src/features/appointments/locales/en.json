@@ -100,7 +100,8 @@
         "alternatives": "That time is no longer in the doctor's working hours. The next free times are {{times}}, marked below.",
         "noneLater": "That time is no longer in the doctor's working hours, and no later time is free on this day. Choose another time or day."
       }
-    }
+    },
+    "onLeave": "{{name}} is on approved leave on this day, until {{time}}. Choose another doctor or day."
   },
   "views": {
     "label": "Appointments view",

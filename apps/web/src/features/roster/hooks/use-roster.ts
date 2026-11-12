@@ -9,6 +9,7 @@ import { useMemo, useRef } from 'react';
 import { useFeatureFlag, usePermission } from '@/access';
 import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
+import { dayBoundsUtc } from '@/shared/utils/timezone';
 import { useTenant } from '@/tenancy';
 import {
   cancelShift,
@@ -105,6 +106,55 @@ export function useCancelShift(shiftId: string) {
   });
 }
 
+/** Roster read access and the switch, the two things every leave lookup for another screen needs. */
+function useRosterAvailable() {
+  const allowed = usePermission('roster:read');
+  const switchedOn = useFeatureFlag('roster');
+  return allowed && switchedOn;
+}
+
+/**
+ * Approved leave that overlaps a window (one page of 100, a hospital's leave in a week or a day).
+ * Only approved leave counts: a request waiting for a decision does not make anyone unavailable.
+ * `available` is false without `roster:read` or with the roster off: nothing is asked for then.
+ */
+export function useApprovedLeaves(window: { from: string; to: string } | undefined) {
+  const tenantId = useTenant()?.id;
+  const available = useRosterAvailable();
+  const query = useQuery({
+    queryKey: rosterKeys.list(tenantId ?? '', { as: 'approved_leaves', ...window }),
+    queryFn: async ({ signal }) =>
+      (
+        await fetchLeaves(
+          {
+            ...(window as { from: string; to: string }),
+            status: 'approved',
+            limit: ROSTER_PAGE_SIZE,
+          },
+          signal,
+        )
+      ).items,
+    enabled: available && tenantId !== undefined && window !== undefined,
+    staleTime: 30_000,
+  });
+  return { ...query, available };
+}
+
+/**
+ * Whether one member of staff (a doctor's `userId`) is on approved leave on a calendar day of the
+ * hospital's clock, for scheduling to say so. `leave` is undefined when not, or when unknown.
+ */
+export function useLeaveOnDay(userId: string | undefined, day: string | undefined) {
+  const timezone = useTenant()?.timezone ?? 'UTC';
+  const window = useMemo(() => {
+    if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return undefined;
+    const bounds = dayBoundsUtc(day, timezone);
+    return { from: bounds.start, to: bounds.end };
+  }, [day, timezone]);
+  const leaves = useApprovedLeaves(userId ? window : undefined);
+  return { leave: leaves.data?.find((one) => one.userId === userId), available: leaves.available };
+}
+
 export interface OnCallPerson {
   userId: string;
   name: string;
@@ -120,23 +170,19 @@ export interface OnCallPerson {
  */
 export function useOnCallNow(departmentId?: string) {
   const tenantId = useTenant()?.id;
-  const allowed = usePermission('roster:read');
-  const switchedOn = useFeatureFlag('roster');
-  const available = allowed && switchedOn;
+  const available = useRosterAvailable();
   const query = useQuery({
     queryKey: rosterKeys.list(tenantId ?? '', { as: 'on_call_now', departmentId }),
     queryFn: async ({ signal }) => {
       const now = new Date();
-      const page = await fetchShifts(
-        {
-          from: now.toISOString(),
-          to: new Date(now.getTime() + 1000).toISOString(),
-          departmentId,
-          limit: ROSTER_PAGE_SIZE,
-        },
-        signal,
-      );
-      return page.items;
+      const window = { from: now.toISOString(), to: new Date(now.getTime() + 1000).toISOString() };
+      const [page, leaves] = await Promise.all([
+        fetchShifts({ ...window, departmentId, limit: ROSTER_PAGE_SIZE }, signal),
+        fetchLeaves({ ...window, status: 'approved', limit: ROSTER_PAGE_SIZE }, signal),
+      ]);
+      // Nobody on approved leave right now is on call, whatever an old shift says.
+      const away = new Set(leaves.items.map((one) => one.userId));
+      return page.items.filter((shift) => !away.has(shift.userId));
     },
     enabled: available && tenantId !== undefined,
     staleTime: 30_000,

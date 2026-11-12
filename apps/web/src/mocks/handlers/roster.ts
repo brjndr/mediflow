@@ -81,7 +81,7 @@ function seed(): State {
     });
   };
   ask(3, 72, 120, 'requested');
-  ask(4, 200, 272, 'approved');
+  ask(4, -10, 272, 'approved');
   return { shifts, leaves, created: 0, replies: new Map() };
 }
 
