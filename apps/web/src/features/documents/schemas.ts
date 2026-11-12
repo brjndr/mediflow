@@ -92,3 +92,6 @@ export const retireFormSchema = z.object({
     .regex(PLAIN_TEXT, 'validation.plain_text'),
 });
 export type RetireValues = z.infer<typeof retireFormSchema>;
+
+/** How often the list is read again while a file waits for its malware scan. */
+export const SCAN_POLL_MS = 5000;
