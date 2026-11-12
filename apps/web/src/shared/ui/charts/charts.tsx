@@ -4,11 +4,14 @@
 import { useId, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Area,
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
+  ComposedChart,
+  LabelList,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -41,6 +44,12 @@ export interface ChartProps {
   height?: number;
   /** A time series marks each value with a dot, for a few values far apart (a lab trend). */
   dots?: boolean;
+  /**
+   * Bar chart only: the label of one bar to stand out (the busiest hour). It is drawn in full
+   * colour with its value written above it while the others are softer, and it is named in the
+   * summary and marked in the table, so colour is never the only signal.
+   */
+  emphasize?: string;
 }
 
 // Colours come from the theme tokens, so a chart follows the hospital's brand colour and stays
@@ -50,7 +59,7 @@ const GRID = 'var(--border)';
 const TEXT = 'var(--muted-foreground)';
 const SURFACE = 'var(--popover)';
 
-const CHART_MARGIN = { top: 8, right: 12, bottom: 0, left: 0 };
+const CHART_MARGIN = { top: 20, right: 12, bottom: 0, left: 0 };
 // The drawing is hidden from assistive technology (the data table is the accessible version), so
 // it must not be keyboard-focusable either: `accessibilityLayer={false}` on each chart.
 const axis = { stroke: GRID, tick: { fill: TEXT, fontSize: 12 }, tickLine: false } as const;
@@ -64,6 +73,16 @@ const tooltip = {
   },
   cursor: { stroke: GRID, fill: 'var(--accent)' },
 } as const;
+
+/** A vertical fade of the series colour, so a fill follows the brand colour and the theme. */
+function GradientStops({ id, top, bottom }: { id: string; top: number; bottom: number }) {
+  return (
+    <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stopColor={SERIES} stopOpacity={top} />
+      <stop offset="100%" stopColor={SERIES} stopOpacity={bottom} />
+    </linearGradient>
+  );
+}
 
 /** What a chart shows in one line, when the screen does not say: how many, the highest, the lowest. */
 function useDefaultSummary(data: ChartPoint[], formatValue: (value: number) => string): string {
@@ -96,18 +115,21 @@ function ChartFrame({
   data,
   formatValue = String,
   height = 240,
+  emphasize,
   children,
 }: ChartProps & { children: ReactNode }) {
   const { t } = useTranslation();
   const [asTable, setAsTable] = useState(false);
   const captionId = useId();
   const fallback = useDefaultSummary(data, formatValue);
+  const emphasizedPoint = data.find((point) => point.label === emphasize);
   return (
     // Named by its caption in every browser and assistive technology, not only those that do it
     // by themselves.
     <figure aria-labelledby={captionId} className="m-0 flex flex-col gap-2">
       <figcaption id={captionId} className="sr-only">
         {title}. {summary ?? fallback}
+        {emphasizedPoint && ` ${t('chart.highlighted', { label: emphasizedPoint.label })}`}
       </figcaption>
       <Button
         type="button"
@@ -144,6 +166,11 @@ function ChartFrame({
               <tr key={point.label} className={asTable ? 'border-b last:border-0' : undefined}>
                 <th scope="row" className={asTable ? 'px-3 py-2 text-left font-normal' : undefined}>
                   {point.label}
+                  {point === emphasizedPoint && (
+                    <span className="ms-2 font-medium text-primary">
+                      {t('chart.highlightedMark')}
+                    </span>
+                  )}
                 </th>
                 <td className={asTable ? 'px-3 py-2 text-right tabular-nums' : undefined}>
                   {formatValue(point.value)}
@@ -160,13 +187,26 @@ function ChartFrame({
 /** A value over time or along an ordered axis. */
 export function TimeSeriesChart(props: ChartProps) {
   const { data, valueHeader, formatValue } = props;
+  const fillId = useId();
   return (
     <ChartFrame {...props}>
-      <LineChart data={data} margin={CHART_MARGIN} accessibilityLayer={false}>
+      <ComposedChart data={data} margin={CHART_MARGIN} accessibilityLayer={false}>
+        <defs>
+          <GradientStops id={fillId} top={0.28} bottom={0} />
+        </defs>
         <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="label" {...axis} />
         <YAxis {...axis} axisLine={false} tickFormatter={formatValue} width={48} />
         <Tooltip {...tooltip} formatter={(value) => formatValue?.(Number(value)) ?? value} />
+        <Area
+          type="monotone"
+          dataKey="value"
+          name={valueHeader}
+          stroke="none"
+          fill={`url(#${fillId})`}
+          isAnimationActive={false}
+          tooltipType="none"
+        />
         <Line
           type="monotone"
           dataKey="value"
@@ -176,17 +216,32 @@ export function TimeSeriesChart(props: ChartProps) {
           dot={props.dots ? { r: 3, fill: SERIES, stroke: SERIES } : false}
           isAnimationActive={false}
         />
-      </LineChart>
+      </ComposedChart>
     </ChartFrame>
   );
 }
 
+interface BarLabelProps {
+  x: number;
+  y: number;
+  width: number;
+  index: number;
+  value: number;
+}
+
 /** Values compared across categories. */
 export function CategoryBarChart(props: ChartProps) {
-  const { data, valueHeader, formatValue } = props;
+  const { data, valueHeader, formatValue, emphasize } = props;
+  const strongId = useId();
+  const softId = useId();
+  const hasEmphasis = emphasize !== undefined && data.some((point) => point.label === emphasize);
   return (
     <ChartFrame {...props}>
       <BarChart data={data} margin={CHART_MARGIN} accessibilityLayer={false}>
+        <defs>
+          <GradientStops id={strongId} top={1} bottom={0.65} />
+          <GradientStops id={softId} top={0.45} bottom={0.25} />
+        </defs>
         <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="label" {...axis} />
         <YAxis {...axis} axisLine={false} tickFormatter={formatValue} width={48} />
@@ -194,10 +249,41 @@ export function CategoryBarChart(props: ChartProps) {
         <Bar
           dataKey="value"
           name={valueHeader}
-          fill={SERIES}
-          radius={[4, 4, 0, 0]}
+          fill={`url(#${strongId})`}
+          radius={[8, 8, 2, 2]}
+          maxBarSize={48}
           isAnimationActive={false}
-        />
+        >
+          {hasEmphasis &&
+            data.map((point) => (
+              <Cell
+                key={point.label}
+                fill={`url(#${point.label === emphasize ? strongId : softId})`}
+              />
+            ))}
+          {hasEmphasis && (
+            <LabelList
+              dataKey="value"
+              position="top"
+              content={(label) => {
+                const { x, y, width, index, value } = label as unknown as BarLabelProps;
+                if (data[index]?.label !== emphasize) return null;
+                return (
+                  <text
+                    x={x + width / 2}
+                    y={y - 6}
+                    textAnchor="middle"
+                    fontSize={12}
+                    fontWeight={600}
+                    fill="var(--foreground)"
+                  >
+                    {formatValue ? formatValue(value) : value}
+                  </text>
+                );
+              }}
+            />
+          )}
+        </Bar>
       </BarChart>
     </ChartFrame>
   );

@@ -122,6 +122,19 @@ describe('charts', () => {
     expect(themeFromBrandColor('#ffcc00')).toBeNull();
   });
 
+  it('names the emphasized bar in the summary and the table, not by colour alone', async () => {
+    renderWithProviders(
+      <main>
+        <CategoryBarChart {...common} emphasize="Tue" />
+      </main>,
+      { session: null },
+    );
+    expect(await screen.findByRole('figure', { name: /Highlighted: Tue\./ })).toBeInTheDocument();
+    const table = screen.getByRole('table', { name: 'Appointments per day' });
+    expect(within(table).getByRole('rowheader', { name: /Tue.*highlighted/ })).toBeInTheDocument();
+    await expectNoAxeViolations();
+  });
+
   it('hides the picture itself from assistive technology', async () => {
     const { container } = renderWithProviders(<TimeSeriesChart {...common} />, { session: null });
     await screen.findByRole('table', { name: 'Appointments per day' });
