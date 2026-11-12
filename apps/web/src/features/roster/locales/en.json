@@ -13,7 +13,8 @@
   },
   "state": {
     "scheduled": "Scheduled",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "onLeave": "On approved leave"
   },
   "conflict": {
     "overlap": "Conflict: overlaps another shift",
@@ -120,5 +121,9 @@
       "own": "Someone else decides on your leave.",
       "changed": "The request has changed. Check the list and try again."
     }
+  },
+  "weekLeave": {
+    "heading": "Approved leave this week",
+    "period": "{{from}} to {{to}}"
   }
 }

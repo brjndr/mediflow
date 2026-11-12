@@ -6,6 +6,7 @@ import {
   rosterShiftSchema,
 } from './schemas';
 import type {
+  LeaveStatus,
   RosterLeave,
   RosterLeavePage,
   RosterShift,
@@ -56,11 +57,15 @@ export async function cancelShift(
 }
 
 export async function fetchLeaves(
-  { cursor, limit, from }: { cursor?: string; limit: number; from?: string },
+  {
+    cursor,
+    limit,
+    ...filters
+  }: { cursor?: string; limit: number; from?: string; to?: string; status?: LeaveStatus },
   signal?: AbortSignal,
 ): Promise<RosterLeavePage> {
   const result = await api.GET('/roster/leaves', {
-    params: { query: { from, cursor, limit } },
+    params: { query: { ...filters, cursor, limit } },
     signal,
   });
   return rosterLeavePageSchema.parse(requireData(result));
