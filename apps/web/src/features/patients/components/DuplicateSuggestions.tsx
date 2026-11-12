@@ -41,7 +41,7 @@ export function DuplicateSuggestions({ query }: { query: PatientDuplicateQuery |
     // Always in the page, so a screen reader announces matches when they appear.
     <section aria-live="polite" className="max-w-xl">
       {query && matches.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-lg border border-amber-500/50 bg-amber-500/5 p-3">
+        <div className="flex flex-col gap-2 rounded-lg border border-warning bg-card p-3 shadow-soft">
           <h2 className="text-sm font-semibold">
             {t('suggestions.heading', { count: matches.length })}
           </h2>

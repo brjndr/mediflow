@@ -5,8 +5,10 @@ import { Link } from 'react-router-dom';
 import { Can } from '@/access';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
+import { StatusBadge } from '@/shared/ui/status-badge';
 import { useFormatters } from '@/tenancy';
 import { INVOICE_PAGE_SIZES, useInvoices } from '../hooks/use-billing';
+import { INVOICE_TONE } from '../lib/status-tone';
 import type { Invoice } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 
@@ -73,7 +75,12 @@ export default function InvoiceList() {
         value: (row) => format.money(row.paidMinor),
         align: 'end',
       },
-      { id: 'status', header: t('list.columns.status'), value: (row) => t(`status.${row.status}`) },
+      {
+        id: 'status',
+        header: t('list.columns.status'),
+        value: (row) => t(`status.${row.status}`),
+        render: (row, text) => <StatusBadge tone={INVOICE_TONE[row.status]} label={text} />,
+      },
     ],
     [t, format],
   );
