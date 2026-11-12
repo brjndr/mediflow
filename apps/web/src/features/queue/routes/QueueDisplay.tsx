@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { errorMessageKey } from '@/shared/api';
+import { Card } from '@/shared/ui/card';
 import { LiveStatus } from '../components/LiveStatus';
 import { useQueueDisplay, useQueueEvents } from '../hooks/use-queue';
 
@@ -41,61 +42,61 @@ export default function QueueDisplay() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {departments.map((department) => (
-          <section
-            key={department.departmentId}
-            aria-labelledby={`display-${department.departmentId}`}
-            className="flex flex-col gap-4 rounded-lg border bg-card p-5"
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id={`display-${department.departmentId}`} className="text-xl font-semibold">
-                {department.departmentName}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {t('display.waiting', { count: department.waiting })}
-              </p>
-            </div>
+          <Card asChild key={department.departmentId} className="flex flex-col gap-4 p-5">
+            <section aria-labelledby={`display-${department.departmentId}`}>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 id={`display-${department.departmentId}`} className="text-xl font-semibold">
+                  {department.departmentName}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {t('display.waiting', { count: department.waiting })}
+                </p>
+              </div>
 
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-muted-foreground">
-                {t('display.nowServing')}
-              </h3>
-              {department.serving.length === 0 ? (
-                <p className="text-base">{t('display.nobodyServing')}</p>
-              ) : (
-                <ul className="space-y-2">
-                  {department.serving.map((serving) => (
-                    <li
-                      key={`${serving.number}-${serving.doctorName ?? ''}`}
-                      className="flex flex-wrap items-baseline gap-x-4 gap-y-1"
-                    >
-                      <span className="text-5xl font-bold tabular-nums">
-                        {t('display.token', { number: serving.number })}
-                      </span>
-                      {serving.doctorName && <span className="text-lg">{serving.doctorName}</span>}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  {t('display.nowServing')}
+                </h3>
+                {department.serving.length === 0 ? (
+                  <p className="text-base">{t('display.nobodyServing')}</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {department.serving.map((serving) => (
+                      <li
+                        key={`${serving.number}-${serving.doctorName ?? ''}`}
+                        className="flex flex-wrap items-baseline gap-x-4 gap-y-1"
+                      >
+                        <span className="text-5xl font-bold tabular-nums">
+                          {t('display.token', { number: serving.number })}
+                        </span>
+                        {serving.doctorName && (
+                          <span className="text-lg">{serving.doctorName}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-muted-foreground">{t('display.next')}</h3>
-              {department.next.length === 0 ? (
-                <p className="text-base">{t('display.nobodyWaiting')}</p>
-              ) : (
-                <ul className="flex flex-wrap gap-2">
-                  {department.next.map((number) => (
-                    <li
-                      key={number}
-                      className="rounded-md border px-3 py-1 text-2xl font-semibold tabular-nums"
-                    >
-                      {number}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground">{t('display.next')}</h3>
+                {department.next.length === 0 ? (
+                  <p className="text-base">{t('display.nobodyWaiting')}</p>
+                ) : (
+                  <ul className="flex flex-wrap gap-2">
+                    {department.next.map((number) => (
+                      <li
+                        key={number}
+                        className="rounded-md border px-3 py-1 text-2xl font-semibold tabular-nums"
+                      >
+                        {number}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </section>
+          </Card>
         ))}
       </div>
     </div>

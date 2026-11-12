@@ -5,11 +5,12 @@ import { Can, useAllowed } from '@/access';
 import { Slot } from '@/registry';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
+import { StatusBadge } from '@/shared/ui/status-badge';
 import { useFormatters } from '@/tenancy';
 import type { AppointmentChange } from '../api';
 import { CancelForm } from '../components/CancelForm';
 import { RescheduleForm, type RescheduleRefusal } from '../components/RescheduleForm';
-import { STATUS_STYLE } from '../components/status';
+import { STATUS_TONE } from '../components/status';
 import { useAppointment, useChangeAppointment } from '../hooks/use-appointment';
 import { allowedChanges, type CancelValues, type RescheduleValues } from '../schemas';
 import type { Appointment } from '../types';
@@ -68,11 +69,10 @@ function AppointmentRecord({ appointment }: { appointment: Appointment }) {
         </span>
       </Field>
       <Field label={t('columns.status')}>
-        <span
-          className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[appointment.status]}`}
-        >
-          {t(`status.${appointment.status}`)}
-        </span>
+        <StatusBadge
+          tone={STATUS_TONE[appointment.status]}
+          label={t(`status.${appointment.status}`)}
+        />
       </Field>
       <Field label={t('detail.when')}>
         {t('timeRange', {
