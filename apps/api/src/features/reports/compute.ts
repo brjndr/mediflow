@@ -113,6 +113,59 @@ const revenue: Query = async (client, from, to, limit) => {
   });
 };
 
+const collections: Query = async (client, from, to, limit) => {
+  const { rows } = await client.query<{
+    day: string;
+    method: string;
+    taken_by: string | null;
+    collected: string;
+    refunded: string;
+  }>(
+    `with t as (select timezone from tenants where id = app_tenant_id()),
+     b as (select ${DAY_BOUNDS} from t)
+     select (p.at at time zone t.timezone)::date::text as day, p.method, u.name as taken_by,
+            (coalesce(sum(p.amount_minor) filter (where p.kind = 'payment'), 0))::text as collected,
+            (coalesce(sum(p.amount_minor) filter (where p.kind = 'refund'), 0))::text as refunded
+     from payments p
+     cross join b cross join t
+     left join users u on u.id = p.recorded_by
+     where p.at >= b.lo and p.at < b.hi
+     group by 1, p.method, p.recorded_by, u.name
+     order by 1, p.method, u.name nulls last, p.recorded_by
+     limit $3`,
+    [from, to, limit + 1],
+  );
+  return rows.map((r) => {
+    const collected = num(r.collected);
+    const refunded = num(r.refunded);
+    return [r.day, r.method, r.taken_by, collected, refunded, collected - refunded];
+  });
+};
+
+/** Issued invoices not fully paid, by age in days since issue at the hospital's clock. */
+const outstanding: Query = async (client) => {
+  const { rows } = await client.query<{ bucket: string; invoices: number; due: string }>(
+    `with t as (select timezone from tenants where id = app_tenant_id()),
+     aged as (
+       select i.total_minor - i.paid_minor - i.credited_minor as due,
+              ((now() at time zone t.timezone)::date
+                - (i.issued_at at time zone t.timezone)::date) as age
+       from invoices i, t
+       where i.status = 'issued' and i.total_minor - i.paid_minor - i.credited_minor > 0
+     ),
+     bucketed as (
+       select due, case when age <= 7 then 'days_0_7' when age <= 30 then 'days_8_30'
+                        else 'over_30' end as bucket
+       from aged
+     )
+     select k.bucket, count(b.due)::int as invoices, coalesce(sum(b.due), 0)::text as due
+     from (values ('days_0_7', 1), ('days_8_30', 2), ('over_30', 3)) as k(bucket, ord)
+     left join bucketed b on b.bucket = k.bucket
+     group by k.bucket, k.ord order by k.ord`,
+  );
+  return rows.map((r) => [r.bucket, r.invoices, num(r.due)]);
+};
+
 const labTurnaround: Query = async (client, from, to, limit) => {
   const { rows } = await client.query<{
     code: string;
@@ -350,6 +403,24 @@ const DEFINITIONS: Record<
     ],
     sums: ['sales', 'soldMinor', 'returnedMinor', 'netSoldMinor', 'dispenses', 'unitsDispensed'],
     query: pharmacySales,
+  },
+  collections: {
+    columns: [
+      col('day', 'date'),
+      col('method', 'text'),
+      col('takenBy', 'text'),
+      col('collectedMinor', 'money'),
+      col('refundedMinor', 'money'),
+      col('netCollectedMinor', 'money'),
+    ],
+    sums: ['collectedMinor', 'refundedMinor', 'netCollectedMinor'],
+    query: collections,
+  },
+  outstanding: {
+    columns: [col('ageBucket', 'text'), col('invoices', 'integer'), col('dueMinor', 'money')],
+    sums: ['invoices', 'dueMinor'],
+    query: outstanding,
+    snapshot: true,
   },
   stock: {
     columns: [

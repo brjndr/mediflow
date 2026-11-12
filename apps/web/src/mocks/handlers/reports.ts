@@ -16,6 +16,8 @@ const KINDS: readonly Kind[] = [
   'lab_turnaround',
   'pharmacy_sales',
   'stock',
+  'collections',
+  'outstanding',
 ];
 const SPOT_MAX_DAYS = 31;
 const STORED_MAX_DAYS = 366;
@@ -197,6 +199,38 @@ function result(kind: Kind, from: string | null, to: string | null): Result {
         ],
         totals: [null, null, 200, null, null, null],
       };
+    case 'collections':
+      return {
+        ...base,
+        columns: [
+          { key: 'day', type: 'date' },
+          { key: 'method', type: 'text' },
+          { key: 'takenBy', type: 'text' },
+          { key: 'collectedMinor', type: 'money' },
+          { key: 'refundedMinor', type: 'money' },
+          { key: 'netCollectedMinor', type: 'money' },
+        ],
+        rows: [
+          [from ?? '2026-11-01', 'cash', 'Sample Admin', 250000, 0, 250000],
+          [from ?? '2026-11-01', 'upi', 'Sample Admin', 180000, 20000, 160000],
+        ],
+        totals: [null, null, null, 430000, 20000, 410000],
+      };
+    case 'outstanding':
+      return {
+        ...base,
+        columns: [
+          { key: 'ageBucket', type: 'text' },
+          { key: 'invoices', type: 'integer' },
+          { key: 'dueMinor', type: 'money' },
+        ],
+        rows: [
+          ['days_0_7', 12, 540000],
+          ['days_8_30', 5, 310000],
+          ['over_30', 2, 90000],
+        ],
+        totals: [null, 19, 940000],
+      };
     case 'stock':
       return {
         ...base,
@@ -240,7 +274,7 @@ interface Body {
 
 async function readDays(request: Request, kind: Kind, max: number) {
   const body = (await request.json().catch(() => ({}))) as Body;
-  if (kind === 'stock') return { from: null, to: null };
+  if (kind === 'stock' || kind === 'outstanding') return { from: null, to: null };
   if (!body.from || !body.to)
     return { problem: error(400, 'validation_failed', 'Days are needed') };
   if (days(body.from, body.to) < 1) {

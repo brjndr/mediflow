@@ -38,7 +38,10 @@ export function ReportTable({ result, label }: { result: ReportResult; label: st
       case 'date':
         return format.calendarDate(String(cell));
       default:
-        return String(cell);
+        // A fixed set of words the server sends as keys (a payment method, an age band).
+        return column.key === 'method' || column.key === 'ageBucket'
+          ? t(`values.${column.key}.${String(cell)}`, { defaultValue: String(cell) })
+          : String(cell);
     }
   };
 
