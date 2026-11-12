@@ -29,3 +29,5 @@ What was decided for this module in the web app. The root `CLAUDE.md` wins where
 - The board never keeps a patient in the query cache beyond the list itself; no cache entry is written by an action, which asks for the board again.
 - Blocking uses the wards endpoints directly from this module's `api.ts`, not the `wards` module's internals; the reason list is repeated here (`BLOCK_REASONS`) and must follow the API's.
 - The mock (`mocks/handlers/admissions.ts`) reads the beds from the wards mock (`mockBoardBeds`, `housekeepMockBed`), so one set of beds serves both screens, and every change of a bed there publishes on the mock stream. Only the sample hospital has `admissions` on.
+
+- Admission details (#630): the "Admission details" row action opens `AdmissionDetailsPanel` with the advice, attendant (phone masked), deposit and consents recorded at admission; the list has a Deposit column. There is no separate detail route.

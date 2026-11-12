@@ -8,6 +8,7 @@ import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
+import { AdmissionDetailsPanel } from '../components/AdmissionDetailsPanel';
 import { BedHistoryPanel } from '../components/BedHistoryPanel';
 import { BedPicker } from '../components/BedPicker';
 import { DischargePanel } from '../components/DischargePanel';
@@ -129,10 +130,11 @@ export default function Admissions() {
   const [target, setTarget] = useState<Admission | null>(null);
   const [leaving, setLeaving] = useState<Admission | null>(null);
   const [history, setHistory] = useState<Admission | null>(null);
+  const [details, setDetails] = useState<Admission | null>(null);
   const [done, setDone] = useState('');
   const box = useRef<HTMLDivElement>(null);
   const statusLine = useRef<HTMLParagraphElement>(null);
-  usePanelFocus(target ?? leaving ?? history, box, statusLine);
+  usePanelFocus(target ?? leaving ?? history ?? details, box, statusLine);
 
   const choose = async (bedId: string, reason?: MoveReason, note?: string) => {
     if (!target) return;
@@ -193,6 +195,11 @@ export default function Admissions() {
         value: (row) => format.dateTime(row.admittedAt),
       },
       {
+        id: 'deposit',
+        header: t('columns.deposit'),
+        value: (row) => (row.depositMinor !== undefined ? format.money(row.depositMinor) : '—'),
+      },
+      {
         id: 'status',
         header: t('columns.status'),
         value: (row) => t(`admissionStatus.${row.status}`),
@@ -226,11 +233,24 @@ export default function Admissions() {
       },
     },
     {
+      id: 'details',
+      label: t('actions.details'),
+      requires: 'admission:read',
+      disabled: () => target !== null || leaving !== null,
+      onSelect: (row) => {
+        setHistory(null);
+        setDetails(row);
+      },
+    },
+    {
       id: 'history',
       label: t('actions.history'),
       requires: 'admission:read',
       disabled: () => target !== null || leaving !== null,
-      onSelect: (row) => setHistory(row),
+      onSelect: (row) => {
+        setDetails(null);
+        setHistory(row);
+      },
     },
   ];
 
@@ -317,6 +337,14 @@ export default function Admissions() {
 
       {history && (
         <BedHistoryPanel key={history.id} admission={history} onBack={() => setHistory(null)} />
+      )}
+
+      {details && (
+        <AdmissionDetailsPanel
+          key={details.id}
+          admission={details}
+          onBack={() => setDetails(null)}
+        />
       )}
 
       <DataGrid
