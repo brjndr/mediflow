@@ -13,7 +13,9 @@
     "calendar": "Calendar",
     "dialogSummary": "A modal that fills the screen on a phone and is a centred box from a tablet up, with a sticky header and footer.",
     "dialog": "Dialog",
-    "calendarSummary": "A day or week time grid that loads on demand, drawn at the hospital's time whatever the browser's timezone."
+    "calendarSummary": "A day or week time grid that loads on demand, drawn at the hospital's time whatever the browser's timezone.",
+    "visual": "Visual components",
+    "visualSummary": "Cards, status badges, the switch, the ring gauge, the search field and the brand button."
   },
   "back": "All examples",
   "grid": {
@@ -99,5 +101,24 @@
     "formDescription": "Say why the order is cancelled.",
     "reason": "Reason",
     "saved": "Saved: {{reason}}"
+  },
+  "visual": {
+    "heading": "Visual components",
+    "intro": "The soft surfaces and controls of the visual language. They follow the hospital's brand colour and dark mode.",
+    "soft": "Soft card",
+    "raised": "Raised card",
+    "brand": "Brand card",
+    "tones": {
+      "success": "Success",
+      "warning": "Warning",
+      "danger": "Danger",
+      "info": "Info",
+      "neutral": "Neutral"
+    },
+    "switch": "Notifications",
+    "gauge": "Bed occupancy",
+    "button": "Brand button",
+    "search": "Search",
+    "searchPlaceholder": "Type to search"
   }
 }
