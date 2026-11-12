@@ -398,6 +398,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/hospital-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The active hospital’s address, phone, registration number and GSTIN, as printed on its letterhead and invoices. */
+        get: operations["getHospitalProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes the details sent; those left out stay as they are, and an empty text removes one. Send the version the change was made from: 409 conflict when the profile has changed since. The GSTIN is stored in capitals. Sending what the hospital already has changes nothing. */
+        patch: operations["updateHospitalProfile"];
+        trace?: never;
+    };
     "/invites": {
         parameters: {
             query?: never;
@@ -6022,6 +6040,8 @@ export interface components {
             phone?: string;
             /** @description The hospital's registration or licence number as a clinical establishment, printed on the letterhead. */
             registrationNumber?: string;
+            /** @description The hospital's GST identification number, printed on invoices. */
+            gstin?: string;
             /** @description Module flags. A module that is absent is off. */
             features: {
                 [key: string]: boolean;
@@ -6098,6 +6118,22 @@ export interface components {
                 /** @description The scopes the permission can be held at; always starts with all */
                 scopes: ("all" | "own" | "department")[];
             }[];
+        };
+        /** @description What the hospital prints on its letterhead and invoices. A detail that is not set is absent. Holds no patient data. */
+        HospitalProfile: {
+            address?: string;
+            phone?: string;
+            registrationNumber?: string;
+            gstin?: string;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
+        };
+        HospitalProfileUpdate: {
+            address?: string;
+            phone?: string;
+            registrationNumber?: string;
+            gstin?: string;
+            expectedVersion: number;
         };
         /** @description An invitation that has been emailed. The link is not returned. */
         Invite: {
@@ -12804,6 +12840,140 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getHospitalProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the hospital prints on its letterhead and invoices. A detail that is not set is absent. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HospitalProfile"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateHospitalProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HospitalProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description What the hospital prints on its letterhead and invoices. A detail that is not set is absent. Holds no patient data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HospitalProfile"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
             /** @description Standard error body. */
             401: {

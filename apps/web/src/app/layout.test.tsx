@@ -62,6 +62,7 @@ describe('shell', () => {
       'Document retention',
       'Staff',
       'Roles',
+      'Hospital profile',
       'Notices',
     ]);
     expect(within(sidebar()).getByRole('link', { name: 'Home' })).toHaveAttribute(
@@ -127,6 +128,7 @@ describe('shell', () => {
       'Document retention',
       'Staff',
       'Roles',
+      'Hospital profile',
       'Notices',
     ]);
     expect(within(sidebar()).getByRole('link', { name: 'Notices' })).toHaveAttribute(
@@ -232,6 +234,8 @@ describe('keyboard', () => {
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Roles' })).toHaveFocus();
     await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Hospital profile' })).toHaveFocus();
+    await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Notices' })).toHaveFocus();
     await userEvent.tab();
     expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toHaveFocus();
@@ -306,6 +310,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Document retention',
       'Staff',
       'Roles',
+      'Hospital profile',
       'Notices',
     ]);
     await expectNoAxeViolations(drawer());
@@ -380,6 +385,7 @@ describe('system pages', () => {
       'Document retention',
       'Staff',
       'Roles',
+      'Hospital profile',
       'Notices',
     ]);
     await expectNoAxeViolations();

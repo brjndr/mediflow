@@ -18,6 +18,8 @@ export const tenants = pgTable('tenants', {
   address: text('address'),
   phone: text('phone'),
   registrationNumber: text('registration_number'),
+  /** Migration 0057; set on the hospital profile screen (#696). */
+  gstin: text('gstin'),
   authMode: text('auth_mode', { enum: ['password', 'sso'] })
     .notNull()
     .default('password'),

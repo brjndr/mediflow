@@ -19,6 +19,7 @@ export function Letterhead() {
     tenant.phone && t('tenancy.letterheadPhone', { phone: tenant.phone }),
     tenant.registrationNumber &&
       t('tenancy.letterheadRegistration', { number: tenant.registrationNumber }),
+    tenant.gstin && t('tenancy.letterheadGstin', { number: tenant.gstin }),
   ].filter(Boolean);
   return (
     <header className="mb-6 flex items-center gap-4 border-b border-black pb-3">
