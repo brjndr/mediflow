@@ -21,7 +21,7 @@ test('heavy libraries are downloaded only on the pages that use them', async ({ 
 
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
-  expect(loaded('charts')).toBe(false);
+  // The landing page draws the patient-flow chart (#712), so charts load there after first paint.
   expect(loaded('editor')).toBe(false);
 
   // The index of the examples and the form page need neither.
