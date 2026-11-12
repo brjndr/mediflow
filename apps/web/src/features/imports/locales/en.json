@@ -121,6 +121,7 @@
     "too_few_digits": "Too few digits.",
     "not_an_email": "Not an email address.",
     "duplicate_in_file": "The same record as an earlier row of the file.",
+    "legacy_id_taken": "A patient of the hospital already has this registration number.",
     "drug_exists": "The hospital already has exactly this item.",
     "service_code_taken": "The hospital already has a service with this code.",
     "lab_test_code_taken": "The hospital already has a test with this code.",
@@ -172,7 +173,8 @@
       "gender": "Gender",
       "phone": "Phone",
       "email": "Email",
-      "address": "Address"
+      "address": "Address",
+      "legacyId": "Old registration number"
     },
     "opening_stock": {
       "genericName": "Generic name",

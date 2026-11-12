@@ -110,7 +110,12 @@ function recordOf(id: string): PatientRecord | undefined {
 
 type PatientChanges = Partial<
   Pick<PatientRecord, 'firstName' | 'lastName' | 'dob' | 'gender' | 'phone'>
-> & { email?: string | null; address?: string | null; contactConsent?: { given: boolean } };
+> & {
+  email?: string | null;
+  address?: string | null;
+  legacyId?: string | null;
+  contactConsent?: { given: boolean };
+};
 
 const CHANGEABLE = new Set([
   'firstName',
@@ -120,6 +125,7 @@ const CHANGEABLE = new Set([
   'phone',
   'email',
   'address',
+  'legacyId',
   'contactConsent',
 ]);
 
@@ -129,8 +135,12 @@ function applyChange(
   changes: PatientChanges,
   userId: string,
 ): PatientRecord {
-  const { email, address, contactConsent, ...plain } = changes;
+  const { email, address, legacyId, contactConsent, ...plain } = changes;
   const next: PatientRecord = { ...record, ...plain, version: record.version + 1 };
+  if (legacyId !== undefined) {
+    if (legacyId === null) delete next.legacyId;
+    else next.legacyId = legacyId;
+  }
   if (email !== undefined) {
     if (email === null) delete next.email;
     else next.email = email;
@@ -259,6 +269,8 @@ export const patientsHandlers = [
         (patient) =>
           fullName(patient).toLowerCase().includes(q) ||
           patient.mrn.toLowerCase().includes(q) ||
+          // The old registration number is found by the whole of it (#694).
+          patient.legacyId === (typeof params.q === 'string' ? params.q.trim() : '') ||
           (qDigits.length >= 3 && digits(patient.phone).includes(qDigits)),
       );
     }
@@ -360,6 +372,7 @@ export const patientsHandlers = [
       phone: body.phone,
       email: isText(body.email) ? body.email : undefined,
       address: isText(body.address) ? body.address : undefined,
+      ...(isText(body.legacyId) ? { legacyId: body.legacyId } : {}),
       contactConsent: {
         given: consent?.given === true,
         at: new Date().toISOString(),

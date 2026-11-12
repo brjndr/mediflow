@@ -28,6 +28,7 @@ function toRequest(values: PatientFormValues): PatientCreateBody {
     phone: values.phone,
     email: values.email || undefined,
     address: values.address || undefined,
+    legacyId: values.legacyId || undefined,
     contactConsent: { given: values.contactConsent },
   };
 }

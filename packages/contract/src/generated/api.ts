@@ -6192,6 +6192,8 @@ export interface components {
             gender: "male" | "female" | "other";
             /** @description Masked to its last four digits for a caller without patient.contact:read. */
             phone: string;
+            /** @description The registration number from the older register (#694). */
+            legacyId?: string;
             /** @description Present when this record was merged into another (#194, #604): the id of the record to use. */
             mergedInto?: string;
         };
@@ -6223,6 +6225,8 @@ export interface components {
                 at: string;
                 recordedBy: string;
             };
+            /** @description The registration number from the older register (#694). */
+            legacyId?: string;
             /** @description Present when this record was merged into another (#194): the id of the record to use. A merged record cannot be changed. */
             mergedInto?: string;
             /** @description Goes up by one each time the record changes. Send it back as expectedVersion when changing the record. */
@@ -6238,6 +6242,7 @@ export interface components {
             phone: string;
             email?: string;
             address?: string;
+            legacyId?: string;
             contactConsent?: {
                 given: boolean;
             };
@@ -6255,6 +6260,7 @@ export interface components {
             phone?: string;
             email?: string | null;
             address?: string | null;
+            legacyId?: string | null;
             contactConsent?: {
                 given: boolean;
             };
@@ -13590,7 +13596,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @description Search text: name, phone or MRN. */
+                    /** @description Search text: name, phone or MRN. A term equal to a legacy registration number also finds that patient. */
                     q?: string;
                     /** @description Opaque. Pass the nextCursor of the previous page. */
                     cursor?: string;

@@ -20,6 +20,7 @@ const summaryShape = {
   dob: z.iso.date(),
   gender: z.enum(['male', 'female', 'other']),
   phone: z.string(),
+  legacyId: z.string().optional(),
   mergedInto: z.string().optional(),
 };
 
@@ -97,6 +98,7 @@ export const createPatientFormSchema = (today: string, { contact = true } = {}) 
       ? z.union([z.literal(''), z.email('validation.invalid_format').max(254)])
       : z.string(),
     address: contact ? z.string().trim().max(500) : z.string(),
+    legacyId: z.string().trim().max(50).regex(PLAIN_TEXT, 'validation.plain_text'),
     contactConsent: z.boolean(),
   });
 

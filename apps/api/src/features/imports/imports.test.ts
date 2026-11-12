@@ -899,3 +899,41 @@ describe('the hospital boundary', () => {
     expect(errorOf(await get('/imports?cursor=nonsense'))).toEqual([400, 'invalid_cursor']);
   });
 });
+
+describe('patients with a legacy registration number (#694)', () => {
+  const base = { lastName: 'Legacy', dob: '1980-02-02', gender: 'male', phone: '99000 12345' };
+
+  it('loads and finds them, reports a repeat in the file and one already used, writing nothing', async () => {
+    const clash = await checked(
+      await staged('patients', [
+        { ...base, firstName: 'One', legacyId: 'L-1' },
+        { ...base, firstName: 'Two', legacyId: 'L-1' },
+      ]),
+    );
+    expect((await problems(clash)).items).toEqual([
+      { line: 3, field: 'legacyId', code: 'duplicate_in_file' },
+    ]);
+
+    const good = await checked(
+      await staged('patients', [
+        { ...base, firstName: 'One', legacyId: 'L-1' },
+        { ...base, firstName: 'Two', legacyId: 'L-2' },
+        { ...base, firstName: 'Three' },
+      ]),
+    );
+    expect(good.problemCount).toBe(0);
+    expect((await committed(good)).status).toBe('committed');
+    const { rows } = await pool.query<{ first_name: string }>(
+      'select first_name from patients where tenant_id = $1 and legacy_id = $2',
+      [hospital.id, 'L-2'],
+    );
+    expect(rows.map((row) => row.first_name)).toEqual(['Two']);
+
+    const used = await checked(
+      await staged('patients', [{ ...base, firstName: 'Four', legacyId: 'L-2' }]),
+    );
+    expect((await problems(used)).items).toEqual([
+      { line: 2, field: 'legacyId', code: 'legacy_id_taken' },
+    ]);
+  });
+});

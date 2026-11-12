@@ -122,6 +122,7 @@ const KINDS: (Kind & { feature: string; permissions: string[]; key: string[] })[
       text('phone', true),
       text('email'),
       text('address'),
+      text('legacyId'),
     ],
   },
 ];

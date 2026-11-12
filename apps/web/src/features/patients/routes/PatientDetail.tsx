@@ -32,6 +32,10 @@ function Demographics({ patient }: { patient: PatientRecord }) {
     // The server masks the phone too. Masking again here covers a record that was cached before
     // the role lost the permission, until it is read afresh.
     [t('columns.phone'), seesContact ? patient.phone : withheldPhone(patient.phone)],
+    // Shown only where there is one: most patients have none.
+    ...(patient.legacyId
+      ? ([[t('detail.legacyId'), patient.legacyId]] as [string, React.ReactNode][])
+      : []),
     [t('detail.email'), seesContact ? (patient.email ?? none) : restricted],
     [t('detail.address'), seesContact ? (patient.address ?? none) : restricted],
     [

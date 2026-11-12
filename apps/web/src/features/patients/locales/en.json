@@ -42,6 +42,8 @@
     "phone": "Phone number",
     "email": "Email (optional)",
     "address": "Address (optional)",
+    "legacyId": "Old registration number (optional)",
+    "legacyIdHint": "The number on the paper file or in the earlier system. Search finds the patient by it.",
     "contactConsent": "The patient agrees to be contacted",
     "contactConsentHint": "Recorded with the date and your name.",
     "submit": "Register patient"
@@ -69,6 +71,7 @@
     "age_other": "{{count}} years",
     "email": "Email",
     "address": "Address",
+    "legacyId": "Old registration number",
     "consent": "Consent to be contacted",
     "consentGiven": "Agreed, recorded {{when}}",
     "consentRefused": "Declined, recorded {{when}}",

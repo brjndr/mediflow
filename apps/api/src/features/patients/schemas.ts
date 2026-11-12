@@ -1,4 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox';
+import { PLAIN_TEXT } from '../../core/http/text.js';
 import {
   CursorPage,
   MAX_PAGE_SIZE,
@@ -10,6 +11,7 @@ import {
 const Gender = StringEnum(['male', 'female', 'other']);
 const IsoDate = Type.String({ format: 'date' });
 const Name = Type.String({ minLength: 1, maxLength: 100 });
+const LegacyId = Type.String({ minLength: 1, maxLength: 50, pattern: PLAIN_TEXT });
 const Phone = Type.String({ minLength: 5, maxLength: 20 });
 
 export const PatientSummary = Type.Object(
@@ -24,6 +26,9 @@ export const PatientSummary = Type.Object(
     phone: Type.String({
       description: 'Masked to its last four digits for a caller without patient.contact:read.',
     }),
+    legacyId: Type.Optional(
+      Type.String({ description: 'The registration number from the older register (#694).' }),
+    ),
     mergedInto: Type.Optional(
       Type.String({
         description:
@@ -60,6 +65,9 @@ export const PatientRecord = Type.Object(
     email: Type.Optional(Type.String()),
     address: Type.Optional(Type.String()),
     contactConsent: Type.Optional(ContactConsent),
+    legacyId: Type.Optional(
+      Type.String({ description: 'The registration number from the older register (#694).' }),
+    ),
     mergedInto: Type.Optional(
       Type.String({
         description:
@@ -91,6 +99,7 @@ export const PatientCreate = Type.Object(
     phone: Phone,
     email: Type.Optional(Type.String({ maxLength: 254 })),
     address: Type.Optional(Type.String({ maxLength: 500 })),
+    legacyId: Type.Optional(LegacyId),
     contactConsent: Type.Optional(ConsentDecision),
   },
   { $id: 'PatientCreate', additionalProperties: false },
@@ -114,6 +123,14 @@ export const PatientUpdate = Type.Object(
     address: Type.Optional(
       Type.Unsafe<string | null>({ type: ['string', 'null'], maxLength: 500 }),
     ),
+    legacyId: Type.Optional(
+      Type.Unsafe<string | null>({
+        type: ['string', 'null'],
+        minLength: 1,
+        maxLength: 50,
+        pattern: PLAIN_TEXT,
+      }),
+    ),
     contactConsent: Type.Optional(ConsentDecision),
   },
   {
@@ -133,7 +150,11 @@ export type PatientSort = (typeof PATIENT_SORTS)[number];
 export const PatientSearch = Type.Object(
   {
     q: Type.Optional(
-      Type.String({ maxLength: 100, description: 'Search text: name, phone or MRN.' }),
+      Type.String({
+        maxLength: 100,
+        description:
+          'Search text: name, phone or MRN. A term equal to a legacy registration number also finds that patient.',
+      }),
     ),
     cursor: Type.Optional(
       Type.String({ description: 'Opaque. Pass the nextCursor of the previous page.' }),

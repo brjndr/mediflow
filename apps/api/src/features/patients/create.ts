@@ -1,7 +1,14 @@
 import { Type } from '@sinclair/typebox';
 import { HttpError } from '../../core/http/errors.js';
+import { tidy } from '../../core/http/text.js';
 import { RowProblem, type ImportKind, type Writer } from '../../core/imports/registry.js';
-import { findDuplicates, insertPatient, todayAtHospital, type PatientRow } from './repository.js';
+import {
+  findDuplicates,
+  insertPatient,
+  legacyIdTaken,
+  todayAtHospital,
+  type PatientRow,
+} from './repository.js';
 import { PatientCreate } from './schemas.js';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -33,6 +40,7 @@ interface Demographics {
   phone?: string;
   email?: string | null;
   address?: string | null;
+  legacyId?: string | null;
 }
 
 /**
@@ -59,6 +67,10 @@ export function clean<T extends Demographics>(input: T, today: string): T {
   if (typeof out.address === 'string') {
     out.address = out.address.trim();
     if (out.address === '') out.address = null;
+  }
+  if (typeof out.legacyId === 'string') {
+    out.legacyId = tidy(out.legacyId);
+    if (out.legacyId === '') out.legacyId = null;
   }
   return out;
 }
@@ -112,6 +124,7 @@ export const patientImport: ImportKind<PatientCreate> = {
     { field: 'phone', required: true, type: 'text' },
     { field: 'email', required: false, type: 'text' },
     { field: 'address', required: false, type: 'text' },
+    { field: 'legacyId', required: false, type: 'text' },
   ],
   async prepare(writer, body) {
     const row = body as PatientImportRow;
@@ -124,6 +137,10 @@ export const patientImport: ImportKind<PatientCreate> = {
       throw new RowProblem('email', 'not_an_email');
     }
     const input = clean<PatientCreate>(row, today);
+    // A legacy number already on a patient of the hospital is reported on its own field (#694).
+    if (input.legacyId && (await legacyIdTaken(writer.txClient, input.legacyId))) {
+      throw new RowProblem('legacyId', 'legacy_id_taken');
+    }
     const matches = await findDuplicates(writer.txClient, input);
     if (matches.some((match) => samePerson(match, input))) {
       throw new HttpError(409, 'patient_possible_duplicate', 'Someone like this is registered');
@@ -132,7 +149,11 @@ export const patientImport: ImportKind<PatientCreate> = {
     const key = [input.firstName, input.lastName, input.dob]
       .map((part) => part.toLowerCase())
       .join('\u0000');
-    return { value: input, key };
+    return {
+      value: input,
+      key,
+      unique: input.legacyId ? [{ field: 'legacyId', value: input.legacyId }] : [],
+    };
   },
   write: async (writer, input, actorId) => {
     await writePatient(writer, input, actorId);
