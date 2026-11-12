@@ -7482,7 +7482,7 @@ export interface components {
             values?: string[];
         };
         ImportKind: {
-            /** @description A kind of record: `services`, `drugs`, `lab_tests` or `patients`. */
+            /** @description A kind of record: `services`, `drugs`, `lab_tests`, `patients` or `opening_stock`. */
             kind: string;
             columns: components["schemas"]["ImportColumn"][];
         };
@@ -7493,7 +7493,7 @@ export interface components {
         ImportBatch: {
             id: string;
             tenantId: string;
-            /** @description A kind of record: `services`, `drugs`, `lab_tests` or `patients`. */
+            /** @description A kind of record: `services`, `drugs`, `lab_tests`, `patients` or `opening_stock`. */
             kind: string;
             /**
              * @description staging: rows are being sent. checking: the dry run is running. checked: it has run, and the batch can be written when problemCount is 0. queued, running: being written. committed: every row was written. failed: nothing was written. cancelled: given up, or left unfinished for a week.
@@ -7524,7 +7524,7 @@ export interface components {
             total?: number;
         };
         ImportBatchCreate: {
-            /** @description A kind of record: `services`, `drugs`, `lab_tests` or `patients`. */
+            /** @description A kind of record: `services`, `drugs`, `lab_tests`, `patients` or `opening_stock`. */
             kind: string;
         };
         /** @description Rows of the file, as many requests as it takes. A line sent twice is kept as it was first sent. */

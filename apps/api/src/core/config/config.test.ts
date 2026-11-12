@@ -9,6 +9,9 @@ const production = {
   APP_BASE_URL: 'https://app.example.com',
   MFA_ENCRYPTION_KEY: 'q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=',
   REPORT_URL_SECRET: 'Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=',
+  FILE_STORE: 's3',
+  S3_BUCKET: 'mediflow-files',
+  S3_REGION: 'ap-south-1',
 };
 
 describe('loadConfig', () => {
@@ -42,6 +45,9 @@ describe('loadConfig', () => {
       LIVE_RECHECK_MS: 2000,
       REPORT_URL_SECRET: 'Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=',
       REPORT_URL_TTL_SECONDS: 300,
+      FILE_STORE: 's3',
+      S3_BUCKET: 'mediflow-files',
+      S3_REGION: 'ap-south-1',
       FILE_STORE_DIR: '.data/files',
       REPORT_SYNC_TIMEOUT_MS: 10000,
       REPORT_RUN_TIMEOUT_MS: 120000,
@@ -89,6 +95,16 @@ describe('loadConfig', () => {
       const { [name]: _omitted, ...rest } = production as Record<string, string>;
       expect(() => loadConfig(rest)).toThrow(new RegExp(name));
     }
+  });
+
+  it('refuses the local file store in production and an incomplete s3 setup', () => {
+    const { FILE_STORE: _f, ...local } = production;
+    expect(() => loadConfig(local)).toThrow(/FILE_STORE/);
+    expect(() => loadConfig({ ...production, FILE_STORE: 'local' })).toThrow(/FILE_STORE/);
+    const { S3_BUCKET: _b, ...noBucket } = production;
+    expect(() => loadConfig(noBucket)).toThrow(/S3_BUCKET/);
+    expect(() => loadConfig({ ...production, S3_ACCESS_KEY_ID: 'k' })).toThrow(/S3_ACCESS_KEY_ID/);
+    expect(loadConfig({ NODE_ENV: 'test' }).FILE_STORE).toBe('local');
   });
 
   it('refuses the development signing key in production', () => {

@@ -17,7 +17,8 @@
     "services": "Services and prices",
     "drugs": "Drugs and consumables",
     "lab_tests": "Lab tests",
-    "patients": "Patients"
+    "patients": "Patients",
+    "opening_stock": "Opening stock"
   },
   "statuses": {
     "staging": "Being sent",
@@ -125,7 +126,12 @@
     "lab_test_code_taken": "The hospital already has a test with this code.",
     "patient_possible_duplicate": "Someone like this is already registered. Check before importing them.",
     "validation_failed": "Not valid.",
-    "other": "Cannot be written."
+    "other": "Cannot be written.",
+    "unknown_item": "The hospital has no item in use with this name, brand, form and strength.",
+    "unknown_location": "No place in use with this name.",
+    "batch_expired": "The batch is already past its expiry date.",
+    "batch_exists": "The item has a batch of this number with another expiry date.",
+    "opening_exists": "This batch already has opening stock at this place."
   },
   "fields": {
     "services": {
@@ -167,6 +173,18 @@
       "phone": "Phone",
       "email": "Email",
       "address": "Address"
+    },
+    "opening_stock": {
+      "genericName": "Generic name",
+      "brandName": "Brand",
+      "form": "Form",
+      "strength": "Strength",
+      "location": "Place",
+      "batchNumber": "Batch number",
+      "expiryDate": "Expiry date",
+      "quantity": "Quantity",
+      "costMinor": "Unit cost",
+      "mrpMinor": "Maximum retail price"
     }
   },
   "refusals": {

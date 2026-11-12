@@ -4632,7 +4632,7 @@
         "properties": {
           "kind": {
             "pattern": "^[a-z][a-z_]{0,39}$",
-            "description": "A kind of record: `services`, `drugs`, `lab_tests` or `patients`.",
+            "description": "A kind of record: `services`, `drugs`, `lab_tests`, `patients` or `opening_stock`.",
             "type": "string"
           },
           "columns": {
@@ -4678,7 +4678,7 @@
           },
           "kind": {
             "pattern": "^[a-z][a-z_]{0,39}$",
-            "description": "A kind of record: `services`, `drugs`, `lab_tests` or `patients`.",
+            "description": "A kind of record: `services`, `drugs`, `lab_tests`, `patients` or `opening_stock`.",
             "type": "string"
           },
           "status": {
@@ -4772,7 +4772,7 @@
         "properties": {
           "kind": {
             "pattern": "^[a-z][a-z_]{0,39}$",
-            "description": "A kind of record: `services`, `drugs`, `lab_tests` or `patients`.",
+            "description": "A kind of record: `services`, `drugs`, `lab_tests`, `patients` or `opening_stock`.",
             "type": "string"
           }
         }

@@ -93,6 +93,23 @@ const ConfigSchema = Type.Object({
   REPORT_URL_TTL_SECONDS: Type.Integer({ minimum: 30, maximum: 3600, default: 300 }),
   /** Where the local file store keeps files (report exports), until object storage is used. */
   FILE_STORE_DIR: Type.String({ minLength: 1, default: '.data/files' }),
+  /**
+   * Where files are kept. `local` is a folder on the API's disk (development and tests);
+   * production must use `s3`, since a container loses its disk on redeploy.
+   */
+  FILE_STORE: Type.Union([Type.Literal('local'), Type.Literal('s3')], { default: 'local' }),
+  /** For `s3`: the bucket (private, encrypted at rest, no public access) and its region. */
+  S3_BUCKET: Type.Optional(Type.String({ minLength: 3 })),
+  S3_REGION: Type.Optional(Type.String({ minLength: 1 })),
+  /** For an S3-compatible service other than AWS (MinIO); path-style addressing is then used. */
+  S3_ENDPOINT: Type.Optional(Type.String({ pattern: '^https?://' })),
+  /** Left out in AWS to use the task or instance role. */
+  S3_ACCESS_KEY_ID: Type.Optional(Type.String({ minLength: 1 })),
+  S3_SECRET_ACCESS_KEY: Type.Optional(Type.String({ minLength: 1 })),
+  /** Asks the service to encrypt each object; leave out when the bucket encrypts by default. */
+  S3_SERVER_SIDE_ENCRYPTION: Type.Optional(
+    Type.Union([Type.Literal('AES256'), Type.Literal('aws:kms')]),
+  ),
   /** A report answered on the spot gives up after this long, so it cannot hold a connection. */
   REPORT_SYNC_TIMEOUT_MS: Type.Integer({ minimum: 1000, maximum: 60_000, default: 10_000 }),
   /** A report made by a job gives up after this long. */
@@ -159,6 +176,20 @@ export function loadConfig(env: Env = process.env): Config {
   // The all-zero key is the development default: links signed with it can be forged by anyone.
   if (mode === 'production' && candidate.REPORT_URL_SECRET === LOCAL_SERVICES.REPORT_URL_SECRET) {
     throw new ConfigError(['REPORT_URL_SECRET: the development key cannot be used in production']);
+  }
+  if (candidate.FILE_STORE === 's3' || mode === 'production') {
+    const problems: string[] = [];
+    if (mode === 'production' && candidate.FILE_STORE !== 's3') {
+      problems.push('FILE_STORE: production must use s3, the local folder is lost on redeploy');
+    }
+    if (candidate.FILE_STORE === 's3') {
+      if (!candidate.S3_BUCKET) problems.push('S3_BUCKET: required when FILE_STORE is s3');
+      if (!candidate.S3_REGION) problems.push('S3_REGION: required when FILE_STORE is s3');
+    }
+    if (!candidate.S3_ACCESS_KEY_ID !== !candidate.S3_SECRET_ACCESS_KEY) {
+      problems.push('S3_ACCESS_KEY_ID: give both keys or neither');
+    }
+    if (problems.length > 0) throw new ConfigError(problems);
   }
   return candidate;
 }
