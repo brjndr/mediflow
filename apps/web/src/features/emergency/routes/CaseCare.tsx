@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { usePermission } from '@/access';
+import { Slot } from '@/registry';
 import { EncounterOrders } from '@/features/clinical';
 import { usePatientName } from '@/features/patients';
 import { errorMessageKey, isApiError } from '@/shared/api';
@@ -175,6 +176,13 @@ function Care({ row }: { row: EmergencyCase }) {
             <Button variant="outline" onClick={() => setIdentifying(true)}>
               {t('actions.identify')}
             </Button>
+          )}
+          {/* Other features' actions for the case (admissions' "Admit to hospital"). */}
+          {row.patientId && (
+            <Slot
+              id="emergency.case.actions"
+              context={{ patientId: row.patientId, admitType: 'emergency' }}
+            />
           )}
           {canDispose && (
             <Button onClick={() => setDisposing(true)}>{t('disposition.open')}</Button>

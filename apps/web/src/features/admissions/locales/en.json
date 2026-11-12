@@ -154,6 +154,7 @@
   },
   "admit": {
     "open": "Admit a patient",
+    "fromHere": "Admit to hospital",
     "heading": "Admit a patient",
     "description": "Choose the patient and a free bed. Admitting opens the inpatient stay.",
     "patient": "Patient",
