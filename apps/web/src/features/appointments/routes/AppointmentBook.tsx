@@ -22,6 +22,7 @@ import {
 } from '@/shared/ui/form';
 import { todayIn, zonedToUtc, type DayString } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
+import { OnCallNote } from '../components/OnCallNote';
 import { SlotPicker, type SlotRefusal } from '../components/SlotPicker';
 import { useBookAppointment } from '../hooks/use-book-appointment';
 import { bookableDays, bookingSchemaFor, MAX_REASON, type BookingValues } from '../schemas';
@@ -394,6 +395,7 @@ export default function AppointmentBook() {
             min={days.first}
             max={days.last}
           />
+          <OnCallNote />
           <SlotPicker
             refused={refusal?.kind === 'slot' ? refusal : undefined}
             preferred={preferred}

@@ -43,6 +43,10 @@
   "book": {
     "open": "Book an appointment",
     "fromPatient": "Book appointment",
+    "onCall": {
+      "heading": "On call now",
+      "until": "until {{time}}"
+    },
     "askedNotFound": "That patient cannot be found at this hospital. Search for the patient.",
     "heading": "Book an appointment",
     "description": "Choose the patient, the doctor and one of the doctor's free times.",
