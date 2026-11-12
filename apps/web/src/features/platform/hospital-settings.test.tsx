@@ -50,6 +50,19 @@ describe('hospital modules and limits (platform)', () => {
     expect(screen.queryByRole('checkbox', { name: 'Laboratory' })).not.toBeInTheDocument();
   });
 
+  it('offers the records, roles and consents switches by name', async () => {
+    asPlatformAdmin();
+    const user = userEvent.setup();
+    renderApp({ entry: '/platform/hospitals/hosp_city' });
+
+    for (const name of ['Medical records', 'Roles and permissions', 'Consents and certificates']) {
+      const box = await screen.findByRole('checkbox', { name });
+      expect(box).not.toBeChecked();
+      await user.click(box);
+      expect(box).toBeChecked();
+    }
+  });
+
   it('switches a module on and keeps it after a reload of the hospital', async () => {
     asPlatformAdmin();
     const user = userEvent.setup();

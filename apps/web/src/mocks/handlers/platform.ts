@@ -164,6 +164,9 @@ const MODULE_IDS = [
   'templates',
   'imports',
   'notices',
+  'records',
+  'roles',
+  'consents',
 ].sort();
 
 export const platformHandlers = [
