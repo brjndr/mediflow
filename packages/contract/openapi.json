@@ -17904,6 +17904,131 @@
             }
           }
         }
+      },
+      "CoverageSplitLine": {
+        "type": "object",
+        "required": [
+          "chargeId",
+          "description",
+          "ledgerMinor",
+          "ratedMinor",
+          "payerMinor",
+          "patientMinor",
+          "reason"
+        ],
+        "properties": {
+          "chargeId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "ledgerMinor": {
+            "type": "integer",
+            "description": "The charge as posted, at the list price."
+          },
+          "ratedMinor": {
+            "type": "integer",
+            "description": "The charge at the payer's agreed rate."
+          },
+          "payerMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "patientMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string",
+            "enum": ["covered", "copay", "not_covered", "service_limit", "sum_insured"]
+          }
+        }
+      },
+      "CoverageSplit": {
+        "type": "object",
+        "required": [
+          "encounterId",
+          "policyId",
+          "payerName",
+          "planName",
+          "copayPercent",
+          "lines",
+          "ledgerMinor",
+          "rateAdjustmentMinor",
+          "payerMinor",
+          "patientMinor",
+          "stale"
+        ],
+        "properties": {
+          "encounterId": {
+            "type": "string"
+          },
+          "policyId": {
+            "type": "string"
+          },
+          "payerName": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "agreementName": {
+            "type": "string",
+            "description": "The rate agreement that priced the lines, when one runs."
+          },
+          "copayPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CoverageSplitLine"
+            }
+          },
+          "ledgerMinor": {
+            "type": "integer",
+            "description": "The visit's charges, void ones left out, at list price."
+          },
+          "rateAdjustmentMinor": {
+            "type": "integer",
+            "description": "Rated total less ledger total; negative when the agreement is cheaper."
+          },
+          "payerMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "patientMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "saved": {
+            "type": "object",
+            "required": ["savedAt", "ledgerMinor", "payerMinor", "patientMinor"],
+            "properties": {
+              "savedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "ledgerMinor": {
+                "type": "integer"
+              },
+              "payerMinor": {
+                "type": "integer"
+              },
+              "patientMinor": {
+                "type": "integer"
+              }
+            }
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "A saved split exists and the ledger has changed since."
+          }
+        }
       }
     },
     "responses": {
@@ -62089,6 +62214,96 @@
             "$ref": "#/components/responses/Error"
           },
           "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/encounters/{encounterId}/coverage-split": {
+      "get": {
+        "operationId": "getCoverageSplit",
+        "description": "How a visit's charge ledger divides between the patient and the payer of the patient's active policy (IN-03, #183), worked out by the server: each charge at the payer's agreed rate, the plan's covered services, the limit per service, the patient's co-pay share and the sum insured. For every line payerMinor + patientMinor = ratedMinor, and ledgerMinor + rateAdjustmentMinor = payerMinor + patientMinor in total. Needs policy:read, charge:read and the insurance feature flag. 404 when the patient has no active policy. Audited.",
+        "parameters": [
+          {
+            "name": "encounterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The split",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageSplit"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "post": {
+        "operationId": "saveCoverageSplit",
+        "description": "Keeps the split as it is now, as the one the patient and payer bills are made from. A later change to the ledger makes the saved split stale (stale: true) until it is saved again. Needs policy:manage and charge:read. Idempotent by Idempotency-Key. Audited.",
+        "parameters": [
+          {
+            "name": "encounterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The split with the saved copy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageSplit"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
             "$ref": "#/components/responses/Error"
           },
           "default": {

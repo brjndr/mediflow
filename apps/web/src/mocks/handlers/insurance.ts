@@ -549,3 +549,54 @@ export function mockPlanWithPayer(tenantId: string, planId: unknown) {
     preAuthRequired: plan.preAuthRequired,
   };
 }
+
+/** A plan's terms for working out a split (IN-03): what is covered, the share and the limits. */
+export function mockPlanTerms(tenantId: string, planId: string) {
+  const plan = state.plans.find((one) => one.id === planId && one.tenantId === tenantId);
+  return plan && { ...plan, services: plan.services.map((one) => ({ ...one })) };
+}
+
+/** The rate agreement of a payer running on a day (`YYYY-MM-DD`), as a closed range. */
+export function mockAgreementOn(tenantId: string, payerId: string, day: string) {
+  return state.agreements.find(
+    (one) =>
+      one.tenantId === tenantId &&
+      one.payerId === payerId &&
+      one.effectiveFrom <= day &&
+      (one.effectiveTo === undefined || day <= one.effectiveTo),
+  );
+}
+
+/** Sets what a plan covers, for tests of the split. */
+export function setMockPlanCover(
+  planId: string,
+  coverageMode: 'all_except' | 'only_listed',
+  services: { serviceId: string; limitMinor?: number }[],
+  copayPercent?: number,
+  sumInsuredMinor?: number | null,
+): void {
+  const plan = state.plans.find((one) => one.id === planId);
+  if (!plan) return;
+  plan.coverageMode = coverageMode;
+  plan.services = services;
+  if (copayPercent !== undefined) plan.copayPercent = copayPercent;
+  if (sumInsuredMinor === null) delete plan.sumInsuredMinor;
+  else if (sumInsuredMinor !== undefined) plan.sumInsuredMinor = sumInsuredMinor;
+}
+
+/**
+ * Sets the discount and the agreed rates of a payer's agreement and keeps it running whatever the
+ * date, for tests of the split.
+ */
+export function setMockAgreementTerms(
+  agreementId: string,
+  discountBp: number,
+  rates: { serviceId: string; rateMinor: number }[] = [],
+): void {
+  const agreement = state.agreements.find((one) => one.id === agreementId);
+  if (!agreement) return;
+  agreement.discountBp = discountBp;
+  delete agreement.effectiveTo;
+  agreement.effectiveFrom = '2000-01-01';
+  agreement.rates = rates;
+}

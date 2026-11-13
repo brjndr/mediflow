@@ -6347,6 +6347,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/encounters/{encounterId}/coverage-split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description How a visit's charge ledger divides between the patient and the payer of the patient's active policy (IN-03, #183), worked out by the server: each charge at the payer's agreed rate, the plan's covered services, the limit per service, the patient's co-pay share and the sum insured. For every line payerMinor + patientMinor = ratedMinor, and ledgerMinor + rateAdjustmentMinor = payerMinor + patientMinor in total. Needs policy:read, charge:read and the insurance feature flag. 404 when the patient has no active policy. Audited. */
+        get: operations["getCoverageSplit"];
+        put?: never;
+        /** @description Keeps the split as it is now, as the one the patient and payer bills are made from. A later change to the ledger makes the saved split stale (stale: true) until it is saved again. Needs policy:manage and charge:read. Idempotent by Idempotency-Key. Audited. */
+        post: operations["saveCoverageSplit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12185,6 +12203,43 @@ export interface components {
                 cleared: boolean;
                 reasons: ("unbilled" | "draft_invoice" | "balance_due" | "excess_deposit")[];
             };
+        };
+        CoverageSplitLine: {
+            chargeId: string;
+            description: string;
+            /** @description The charge as posted, at the list price. */
+            ledgerMinor: number;
+            /** @description The charge at the payer's agreed rate. */
+            ratedMinor: number;
+            payerMinor: number;
+            patientMinor: number;
+            /** @enum {string} */
+            reason: "covered" | "copay" | "not_covered" | "service_limit" | "sum_insured";
+        };
+        CoverageSplit: {
+            encounterId: string;
+            policyId: string;
+            payerName: string;
+            planName: string;
+            /** @description The rate agreement that priced the lines, when one runs. */
+            agreementName?: string;
+            copayPercent: number;
+            lines: components["schemas"]["CoverageSplitLine"][];
+            /** @description The visit's charges, void ones left out, at list price. */
+            ledgerMinor: number;
+            /** @description Rated total less ledger total; negative when the agreement is cheaper. */
+            rateAdjustmentMinor: number;
+            payerMinor: number;
+            patientMinor: number;
+            saved?: {
+                /** Format: date-time */
+                savedAt: string;
+                ledgerMinor: number;
+                payerMinor: number;
+                patientMinor: number;
+            };
+            /** @description A saved split exists and the ledger has changed since. */
+            stale: boolean;
         };
     };
     responses: {
@@ -45385,6 +45440,60 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getCoverageSplit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The split */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverageSplit"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    saveCoverageSplit: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The split with the saved copy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverageSplit"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
