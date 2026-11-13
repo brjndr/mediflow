@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import type { QueueState } from './schemas.js';
+import { patientFamily } from '../../core/patient-merge/family.js';
 
 /**
  * The pharmacy's SQL. Every statement runs on the request's own transaction, so row-level security
@@ -77,6 +78,7 @@ export async function listQueue(
   const after = options.cursor ? decodeCursor(options.cursor, options.state) : undefined;
   if (after === null) return null;
   const open = options.state === 'open';
+  const family = options.patientId === null ? null : await patientFamily(client, options.patientId);
   const { rows } = await client.query<QueueRow>(
     `select rx.id as prescription_id, rx.encounter_id, rx.patient_id,
        pt.first_name || ' ' || pt.last_name as patient_name, pt.mrn as patient_mrn,
@@ -95,12 +97,12 @@ export async function listQueue(
      join patients pt on pt.tenant_id = rx.tenant_id and pt.id = rx.patient_id
      left join users u on u.id = rx.prescribed_by
      where rx.prescribed_at >= ${WINDOW_START}
-       and ($2::uuid is null or rx.patient_id = $2)
+       and ($2::uuid[] is null or rx.patient_id = any($2::uuid[]))
        and ${open ? 'l.open_count > 0' : 'l.open_count = 0 and l.started_count > 0'}
        and ($3::timestamptz is null or (rx.prescribed_at, rx.id) ${open ? '>' : '<'} ($3::timestamptz, $4::uuid))
      order by rx.prescribed_at ${open ? 'asc' : 'desc'}, rx.id ${open ? 'asc' : 'desc'}
      limit $5`,
-    [options.days, options.patientId, after?.[0] ?? null, after?.[1] ?? null, options.limit + 1],
+    [options.days, family, after?.[0] ?? null, after?.[1] ?? null, options.limit + 1],
   );
   const page = rows.slice(0, options.limit);
   const last = page.at(-1);

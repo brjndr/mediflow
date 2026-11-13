@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import { BANDS, RANGED, type Allergy, type Measure, type Ranged } from './schemas.js';
+import { patientFamily } from '../../core/patient-merge/family.js';
 /**
  * The triage SQL. Every statement runs on the request's own transaction under the app role, so
  * row-level security limits it to the active hospital.
@@ -84,8 +85,8 @@ export async function listVitals(
   if (filters.queueTokenId !== undefined && !UUID.test(filters.queueTokenId)) {
     return { rows: [], nextCursor: null, ...(after === undefined ? { total: 0 } : {}) };
   }
-  const where = `where v.patient_id = $1 and ($2::uuid is null or v.queue_token_id = $2)`;
-  const values = [patientId, filters.queueTokenId ?? null];
+  const where = `where v.patient_id = any($1::uuid[]) and ($2::uuid is null or v.queue_token_id = $2)`;
+  const values = [await patientFamily(client, patientId), filters.queueTokenId ?? null];
   const { rows } = await client.query<VitalsRow & { cursor_at: string }>(
     `${VITALS_WITH_CURSOR}
      ${where}
