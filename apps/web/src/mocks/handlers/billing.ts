@@ -1584,3 +1584,38 @@ export function setMockPackage(
 ): void {
   state.packages[tenantId + ':' + packageId] = items;
 }
+
+/**
+ * Sets money against an issued invoice as a payment that touches no register, which is what the
+ * API will do for a deposit set against the final bill (DS-04, #167). Returns the amount applied
+ * (the lesser of `amountMinor` and what is due), or 0 when the invoice takes none.
+ */
+export function applyMockPayment(
+  tenantId: string,
+  invoiceId: string,
+  amountMinor: number,
+  reference: string,
+): number {
+  const found = state.invoices.find((each) => each.id === invoiceId && each.tenantId === tenantId);
+  if (found?.status !== 'issued') return 0;
+  const view = invoiceView(found);
+  const due = view.totalMinor - view.paidMinor - view.creditedMinor;
+  const applied = Math.min(due, amountMinor);
+  if (applied < 1) return 0;
+  state.payments.push({
+    id: `pay_mock_${state.payments.length + 1}`,
+    tenantId,
+    invoiceId,
+    kind: 'payment',
+    amountMinor: applied,
+    method: 'other',
+    reference,
+    recordedByName: currentSession()?.user.name ?? '',
+    at: new Date().toISOString(),
+  });
+  if (applied === due) {
+    found.status = 'paid';
+    found.version += 1;
+  }
+  return applied;
+}

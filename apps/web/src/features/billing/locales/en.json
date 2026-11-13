@@ -503,6 +503,80 @@
       "manual": "Typed in"
     }
   },
+  "settlement": {
+    "heading": "Final bill and settlement",
+    "failed": "The settlement could not be read.",
+    "cleared": "Nothing stands in the way of discharge: everything is invoiced and settled.",
+    "notCleared": "Not ready for discharge: {{reasons}}.",
+    "reasons": {
+      "unbilled": "charges are not invoiced yet",
+      "draft_invoice": "an invoice is still a draft",
+      "balance_due": "an invoice has a balance due",
+      "excess_deposit": "a deposit is held beyond what is due"
+    },
+    "policy": {
+      "off": "Discharge does not wait for the bill at this hospital.",
+      "warn": "Discharge with the bill unsettled needs a confirmation.",
+      "block": "Discharge waits until the bill is settled."
+    },
+    "invoices": "Invoices of the stay",
+    "none": "No invoice has been made for this stay yet.",
+    "draft": "Draft",
+    "open": "Open invoice",
+    "columns": {
+      "invoice": "Invoice",
+      "status": "Status",
+      "total": "Total",
+      "credited": "Credited",
+      "paid": "Paid"
+    },
+    "totals": "Settlement of the stay",
+    "charges": "Charges of the stay",
+    "unbilled": "Not on an invoice yet",
+    "invoiced": "On invoices",
+    "credited": "Credited",
+    "paid": "Paid on invoices",
+    "due": "Still due",
+    "held": "Deposit held",
+    "excess": "Deposit held beyond what is due",
+    "matches": "The invoices add up to the charges of the stay.",
+    "notYet": "{{amount}} of charges is not on an invoice yet. Make the final invoice to bill it.",
+    "differs": "The invoices differ from the charges by tax or discount.",
+    "modes": "Payments in any mode and credit notes are on each invoice's page. Open an invoice from the list.",
+    "make": "Make the final invoice",
+    "apply": "Set the deposit against invoice {{number}}",
+    "applying": "Setting…",
+    "applied": "Deposit of {{amount}} set against the invoice.",
+    "refunded": "Deposit of {{amount}} paid back.",
+    "refund": {
+      "heading": "Pay back the excess deposit",
+      "amount": "Amount to pay back",
+      "hint": "Up to {{held}}, the deposit held beyond what is due.",
+      "method": "Paid back by",
+      "submit": "Pay back deposit",
+      "tooMuch": "More than the deposit held beyond what is due."
+    },
+    "refused": {
+      "no_deposit_held": "No deposit is held for this stay.",
+      "invoice_not_payable": "Only an issued invoice with something due takes the deposit.",
+      "refund_exceeds": "That is more than the deposit held beyond what is due. The figures have been read again.",
+      "no_open_register": "A cash refund comes out of a cash register session, and you have none open. Open one under Cash register."
+    }
+  },
+  "dischargePolicy": {
+    "heading": "Discharge and the bill",
+    "description": "Whether a patient may be discharged while the bill is unsettled. It applies from the next discharge.",
+    "back": "Back to invoices",
+    "mode": "When the bill is not settled",
+    "modes": {
+      "off": "Discharge without waiting for the bill",
+      "warn": "Ask the person discharging to confirm",
+      "block": "Do not allow discharge"
+    },
+    "submit": "Save policy",
+    "saving": "Saving…",
+    "saved": "Policy saved."
+  },
   "deposit": {
     "heading": "Deposits",
     "none": "No deposit has been taken.",

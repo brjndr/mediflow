@@ -17737,6 +17737,173 @@
             }
           }
         }
+      },
+      "DischargePolicy": {
+        "type": "object",
+        "required": ["mode"],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["off", "warn", "block"]
+          }
+        }
+      },
+      "DepositApply": {
+        "type": "object",
+        "required": ["invoiceId"],
+        "properties": {
+          "invoiceId": {
+            "type": "string"
+          }
+        }
+      },
+      "DepositRefund": {
+        "type": "object",
+        "required": ["amountMinor", "method", "reason"],
+        "properties": {
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "method": {
+            "type": "string",
+            "enum": ["cash", "card", "upi", "bank", "other"]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      },
+      "StaySettlementInvoice": {
+        "type": "object",
+        "required": ["id", "status", "totalMinor", "creditedMinor", "paidMinor"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "issued", "paid", "void"]
+          },
+          "totalMinor": {
+            "type": "integer"
+          },
+          "creditedMinor": {
+            "type": "integer"
+          },
+          "paidMinor": {
+            "type": "integer"
+          }
+        }
+      },
+      "StaySettlement": {
+        "type": "object",
+        "required": [
+          "admissionId",
+          "status",
+          "patientName",
+          "patientMrn",
+          "chargesMinor",
+          "unbilledMinor",
+          "invoicedMinor",
+          "creditedMinor",
+          "paidMinor",
+          "dueMinor",
+          "depositsMinor",
+          "depositsAppliedMinor",
+          "depositsRefundedMinor",
+          "depositsHeldMinor",
+          "excessDepositMinor",
+          "invoices",
+          "policy",
+          "clearance"
+        ],
+        "properties": {
+          "admissionId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["admitted", "discharged", "cancelled"]
+          },
+          "chargesMinor": {
+            "type": "integer",
+            "description": "Every charge of the stay in the ledger, void ones left out."
+          },
+          "unbilledMinor": {
+            "type": "integer",
+            "description": "Charges not on an issued invoice yet."
+          },
+          "invoicedMinor": {
+            "type": "integer",
+            "description": "The totals of the stay's issued and paid invoices, before credit notes."
+          },
+          "creditedMinor": {
+            "type": "integer"
+          },
+          "paidMinor": {
+            "type": "integer",
+            "description": "Paid on the invoices, deposits applied included."
+          },
+          "dueMinor": {
+            "type": "integer"
+          },
+          "depositsMinor": {
+            "type": "integer",
+            "description": "Every deposit taken."
+          },
+          "depositsAppliedMinor": {
+            "type": "integer"
+          },
+          "depositsRefundedMinor": {
+            "type": "integer"
+          },
+          "depositsHeldMinor": {
+            "type": "integer",
+            "description": "Taken, less applied and refunded."
+          },
+          "excessDepositMinor": {
+            "type": "integer",
+            "description": "Held beyond what is due, with nothing left to invoice: what may be refunded."
+          },
+          "invoices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaySettlementInvoice"
+            }
+          },
+          "policy": {
+            "type": "string",
+            "enum": ["off", "warn", "block"]
+          },
+          "clearance": {
+            "type": "object",
+            "required": ["cleared", "reasons"],
+            "properties": {
+              "cleared": {
+                "type": "boolean"
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["unbilled", "draft_invoice", "balance_due", "excess_deposit"]
+                }
+              }
+            }
+          }
+        }
       }
     },
     "responses": {
@@ -61653,6 +61820,272 @@
             "$ref": "#/components/responses/Error"
           },
           "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/settlement": {
+      "get": {
+        "operationId": "getStaySettlement",
+        "description": "The final bill and settlement of an inpatient stay (DS-04, #167): the stay's invoices, what is still to invoice, credit notes, payments, the deposits held, applied and refunded, what is due or refundable, and whether the patient may be discharged under the hospital's policy. Needs charge:read, admission:read and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The settlement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaySettlement"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/deposits/apply": {
+      "post": {
+        "operationId": "applyDeposits",
+        "description": "Sets the deposits held against an issued invoice of the stay as a payment: the lesser of what is held and what is due on it. Needs payment:create and the billing feature flag. 409 `no_deposit_held`, `invoice_not_payable`. Audited.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepositApply"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The settlement afterwards",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaySettlement"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/deposits/refund": {
+      "post": {
+        "operationId": "refundDeposits",
+        "description": "Pays back the deposit held beyond what is due, in the mode chosen, with a reason. 409 `refund_exceeds` when the amount is more than the excess. Needs payment:refund and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepositRefund"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The settlement afterwards",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaySettlement"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/billing/discharge-policy": {
+      "get": {
+        "operationId": "getDischargePolicy",
+        "description": "How the hospital gates discharge on the bill: `off`, `warn` (the person discharging confirms they have seen the bill) or `block` (nothing owed or unbilled). Needs invoice:read and the billing feature flag.",
+        "responses": {
+          "200": {
+            "description": "The policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargePolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "put": {
+        "operationId": "setDischargePolicy",
+        "description": "Sets the policy. Needs invoice:adjust and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DischargePolicy"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargePolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
             "$ref": "#/components/responses/Error"
           },
           "422": {
