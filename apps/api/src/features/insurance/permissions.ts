@@ -35,4 +35,20 @@ export const INSURANCE_PERMISSIONS = [
     description: 'Ask for pre-authorization, record the payer’s answer and withdraw a request',
     defaults: { admin: 'all', receptionist: 'all' },
   },
+  {
+    id: 'claim:read',
+    description: 'See insurance claims, their history and the money still to come in',
+    defaults: { admin: 'all', receptionist: 'all' },
+  },
+  {
+    id: 'claim:manage',
+    description:
+      'Prepare insurance claims and move them along: submit, answer queries, record decisions and payments',
+    defaults: { admin: 'all', receptionist: 'all' },
+  },
+  {
+    id: 'claim:writeoff',
+    description: 'Give up what a payer has not paid on a claim',
+    defaults: { admin: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];
