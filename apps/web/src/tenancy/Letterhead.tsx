@@ -6,10 +6,10 @@ import { useTenant } from './tenant-context';
 /**
  * The hospital's letterhead for a printed document: its logo, when it has one that may be
  * loaded, beside its name, then its address, phone and registration number when the tenant
- * config has them. Never a name written in code. A document that needs a missing one says so
+ * config has them. The GSTIN only with `showGstin`, which invoices set. Never a name written in code. A document that needs a missing one says so
  * itself.
  */
-export function Letterhead() {
+export function Letterhead({ showGstin = false }: { showGstin?: boolean }) {
   const { t } = useTranslation();
   const tenant = useTenant();
   const logoUrl = safeLogoUrl(tenant?.theme.logoUrl);
@@ -19,7 +19,7 @@ export function Letterhead() {
     tenant.phone && t('tenancy.letterheadPhone', { phone: tenant.phone }),
     tenant.registrationNumber &&
       t('tenancy.letterheadRegistration', { number: tenant.registrationNumber }),
-    tenant.gstin && t('tenancy.letterheadGstin', { number: tenant.gstin }),
+    showGstin && tenant.gstin && t('tenancy.letterheadGstin', { number: tenant.gstin }),
   ].filter(Boolean);
   return (
     <header className="mb-6 flex items-center gap-4 border-b border-black pb-3">
