@@ -253,6 +253,7 @@ export const AdmissionListQuery = Type.Object({
   status: Type.Optional(ref(AdmissionStatus)),
   wardId: Type.Optional(Type.String({ maxLength: 64 })),
   patientId: Type.Optional(Type.String({ maxLength: 64 })),
+  doctorId: Type.Optional(Type.String({ maxLength: 64 })),
   cursor: Type.Optional(Type.String({ maxLength: 300 })),
   limit: Type.Optional(
     Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),

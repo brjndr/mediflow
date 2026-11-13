@@ -1027,6 +1027,10 @@ describe('listing admissions', () => {
     expect(await query(`patientId=${patient(1)}`)).toEqual([two.admission.id]);
     expect(await query(`wardId=${ward}`)).toEqual([one.admission.id]);
     expect(await query('wardId=nonsense')).toEqual([]);
+    expect(
+      await query(`doctorId=${(one.admission as unknown as { doctorId: string }).doctorId}`),
+    ).toHaveLength(2);
+    expect(await query('doctorId=nonsense')).toEqual([]);
     expect(errorOf(await get('/admissions?cursor=nonsense'))).toEqual([400, 'invalid_cursor']);
   });
 

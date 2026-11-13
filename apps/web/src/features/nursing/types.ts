@@ -12,7 +12,9 @@ export interface StayRow {
   patientMrn: string;
   status: 'admitted' | 'discharged';
   admittedAt: string;
+  doctorId: string;
   doctorName: string;
+  encounterId: string;
   bed?: { bedNumber: string; wardId: string; wardName: string };
 }
 export interface StayPage {
@@ -32,3 +34,11 @@ export type MarEntryPage = components['schemas']['MarEntryPage'];
 export type MarEntryCreate = components['schemas']['MarEntryCreate'];
 export type MarEntryCorrect = components['schemas']['MarEntryCorrect'];
 export type MarOutcome = components['schemas']['MarOutcome'];
+
+export type ProgressNote = components['schemas']['ProgressNote'];
+export type ProgressNotePage = components['schemas']['ProgressNotePage'];
+export type ProgressNoteKind = components['schemas']['ProgressNoteKind'];
+export type ProgressNoteCreate = components['schemas']['ProgressNoteCreate'];
+export type ProgressNoteUpdate = components['schemas']['ProgressNoteUpdate'];
+export type ProgressNoteVersion = components['schemas']['ProgressNoteVersion'];
+export type ProgressNoteVersionPage = components['schemas']['ProgressNoteVersionPage'];

@@ -1,7 +1,7 @@
 import type { PermissionDefinition } from '../../core/access/registry.js';
 
 /**
- * Nursing and ward care (BE-24): nurses record and read; doctors read what the ward recorded;
+ * Nursing and ward care (BE-24): nurses record and read; doctors read what the ward recorded and write progress notes on their rounds (#159);
  * the admin holds all (nobody gives a role more than they hold, so an admin without them could
  * not invite a nurse). Every write route also asks for the matching read, because its answer
  * shows what was recorded.
@@ -36,7 +36,7 @@ export const NURSING_PERMISSIONS = [
   },
   {
     id: 'progressNote:write',
-    description: 'Write nursing progress notes and edit your own',
-    defaults: { admin: 'all', nurse: 'all' },
+    description: 'Write progress notes (nursing, ward round) and edit your own',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
   },
 ] as const satisfies readonly PermissionDefinition[];

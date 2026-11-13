@@ -1490,7 +1490,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The hospital’s admissions, newest first: of one status, of one patient, in one ward (the ward of the bed the patient is in now), or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds admission:read with: `own`, the admissions they made as a doctor; `department`, those of their department. A list nobody types patient facts into, so a GET. Every row names its patient, so every row of a page is audited. `total` comes with the first page only. Requires admission:read and the admissions feature flag. */
+        /** @description The hospital’s admissions, newest first: of one status, of one patient, of one admitting doctor (a doctor’s round list), in one ward (the ward of the bed the patient is in now), or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds admission:read with: `own`, the admissions they made as a doctor; `department`, those of their department. A list nobody types patient facts into, so a GET. Every row names its patient, so every row of a page is audited. `total` comes with the first page only. Requires admission:read and the admissions feature flag. */
         get: operations["listAdmissions"];
         put?: never;
         /** @description Admits a patient: opens the stay’s inpatient encounter and the admission, and gives the patient a bed when `bedId` is sent (otherwise assignBed does later). A patient has one admission not yet discharged (409 `already_admitted`). The bed must be available (409 `bed_not_available`), is looked up in the hospital only (422 `unknown_bed`), and needs the wards module (403 `feature_disabled`). Of two requests for one bed at the same moment, one succeeds and the other is 409: the ward is locked while a bed is given, and an exclusion constraint on the time a bed holds a patient backs it up. The doctor is `doctorId`, else the caller’s own profile; one who does not practise here, or is outside the scope the caller holds admission:create with, is 422 `unknown_doctor`. Requires admission:create and admission:read, and patient:read (checked in the handler, within its scope): a patient the caller may not read and one that does not exist are both 422 `unknown_patient`. The Idempotency-Key header is required: a repeat admits nobody again and answers with the admission. Audited; emits `encounter.opened`, `admission.created` and, with a bed, `bed.assigned` through the outbox, and is announced on `/beds/events`. */
@@ -18741,6 +18741,7 @@ export interface operations {
                 status?: components["schemas"]["AdmissionStatus"];
                 wardId?: string;
                 patientId?: string;
+                doctorId?: string;
                 cursor?: string;
                 limit?: number;
             };

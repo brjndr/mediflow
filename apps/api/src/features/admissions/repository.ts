@@ -136,6 +136,7 @@ export interface AdmissionFilter {
   status?: AdmissionStatusValue;
   wardId?: string;
   patientId?: string;
+  doctorId?: string;
   cursor?: string;
   limit: number;
 }
@@ -163,6 +164,10 @@ export async function listAdmissions(
   if (filter.wardId) {
     if (!UUID.test(filter.wardId)) return { rows: [], nextCursor: null, total: 0 };
     add('ba.ward_id = ?::uuid', filter.wardId);
+  }
+  if (filter.doctorId) {
+    if (!UUID.test(filter.doctorId)) return { rows: [], nextCursor: null, total: 0 };
+    add('a.admitting_doctor_id = ?::uuid', filter.doctorId);
   }
   const filters = params.length;
   const afterClause = after

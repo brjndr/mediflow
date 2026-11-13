@@ -6,6 +6,7 @@ import {
   wardVitalPageSchema,
   wardVitalSchema,
 } from './schemas';
+import { noteVersionPageSchema, progressNotePageSchema, progressNoteSchema } from './notes-schemas';
 import { marEntryPageSchema, marEntrySchema, marOrderPageSchema } from './mar-schemas';
 import type {
   MarEntry,
@@ -13,6 +14,11 @@ import type {
   MarEntryCreate,
   MarEntryPage,
   MarOrderPage,
+  ProgressNote,
+  ProgressNoteCreate,
+  ProgressNotePage,
+  ProgressNoteUpdate,
+  ProgressNoteVersionPage,
   StayPage,
   StayRow,
   WardOption,
@@ -23,11 +29,24 @@ import type {
 
 /** The patients now on the wards, newest admission first, of one ward or of every ward. */
 export async function fetchStays(
-  { wardId, cursor, limit }: { wardId: string; cursor?: string; limit: number },
+  {
+    wardId,
+    doctorId = '',
+    cursor,
+    limit,
+  }: { wardId: string; doctorId?: string; cursor?: string; limit: number },
   signal?: AbortSignal,
 ): Promise<StayPage> {
   const result = await api.GET('/admissions', {
-    params: { query: { status: 'admitted', wardId: wardId || undefined, cursor, limit } },
+    params: {
+      query: {
+        status: 'admitted',
+        wardId: wardId || undefined,
+        doctorId: doctorId || undefined,
+        cursor,
+        limit,
+      },
+    },
     signal,
   });
   return stayPageSchema.parse(requireData(result));
@@ -128,4 +147,50 @@ export async function correctMarEntry(
     body,
   });
   return marEntrySchema.parse(requireData(result));
+}
+
+// --- progress notes (#159) -----------------------------------------------------------------------
+
+export async function fetchNotes(
+  { admissionId, cursor, limit }: { admissionId: string; cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<ProgressNotePage> {
+  const result = await api.GET('/admissions/{admissionId}/progress-notes', {
+    params: { path: { admissionId }, query: { cursor, limit } },
+    signal,
+  });
+  return progressNotePageSchema.parse(requireData(result));
+}
+
+export async function createNote(
+  admissionId: string,
+  body: ProgressNoteCreate,
+  key: string,
+): Promise<ProgressNote> {
+  const result = await api.POST('/admissions/{admissionId}/progress-notes', {
+    params: { path: { admissionId }, header: { 'idempotency-key': key } },
+    body,
+  });
+  return progressNoteSchema.parse(requireData(result));
+}
+
+/** Amends a note: the new text and the version the edit started from. */
+export async function updateNote(noteId: string, body: ProgressNoteUpdate): Promise<ProgressNote> {
+  const result = await api.PATCH('/progress-notes/{noteId}', {
+    params: { path: { noteId } },
+    body,
+  });
+  return progressNoteSchema.parse(requireData(result));
+}
+
+/** Every text a note had, newest first. */
+export async function fetchNoteHistory(
+  { noteId, cursor, limit }: { noteId: string; cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<ProgressNoteVersionPage> {
+  const result = await api.GET('/progress-notes/{noteId}/history', {
+    params: { path: { noteId }, query: { cursor, limit } },
+    signal,
+  });
+  return noteVersionPageSchema.parse(requireData(result));
 }

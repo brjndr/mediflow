@@ -14,7 +14,7 @@ What was decided for this module in the web app (#157, NR-01). The root `CLAUDE.
 - **No "per nurse" list:** the API has no assignment of patients to a nurse; the worklist is per ward. A proposed follow-up.
 - The mock keeps readings in `mocks/handlers/nursing.ts`, registered before the admissions handlers because `/admissions/:id/:action` there would otherwise answer the POSTs. Tests admit patients with `addMockAdmission` (`mocks/handlers/admissions-flow.ts`) and chart readings with `addMockWardVital`.
 - Idempotency keys come from `hooks/use-nursing.ts`, one per request body.
-- Not built (API has them): progress notes, diet and ward stock requests.
+- Not built (API has them): diet and ward stock requests.
 
 ## Medication chart (#158, NR-02)
 
@@ -26,3 +26,11 @@ What was decided for this module in the web app (#157, NR-01). The root `CLAUDE.
 - `not_dispensed` (nothing dispensed yet) is shown in the dialog before charting and in the status line after. It is a warning only.
 - **Not built:** a witness for high-risk medicines, a patient or bedside barcode check, due and overdue doses on the worklist, a hospital-set schedule.
 - The mock is `mocks/handlers/nursing-mar.ts` (`addMockMarOrder`, `addMockMarEntry`), spread first in `nursingHandlers`.
+
+## Doctor rounds and progress notes (#159, NR-03)
+
+- **Round list** `/nursing/rounds` (`admission:read` and `progressNote:read`), reached from a link on the worklist: the admitted stays of one doctor, from the new `doctorId` filter of `GET /admissions`. It opens on the signed-in doctor's own patients (the doctor whose `userId` is the session's, found in `useDoctorOptions`), "All doctors" for the rest; the choice is `?doctor=` in the address. Someone without `doctor:read` has no select and sees everyone the server's scope allows. Rows open the notes, vitals or medication chart.
+- **Notes** `/nursing/:admissionId/notes`: add a note (type ward round, nursing or handover; `progressNote:write`), the notes newest first as a `DataGrid`, "Amend" and "History". Only the author amends (the action is `aria-disabled` for others; the server answers 403 `not_author`) and only while the patient is admitted. An amendment sends the `version` it started from; 409 `conflict` asks the person to reopen. Nothing is overwritten: the history dialog lists every version with author and time. The doctor now holds `progressNote:write` by default (API `permissions.ts`), which synchronises on the next `db:migrate`.
+- **Orders from the ward** are not a new form: the stay's `encounterId` is given to clinical's `EncounterOrders` below the notes (lab, imaging and procedure orders, each panel with its own permissions). Medication orders from the ward are not offered (prescribing stays in the consultation); diet orders have no screen.
+- Note text is a single line of plain text as the API's pattern allows (no line breaks), up to 4000 characters. Allowing line breaks needs the API's `PlainLines` on the note body: a proposed follow-up.
+- The mock is `mocks/handlers/nursing-notes.ts` (`addMockProgressNote`).
