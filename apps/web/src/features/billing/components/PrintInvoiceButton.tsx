@@ -74,7 +74,7 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
   const amount = `${cell} text-right tabular-nums`;
   return (
     <>
-      <Letterhead />
+      <Letterhead showGstin />
       <h1 className="mb-3 text-lg font-semibold">
         {t('print.title', { number: invoice.number ?? '' })}
       </h1>
