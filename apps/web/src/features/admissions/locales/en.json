@@ -6,6 +6,7 @@
   "count_other": "{{count}} beds",
   "empty": "No beds match.",
   "rowLabel": "Bed {{number}}, {{ward}}",
+  "openPatient": "{{name}}, open patient record (bed {{number}})",
   "live": {
     "connecting": "Connecting for live changes…",
     "on": "Live: changes show within seconds.",

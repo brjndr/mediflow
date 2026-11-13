@@ -53,6 +53,19 @@ describe('the bed board', () => {
     await expectNoAxeViolations();
   }, 20_000);
 
+  it('links an occupied bed to its patient, only with patient:read', async () => {
+    const first = await openBoard();
+    const link = within(rowOf('GW-A-01')).getByRole('link', { name: /open patient record/ });
+    expect(link.getAttribute('href')).toMatch(/^\/patients\/.+/);
+    expect(within(rowOf('GW-A-03')).queryByRole('link')).toBeNull();
+    first.unmount();
+
+    revokePermission(TENANT_IDS.hospital, 'admin', 'patient:read');
+    await openBoard();
+    expect(within(rowOf('GW-A-01')).queryByRole('link')).toBeNull();
+    grantPermission(TENANT_IDS.hospital, 'admin', 'patient:read');
+  }, 20_000);
+
   it('is reached from the navigation', async () => {
     renderApp();
     await userEvent.click(await screen.findByRole('link', { name: 'Bed board' }));

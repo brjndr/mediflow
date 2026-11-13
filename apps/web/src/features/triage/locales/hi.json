@@ -1,0 +1,35 @@
+{
+  "allergies": {
+    "heading": "एलर्जी",
+    "detail": " · {{severity}}",
+    "detailWithReaction": " · {{severity}} · {{reaction}}",
+    "severities": {
+      "severe": "गंभीर",
+      "moderate": "मध्यम",
+      "mild": "हल्की",
+      "unknown": "गंभीरता पता नहीं"
+    },
+    "none": "कोई ज्ञात एलर्जी नहीं।"
+  },
+  "print": {
+    "allergiesNotAsked": "एलर्जी के बारे में नहीं पूछा गया।",
+    "measure": "{{measure}}: {{value}}",
+    "complaint": "मुख्य शिकायत: {{complaint}}"
+  },
+  "summary": {
+    "latest": "ताज़ा जाँच",
+    "noVitals": "कोई जाँच दर्ज नहीं।",
+    "recordedBy": "{{time}}, {{name}} द्वारा"
+  },
+  "measures": {
+    "systolic": "ऊपरी रक्तचाप",
+    "diastolic": "निचला रक्तचाप",
+    "pressure": "रक्तचाप",
+    "pulse": "नाड़ी",
+    "temperature": "तापमान",
+    "spo2": "ऑक्सीजन स्तर",
+    "weight": "वज़न",
+    "height": "ऊँचाई",
+    "bmi": "BMI"
+  }
+}

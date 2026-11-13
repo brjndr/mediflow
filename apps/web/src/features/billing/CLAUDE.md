@@ -59,3 +59,5 @@ The mock also answers `GET`/`PUT /billing/discount-settings` and `POST /invoices
 - **Letterhead details (#696):** the printed invoice header (`Letterhead`) shows the hospital's address, phone, registration number and GSTIN from the session's tenant; an admin sets them at `/hospital-profile` (`apps/web/src/features/hospital-profile/CLAUDE.md`).
 
 - **Now on the real API (#169):** the running bill, deposits, estimate, settlement, deposit apply and refund and the discharge policy are implemented by the API (`apps/api/src/features/billing/CLAUDE.md`), no longer planned; the mock stays for the tests. Bed days are posted as `bed` charges by an hourly job, so the `accruing` line only shows days not yet posted. The server does not enforce the discharge policy (the screen does).
+
+- **Print in Hindi (#771):** "Print in Hindi" beside "Print invoice", from `PrintInvoiceButton`: `useInvoicePrinting().print('hi')` builds a Hindi i18n for the sheet (`shared/lib/print-language.ts`, `locales/hi.json` holds the print strings only), line descriptions stay as issued. Same audit entry as English. See clinical/CLAUDE.md.
