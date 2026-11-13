@@ -280,7 +280,16 @@ export const AdmissionBedChange = Type.Object(
 export type AdmissionBedChange = Static<typeof AdmissionBedChange>;
 
 export const AdmissionDischarge = Type.Object(
-  { dischargeType: ref(DischargeType), version: Version },
+  {
+    dischargeType: ref(DischargeType),
+    version: Version,
+    billAcknowledged: Type.Optional(
+      Type.Boolean({
+        description:
+          'Confirms leaving the bill unsettled: required under the hospital’s `warn` policy, and under `block` only from a caller holding invoice:adjust.',
+      }),
+    ),
+  },
   { additionalProperties: false },
 );
 export type AdmissionDischarge = Static<typeof AdmissionDischarge>;

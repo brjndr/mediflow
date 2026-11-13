@@ -120,8 +120,21 @@ export function useDischarge() {
   const refresh = useRefreshAfter();
   return useMutation({
     gcTime: 0,
-    mutationFn: ({ admission, type }: { admission: Admission; type: DischargeType }) =>
-      dischargeAdmission(admission, type, keyFor([admission.id, admission.version, type])),
+    mutationFn: ({
+      admission,
+      type,
+      billAcknowledged,
+    }: {
+      admission: Admission;
+      type: DischargeType;
+      billAcknowledged?: boolean;
+    }) =>
+      dischargeAdmission(
+        admission,
+        type,
+        keyFor([admission.id, admission.version, type, billAcknowledged === true]),
+        billAcknowledged === true,
+      ),
     onSettled: refresh,
   });
 }

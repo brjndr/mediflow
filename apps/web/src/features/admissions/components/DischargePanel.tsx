@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { usePermission } from '@/access';
 import { useDischargeClearance } from '@/features/billing';
 import { Button } from '@/shared/ui/button';
 import { useDischargePlan } from '../hooks/use-discharge-plan';
@@ -18,7 +19,7 @@ export function DischargePanel({
 }: {
   admission: Admission;
   pending: boolean;
-  onSubmit: (type: DischargeType) => void;
+  onSubmit: (type: DischargeType, billAcknowledged: boolean) => void;
   onBack: () => void;
 }) {
   const { t } = useTranslation('admissions');
@@ -30,14 +31,21 @@ export function DischargePanel({
   const settlement = bill.settlement;
   const unsettled =
     settlement !== undefined && settlement.policy !== 'off' && !settlement.clearance.cleared;
+  // Under `block` only someone holding invoice:adjust may go on, by confirming (the server
+  // checks the same).
+  const mayOverride = usePermission('invoice:adjust');
   const blocked = unsettled && settlement.policy === 'block';
-  const needsConfirm = unsettled && settlement.policy === 'warn';
+  const needsConfirm = unsettled && (settlement.policy === 'warn' || (blocked && mayOverride));
   // The plan (DS-01, #164): advice and clearances. Without one (no permission, or an API that
   // has none yet) nothing here waits for it and the server decides alone.
   const found = useDischargePlan(admission.id);
   const open = found.plan ? openClearances(found.plan, type) : [];
   const stopped =
-    bill.pending || found.pending || open.length > 0 || blocked || (needsConfirm && !confirmed);
+    bill.pending ||
+    found.pending ||
+    open.length > 0 ||
+    (blocked && !mayOverride) ||
+    (needsConfirm && !confirmed);
   return (
     <section
       aria-labelledby="admission-discharge-heading"
@@ -86,7 +94,7 @@ export function DischargePanel({
       {unsettled && (
         <div className="flex flex-col gap-2 rounded-md border p-3 text-sm" data-testid="bill-gate">
           <p className="font-medium">
-            {blocked ? t('discharge.bill.blocked') : t('discharge.bill.unsettled')}
+            {blocked && !mayOverride ? t('discharge.bill.blocked') : t('discharge.bill.unsettled')}
           </p>
           <ul className="list-disc ps-5">
             {settlement.clearance.reasons.map((reason) => (
@@ -107,7 +115,7 @@ export function DischargePanel({
                 onChange={(event) => setConfirmed(event.target.checked)}
                 className="mt-1 size-4"
               />
-              {t('discharge.bill.confirm')}
+              {blocked ? t('discharge.bill.override') : t('discharge.bill.confirm')}
             </label>
           )}
         </div>
@@ -117,7 +125,7 @@ export function DischargePanel({
           type="button"
           aria-disabled={pending || stopped || undefined}
           onClick={() => {
-            if (!pending && !stopped) onSubmit(type);
+            if (!pending && !stopped) onSubmit(type, needsConfirm && confirmed);
           }}
         >
           {t('discharge.submit')}

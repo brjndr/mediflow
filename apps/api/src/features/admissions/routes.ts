@@ -628,7 +628,7 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['admissions'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read.' +
+          'Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. The hospital’s bill policy (billing, when on) is checked next: with money outstanding, `block` is 409 `bill_outstanding` unless the caller holds invoice:adjust and sends `billAcknowledged`, and `warn` is 409 `bill_unconfirmed` without `billAcknowledged`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read.' +
           CHANGE_RULES,
         params: AdmissionParams,
         body: AdmissionDischarge,
@@ -644,6 +644,12 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (open.length > 0) {
           throw new HttpError(409, 'clearance_pending', 'A clearance of the stay is still open');
         }
+        await app.dischargeGates.check(request, {
+          admissionId: row.id,
+          encounterId: row.encounter_id,
+          patientId: row.patient_id,
+          acknowledged: body.billAcknowledged === true,
+        });
         const closed = await closeInpatientEncounter(client, row.encounter_id, userIdOf(request));
         if (closed === 'unsigned_notes') {
           throw new HttpError(409, 'unsigned_notes', 'A note of the stay is still a draft');

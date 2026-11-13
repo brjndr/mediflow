@@ -174,15 +174,19 @@ describe('discharge and the bill', () => {
     expect(await screen.findByText(/is discharged\./)).toBeInTheDocument();
   }, 40_000);
 
-  it('does not allow discharge while the bill is unsettled (block)', async () => {
+  it('lets someone holding invoice:adjust override a block by confirming', async () => {
     admit();
     await setPolicy('block');
     const panel = await openPanel();
-    expect(await within(panel).findByText(/does not allow discharge until it is/)).toBeVisible();
+    expect(await within(panel).findByText('The bill is not settled.')).toBeVisible();
     const submit = within(panel).getByRole('button', { name: 'Discharge patient' });
     expect(submit).toHaveAttribute('aria-disabled', 'true');
     await userEvent.click(submit);
-    expect(screen.queryByText(/is discharged\./)).toBeNull();
+    expect(screen.queryByText(/is discharged./)).toBeNull();
+    await userEvent.click(within(panel).getByRole('checkbox', { name: /override/ }));
+    expect(submit).not.toHaveAttribute('aria-disabled');
+    await userEvent.click(submit);
+    expect(await screen.findByText(/is discharged./)).toBeInTheDocument();
   }, 40_000);
 
   it('does not look at the bill when the policy is off', async () => {

@@ -30,6 +30,7 @@ let hospital: TestTenant;
 let clinic: TestTenant;
 let admin: TestUser;
 let nurse: TestUser;
+let doctor: TestUser;
 let clinicAdmin: TestUser;
 let department: string;
 let bedIds: string[] = [];
@@ -189,9 +190,11 @@ beforeAll(async () => {
   for (const tenant of [hospital, clinic]) await grantRoleDefaults(app, tenant);
   admin = await createUser(pool, 'Stay Admin', { withPassword: false });
   nurse = await createUser(pool, 'Stay Nurse', { withPassword: false });
+  doctor = await createUser(pool, 'Stay Doctor', { withPassword: false });
   clinicAdmin = await createUser(pool, 'Stay Clinic Admin', { withPassword: false });
   await addMembership(pool, admin, hospital, 'admin');
   await addMembership(pool, nurse, hospital, 'nurse');
+  await addMembership(pool, doctor, hospital, 'doctor');
   await addMembership(pool, clinicAdmin, clinic, 'admin');
   const one = async (sql: string, params: unknown[]) =>
     (await pool.query<{ id: string }>(sql, params)).rows[0]?.id ?? '';
@@ -376,6 +379,7 @@ describe('deposits and the settlement', () => {
       await post(`/admissions/${stay.id}/discharge`, {
         dischargeType: 'absconded',
         version: 1,
+        billAcknowledged: true,
       }),
     );
     expect(
@@ -796,5 +800,67 @@ describe('the discharge summary', () => {
       expect(counts[0], table).toBeGreaterThan(0);
       expect(counts[1], table).toBe(0);
     }
+  });
+});
+
+describe('the discharge bill policy on the server (#790)', () => {
+  const discharge = (id: string, extra: object = {}, options?: Options) =>
+    post(
+      `/admissions/${id}/discharge`,
+      { dischargeType: 'absconded', version: 1, ...extra },
+      options,
+    );
+  const setPolicy = (mode: string) => put('/billing/discharge-policy', { mode });
+
+  it('block refuses with money open, lets invoice:adjust override, and a settled bill goes', async () => {
+    await ok(await setPolicy('block'));
+    const stay = await admit();
+    await addCharge(stay.encounterId, stay.patientId, 1_000);
+    expect(errorOf(await discharge(stay.id))).toEqual([409, 'bill_outstanding']);
+    // A caller without the override permission cannot confirm their way past it.
+    expect(errorOf(await discharge(stay.id, { billAcknowledged: true }, { user: doctor }))).toEqual(
+      [409, 'bill_outstanding'],
+    );
+    const done = await ok<{ admission: { status: string } }>(
+      await discharge(stay.id, { billAcknowledged: true }),
+    );
+    expect(done.admission.status).toBe('discharged');
+    const { rows } = await pool.query(
+      `select 1 from audit_log where tenant_id = $1 and entity = 'discharge_bill_policy' and entity_id = $2`,
+      [hospital.id, stay.id],
+    );
+    expect(rows.length).toBe(1);
+
+    const settled = await admit();
+    await ok(await discharge(settled.id));
+    await ok(await setPolicy('warn'));
+  });
+
+  it('warn needs the confirmation, off needs nothing', async () => {
+    await ok(await setPolicy('warn'));
+    const stay = await admit();
+    await addCharge(stay.encounterId, stay.patientId, 500);
+    expect(errorOf(await discharge(stay.id))).toEqual([409, 'bill_unconfirmed']);
+    await ok(await discharge(stay.id, { billAcknowledged: true, version: 1 }));
+    await ok(await setPolicy('off'));
+    const other = await admit();
+    await addCharge(other.encounterId, other.patientId, 500);
+    await ok(await discharge(other.id));
+    await ok(await setPolicy('warn'));
+  });
+
+  it('applies the policy of the hospital the stay belongs to', async () => {
+    // The clinic keeps its own policy (warn) while this hospital blocks.
+    await ok(await setPolicy('block'));
+    const stay = await admit();
+    await addCharge(stay.encounterId, stay.patientId, 700);
+    expect(
+      errorOf(
+        await discharge(stay.id, { billAcknowledged: true }, { tenant: clinic, user: clinicAdmin }),
+      ),
+    ).toEqual([404, 'admission_not_found']);
+    expect(errorOf(await discharge(stay.id))).toEqual([409, 'bill_outstanding']);
+    await ok(await discharge(stay.id, { billAcknowledged: true }));
+    await ok(await setPolicy('warn'));
   });
 });

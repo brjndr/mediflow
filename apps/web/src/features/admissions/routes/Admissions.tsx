@@ -154,12 +154,12 @@ export default function Admissions() {
     }
   };
 
-  const release = async (type: DischargeType) => {
+  const release = async (type: DischargeType, billAcknowledged: boolean) => {
     if (!leaving) return;
     discharge.reset();
     setDone('');
     try {
-      const updated = await discharge.mutateAsync({ admission: leaving, type });
+      const updated = await discharge.mutateAsync({ admission: leaving, type, billAcknowledged });
       setLeaving(null);
       setDone(t('done.discharged', { patient: updated.patientName }));
     } catch (error) {
@@ -278,13 +278,15 @@ export default function Admissions() {
     ? ''
     : dischargeCode === 'clearance_pending'
       ? t('discharge.clearancePending')
-      : dischargeCode === 'unsigned_notes'
-        ? t('discharge.unsignedNotes')
-        : dischargeCode === 'encounter_not_open'
-          ? t('discharge.notOpen')
-          : dischargeCode === 'conflict' || dischargeCode === 'invalid_transition'
-            ? t('refused.admission')
-            : tCommon(errorMessageKey(discharge.error));
+      : dischargeCode === 'bill_outstanding' || dischargeCode === 'bill_unconfirmed'
+        ? t('discharge.billRefused')
+        : dischargeCode === 'unsigned_notes'
+          ? t('discharge.unsignedNotes')
+          : dischargeCode === 'encounter_not_open'
+            ? t('discharge.notOpen')
+            : dischargeCode === 'conflict' || dischargeCode === 'invalid_transition'
+              ? t('refused.admission')
+              : tCommon(errorMessageKey(discharge.error));
 
   return (
     <div ref={box} className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
@@ -347,7 +349,7 @@ export default function Admissions() {
           key={leaving.id}
           admission={leaving}
           pending={discharge.isPending}
-          onSubmit={(type) => void release(type)}
+          onSubmit={(type, acknowledged) => void release(type, acknowledged)}
           onBack={() => setLeaving(null)}
         />
       )}
