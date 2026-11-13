@@ -306,6 +306,11 @@ export const AmbulanceTrip = Obj('AmbulanceTrip', {
   id: Type.String(),
   tenantId: Type.String(),
   patientId: Type.Optional(Type.String()),
+  encounterId: Type.Optional(Type.String({ description: 'The visit the trip is charged to.' })),
+  serviceId: Type.Optional(
+    Type.String({ description: 'The priced service the trip is charged as.' }),
+  ),
+  serviceName: Type.Optional(Type.String()),
   ambulanceId: Type.Optional(Type.String()),
   ambulanceRegistration: Type.Optional(Type.String()),
   pickup: Type.String(),
@@ -324,6 +329,12 @@ export const AmbulanceTripCreate = Type.Object(
   {
     patientId: Type.Optional(
       Type.String({ maxLength: 64, description: 'Left out for an emergency with no record yet.' }),
+    ),
+    encounterId: Type.Optional(
+      Type.String({ maxLength: 64, description: 'A visit of the patient; needs a patientId.' }),
+    ),
+    serviceId: Type.Optional(
+      Type.String({ maxLength: 64, description: 'Charged to the visit when the trip completes.' }),
     ),
     pickup: Type.String({ minLength: 1, maxLength: 300, pattern: PLAIN_TEXT }),
     destination: Type.String({ minLength: 1, maxLength: 300, pattern: PLAIN_TEXT }),

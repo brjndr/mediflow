@@ -56,7 +56,13 @@ export async function fetchTrips(
 }
 
 export async function requestTrip(
-  body: { patientId?: string; pickup: string; destination: string },
+  body: {
+    patientId?: string;
+    encounterId?: string;
+    serviceId?: string;
+    pickup: string;
+    destination: string;
+  },
   key: string,
 ): Promise<AmbulanceTrip> {
   const result = await api.POST('/ambulance-trips', {

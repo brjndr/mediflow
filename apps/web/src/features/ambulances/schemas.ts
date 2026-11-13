@@ -42,7 +42,12 @@ const place = z
   .max(300, 'validation.invalid_value')
   .regex(PLAIN_TEXT, 'validation.plain_text');
 
-export const tripFormSchema = z.object({ pickup: place, destination: place });
+export const tripFormSchema = z.object({
+  pickup: place,
+  destination: place,
+  /** A visit of the chosen patient the trip is charged to; empty for no charge. */
+  encounterId: z.string(),
+});
 export type TripFormValues = z.infer<typeof tripFormSchema>;
 
 export const ambulanceFormSchema = z.object({
@@ -74,6 +79,9 @@ export const tripSchema: z.ZodType<AmbulanceTrip> = z.object({
   id: z.string(),
   tenantId: z.string(),
   patientId: z.string().optional(),
+  encounterId: z.string().optional(),
+  serviceId: z.string().optional(),
+  serviceName: z.string().optional(),
   ambulanceId: z.string().optional(),
   ambulanceRegistration: z.string().optional(),
   pickup: z.string(),
