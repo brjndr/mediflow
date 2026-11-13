@@ -46,7 +46,7 @@ The patient screen (`features/patients`) hosts `patient.detail.tabs` and `patien
 **Domain events (backend contract)**
 Core modules publish events through a transactional outbox (written in the same database transaction, then delivered to the queue) so subscribers never miss or duplicate-trigger on rollbacks. Initial events, each carrying `tenantId`, entity ID, actor, and timestamp:
 
-- `patient.registered`, `patient.updated`, `patient.merged`
+- `patient.registered`, `patient.updated`, `patient.merged`, `correction.requested`, `correction.approved`, `correction.rejected` (#556)
 - `appointment.created`, `appointment.rescheduled`, `appointment.cancelled`, `appointment.completed`, `appointment.no_show`
 - `encounter.opened`, `encounter.closed`, `encounter.cancelled`, `queue.token_issued`, `queue.called`, `vitals.recorded`, `allergy.updated`
 - `order.placed`, `order.cancelled`, `order.completed`
