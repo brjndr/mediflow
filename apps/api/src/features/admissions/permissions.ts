@@ -8,7 +8,14 @@ export const ADMISSION_PERMISSIONS = [
   {
     id: 'admission:read',
     description: 'See admissions, who is in which bed, and the bed board with its patients',
-    defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
+    defaults: {
+      admin: 'all',
+      doctor: 'all',
+      nurse: 'all',
+      receptionist: 'all',
+      pharmacist: 'all',
+      lab_technician: 'all',
+    },
   },
   {
     id: 'admission:create',
@@ -26,10 +33,19 @@ export const ADMISSION_PERMISSIONS = [
     defaults: { admin: 'all', doctor: 'all' },
   },
   {
-    id: 'discharge:clear',
-    description:
-      'Mark nursing, pharmacy or laboratory clearance for a discharge done, or open again',
+    id: 'discharge:clearNursing',
+    description: 'Mark the nursing clearance for a discharge done, or open it again',
     defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
+  },
+  {
+    id: 'discharge:clearPharmacy',
+    description: 'Mark the pharmacy clearance for a discharge done, or open it again',
+    defaults: { admin: 'all', doctor: 'all', pharmacist: 'all' },
+  },
+  {
+    id: 'discharge:clearLab',
+    description: 'Mark the laboratory clearance for a discharge done, or open it again',
+    defaults: { admin: 'all', doctor: 'all', lab_technician: 'all' },
   },
   {
     id: 'dischargeSummary:read',
