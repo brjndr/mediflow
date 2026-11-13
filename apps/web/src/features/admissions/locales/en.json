@@ -145,6 +145,7 @@
       "unsettled": "The bill is not settled.",
       "open": "Open the stay's bill",
       "confirm": "I have checked the bill and the patient may be discharged with it unsettled.",
+      "override": "I may override the hospital's rule: discharge this patient with the bill unsettled.",
       "reasons": {
         "unbilled": "Charges are not invoiced yet.",
         "draft_invoice": "An invoice is still a draft.",
@@ -152,6 +153,7 @@
         "excess_deposit": "A deposit is held beyond what is due and has not been paid back."
       }
     },
+    "billRefused": "The bill of this stay is not settled, so the server did not discharge the patient. Open the stay's bill, or confirm if you may.",
     "unsignedNotes": "A note of this stay is still a draft. Sign or discard every draft in the consultation first, then discharge the patient.",
     "notOpen": "The stay's encounter is no longer open, so the patient cannot be discharged from here.",
     "clearancePending": "A clearance of this stay is still open. Ask the ward, the pharmacy or the laboratory to clear it."

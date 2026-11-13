@@ -3,6 +3,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 import type { Permission } from '../../core/access/registry.js';
+import type { DischargeGate } from '../../core/discharge-gate/registry.js';
 import type { Database } from '../../core/db/client.js';
 import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
@@ -606,4 +607,30 @@ export const stayRoutes: FastifyPluginAsyncTypebox = async (app) => {
       return { mode: await policyOf(request.txClient) };
     },
   );
+};
+
+/**
+ * The hospital's discharge bill policy, enforced when admissions asks (#790). `off`, billing off
+ * for the hospital, or a bill with nothing open lets the discharge through. Under `block` the
+ * caller must hold `invoice:adjust` and have confirmed; under `warn` anyone must have confirmed.
+ */
+export const billDischargeGate: DischargeGate = async (request, stay) => {
+  const policy = await request.access.policy();
+  if (policy?.features[FEATURE] !== true) return;
+  const client = request.txClient;
+  const mode = await policyOf(client);
+  if (mode === 'off') return;
+  const found = await findStay(client, stay.admissionId);
+  if ((await settlement(client, found)).clearance.cleared) return;
+  if (mode === 'block') {
+    const mayOverride = policy.permissions.some((grant) => grant.permission === 'invoice:adjust');
+    if (!(mayOverride && stay.acknowledged)) {
+      throw new HttpError(409, 'bill_outstanding', 'The bill of the stay is not settled');
+    }
+    request.audit('override', 'discharge_bill_policy', stay.admissionId);
+    return;
+  }
+  if (!stay.acknowledged) {
+    throw new HttpError(409, 'bill_unconfirmed', 'Confirm discharging with the bill unsettled');
+  }
 };

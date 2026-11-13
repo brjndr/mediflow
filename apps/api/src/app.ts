@@ -26,6 +26,7 @@ import { notifierPlugin } from './core/notifier/plugin.js';
 import { outboxPlugin } from './core/outbox/plugin.js';
 import { platformPlugin } from './core/platform/plugin.js';
 import { idempotencyPlugin, idempotencyStorePlugin } from './core/idempotency/plugin.js';
+import { dischargeGatesPlugin } from './core/discharge-gate/registry.js';
 import { importKindsPlugin } from './core/imports/registry.js';
 import { patientMergePlugin } from './core/patient-merge/registry.js';
 import type { LiveBus } from './core/live/bus.js';
@@ -166,6 +167,8 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(importKindsPlugin);
   // Likewise for what a module moves when two patient records are merged (#194).
   await app.register(patientMergePlugin);
+  // And for what must hold before a patient is discharged (#790).
+  await app.register(dischargeGatesPlugin);
 
   // Features: one line each.
   await app.register(healthFeature);

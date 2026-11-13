@@ -195,10 +195,15 @@ export async function dischargeAdmission(
   admission: Admission,
   dischargeType: DischargeType,
   key: string,
+  billAcknowledged = false,
 ): Promise<Admission> {
   const result = await api.POST('/admissions/{admissionId}/discharge', {
     params: { path: { admissionId: admission.id }, header: { 'idempotency-key': key } },
-    body: { dischargeType, version: admission.version },
+    body: {
+      dischargeType,
+      version: admission.version,
+      ...(billAcknowledged ? { billAcknowledged: true } : {}),
+    },
   });
   return admissionDetailSchema.parse(requireData(result)).admission;
 }
