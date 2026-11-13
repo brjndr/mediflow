@@ -52,10 +52,16 @@ const fillBooking = async (theatre: string, surgeon: string, start = '09:30', en
 describe('operation theatre', () => {
   it('lists the day of surgeries and the theatres', async () => {
     await open();
-    const row = seededRow() as HTMLElement;
-    expect(within(row).getByText('Appendicectomy')).toBeInTheDocument();
-    expect(within(row).getByText('Theatre 1')).toBeInTheDocument();
-    expect(within(row).getByText('Scheduled')).toBeInTheDocument();
+    // The row can be redrawn when the theatres' names arrive, so look it up again on each try.
+    await waitFor(
+      () => {
+        const row = seededRow() as HTMLElement;
+        expect(within(row).getByText('Appendicectomy')).toBeInTheDocument();
+        expect(within(row).getByText('Theatre 1')).toBeInTheDocument();
+        expect(within(row).getByText('Scheduled')).toBeInTheDocument();
+      },
+      { timeout: 10_000 },
+    );
     // The theatres load on their own query, so wait for them on a loaded machine.
     await waitFor(
       () => expect(within(rowOf(roomGrid(), 'Theatre 2')).getByText('In use')).toBeInTheDocument(),

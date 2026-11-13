@@ -12,6 +12,13 @@ export default defineConfig(() =>
       // The dev laptop has 2 cores: keep at most 2 workers (CLAUDE.md Package Manager).
       maxWorkers: 2,
       restoreMocks: true,
+      // A test that ends while a request is in flight (the page aborts it on navigation) can make
+      // undici's fetch assert `!this.aborted` when the response then arrives, after every test has
+      // passed (seen once on web shard 2, #819). Only that one assertion is ignored; any other
+      // unhandled error still fails the run.
+      onUnhandledError(error: { message?: string }) {
+        if (/assert(!this.aborted)/.test(error.message ?? '')) return false;
+      },
       // `pnpm test:coverage` (what CI runs). Coverage is measured and enforced for the foundation
       // only: the code that keeps hospitals apart and decides who may do what. A change that
       // leaves part of it untested fails here. Feature folders are not held to a threshold.
