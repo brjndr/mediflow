@@ -75,7 +75,7 @@ const TRIPS = `select x.id, x.tenant_id, x.patient_id, x.encounter_id, x.service
   from ambulance_trips x
   left join ambulances a on a.tenant_id = x.tenant_id and a.id = x.ambulance_id
   left join services sv on sv.tenant_id = x.tenant_id and sv.id = x.service_id`;
-const tripView = (row: TripRow): AmbulanceTrip => ({
+const tripView = (row: TripRow, crew: AmbulanceTrip['crew']): AmbulanceTrip => ({
   id: row.id,
   tenantId: row.tenant_id,
   ...(row.patient_id === null ? {} : { patientId: row.patient_id }),
@@ -93,8 +93,40 @@ const tripView = (row: TripRow): AmbulanceTrip => ({
   ...(row.dispatched_at === null ? {} : { dispatchedAt: iso(row.dispatched_at) }),
   ...(row.picked_up_at === null ? {} : { pickedUpAt: iso(row.picked_up_at) }),
   ...(row.finished_at === null ? {} : { finishedAt: iso(row.finished_at) }),
+  crew,
   version: row.version,
 });
+
+interface CrewRow {
+  trip_id: string;
+  user_id: string;
+  user_name: string;
+  duty: AmbulanceTrip['crew'][number]['duty'];
+}
+/** The crew of the given trips, drivers first, in one query. */
+async function crewOf(
+  client: pg.ClientBase,
+  tripIds: string[],
+): Promise<Map<string, AmbulanceTrip['crew']>> {
+  const byTrip = new Map<string, AmbulanceTrip['crew']>();
+  if (tripIds.length === 0) return byTrip;
+  const { rows } = await client.query<CrewRow>(
+    `select c.trip_id, c.user_id, u.name as user_name, c.duty
+       from ambulance_trip_crew c join users u on u.id = c.user_id
+      where c.trip_id = any($1::uuid[])
+      order by (c.duty <> 'driver'), u.name, c.user_id`,
+    [tripIds],
+  );
+  for (const row of rows) {
+    const list = byTrip.get(row.trip_id) ?? [];
+    list.push({ userId: row.user_id, userName: row.user_name, duty: row.duty });
+    byTrip.set(row.trip_id, list);
+  }
+  return byTrip;
+}
+async function viewOf(client: pg.ClientBase, row: TripRow): Promise<AmbulanceTrip> {
+  return tripView(row, (await crewOf(client, [row.id])).get(row.id) ?? []);
+}
 
 async function findTrip(client: pg.ClientBase, id: string, lock = false): Promise<TripRow | null> {
   if (!isUuid(id)) return null;
@@ -116,6 +148,37 @@ async function findAmbulance(
     [id],
   );
   return rows[0] ?? null;
+}
+
+/**
+ * The crew named for a dispatch: each an active member of the hospital (422 `unknown_crew`), no
+ * one twice or two drivers (422 `invalid_crew`), and no one already on a trip under way (409
+ * `crew_busy`).
+ */
+async function checkCrew(
+  client: pg.ClientBase,
+  crew: { userId: string; duty: unknown }[],
+): Promise<void> {
+  const ids = crew.map((member) => member.userId);
+  if (new Set(ids).size !== ids.length || crew.filter((m) => m.duty === 'driver').length > 1) {
+    throw new HttpError(422, 'invalid_crew', 'One driver, and no one twice');
+  }
+  if (ids.length === 0) return;
+  if (!ids.every(isUuid)) throw new HttpError(422, 'unknown_crew', 'No such staff member');
+  const { rows: members } = await client.query(
+    "select 1 from memberships where user_id = any($1::uuid[]) and status = 'active'",
+    [ids],
+  );
+  if (members.length !== ids.length) {
+    throw new HttpError(422, 'unknown_crew', 'No such staff member');
+  }
+  const { rows: busy } = await client.query(
+    `select 1 from ambulance_trip_crew c join ambulance_trips t
+       on t.tenant_id = c.tenant_id and t.id = c.trip_id
+      where c.user_id = any($1::uuid[]) and t.status in ('dispatched', 'picked_up') limit 1`,
+    [ids],
+  );
+  if (busy.length > 0) throw new HttpError(409, 'crew_busy', 'Someone is on another trip');
 }
 
 const tripGone = () => new HttpError(404, 'trip_not_found', 'No such trip');
@@ -263,7 +326,14 @@ export const ambulanceRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       for (const row of page.rows)
         if (row.patient_id) request.audit('read', 'ambulance_trip', row.id);
-      return { items: page.rows.map(tripView), nextCursor: page.nextCursor };
+      const crews = await crewOf(
+        request.txClient,
+        page.rows.map((row) => row.id),
+      );
+      return {
+        items: page.rows.map((row) => tripView(row, crews.get(row.id) ?? [])),
+        nextCursor: page.nextCursor,
+      };
     },
   );
 
@@ -322,7 +392,9 @@ export const ambulanceRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const id = (rows[0] as { id: string }).id;
       request.audit('create', 'ambulance_trip', id);
       await request.emit('ambulance.trip_requested', id, { patientId: body.patientId ?? null });
-      return reply.status(201).send(tripView((await findTrip(request.txClient, id)) as TripRow));
+      return reply
+        .status(201)
+        .send(await viewOf(request.txClient, (await findTrip(request.txClient, id)) as TripRow));
     },
   );
 
@@ -339,7 +411,7 @@ export const ambulanceRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['ambulance'],
         headers: IdempotencyHeaders,
         description:
-          'Moves a trip: requested -> dispatched (with an `ambulanceId` of an available ambulance, which goes on the trip) -> picked_up -> completed; cancelled before the pick-up (the ambulance is freed). Anything else is 409 `invalid_transition`. An ambulance on another trip or out of service is 409 `ambulance_unavailable`; an unknown one 422 `unknown_ambulance`. The `version` is the trip’s, or 409 `conflict`. Audited; emits `ambulance.trip_status_changed`. Requires ambulance:dispatch.',
+          'Moves a trip: requested -> dispatched (with an `ambulanceId` of an available ambulance, which goes on the trip, and optionally the `crew`: active staff, one driver at most, none on a trip under way, else 422 `unknown_crew` / `invalid_crew` or 409 `crew_busy`; crew with any other move is 422 `crew_at_dispatch`) -> picked_up -> completed; cancelled before the pick-up (the ambulance is freed). Anything else is 409 `invalid_transition`. An ambulance on another trip or out of service is 409 `ambulance_unavailable`; an unknown one 422 `unknown_ambulance`. The `version` is the trip’s, or 409 `conflict`. Audited; emits `ambulance.trip_status_changed`. Requires ambulance:dispatch.',
         params: TripParams,
         body: AmbulanceTripMove,
         response: { 200: ref(AmbulanceTrip), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -359,7 +431,11 @@ export const ambulanceRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(409, 'invalid_transition', `Not from ${trip.status} to ${to}`);
       }
       let ambulanceId = trip.ambulance_id;
+      if (body.crew !== undefined && to !== 'dispatched') {
+        throw new HttpError(422, 'crew_at_dispatch', 'The crew is named when the trip is sent');
+      }
       if (to === 'dispatched') {
+        if (body.crew !== undefined) await checkCrew(client, body.crew);
         if (body.ambulanceId === undefined) {
           throw new HttpError(422, 'ambulance_required', 'Say which ambulance goes');
         }
@@ -390,6 +466,14 @@ export const ambulanceRoutes: FastifyPluginAsyncTypebox = async (app) => {
         }
         throw error;
       }
+      if (to === 'dispatched') {
+        for (const member of body.crew ?? []) {
+          await client.query(
+            'insert into ambulance_trip_crew (trip_id, user_id, duty) values ($1, $2, $3)',
+            [trip.id, member.userId, member.duty as string],
+          );
+        }
+      }
       // The ambulance is free again once the trip ends or is called off.
       if ((to === 'completed' || to === 'cancelled') && trip.ambulance_id !== null) {
         await client.query(
@@ -406,7 +490,7 @@ export const ambulanceRoutes: FastifyPluginAsyncTypebox = async (app) => {
         encounterId: trip.encounter_id,
         serviceId: trip.service_id,
       });
-      return tripView((await findTrip(client, trip.id)) as TripRow);
+      return viewOf(client, (await findTrip(client, trip.id)) as TripRow);
     },
   );
 };

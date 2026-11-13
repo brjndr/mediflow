@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { useFeatureFlag, usePermission } from '@/access';
 import { useEncounters } from '@/features/clinical';
+import { StaffSearch } from '@/features/staff';
 import { PatientSearch, type PatientSummary } from '@/features/patients';
 import { ServiceSearch, type ServiceOption } from '@/features/services';
 import { useFormatters } from '@/tenancy';
@@ -11,8 +12,8 @@ import { Button } from '@/shared/ui/button';
 import { Dialog } from '@/shared/ui/dialog';
 import { Form, SelectField, TextField, useZodForm } from '@/shared/ui/form';
 import { useAvailableAmbulances, useMoveTrip, useRequestTrip } from '../hooks/use-ambulances';
-import { tripFormSchema, type TripFormValues } from '../schemas';
-import type { AmbulanceTrip } from '../types';
+import { CREW_ROLES, MAX_CREW, tripFormSchema, type TripFormValues } from '../schemas';
+import type { AmbulanceTrip, CrewRole } from '../types';
 
 const REFUSED: Record<string, string> = {
   unknown_patient: 'errors.patient',
@@ -21,6 +22,9 @@ const REFUSED: Record<string, string> = {
   encounter_required: 'errors.visit',
   ambulance_unavailable: 'errors.unavailable',
   unknown_ambulance: 'errors.unavailable',
+  unknown_crew: 'errors.crew',
+  invalid_crew: 'errors.crewShape',
+  crew_busy: 'errors.crewBusy',
   conflict: 'errors.changed',
   invalid_transition: 'errors.changed',
 };
@@ -172,7 +176,16 @@ export function RequestTripDialog({
   );
 }
 
-const dispatchSchema = z.object({ ambulanceId: z.string().min(1, 'validation.required') });
+const dispatchSchema = z.object({
+  ambulanceId: z.string().min(1, 'validation.required'),
+  /** The duty the next person added takes. */
+  crewRole: z.enum(CREW_ROLES),
+});
+interface Chosen {
+  userId: string;
+  userName: string;
+  duty: CrewRole;
+}
 type DispatchValues = z.infer<typeof dispatchSchema>;
 
 /** Sends a requested trip with one of the available ambulances. */
@@ -189,7 +202,11 @@ export function DispatchDialog({
   const { t: tCommon } = useTranslation();
   const move = useMoveTrip();
   const available = useAvailableAmbulances();
-  const form = useZodForm(dispatchSchema, { ambulanceId: '' });
+  const form = useZodForm(dispatchSchema, { ambulanceId: '', crewRole: 'driver' });
+  const [crew, setCrew] = useState<Chosen[]>([]);
+  const nextRole = form.watch('crewRole');
+  const hasDriver = crew.some((member) => member.duty === 'driver');
+  const full = crew.length >= MAX_CREW;
   const failure = failureText(move.error, t, tCommon);
 
   const submit = async (values: DispatchValues) => {
@@ -198,6 +215,7 @@ export function DispatchDialog({
         trip,
         to: 'dispatched',
         ambulanceId: values.ambulanceId,
+        crew: crew.map(({ userId, duty }) => ({ userId, duty })),
       });
       onDispatched(done.ambulanceRegistration ?? '');
     } catch {
@@ -239,6 +257,64 @@ export function DispatchDialog({
             label: `${one.registration} (${t(`kind.${one.kind}`)})`,
           }))}
         />
+        <fieldset className="space-y-2 rounded-md border p-3">
+          <legend className="px-1 text-sm font-medium">{t('crew.heading')}</legend>
+          {crew.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('crew.none')}</p>
+          ) : (
+            <ul className="space-y-1" aria-label={t('crew.list')}>
+              {crew.map((member) => (
+                <li
+                  key={member.userId}
+                  className="flex flex-wrap items-center justify-between gap-2"
+                >
+                  <span className="break-words">
+                    {member.userName}{' '}
+                    <span className="text-muted-foreground">({t(`crew.duty.${member.duty}`)})</span>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={t('crew.remove', { name: member.userName })}
+                    onClick={() => {
+                      setCrew((list) => list.filter((one) => one.userId !== member.userId));
+                    }}
+                  >
+                    {t('crew.removeShort')}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {full ? (
+            <p className="text-sm text-muted-foreground">{t('crew.full')}</p>
+          ) : (
+            <>
+              <SelectField<DispatchValues>
+                name="crewRole"
+                label={t('crew.addAs')}
+                options={CREW_ROLES.filter((duty) => duty !== 'driver' || !hasDriver).map(
+                  (duty) => ({ value: duty, label: t(`crew.duty.${duty}`) }),
+                )}
+              />
+              <StaffSearch
+                label={t('crew.add')}
+                onSelect={(person) => {
+                  setCrew((list) =>
+                    list.some((one) => one.userId === person.id)
+                      ? list
+                      : [
+                          ...list,
+                          { userId: person.id, userName: person.name, duty: nextRole as CrewRole },
+                        ],
+                  );
+                  if (nextRole === 'driver') form.setValue('crewRole', 'paramedic');
+                }}
+              />
+            </>
+          )}
+        </fieldset>
         {failure && (
           <p role="alert" className="text-sm text-destructive">
             {failure}

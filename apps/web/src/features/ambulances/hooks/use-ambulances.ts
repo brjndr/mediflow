@@ -108,7 +108,10 @@ export function useMoveTrip() {
   return useMutation({
     gcTime: 0,
     mutationFn: (move: TripMove) =>
-      moveTrip(move, attempt.keyFor([move.trip.id, move.trip.version, move.to, move.ambulanceId])),
+      moveTrip(
+        move,
+        attempt.keyFor([move.trip.id, move.trip.version, move.to, move.ambulanceId, move.crew]),
+      ),
     onSuccess: () => attempt.done(),
     onSettled: refresh,
   });
