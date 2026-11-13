@@ -925,3 +925,50 @@ export async function closeSession(
     [session.id, session.by, session.expectedMinor, session.countedMinor, session.note],
   );
 }
+
+/**
+ * Payments and refunds of invoices recorded on one calendar date at the hospital's clock (#726),
+ * by method. Deposits of a stay are not counted: they are not payments of an invoice. Read from
+ * the ledger of payments, not from register sessions, so a drawer opened on an earlier day does
+ * not move money between days. `date` is a `YYYY-MM-DD` calendar date; none means today there.
+ */
+export async function collectedOn(
+  client: pg.ClientBase,
+  date: string | undefined,
+): Promise<{
+  date: string;
+  timezone: string;
+  totals: { method: string; paid: string; refunded: string }[];
+}> {
+  const { rows } = await client.query<{
+    date: string;
+    timezone: string;
+    method: string | null;
+    paid: string | null;
+    refunded: string | null;
+  }>(
+    `with t as (
+       select timezone, coalesce($1::date, (now() at time zone timezone)::date) as day from tenants
+       where id = app_tenant_id())
+     select to_char(t.day, 'YYYY-MM-DD') as date, t.timezone, p.method,
+       sum(p.amount_minor) filter (where p.kind = 'payment')::text as paid,
+       sum(p.amount_minor) filter (where p.kind = 'refund')::text as refunded
+     from t left join payments p
+       on (p.at at time zone t.timezone)::date = t.day
+     group by t.day, t.timezone, p.method
+     order by p.method`,
+    [date ?? null],
+  );
+  const first = rows[0];
+  return {
+    date: first?.date ?? date ?? '',
+    timezone: first?.timezone ?? 'UTC',
+    totals: rows
+      .filter((row) => row.method !== null)
+      .map((row) => ({
+        method: row.method ?? '',
+        paid: row.paid ?? '0',
+        refunded: row.refunded ?? '0',
+      })),
+  };
+}
