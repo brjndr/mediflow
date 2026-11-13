@@ -5499,6 +5499,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/cash-registers/collected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Payments and refunds of invoices recorded on a calendar date at the hospital’s clock (today when `date` is left out), by method, in minor units (#726). Taken from the payments themselves, not from register sessions; deposits of a stay are not counted. Amounts only, no patient. Requires cashRegister:read with the scope `all` and the billing feature flag. Audited. */
+        get: operations["getCollectedOnDate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cash-registers/sessions/{sessionId}": {
         parameters: {
             query?: never;
@@ -11850,6 +11867,15 @@ export interface components {
             items: components["schemas"]["RegisterSession"][];
             nextCursor: string | null;
             total?: number;
+        };
+        CollectedOnDate: {
+            /** @description The calendar date at the hospital that was summed. */
+            date: string;
+            timezone: string;
+            /** @description By method, only those used. */
+            totals: components["schemas"]["RegisterTotal"][];
+            /** @description Taken less refunded, all methods. */
+            netMinor: number;
         };
         RegisterOpen: {
             openingMinor: number;
@@ -43121,6 +43147,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegisterSession"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCollectedOnDate: {
+        parameters: {
+            query?: {
+                /** @description A calendar date at the hospital, YYYY-MM-DD. None means today there. */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectedOnDate"];
                 };
             };
             /** @description Standard error body. */

@@ -15837,6 +15837,31 @@
           }
         }
       },
+      "CollectedOnDate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["date", "timezone", "totals", "netMinor"],
+        "properties": {
+          "date": {
+            "description": "The calendar date at the hospital that was summed.",
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "totals": {
+            "description": "By method, only those used.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegisterTotal"
+            }
+          },
+          "netMinor": {
+            "description": "Taken less refunded, all methods.",
+            "type": "integer"
+          }
+        }
+      },
       "RegisterOpen": {
         "additionalProperties": false,
         "type": "object",
@@ -58352,6 +58377,107 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RegisterSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cash-registers/collected": {
+      "get": {
+        "operationId": "getCollectedOnDate",
+        "tags": ["billing"],
+        "description": "Payments and refunds of invoices recorded on a calendar date at the hospital’s clock (today when `date` is left out), by method, in minor units (#726). Taken from the payments themselves, not from register sessions; deposits of a stay are not counted. Amounts only, no patient. Requires cashRegister:read with the scope `all` and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "description": "A calendar date at the hospital, YYYY-MM-DD. None means today there."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectedOnDate"
                 }
               }
             }

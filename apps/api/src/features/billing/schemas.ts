@@ -370,6 +370,28 @@ export const RegisterSessionPage = CursorPage(ref(RegisterSession), {
   $id: 'RegisterSessionPage',
 });
 
+export const CollectedQuery = Type.Object(
+  {
+    date: Type.Optional(
+      Type.String({
+        pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$',
+        description: 'A calendar date at the hospital, YYYY-MM-DD. None means today there.',
+      }),
+    ),
+  },
+  { additionalProperties: false },
+);
+export const Collected = Type.Object(
+  {
+    date: Type.String({ description: 'The calendar date at the hospital that was summed.' }),
+    timezone: Type.String(),
+    totals: Type.Array(ref(RegisterTotal), { description: 'By method, only those used.' }),
+    netMinor: Type.Integer({ description: 'Taken less refunded, all methods.' }),
+  },
+  { $id: 'CollectedOnDate', additionalProperties: false },
+);
+export type Collected = Static<typeof Collected>;
+
 export const RegisterOpen = Type.Object(
   { openingMinor: Type.Integer({ minimum: 0, maximum: 1_000_000_000_000 }) },
   { $id: 'RegisterOpen', additionalProperties: false },
@@ -511,6 +533,7 @@ export const BILLING_SCHEMAS = [
   RegisterTotal,
   RegisterSession,
   RegisterSessionPage,
+  Collected,
   RegisterOpen,
   RegisterClose,
   TaxRate,

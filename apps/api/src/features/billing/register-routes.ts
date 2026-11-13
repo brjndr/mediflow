@@ -8,6 +8,7 @@ import { tidyOptional } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
   closeSession,
+  collectedOn,
   findSession,
   insertSession,
   listSessions,
@@ -16,6 +17,8 @@ import {
   openSessionOf,
 } from './repository.js';
 import {
+  Collected,
+  CollectedQuery,
   NOTE_MAX,
   RegisterClose,
   RegisterOpen,
@@ -136,6 +139,47 @@ export const registerRoutes: FastifyPluginAsyncTypebox = async (app) => {
         items: page.rows.map(sessionView),
         nextCursor: page.nextCursor,
         ...(page.total === undefined ? {} : { total: page.total }),
+      };
+    },
+  );
+
+  app.get(
+    '/cash-registers/collected',
+    {
+      config: { permissions: ['cashRegister:read'], feature: FEATURE },
+      schema: {
+        operationId: 'getCollectedOnDate',
+        tags: ['billing'],
+        description:
+          'Payments and refunds of invoices recorded on a calendar date at the hospital’s clock (today when `date` is left out), by method, in minor units (#726). Taken from the payments themselves, not from register sessions; deposits of a stay are not counted. Amounts only, no patient. Requires cashRegister:read with the scope `all` and the billing feature flag. Audited.',
+        querystring: CollectedQuery,
+        response: { 200: ref(Collected), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request) => {
+      requireAll(request, 'cashRegister:read');
+      const { date } = request.query as { date?: string };
+      let result;
+      try {
+        result = await collectedOn(request.txClient, date);
+      } catch (error) {
+        const { code } = (error ?? {}) as { code?: string };
+        if (code === '22008' || code === '22007') {
+          throw new HttpError(400, 'invalid_date', 'The date is not valid');
+        }
+        throw error;
+      }
+      request.audit('read', 'cash_register_session');
+      const totals = result.totals.map((row) => ({
+        method: row.method as 'cash' | 'card' | 'upi' | 'bank' | 'other',
+        paidMinor: num(row.paid),
+        refundedMinor: num(row.refunded),
+      }));
+      return {
+        date: result.date,
+        timezone: result.timezone,
+        totals,
+        netMinor: totals.reduce((sum, each) => sum + each.paidMinor - each.refundedMinor, 0),
       };
     },
   );
