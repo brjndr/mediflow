@@ -315,6 +315,16 @@ export const TripStatus = Enum(
   ['requested', 'dispatched', 'picked_up', 'completed', 'cancelled'] as const,
   'requested -> dispatched -> picked_up -> completed; cancelled before the pick-up.',
 );
+export const CrewRole = Enum(
+  'AmbulanceCrewRole',
+  ['driver', 'paramedic', 'attendant'] as const,
+  'What a crew member does on the trip; at most one driver.',
+);
+export const AmbulanceCrewMember = Obj('AmbulanceCrewMember', {
+  userId: Type.String(),
+  userName: Type.String(),
+  duty: ref(CrewRole),
+});
 export const AmbulanceTrip = Obj('AmbulanceTrip', {
   id: Type.String(),
   tenantId: Type.String(),
@@ -333,6 +343,9 @@ export const AmbulanceTrip = Obj('AmbulanceTrip', {
   dispatchedAt: Type.Optional(When),
   pickedUpAt: Type.Optional(When),
   finishedAt: Type.Optional(When),
+  crew: Type.Array(ref(AmbulanceCrewMember), {
+    description: 'Named when the trip is dispatched; empty before, or when none was named.',
+  }),
   version: Type.Integer({ minimum: 1 }),
 });
 export type AmbulanceTrip = Static<typeof AmbulanceTrip>;
@@ -364,6 +377,18 @@ export const AmbulanceTripMove = Type.Object(
     version: Version,
     ambulanceId: Type.Optional(
       Type.String({ maxLength: 64, description: 'Required to dispatch.' }),
+    ),
+    crew: Type.Optional(
+      Type.Array(
+        Type.Object(
+          {
+            userId: Type.String({ maxLength: 64 }),
+            duty: StringEnum(['driver', 'paramedic', 'attendant'] as const),
+          },
+          { additionalProperties: false },
+        ),
+        { maxItems: 8, description: 'Only when dispatching: who goes. At most one driver.' },
+      ),
     ),
   },
   { $id: 'AmbulanceTripMove', additionalProperties: false },
@@ -455,6 +480,8 @@ export const OPERATIONS_SCHEMAS = [
   BloodStock,
   AmbulanceKind,
   AmbulanceStatus,
+  CrewRole,
+  AmbulanceCrewMember,
   Ambulance,
   AmbulancePage,
   AmbulanceCreate,

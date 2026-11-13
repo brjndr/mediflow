@@ -10,6 +10,7 @@ import {
   TENANT_IDS,
   USER_IDS,
 } from '@/mocks/db';
+import { mockStaffOf } from '@/mocks/handlers/staff';
 import { server } from '@/mocks/node';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
@@ -114,6 +115,42 @@ describe('ambulances', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Trip completed'));
     await waitFor(() =>
       expect(within(rowOf(fleetGrid(), 'KA01AB1234')).getByText('Available')).toBeInTheDocument(),
+    );
+  }, 30_000);
+
+  it('names a driver and a paramedic when dispatching, and shows the crew on the trip', async () => {
+    await open();
+    const [driver, medic] = mockStaffOf(TENANT_IDS.hospital).slice(2, 4);
+    await userEvent.click(
+      within(rowOf(tripGrid(), 'Main Road junction')).getByRole('button', { name: /Dispatch/ }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(
+      await within(dialog).findByRole('combobox', { name: /Ambulance/ }),
+      'KA01AB1234 (Advanced life support)',
+    );
+    const add = async (name: string) => {
+      await userEvent.type(
+        within(dialog).getByRole('combobox', { name: /Add a crew member/ }),
+        name,
+      );
+      await userEvent.click(await within(dialog).findByRole('option', { name }));
+    };
+    await add(driver?.name ?? '');
+    // One driver only: the duty moves on to paramedic and driver is no longer offered.
+    expect(within(dialog).queryByRole('option', { name: 'Driver' })).not.toBeInTheDocument();
+    await add(medic?.name ?? '');
+    expect(within(dialog).getByRole('list', { name: 'Crew on this trip' })).toHaveTextContent(
+      `${driver?.name} (Driver)`,
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Dispatch' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Trip dispatched with KA01AB1234.'),
+    );
+    await waitFor(() =>
+      expect(rowOf(tripGrid(), 'Main Road junction')).toHaveTextContent(
+        `${driver?.name} (Driver), ${medic?.name} (Paramedic)`,
+      ),
     );
   }, 30_000);
 

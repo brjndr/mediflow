@@ -7,6 +7,7 @@ import type {
   AmbulanceStatus,
   AmbulanceTrip,
   AmbulanceTripPage,
+  CrewRole,
   TripStatus,
 } from './types';
 
@@ -77,6 +78,8 @@ export interface TripMove {
   to: 'dispatched' | 'picked_up' | 'completed' | 'cancelled';
   /** Required to dispatch. */
   ambulanceId?: string;
+  /** Only when dispatching: who goes. */
+  crew?: { userId: string; duty: CrewRole }[];
 }
 
 export async function moveTrip(move: TripMove, key: string): Promise<AmbulanceTrip> {
@@ -86,6 +89,7 @@ export async function moveTrip(move: TripMove, key: string): Promise<AmbulanceTr
       to: move.to,
       version: move.trip.version,
       ...(move.ambulanceId ? { ambulanceId: move.ambulanceId } : {}),
+      ...(move.crew && move.crew.length > 0 ? { crew: move.crew } : {}),
     },
   });
   return tripSchema.parse(requireData(result));

@@ -10241,6 +10241,27 @@
         "enum": ["available", "on_trip", "out_of_service"],
         "description": "on_trip is set by dispatching and cleared when the trip ends; out_of_service is set by hand."
       },
+      "AmbulanceCrewRole": {
+        "type": "string",
+        "enum": ["driver", "paramedic", "attendant"],
+        "description": "What a crew member does on the trip; at most one driver."
+      },
+      "AmbulanceCrewMember": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["userId", "userName", "duty"],
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "duty": {
+            "$ref": "#/components/schemas/AmbulanceCrewRole"
+          }
+        }
+      },
       "Ambulance": {
         "additionalProperties": false,
         "type": "object",
@@ -10335,7 +10356,16 @@
       "AmbulanceTrip": {
         "additionalProperties": false,
         "type": "object",
-        "required": ["id", "tenantId", "pickup", "destination", "status", "requestedAt", "version"],
+        "required": [
+          "id",
+          "tenantId",
+          "pickup",
+          "destination",
+          "status",
+          "requestedAt",
+          "crew",
+          "version"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -10387,6 +10417,13 @@
           "finishedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "crew": {
+            "description": "Named when the trip is dispatched; empty before, or when none was named.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AmbulanceCrewMember"
+            }
           },
           "version": {
             "minimum": 1,
@@ -10474,6 +10511,26 @@
             "maxLength": 64,
             "description": "Required to dispatch.",
             "type": "string"
+          },
+          "crew": {
+            "maxItems": 8,
+            "description": "Only when dispatching: who goes. At most one driver.",
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["userId", "duty"],
+              "properties": {
+                "userId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "duty": {
+                  "type": "string",
+                  "enum": ["driver", "paramedic", "attendant"]
+                }
+              }
+            }
           }
         }
       },
@@ -47747,7 +47804,7 @@
       "post": {
         "operationId": "moveAmbulanceTrip",
         "tags": ["ambulance"],
-        "description": "Moves a trip: requested -> dispatched (with an `ambulanceId` of an available ambulance, which goes on the trip) -> picked_up -> completed; cancelled before the pick-up (the ambulance is freed). Anything else is 409 `invalid_transition`. An ambulance on another trip or out of service is 409 `ambulance_unavailable`; an unknown one 422 `unknown_ambulance`. The `version` is the trip’s, or 409 `conflict`. Audited; emits `ambulance.trip_status_changed`. Requires ambulance:dispatch.",
+        "description": "Moves a trip: requested -> dispatched (with an `ambulanceId` of an available ambulance, which goes on the trip, and optionally the `crew`: active staff, one driver at most, none on a trip under way, else 422 `unknown_crew` / `invalid_crew` or 409 `crew_busy`; crew with any other move is 422 `crew_at_dispatch`) -> picked_up -> completed; cancelled before the pick-up (the ambulance is freed). Anything else is 409 `invalid_transition`. An ambulance on another trip or out of service is 409 `ambulance_unavailable`; an unknown one 422 `unknown_ambulance`. The `version` is the trip’s, or 409 `conflict`. Audited; emits `ambulance.trip_status_changed`. Requires ambulance:dispatch.",
         "requestBody": {
           "required": true,
           "content": {
@@ -47771,6 +47828,26 @@
                     "maxLength": 64,
                     "description": "Required to dispatch.",
                     "type": "string"
+                  },
+                  "crew": {
+                    "maxItems": 8,
+                    "description": "Only when dispatching: who goes. At most one driver.",
+                    "type": "array",
+                    "items": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["userId", "duty"],
+                      "properties": {
+                        "userId": {
+                          "maxLength": 64,
+                          "type": "string"
+                        },
+                        "duty": {
+                          "type": "string",
+                          "enum": ["driver", "paramedic", "attendant"]
+                        }
+                      }
+                    }
                   }
                 }
               }

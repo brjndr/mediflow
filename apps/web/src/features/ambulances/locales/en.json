@@ -3,7 +3,11 @@
   "description": "Trip requests, dispatch and the hospital's fleet.",
   "close": "Close",
   "cancel": "Cancel",
-  "kind": { "basic": "Basic", "advanced": "Advanced life support", "neonatal": "Neonatal" },
+  "kind": {
+    "basic": "Basic",
+    "advanced": "Advanced life support",
+    "neonatal": "Neonatal"
+  },
   "tripStatus": {
     "requested": "Requested",
     "dispatched": "Dispatched",
@@ -37,7 +41,8 @@
     "noCharge": "Not charged",
     "status": "Status",
     "ambulance": "Ambulance",
-    "requested": "Requested"
+    "requested": "Requested",
+    "crew": "Crew"
   },
   "visitType": {
     "opd": "Outpatient",
@@ -116,6 +121,24 @@
     "service": "That service is not available. Choose another.",
     "unavailable": "That ambulance cannot go now. Choose another.",
     "changed": "Someone else changed this first. The list has been refreshed; try again.",
-    "duplicate": "An ambulance with that registration already exists."
+    "duplicate": "An ambulance with that registration already exists.",
+    "crew": "Someone on the crew is not an active member of staff here.",
+    "crewShape": "A trip has one driver, and nobody is named twice.",
+    "crewBusy": "Someone on the crew is already on a trip under way."
+  },
+  "crew": {
+    "heading": "Crew",
+    "none": "No crew named. You can send the trip without one.",
+    "list": "Crew on this trip",
+    "add": "Add a crew member",
+    "addAs": "Add as",
+    "remove": "Remove {{name}} from the crew",
+    "removeShort": "Remove",
+    "full": "The crew is full.",
+    "duty": {
+      "driver": "Driver",
+      "paramedic": "Paramedic",
+      "attendant": "Attendant"
+    }
   }
 }
