@@ -6,9 +6,9 @@ import { setMockLanguage, setTenantLocale, TENANT_IDS, USER_IDS } from '@/mocks/
 
 /** A person's own language (#766): chosen on the account page, applied without signing out. */
 
-const open = async () => {
+const open = async (heading = 'Your account') => {
   const app = renderApp({ entry: '/profile' });
-  await screen.findByRole('heading', { name: 'Your account' });
+  await screen.findByRole('heading', { name: heading });
   return app;
 };
 
@@ -22,14 +22,14 @@ describe('the language choice', () => {
     await userEvent.selectOptions(select, 'hi');
 
     await waitFor(() => expect(document.documentElement.lang).toBe('hi'));
-    expect(await screen.findByLabelText('Language for your screens')).toHaveValue('hi');
-    expect(await screen.findByText('Language saved.')).toBeInTheDocument();
+    expect(await screen.findByLabelText('आपकी स्क्रीन की भाषा')).toHaveValue('hi');
+    expect(await screen.findByText('भाषा सहेज ली गई।')).toBeInTheDocument();
   });
 
   it('goes back to the hospital default when cleared', async () => {
     setMockLanguage(USER_IDS.admin, 'hi');
-    await open();
-    const select = await screen.findByLabelText('Language for your screens');
+    await open('आपका खाता');
+    const select = await screen.findByLabelText('आपकी स्क्रीन की भाषा');
     expect(select).toHaveValue('hi');
 
     await userEvent.selectOptions(select, '');
