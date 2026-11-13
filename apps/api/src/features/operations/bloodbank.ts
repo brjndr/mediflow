@@ -283,7 +283,7 @@ export const bloodBankRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['bloodbank'],
         headers: IdempotencyHeaders,
         description:
-          'Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Reserving needs a `patientId` the caller may read (422 `unknown_patient`) and a unit within its date (409 `unit_expired`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`.',
+          'Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Issuing may name the visit (`encounterId`, a visit of the unit’s patient, else 422 `unknown_encounter`) and the priced service (`serviceId`, active, else 422 `unknown_service`) the unit is charged as; one without the other is 422 `charge_incomplete`. Billing then charges the service to the visit once. Reserving needs a `patientId` the caller may read (422 `unknown_patient`) and a unit within its date (409 `unit_expired`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`.',
         params: BloodUnitParams,
         body: BloodUnitMove,
         response: { 200: ref(BloodUnit), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -323,6 +323,26 @@ export const bloodBankRoutes: FastifyPluginAsyncTypebox = async (app) => {
       } else if (to === 'issued' || to === 'transfused') {
         patientId = row.patient_id;
       }
+      let chargeVisit: string | null = null;
+      let chargeService: string | null = null;
+      if (to === 'issued' && (body.encounterId !== undefined || body.serviceId !== undefined)) {
+        if (body.encounterId === undefined || body.serviceId === undefined) {
+          throw new HttpError(422, 'charge_incomplete', 'A charge needs the visit and the service');
+        }
+        const { rows: visit } = await client.query(
+          `select 1 from encounters where id::text = $1 and patient_id::text = $2
+             and status <> 'cancelled'`,
+          [body.encounterId, patientId ?? ''],
+        );
+        if (visit.length === 0) throw new HttpError(422, 'unknown_encounter', 'No such visit');
+        const { rows: service } = await client.query(
+          'select 1 from services where id::text = $1 and not archived',
+          [body.serviceId],
+        );
+        if (service.length === 0) throw new HttpError(422, 'unknown_service', 'No such service');
+        chargeVisit = body.encounterId;
+        chargeService = body.serviceId;
+      }
       try {
         await client.query('update blood_units set status = $2, patient_id = $3 where id = $1', [
           row.id,
@@ -354,6 +374,8 @@ export const bloodBankRoutes: FastifyPluginAsyncTypebox = async (app) => {
         patientId: patientId ?? row.patient_id,
         bloodGroup: row.blood_group,
         component: row.component,
+        encounterId: chargeVisit,
+        serviceId: chargeService,
       });
       return view((await find(client, row.id)) as UnitRow);
     },
