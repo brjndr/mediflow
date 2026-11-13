@@ -270,13 +270,15 @@ export default function Admissions() {
   const dischargeCode = isApiError(discharge.error) ? discharge.error.serverCode : undefined;
   const dischargeFailure = !discharge.isError
     ? ''
-    : dischargeCode === 'unsigned_notes'
-      ? t('discharge.unsignedNotes')
-      : dischargeCode === 'encounter_not_open'
-        ? t('discharge.notOpen')
-        : dischargeCode === 'conflict' || dischargeCode === 'invalid_transition'
-          ? t('refused.admission')
-          : tCommon(errorMessageKey(discharge.error));
+    : dischargeCode === 'clearance_pending'
+      ? t('discharge.clearancePending')
+      : dischargeCode === 'unsigned_notes'
+        ? t('discharge.unsignedNotes')
+        : dischargeCode === 'encounter_not_open'
+          ? t('discharge.notOpen')
+          : dischargeCode === 'conflict' || dischargeCode === 'invalid_transition'
+            ? t('refused.admission')
+            : tCommon(errorMessageKey(discharge.error));
 
   return (
     <div ref={box} className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">

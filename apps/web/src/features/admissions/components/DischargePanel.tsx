@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useDischargeClearance } from '@/features/billing';
 import { Button } from '@/shared/ui/button';
-import { DISCHARGE_TYPES, type Admission, type DischargeType } from '../types';
+import { useDischargePlan } from '../hooks/use-discharge-plan';
+import { DISCHARGE_TYPES, openClearances, type Admission, type DischargeType } from '../types';
+import { DischargePlanSection } from './DischargePlanSection';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 
@@ -30,7 +32,12 @@ export function DischargePanel({
     settlement !== undefined && settlement.policy !== 'off' && !settlement.clearance.cleared;
   const blocked = unsettled && settlement.policy === 'block';
   const needsConfirm = unsettled && settlement.policy === 'warn';
-  const stopped = bill.pending || blocked || (needsConfirm && !confirmed);
+  // The plan (DS-01, #164): advice and clearances. Without one (no permission, or an API that
+  // has none yet) nothing here waits for it and the server decides alone.
+  const found = useDischargePlan(admission.id);
+  const open = found.plan ? openClearances(found.plan, type) : [];
+  const stopped =
+    bill.pending || found.pending || open.length > 0 || blocked || (needsConfirm && !confirmed);
   return (
     <section
       aria-labelledby="admission-discharge-heading"
@@ -59,6 +66,18 @@ export function DischargePanel({
           ))}
         </select>
       </label>
+      {found.plan && (
+        <>
+          <DischargePlanSection admissionId={admission.id} plan={found.plan} type={type} />
+          {open.length > 0 && (
+            <p role="status" className="text-sm font-medium" data-testid="clearance-gate">
+              {t('plan.gate', {
+                kinds: open.map((kind) => t(`plan.clearances.kinds.${kind}`)).join(', '),
+              })}
+            </p>
+          )}
+        </>
+      )}
       {bill.pending && (
         <p role="status" className="text-sm text-muted-foreground">
           {t('discharge.bill.checking')}
