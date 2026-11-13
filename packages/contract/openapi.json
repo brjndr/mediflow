@@ -10421,6 +10421,890 @@
           }
         }
       },
+      "Payer": {
+        "description": "An insurer, a TPA (which administers claims for insurers) or a corporate with a credit arrangement. Contact details are the organisation’s, never a patient’s.",
+        "type": "object",
+        "required": ["id", "tenantId", "kind", "code", "name", "planCount", "archived", "version"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["insurer", "tpa", "corporate"]
+          },
+          "code": {
+            "minLength": 1,
+            "maxLength": 20,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "contactName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "phone": {
+            "minLength": 1,
+            "maxLength": 30,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "email": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "address": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "planCount": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "PayerPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Payer"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "PayerCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["kind", "code", "name"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["insurer", "tpa", "corporate"]
+          },
+          "code": {
+            "minLength": 1,
+            "maxLength": 20,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "contactName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "phone": {
+            "minLength": 1,
+            "maxLength": 30,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "email": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "address": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "PayerUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "contactName": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+          },
+          "phone": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 30,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+          },
+          "email": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+          },
+          "address": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "PayerPlan": {
+        "type": "object",
+        "required": [
+          "id",
+          "payerId",
+          "code",
+          "name",
+          "coverageMode",
+          "copayPercent",
+          "preAuthRequired",
+          "services",
+          "archived",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "payerId": {
+            "type": "string"
+          },
+          "code": {
+            "minLength": 1,
+            "maxLength": 20,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "coverageMode": {
+            "type": "string",
+            "enum": ["all_except", "only_listed"],
+            "description": "all_except: everything is covered but the listed services. only_listed: only the listed services are."
+          },
+          "copayPercent": {
+            "minimum": 0,
+            "maximum": 100,
+            "description": "The patient’s share of a covered charge, in percent.",
+            "type": "integer"
+          },
+          "sumInsuredMinor": {
+            "minimum": 0,
+            "description": "The most the plan pays in a policy year, in minor units. Absent: no limit.",
+            "type": "integer"
+          },
+          "roomRentLimitMinor": {
+            "minimum": 0,
+            "description": "The most it pays for a bed-day, in minor units. Absent: no limit.",
+            "type": "integer"
+          },
+          "preAuthRequired": {
+            "type": "boolean"
+          },
+          "minAge": {
+            "minimum": 0,
+            "maximum": 120,
+            "type": "integer"
+          },
+          "maxAge": {
+            "minimum": 0,
+            "maximum": 120,
+            "type": "integer"
+          },
+          "waitingPeriodDays": {
+            "minimum": 0,
+            "maximum": 3650,
+            "type": "integer"
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["serviceId", "serviceName"],
+              "properties": {
+                "serviceId": {
+                  "type": "string"
+                },
+                "serviceName": {
+                  "type": "string"
+                },
+                "limitMinor": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "PayerPlanWrite": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["code", "name", "coverageMode", "copayPercent", "preAuthRequired", "services"],
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "maxLength": 20,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "coverageMode": {
+            "type": "string",
+            "enum": ["all_except", "only_listed"],
+            "description": "all_except: everything is covered but the listed services. only_listed: only the listed services are."
+          },
+          "copayPercent": {
+            "minimum": 0,
+            "maximum": 100,
+            "description": "The patient’s share of a covered charge, in percent.",
+            "type": "integer"
+          },
+          "sumInsuredMinor": {
+            "minimum": 0,
+            "description": "The most the plan pays in a policy year, in minor units. Absent: no limit.",
+            "type": "integer"
+          },
+          "roomRentLimitMinor": {
+            "minimum": 0,
+            "description": "The most it pays for a bed-day, in minor units. Absent: no limit.",
+            "type": "integer"
+          },
+          "preAuthRequired": {
+            "type": "boolean"
+          },
+          "minAge": {
+            "minimum": 0,
+            "maximum": 120,
+            "type": "integer"
+          },
+          "maxAge": {
+            "minimum": 0,
+            "maximum": 120,
+            "type": "integer"
+          },
+          "waitingPeriodDays": {
+            "minimum": 0,
+            "maximum": 3650,
+            "type": "integer"
+          },
+          "services": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["serviceId"],
+              "properties": {
+                "serviceId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "limitMinor": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PayerPlanUpdate": {
+        "additionalProperties": false,
+        "description": "The plan’s terms as they should be (the code does not change), or only archived. The services listed replace the old list.",
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "coverageMode": {
+            "type": "string",
+            "enum": ["all_except", "only_listed"],
+            "description": "all_except: everything is covered but the listed services. only_listed: only the listed services are."
+          },
+          "copayPercent": {
+            "minimum": 0,
+            "maximum": 100,
+            "description": "The patient’s share of a covered charge, in percent.",
+            "type": "integer"
+          },
+          "sumInsuredMinor": {
+            "minimum": 0,
+            "description": "The most the plan pays in a policy year, in minor units. Absent: no limit.",
+            "type": "integer"
+          },
+          "roomRentLimitMinor": {
+            "minimum": 0,
+            "description": "The most it pays for a bed-day, in minor units. Absent: no limit.",
+            "type": "integer"
+          },
+          "preAuthRequired": {
+            "type": "boolean"
+          },
+          "minAge": {
+            "minimum": 0,
+            "maximum": 120,
+            "type": "integer"
+          },
+          "maxAge": {
+            "minimum": 0,
+            "maximum": 120,
+            "type": "integer"
+          },
+          "waitingPeriodDays": {
+            "minimum": 0,
+            "maximum": 3650,
+            "type": "integer"
+          },
+          "services": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["serviceId"],
+              "properties": {
+                "serviceId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "limitMinor": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "RateAgreement": {
+        "description": "Prices a payer’s patients are charged between two dates: a discount on the price list, and a rate for a service that replaces the list price.",
+        "type": "object",
+        "required": ["id", "payerId", "name", "effectiveFrom", "discountBp", "rates", "version"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "payerId": {
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "effectiveFrom": {
+            "format": "date",
+            "type": "string"
+          },
+          "effectiveTo": {
+            "format": "date",
+            "description": "The last day it applies. Absent: until ended.",
+            "type": "string"
+          },
+          "discountBp": {
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Discount on the price list in basis points (100 = 1%).",
+            "type": "integer"
+          },
+          "rates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["serviceId", "serviceName", "rateMinor"],
+              "properties": {
+                "serviceId": {
+                  "type": "string"
+                },
+                "serviceName": {
+                  "type": "string"
+                },
+                "rateMinor": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "RateAgreementCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "effectiveFrom", "discountBp", "rates"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "effectiveFrom": {
+            "format": "date",
+            "type": "string"
+          },
+          "effectiveTo": {
+            "format": "date",
+            "type": "string"
+          },
+          "discountBp": {
+            "minimum": 0,
+            "maximum": 10000,
+            "type": "integer"
+          },
+          "rates": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["serviceId", "rateMinor"],
+              "properties": {
+                "serviceId": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "rateMinor": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "RateAgreementEnd": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "effectiveTo": {
+            "type": ["string", "null"],
+            "format": "date"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "PayerDetail": {
+        "type": "object",
+        "required": ["payer", "plans", "agreements"],
+        "properties": {
+          "payer": {
+            "$ref": "#/components/schemas/Payer"
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PayerPlan"
+            }
+          },
+          "agreements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateAgreement"
+            }
+          }
+        }
+      },
+      "PatientPolicy": {
+        "type": "object",
+        "required": [
+          "id",
+          "patientId",
+          "payerId",
+          "payerName",
+          "planId",
+          "planName",
+          "policyNumber",
+          "holderName",
+          "relationship",
+          "validFrom",
+          "status",
+          "preAuthRequired",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "payerId": {
+            "type": "string"
+          },
+          "payerName": {
+            "type": "string"
+          },
+          "planId": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "policyNumber": {
+            "minLength": 1,
+            "maxLength": 40,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "memberId": {
+            "minLength": 1,
+            "maxLength": 40,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "holderName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "relationship": {
+            "type": "string",
+            "enum": ["self", "spouse", "child", "parent", "other"]
+          },
+          "validFrom": {
+            "format": "date",
+            "type": "string"
+          },
+          "validTo": {
+            "format": "date",
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "expired", "ended"],
+            "description": "Worked out by the server from the dates and whether it was ended."
+          },
+          "preAuthRequired": {
+            "description": "Whether the plan asks for pre-authorization of an admission.",
+            "type": "boolean"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "PatientPolicyCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["planId", "policyNumber", "holderName", "relationship", "validFrom"],
+        "properties": {
+          "planId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "policyNumber": {
+            "minLength": 1,
+            "maxLength": 40,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "memberId": {
+            "minLength": 1,
+            "maxLength": 40,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "holderName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "relationship": {
+            "type": "string",
+            "enum": ["self", "spouse", "child", "parent", "other"]
+          },
+          "validFrom": {
+            "format": "date",
+            "type": "string"
+          },
+          "validTo": {
+            "format": "date",
+            "type": "string"
+          }
+        }
+      },
+      "PatientPolicyEnd": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "PreAuth": {
+        "type": "object",
+        "required": [
+          "id",
+          "patientId",
+          "policyId",
+          "payerName",
+          "planName",
+          "policyNumber",
+          "treatment",
+          "requestedMinor",
+          "billedMinor",
+          "status",
+          "documents",
+          "requestedAt",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "policyId": {
+            "type": "string"
+          },
+          "payerName": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "policyNumber": {
+            "type": "string"
+          },
+          "encounterId": {
+            "description": "The visit the cover is for, when known.",
+            "type": "string"
+          },
+          "treatment": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "requestedMinor": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "approvedMinor": {
+            "minimum": 0,
+            "description": "The limit the payer approved. Absent until approved.",
+            "type": "integer"
+          },
+          "billedMinor": {
+            "minimum": 0,
+            "description": "What the visit has been charged so far, worked out by the server from the charge ledger.",
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["submitted", "approved", "rejected", "cancelled"]
+          },
+          "referenceNumber": {
+            "minLength": 1,
+            "maxLength": 60,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "decisionNote": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "documents": {
+            "maxItems": 20,
+            "description": "What is enclosed with the request, by name. The files are on the patient record (documents).",
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+              "type": "string"
+            }
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "decidedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "PreAuthCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["policyId", "treatment", "requestedMinor", "documents"],
+        "properties": {
+          "policyId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "encounterId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "treatment": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "requestedMinor": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "documents": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PreAuthDecision": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version", "outcome"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["approved", "rejected"]
+          },
+          "approvedMinor": {
+            "minimum": 0,
+            "description": "Required when approved.",
+            "type": "integer"
+          },
+          "referenceNumber": {
+            "minLength": 1,
+            "maxLength": 60,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "PreAuthCancel": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
       "EmergencyCaseStatus": {
         "type": "string",
         "enum": ["waiting", "in_treatment", "disposed"]
@@ -17334,870 +18218,6 @@
           },
           "version": {
             "type": "integer"
-          }
-        }
-      },
-      "Payer": {
-        "description": "An insurer, a TPA (which administers claims for insurers) or a corporate with a credit arrangement. Contact details are the organisation's, never a patient's.",
-        "type": "object",
-        "required": ["id", "tenantId", "kind", "code", "name", "planCount", "archived", "version"],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string",
-            "enum": ["insurer", "tpa", "corporate"]
-          },
-          "code": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 20
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "contactName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "phone": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 30
-          },
-          "email": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "address": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300
-          },
-          "planCount": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "archived": {
-            "type": "boolean"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "PayerPage": {
-        "type": "object",
-        "required": ["items", "nextCursor"],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Payer"
-            }
-          },
-          "nextCursor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "total": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
-      },
-      "PayerCreate": {
-        "type": "object",
-        "required": ["kind", "code", "name"],
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": ["insurer", "tpa", "corporate"]
-          },
-          "code": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 20
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "contactName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "phone": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 30
-          },
-          "email": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "address": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300
-          }
-        }
-      },
-      "PayerUpdate": {
-        "type": "object",
-        "required": ["version"],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "contactName": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 100
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "phone": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 30
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "email": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 100
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "address": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 300
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "archived": {
-            "type": "boolean"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "PayerPlan": {
-        "type": "object",
-        "required": [
-          "id",
-          "payerId",
-          "code",
-          "name",
-          "coverageMode",
-          "copayPercent",
-          "preAuthRequired",
-          "services",
-          "archived",
-          "version"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "payerId": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 20
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "coverageMode": {
-            "type": "string",
-            "enum": ["all_except", "only_listed"],
-            "description": "all_except: everything is covered but the listed services. only_listed: only the listed services are."
-          },
-          "copayPercent": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 100,
-            "description": "The patient's share of a covered charge, in percent."
-          },
-          "sumInsuredMinor": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "The most the plan pays in a policy year, in minor units. Absent: no limit."
-          },
-          "roomRentLimitMinor": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "The most it pays for a bed-day, in minor units. Absent: no limit."
-          },
-          "preAuthRequired": {
-            "type": "boolean"
-          },
-          "minAge": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 120
-          },
-          "maxAge": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 120
-          },
-          "waitingPeriodDays": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 3650
-          },
-          "services": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["serviceId", "serviceName"],
-              "properties": {
-                "serviceId": {
-                  "type": "string"
-                },
-                "serviceName": {
-                  "type": "string"
-                },
-                "limitMinor": {
-                  "type": "integer",
-                  "minimum": 0
-                }
-              }
-            }
-          },
-          "archived": {
-            "type": "boolean"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "PayerPlanWrite": {
-        "type": "object",
-        "required": ["code", "name", "coverageMode", "copayPercent", "preAuthRequired", "services"],
-        "properties": {
-          "code": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 20
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "coverageMode": {
-            "type": "string",
-            "enum": ["all_except", "only_listed"],
-            "description": "all_except: everything is covered but the listed services. only_listed: only the listed services are."
-          },
-          "copayPercent": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 100,
-            "description": "The patient's share of a covered charge, in percent."
-          },
-          "sumInsuredMinor": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "The most the plan pays in a policy year, in minor units. Absent: no limit."
-          },
-          "roomRentLimitMinor": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "The most it pays for a bed-day, in minor units. Absent: no limit."
-          },
-          "preAuthRequired": {
-            "type": "boolean"
-          },
-          "minAge": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 120
-          },
-          "maxAge": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 120
-          },
-          "waitingPeriodDays": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 3650
-          },
-          "services": {
-            "type": "array",
-            "maxItems": 500,
-            "items": {
-              "type": "object",
-              "required": ["serviceId"],
-              "properties": {
-                "serviceId": {
-                  "type": "string"
-                },
-                "limitMinor": {
-                  "type": "integer",
-                  "minimum": 0
-                }
-              }
-            }
-          }
-        }
-      },
-      "PayerPlanUpdate": {
-        "description": "The plan's terms as they should be (the code does not change), or only archived. The services listed replace the old list.",
-        "type": "object",
-        "required": ["version"],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "coverageMode": {
-            "type": "string",
-            "enum": ["all_except", "only_listed"],
-            "description": "all_except: everything is covered but the listed services. only_listed: only the listed services are."
-          },
-          "copayPercent": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 100,
-            "description": "The patient's share of a covered charge, in percent."
-          },
-          "sumInsuredMinor": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "The most the plan pays in a policy year, in minor units. Absent: no limit."
-          },
-          "roomRentLimitMinor": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "The most it pays for a bed-day, in minor units. Absent: no limit."
-          },
-          "preAuthRequired": {
-            "type": "boolean"
-          },
-          "minAge": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 120
-          },
-          "maxAge": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 120
-          },
-          "waitingPeriodDays": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 3650
-          },
-          "services": {
-            "type": "array",
-            "maxItems": 500,
-            "items": {
-              "type": "object",
-              "required": ["serviceId"],
-              "properties": {
-                "serviceId": {
-                  "type": "string"
-                },
-                "limitMinor": {
-                  "type": "integer",
-                  "minimum": 0
-                }
-              }
-            }
-          },
-          "archived": {
-            "type": "boolean"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "RateAgreement": {
-        "description": "Prices a payer's patients are charged between two dates: a discount on the price list, and a rate for a service that replaces the list price.",
-        "type": "object",
-        "required": ["id", "payerId", "name", "effectiveFrom", "discountBp", "rates", "version"],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "payerId": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "effectiveFrom": {
-            "type": "string",
-            "format": "date"
-          },
-          "effectiveTo": {
-            "type": "string",
-            "format": "date",
-            "description": "The last day it applies. Absent: until ended."
-          },
-          "discountBp": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 10000,
-            "description": "Discount on the price list in basis points (100 = 1%)."
-          },
-          "rates": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["serviceId", "serviceName", "rateMinor"],
-              "properties": {
-                "serviceId": {
-                  "type": "string"
-                },
-                "serviceName": {
-                  "type": "string"
-                },
-                "rateMinor": {
-                  "type": "integer",
-                  "minimum": 0
-                }
-              }
-            }
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "RateAgreementCreate": {
-        "type": "object",
-        "required": ["name", "effectiveFrom", "discountBp", "rates"],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "effectiveFrom": {
-            "type": "string",
-            "format": "date"
-          },
-          "effectiveTo": {
-            "type": "string",
-            "format": "date"
-          },
-          "discountBp": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 10000
-          },
-          "rates": {
-            "type": "array",
-            "maxItems": 500,
-            "items": {
-              "type": "object",
-              "required": ["serviceId", "rateMinor"],
-              "properties": {
-                "serviceId": {
-                  "type": "string"
-                },
-                "rateMinor": {
-                  "type": "integer",
-                  "minimum": 0
-                }
-              }
-            }
-          }
-        }
-      },
-      "RateAgreementEnd": {
-        "type": "object",
-        "required": ["version"],
-        "properties": {
-          "effectiveTo": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "PayerDetail": {
-        "type": "object",
-        "required": ["payer", "plans", "agreements"],
-        "properties": {
-          "payer": {
-            "$ref": "#/components/schemas/Payer"
-          },
-          "plans": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PayerPlan"
-            }
-          },
-          "agreements": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RateAgreement"
-            }
-          }
-        }
-      },
-      "PatientPolicy": {
-        "type": "object",
-        "required": [
-          "id",
-          "patientId",
-          "payerId",
-          "payerName",
-          "planId",
-          "planName",
-          "policyNumber",
-          "holderName",
-          "relationship",
-          "validFrom",
-          "status",
-          "preAuthRequired",
-          "version"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "patientId": {
-            "type": "string"
-          },
-          "payerId": {
-            "type": "string"
-          },
-          "payerName": {
-            "type": "string"
-          },
-          "planId": {
-            "type": "string"
-          },
-          "planName": {
-            "type": "string"
-          },
-          "policyNumber": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 40
-          },
-          "memberId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 40
-          },
-          "holderName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "relationship": {
-            "type": "string",
-            "enum": ["self", "spouse", "child", "parent", "other"]
-          },
-          "validFrom": {
-            "type": "string",
-            "format": "date"
-          },
-          "validTo": {
-            "type": "string",
-            "format": "date"
-          },
-          "status": {
-            "type": "string",
-            "enum": ["active", "expired", "ended"],
-            "description": "Worked out by the server from the dates and whether it was ended."
-          },
-          "preAuthRequired": {
-            "type": "boolean",
-            "description": "Whether the plan asks for pre-authorization of an admission."
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "PatientPolicyCreate": {
-        "type": "object",
-        "required": ["planId", "policyNumber", "holderName", "relationship", "validFrom"],
-        "properties": {
-          "planId": {
-            "type": "string"
-          },
-          "policyNumber": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 40
-          },
-          "memberId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 40
-          },
-          "holderName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "relationship": {
-            "type": "string",
-            "enum": ["self", "spouse", "child", "parent", "other"]
-          },
-          "validFrom": {
-            "type": "string",
-            "format": "date"
-          },
-          "validTo": {
-            "type": "string",
-            "format": "date"
-          }
-        }
-      },
-      "PatientPolicyEnd": {
-        "type": "object",
-        "required": ["version"],
-        "properties": {
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "PreAuth": {
-        "type": "object",
-        "required": [
-          "id",
-          "patientId",
-          "policyId",
-          "payerName",
-          "planName",
-          "policyNumber",
-          "treatment",
-          "requestedMinor",
-          "billedMinor",
-          "status",
-          "documents",
-          "requestedAt",
-          "version"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "patientId": {
-            "type": "string"
-          },
-          "policyId": {
-            "type": "string"
-          },
-          "payerName": {
-            "type": "string"
-          },
-          "planName": {
-            "type": "string"
-          },
-          "policyNumber": {
-            "type": "string"
-          },
-          "encounterId": {
-            "type": "string",
-            "description": "The visit the cover is for, when known."
-          },
-          "treatment": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300
-          },
-          "requestedMinor": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "approvedMinor": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "The limit the payer approved. Absent until approved."
-          },
-          "billedMinor": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "What the visit has been charged so far, worked out by the server from the charge ledger."
-          },
-          "status": {
-            "type": "string",
-            "enum": ["submitted", "approved", "rejected", "cancelled"]
-          },
-          "referenceNumber": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 60
-          },
-          "decisionNote": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300
-          },
-          "documents": {
-            "type": "array",
-            "maxItems": 20,
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 100
-            },
-            "description": "What is enclosed with the request, by name. The files are on the patient record (documents)."
-          },
-          "requestedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "decidedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "PreAuthCreate": {
-        "type": "object",
-        "required": ["policyId", "treatment", "requestedMinor", "documents"],
-        "properties": {
-          "policyId": {
-            "type": "string"
-          },
-          "encounterId": {
-            "type": "string"
-          },
-          "treatment": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300
-          },
-          "requestedMinor": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "documents": {
-            "type": "array",
-            "maxItems": 20,
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 100
-            }
-          }
-        }
-      },
-      "PreAuthDecision": {
-        "type": "object",
-        "required": ["version", "outcome"],
-        "properties": {
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "outcome": {
-            "type": "string",
-            "enum": ["approved", "rejected"]
-          },
-          "approvedMinor": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Required when approved."
-          },
-          "referenceNumber": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 60
-          },
-          "note": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300
-          }
-        }
-      },
-      "PreAuthCancel": {
-        "type": "object",
-        "required": ["version"],
-        "properties": {
-          "version": {
-            "type": "integer",
-            "minimum": 1
           }
         }
       },
@@ -47734,6 +47754,2054 @@
         }
       }
     },
+    "/payers": {
+      "get": {
+        "operationId": "listPayers",
+        "tags": ["insurance"],
+        "description": "The hospital’s insurers, TPAs and corporates by name, archived or not (`archived`, default not). `q` matches the name or code. Cursor paged; `total` counts the filter. Requires payer:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "q",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["insurer", "tpa", "corporate"]
+            },
+            "in": "query",
+            "name": "kind",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "archived",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayerPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPayer",
+        "tags": ["insurance"],
+        "description": "Adds an insurer, TPA or corporate. The code is unique in the hospital whatever its capitals (409 `duplicate_code`) and never changes. Audited. Requires payer:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["kind", "code", "name"],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": ["insurer", "tpa", "corporate"]
+                  },
+                  "code": {
+                    "minLength": 1,
+                    "maxLength": 20,
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "contactName": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "phone": {
+                    "minLength": 1,
+                    "maxLength": 30,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "email": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "address": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "An insurer, a TPA (which administers claims for insurers) or a corporate with a credit arrangement. Contact details are the organisation’s, never a patient’s.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payers/{payerId}": {
+      "get": {
+        "operationId": "getPayer",
+        "tags": ["insurance"],
+        "description": "An organisation with its plans (archived ones too) and rate agreements, newest first. Requires payer:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "payerId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayerDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updatePayer",
+        "tags": ["insurance"],
+        "description": "Changes the fields sent, from the `version` the edit started from (409 `version_conflict`). A contact field sent as null is cleared. Archiving hides the organisation from the list and from new plans, agreements and policies. Audited. Requires payer:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "contactName": {
+                    "type": ["string", "null"],
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+                  },
+                  "phone": {
+                    "type": ["string", "null"],
+                    "minLength": 1,
+                    "maxLength": 30,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+                  },
+                  "email": {
+                    "type": ["string", "null"],
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+                  },
+                  "address": {
+                    "type": ["string", "null"],
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$"
+                  },
+                  "archived": {
+                    "type": "boolean"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "payerId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An insurer, a TPA (which administers claims for insurers) or a corporate with a credit arrangement. Contact details are the organisation’s, never a patient’s.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payers/{payerId}/plans": {
+      "post": {
+        "operationId": "createPayerPlan",
+        "tags": ["insurance"],
+        "description": "Adds a plan: the patient’s share, limits, eligibility rules and the services covered or left out. The code is unique within the organisation (409 `duplicate_code`); an archived organisation takes none (409 `payer_archived`); a service that is not the hospital’s is 422 `unknown_service`. Audited. Requires payer:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "code",
+                  "name",
+                  "coverageMode",
+                  "copayPercent",
+                  "preAuthRequired",
+                  "services"
+                ],
+                "properties": {
+                  "code": {
+                    "minLength": 1,
+                    "maxLength": 20,
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "coverageMode": {
+                    "type": "string",
+                    "enum": ["all_except", "only_listed"],
+                    "description": "all_except: everything is covered but the listed services. only_listed: only the listed services are."
+                  },
+                  "copayPercent": {
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "The patient’s share of a covered charge, in percent.",
+                    "type": "integer"
+                  },
+                  "sumInsuredMinor": {
+                    "minimum": 0,
+                    "description": "The most the plan pays in a policy year, in minor units. Absent: no limit.",
+                    "type": "integer"
+                  },
+                  "roomRentLimitMinor": {
+                    "minimum": 0,
+                    "description": "The most it pays for a bed-day, in minor units. Absent: no limit.",
+                    "type": "integer"
+                  },
+                  "preAuthRequired": {
+                    "type": "boolean"
+                  },
+                  "minAge": {
+                    "minimum": 0,
+                    "maximum": 120,
+                    "type": "integer"
+                  },
+                  "maxAge": {
+                    "minimum": 0,
+                    "maximum": 120,
+                    "type": "integer"
+                  },
+                  "waitingPeriodDays": {
+                    "minimum": 0,
+                    "maximum": 3650,
+                    "type": "integer"
+                  },
+                  "services": {
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["serviceId"],
+                      "properties": {
+                        "serviceId": {
+                          "maxLength": 64,
+                          "type": "string"
+                        },
+                        "limitMinor": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "payerId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayerPlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payer-plans/{planId}": {
+      "patch": {
+        "operationId": "updatePayerPlan",
+        "tags": ["insurance"],
+        "description": "Replaces the plan’s terms as sent, from the `version` the edit started from (409 `version_conflict`). When any term or the services are sent, a limit or age left out is removed. Archived alone changes nothing else. The code does not change. Audited. Requires payer:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "description": "The plan’s terms as they should be (the code does not change), or only archived. The services listed replace the old list.",
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "coverageMode": {
+                    "type": "string",
+                    "enum": ["all_except", "only_listed"],
+                    "description": "all_except: everything is covered but the listed services. only_listed: only the listed services are."
+                  },
+                  "copayPercent": {
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "The patient’s share of a covered charge, in percent.",
+                    "type": "integer"
+                  },
+                  "sumInsuredMinor": {
+                    "minimum": 0,
+                    "description": "The most the plan pays in a policy year, in minor units. Absent: no limit.",
+                    "type": "integer"
+                  },
+                  "roomRentLimitMinor": {
+                    "minimum": 0,
+                    "description": "The most it pays for a bed-day, in minor units. Absent: no limit.",
+                    "type": "integer"
+                  },
+                  "preAuthRequired": {
+                    "type": "boolean"
+                  },
+                  "minAge": {
+                    "minimum": 0,
+                    "maximum": 120,
+                    "type": "integer"
+                  },
+                  "maxAge": {
+                    "minimum": 0,
+                    "maximum": 120,
+                    "type": "integer"
+                  },
+                  "waitingPeriodDays": {
+                    "minimum": 0,
+                    "maximum": 3650,
+                    "type": "integer"
+                  },
+                  "services": {
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["serviceId"],
+                      "properties": {
+                        "serviceId": {
+                          "maxLength": 64,
+                          "type": "string"
+                        },
+                        "limitMinor": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  },
+                  "archived": {
+                    "type": "boolean"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          },
+          "description": "The plan’s terms as they should be (the code does not change), or only archived. The services listed replace the old list."
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "planId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayerPlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payers/{payerId}/rate-agreements": {
+      "post": {
+        "operationId": "createRateAgreement",
+        "tags": ["insurance"],
+        "description": "Adds an agreement: a discount on the price list and agreed rates that replace the list price of a service, from a first day to an optional last day. It cannot start in the past, on the hospital’s clock (422 `starts_in_past`), nor overlap another of the organisation, a closed range with no last day being open-ended (409 `agreement_overlap`). It is never edited, only ended. Audited. Requires payer:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["name", "effectiveFrom", "discountBp", "rates"],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "effectiveFrom": {
+                    "format": "date",
+                    "type": "string"
+                  },
+                  "effectiveTo": {
+                    "format": "date",
+                    "type": "string"
+                  },
+                  "discountBp": {
+                    "minimum": 0,
+                    "maximum": 10000,
+                    "type": "integer"
+                  },
+                  "rates": {
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["serviceId", "rateMinor"],
+                      "properties": {
+                        "serviceId": {
+                          "maxLength": 64,
+                          "type": "string"
+                        },
+                        "rateMinor": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "payerId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Prices a payer’s patients are charged between two dates: a discount on the price list, and a rate for a service that replaces the list price.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateAgreement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rate-agreements/{agreementId}": {
+      "patch": {
+        "operationId": "endRateAgreement",
+        "tags": ["insurance"],
+        "description": "Ends an agreement on a last day (not before its first), or, with null, leaves it open-ended. Nothing else about an agreement changes. A last day that runs into the next agreement is 409 `agreement_overlap`; a stale `version` is 409 `version_conflict`. Audited. Requires payer:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "effectiveTo": {
+                    "type": ["string", "null"],
+                    "format": "date"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "agreementId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prices a payer’s patients are charged between two dates: a discount on the price list, and a rate for a service that replaces the list price.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateAgreement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/policies": {
+      "get": {
+        "operationId": "listPatientPolicies",
+        "tags": ["insurance"],
+        "description": "The patient’s policies, newest first, with the status worked out from the dates and whether it was ended. Audited as a read of each policy. Requires policy:read and a patient the caller may read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PatientPolicy"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPatientPolicy",
+        "tags": ["insurance"],
+        "description": "Puts a policy against a plan on the patient’s record. The last day is not before the first (422 `validation_failed`); an archived plan or organisation takes none (409 `plan_archived`); the same card on the same plan once while it is in force (409 `duplicate_policy`). Audited. Requires policy:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["planId", "policyNumber", "holderName", "relationship", "validFrom"],
+                "properties": {
+                  "planId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "policyNumber": {
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "memberId": {
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "holderName": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "relationship": {
+                    "type": "string",
+                    "enum": ["self", "spouse", "child", "parent", "other"]
+                  },
+                  "validFrom": {
+                    "format": "date",
+                    "type": "string"
+                  },
+                  "validTo": {
+                    "format": "date",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patient-policies/{policyId}/end": {
+      "post": {
+        "operationId": "endPatientPolicy",
+        "tags": ["insurance"],
+        "description": "Ends a policy: it backs no new request. Nothing else about a policy is ever edited, and it is ended once (409 `already_ended`). A stale `version` is 409 `version_conflict`. Audited. Requires policy:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "policyId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/pre-auths": {
+      "get": {
+        "operationId": "listPatientPreAuths",
+        "tags": ["insurance"],
+        "description": "The patient’s pre-authorization requests, newest first. `billedMinor` is worked out from the visit’s charge ledger. Audited as a read of each. Requires preauth:read and a patient the caller may read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PreAuth"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPreAuth",
+        "tags": ["insurance"],
+        "description": "Asks the payer to pre-authorize a treatment against one of the patient’s policies, in status `submitted`. The policy must be active (409 `policy_not_active`); a visit, when named, is the patient’s own (404 `encounter_not_found`). The enclosed documents are named; the files are on the patient’s record. Audited. Requires preauth:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["policyId", "treatment", "requestedMinor", "documents"],
+                "properties": {
+                  "policyId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "encounterId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "treatment": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "requestedMinor": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "documents": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "minLength": 1,
+                      "maxLength": 100,
+                      "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreAuth"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/encounters/{encounterId}/pre-auths": {
+      "get": {
+        "operationId": "listEncounterPreAuths",
+        "tags": ["insurance"],
+        "description": "The pre-authorization requests made for a visit, newest first, each with what the visit has been charged so far (`billedMinor`, from the charge ledger). Requires preauth:read and a patient the caller may read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PreAuth"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pre-auths/{preAuthId}/decision": {
+      "post": {
+        "operationId": "decidePreAuth",
+        "tags": ["insurance"],
+        "description": "Records the payer’s answer to a submitted request: approved (with the approved amount, 422 `validation_failed` without) or rejected. Once only: another answer is 409 `not_submitted`; a stale `version` is 409 `version_conflict`. Audited. Requires preauth:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version", "outcome"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": ["approved", "rejected"]
+                  },
+                  "approvedMinor": {
+                    "minimum": 0,
+                    "description": "Required when approved.",
+                    "type": "integer"
+                  },
+                  "referenceNumber": {
+                    "minLength": 1,
+                    "maxLength": 60,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "note": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "preAuthId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreAuth"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pre-auths/{preAuthId}/cancel": {
+      "post": {
+        "operationId": "cancelPreAuth",
+        "tags": ["insurance"],
+        "description": "Withdraws a request that has not been answered (409 `not_submitted` otherwise). A stale `version` is 409 `version_conflict`. Audited. Requires preauth:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "preAuthId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreAuth"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/emergency/cases": {
       "get": {
         "operationId": "listEmergencyCases",
@@ -63703,938 +65771,6 @@
             "$ref": "#/components/responses/Error"
           },
           "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/payers": {
-      "get": {
-        "operationId": "listPayers",
-        "description": "Insurers, TPAs and corporates of the hospital, by name (IN-01, #181). Needs payer:read and the insurance feature flag. Archived ones only when asked for.",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "maxLength": 100
-            }
-          },
-          {
-            "name": "kind",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": ["insurer", "tpa", "corporate"]
-            }
-          },
-          {
-            "name": "archived",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "One page of payers",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PayerPage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      },
-      "post": {
-        "operationId": "createPayer",
-        "description": "Adds an insurer, a TPA or a corporate. The code is the hospital's own and unique among its payers (409 duplicate_code). Needs payer:manage.",
-        "parameters": [
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PayerCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The payer",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Payer"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/payers/{payerId}": {
-      "get": {
-        "operationId": "getPayer",
-        "description": "One payer with its plans and rate agreements. Needs payer:read.",
-        "parameters": [
-          {
-            "name": "payerId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The payer",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PayerDetail"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      },
-      "patch": {
-        "operationId": "updatePayer",
-        "description": "Changes the fields sent, or archives and restores, from the version the edit started from (409 version_conflict). The code does not change. Needs payer:manage. Nothing past is changed by archiving.",
-        "parameters": [
-          {
-            "name": "payerId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PayerUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The payer",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Payer"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/payers/{payerId}/plans": {
-      "post": {
-        "operationId": "createPayerPlan",
-        "description": "Adds a plan to a payer: what it covers, the patient's share, its limits and eligibility rules. The code is unique among the payer's plans (409 duplicate_code). Needs payer:manage.",
-        "parameters": [
-          {
-            "name": "payerId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PayerPlanWrite"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The plan",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PayerPlan"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/payer-plans/{planId}": {
-      "patch": {
-        "operationId": "updatePayerPlan",
-        "description": "Changes a plan's terms from the version the edit started from, or archives it. Cover that applied to a past charge was kept with it. Needs payer:manage.",
-        "parameters": [
-          {
-            "name": "planId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PayerPlanUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The plan",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PayerPlan"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/payers/{payerId}/rate-agreements": {
-      "post": {
-        "operationId": "createRateAgreement",
-        "description": "Adds a rate agreement for a period: a discount on the price list and rates for named services. Agreements of one payer never overlap (409 agreement_overlap), and a start in the past is refused (422 starts_in_past). Needs payer:manage.",
-        "parameters": [
-          {
-            "name": "payerId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RateAgreementCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The agreement",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RateAgreement"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/rate-agreements/{agreementId}": {
-      "patch": {
-        "operationId": "endRateAgreement",
-        "description": "Ends an agreement on a date, or opens its end again. Its rates are never edited: a change is a new agreement from a later date, so a bill priced under the old terms stays explainable. Needs payer:manage.",
-        "parameters": [
-          {
-            "name": "agreementId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RateAgreementEnd"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The agreement",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RateAgreement"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/patients/{patientId}/policies": {
-      "get": {
-        "operationId": "listPatientPolicies",
-        "description": "The insurance policies on a patient's record, newest first. Needs policy:read.",
-        "parameters": [
-          {
-            "name": "patientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The policies",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PatientPolicy"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      },
-      "post": {
-        "operationId": "createPatientPolicy",
-        "description": "Records a policy on the patient's record against a payer's plan. Needs policy:manage.",
-        "parameters": [
-          {
-            "name": "patientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PatientPolicyCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The policy",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PatientPolicy"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/patient-policies/{policyId}/end": {
-      "post": {
-        "operationId": "endPatientPolicy",
-        "description": "Ends a policy: it can no longer back a new pre-authorization. Needs policy:manage.",
-        "parameters": [
-          {
-            "name": "policyId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PatientPolicyEnd"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The policy",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PatientPolicy"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/patients/{patientId}/pre-auths": {
-      "get": {
-        "operationId": "listPatientPreAuths",
-        "description": "The patient's pre-authorization requests, newest first. Needs preauth:read.",
-        "parameters": [
-          {
-            "name": "patientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PreAuth"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      },
-      "post": {
-        "operationId": "createPreAuth",
-        "description": "Raises a pre-authorization request to the payer of one of the patient's active policies. Needs preauth:manage.",
-        "parameters": [
-          {
-            "name": "patientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PreAuthCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PreAuth"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/encounters/{encounterId}/pre-auths": {
-      "get": {
-        "operationId": "listEncounterPreAuths",
-        "description": "The pre-authorizations of one visit with what the visit has been charged so far (billedMinor), to show the approved limit while billing. Needs preauth:read.",
-        "parameters": [
-          {
-            "name": "encounterId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PreAuth"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/pre-auths/{preAuthId}/decision": {
-      "post": {
-        "operationId": "decidePreAuth",
-        "description": "Records the payer's answer to a submitted request: approved (with the amount approved) or rejected. Needs preauth:manage.",
-        "parameters": [
-          {
-            "name": "preAuthId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PreAuthDecision"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PreAuth"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/pre-auths/{preAuthId}/cancel": {
-      "post": {
-        "operationId": "cancelPreAuth",
-        "description": "Withdraws a submitted request. Needs preauth:manage.",
-        "parameters": [
-          {
-            "name": "preAuthId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PreAuthCancel"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PreAuth"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
             "$ref": "#/components/responses/Error"
           },
           "default": {

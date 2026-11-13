@@ -4101,6 +4101,214 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/payers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital’s insurers, TPAs and corporates by name, archived or not (`archived`, default not). `q` matches the name or code. Cursor paged; `total` counts the filter. Requires payer:read. */
+        get: operations["listPayers"];
+        put?: never;
+        /** @description Adds an insurer, TPA or corporate. The code is unique in the hospital whatever its capitals (409 `duplicate_code`) and never changes. Audited. Requires payer:manage. */
+        post: operations["createPayer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payers/{payerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description An organisation with its plans (archived ones too) and rate agreements, newest first. Requires payer:read. */
+        get: operations["getPayer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes the fields sent, from the `version` the edit started from (409 `version_conflict`). A contact field sent as null is cleared. Archiving hides the organisation from the list and from new plans, agreements and policies. Audited. Requires payer:manage. */
+        patch: operations["updatePayer"];
+        trace?: never;
+    };
+    "/payers/{payerId}/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a plan: the patient’s share, limits, eligibility rules and the services covered or left out. The code is unique within the organisation (409 `duplicate_code`); an archived organisation takes none (409 `payer_archived`); a service that is not the hospital’s is 422 `unknown_service`. Audited. Requires payer:manage. */
+        post: operations["createPayerPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payer-plans/{planId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Replaces the plan’s terms as sent, from the `version` the edit started from (409 `version_conflict`). When any term or the services are sent, a limit or age left out is removed. Archived alone changes nothing else. The code does not change. Audited. Requires payer:manage. */
+        patch: operations["updatePayerPlan"];
+        trace?: never;
+    };
+    "/payers/{payerId}/rate-agreements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds an agreement: a discount on the price list and agreed rates that replace the list price of a service, from a first day to an optional last day. It cannot start in the past, on the hospital’s clock (422 `starts_in_past`), nor overlap another of the organisation, a closed range with no last day being open-ended (409 `agreement_overlap`). It is never edited, only ended. Audited. Requires payer:manage. */
+        post: operations["createRateAgreement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rate-agreements/{agreementId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Ends an agreement on a last day (not before its first), or, with null, leaves it open-ended. Nothing else about an agreement changes. A last day that runs into the next agreement is 409 `agreement_overlap`; a stale `version` is 409 `version_conflict`. Audited. Requires payer:manage. */
+        patch: operations["endRateAgreement"];
+        trace?: never;
+    };
+    "/patients/{patientId}/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The patient’s policies, newest first, with the status worked out from the dates and whether it was ended. Audited as a read of each policy. Requires policy:read and a patient the caller may read. */
+        get: operations["listPatientPolicies"];
+        put?: never;
+        /** @description Puts a policy against a plan on the patient’s record. The last day is not before the first (422 `validation_failed`); an archived plan or organisation takes none (409 `plan_archived`); the same card on the same plan once while it is in force (409 `duplicate_policy`). Audited. Requires policy:manage. */
+        post: operations["createPatientPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patient-policies/{policyId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Ends a policy: it backs no new request. Nothing else about a policy is ever edited, and it is ended once (409 `already_ended`). A stale `version` is 409 `version_conflict`. Audited. Requires policy:manage. */
+        post: operations["endPatientPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/pre-auths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The patient’s pre-authorization requests, newest first. `billedMinor` is worked out from the visit’s charge ledger. Audited as a read of each. Requires preauth:read and a patient the caller may read. */
+        get: operations["listPatientPreAuths"];
+        put?: never;
+        /** @description Asks the payer to pre-authorize a treatment against one of the patient’s policies, in status `submitted`. The policy must be active (409 `policy_not_active`); a visit, when named, is the patient’s own (404 `encounter_not_found`). The enclosed documents are named; the files are on the patient’s record. Audited. Requires preauth:manage. */
+        post: operations["createPreAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/pre-auths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The pre-authorization requests made for a visit, newest first, each with what the visit has been charged so far (`billedMinor`, from the charge ledger). Requires preauth:read and a patient the caller may read. */
+        get: operations["listEncounterPreAuths"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pre-auths/{preAuthId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records the payer’s answer to a submitted request: approved (with the approved amount, 422 `validation_failed` without) or rejected. Once only: another answer is 409 `not_submitted`; a stale `version` is 409 `version_conflict`. Audited. Requires preauth:manage. */
+        post: operations["decidePreAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pre-auths/{preAuthId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Withdraws a request that has not been answered (409 `not_submitted` otherwise). A stale `version` is 409 `version_conflict`. Audited. Requires preauth:manage. */
+        post: operations["cancelPreAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/emergency/cases": {
         parameters: {
             query?: never;
@@ -6237,214 +6445,6 @@ export interface paths {
         put?: never;
         /** @description Closes an open request as fulfilled or declined, with a note, at the version read; once only. Needs recordRequest:manage. 409 version_conflict or already_closed. */
         post: operations["closeRecordRequest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/payers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Insurers, TPAs and corporates of the hospital, by name (IN-01, #181). Needs payer:read and the insurance feature flag. Archived ones only when asked for. */
-        get: operations["listPayers"];
-        put?: never;
-        /** @description Adds an insurer, a TPA or a corporate. The code is the hospital's own and unique among its payers (409 duplicate_code). Needs payer:manage. */
-        post: operations["createPayer"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/payers/{payerId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description One payer with its plans and rate agreements. Needs payer:read. */
-        get: operations["getPayer"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** @description Changes the fields sent, or archives and restores, from the version the edit started from (409 version_conflict). The code does not change. Needs payer:manage. Nothing past is changed by archiving. */
-        patch: operations["updatePayer"];
-        trace?: never;
-    };
-    "/payers/{payerId}/plans": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Adds a plan to a payer: what it covers, the patient's share, its limits and eligibility rules. The code is unique among the payer's plans (409 duplicate_code). Needs payer:manage. */
-        post: operations["createPayerPlan"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/payer-plans/{planId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** @description Changes a plan's terms from the version the edit started from, or archives it. Cover that applied to a past charge was kept with it. Needs payer:manage. */
-        patch: operations["updatePayerPlan"];
-        trace?: never;
-    };
-    "/payers/{payerId}/rate-agreements": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Adds a rate agreement for a period: a discount on the price list and rates for named services. Agreements of one payer never overlap (409 agreement_overlap), and a start in the past is refused (422 starts_in_past). Needs payer:manage. */
-        post: operations["createRateAgreement"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/rate-agreements/{agreementId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** @description Ends an agreement on a date, or opens its end again. Its rates are never edited: a change is a new agreement from a later date, so a bill priced under the old terms stays explainable. Needs payer:manage. */
-        patch: operations["endRateAgreement"];
-        trace?: never;
-    };
-    "/patients/{patientId}/policies": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The insurance policies on a patient's record, newest first. Needs policy:read. */
-        get: operations["listPatientPolicies"];
-        put?: never;
-        /** @description Records a policy on the patient's record against a payer's plan. Needs policy:manage. */
-        post: operations["createPatientPolicy"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patient-policies/{policyId}/end": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Ends a policy: it can no longer back a new pre-authorization. Needs policy:manage. */
-        post: operations["endPatientPolicy"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patients/{patientId}/pre-auths": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The patient's pre-authorization requests, newest first. Needs preauth:read. */
-        get: operations["listPatientPreAuths"];
-        put?: never;
-        /** @description Raises a pre-authorization request to the payer of one of the patient's active policies. Needs preauth:manage. */
-        post: operations["createPreAuth"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/encounters/{encounterId}/pre-auths": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The pre-authorizations of one visit with what the visit has been charged so far (billedMinor), to show the approved limit while billing. Needs preauth:read. */
-        get: operations["listEncounterPreAuths"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/pre-auths/{preAuthId}/decision": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Records the payer's answer to a submitted request: approved (with the amount approved) or rejected. Needs preauth:manage. */
-        post: operations["decidePreAuth"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/pre-auths/{preAuthId}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Withdraws a submitted request. Needs preauth:manage. */
-        post: operations["cancelPreAuth"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10172,6 +10172,252 @@ export interface components {
             /** @description The version the change was made from. Another one gives 409 `conflict`. */
             version: number;
         };
+        /** @description An insurer, a TPA (which administers claims for insurers) or a corporate with a credit arrangement. Contact details are the organisation’s, never a patient’s. */
+        Payer: {
+            id: string;
+            tenantId: string;
+            /** @enum {string} */
+            kind: "insurer" | "tpa" | "corporate";
+            code: string;
+            name: string;
+            contactName?: string;
+            phone?: string;
+            email?: string;
+            address?: string;
+            planCount: number;
+            archived: boolean;
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        PayerPage: {
+            items: components["schemas"]["Payer"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        PayerCreate: {
+            /** @enum {string} */
+            kind: "insurer" | "tpa" | "corporate";
+            code: string;
+            name: string;
+            contactName?: string;
+            phone?: string;
+            email?: string;
+            address?: string;
+        };
+        PayerUpdate: {
+            name?: string;
+            contactName?: string | null;
+            phone?: string | null;
+            email?: string | null;
+            address?: string | null;
+            archived?: boolean;
+            version: number;
+        };
+        PayerPlan: {
+            id: string;
+            payerId: string;
+            code: string;
+            name: string;
+            /**
+             * @description all_except: everything is covered but the listed services. only_listed: only the listed services are.
+             * @enum {string}
+             */
+            coverageMode: "all_except" | "only_listed";
+            /** @description The patient’s share of a covered charge, in percent. */
+            copayPercent: number;
+            /** @description The most the plan pays in a policy year, in minor units. Absent: no limit. */
+            sumInsuredMinor?: number;
+            /** @description The most it pays for a bed-day, in minor units. Absent: no limit. */
+            roomRentLimitMinor?: number;
+            preAuthRequired: boolean;
+            minAge?: number;
+            maxAge?: number;
+            waitingPeriodDays?: number;
+            services: {
+                serviceId: string;
+                serviceName: string;
+                limitMinor?: number;
+            }[];
+            archived: boolean;
+            version: number;
+        };
+        PayerPlanWrite: {
+            code: string;
+            name: string;
+            /**
+             * @description all_except: everything is covered but the listed services. only_listed: only the listed services are.
+             * @enum {string}
+             */
+            coverageMode: "all_except" | "only_listed";
+            /** @description The patient’s share of a covered charge, in percent. */
+            copayPercent: number;
+            /** @description The most the plan pays in a policy year, in minor units. Absent: no limit. */
+            sumInsuredMinor?: number;
+            /** @description The most it pays for a bed-day, in minor units. Absent: no limit. */
+            roomRentLimitMinor?: number;
+            preAuthRequired: boolean;
+            minAge?: number;
+            maxAge?: number;
+            waitingPeriodDays?: number;
+            services: {
+                serviceId: string;
+                limitMinor?: number;
+            }[];
+        };
+        /** @description The plan’s terms as they should be (the code does not change), or only archived. The services listed replace the old list. */
+        PayerPlanUpdate: {
+            name?: string;
+            /**
+             * @description all_except: everything is covered but the listed services. only_listed: only the listed services are.
+             * @enum {string}
+             */
+            coverageMode?: "all_except" | "only_listed";
+            /** @description The patient’s share of a covered charge, in percent. */
+            copayPercent?: number;
+            /** @description The most the plan pays in a policy year, in minor units. Absent: no limit. */
+            sumInsuredMinor?: number;
+            /** @description The most it pays for a bed-day, in minor units. Absent: no limit. */
+            roomRentLimitMinor?: number;
+            preAuthRequired?: boolean;
+            minAge?: number;
+            maxAge?: number;
+            waitingPeriodDays?: number;
+            services?: {
+                serviceId: string;
+                limitMinor?: number;
+            }[];
+            archived?: boolean;
+            version: number;
+        };
+        /** @description Prices a payer’s patients are charged between two dates: a discount on the price list, and a rate for a service that replaces the list price. */
+        RateAgreement: {
+            id: string;
+            payerId: string;
+            name: string;
+            /** Format: date */
+            effectiveFrom: string;
+            /**
+             * Format: date
+             * @description The last day it applies. Absent: until ended.
+             */
+            effectiveTo?: string;
+            /** @description Discount on the price list in basis points (100 = 1%). */
+            discountBp: number;
+            rates: {
+                serviceId: string;
+                serviceName: string;
+                rateMinor: number;
+            }[];
+            version: number;
+        };
+        RateAgreementCreate: {
+            name: string;
+            /** Format: date */
+            effectiveFrom: string;
+            /** Format: date */
+            effectiveTo?: string;
+            discountBp: number;
+            rates: {
+                serviceId: string;
+                rateMinor: number;
+            }[];
+        };
+        RateAgreementEnd: {
+            /** Format: date */
+            effectiveTo?: string | null;
+            version: number;
+        };
+        PayerDetail: {
+            payer: components["schemas"]["Payer"];
+            plans: components["schemas"]["PayerPlan"][];
+            agreements: components["schemas"]["RateAgreement"][];
+        };
+        PatientPolicy: {
+            id: string;
+            patientId: string;
+            payerId: string;
+            payerName: string;
+            planId: string;
+            planName: string;
+            policyNumber: string;
+            memberId?: string;
+            holderName: string;
+            /** @enum {string} */
+            relationship: "self" | "spouse" | "child" | "parent" | "other";
+            /** Format: date */
+            validFrom: string;
+            /** Format: date */
+            validTo?: string;
+            /**
+             * @description Worked out by the server from the dates and whether it was ended.
+             * @enum {string}
+             */
+            status: "active" | "expired" | "ended";
+            /** @description Whether the plan asks for pre-authorization of an admission. */
+            preAuthRequired: boolean;
+            version: number;
+        };
+        PatientPolicyCreate: {
+            planId: string;
+            policyNumber: string;
+            memberId?: string;
+            holderName: string;
+            /** @enum {string} */
+            relationship: "self" | "spouse" | "child" | "parent" | "other";
+            /** Format: date */
+            validFrom: string;
+            /** Format: date */
+            validTo?: string;
+        };
+        PatientPolicyEnd: {
+            version: number;
+        };
+        PreAuth: {
+            id: string;
+            patientId: string;
+            policyId: string;
+            payerName: string;
+            planName: string;
+            policyNumber: string;
+            /** @description The visit the cover is for, when known. */
+            encounterId?: string;
+            treatment: string;
+            requestedMinor: number;
+            /** @description The limit the payer approved. Absent until approved. */
+            approvedMinor?: number;
+            /** @description What the visit has been charged so far, worked out by the server from the charge ledger. */
+            billedMinor: number;
+            /** @enum {string} */
+            status: "submitted" | "approved" | "rejected" | "cancelled";
+            referenceNumber?: string;
+            decisionNote?: string;
+            /** @description What is enclosed with the request, by name. The files are on the patient record (documents). */
+            documents: string[];
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            version: number;
+        };
+        PreAuthCreate: {
+            policyId: string;
+            encounterId?: string;
+            treatment: string;
+            requestedMinor: number;
+            documents: string[];
+        };
+        PreAuthDecision: {
+            version: number;
+            /** @enum {string} */
+            outcome: "approved" | "rejected";
+            /** @description Required when approved. */
+            approvedMinor?: number;
+            referenceNumber?: string;
+            note?: string;
+        };
+        PreAuthCancel: {
+            version: number;
+        };
         /** @enum {string} */
         EmergencyCaseStatus: "waiting" | "in_treatment" | "disposed";
         /** @enum {string} */
@@ -12335,250 +12581,6 @@ export interface components {
             /** @enum {string} */
             outcome: "fulfilled" | "declined";
             note: string;
-            version: number;
-        };
-        /** @description An insurer, a TPA (which administers claims for insurers) or a corporate with a credit arrangement. Contact details are the organisation's, never a patient's. */
-        Payer: {
-            id: string;
-            tenantId: string;
-            /** @enum {string} */
-            kind: "insurer" | "tpa" | "corporate";
-            code: string;
-            name: string;
-            contactName?: string;
-            phone?: string;
-            email?: string;
-            address?: string;
-            planCount: number;
-            archived: boolean;
-            version: number;
-        };
-        PayerPage: {
-            items: components["schemas"]["Payer"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        PayerCreate: {
-            /** @enum {string} */
-            kind: "insurer" | "tpa" | "corporate";
-            code: string;
-            name: string;
-            contactName?: string;
-            phone?: string;
-            email?: string;
-            address?: string;
-        };
-        PayerUpdate: {
-            name?: string;
-            contactName?: string | null;
-            phone?: string | null;
-            email?: string | null;
-            address?: string | null;
-            archived?: boolean;
-            version: number;
-        };
-        PayerPlan: {
-            id: string;
-            payerId: string;
-            code: string;
-            name: string;
-            /**
-             * @description all_except: everything is covered but the listed services. only_listed: only the listed services are.
-             * @enum {string}
-             */
-            coverageMode: "all_except" | "only_listed";
-            /** @description The patient's share of a covered charge, in percent. */
-            copayPercent: number;
-            /** @description The most the plan pays in a policy year, in minor units. Absent: no limit. */
-            sumInsuredMinor?: number;
-            /** @description The most it pays for a bed-day, in minor units. Absent: no limit. */
-            roomRentLimitMinor?: number;
-            preAuthRequired: boolean;
-            minAge?: number;
-            maxAge?: number;
-            waitingPeriodDays?: number;
-            services: {
-                serviceId: string;
-                serviceName: string;
-                limitMinor?: number;
-            }[];
-            archived: boolean;
-            version: number;
-        };
-        PayerPlanWrite: {
-            code: string;
-            name: string;
-            /**
-             * @description all_except: everything is covered but the listed services. only_listed: only the listed services are.
-             * @enum {string}
-             */
-            coverageMode: "all_except" | "only_listed";
-            /** @description The patient's share of a covered charge, in percent. */
-            copayPercent: number;
-            /** @description The most the plan pays in a policy year, in minor units. Absent: no limit. */
-            sumInsuredMinor?: number;
-            /** @description The most it pays for a bed-day, in minor units. Absent: no limit. */
-            roomRentLimitMinor?: number;
-            preAuthRequired: boolean;
-            minAge?: number;
-            maxAge?: number;
-            waitingPeriodDays?: number;
-            services: {
-                serviceId: string;
-                limitMinor?: number;
-            }[];
-        };
-        /** @description The plan's terms as they should be (the code does not change), or only archived. The services listed replace the old list. */
-        PayerPlanUpdate: {
-            name?: string;
-            /**
-             * @description all_except: everything is covered but the listed services. only_listed: only the listed services are.
-             * @enum {string}
-             */
-            coverageMode?: "all_except" | "only_listed";
-            /** @description The patient's share of a covered charge, in percent. */
-            copayPercent?: number;
-            /** @description The most the plan pays in a policy year, in minor units. Absent: no limit. */
-            sumInsuredMinor?: number;
-            /** @description The most it pays for a bed-day, in minor units. Absent: no limit. */
-            roomRentLimitMinor?: number;
-            preAuthRequired?: boolean;
-            minAge?: number;
-            maxAge?: number;
-            waitingPeriodDays?: number;
-            services?: {
-                serviceId: string;
-                limitMinor?: number;
-            }[];
-            archived?: boolean;
-            version: number;
-        };
-        /** @description Prices a payer's patients are charged between two dates: a discount on the price list, and a rate for a service that replaces the list price. */
-        RateAgreement: {
-            id: string;
-            payerId: string;
-            name: string;
-            /** Format: date */
-            effectiveFrom: string;
-            /**
-             * Format: date
-             * @description The last day it applies. Absent: until ended.
-             */
-            effectiveTo?: string;
-            /** @description Discount on the price list in basis points (100 = 1%). */
-            discountBp: number;
-            rates: {
-                serviceId: string;
-                serviceName: string;
-                rateMinor: number;
-            }[];
-            version: number;
-        };
-        RateAgreementCreate: {
-            name: string;
-            /** Format: date */
-            effectiveFrom: string;
-            /** Format: date */
-            effectiveTo?: string;
-            discountBp: number;
-            rates: {
-                serviceId: string;
-                rateMinor: number;
-            }[];
-        };
-        RateAgreementEnd: {
-            effectiveTo?: string | null;
-            version: number;
-        };
-        PayerDetail: {
-            payer: components["schemas"]["Payer"];
-            plans: components["schemas"]["PayerPlan"][];
-            agreements: components["schemas"]["RateAgreement"][];
-        };
-        PatientPolicy: {
-            id: string;
-            patientId: string;
-            payerId: string;
-            payerName: string;
-            planId: string;
-            planName: string;
-            policyNumber: string;
-            memberId?: string;
-            holderName: string;
-            /** @enum {string} */
-            relationship: "self" | "spouse" | "child" | "parent" | "other";
-            /** Format: date */
-            validFrom: string;
-            /** Format: date */
-            validTo?: string;
-            /**
-             * @description Worked out by the server from the dates and whether it was ended.
-             * @enum {string}
-             */
-            status: "active" | "expired" | "ended";
-            /** @description Whether the plan asks for pre-authorization of an admission. */
-            preAuthRequired: boolean;
-            version: number;
-        };
-        PatientPolicyCreate: {
-            planId: string;
-            policyNumber: string;
-            memberId?: string;
-            holderName: string;
-            /** @enum {string} */
-            relationship: "self" | "spouse" | "child" | "parent" | "other";
-            /** Format: date */
-            validFrom: string;
-            /** Format: date */
-            validTo?: string;
-        };
-        PatientPolicyEnd: {
-            version: number;
-        };
-        PreAuth: {
-            id: string;
-            patientId: string;
-            policyId: string;
-            payerName: string;
-            planName: string;
-            policyNumber: string;
-            /** @description The visit the cover is for, when known. */
-            encounterId?: string;
-            treatment: string;
-            requestedMinor: number;
-            /** @description The limit the payer approved. Absent until approved. */
-            approvedMinor?: number;
-            /** @description What the visit has been charged so far, worked out by the server from the charge ledger. */
-            billedMinor: number;
-            /** @enum {string} */
-            status: "submitted" | "approved" | "rejected" | "cancelled";
-            referenceNumber?: string;
-            decisionNote?: string;
-            /** @description What is enclosed with the request, by name. The files are on the patient record (documents). */
-            documents: string[];
-            /** Format: date-time */
-            requestedAt: string;
-            /** Format: date-time */
-            decidedAt?: string;
-            version: number;
-        };
-        PreAuthCreate: {
-            policyId: string;
-            encounterId?: string;
-            treatment: string;
-            requestedMinor: number;
-            documents: string[];
-        };
-        PreAuthDecision: {
-            version: number;
-            /** @enum {string} */
-            outcome: "approved" | "rejected";
-            /** @description Required when approved. */
-            approvedMinor?: number;
-            referenceNumber?: string;
-            note?: string;
-        };
-        PreAuthCancel: {
             version: number;
         };
         CoverageSplitLine: {
@@ -34801,6 +34803,1366 @@ export interface operations {
             };
         };
     };
+    listPayers: {
+        parameters: {
+            query?: {
+                q?: string;
+                kind?: "insurer" | "tpa" | "corporate";
+                archived?: boolean;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createPayer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind: "insurer" | "tpa" | "corporate";
+                    code: string;
+                    name: string;
+                    contactName?: string;
+                    phone?: string;
+                    email?: string;
+                    address?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description An insurer, a TPA (which administers claims for insurers) or a corporate with a credit arrangement. Contact details are the organisation’s, never a patient’s. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payer"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updatePayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    contactName?: string | null;
+                    phone?: string | null;
+                    email?: string | null;
+                    address?: string | null;
+                    archived?: boolean;
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description An insurer, a TPA (which administers claims for insurers) or a corporate with a credit arrangement. Contact details are the organisation’s, never a patient’s. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payer"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createPayerPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    name: string;
+                    /**
+                     * @description all_except: everything is covered but the listed services. only_listed: only the listed services are.
+                     * @enum {string}
+                     */
+                    coverageMode: "all_except" | "only_listed";
+                    /** @description The patient’s share of a covered charge, in percent. */
+                    copayPercent: number;
+                    /** @description The most the plan pays in a policy year, in minor units. Absent: no limit. */
+                    sumInsuredMinor?: number;
+                    /** @description The most it pays for a bed-day, in minor units. Absent: no limit. */
+                    roomRentLimitMinor?: number;
+                    preAuthRequired: boolean;
+                    minAge?: number;
+                    maxAge?: number;
+                    waitingPeriodDays?: number;
+                    services: {
+                        serviceId: string;
+                        limitMinor?: number;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerPlan"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updatePayerPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                planId: string;
+            };
+            cookie?: never;
+        };
+        /** @description The plan’s terms as they should be (the code does not change), or only archived. The services listed replace the old list. */
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /**
+                     * @description all_except: everything is covered but the listed services. only_listed: only the listed services are.
+                     * @enum {string}
+                     */
+                    coverageMode?: "all_except" | "only_listed";
+                    /** @description The patient’s share of a covered charge, in percent. */
+                    copayPercent?: number;
+                    /** @description The most the plan pays in a policy year, in minor units. Absent: no limit. */
+                    sumInsuredMinor?: number;
+                    /** @description The most it pays for a bed-day, in minor units. Absent: no limit. */
+                    roomRentLimitMinor?: number;
+                    preAuthRequired?: boolean;
+                    minAge?: number;
+                    maxAge?: number;
+                    waitingPeriodDays?: number;
+                    services?: {
+                        serviceId: string;
+                        limitMinor?: number;
+                    }[];
+                    archived?: boolean;
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayerPlan"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createRateAgreement: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** Format: date */
+                    effectiveFrom: string;
+                    /** Format: date */
+                    effectiveTo?: string;
+                    discountBp: number;
+                    rates: {
+                        serviceId: string;
+                        rateMinor: number;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Prices a payer’s patients are charged between two dates: a discount on the price list, and a rate for a service that replaces the list price. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateAgreement"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    endRateAgreement: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                agreementId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    effectiveTo?: string | null;
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Prices a payer’s patients are charged between two dates: a discount on the price list, and a rate for a service that replaces the list price. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateAgreement"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listPatientPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientPolicy"][];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createPatientPolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    planId: string;
+                    policyNumber: string;
+                    memberId?: string;
+                    holderName: string;
+                    /** @enum {string} */
+                    relationship: "self" | "spouse" | "child" | "parent" | "other";
+                    /** Format: date */
+                    validFrom: string;
+                    /** Format: date */
+                    validTo?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientPolicy"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    endPatientPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                policyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientPolicy"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listPatientPreAuths: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreAuth"][];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createPreAuth: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    policyId: string;
+                    encounterId?: string;
+                    treatment: string;
+                    requestedMinor: number;
+                    documents: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreAuth"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listEncounterPreAuths: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreAuth"][];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    decidePreAuth: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                preAuthId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                    /** @enum {string} */
+                    outcome: "approved" | "rejected";
+                    /** @description Required when approved. */
+                    approvedMinor?: number;
+                    referenceNumber?: string;
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreAuth"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelPreAuth: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                preAuthId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreAuth"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listEmergencyCases: {
         parameters: {
             query?: {
@@ -46613,509 +47975,6 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listPayers: {
-        parameters: {
-            query?: {
-                q?: string;
-                kind?: "insurer" | "tpa" | "corporate";
-                archived?: boolean;
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of payers */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PayerPage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createPayer: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PayerCreate"];
-            };
-        };
-        responses: {
-            /** @description The payer */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Payer"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getPayer: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                payerId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The payer */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PayerDetail"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    updatePayer: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                payerId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PayerUpdate"];
-            };
-        };
-        responses: {
-            /** @description The payer */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Payer"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createPayerPlan: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                payerId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PayerPlanWrite"];
-            };
-        };
-        responses: {
-            /** @description The plan */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PayerPlan"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    updatePayerPlan: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                planId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PayerPlanUpdate"];
-            };
-        };
-        responses: {
-            /** @description The plan */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PayerPlan"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createRateAgreement: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                payerId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RateAgreementCreate"];
-            };
-        };
-        responses: {
-            /** @description The agreement */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RateAgreement"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    endRateAgreement: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                agreementId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RateAgreementEnd"];
-            };
-        };
-        responses: {
-            /** @description The agreement */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RateAgreement"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listPatientPolicies: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The policies */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatientPolicy"][];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createPatientPolicy: {
-        parameters: {
-            query?: never;
-            header: {
-                "idempotency-key": string;
-            };
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatientPolicyCreate"];
-            };
-        };
-        responses: {
-            /** @description The policy */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatientPolicy"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    endPatientPolicy: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                policyId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatientPolicyEnd"];
-            };
-        };
-        responses: {
-            /** @description The policy */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatientPolicy"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listPatientPreAuths: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The requests */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PreAuth"][];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createPreAuth: {
-        parameters: {
-            query?: never;
-            header: {
-                "idempotency-key": string;
-            };
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PreAuthCreate"];
-            };
-        };
-        responses: {
-            /** @description The request */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PreAuth"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listEncounterPreAuths: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                encounterId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The requests */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PreAuth"][];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    decidePreAuth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                preAuthId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PreAuthDecision"];
-            };
-        };
-        responses: {
-            /** @description The request */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PreAuth"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    cancelPreAuth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                preAuthId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PreAuthCancel"];
-            };
-        };
-        responses: {
-            /** @description The request */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PreAuth"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
