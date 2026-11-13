@@ -8,6 +8,10 @@ export const DOMAIN_EVENTS = [
   'patient.updated',
   // Two records of one person were merged (#194): the merge and both patient ids, nothing else.
   'patient.merged',
+  // A correction to a record was requested or decided (#556): ids and the target kind only.
+  'correction.requested',
+  'correction.approved',
+  'correction.rejected',
   'appointment.created',
   'appointment.rescheduled',
   'appointment.cancelled',
