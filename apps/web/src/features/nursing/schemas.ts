@@ -60,7 +60,9 @@ export const stayRowSchema: z.ZodType<StayRow> = z.object({
   patientMrn: z.string(),
   status: z.enum(['admitted', 'discharged']),
   admittedAt: z.string(),
+  doctorId: z.string(),
   doctorName: z.string(),
+  encounterId: z.string(),
   bed: z.object({ bedNumber: z.string(), wardId: z.string(), wardName: z.string() }).optional(),
 });
 

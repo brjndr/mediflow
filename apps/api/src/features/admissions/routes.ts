@@ -331,7 +331,7 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listAdmissions',
         tags: ['admissions'],
         description:
-          'The hospital’s admissions, newest first: of one status, of one patient, in one ward (the ward of the bed the patient is in now), or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds admission:read with: `own`, the admissions they made as a doctor; `department`, those of their department. A list nobody types patient facts into, so a GET. Every row names its patient, so every row of a page is audited. `total` comes with the first page only. Requires admission:read and the admissions feature flag.',
+          'The hospital’s admissions, newest first: of one status, of one patient, of one admitting doctor (a doctor’s round list), in one ward (the ward of the bed the patient is in now), or any of those together. Ids that are not the hospital’s match nothing. Within the scope the caller holds admission:read with: `own`, the admissions they made as a doctor; `department`, those of their department. A list nobody types patient facts into, so a GET. Every row names its patient, so every row of a page is audited. `total` comes with the first page only. Requires admission:read and the admissions feature flag.',
         querystring: AdmissionListQuery,
         response: { 200: ref(AdmissionPage), ...errors(400, 401, 403, 409, 429) },
       },

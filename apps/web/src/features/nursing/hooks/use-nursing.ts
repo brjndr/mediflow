@@ -29,15 +29,15 @@ export function useEwsConfig(): EwsConfig {
   return DEFAULT_EWS_CONFIG;
 }
 
-export function useStays(wardId: string) {
+export function useStays(wardId: string, doctorId = '', enabled = true) {
   const tenantId = useTenant()?.id;
   return useInfiniteQuery({
-    queryKey: nursingKeys.list(tenantId ?? '', { wardId, limit: STAYS_PAGE_SIZE }),
+    queryKey: nursingKeys.list(tenantId ?? '', { wardId, doctorId, limit: STAYS_PAGE_SIZE }),
     queryFn: ({ pageParam, signal }) =>
-      fetchStays({ wardId, cursor: pageParam, limit: STAYS_PAGE_SIZE }, signal),
+      fetchStays({ wardId, doctorId, cursor: pageParam, limit: STAYS_PAGE_SIZE }, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    enabled: tenantId !== undefined,
+    enabled: tenantId !== undefined && enabled,
     refetchInterval: REFRESH_MS,
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === tenantId ? previous : undefined,

@@ -187,11 +187,13 @@ export const admissionFlowHandlers = [
     const limit = Math.min(Number(query.get('limit') ?? 25) || 25, 100);
     const cursor = query.get('cursor');
     const wardId = query.get('wardId');
+    const doctorId = query.get('doctorId');
     const all = admissions.filter(
       (admission) =>
         admission.tenantId === access.tenantId &&
         (!status || admission.status === status) &&
-        (!wardId || admission.bed?.wardId === wardId),
+        (!wardId || admission.bed?.wardId === wardId) &&
+        (!doctorId || admission.doctorId === doctorId),
     );
     const start = cursor ? all.findIndex((admission) => admission.id === cursor) : 0;
     if (start < 0) return error(400, 'invalid_cursor', 'Unknown cursor');

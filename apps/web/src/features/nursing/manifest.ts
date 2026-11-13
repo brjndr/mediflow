@@ -4,14 +4,23 @@ import type { FeatureManifest } from '@/registry';
 /**
  * Nursing and ward care (#157, R2). The nursing worklist: the patients now on the wards, by ward,
  * and the vital signs chart of a stay with its trend, an early warning score and corrections, and
- * the medication chart (#158): the doses due, each charted given, withheld, refused or missed.
+ * the medication chart (#158): the doses due, each charted given, withheld, refused or missed,
+ * and the doctor's round list with progress notes and the orders of the stay (#159).
  * Built on the nursing API (BE-24); it refers to admissions by id.
  */
 export const nursingFeature: FeatureManifest = {
   id: 'nursing',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Ward care', vitals: 'Vital signs', mar: 'Medication chart' } },
+    titles: {
+      en: {
+        title: 'Ward care',
+        vitals: 'Vital signs',
+        mar: 'Medication chart',
+        rounds: 'Doctor rounds',
+        notes: 'Progress notes',
+      },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital (it also needs `admissions`).
@@ -34,6 +43,18 @@ export const nursingFeature: FeatureManifest = {
       lazy: () => import('./routes/Mar'),
       requires: ['admission:read', 'mar:read'],
     },
+    {
+      path: 'nursing/rounds',
+      titleKey: 'rounds',
+      lazy: () => import('./routes/Rounds'),
+      requires: ['admission:read', 'progressNote:read'],
+    },
+    {
+      path: 'nursing/:admissionId/notes',
+      titleKey: 'notes',
+      lazy: () => import('./routes/Notes'),
+      requires: ['admission:read', 'progressNote:read'],
+    },
   ],
   nav: { icon: HeartPulse, order: 82.5, requires: ['admission:read', 'nursingVitals:read'] },
   permissions: [
@@ -42,5 +63,7 @@ export const nursingFeature: FeatureManifest = {
     'nursingVitals:record',
     'mar:read',
     'mar:record',
+    'progressNote:read',
+    'progressNote:write',
   ],
 };

@@ -25,12 +25,14 @@
     "spo2": "SpO2",
     "score": "Warning score",
     "by": "Recorded by",
+    "written": "Written",
     "note": "Note"
   },
   "actions": {
     "vitals": "Chart vitals",
     "correct": "Correct",
-    "mar": "Medication chart"
+    "mar": "Medication chart",
+    "notes": "Progress notes"
   },
   "back": "Back to ward care",
   "vitalsLoading": "Vital signs",
@@ -104,6 +106,62 @@
     "pulse": "Pulse",
     "temperature": "Temperature",
     "spo2": "SpO2"
+  },
+  "rounds": {
+    "link": "Doctor rounds",
+    "heading": "Doctor rounds",
+    "description": "The patients admitted under a doctor. Open one to write a progress note or place orders.",
+    "doctor": "Doctor",
+    "allDoctors": "All doctors",
+    "gridLabel": "Patients on rounds",
+    "empty": "No admitted patients for this doctor."
+  },
+  "notes": {
+    "back": "Back to doctor rounds",
+    "loading": "Progress notes",
+    "heading": "Progress notes: {{patient}}",
+    "closed": "This patient is no longer admitted. Notes can be read but not added or amended.",
+    "addHeading": "Write a progress note",
+    "kind": "Type",
+    "kinds": {
+      "observation": "Ward round",
+      "nursing": "Nursing",
+      "handover": "Handover"
+    },
+    "body": "Note",
+    "add": "Add note",
+    "gridLabel": "Progress notes",
+    "rowLabel": "Note written {{time}}",
+    "empty": "No notes yet.",
+    "versionHeader": "Version",
+    "original": "Original",
+    "amendedAt": "Amended (version {{version}}) {{time}}",
+    "edit": "Amend",
+    "history": "History",
+    "editTitle": "Amend note",
+    "editLine": "You are amending version {{version}}. The earlier text stays in the history.",
+    "saveAmendment": "Save amendment",
+    "close": "Close",
+    "historyTitle": "Note history",
+    "historyLine_one": "{{count}} version, newest first.",
+    "historyLine_other": "{{count}} versions, newest first.",
+    "versionLine": "Version {{version}}, {{by}}, {{time}}",
+    "loadMore": "Load more",
+    "ordersHeading": "Orders",
+    "ordersHint": "Lab, imaging and procedure orders for this stay.",
+    "done": {
+      "added": "Note added.",
+      "amended": "Note amended."
+    },
+    "errors": {
+      "body": "Write the note.",
+      "bodyLong": "A note is at most 4000 characters."
+    },
+    "refused": {
+      "conflict": "This note was changed meanwhile. Close this window and open it again.",
+      "notAuthor": "Only the person who wrote a note can amend it.",
+      "notOpen": "This patient is no longer admitted."
+    }
   },
   "mar": {
     "heading": "Medication chart: {{patient}}",

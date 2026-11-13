@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { marHandlers } from './nursing-mar';
+import { notesHandlers } from './nursing-notes';
 
 type WardVital = components['schemas']['WardVital'];
 type Flags = NonNullable<WardVital['flags']>;
@@ -52,6 +53,7 @@ function flagsOf(vital: Partial<WardVital>): Flags | undefined {
 
 export const nursingHandlers = [
   ...marHandlers,
+  ...notesHandlers,
   http.get('*/api/admissions/:admissionId/vitals', ({ request, params }) => {
     const access = authorize(request, {
       permission: 'nursingVitals:read',

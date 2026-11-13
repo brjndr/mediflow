@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Can } from '@/access';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
@@ -56,6 +57,12 @@ export default function Worklist() {
       onSelect: (row) => navigate(`/nursing/${row.id}/vitals`),
     },
     {
+      id: 'notes',
+      label: t('actions.notes'),
+      requires: 'progressNote:read',
+      onSelect: (row) => navigate(`/nursing/${row.id}/notes`),
+    },
+    {
       id: 'mar',
       label: t('actions.mar'),
       requires: 'mar:read',
@@ -68,6 +75,11 @@ export default function Worklist() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
         <p className="text-muted-foreground">{t('description')}</p>
+        <Can permission="progressNote:read">
+          <Link to="/nursing/rounds" className="text-sm underline underline-offset-2">
+            {t('rounds.link')}
+          </Link>
+        </Can>
       </div>
 
       {wards.data && (
