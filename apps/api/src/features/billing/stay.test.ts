@@ -30,6 +30,8 @@ let hospital: TestTenant;
 let clinic: TestTenant;
 let admin: TestUser;
 let nurse: TestUser;
+let pharmacist: TestUser;
+let labTech: TestUser;
 let doctor: TestUser;
 let clinicAdmin: TestUser;
 let department: string;
@@ -196,10 +198,14 @@ beforeAll(async () => {
   for (const tenant of [hospital, clinic]) await grantRoleDefaults(app, tenant);
   admin = await createUser(pool, 'Stay Admin', { withPassword: false });
   nurse = await createUser(pool, 'Stay Nurse', { withPassword: false });
+  pharmacist = await createUser(pool, 'Stay Pharmacist', { withPassword: false });
+  labTech = await createUser(pool, 'Stay Lab', { withPassword: false });
   doctor = await createUser(pool, 'Stay Doctor', { withPassword: false });
   clinicAdmin = await createUser(pool, 'Stay Clinic Admin', { withPassword: false });
   await addMembership(pool, admin, hospital, 'admin');
   await addMembership(pool, nurse, hospital, 'nurse');
+  await addMembership(pool, pharmacist, hospital, 'pharmacist');
+  await addMembership(pool, labTech, hospital, 'lab_technician');
   await addMembership(pool, doctor, hospital, 'doctor');
   await addMembership(pool, clinicAdmin, clinic, 'admin');
   const one = async (sql: string, params: unknown[]) =>
@@ -293,7 +299,7 @@ afterAll(async () => {
   } finally {
     client.release();
   }
-  await deleteUsers(pool, [admin, nurse, clinicAdmin].filter(Boolean));
+  await deleteUsers(pool, [admin, nurse, pharmacist, labTech, clinicAdmin].filter(Boolean));
   await deleteTenants(pool, [hospital, clinic].filter(Boolean));
   await app.close();
 });
@@ -856,6 +862,32 @@ describe('the discharge plan and clearances', () => {
         { user: nurse },
       ),
     );
+    // Reading the stay is a grant of its own, which these two roles do not hold by default.
+    await pool.query(
+      `insert into role_permissions (tenant_id, role_id, permission, scope)
+       select $1, role_id, 'admission:read', 'all' from (values ('pharmacist'), ('lab_technician')) as r(role_id)
+       on conflict do nothing`,
+      [hospital.id],
+    );
+    // Each kind has its own permission (#802).
+    const clearing = (kind: string, user: TestUser) =>
+      put(
+        `/admissions/${stay.id}/discharge-plan/clearances/${kind}`,
+        { status: 'cleared' },
+        { user },
+      );
+    for (const [kind, user] of [
+      ['pharmacy', nurse],
+      ['lab', nurse],
+      ['nursing', pharmacist],
+      ['lab', pharmacist],
+      ['nursing', labTech],
+      ['pharmacy', labTech],
+    ] as const) {
+      expect(errorOf(await clearing(kind, user))).toEqual([403, 'permission_denied']);
+    }
+    await ok(await clearing('pharmacy', pharmacist));
+    await ok(await clearing('lab', labTech));
     expect(
       errorOf(
         await put(`/admissions/${stay.id}/discharge-plan/clearances/dental`, { status: 'cleared' }),

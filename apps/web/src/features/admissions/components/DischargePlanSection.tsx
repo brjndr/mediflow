@@ -13,6 +13,13 @@ import { REQUIRED_CLEARANCES, type DischargePlan, type DischargeType } from '../
  * the pharmacy (medicines to return) and the laboratory (work still pending). Which of them the
  * discharge waits for follows the way the stay ends. The server decides; this lists what is open.
  */
+/** One permission for each kind of clearance. */
+const CLEAR_PERMISSION = {
+  nursing: 'discharge:clearNursing',
+  pharmacy: 'discharge:clearPharmacy',
+  lab: 'discharge:clearLab',
+} as const;
+
 export function DischargePlanSection({
   admissionId,
   plan,
@@ -119,7 +126,7 @@ export function DischargePlanSection({
                     tone={done ? 'success' : needed ? 'warning' : 'neutral'}
                     label={t(done ? 'plan.clearances.cleared' : 'plan.clearances.pending')}
                   />
-                  <Can permission="discharge:clear">
+                  <Can permission={CLEAR_PERMISSION[item.kind]}>
                     <Button
                       type="button"
                       variant="outline"
