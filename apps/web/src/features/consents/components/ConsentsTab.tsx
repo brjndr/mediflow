@@ -10,7 +10,8 @@ import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { usePatientCertificates, usePatientConsents } from '../hooks/use-consents';
-import { CERTIFICATE_FIELDS, CERTIFICATE_KINDS } from '../schemas';
+import { fieldLabel, optionLabel } from '../labels';
+import { CERTIFICATE_KINDS } from '../schemas';
 import type { Certificate, CertificateKind, Consent } from '../types';
 import { CertificateForm } from './CertificateForm';
 import { ConsentForm } from './ConsentForm';
@@ -287,8 +288,6 @@ function CertificateView({
 }) {
   const { t } = useTranslation('consents');
   const format = useFormatters();
-  const isDate = (name: string) =>
-    CERTIFICATE_FIELDS[certificate.kind].some((f) => f.name === name && f.type === 'date');
   return (
     <div className="flex flex-col gap-3 rounded-md border p-3">
       <h3 data-panel-heading tabIndex={-1} className="font-semibold outline-none">
@@ -301,18 +300,16 @@ function CertificateView({
       <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[max-content_1fr]">
         <dt className="font-medium">{t('certificate.issuedOn')}</dt>
         <dd>{format.calendarDate(certificate.issuedOn)}</dd>
-        {CERTIFICATE_FIELDS[certificate.kind].map((field) => {
+        {certificate.layout.map((field) => {
           const value = certificate.fields[field.name];
           if (!value) return null;
           return (
             <div key={field.name} className="contents">
-              <dt className="font-medium">
-                {t(`certificate.field.${certificate.kind}.${field.name}`)}
-              </dt>
+              <dt className="font-medium">{fieldLabel(t, certificate.kind, field)}</dt>
               <dd className="whitespace-pre-line break-words">
                 {field.type === 'select'
-                  ? t(`certificate.option.${field.name}.${value}`, { defaultValue: value })
-                  : isDate(field.name)
+                  ? optionLabel(t, field, value)
+                  : field.type === 'date'
                     ? format.calendarDate(value)
                     : value}
               </dd>
