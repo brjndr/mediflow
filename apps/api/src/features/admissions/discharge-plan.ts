@@ -30,7 +30,12 @@ import { AdmissionParams, type DischargeTypeValue } from './schemas.js';
 const FEATURE = 'admissions';
 const READ = 'admission:read';
 const DISCHARGE = 'admission:discharge';
-const CLEAR = 'discharge:clear';
+/** One permission for each kind, so a nurse cannot clear what the pharmacy or the laboratory owns. */
+const CLEAR_BY_KIND: Record<ClearanceKind, Permission> = {
+  nursing: 'discharge:clearNursing',
+  pharmacy: 'discharge:clearPharmacy',
+  lab: 'discharge:clearLab',
+};
 
 /** What a discharge of each type waits for: the way a stay ends decides which departments sign. */
 export const REQUIRED_CLEARANCES: Record<DischargeTypeValue, readonly ClearanceKind[]> = {
@@ -190,7 +195,7 @@ export const dischargePlanRoutes: FastifyPluginAsyncTypebox = async (app) => {
     '/admissions/:admissionId/discharge-plan/clearances/:kind',
     {
       config: {
-        permissions: [CLEAR, READ],
+        permissions: [READ],
         feature: FEATURE,
         idempotent: { body: 'none', required: true },
       },
@@ -198,7 +203,7 @@ export const dischargePlanRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'setDischargeClearance',
         tags: ['admissions'],
         headers: RequiredIdempotencyHeaders,
-        description: `Marks one clearance (nursing, pharmacy or lab) cleared or open again, with who and when; a note (up to ${CLEARANCE_NOTE_MAX} characters) goes with a clearance and is dropped when it is reopened. Only while the patient is admitted (409 \`invalid_transition\`); an unknown kind is 400. A discharge while a clearance its type requires is open is 409 \`clearance_pending\` (routine and referred need all three, against advice and deceased need nursing and pharmacy, absconded none). The Idempotency-Key header is required. Requires discharge:clear and admission:read. Audited.`,
+        description: `Marks one clearance (nursing, pharmacy or lab) cleared or open again, with who and when; a note (up to ${CLEARANCE_NOTE_MAX} characters) goes with a clearance and is dropped when it is reopened. Only while the patient is admitted (409 \`invalid_transition\`); an unknown kind is 400. A discharge while a clearance its type requires is open is 409 \`clearance_pending\` (routine and referred need all three, against advice and deceased need nursing and pharmacy, absconded none). The Idempotency-Key header is required. Requires admission:read and the permission of the kind: discharge:clearNursing, discharge:clearPharmacy or discharge:clearLab (403 otherwise). Audited.`,
         params: ClearanceParams,
         body: DischargeClearanceSet,
         response: { 200: ref(DischargePlan), ...errors(400, 401, 403, 404, 409, 429) },
@@ -209,7 +214,12 @@ export const dischargePlanRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!(CLEARANCE_KINDS as readonly string[]).includes(kind)) {
         throw new HttpError(400, 'validation_failed', 'Not a kind of clearance');
       }
-      const row = await stayOf(request, CLEAR, true);
+      const needed = CLEAR_BY_KIND[kind as ClearanceKind];
+      const policy = await request.access.policy();
+      if (!policy?.permissions.some((grant) => grant.permission === needed)) {
+        throw new HttpError(403, 'permission_denied', 'Not allowed to clear this kind');
+      }
+      const row = await stayOf(request, READ, true);
       if (request.replayOf === null) {
         if (row.status !== 'admitted') throw stayClosed();
         const body = request.body as DischargeClearanceSet;

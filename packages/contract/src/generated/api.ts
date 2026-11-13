@@ -1731,7 +1731,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** @description Marks one clearance (nursing, pharmacy or lab) cleared or open again, with who and when; a note (up to 500 characters) goes with a clearance and is dropped when it is reopened. Only while the patient is admitted (409 `invalid_transition`); an unknown kind is 400. A discharge while a clearance its type requires is open is 409 `clearance_pending` (routine and referred need all three, against advice and deceased need nursing and pharmacy, absconded none). The Idempotency-Key header is required. Requires discharge:clear and admission:read. Audited. */
+        /** @description Marks one clearance (nursing, pharmacy or lab) cleared or open again, with who and when; a note (up to 500 characters) goes with a clearance and is dropped when it is reopened. Only while the patient is admitted (409 `invalid_transition`); an unknown kind is 400. A discharge while a clearance its type requires is open is 409 `clearance_pending` (routine and referred need all three, against advice and deceased need nursing and pharmacy, absconded none). The Idempotency-Key header is required. Requires admission:read and the permission of the kind: discharge:clearNursing, discharge:clearPharmacy or discharge:clearLab (403 otherwise). Audited. */
         put: operations["setDischargeClearance"];
         post?: never;
         delete?: never;

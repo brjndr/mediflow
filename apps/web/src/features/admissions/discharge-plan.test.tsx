@@ -82,8 +82,10 @@ describe('the discharge plan', () => {
     expect(await within(panel).findByText('Advice saved.')).toBeInTheDocument();
   }, 30_000);
 
-  it('does not let someone without discharge:clear clear anything', async () => {
-    revokePermission(TENANT_IDS.hospital, 'admin', 'discharge:clear');
+  it('does not let someone without the clearance permissions clear anything', async () => {
+    for (const permission of ['Nursing', 'Pharmacy', 'Lab']) {
+      revokePermission(TENANT_IDS.hospital, 'admin', `discharge:clear${permission}`);
+    }
     const panel = await openPanel();
     await within(panel).findByTestId('clearance-gate');
     expect(within(panel).queryByRole('button', { name: /^Mark .* cleared$/ })).toBeNull();

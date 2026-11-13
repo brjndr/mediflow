@@ -25,7 +25,7 @@ Fixed in #170:
   `deposit_payment`); it is paid back as a deposit, which keeps the deposit ledger right.
 
 Open, as follow-up issues: scope on `admission:read` for the bed board and the stay bill routes;
-one `discharge:clear` permission for nursing, pharmacy and lab clearances; advice note and attendant
+advice note and attendant
 phone in every list row; append-only triggers on the deposit tables; discharge policy and override
 sharing `invoice:adjust`; the running bill pricing each unposted day with its own query; cancelling
 an admission that already has bed charges.

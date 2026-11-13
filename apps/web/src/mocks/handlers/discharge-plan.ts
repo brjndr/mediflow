@@ -13,6 +13,12 @@ type Kind = components['schemas']['DischargeClearanceKind'];
 // while a clearance is open (409 `clearance_pending`).
 
 const FEATURE_FLAG = 'admissions';
+/** One permission for each kind of clearance, as on the API. */
+const CLEAR_PERMISSION: Record<string, string> = {
+  nursing: 'discharge:clearNursing',
+  pharmacy: 'discharge:clearPharmacy',
+  lab: 'discharge:clearLab',
+};
 const KINDS: Kind[] = ['nursing', 'pharmacy', 'lab'];
 const REQUIRED: Record<string, Kind[]> = {
   routine: ['nursing', 'pharmacy', 'lab'],
@@ -113,7 +119,7 @@ export const dischargePlanHandlers = [
     '*/api/admissions/:admissionId/discharge-plan/clearances/:kind',
     async ({ request, params }) => {
       const access = authorize(request, {
-        permission: 'discharge:clear',
+        permission: CLEAR_PERMISSION[String(params.kind)] ?? 'discharge:clearNursing',
         featureFlag: FEATURE_FLAG,
       });
       if ('denied' in access) return access.denied;
