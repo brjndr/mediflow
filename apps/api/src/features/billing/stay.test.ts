@@ -358,6 +358,33 @@ describe('the running bill', () => {
   });
 });
 
+describe('the scope of admission:read (#798)', () => {
+  it('refuses a caller scoped to own or department on the bill, settlement and deposits', async () => {
+    const stay = await admit();
+    const setScope = (scope: string) =>
+      pool.query(
+        "update role_permissions set scope = $2 where tenant_id = $1 and role_id = 'admin' and permission = 'admission:read'",
+        [hospital.id, scope],
+      );
+    await setScope('own');
+    try {
+      // The billing desk works the whole hospital: a scoped admission:read is refused outright.
+      for (const path of ['bill', 'settlement', 'deposits']) {
+        expect(errorOf(await get(`/admissions/${stay.id}/${path}`))).toEqual([
+          403,
+          'permission_denied',
+        ]);
+      }
+      expect(
+        errorOf(await post(`/admissions/${stay.id}/deposits`, { amountMinor: 1, method: 'card' })),
+      ).toEqual([403, 'permission_denied']);
+    } finally {
+      await setScope('all');
+    }
+    await ok(await get(`/admissions/${stay.id}/bill`));
+  });
+});
+
 describe('deposits and the settlement', () => {
   it('takes a deposit once per key, lists it, and refuses a closed stay', async () => {
     const stay = await admit();

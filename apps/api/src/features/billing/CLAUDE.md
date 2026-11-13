@@ -40,3 +40,5 @@ Behind the `billing` switch. Permissions: `charge:read|create`, `invoice:read|cr
 - No consultation fees: a consultation is billed by a typed line or a charge until a service is linked to the visit.
 - Insurance and split billing (R3).
 - An invoice left as a draft is never deleted; a draft's charges stay held until it is changed.
+
+- **Stay routes need `admission:read` with the scope `all` (#798):** running bill, settlement, deposits (read and take), apply and refund all go through `requireAll`, so a caller scoped to `own` or `department` is refused (403) rather than narrowed; the billing desk works the whole hospital.

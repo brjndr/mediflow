@@ -37,6 +37,7 @@ export interface Visibility {
 
 // `own`: the admissions the caller admitted as a doctor. `department`: those of the departments
 // the caller's active doctor profile is in. Someone with no profile sees nothing under either.
+const ZERO_USER = '00000000-0000-0000-0000-000000000000';
 const visible = (scope: string, user: string) =>
   `(${scope}::text = 'all'
     or (${scope}::text = 'own' and d.user_id::text = ${user}::text)
@@ -478,16 +479,22 @@ export interface BoardRow {
   version: number;
   ward_lower: string;
   number_lower: string;
+  /** False when the occupant's admission is outside the caller's admission:read scope. */
+  in_scope: boolean;
 }
 
-const BOARD = `
+const boardSql = (scope: string, user: string) => `
   select b.id, b.number, b.ward_id, w.name as ward_name, b.room_id, r.name as room_name,
          c.name as category_name, b.status, b.blocked_reason, ba.admission_id, ba.patient_id,
          p.first_name || ' ' || p.last_name as patient_name, p.mrn as patient_mrn,
          ba.assigned_at, b.version, w.name_lower as ward_lower, b.number_lower,
          rv.id as reservation_id, rv.patient_id as reserved_patient_id,
          rp.first_name || ' ' || rp.last_name as reserved_patient_name,
-         rp.mrn as reserved_patient_mrn, rv.expires_at as reserved_until
+         rp.mrn as reserved_patient_mrn, rv.expires_at as reserved_until,
+         (ba.admission_id is null or exists (
+           select 1 from admissions a
+           join doctors d on d.tenant_id = a.tenant_id and d.id = a.admitting_doctor_id
+           where a.id = ba.admission_id and ${visible(scope, user)})) as in_scope
   from beds b
   join wards w on w.tenant_id = b.tenant_id and w.id = b.ward_id
   join rooms r on r.tenant_id = b.tenant_id and r.id = b.room_id
@@ -501,9 +508,17 @@ const BOARD = `
   left join patients rp on rp.tenant_id = rv.tenant_id and rp.id = rv.patient_id`;
 
 /** One bed as the board shows it, or null. */
-export async function boardBed(client: pg.ClientBase, bedId: string): Promise<BoardRow | null> {
+export async function boardBed(
+  client: pg.ClientBase,
+  bedId: string,
+  visibility: Visibility = { scope: 'all', userId: ZERO_USER },
+): Promise<BoardRow | null> {
   if (!UUID.test(bedId)) return null;
-  const { rows } = await client.query<BoardRow>(`${BOARD} where b.id = $1`, [bedId]);
+  const { rows } = await client.query<BoardRow>(`${boardSql('$2', '$3')} where b.id = $1`, [
+    bedId,
+    visibility.scope,
+    visibility.userId,
+  ]);
   return rows[0] ?? null;
 }
 
@@ -514,12 +529,13 @@ export async function boardBed(client: pg.ClientBase, bedId: string): Promise<Bo
 export async function listBoard(
   client: pg.ClientBase,
   filter: { wardId?: string; status?: BoardBedStatusValue; cursor?: string; limit: number },
+  visibility: Visibility,
 ): Promise<Page<BoardRow> | null> {
   const after =
     filter.cursor === undefined ? undefined : decodeCursor(filter.cursor, ['w', 'v', 'n', 'i']);
   if (after === null) return null;
   if (after && (!UUID.test(after.v ?? '') || !UUID.test(after.i ?? ''))) return null;
-  const params: unknown[] = [];
+  const params: unknown[] = [visibility.scope, visibility.userId];
   const where = ['not b.archived', 'not w.archived', 'not r.archived'];
   const add = (clause: string, value: unknown) => {
     params.push(value);
@@ -540,7 +556,7 @@ export async function listBoard(
   }
   params.push(filter.limit + 1);
   const { rows } = await client.query<BoardRow>(
-    `${BOARD}
+    `${boardSql('$1', '$2')}
      where ${where.join(' and ')} ${afterClause}
      order by w.name_lower, b.ward_id, b.number_lower, b.id
      limit $${params.length}`,
@@ -561,7 +577,7 @@ export async function listBoard(
        from beds b
        join wards w on w.tenant_id = b.tenant_id and w.id = b.ward_id
        join rooms r on r.tenant_id = b.tenant_id and r.id = b.room_id
-       where ${where.join(' and ')}`,
+       where $1::text is not null and $2::text is not null and ${where.join(' and ')}`,
       params.slice(0, filters),
     );
     result.total = count.rows[0]?.total ?? 0;
