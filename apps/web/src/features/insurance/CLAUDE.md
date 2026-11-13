@@ -4,7 +4,7 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 
 ## What exists
 
-**Masters for the insurance milestone (M21), web only (IN-01, #181):** the organisations a hospital bills instead of the patient (`insurer`, `tpa`, `corporate`), their plans and their rate agreements, at `/insurance`, `/insurance/new` and `/insurance/:payerId`. Behind the `insurance` switch and the `payer:read` and `payer:manage` permissions. Desktop-only (master data). It runs on the mock: the endpoints (`/payers`, `/payers/{id}/plans`, `/payer-plans/{id}`, `/payers/{id}/rate-agreements`, `/rate-agreements/{id}`) are in `packages/contract/planned.openapi.json` until the insurance API (BE-28, #187) implements them; delete them there when it does.
+**Masters for the insurance milestone (M21), web only (IN-01, #181):** the organisations a hospital bills instead of the patient (`insurer`, `tpa`, `corporate`), their plans and their rate agreements, at `/insurance`, `/insurance/new` and `/insurance/:payerId`. Behind the `insurance` switch and the `payer:read` and `payer:manage` permissions. Desktop-only (master data). The insurance API (BE-28, #187) now implements these endpoints (`/payers`, `/payers/{id}/plans`, `/payer-plans/{id}`, `/payers/{id}/rate-agreements`, `/rate-agreements/{id}`); the mock still does what it does. API notes: `apps/api/src/features/insurance/CLAUDE.md`.
 
 Decided for now:
 
@@ -17,7 +17,7 @@ Decided for now:
 
 ## Policy capture and pre-authorization (IN-02, #182)
 
-Mock only, like the masters; the endpoints (`/patients/{id}/policies`, `/patient-policies/{id}/end`, `/patients/{id}/pre-auths`, `/encounters/{id}/pre-auths`, `/pre-auths/{id}/decision` and `/cancel`) are in the planned contract until the insurance API (#187). Permissions `policy:read`, `policy:manage`, `preauth:read`, `preauth:manage`, behind the `insurance` switch.
+The endpoints (`/patients/{id}/policies`, `/patient-policies/{id}/end`, `/patients/{id}/pre-auths`, `/encounters/{id}/pre-auths`, `/pre-auths/{id}/decision` and `/cancel`) are implemented by the insurance API (#187); the mock mirrors them. Permissions `policy:read`, `policy:manage`, `preauth:read`, `preauth:manage`, behind the `insurance` switch.
 
 - **The Insurance tab** (`patient.detail.tabs`, `InsuranceTab`): policies (organisation, plan, card number, holder and relation, dates; the server works out active, expired or ended) and pre-authorizations. Adding a policy also needs `payer:read` (it picks the organisation and plan; the first 25 organisations are offered, a server search is not built). A policy is ended, never edited or deleted; an ended or expired policy backs no new request. The lists are small arrays per patient, not paged.
 - **A pre-authorization** is requested against an active policy: treatment text, amount asked for, and what is enclosed **by name**. The files themselves are uploaded under the patient's Documents tab; there is no link to a stored document yet. Answered once by `preauth:manage` (`approved` with an amount, or `rejected`), or withdrawn while waiting. Money is typed with `toMinor`.
