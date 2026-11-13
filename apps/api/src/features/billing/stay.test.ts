@@ -482,6 +482,18 @@ describe('deposits and the settlement', () => {
     });
     expect(refunded.clearance).toEqual({ cleared: true, reasons: [] });
 
+    // The three deposit tables refuse a direct change (#800).
+    for (const table of ['deposits', 'deposit_applications', 'deposit_refunds']) {
+      await expect(
+        pool.query(`update ${table} set amount_minor = amount_minor + 1 where admission_id = $1`, [
+          stay.id,
+        ]),
+      ).rejects.toThrow(/append-only/);
+      await expect(
+        pool.query(`delete from ${table} where admission_id = $1`, [stay.id]),
+      ).rejects.toThrow(/append-only/);
+    }
+
     // Cash taken and paid back both went through the drawer.
     const sessions = await ok<{
       items: {
