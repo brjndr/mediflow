@@ -16,3 +16,8 @@ export type Certificate = Schemas['Certificate'];
 export type CertificatePage = Schemas['CertificatePage'];
 export type CertificateKind = Schemas['CertificateKind'];
 export type CertificateCreate = Schemas['CertificateCreate'];
+/** One field of a certificate format (#567). `label` is absent on a standard field. */
+export type CertificateField = Schemas['CertificateFieldDef'];
+export type CertificateFieldType = CertificateField['type'];
+export type CertificateFormat = Schemas['CertificateFormat'];
+export type CertificateFormatUpdate = Schemas['CertificateFormatUpdate'];

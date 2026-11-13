@@ -19535,7 +19535,8 @@
           "issuedOn",
           "fields",
           "issuedByName",
-          "issuedAt"
+          "issuedAt",
+          "layout"
         ],
         "properties": {
           "id": {
@@ -19568,6 +19569,13 @@
           "issuedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "layout": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CertificateFieldDef"
+            },
+            "description": "The fields of the format the certificate was issued under, kept with it so a later change of the format never changes how it reads."
           }
         }
       },
@@ -19884,6 +19892,84 @@
           },
           "version": {
             "type": "integer"
+          }
+        }
+      },
+      "CertificateFieldDef": {
+        "type": "object",
+        "required": ["name", "type", "required"],
+        "description": "One field of a certificate format. The name is the key the value is stored under; a label of a standard field is left out and the screen uses its own.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][A-Za-z0-9]{0,39}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "type": {
+            "type": "string",
+            "enum": ["text", "date", "time", "lines", "select"]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": "The choices of a select field."
+          }
+        }
+      },
+      "CertificateFormat": {
+        "type": "object",
+        "required": ["kind", "fields", "custom"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CertificateKind"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CertificateFieldDef"
+            }
+          },
+          "custom": {
+            "type": "boolean",
+            "description": "True once the hospital has changed the standard fields of the kind."
+          }
+        }
+      },
+      "CertificateFormatList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CertificateFormat"
+            }
+          }
+        }
+      },
+      "CertificateFormatUpdate": {
+        "type": "object",
+        "required": ["fields"],
+        "properties": {
+          "fields": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 30,
+            "items": {
+              "$ref": "#/components/schemas/CertificateFieldDef"
+            }
           }
         }
       }
@@ -69680,6 +69766,124 @@
             "$ref": "#/components/responses/Error"
           },
           "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/certificate-formats": {
+      "get": {
+        "operationId": "listCertificateFormats",
+        "description": "The fields of each kind of certificate in this hospital: the standard ones until the hospital changes them. Needs certificate:read and the consents feature flag.",
+        "responses": {
+          "200": {
+            "description": "The four kinds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateFormatList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/certificate-formats/{kind}": {
+      "put": {
+        "operationId": "setCertificateFormat",
+        "description": "Replaces the fields of one kind of certificate. Applies to certificates issued from now on; one already issued keeps its layout. Needs certificate:configure.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CertificateKind"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificateFormatUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The new format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateFormat"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "delete": {
+        "operationId": "resetCertificateFormat",
+        "description": "Goes back to the standard fields of the kind. Needs certificate:configure.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CertificateKind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The standard format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateFormat"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
             "$ref": "#/components/responses/Error"
           },
           "default": {

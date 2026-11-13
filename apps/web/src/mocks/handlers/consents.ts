@@ -1,5 +1,6 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
+import { STANDARD_FIELDS } from '@/features/consents/schemas';
 import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockPatient } from './patients';
@@ -7,6 +8,7 @@ import { mockPatient } from './patients';
 type Schemas = components['schemas'];
 type Consent = Schemas['Consent'];
 type Certificate = Schemas['Certificate'];
+type Field = Schemas['CertificateFieldDef'];
 
 const FEATURE_FLAG = 'consents';
 
@@ -21,6 +23,8 @@ interface StoredCertificate extends Certificate {
 interface State {
   consents: StoredConsent[];
   certificates: StoredCertificate[];
+  /** The fields a hospital set for a kind, by hospital and kind; absent means the standard ones. */
+  formats: Map<string, Field[]>;
   created: number;
   /** What each Idempotency-Key was answered with, by hospital and key. */
   replies: Map<string, string>;
@@ -64,10 +68,12 @@ function seed(): State {
         number: 'MED-2026-0001',
         issuedOn: '2026-10-06',
         fields: { diagnosis: 'Viral fever', restFrom: '2026-10-06', restTo: '2026-10-09' },
+        layout: STANDARD_FIELDS.medical.map((field) => ({ ...field })),
         issuedByName: 'Sample Doctor',
         issuedAt: '2026-10-06T08:00:00.000Z',
       },
     ],
+    formats: new Map(),
     created: 0,
     replies: new Map(),
     audited: [],
@@ -97,6 +103,36 @@ const detail = (one: StoredConsent) => ({
   body: one.body,
   ...(one.signature !== undefined ? { signature: one.signature } : {}),
 });
+const NAME = /^[a-z][A-Za-z0-9]{0,39}$/;
+const TYPES = ['text', 'date', 'time', 'lines', 'select'];
+
+const formatOf = (tenantId: string, kind: Certificate['kind']): Field[] =>
+  state.formats.get(`${tenantId}:${kind}`) ?? STANDARD_FIELDS[kind].map((field) => ({ ...field }));
+const formatView = (tenantId: string, kind: Certificate['kind']) => ({
+  kind,
+  fields: formatOf(tenantId, kind),
+  custom: state.formats.has(`${tenantId}:${kind}`),
+});
+
+/** Whether a body is a list of fields the API would take. */
+function validFields(value: unknown): value is Field[] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 30) return false;
+  const names = new Set<string>();
+  return value.every((field) => {
+    if (typeof field !== 'object' || field === null) return false;
+    const { name, label, type, required, options } = field as Record<string, unknown>;
+    if (typeof name !== 'string' || !NAME.test(name) || names.has(name)) return false;
+    names.add(name);
+    if (label !== undefined && (typeof label !== 'string' || !label || label.length > 100)) {
+      return false;
+    }
+    if (typeof type !== 'string' || !TYPES.includes(type) || typeof required !== 'boolean') {
+      return false;
+    }
+    return type !== 'select' || (Array.isArray(options) && options.length > 0);
+  });
+}
+
 const certificateView = ({ tenantId: _t, ...certificate }: StoredCertificate): Certificate =>
   certificate;
 
@@ -112,6 +148,45 @@ const newest = <T extends { id: string }>(a: T & { at: string }, b: T & { at: st
   b.at.localeCompare(a.at) || b.id.localeCompare(a.id);
 
 export const consentsHandlers = [
+  http.get('*/api/certificate-formats', ({ request }) => {
+    const access = authorize(request, {
+      permission: 'certificate:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    return HttpResponse.json({
+      items: KINDS.map((kind) => formatView(access.tenantId, kind as Certificate['kind'])),
+    });
+  }),
+
+  http.put('*/api/certificate-formats/:kind', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'certificate:configure',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const kind = String(params.kind);
+    if (!KINDS.includes(kind)) return error(404, 'not_found', 'No such kind');
+    const body = (await request.json().catch(() => null)) as { fields?: unknown } | null;
+    if (!body || !validFields(body.fields)) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    state.formats.set(`${access.tenantId}:${kind}`, body.fields);
+    return HttpResponse.json(formatView(access.tenantId, kind as Certificate['kind']));
+  }),
+
+  http.delete('*/api/certificate-formats/:kind', ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'certificate:configure',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const kind = String(params.kind);
+    if (!KINDS.includes(kind)) return error(404, 'not_found', 'No such kind');
+    state.formats.delete(`${access.tenantId}:${kind}`);
+    return HttpResponse.json(formatView(access.tenantId, kind as Certificate['kind']));
+  }),
+
   http.get('*/api/patients/:patientId/consents', ({ request, params }) => {
     const access = authorize(request, { permission: 'consent:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
@@ -244,6 +319,16 @@ export const consentsHandlers = [
       return error(400, 'validation_failed', 'The request is not valid');
     }
     const kind = body.kind as Certificate['kind'];
+    // What is entered must fit the hospital's fields for the kind: no other, none missing.
+    const layout = formatOf(access.tenantId, kind);
+    const entered = body.fields as Record<string, unknown>;
+    const known = new Set(layout.map((field) => field.name));
+    if (
+      Object.keys(entered).some((name) => !known.has(name)) ||
+      layout.some((field) => field.required && !String(entered[field.name] ?? '').trim())
+    ) {
+      return error(422, 'certificate_fields_invalid', 'The fields do not fit the format');
+    }
     const replyKey = `${access.tenantId}:${key}`;
     let id = state.replies.get(replyKey);
     if (!id) {
@@ -264,6 +349,7 @@ export const consentsHandlers = [
         number: `${PREFIX[kind]}-${year}-${String(count + 1).padStart(4, '0')}`,
         issuedOn: body.issuedOn,
         fields: body.fields as Record<string, string>,
+        layout,
         issuedByName: currentSession()?.user.name ?? '',
         issuedAt: new Date().toISOString(),
       });

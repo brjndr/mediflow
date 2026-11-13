@@ -6,7 +6,7 @@ import { Button } from '@/shared/ui/button';
 import { PrintSheet } from '@/shared/ui/print-sheet';
 import { RichTextView } from '@/shared/ui/rich-text';
 import { Letterhead, useFormatters } from '@/tenancy';
-import { CERTIFICATE_FIELDS } from '../schemas';
+import { fieldLabel, optionLabel } from '../labels';
 import type { Certificate, Consent, ConsentDetail } from '../types';
 import { SignatureView } from './SignaturePad';
 
@@ -129,17 +129,15 @@ export function CertificateDocument({ certificate }: { certificate: Certificate 
         <PatientLine patientId={certificate.patientId} />
         <dt className="font-medium">{t('certificate.issuedOn')}</dt>
         <dd>{format.calendarDate(certificate.issuedOn)}</dd>
-        {CERTIFICATE_FIELDS[certificate.kind].map((field) => {
+        {certificate.layout.map((field) => {
           const value = certificate.fields[field.name];
           if (!value) return null;
           return (
             <div key={field.name} className="contents">
-              <dt className="font-medium">
-                {t(`certificate.field.${certificate.kind}.${field.name}`)}
-              </dt>
+              <dt className="font-medium">{fieldLabel(t, certificate.kind, field)}</dt>
               <dd className="whitespace-pre-line break-words">
                 {field.type === 'select'
-                  ? t(`certificate.option.${field.name}.${value}`, { defaultValue: value })
+                  ? optionLabel(t, field, value)
                   : field.type === 'date'
                     ? format.calendarDate(value)
                     : value}

@@ -33,7 +33,11 @@
     }
   },
   "consent": {
-    "sex": { "male": "Male", "female": "Female", "other": "Other" },
+    "sex": {
+      "male": "Male",
+      "female": "Female",
+      "other": "Other"
+    },
     "age_one": "{{count}} year",
     "age_other": "{{count}} years",
     "ageMonths_one": "{{count}} month",
@@ -158,5 +162,48 @@
     "errors": {
       "merged": "This patient record was merged into another. Open the other record."
     }
+  },
+  "formats": {
+    "heading": "Certificate formats",
+    "note": "The fields on each kind of certificate. A change applies to certificates issued from now on; a certificate already issued keeps the fields it was issued with.",
+    "columns": {
+      "kind": "Certificate",
+      "fields": "Fields",
+      "state": "Format"
+    },
+    "standard": "Standard",
+    "custom": "Changed by this hospital",
+    "change": "Change fields",
+    "rowLabel": "Format of the {{kind}} certificate",
+    "empty": "No certificate formats.",
+    "formHeading": "Fields of the {{kind}} certificate",
+    "fieldTitle": "Field {{n}}: {{label}}",
+    "newField": "New field",
+    "label": "Label",
+    "labelHint": "Leave empty to use the standard label.",
+    "type": "Kind of entry",
+    "types": {
+      "text": "One line of text",
+      "lines": "Several lines of text",
+      "date": "Date",
+      "time": "Time",
+      "select": "Choice from a list"
+    },
+    "options": "Choices",
+    "optionsHint": "One choice to a line.",
+    "required": "Must be filled in",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "up": "Move field {{n}} up",
+    "down": "Move field {{n}} down",
+    "remove": "Remove",
+    "removeField": "Remove field {{n}}",
+    "add": "Add a field",
+    "needOne": "A certificate needs at least one field.",
+    "save": "Save the fields",
+    "saving": "Saving",
+    "reset": "Back to the standard fields",
+    "done": "The fields of the {{kind}} certificate were saved.",
+    "resetDone": "The {{kind}} certificate uses the standard fields again."
   }
 }
