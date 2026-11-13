@@ -51,4 +51,19 @@ export const INSURANCE_PERMISSIONS = [
     description: 'Give up what a payer has not paid on a claim',
     defaults: { admin: 'all' },
   },
+  {
+    id: 'receivable:read',
+    description: 'See corporate credit accounts, their bills, receipts and statements',
+    defaults: { admin: 'all', receptionist: 'all' },
+  },
+  {
+    id: 'receivable:manage',
+    description: 'Open or change a corporate credit account and bill a visit to it',
+    defaults: { admin: 'all' },
+  },
+  {
+    id: 'receivable:receipt',
+    description: 'Record money received from a corporate against its unpaid bills',
+    defaults: { admin: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];
