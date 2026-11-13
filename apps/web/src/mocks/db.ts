@@ -333,6 +333,10 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'claim:read' },
   { permission: 'claim:manage' },
   { permission: 'claim:writeoff' },
+  // Corporate credit (IN-05).
+  { permission: 'receivable:read' },
+  { permission: 'receivable:manage' },
+  { permission: 'receivable:receipt' },
   { permission: 'code:read' },
   { permission: 'code:manage' },
   { permission: 'template:read' },

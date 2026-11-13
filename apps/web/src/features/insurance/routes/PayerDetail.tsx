@@ -443,6 +443,13 @@ function PayerScreen() {
           {t(`kind.${record.kind}`)} · {record.code}
           {record.archived ? ` · ${t('status.archived')}` : ''}
         </p>
+        {record.kind === 'corporate' && (
+          <Can permission="receivable:read">
+            <Link to={`/credit/${record.id}`} className={`${link} block`}>
+              {t('credit.openAccount')}
+            </Link>
+          </Can>
+        )}
         <Can permission="payer:manage">
           <Button variant="outline" aria-busy={archive.isPending} onClick={toggle}>
             {record.archived ? t('actions.restorePayer') : t('actions.archivePayer')}

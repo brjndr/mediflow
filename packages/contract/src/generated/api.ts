@@ -6554,6 +6554,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/credit-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Corporate credit accounts with what is billed, received and still owed, largest balance first, one cursor page. Needs receivable:read. */
+        get: operations["listCreditAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payers/{payerId}/credit-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The credit account of a corporate. 404 when it has none. Needs receivable:read. */
+        get: operations["getCreditAccount"];
+        /** @description Opens the credit account of a corporate or changes its limit and terms; a change carries the version it started from (409 version_conflict). Only a corporate has one (422 not_corporate). A limit below what is already owed is 422 below_outstanding. Needs receivable:manage. */
+        put: operations["setCreditAccount"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payers/{payerId}/credit-bills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The bills put on a corporate account, oldest first, one cursor page. Needs receivable:read. */
+        get: operations["listCreditBills"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payers/{payerId}/credit-statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The statement of an account for a period: the balance before it, every bill and receipt in date order with the running balance, and the balance at the end, one cursor page of lines. The totals cover the whole period. Needs receivable:read. */
+        get: operations["getCreditStatement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payers/{payerId}/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The money received from a corporate, newest first, one cursor page. Needs receivable:read. */
+        get: operations["listReceipts"];
+        put?: never;
+        /** @description Records money received from a corporate and sets it against its oldest unpaid bills first. More than is owed is 422 exceeds_outstanding. Needs receivable:receipt. */
+        post: operations["recordReceipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/credit-bills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Bills the whole of a visit to a corporate credit account: the visit charge ledger, due after the account terms. One credit bill per visit (409 credit_bill_exists); nothing to bill is 422 nothing_to_bill; over the limit is 422 credit_limit_exceeded. Needs receivable:manage. */
+        post: operations["createCreditBill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12607,6 +12711,110 @@ export interface components {
             asOf: string;
             rows: components["schemas"]["ClaimAgingRow"][];
             totals: components["schemas"]["ClaimAgingTotals"];
+        };
+        CreditAccount: {
+            payerId: string;
+            payerName: string;
+            creditLimitMinor: number;
+            termsDays: number;
+            billedMinor: number;
+            receivedMinor: number;
+            outstandingMinor: number;
+            overdueMinor: number;
+            availableMinor: number;
+            version: number;
+        };
+        CreditAccountPage: {
+            items: components["schemas"]["CreditAccount"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        CreditAccountWrite: {
+            creditLimitMinor: number;
+            termsDays: number;
+            version?: number;
+        };
+        /** @enum {string} */
+        CreditBillStatus: "open" | "part_paid" | "paid";
+        CreditBill: {
+            id: string;
+            number: string;
+            payerId: string;
+            payerName: string;
+            encounterId: string;
+            /** Format: date */
+            issuedOn: string;
+            /** Format: date */
+            dueOn: string;
+            amountMinor: number;
+            receivedMinor: number;
+            outstandingMinor: number;
+            status: components["schemas"]["CreditBillStatus"];
+            overdue: boolean;
+        };
+        CreditBillPage: {
+            items: components["schemas"]["CreditBill"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        CreditBillCreate: {
+            payerId: string;
+        };
+        StatementLine: {
+            id: string;
+            /** Format: date */
+            on: string;
+            /** @enum {string} */
+            kind: "bill" | "receipt";
+            number: string;
+            debitMinor: number;
+            creditMinor: number;
+            balanceMinor: number;
+        };
+        CreditStatement: {
+            payerId: string;
+            payerName: string;
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            openingMinor: number;
+            billedMinor: number;
+            receivedMinor: number;
+            closingMinor: number;
+            items: components["schemas"]["StatementLine"][];
+            nextCursor: string | null;
+        };
+        /** @enum {string} */
+        ReceiptMethod: "cash" | "bank_transfer" | "cheque" | "card";
+        ReceiptAllocation: {
+            billId: string;
+            billNumber: string;
+            amountMinor: number;
+        };
+        Receipt: {
+            id: string;
+            number: string;
+            payerId: string;
+            payerName: string;
+            /** Format: date */
+            receivedOn: string;
+            method: components["schemas"]["ReceiptMethod"];
+            reference?: string;
+            amountMinor: number;
+            allocations: components["schemas"]["ReceiptAllocation"][];
+        };
+        ReceiptPage: {
+            items: components["schemas"]["Receipt"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ReceiptCreate: {
+            amountMinor: number;
+            method: components["schemas"]["ReceiptMethod"];
+            reference?: string;
+            /** Format: date */
+            receivedOn: string;
         };
     };
     responses: {
@@ -47097,6 +47305,254 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClaimDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listCreditAccounts: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of accounts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditAccountPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getCreditAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditAccount"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setCreditAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreditAccountWrite"];
+            };
+        };
+        responses: {
+            /** @description The account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditAccount"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listCreditBills: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["CreditBillStatus"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of bills */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditBillPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getCreditStatement: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The statement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditStatement"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listReceipts: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of receipts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    recordReceipt: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                payerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptCreate"];
+            };
+        };
+        responses: {
+            /** @description The receipt with where it went */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Receipt"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createCreditBill: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreditBillCreate"];
+            };
+        };
+        responses: {
+            /** @description The bill */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditBill"];
                 };
             };
             400: components["responses"]["Error"];

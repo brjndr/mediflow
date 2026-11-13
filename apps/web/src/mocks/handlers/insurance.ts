@@ -600,3 +600,9 @@ export function setMockAgreementTerms(
   agreement.effectiveFrom = '2000-01-01';
   agreement.rates = rates;
 }
+
+/** An organisation of this hospital by id, for credit billing (IN-05). */
+export function mockPayer(tenantId: string, payerId: string) {
+  const found = state.payers.find((one) => one.id === payerId && one.tenantId === tenantId);
+  return found && { id: found.id, name: found.name, kind: found.kind, archived: found.archived };
+}

@@ -23,6 +23,8 @@ export const insuranceFeature: FeatureManifest = {
         claims: 'Insurance claims',
         claimAging: 'Aging of unpaid claims',
         claim: 'Insurance claim',
+        credit: 'Corporate credit',
+        creditAccount: 'Credit account',
       },
     },
     load: (language) => import(`./locales/${language}.json`),
@@ -56,6 +58,18 @@ export const insuranceFeature: FeatureManifest = {
       requires: ['claim:read'],
     },
     {
+      path: 'credit',
+      titleKey: 'credit',
+      lazy: () => import('./routes/CreditAccountList'),
+      requires: ['receivable:read'],
+    },
+    {
+      path: 'credit/:payerId',
+      titleKey: 'creditAccount',
+      lazy: () => import('./routes/CreditAccountDetail'),
+      requires: ['receivable:read'],
+    },
+    {
       path: 'insurance/:payerId',
       titleKey: 'record',
       lazy: () => import('./routes/PayerDetail'),
@@ -81,6 +95,12 @@ export const insuranceFeature: FeatureManifest = {
       requires: ['policy:read'],
       order: 10,
     },
+    {
+      slot: 'invoice.builder.panels',
+      component: () => import('./components/CreditBillPanel'),
+      requires: ['receivable:manage'],
+      order: 20,
+    },
   ],
   permissions: [
     'payer:read',
@@ -92,5 +112,8 @@ export const insuranceFeature: FeatureManifest = {
     'claim:read',
     'claim:manage',
     'claim:writeoff',
+    'receivable:read',
+    'receivable:manage',
+    'receivable:receipt',
   ],
 };

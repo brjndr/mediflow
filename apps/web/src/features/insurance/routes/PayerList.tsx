@@ -64,6 +64,11 @@ function Payers() {
             {t('add')}
           </Link>
         </Can>
+        <Can permission="receivable:read">
+          <Link to="/credit" className={`${link} block pt-2 text-sm underline`}>
+            {t('credit.link')}
+          </Link>
+        </Can>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
