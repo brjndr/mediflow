@@ -21,7 +21,7 @@ export interface Posting {
   encounterId: string;
   patientId: string;
   serviceId: string | null;
-  source: 'order' | 'procedure' | 'dispense' | 'service' | 'package';
+  source: 'order' | 'procedure' | 'dispense' | 'service' | 'package' | 'bed';
   /** Who asked for it, when a person did; null for a charge posted from an event. */
   actorId?: string;
   sourceRef: string;

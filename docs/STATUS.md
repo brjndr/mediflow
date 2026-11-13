@@ -71,3 +71,4 @@ Each module in this list, from Patients to the Import centre, keeps what was dec
 - The dev seed runs only against a database on this machine; another host has to be named with `--allow-host` (see `apps/api/CLAUDE.md`).
 - `pnpm audit` reports two moderate advisories in `react-router` 6, fixed only in 7.x. CI gates at high.
 - Production needs `MFA_ENCRYPTION_KEY` and `REPORT_URL_SECRET` (`openssl rand -base64 32` for each), and the migrate step needs the same environment as the API (it also applies default role permissions).
+- **Discharge and inpatient billing (API, #169):** discharge plan and clearances, the discharge summary (signed once, addenda), running bill, deposits, settlement and discharge policy, and an hourly job posting bed-day charges once per admission and date. Notes: `apps/api/src/features/admissions/CLAUDE.md`, `apps/api/src/features/billing/CLAUDE.md`.

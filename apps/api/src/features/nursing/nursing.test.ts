@@ -1134,7 +1134,7 @@ describe('a stay that has ended', () => {
     await ok(
       await post(
         `/admissions/${admissionB}/discharge`,
-        { dischargeType: 'routine', version: stay.admission.version },
+        { dischargeType: 'absconded', version: stay.admission.version },
         { user: doctor },
       ),
     );

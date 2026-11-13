@@ -3565,6 +3565,276 @@
           }
         }
       },
+      "DischargeClearanceKind": {
+        "type": "string",
+        "enum": ["nursing", "pharmacy", "lab"],
+        "description": "Who clears the discharge: nursing, pharmacy returns or pending laboratory work."
+      },
+      "DischargeClearance": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["kind", "status"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/DischargeClearanceKind"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "cleared"]
+          },
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "clearedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "clearedByName": {
+            "type": "string"
+          }
+        }
+      },
+      "DischargePlan": {
+        "additionalProperties": false,
+        "description": "The advice for the patient and the clearance of nursing, pharmacy and the laboratory; all three are always listed, pending until cleared.",
+        "type": "object",
+        "required": ["admissionId", "clearances", "version"],
+        "properties": {
+          "admissionId": {
+            "type": "string"
+          },
+          "advice": {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "clearances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DischargeClearance"
+            }
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "DischargeAdviceSet": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["advice"],
+        "properties": {
+          "advice": {
+            "minLength": 1,
+            "maxLength": 1000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "DischargeClearanceSet": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["pending", "cleared"]
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "DischargeSummaryAddendum": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "body", "authorName", "createdAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "DischargeSummary": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "admissionId",
+          "status",
+          "diagnoses",
+          "procedures",
+          "course",
+          "results",
+          "medicines",
+          "followUp",
+          "addenda",
+          "version"
+        ],
+        "properties": {
+          "admissionId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "signed"]
+          },
+          "diagnoses": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "procedures": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "course": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "results": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "medicines": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "followUp": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "template": {
+            "additionalProperties": false,
+            "description": "The discharge_summary template the text was started from.",
+            "type": "object",
+            "required": ["id", "version"],
+            "properties": {
+              "id": {
+                "maxLength": 64,
+                "type": "string"
+              },
+              "version": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "signedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "signedByName": {
+            "type": "string"
+          },
+          "addenda": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DischargeSummaryAddendum"
+            }
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "DischargeSummarySave": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["diagnoses", "procedures", "course", "results", "medicines", "followUp"],
+        "properties": {
+          "diagnoses": {
+            "maxLength": 4000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "procedures": {
+            "maxLength": 4000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "course": {
+            "maxLength": 4000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "results": {
+            "maxLength": 4000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "medicines": {
+            "maxLength": 4000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "followUp": {
+            "maxLength": 4000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "template": {
+            "additionalProperties": false,
+            "description": "The discharge_summary template the text was started from.",
+            "type": "object",
+            "required": ["id", "version"],
+            "properties": {
+              "id": {
+                "maxLength": 64,
+                "type": "string"
+              },
+              "version": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "version": {
+            "minimum": 1,
+            "description": "The version the edit started from; absent while no draft exists.",
+            "type": "integer"
+          }
+        }
+      },
+      "DischargeSummarySign": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "DischargeSummaryAddendumCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["body"],
+        "properties": {
+          "body": {
+            "minLength": 1,
+            "maxLength": 2000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
       "WardVitalFlags": {
         "additionalProperties": false,
         "description": "Which values were outside the normal ranges in effect when the reading was taken, for the patient age band that day.",
@@ -14128,6 +14398,373 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TaxRate"
+            }
+          }
+        }
+      },
+      "RunningBillLine": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["source", "count", "totalMinor"],
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["service", "order", "dispense", "bed", "procedure", "manual", "package"]
+          },
+          "count": {
+            "minimum": 0,
+            "description": "Charges in the line; for bed days, the days.",
+            "type": "integer"
+          },
+          "totalMinor": {
+            "type": "integer"
+          },
+          "accruing": {
+            "description": "True for bed days accrued to date that are not a ledger charge yet.",
+            "type": "boolean"
+          }
+        }
+      },
+      "RunningBill": {
+        "additionalProperties": false,
+        "description": "The running bill of an inpatient stay: the charge ledger of its encounter by source, bed days accrued but not yet posted, deposits and payments.",
+        "type": "object",
+        "required": [
+          "admissionId",
+          "encounterId",
+          "asOf",
+          "lines",
+          "chargesMinor",
+          "invoicedMinor",
+          "paidMinor",
+          "depositsMinor",
+          "balanceMinor",
+          "patientName",
+          "patientMrn",
+          "status"
+        ],
+        "properties": {
+          "admissionId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "asOf": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunningBillLine"
+            }
+          },
+          "chargesMinor": {
+            "description": "The sum of the lines (void charges left out).",
+            "type": "integer"
+          },
+          "invoicedMinor": {
+            "type": "integer"
+          },
+          "paidMinor": {
+            "description": "Paid on the invoices, deposits set against an invoice left out.",
+            "type": "integer"
+          },
+          "depositsMinor": {
+            "description": "Deposits taken, less those paid back.",
+            "type": "integer"
+          },
+          "balanceMinor": {
+            "description": "Charges less deposits and payments; negative when the patient is in credit.",
+            "type": "integer"
+          },
+          "estimateMinor": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "estimateNote": {
+            "maxLength": 300,
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["admitted", "discharged", "cancelled"]
+          }
+        }
+      },
+      "BillEstimateSet": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["amountMinor"],
+        "properties": {
+          "amountMinor": {
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "note": {
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "DepositCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["amountMinor", "method"],
+        "properties": {
+          "amountMinor": {
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["cash", "card", "upi", "bank", "other"]
+          },
+          "reference": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "Deposit": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "admissionId",
+          "amountMinor",
+          "method",
+          "recordedByName",
+          "at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "admissionId": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["cash", "card", "upi", "bank", "other"]
+          },
+          "reference": {
+            "type": "string"
+          },
+          "recordedByName": {
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "DepositList": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Deposit"
+            }
+          }
+        }
+      },
+      "DischargePolicy": {
+        "additionalProperties": false,
+        "description": "How the hospital gates discharge on the bill: off, warn (the person discharging confirms they have seen it) or block (nothing owed or unbilled).",
+        "type": "object",
+        "required": ["mode"],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["off", "warn", "block"]
+          }
+        }
+      },
+      "DepositApply": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["invoiceId"],
+        "properties": {
+          "invoiceId": {
+            "maxLength": 64,
+            "type": "string"
+          }
+        }
+      },
+      "DepositRefund": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["amountMinor", "method", "reason"],
+        "properties": {
+          "amountMinor": {
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["cash", "card", "upi", "bank", "other"]
+          },
+          "reason": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "StaySettlementInvoice": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "status", "totalMinor", "creditedMinor", "paidMinor"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "issued", "paid", "void"]
+          },
+          "totalMinor": {
+            "type": "integer"
+          },
+          "creditedMinor": {
+            "type": "integer"
+          },
+          "paidMinor": {
+            "type": "integer"
+          }
+        }
+      },
+      "StaySettlement": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "admissionId",
+          "patientName",
+          "patientMrn",
+          "status",
+          "chargesMinor",
+          "unbilledMinor",
+          "invoicedMinor",
+          "creditedMinor",
+          "paidMinor",
+          "dueMinor",
+          "depositsMinor",
+          "depositsAppliedMinor",
+          "depositsRefundedMinor",
+          "depositsHeldMinor",
+          "excessDepositMinor",
+          "invoices",
+          "policy",
+          "clearance"
+        ],
+        "properties": {
+          "admissionId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["admitted", "discharged", "cancelled"]
+          },
+          "chargesMinor": {
+            "description": "Every charge of the stay in the ledger, void ones left out.",
+            "type": "integer"
+          },
+          "unbilledMinor": {
+            "description": "Charges not on an issued invoice yet.",
+            "type": "integer"
+          },
+          "invoicedMinor": {
+            "description": "The totals of the stay’s issued and paid invoices, before credit notes.",
+            "type": "integer"
+          },
+          "creditedMinor": {
+            "type": "integer"
+          },
+          "paidMinor": {
+            "description": "Paid on the invoices, deposits applied included.",
+            "type": "integer"
+          },
+          "dueMinor": {
+            "type": "integer"
+          },
+          "depositsMinor": {
+            "description": "Every deposit taken.",
+            "type": "integer"
+          },
+          "depositsAppliedMinor": {
+            "type": "integer"
+          },
+          "depositsRefundedMinor": {
+            "type": "integer"
+          },
+          "depositsHeldMinor": {
+            "description": "Taken, less applied and refunded.",
+            "type": "integer"
+          },
+          "excessDepositMinor": {
+            "description": "Held beyond what is due, with nothing left to invoice: what may be refunded.",
+            "type": "integer"
+          },
+          "invoices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaySettlementInvoice"
+            }
+          },
+          "policy": {
+            "type": "string",
+            "enum": ["off", "warn", "block"]
+          },
+          "clearance": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["cleared", "reasons"],
+            "properties": {
+              "cleared": {
+                "type": "boolean"
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["unbilled", "draft_invoice", "balance_due", "excess_deposit"]
+                }
+              }
             }
           }
         }
@@ -25559,7 +26196,7 @@
       "post": {
         "operationId": "dischargePatient",
         "tags": ["admissions"],
-        "description": "Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. Billing and the discharge summary react to the event; this API does not clear the bill. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`.",
+        "description": "Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -26385,6 +27022,944 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/discharge-plan": {
+      "get": {
+        "operationId": "getDischargePlan",
+        "tags": ["admissions"],
+        "description": "The discharge plan of an admission (DS-01): the advice for the patient and the clearance of nursing, pharmacy returns and pending laboratory work. A stay with no plan yet has none cleared (version 1). An admission outside the scope the caller holds admission:read with is 404 `admission_not_found`. Requires admission:read and the admissions feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The advice for the patient and the clearance of nursing, pharmacy and the laboratory; all three are always listed, pending until cleared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargePlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setDischargeAdvice",
+        "tags": ["admissions"],
+        "description": "Writes the discharge advice (up to 1000 characters), replacing the last. Only while the patient is admitted (409 `invalid_transition`). The Idempotency-Key header is required: a repeat changes nothing and answers with the plan as it is now. Requires admission:discharge and admission:read. Audited; the advice is never in an event or a log.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["advice"],
+                "properties": {
+                  "advice": {
+                    "minLength": 1,
+                    "maxLength": 1000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The advice for the patient and the clearance of nursing, pharmacy and the laboratory; all three are always listed, pending until cleared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargePlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/discharge-plan/clearances/{kind}": {
+      "put": {
+        "operationId": "setDischargeClearance",
+        "tags": ["admissions"],
+        "description": "Marks one clearance (nursing, pharmacy or lab) cleared or open again, with who and when; a note (up to 500 characters) goes with a clearance and is dropped when it is reopened. Only while the patient is admitted (409 `invalid_transition`); an unknown kind is 400. A discharge while a clearance its type requires is open is 409 `clearance_pending` (routine and referred need all three, against advice and deceased need nursing and pharmacy, absconded none). The Idempotency-Key header is required. Requires discharge:clear and admission:read. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["pending", "cleared"]
+                  },
+                  "note": {
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 32,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "kind",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The advice for the patient and the clearance of nursing, pharmacy and the laboratory; all three are always listed, pending until cleared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargePlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/discharge-summary": {
+      "get": {
+        "operationId": "getDischargeSummary",
+        "tags": ["admissions"],
+        "description": "The discharge summary of an admission (DS-02). 404 `summary_not_found` while none has been started. Requires dischargeSummary:read and admission:read and the admissions feature flag. Audited as a read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargeSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveDischargeSummary",
+        "tags": ["admissions"],
+        "description": "Starts or changes the draft; the six sections are plain text. `version` is the one the edit started from and is absent only while no draft exists. 409 `summary_signed` once signed (add an addendum instead), 409 `conflict` when `version` is behind or missing for an existing draft, 422 `unknown_template`. The Idempotency-Key header is required: a repeat changes nothing. Requires dischargeSummary:create, dischargeSummary:read and admission:read. Audited; the text is never in an event or a log.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "diagnoses",
+                  "procedures",
+                  "course",
+                  "results",
+                  "medicines",
+                  "followUp"
+                ],
+                "properties": {
+                  "diagnoses": {
+                    "maxLength": 4000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "procedures": {
+                    "maxLength": 4000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "course": {
+                    "maxLength": 4000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "results": {
+                    "maxLength": 4000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "medicines": {
+                    "maxLength": 4000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "followUp": {
+                    "maxLength": 4000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "template": {
+                    "additionalProperties": false,
+                    "description": "The discharge_summary template the text was started from.",
+                    "type": "object",
+                    "required": ["id", "version"],
+                    "properties": {
+                      "id": {
+                        "maxLength": 64,
+                        "type": "string"
+                      },
+                      "version": {
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "description": "The version the edit started from; absent while no draft exists.",
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargeSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/discharge-summary/sign": {
+      "post": {
+        "operationId": "signDischargeSummary",
+        "tags": ["admissions"],
+        "description": "Signs the draft as the caller; it can never be changed after. 404 `summary_not_found`, 409 `summary_signed`, 409 `conflict` when `version` is behind, 422 `summary_incomplete` when the diagnoses or the course are empty. The Idempotency-Key header is required. Requires dischargeSummary:sign, dischargeSummary:read and admission:read. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargeSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/discharge-summary/addenda": {
+      "post": {
+        "operationId": "addDischargeSummaryAddendum",
+        "tags": ["admissions"],
+        "description": "Adds an addendum to a signed summary; the summary itself is not changed and an addendum is never edited. 409 `summary_not_signed` while it is a draft. The Idempotency-Key header is required: a repeat adds nothing more. Requires dischargeSummary:sign, dischargeSummary:read and admission:read. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["body"],
+                "properties": {
+                  "body": {
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargeSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/discharge-summary/print": {
+      "post": {
+        "operationId": "recordDischargeSummaryPrint",
+        "tags": ["admissions"],
+        "description": "Records that the signed summary was printed (the audit log) and nothing else, once per idempotency key. 404 `summary_not_found`, 409 `summary_not_signed` for a draft. Requires dischargeSummary:read and admission:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Recorded"
           },
           "400": {
             "description": "Standard error body.",
@@ -53435,6 +55010,937 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/bill": {
+      "get": {
+        "operationId": "getRunningBill",
+        "tags": ["billing"],
+        "description": "The running bill of an inpatient stay (DS-03, #166): the charge ledger of the stay’s encounter added up by source, with the bed days accrued so far (a line with `accruing: true` that is not yet a ledger charge), the deposits taken (less those paid back), what was paid on invoices of the stay (deposits set against an invoice left out, so the balance counts a deposit once) and the estimate set at admission. `chargesMinor` is the sum of the lines (void charges left out); `balanceMinor` is charges less deposits and payments (negative: the patient is in credit). Needs charge:read, admission:read and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The running bill of an inpatient stay: the charge ledger of its encounter by source, bed days accrued but not yet posted, deposits and payments.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunningBill"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/bill-estimate": {
+      "put": {
+        "operationId": "setBillEstimate",
+        "tags": ["billing"],
+        "description": "Sets or replaces the estimate of what the stay will cost, in minor units, with an optional note (up to 300 characters). The running bill then shows actual against estimate. The Idempotency-Key header is required. Needs invoice:create, charge:read, admission:read and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["amountMinor"],
+                "properties": {
+                  "amountMinor": {
+                    "minimum": 0,
+                    "maximum": 9007199254740991,
+                    "type": "integer"
+                  },
+                  "note": {
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The running bill of an inpatient stay: the charge ledger of its encounter by source, bed days accrued but not yet posted, deposits and payments.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunningBill"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/deposits": {
+      "get": {
+        "operationId": "listDeposits",
+        "tags": ["billing"],
+        "description": "The deposits taken against a stay, newest first. Needs payment:read and the billing feature flag.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "takeDeposit",
+        "tags": ["billing"],
+        "description": "Takes a deposit against a stay (cash goes into the caller’s open register session as a payment does: 409 `no_open_register`). A deposit is never edited or removed; it is set against the final invoice or paid back. A stay that is no longer admitted is 409 `stay_closed`. The Idempotency-Key header is required: a repeat takes nothing more. Needs payment:create and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["amountMinor", "method"],
+                "properties": {
+                  "amountMinor": {
+                    "minimum": 1,
+                    "maximum": 9007199254740991,
+                    "type": "integer"
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": ["cash", "card", "upi", "bank", "other"]
+                  },
+                  "reference": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deposit"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/settlement": {
+      "get": {
+        "operationId": "getStaySettlement",
+        "tags": ["billing"],
+        "description": "The final bill and settlement of an inpatient stay (DS-04, #167): the stay’s invoices, what is still to invoice, credit notes, payments, the deposits held, applied and refunded, what is due or refundable, and whether the patient may be discharged under the hospital’s policy. Needs charge:read, admission:read and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaySettlement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/deposits/apply": {
+      "post": {
+        "operationId": "applyDeposits",
+        "tags": ["billing"],
+        "description": "Sets the deposits held against an issued invoice of the stay as a payment: the lesser of what is held and what is due on it (a payment of method `other`, reference \"Deposit\", touching no register). 409 `no_deposit_held`, 409 `invoice_not_payable` (not an issued invoice of this stay, or nothing due on it). The Idempotency-Key header is required: a repeat applies nothing more. Needs payment:create, charge:read, admission:read and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["invoiceId"],
+                "properties": {
+                  "invoiceId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaySettlement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admissions/{admissionId}/deposits/refund": {
+      "post": {
+        "operationId": "refundDeposits",
+        "tags": ["billing"],
+        "description": "Pays back the deposit held beyond what is due, in the mode chosen, with a reason. 409 `refund_exceeds` when the amount is more than the excess (which exists only when nothing is left to invoice and no draft is open); a cash refund comes out of the caller’s open register session (409 `no_open_register`). The Idempotency-Key header is required. Needs payment:refund, charge:read, admission:read and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["amountMinor", "method", "reason"],
+                "properties": {
+                  "amountMinor": {
+                    "minimum": 1,
+                    "maximum": 9007199254740991,
+                    "type": "integer"
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": ["cash", "card", "upi", "bank", "other"]
+                  },
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "admissionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaySettlement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/discharge-policy": {
+      "get": {
+        "operationId": "getDischargePolicy",
+        "tags": ["billing"],
+        "description": "How the hospital gates discharge on the bill: `off`, `warn` (the person discharging confirms they have seen the bill) or `block` (nothing owed or unbilled); `warn` until set. Needs invoice:read and the billing feature flag.",
+        "responses": {
+          "200": {
+            "description": "How the hospital gates discharge on the bill: off, warn (the person discharging confirms they have seen it) or block (nothing owed or unbilled).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargePolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setDischargePolicy",
+        "tags": ["billing"],
+        "description": "Sets the policy. The Idempotency-Key header is required. Needs invoice:adjust, invoice:read and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "description": "How the hospital gates discharge on the bill: off, warn (the person discharging confirms they have seen it) or block (nothing owed or unbilled).",
+                "type": "object",
+                "required": ["mode"],
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": ["off", "warn", "block"]
+                  }
+                }
+              }
+            }
+          },
+          "description": "How the hospital gates discharge on the bill: off, warn (the person discharging confirms they have seen it) or block (nothing owed or unbilled)."
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "How the hospital gates discharge on the bill: off, warn (the person discharging confirms they have seen it) or block (nothing owed or unbilled).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargePolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

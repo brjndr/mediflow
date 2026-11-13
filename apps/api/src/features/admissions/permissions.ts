@@ -26,6 +26,27 @@ export const ADMISSION_PERMISSIONS = [
     defaults: { admin: 'all', doctor: 'all' },
   },
   {
+    id: 'discharge:clear',
+    description:
+      'Mark nursing, pharmacy or laboratory clearance for a discharge done, or open again',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
+  },
+  {
+    id: 'dischargeSummary:read',
+    description: 'Read and print the discharge summary of a stay',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
+  },
+  {
+    id: 'dischargeSummary:create',
+    description: 'Write and change the draft of a discharge summary',
+    defaults: { admin: 'all', doctor: 'all' },
+  },
+  {
+    id: 'dischargeSummary:sign',
+    description: 'Sign a discharge summary, which can never be changed after, and add addenda',
+    defaults: { admin: 'all', doctor: 'all' },
+  },
+  {
     id: 'admission:cancel',
     description: 'Cancel an admission made by mistake, with a reason, freeing its bed',
     defaults: { admin: 'all', doctor: 'all', receptionist: 'all' },

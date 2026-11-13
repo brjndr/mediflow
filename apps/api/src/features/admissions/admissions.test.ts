@@ -130,12 +130,22 @@ const transfer = (detail: Detail, bedId: string, options: Options = {}) =>
     { bedId, version: detail.admission.version },
     options,
   );
-const discharge = (detail: Detail, more: object = {}, options: Options = {}) =>
-  post(
+/** Every department has cleared the stay first, as a routine discharge waits for them to. */
+const discharge = async (detail: Detail, more: object = {}, options: Options = {}) => {
+  await pool.query(
+    `insert into discharge_clearances (tenant_id, admission_id, kind, status, changed_by)
+     select a.tenant_id, a.id, k, 'cleared', a.admitting_doctor_id
+     from admissions a, unnest(array['nursing', 'pharmacy', 'lab']) k
+     where a.id = $1
+     on conflict do nothing`,
+    [detail.admission.id],
+  );
+  return post(
     `/admissions/${detail.admission.id}/discharge`,
     { dischargeType: 'routine', version: detail.admission.version, ...more },
     options,
   );
+};
 
 const cancel = (detail: Detail, more: object = {}, options: Options = {}) =>
   post(
@@ -158,7 +168,13 @@ const reset = async () => {
       "update beds set status = 'available', blocked_reason = null, blocked_note = null where tenant_id = any($1)",
       [tenants()],
     );
-    for (const table of ['clinical_notes', 'admissions', 'encounters', 'outbox']) {
+    for (const table of [
+      'discharge_clearances',
+      'clinical_notes',
+      'admissions',
+      'encounters',
+      'outbox',
+    ]) {
       await client.query(`delete from ${table} where tenant_id = any($1)`, [tenants()]);
     }
     await client.query('commit');

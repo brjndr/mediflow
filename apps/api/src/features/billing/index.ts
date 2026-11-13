@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { BED_CHARGE_JOB, postBedDaysEverywhere } from './bed-days.js';
 import { BILLING_PERMISSIONS } from './permissions.js';
 import { subscribeToPostings } from './posting.js';
 import { billingRoutes } from './routes.js';
@@ -16,4 +17,6 @@ export const billingFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('billing', BILLING_PERMISSIONS);
   await app.register(billingRoutes);
   subscribeToPostings(app);
+  app.jobs.work(BED_CHARGE_JOB, () => postBedDaysEverywhere(app.database.pool));
+  app.jobs.schedule(BED_CHARGE_JOB, '10 * * * *');
 };
