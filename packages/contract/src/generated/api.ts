@@ -6485,6 +6485,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admissions/{admissionId}/discharge-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The discharge summary of an admission (DS-02). 404 `summary_not_found` while none has been started. Needs dischargeSummary:read and the admissions feature flag. Audited as a read. */
+        get: operations["getDischargeSummary"];
+        /** @description Starts or changes the draft. Needs dischargeSummary:create. 409 `summary_signed` once signed (add an addendum instead), 409 `conflict` when `version` is behind. Audited. */
+        put: operations["saveDischargeSummary"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/discharge-summary/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Signs the draft as the caller; it can never be changed after. Needs dischargeSummary:sign. 422 `summary_incomplete` when diagnoses or course are empty. Audited. */
+        post: operations["signDischargeSummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/discharge-summary/addenda": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds an addendum to a signed summary. Needs dischargeSummary:sign. 409 `summary_not_signed` while it is a draft. Audited. */
+        post: operations["addDischargeSummaryAddendum"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/discharge-summary/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records that the signed summary was printed (the audit log). Needs dischargeSummary:read. 409 `summary_not_signed` for a draft. */
+        post: operations["recordDischargeSummaryPrint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12479,6 +12548,55 @@ export interface components {
             asOf: string;
             rows: components["schemas"]["ClaimAgingRow"][];
             totals: components["schemas"]["ClaimAgingTotals"];
+        };
+        DischargeSummaryAddendum: {
+            id: string;
+            body: string;
+            authorName: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        DischargeSummary: {
+            admissionId: string;
+            /** @enum {string} */
+            status: "draft" | "signed";
+            diagnoses: string;
+            procedures: string;
+            course: string;
+            results: string;
+            medicines: string;
+            followUp: string;
+            /** @description The discharge_summary template the text was started from. */
+            template?: {
+                id: string;
+                version: number;
+            };
+            /** Format: date-time */
+            signedAt?: string;
+            signedByName?: string;
+            addenda: components["schemas"]["DischargeSummaryAddendum"][];
+            version: number;
+        };
+        DischargeSummarySave: {
+            diagnoses: string;
+            procedures: string;
+            course: string;
+            results: string;
+            medicines: string;
+            followUp: string;
+            /** @description The discharge_summary template the text was started from. */
+            template?: {
+                id: string;
+                version: number;
+            };
+            /** @description The version the edit started from; absent while no draft exists. */
+            version?: number;
+        };
+        DischargeSummarySign: {
+            version: number;
+        };
+        DischargeSummaryAddendumCreate: {
+            body: string;
         };
     };
     responses: {
@@ -45975,6 +46093,166 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDischargeSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargeSummary"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    saveDischargeSummary: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DischargeSummarySave"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargeSummary"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    signDischargeSummary: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DischargeSummarySign"];
+            };
+        };
+        responses: {
+            /** @description The signed summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargeSummary"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    addDischargeSummaryAddendum: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DischargeSummaryAddendumCreate"];
+            };
+        };
+        responses: {
+            /** @description The summary with the addendum */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargeSummary"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    recordDischargeSummaryPrint: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

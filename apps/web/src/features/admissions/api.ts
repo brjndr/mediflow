@@ -6,6 +6,7 @@ import {
   bedCountsSchema,
   boardPageSchema,
   dischargePlanSchema,
+  dischargeSummarySchema,
   wardOptionsSchema,
   type BlockReason,
   type MoveReason,
@@ -21,6 +22,8 @@ import type {
   BedStay,
   ClearanceKind,
   DischargePlan,
+  DischargeSummary,
+  DischargeSummarySave,
   DischargeType,
   WardOption,
 } from './types';
@@ -247,4 +250,71 @@ export async function putDischargeClearance(
     body,
   });
   return dischargePlanSchema.parse(requireData(result));
+}
+
+/** The discharge summary of a stay (DS-02). Planned endpoints, no API yet; 404 while none exists. */
+export async function fetchDischargeSummary(
+  admissionId: string,
+  signal?: AbortSignal,
+): Promise<DischargeSummary> {
+  const result = await api.GET('/admissions/{admissionId}/discharge-summary', {
+    params: { path: { admissionId } },
+    signal,
+  });
+  return dischargeSummarySchema.parse(requireData(result));
+}
+
+export async function saveDischargeSummary(
+  admissionId: string,
+  body: DischargeSummarySave,
+  key: string,
+): Promise<DischargeSummary> {
+  const result = await api.PUT('/admissions/{admissionId}/discharge-summary', {
+    params: { path: { admissionId }, header: { 'idempotency-key': key } },
+    body,
+  });
+  return dischargeSummarySchema.parse(requireData(result));
+}
+
+export async function signDischargeSummary(
+  admissionId: string,
+  version: number,
+  key: string,
+): Promise<DischargeSummary> {
+  const result = await api.POST('/admissions/{admissionId}/discharge-summary/sign', {
+    params: { path: { admissionId }, header: { 'idempotency-key': key } },
+    body: { version },
+  });
+  return dischargeSummarySchema.parse(requireData(result));
+}
+
+export async function addSummaryAddendum(
+  admissionId: string,
+  body: string,
+  key: string,
+): Promise<DischargeSummary> {
+  const result = await api.POST('/admissions/{admissionId}/discharge-summary/addenda', {
+    params: { path: { admissionId }, header: { 'idempotency-key': key } },
+    body: { body },
+  });
+  return dischargeSummarySchema.parse(requireData(result));
+}
+
+/** Records the print in the audit log; the page is printed only once this succeeded. */
+export async function recordSummaryPrint(admissionId: string, key: string): Promise<void> {
+  await api.POST('/admissions/{admissionId}/discharge-summary/print', {
+    params: { path: { admissionId }, header: { 'idempotency-key': key } },
+  });
+}
+
+/** One admission, for a screen of its own (the discharge summary). */
+export async function fetchAdmission(
+  admissionId: string,
+  signal?: AbortSignal,
+): Promise<Admission> {
+  const result = await api.GET('/admissions/{admissionId}', {
+    params: { path: { admissionId } },
+    signal,
+  });
+  return admissionDetailSchema.parse(requireData(result)).admission;
 }

@@ -18461,6 +18461,170 @@
             "$ref": "#/components/schemas/ClaimAgingTotals"
           }
         }
+      },
+      "DischargeSummaryAddendum": {
+        "type": "object",
+        "required": ["id", "body", "authorName", "createdAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DischargeSummary": {
+        "type": "object",
+        "required": [
+          "admissionId",
+          "status",
+          "diagnoses",
+          "procedures",
+          "course",
+          "results",
+          "medicines",
+          "followUp",
+          "addenda",
+          "version"
+        ],
+        "properties": {
+          "admissionId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "signed"]
+          },
+          "diagnoses": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "procedures": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "course": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "results": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "medicines": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "followUp": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "template": {
+            "type": "object",
+            "required": ["id", "version"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer"
+              }
+            },
+            "description": "The discharge_summary template the text was started from."
+          },
+          "signedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "signedByName": {
+            "type": "string"
+          },
+          "addenda": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DischargeSummaryAddendum"
+            }
+          },
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "DischargeSummarySave": {
+        "type": "object",
+        "required": ["diagnoses", "procedures", "course", "results", "medicines", "followUp"],
+        "properties": {
+          "diagnoses": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "procedures": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "course": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "results": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "medicines": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "followUp": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "template": {
+            "type": "object",
+            "required": ["id", "version"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer"
+              }
+            },
+            "description": "The discharge_summary template the text was started from."
+          },
+          "version": {
+            "type": "integer",
+            "description": "The version the edit started from; absent while no draft exists."
+          }
+        }
+      },
+      "DischargeSummarySign": {
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "DischargeSummaryAddendumCreate": {
+        "type": "object",
+        "required": ["body"],
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
       }
     },
     "responses": {
@@ -63177,6 +63341,300 @@
             "$ref": "#/components/responses/Error"
           },
           "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/discharge-summary": {
+      "get": {
+        "operationId": "getDischargeSummary",
+        "description": "The discharge summary of an admission (DS-02). 404 `summary_not_found` while none has been started. Needs dischargeSummary:read and the admissions feature flag. Audited as a read.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargeSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "put": {
+        "operationId": "saveDischargeSummary",
+        "description": "Starts or changes the draft. Needs dischargeSummary:create. 409 `summary_signed` once signed (add an addendum instead), 409 `conflict` when `version` is behind. Audited.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DischargeSummarySave"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargeSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/discharge-summary/sign": {
+      "post": {
+        "operationId": "signDischargeSummary",
+        "description": "Signs the draft as the caller; it can never be changed after. Needs dischargeSummary:sign. 422 `summary_incomplete` when diagnoses or course are empty. Audited.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DischargeSummarySign"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The signed summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargeSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/discharge-summary/addenda": {
+      "post": {
+        "operationId": "addDischargeSummaryAddendum",
+        "description": "Adds an addendum to a signed summary. Needs dischargeSummary:sign. 409 `summary_not_signed` while it is a draft. Audited.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DischargeSummaryAddendumCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The summary with the addendum",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargeSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/discharge-summary/print": {
+      "post": {
+        "operationId": "recordDischargeSummaryPrint",
+        "description": "Records that the signed summary was printed (the audit log). Needs dischargeSummary:read. 409 `summary_not_signed` for a draft.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Recorded"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
             "$ref": "#/components/responses/Error"
           },
           "default": {

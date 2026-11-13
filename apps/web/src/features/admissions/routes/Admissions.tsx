@@ -245,6 +245,12 @@ export default function Admissions() {
       },
     },
     {
+      id: 'summary',
+      label: t('actions.summary'),
+      requires: 'dischargeSummary:read',
+      onSelect: (row) => navigate(`/admissions/${row.id}/summary`),
+    },
+    {
       id: 'bill',
       label: t('actions.bill'),
       requires: 'charge:read',
