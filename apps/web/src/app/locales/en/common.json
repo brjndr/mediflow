@@ -34,6 +34,12 @@
     "server": "Something went wrong on our side. Try again.",
     "unknown": "Something went wrong. Try again."
   },
+  "theme": {
+    "button": "Theme: {{current}}. Change to {{next}}",
+    "light": "light",
+    "dark": "dark",
+    "system": "system"
+  },
   "session": {
     "loading": "Loading your workspace…",
     "errorTitle": "Could not load your session",
