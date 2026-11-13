@@ -18,6 +18,7 @@ import {
 } from './handlers/appointments';
 import { doctorsHandlers } from './handlers/doctors';
 import { billingHandlers } from './handlers/billing';
+import { dischargePlanHandlers } from './handlers/discharge-plan';
 import { stayBillHandlers } from './handlers/stay-bill';
 import { clinicalHandlers } from './handlers/clinical';
 import { dietHandlers } from './handlers/nursing-diet';
@@ -162,6 +163,7 @@ export const handlers = [
   ...prescriptionSetsHandlers,
   ...billingHandlers,
   ...stayBillHandlers,
+  ...dischargePlanHandlers,
   ...labHandlers,
   ...radiologyHandlers,
   ...inventoryHandlers,

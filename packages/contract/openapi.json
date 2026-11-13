@@ -18030,6 +18030,81 @@
           }
         }
       },
+      "DischargeClearanceKind": {
+        "type": "string",
+        "enum": ["nursing", "pharmacy", "lab"]
+      },
+      "DischargeClearance": {
+        "type": "object",
+        "required": ["kind", "status"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/DischargeClearanceKind"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "cleared"]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "clearedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "clearedByName": {
+            "type": "string"
+          }
+        }
+      },
+      "DischargePlan": {
+        "type": "object",
+        "required": ["admissionId", "clearances", "version"],
+        "properties": {
+          "admissionId": {
+            "type": "string"
+          },
+          "advice": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "clearances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DischargeClearance"
+            }
+          },
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "DischargeAdviceSet": {
+        "type": "object",
+        "required": ["advice"],
+        "properties": {
+          "advice": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "DischargeClearanceSet": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["pending", "cleared"]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      },
       "ClaimStatus": {
         "type": "string",
         "enum": [
@@ -62661,6 +62736,189 @@
             "$ref": "#/components/responses/Error"
           },
           "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/discharge-plan": {
+      "get": {
+        "operationId": "getDischargePlan",
+        "description": "The discharge plan of an admission (DS-01): the advice for the patient and the clearance of nursing, pharmacy returns and pending laboratory work. A stay with no plan yet has none cleared. Needs admission:read and the admissions feature flag.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The discharge plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargePlan"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "put": {
+        "operationId": "setDischargeAdvice",
+        "description": "Writes the discharge advice. Needs admission:discharge. Audited.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DischargeAdviceSet"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The discharge plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargePlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/discharge-plan/clearances/{kind}": {
+      "put": {
+        "operationId": "setDischargeClearance",
+        "description": "Marks one clearance cleared or open again, with who and when. Needs discharge:clear. Audited. Discharging while a clearance the discharge type requires is open answers 409 clearance_pending.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/DischargeClearanceKind"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DischargeClearanceSet"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The discharge plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DischargePlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
             "$ref": "#/components/responses/Error"
           },
           "default": {

@@ -5,6 +5,7 @@ import {
   admissionSchema,
   bedCountsSchema,
   boardPageSchema,
+  dischargePlanSchema,
   wardOptionsSchema,
   type BlockReason,
   type MoveReason,
@@ -18,6 +19,8 @@ import type {
   BoardBedPage,
   BoardBedStatus,
   BedStay,
+  ClearanceKind,
+  DischargePlan,
   DischargeType,
   WardOption,
 } from './types';
@@ -207,4 +210,41 @@ export async function fetchBedHistory(
     signal,
   });
   return admissionDetailSchema.parse(requireData(result)).stays;
+}
+
+/** The discharge plan of a stay: advice and clearances (DS-01). Planned endpoint, no API yet. */
+export async function fetchDischargePlan(
+  admissionId: string,
+  signal?: AbortSignal,
+): Promise<DischargePlan> {
+  const result = await api.GET('/admissions/{admissionId}/discharge-plan', {
+    params: { path: { admissionId } },
+    signal,
+  });
+  return dischargePlanSchema.parse(requireData(result));
+}
+
+export async function putDischargeAdvice(
+  admissionId: string,
+  advice: string,
+  key: string,
+): Promise<DischargePlan> {
+  const result = await api.PUT('/admissions/{admissionId}/discharge-plan', {
+    params: { path: { admissionId }, header: { 'idempotency-key': key } },
+    body: { advice },
+  });
+  return dischargePlanSchema.parse(requireData(result));
+}
+
+export async function putDischargeClearance(
+  admissionId: string,
+  kind: ClearanceKind,
+  body: { status: 'pending' | 'cleared'; note?: string },
+  key: string,
+): Promise<DischargePlan> {
+  const result = await api.PUT('/admissions/{admissionId}/discharge-plan/clearances/{kind}', {
+    params: { path: { admissionId, kind }, header: { 'idempotency-key': key } },
+    body,
+  });
+  return dischargePlanSchema.parse(requireData(result));
 }
