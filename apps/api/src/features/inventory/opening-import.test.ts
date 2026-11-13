@@ -149,6 +149,7 @@ beforeAll(async () => {
   ids.clinicAmox = await addDrug(clinic);
   for (const [tenant, name] of [
     [hospital, 'Main store'],
+    [hospital, 'Ward store'],
     [clinic, 'Clinic store'],
   ] as const) {
     await pool.query(
@@ -256,6 +257,31 @@ describe('opening stock import', () => {
     expect((await problemsOf(batch)).map((p) => [p.line, p.code])).toEqual([
       [2, 'batch_exists'],
       [4, 'duplicate_in_file'],
+    ]);
+  });
+
+  it('loads one batch at two places, a balance for each as the file says', async () => {
+    const expiry = day(300);
+    const batch = await checked(
+      await staged([
+        line('SPLIT-1', { expiryDate: expiry, quantity: '30' }),
+        line('SPLIT-1', { expiryDate: expiry, quantity: '12', location: 'Ward store' }),
+      ]),
+    );
+    expect(batch.problemCount).toBe(0);
+    await committed(batch);
+    const { rows } = await pool.query<{ place: string; on_hand: number; batches: number }>(
+      `select l.name as place, b.on_hand::int as on_hand,
+         (select count(*)::int from stock_batches where tenant_id = $1 and batch_number = 'SPLIT-1') as batches
+       from stock_balances b
+       join stock_batches sb on sb.id = b.batch_id and sb.tenant_id = b.tenant_id
+       join stock_locations l on l.id = b.location_id and l.tenant_id = b.tenant_id
+       where b.tenant_id = $1 and sb.batch_number = 'SPLIT-1' order by l.name`,
+      [hospital.id],
+    );
+    expect(rows.map((r) => [r.place, r.on_hand, r.batches])).toEqual([
+      ['Main store', 30, 1],
+      ['Ward store', 12, 1],
     ]);
   });
 
