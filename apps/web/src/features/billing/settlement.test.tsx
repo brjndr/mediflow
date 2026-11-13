@@ -11,6 +11,7 @@ import {
 } from '@/mocks/db';
 import { addMockAdmission } from '@/mocks/handlers/admissions-flow';
 import { mockCharges, mockInvoices } from '@/mocks/handlers/billing';
+import { clearMockStay } from '@/mocks/handlers/discharge-plan';
 import { addMockDeposit } from '@/mocks/handlers/stay-bill';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
@@ -27,6 +28,8 @@ function admit(id = 'adm_final') {
     patientName: 'Asha Verma',
     patientMrn: 'MRN-0042',
   });
+  // The ward, pharmacy and laboratory clearances (DS-01) are not what these tests are about.
+  clearMockStay(TENANT_IDS.hospital, id);
   return id;
 }
 
