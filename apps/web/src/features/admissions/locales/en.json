@@ -138,6 +138,19 @@
     },
     "submit": "Discharge patient",
     "back": "Cancel",
+    "bill": {
+      "checking": "Checking the bill…",
+      "blocked": "The bill is not settled, and this hospital does not allow discharge until it is.",
+      "unsettled": "The bill is not settled.",
+      "open": "Open the stay's bill",
+      "confirm": "I have checked the bill and the patient may be discharged with it unsettled.",
+      "reasons": {
+        "unbilled": "Charges are not invoiced yet.",
+        "draft_invoice": "An invoice is still a draft.",
+        "balance_due": "An invoice has a balance due.",
+        "excess_deposit": "A deposit is held beyond what is due and has not been paid back."
+      }
+    },
     "unsignedNotes": "A note of this stay is still a draft. Sign or discard every draft in the consultation first, then discharge the patient.",
     "notOpen": "The stay's encounter is no longer open, so the patient cannot be discharged from here."
   },
