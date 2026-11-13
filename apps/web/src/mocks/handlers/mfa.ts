@@ -4,6 +4,7 @@ import {
   MOCK_PASSWORD,
   mockMfaEnabledFor,
   onMockReset,
+  setMockLanguage,
   setMockMfa,
   setTenantFeature,
   TENANT_IDS,
@@ -134,6 +135,19 @@ export const mfaHandlers = [
     }
     if (!session.user.mfaEnabled || code !== MOCK_MFA_CODE) return invalidCode400();
     setMockMfa(session.user.id, false);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.put('*/api/auth/language', async ({ request }) => {
+    const session = currentSession();
+    if (!session) return unauthenticated();
+    const body: unknown = await request.json().catch(() => null);
+    const language =
+      body && typeof body === 'object' ? (body as { language?: unknown }).language : undefined;
+    if (language !== 'en' && language !== 'hi' && language !== null) {
+      return error(400, 'validation_failed', 'Not a language');
+    }
+    setMockLanguage(session.user.id, language);
     return new HttpResponse(null, { status: 204 });
   }),
 ];

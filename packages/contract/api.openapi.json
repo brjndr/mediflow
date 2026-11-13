@@ -47,7 +47,15 @@
       },
       "User": {
         "type": "object",
-        "required": ["id", "email", "name", "memberships", "mfaEnabled", "isPlatformAdmin"],
+        "required": [
+          "id",
+          "email",
+          "name",
+          "memberships",
+          "mfaEnabled",
+          "language",
+          "isPlatformAdmin"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -67,6 +75,11 @@
           "mfaEnabled": {
             "description": "Whether sign-in asks for an authenticator code.",
             "type": "boolean"
+          },
+          "language": {
+            "type": ["null", "string"],
+            "enum": ["en", "hi", null],
+            "description": "The person's own choice of language, or null to follow the hospital's locale."
           },
           "isPlatformAdmin": {
             "description": "A platform operator: has no hospital and no patient data, and uses the platform screens. Steers the screens only; every /platform route checks the flag on the server.",
@@ -19338,6 +19351,65 @@
             }
           },
           "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/language": {
+      "put": {
+        "operationId": "setAccountLanguage",
+        "tags": ["auth"],
+        "description": "Sets the signed-in user's own language for the web app: en or hi, or null to follow the hospital's locale. Applies to every hospital the user belongs to. Returned as user.language by GET /session.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["language"],
+                "properties": {
+                  "language": {
+                    "type": ["string", "null"],
+                    "enum": ["en", "hi", null]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The language was saved"
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

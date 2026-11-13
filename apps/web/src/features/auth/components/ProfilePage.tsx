@@ -10,7 +10,12 @@ import { useFormatters, useTenant } from '@/tenancy';
 import type { AccountSession } from '../api';
 import { passwordErrorKey } from '../hooks/use-account-links';
 import { MFA_FEATURE } from '../hooks/use-mfa';
-import { useAccountSessions, useChangePassword, useRevokeSession } from '../hooks/use-profile';
+import {
+  useAccountSessions,
+  useChangePassword,
+  useRevokeSession,
+  useSetLanguage,
+} from '../hooks/use-profile';
 import { changePasswordSchema, type ChangePasswordValues } from '../schemas';
 import { ErrorLine } from './AccountPage';
 import { PasswordFields } from './PasswordFields';
@@ -102,6 +107,51 @@ function ChangePassword({ tenantId, mfaEnabled }: { tenantId: string; mfaEnabled
         )}
         <SubmitButton pending={change.isPending}>{t('account.resetSubmit')}</SubmitButton>
       </Form>
+    </section>
+  );
+}
+
+/** Each language is named in itself, so a person can find theirs whichever one is showing. */
+const LANGUAGES = [
+  { value: 'en', label: 'English' },
+  { value: 'hi', label: 'हिन्दी' },
+] as const;
+
+/** The person's own language; empty follows the hospital's locale. Applies at once. */
+function LanguageChoice({ current }: { current: 'en' | 'hi' | null }) {
+  const { t } = useTranslation();
+  const save = useSetLanguage();
+  return (
+    <section aria-labelledby="profile-language" className="flex max-w-md flex-col gap-2">
+      <h2 id="profile-language" className={sectionTitle}>
+        {t('profile.languageTitle')}
+      </h2>
+      <label htmlFor="profile-language-select" className="text-sm">
+        {t('profile.languageLabel')}
+      </label>
+      <select
+        id="profile-language-select"
+        className="h-9 rounded-md border bg-background px-3 text-base md:text-sm pointer-coarse:h-11"
+        value={current ?? ''}
+        onChange={(event) => {
+          const value = event.target.value;
+          save.mutate(value === 'en' || value === 'hi' ? value : null);
+        }}
+      >
+        <option value="">{t('profile.languageDefault')}</option>
+        {LANGUAGES.map((language) => (
+          <option key={language.value} value={language.value}>
+            {language.label}
+          </option>
+        ))}
+      </select>
+      <p role="status" className="text-sm text-muted-foreground">
+        {save.isError
+          ? t(errorMessageKey(save.error))
+          : save.isSuccess
+            ? t('profile.languageSaved')
+            : ''}
+      </p>
     </section>
   );
 }
@@ -229,6 +279,8 @@ export function ProfilePage() {
           </Link>
         </section>
       )}
+
+      <LanguageChoice current={user.language} />
 
       <ChangePassword tenantId={tenant.id} mfaEnabled={user.mfaEnabled} />
       <Sessions tenantId={tenant.id} />
