@@ -862,6 +862,13 @@ describe('the discharge plan and clearances', () => {
         { user: nurse },
       ),
     );
+    // Reading the stay is a grant of its own, which these two roles do not hold by default.
+    await pool.query(
+      `insert into role_permissions (tenant_id, role_id, permission, scope)
+       select $1, role_id, 'admission:read', 'all' from (values ('pharmacist'), ('lab_technician')) as r(role_id)
+       on conflict do nothing`,
+      [hospital.id],
+    );
     // Each kind has its own permission (#802).
     const clearing = (kind: string, user: TestUser) =>
       put(
