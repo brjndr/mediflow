@@ -1,12 +1,19 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRef } from 'react';
+import { useFeatureFlag, usePermission } from '@/access';
 import { useTenant } from '@/tenancy';
 import {
+  applyDeposits,
   fetchDeposits,
+  fetchDischargePolicy,
   fetchRunningBill,
+  fetchSettlement,
+  putDischargePolicy,
+  refundDeposits,
   setEstimate,
   takeDeposit,
   type DepositCreate,
+  type DischargePolicyMode,
 } from '../stay-bill';
 import { billingKeys, useRefreshBilling } from './use-billing';
 
@@ -58,6 +65,81 @@ export function useTakeDeposit(admissionId: string) {
   return useMutation({
     gcTime: 0,
     mutationFn: (body: DepositCreate) => takeDeposit(admissionId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+/** The final bill and settlement of the stay, read again after any billing change. */
+export function useSettlement(admissionId: string, { enabled = true } = {}) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: stayKey(tenantId ?? '', admissionId, 'settlement'),
+    queryFn: ({ signal }) => fetchSettlement(admissionId, signal),
+    enabled: enabled && tenantId !== undefined && admissionId !== '',
+    staleTime: 0,
+  });
+}
+
+/**
+ * Whether the bill lets a patient be discharged under the hospital's policy, for the admissions
+ * screen. Nothing is read without `charge:read` and the billing switch: then the bill gates
+ * nothing here (the server decides) and `available` is false.
+ */
+export function useDischargeClearance(admissionId: string) {
+  const canRead = usePermission('charge:read');
+  const billing = useFeatureFlag('billing');
+  const allowed = canRead && billing;
+  const found = useSettlement(admissionId, { enabled: allowed });
+  return {
+    available: allowed,
+    pending: allowed && found.isPending,
+    failed: allowed && found.isError,
+    settlement: found.data,
+  };
+}
+
+/** Sets the deposits held against an issued invoice. One key per invoice until it is answered. */
+export function useApplyDeposits(admissionId: string) {
+  const refresh = useRefreshBilling();
+  const keys = useKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (invoiceId: string) =>
+      applyDeposits(admissionId, invoiceId, keys.keyFor({ invoiceId })),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+/** Pays back the excess deposit. One key per body; the reason is not kept (`gcTime: 0`). */
+export function useRefundDeposits(admissionId: string) {
+  const refresh = useRefreshBilling();
+  const keys = useKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: { amountMinor: number; method: DepositCreate['method']; reason: string }) =>
+      refundDeposits(admissionId, body, keys.keyFor(body)),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+export function useDischargePolicy() {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: [...billingKeys.all(tenantId ?? ''), 'discharge-policy'] as const,
+    queryFn: ({ signal }) => fetchDischargePolicy(signal),
+    enabled: tenantId !== undefined,
+  });
+}
+
+export function useSetDischargePolicy() {
+  const refresh = useRefreshBilling();
+  const keys = useKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (mode: DischargePolicyMode) => putDischargePolicy(mode, keys.keyFor({ mode })),
     onSuccess: () => keys.clear(),
     onSettled: refresh,
   });

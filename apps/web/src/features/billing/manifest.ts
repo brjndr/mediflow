@@ -24,6 +24,7 @@ export const billingFeature: FeatureManifest = {
         discountLimit: 'Discount limit',
         packages: 'Package contents',
         stay: 'Running bill',
+        dischargePolicy: 'Discharge and the bill',
       },
     },
     load: (language) => import(`./locales/${language}.json`),
@@ -78,6 +79,12 @@ export const billingFeature: FeatureManifest = {
       lazy: () => import('./routes/DiscountLimit'),
       requires: ['discount:manage', 'invoice:read'],
       titleKey: 'discountLimit',
+    },
+    {
+      path: 'billing/discharge-policy',
+      lazy: () => import('./routes/DischargePolicy'),
+      requires: ['invoice:adjust', 'invoice:read'],
+      titleKey: 'dischargePolicy',
     },
     {
       path: 'billing/packages',

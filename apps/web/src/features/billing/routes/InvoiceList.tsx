@@ -110,6 +110,11 @@ export default function InvoiceList() {
               {t('discount.limit.heading')}
             </Link>
           </Can>
+          <Can permission="invoice:adjust">
+            <Link to="/billing/discharge-policy" className={LINK}>
+              {t('dischargePolicy.heading')}
+            </Link>
+          </Can>
           <Can permission="package:manage">
             <Link to="/billing/packages" className={LINK}>
               {t('packages.heading')}

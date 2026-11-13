@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import { useDischargeClearance } from '@/features/billing';
 import { Button } from '@/shared/ui/button';
 import { DISCHARGE_TYPES, type Admission, type DischargeType } from '../types';
 
@@ -19,6 +21,16 @@ export function DischargePanel({
 }) {
   const { t } = useTranslation('admissions');
   const [type, setType] = useState<DischargeType>('routine');
+  const [confirmed, setConfirmed] = useState(false);
+  // The bill against the hospital's policy (DS-04, #167): read only by someone who may see
+  // charges; for anyone else the server decides alone.
+  const bill = useDischargeClearance(admission.id);
+  const settlement = bill.settlement;
+  const unsettled =
+    settlement !== undefined && settlement.policy !== 'off' && !settlement.clearance.cleared;
+  const blocked = unsettled && settlement.policy === 'block';
+  const needsConfirm = unsettled && settlement.policy === 'warn';
+  const stopped = bill.pending || blocked || (needsConfirm && !confirmed);
   return (
     <section
       aria-labelledby="admission-discharge-heading"
@@ -47,12 +59,46 @@ export function DischargePanel({
           ))}
         </select>
       </label>
+      {bill.pending && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t('discharge.bill.checking')}
+        </p>
+      )}
+      {unsettled && (
+        <div className="flex flex-col gap-2 rounded-md border p-3 text-sm" data-testid="bill-gate">
+          <p className="font-medium">
+            {blocked ? t('discharge.bill.blocked') : t('discharge.bill.unsettled')}
+          </p>
+          <ul className="list-disc ps-5">
+            {settlement.clearance.reasons.map((reason) => (
+              <li key={reason}>{t(`discharge.bill.reasons.${reason}`)}</li>
+            ))}
+          </ul>
+          <Link
+            to={`/billing/stays/${admission.id}`}
+            className="inline-flex w-fit items-center rounded-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
+          >
+            {t('discharge.bill.open')}
+          </Link>
+          {needsConfirm && (
+            <label className="flex items-start gap-2 pointer-coarse:min-h-11">
+              <input
+                type="checkbox"
+                checked={confirmed}
+                onChange={(event) => setConfirmed(event.target.checked)}
+                className="mt-1 size-4"
+              />
+              {t('discharge.bill.confirm')}
+            </label>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
-          aria-disabled={pending || undefined}
+          aria-disabled={pending || stopped || undefined}
           onClick={() => {
-            if (!pending) onSubmit(type);
+            if (!pending && !stopped) onSubmit(type);
           }}
         >
           {t('discharge.submit')}

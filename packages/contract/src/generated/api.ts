@@ -6278,6 +6278,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admissions/{admissionId}/settlement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The final bill and settlement of an inpatient stay (DS-04, #167): the stay's invoices, what is still to invoice, credit notes, payments, the deposits held, applied and refunded, what is due or refundable, and whether the patient may be discharged under the hospital's policy. Needs charge:read, admission:read and the billing feature flag. Audited. */
+        get: operations["getStaySettlement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/deposits/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Sets the deposits held against an issued invoice of the stay as a payment: the lesser of what is held and what is due on it. Needs payment:create and the billing feature flag. 409 `no_deposit_held`, `invoice_not_payable`. Audited. */
+        post: operations["applyDeposits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/deposits/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Pays back the deposit held beyond what is due, in the mode chosen, with a reason. 409 `refund_exceeds` when the amount is more than the excess. Needs payment:refund and the billing feature flag. Audited. */
+        post: operations["refundDeposits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing/discharge-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description How the hospital gates discharge on the bill: `off`, `warn` (the person discharging confirms they have seen the bill) or `block` (nothing owed or unbilled). Needs invoice:read and the billing feature flag. */
+        get: operations["getDischargePolicy"];
+        /** @description Sets the policy. Needs invoice:adjust and the billing feature flag. Audited. */
+        put: operations["setDischargePolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12062,6 +12131,60 @@ export interface components {
         };
         DepositList: {
             items: components["schemas"]["Deposit"][];
+        };
+        DischargePolicy: {
+            /** @enum {string} */
+            mode: "off" | "warn" | "block";
+        };
+        DepositApply: {
+            invoiceId: string;
+        };
+        DepositRefund: {
+            amountMinor: number;
+            /** @enum {string} */
+            method: "cash" | "card" | "upi" | "bank" | "other";
+            reason: string;
+        };
+        StaySettlementInvoice: {
+            id: string;
+            number?: string;
+            /** @enum {string} */
+            status: "draft" | "issued" | "paid" | "void";
+            totalMinor: number;
+            creditedMinor: number;
+            paidMinor: number;
+        };
+        StaySettlement: {
+            admissionId: string;
+            patientName: string;
+            patientMrn: string;
+            /** @enum {string} */
+            status: "admitted" | "discharged" | "cancelled";
+            /** @description Every charge of the stay in the ledger, void ones left out. */
+            chargesMinor: number;
+            /** @description Charges not on an issued invoice yet. */
+            unbilledMinor: number;
+            /** @description The totals of the stay's issued and paid invoices, before credit notes. */
+            invoicedMinor: number;
+            creditedMinor: number;
+            /** @description Paid on the invoices, deposits applied included. */
+            paidMinor: number;
+            dueMinor: number;
+            /** @description Every deposit taken. */
+            depositsMinor: number;
+            depositsAppliedMinor: number;
+            depositsRefundedMinor: number;
+            /** @description Taken, less applied and refunded. */
+            depositsHeldMinor: number;
+            /** @description Held beyond what is due, with nothing left to invoice: what may be refunded. */
+            excessDepositMinor: number;
+            invoices: components["schemas"]["StaySettlementInvoice"][];
+            /** @enum {string} */
+            policy: "off" | "warn" | "block";
+            clearance: {
+                cleared: boolean;
+                reasons: ("unbilled" | "draft_invoice" | "balance_due" | "excess_deposit")[];
+            };
         };
     };
     responses: {
@@ -45108,6 +45231,159 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getStaySettlement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settlement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaySettlement"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    applyDeposits: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepositApply"];
+            };
+        };
+        responses: {
+            /** @description The settlement afterwards */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaySettlement"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    refundDeposits: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepositRefund"];
+            };
+        };
+        responses: {
+            /** @description The settlement afterwards */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaySettlement"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDischargePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargePolicy"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setDischargePolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DischargePolicy"];
+            };
+        };
+        responses: {
+            /** @description The policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargePolicy"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

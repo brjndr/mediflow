@@ -8,6 +8,7 @@ import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { DepositPanel } from '../components/DepositPanel';
 import { EstimatePanel } from '../components/EstimatePanel';
+import { SettlementPanel } from '../components/SettlementPanel';
 import { useRunningBill } from '../hooks/use-stay-bill';
 import type { RunningBillLine } from '../stay-bill';
 
@@ -125,6 +126,7 @@ export default function StayBill() {
           )}
           <EstimatePanel bill={bill} />
           <DepositPanel admissionId={bill.admissionId} open={bill.status === 'admitted'} />
+          <SettlementPanel admissionId={bill.admissionId} encounterId={bill.encounterId} />
         </>
       )}
     </div>
