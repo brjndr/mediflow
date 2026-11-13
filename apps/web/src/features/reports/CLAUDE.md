@@ -20,7 +20,7 @@ What was decided for the web screen of reports (#121). The API is `apps/api/src/
 
 ## Dashboard widget (#712)
 
-`PatientFlowWidget` (`dashboard.widgets`, `report:read`, size `lg`) draws OPD visits opened on each of the last 7 days from the `opd_census` report (one 7-day request, counts only). It is by day, not by hour: the reports hold no hourly figure, so an hourly flow needs a new report in the API. The admissions `CapacityWidget` (`admission:read`) reads the census bed counts; the billing `CollectedTodayWidget` (`cashRegister:read`) sums the net of the register sessions opened today by payment mode, so a drawer left open from yesterday counts on its own day.
+`PatientFlowWidget` (`dashboard.widgets`, `report:read`, size `lg`) draws OPD visits opened in each hour of today from the `opd_hourly` report (one request, counts only), between the first and last busy hour. The admissions `CapacityWidget` (`admission:read`) reads the census bed counts; the billing `CollectedTodayWidget` (`cashRegister:read`) reads `GET /cash-registers/collected` (net by method from the payments themselves, on the hospital's clock).
 
 ## Owner panels (#690)
 

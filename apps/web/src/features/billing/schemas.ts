@@ -13,6 +13,7 @@ import type {
   Payment,
   PaymentMethod,
   RegisterSession,
+  CollectedOnDate,
   RegisterSessionPage,
 } from './types';
 
@@ -312,6 +313,19 @@ export const registerSessionPageSchema: z.ZodType<RegisterSessionPage> = z.objec
   items: z.array(registerSessionSchema),
   nextCursor: z.string().nullable(),
   total: z.number().int().optional(),
+});
+
+export const collectedOnDateSchema: z.ZodType<CollectedOnDate> = z.object({
+  date: z.string(),
+  timezone: z.string(),
+  totals: z.array(
+    z.object({
+      method: z.enum(['cash', 'card', 'upi', 'bank', 'other']),
+      paidMinor: z.number().int(),
+      refundedMinor: z.number().int(),
+    }),
+  ),
+  netMinor: z.number().int(),
 });
 
 /** The form to open the drawer: the cash in it, which may be nothing. */

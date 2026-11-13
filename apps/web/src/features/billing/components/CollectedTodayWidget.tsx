@@ -5,46 +5,33 @@ import widgetStrings from '../widget-strings.json';
 import { errorMessageKey } from '@/shared/api';
 import { Card } from '@/shared/ui/card';
 import { Skeleton } from '@/shared/ui/skeleton';
-import { dayBoundsUtc, todayIn } from '@/shared/utils/timezone';
-import { useFormatters, useTenant } from '@/tenancy';
-import { useRegisterSessions } from '../hooks/use-billing';
+import { useFormatters } from '@/tenancy';
+import { useCollectedToday } from '../hooks/use-billing';
 import { netOf } from '../lib/register';
 import type { RegisterTotal } from '../types';
 import { Link } from 'react-router-dom';
 
-const PAGE = 25;
 const METHODS: RegisterTotal['method'][] = ['cash', 'card', 'upi', 'bank', 'other'];
 
 /**
- * What the hospital's cash register sessions opened today took, net of refunds, with the split by
- * payment mode. Amounts only: no patient, invoice or payer. Default export: a `dashboard.widgets`
- * contribution. A drawer opened on an earlier day is counted on that day.
+ * What the hospital took today, net of refunds, with the split by payment mode, from
+ * `GET /cash-registers/collected` (the payments themselves, not register sessions). Amounts only:
+ * no patient, invoice or payer. Default export: a `dashboard.widgets` contribution.
  */
 export default function CollectedTodayWidget() {
   const { t } = useWidgetStrings('billing-widget', widgetStrings);
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
-  const timezone = useTenant()?.timezone ?? 'UTC';
-  const sessions = useRegisterSessions(PAGE);
+  const sessions = useCollectedToday();
 
   const figures = useMemo(() => {
     if (!sessions.data) return undefined;
-    const { start, end } = dayBoundsUtc(todayIn(timezone), timezone);
-    const byMethod = new Map<RegisterTotal['method'], number>();
-    for (const page of sessions.data.pages) {
-      for (const session of page.items) {
-        if (session.openedAt < start || session.openedAt >= end) continue;
-        for (const total of session.totals) {
-          byMethod.set(total.method, (byMethod.get(total.method) ?? 0) + netOf(total));
-        }
-      }
-    }
-    const split = METHODS.filter((method) => byMethod.has(method)).map((method) => ({
-      method,
-      minor: byMethod.get(method) ?? 0,
-    }));
-    return { split, total: split.reduce((sum, each) => sum + each.minor, 0) };
-  }, [sessions.data, timezone]);
+    const split = METHODS.flatMap((method) => {
+      const row = sessions.data.totals.find((each) => each.method === method);
+      return row ? [{ method, minor: netOf(row) }] : [];
+    });
+    return { split, total: sessions.data.netMinor };
+  }, [sessions.data]);
 
   return (
     <Card variant="brand" asChild>

@@ -12,17 +12,10 @@ import { useFormatters, useTenant } from '@/tenancy';
 import { fetchReport } from '../api';
 import { reportKeys } from '../hooks/use-reports';
 
-const DAYS = 7;
-const DAY_MS = 86_400_000;
-
-/** The calendar day `back` days before `day`; noon UTC keeps daylight-saving shifts out of it. */
-const daysBefore = (day: string, back: number) =>
-  new Date(Date.parse(`${day}T12:00:00Z`) - back * DAY_MS).toISOString().slice(0, 10);
-
 /**
- * OPD visits opened on each of the last seven days, from the `opd_census` report (counts by day
- * and department; it holds no patient). Hourly flow needs an endpoint the API does not have yet.
- * Default export: contributed to the `dashboard.widgets` slot through the manifest.
+ * OPD visits opened in each hour of today, from the `opd_hourly` report (counts only, no patient),
+ * between the first and the last busy hour. Default export: contributed to the `dashboard.widgets`
+ * slot through the manifest.
  */
 export default function PatientFlowWidget() {
   const { t } = useWidgetStrings('reports-widget', widgetStrings);
@@ -31,36 +24,39 @@ export default function PatientFlowWidget() {
   const tenant = useTenant();
   const timezone = tenant?.timezone ?? 'UTC';
   const today = todayIn(timezone);
-  const days = useMemo(
-    () => Array.from({ length: DAYS }, (_, index) => daysBefore(today, DAYS - 1 - index)),
-    [today],
-  );
-  const from = days[0] ?? today;
 
   const report = useQuery({
-    queryKey: reportKeys.detail(tenant?.id ?? '', `flow-${from}-${today}`),
-    queryFn: ({ signal }) => fetchReport('opd_census', { from, to: today }, signal),
+    queryKey: reportKeys.detail(tenant?.id ?? '', `flow-hourly-${today}`),
+    queryFn: ({ signal }) => fetchReport('opd_hourly', { from: today, to: today }, signal),
     enabled: tenant !== undefined,
     staleTime: 60_000,
   });
 
   const data = useMemo(() => {
     if (!report.data) return undefined;
-    const dayAt = report.data.columns.findIndex((column) => column.key === 'day');
+    const hourAt = report.data.columns.findIndex((column) => column.key === 'hour');
     const openedAt = report.data.columns.findIndex((column) => column.key === 'opened');
-    if (dayAt < 0 || openedAt < 0) return [];
-    const byDay = new Map<string, number>();
+    if (hourAt < 0 || openedAt < 0) return [];
+    const byHour = new Map<number, number>();
     for (const row of report.data.rows) {
-      const day = String(row[dayAt]);
-      byDay.set(day, (byDay.get(day) ?? 0) + Number(row[openedAt] ?? 0));
+      const hour = Number(row[hourAt]);
+      byHour.set(hour, (byHour.get(hour) ?? 0) + Number(row[openedAt] ?? 0));
     }
-    return days.map((day) => ({ day, value: byDay.get(day) ?? 0 }));
-  }, [report.data, days]);
+    const busy = [...byHour.entries()].filter(([, value]) => value > 0).map(([hour]) => hour);
+    if (busy.length === 0) return [];
+    const first = Math.min(...busy);
+    const last = Math.max(...busy);
+    return Array.from({ length: last - first + 1 }, (_, index) => ({
+      hour: first + index,
+      value: byHour.get(first + index) ?? 0,
+    }));
+  }, [report.data]);
 
   const total = data?.reduce((sum, point) => sum + point.value, 0) ?? 0;
   const busiest = data?.reduce((best, point) => (point.value > best.value ? point : best));
+  const hourLabel = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
   const points = data?.map((point) => ({
-    label: format.calendarDate(point.day),
+    label: hourLabel(point.hour),
     value: point.value,
   }));
 
@@ -86,11 +82,11 @@ export default function PatientFlowWidget() {
             data={points}
             formatValue={(value) => format.number(value)}
             height={192}
-            emphasize={busiest && busiest.value > 0 ? format.calendarDate(busiest.day) : undefined}
+            emphasize={busiest && busiest.value > 0 ? hourLabel(busiest.hour) : undefined}
             summary={
               busiest
                 ? t('flow.summary', {
-                    day: format.calendarDate(busiest.day),
+                    hour: hourLabel(busiest.hour),
                     count: busiest.value,
                   })
                 : undefined

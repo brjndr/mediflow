@@ -13,6 +13,7 @@ import {
   createInvoiceDraft,
   fetchCurrentRegister,
   fetchRegisterSession,
+  fetchCollected,
   fetchRegisterSessions,
   openRegister,
   fetchEncounterInvoices,
@@ -386,6 +387,17 @@ export function useRegisterSessions(limit: number, { enabled = true } = {}) {
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: enabled && tenantId !== undefined,
     placeholderData: (previous) => previous,
+  });
+}
+
+/** What was collected today, net by method, from the payments themselves. */
+export function useCollectedToday() {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: registerKey(tenantId ?? '', 'collected'),
+    queryFn: ({ signal }) => fetchCollected(signal),
+    enabled: tenantId !== undefined,
+    staleTime: 30_000,
   });
 }
 

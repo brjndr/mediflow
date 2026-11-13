@@ -1,11 +1,11 @@
 {
   "flow": {
-    "title": "OPD visits, last 7 days",
-    "day": "Day",
+    "title": "OPD visits by hour, today",
+    "day": "Hour",
     "visits": "Visits opened",
-    "empty": "No visits in the last 7 days.",
-    "summary_one": "Busiest on {{day}}, {{count}} visit",
-    "summary_other": "Busiest on {{day}}, {{count}} visits"
+    "empty": "No visits yet today.",
+    "summary_one": "Busiest at {{hour}}, {{count}} visit",
+    "summary_other": "Busiest at {{hour}}, {{count}} visits"
   },
   "visits": {
     "title": "OPD visits today",

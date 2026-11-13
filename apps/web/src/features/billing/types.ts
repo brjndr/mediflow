@@ -28,6 +28,7 @@ export type CreditNoteCreate = Schemas['CreditNoteCreate'];
 export type RegisterSession = Schemas['RegisterSession'];
 export type RegisterSessionPage = Schemas['RegisterSessionPage'];
 export type RegisterTotal = Schemas['RegisterTotal'];
+export type CollectedOnDate = Schemas['CollectedOnDate'];
 export type RegisterOpen = Schemas['RegisterOpen'];
 export type RegisterClose = Schemas['RegisterClose'];
 /** The hospital's tax rate for each tax class, in basis points (#119). */
