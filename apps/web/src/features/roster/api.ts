@@ -1,6 +1,8 @@
 import { api, requireData } from '@/shared/api';
 import {
   copyWeekResultSchema,
+  leaveBalanceSchema,
+  leaveSettingsSchema,
   rosterLeavePageSchema,
   rosterLeaveSchema,
   rosterShiftPageSchema,
@@ -12,6 +14,9 @@ import {
 import type {
   CopyWeekBody,
   CopyWeekResult,
+  LeaveBalance,
+  LeaveKind,
+  LeaveSettings,
   LeaveStatus,
   RosterLeave,
   RosterLeavePage,
@@ -83,7 +88,7 @@ export async function fetchLeaves(
 }
 
 export async function requestLeave(
-  body: { startsAt: string; endsAt: string },
+  body: { startsAt: string; endsAt: string; kind?: LeaveKind },
   idempotencyKey: string,
 ): Promise<RosterLeave> {
   const result = await api.POST('/roster/leaves', {
@@ -91,6 +96,27 @@ export async function requestLeave(
     body,
   });
   return rosterLeaveSchema.parse(requireData(result));
+}
+
+export async function fetchLeaveSettings(signal?: AbortSignal): Promise<LeaveSettings> {
+  const result = await api.GET('/roster/leave-settings', { signal });
+  return leaveSettingsSchema.parse(requireData(result));
+}
+
+export async function saveLeaveSettings(
+  body: LeaveSettings,
+  idempotencyKey: string,
+): Promise<LeaveSettings> {
+  const result = await api.PUT('/roster/leave-settings', {
+    params: { header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return leaveSettingsSchema.parse(requireData(result));
+}
+
+export async function fetchLeaveBalance(signal?: AbortSignal): Promise<LeaveBalance> {
+  const result = await api.GET('/roster/leave-balance', { params: { query: {} }, signal });
+  return leaveBalanceSchema.parse(requireData(result));
 }
 
 export type LeaveMove = 'approve' | 'reject' | 'cancel';

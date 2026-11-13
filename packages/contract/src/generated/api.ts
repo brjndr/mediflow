@@ -4031,6 +4031,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/roster/leave-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital's leave rules: the yearly allowance for each kind (a kind not listed has no limit) and whether the only manager may approve their own leave. Requires roster:read. */
+        get: operations["getLeaveSettings"];
+        /** @description Replaces the leave rules. Each kind may appear once (422 `invalid_allowances`). Leaves already asked are not looked at again. The Idempotency-Key header is required. Audited. Requires roster:manage. */
+        put: operations["setLeaveSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roster/leave-balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Days taken and waiting for each kind of leave in a calendar year on the hospital's clock (this year when `year` is left out), counted for leaves that start in it. Your own, or another person's with roster:manage (403 `permission_denied`). Requires roster:read. */
+        get: operations["getLeaveBalance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/roster/leaves/{leaveId}/approve": {
         parameters: {
             query?: never;
@@ -10221,6 +10256,40 @@ export interface components {
          * @enum {string}
          */
         LeaveStatus: "requested" | "approved" | "rejected" | "cancelled";
+        /**
+         * @description What the leave is taken as.
+         * @enum {string}
+         */
+        LeaveKind: "annual" | "sick" | "casual" | "unpaid";
+        /**
+         * @description never: a second person always decides; sole_manager: the only person holding roster:manage may approve their own leave.
+         * @enum {string}
+         */
+        SelfApproval: "never" | "sole_manager";
+        LeaveAllowance: {
+            kind: components["schemas"]["LeaveKind"];
+            days: number;
+        };
+        LeaveSettings: {
+            selfApproval: components["schemas"]["SelfApproval"];
+            /** @description Days a year for each kind; a kind that is not listed has no limit. */
+            allowances: components["schemas"]["LeaveAllowance"][];
+        };
+        LeaveBalanceRow: {
+            kind: components["schemas"]["LeaveKind"];
+            allowanceDays?: number;
+            /** @description Approved leave starting in the year. */
+            usedDays: number;
+            /** @description Requested, not yet decided. */
+            pendingDays: number;
+            /** @description Allowance less used and pending. */
+            remainingDays?: number;
+        };
+        LeaveBalance: {
+            userId: string;
+            year: number;
+            items: components["schemas"]["LeaveBalanceRow"][];
+        };
         RosterLeave: {
             id: string;
             tenantId: string;
@@ -10230,7 +10299,11 @@ export interface components {
             startsAt: string;
             /** Format: date-time */
             endsAt: string;
+            kind: components["schemas"]["LeaveKind"];
+            /** @description Whole days, for the allowance. */
+            days: number;
             status: components["schemas"]["LeaveStatus"];
+            selfApproved: boolean;
             decidedByName?: string;
             /** Format: date-time */
             decidedAt?: string;
@@ -10250,6 +10323,7 @@ export interface components {
              * @description After the start, and at most 90 days later.
              */
             endsAt: string;
+            kind?: components["schemas"]["LeaveKind"];
         };
         /**
          * @description ABO and Rh group.
@@ -34659,6 +34733,7 @@ export interface operations {
                      * @description After the start, and at most 90 days later.
                      */
                     endsAt: string;
+                    kind?: components["schemas"]["LeaveKind"];
                 };
             };
         };
@@ -34710,6 +34785,193 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getLeaveSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveSettings"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setLeaveSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveSettings"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveSettings"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getLeaveBalance: {
+        parameters: {
+            query?: {
+                userId?: string;
+                year?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveBalance"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

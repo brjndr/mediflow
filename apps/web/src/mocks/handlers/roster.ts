@@ -8,6 +8,10 @@ import { mockStaffOf } from './staff';
 type Shift = components['schemas']['RosterShift'];
 type Create = components['schemas']['RosterShiftCreate'];
 type Leave = components['schemas']['RosterLeave'];
+type LeaveSettings = components['schemas']['LeaveSettings'];
+const KINDS = ['annual', 'sick', 'casual', 'unpaid'] as const;
+const daysOf = (from: string, to: string) =>
+  Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / (24 * HOUR)));
 
 const FEATURE_FLAG = 'roster';
 const HOUR = 3_600_000;
@@ -20,6 +24,7 @@ interface State {
   templates: Template[];
   shifts: StoredShift[];
   leaves: Leave[];
+  settings: Map<string, LeaveSettings>;
   created: number;
   replies: Map<string, string>;
 }
@@ -77,6 +82,9 @@ function seed(): State {
       userName: person.name,
       startsAt: at(from),
       endsAt: at(to),
+      kind: 'annual',
+      days: daysOf(at(from), at(to)),
+      selfApproved: false,
       status,
       ...(status === 'approved' ? { decidedByName: 'Admin', decidedAt: at(-5) } : {}),
       version: status === 'requested' ? 1 : 2,
@@ -96,7 +104,7 @@ function seed(): State {
       version: 1,
     },
   ];
-  return { templates, shifts, leaves, created: 0, replies: new Map() };
+  return { templates, shifts, leaves, settings: new Map(), created: 0, replies: new Map() };
 }
 
 let state: State | undefined;
@@ -473,7 +481,12 @@ export const rosterHandlers = [
     if (!request.headers.get('Idempotency-Key')) {
       return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
     }
-    const body = (await request.json()) as { startsAt: string; endsAt: string };
+    const body = (await request.json()) as {
+      startsAt: string;
+      endsAt: string;
+      kind?: Leave['kind'];
+    };
+    const kind = body.kind ?? 'annual';
     const start = Date.parse(body.startsAt);
     const end = Date.parse(body.endsAt);
     if (!(end > start) || end - start > 90 * 24 * HOUR || end <= Date.now()) {
@@ -491,6 +504,23 @@ export const rosterHandlers = [
     );
     if (clash) return error(409, 'leave_overlap', 'You already have a leave then');
     const s = current();
+    const limit = s.settings.get(access.tenantId)?.allowances.find((one) => one.kind === kind);
+    if (limit) {
+      const year = new Date(start).getUTCFullYear();
+      const taken = s.leaves
+        .filter(
+          (one) =>
+            one.tenantId === access.tenantId &&
+            one.userId === user.id &&
+            one.kind === kind &&
+            (one.status === 'requested' || one.status === 'approved') &&
+            new Date(one.startsAt).getUTCFullYear() === year,
+        )
+        .reduce((sum, one) => sum + one.days, 0);
+      if (taken + daysOf(body.startsAt, body.endsAt) > limit.days) {
+        return error(422, 'allowance_exceeded', 'That is more days than the year allows');
+      }
+    }
     s.created += 1;
     const made: Leave = {
       id: `leave_new_${s.created}`,
@@ -499,11 +529,72 @@ export const rosterHandlers = [
       userName: user.name,
       startsAt: new Date(start).toISOString(),
       endsAt: new Date(end).toISOString(),
+      kind,
+      days: daysOf(body.startsAt, body.endsAt),
+      selfApproved: false,
       status: 'requested',
       version: 1,
     };
     s.leaves.push(made);
     return HttpResponse.json(made, { status: 201 });
+  }),
+
+  http.get('*/api/roster/leave-settings', ({ request }) => {
+    const access = authorize(request, { permission: 'roster:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    return HttpResponse.json(
+      current().settings.get(access.tenantId) ?? { selfApproval: 'never', allowances: [] },
+    );
+  }),
+
+  http.put('*/api/roster/leave-settings', async ({ request }) => {
+    const access = authorize(request, { permission: 'roster:manage', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    if (!request.headers.get('Idempotency-Key')) {
+      return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    }
+    const body = (await request.json()) as LeaveSettings;
+    if (new Set(body.allowances.map((one) => one.kind)).size !== body.allowances.length) {
+      return error(422, 'invalid_allowances', 'A kind of leave is listed once');
+    }
+    current().settings.set(access.tenantId, body);
+    return HttpResponse.json(body);
+  }),
+
+  http.get('*/api/roster/leave-balance', ({ request }) => {
+    const access = authorize(request, { permission: 'roster:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const user = currentSession()?.user;
+    const s = current();
+    const year = new Date().getUTCFullYear();
+    const settings = s.settings.get(access.tenantId);
+    const mine = s.leaves.filter(
+      (one) =>
+        one.tenantId === access.tenantId &&
+        one.userId === user?.id &&
+        new Date(one.startsAt).getUTCFullYear() === year,
+    );
+    return HttpResponse.json({
+      userId: user?.id ?? '',
+      year,
+      items: KINDS.map((kind) => {
+        const allowance = settings?.allowances.find((one) => one.kind === kind)?.days;
+        const sum = (status: Leave['status']) =>
+          mine
+            .filter((one) => one.kind === kind && one.status === status)
+            .reduce((total, one) => total + one.days, 0);
+        const used = sum('approved');
+        const pending = sum('requested');
+        return {
+          kind,
+          ...(allowance === undefined
+            ? {}
+            : { allowanceDays: allowance, remainingDays: allowance - used - pending }),
+          usedDays: used,
+          pendingDays: pending,
+        };
+      }),
+    });
   }),
 
   ...(['approve', 'reject', 'cancel'] as const).map((verb) =>
@@ -533,7 +624,14 @@ export const rosterHandlers = [
         }
         found.status = 'cancelled';
       } else {
-        if (own) return error(403, 'own_request', 'A second person decides on your leave');
+        // The mock cannot tell whether another manager exists: the rule alone decides.
+        const selfOk =
+          own &&
+          verb === 'approve' &&
+          current().settings.get(access.tenantId)?.selfApproval === 'sole_manager';
+        if (own && !selfOk) {
+          return error(403, 'own_request', 'A second person decides on your leave');
+        }
         if (found.status !== 'requested') {
           return error(409, 'invalid_transition', 'The leave is not waiting for a decision');
         }
@@ -551,6 +649,7 @@ export const rosterHandlers = [
           }
         }
         found.status = verb === 'approve' ? 'approved' : 'rejected';
+        found.selfApproved = selfOk;
         found.decidedByName = user?.name ?? '';
         found.decidedAt = new Date().toISOString();
       }

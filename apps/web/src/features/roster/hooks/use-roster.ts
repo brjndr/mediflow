@@ -19,15 +19,25 @@ import {
   fetchTemplates,
   retireTemplate,
   swapShift,
+  fetchLeaveBalance,
+  fetchLeaveSettings,
   fetchLeaves,
   fetchShifts,
+  saveLeaveSettings,
   moveLeave,
   requestLeave,
   type LeaveMove,
   type ShiftFilters,
 } from '../api';
 import { ROSTER_PAGE_SIZE } from '../schemas';
-import type { CopyWeekBody, RosterShiftCreate, ShiftSwapBody, ShiftTemplateCreate } from '../types';
+import type {
+  CopyWeekBody,
+  LeaveKind,
+  LeaveSettings,
+  RosterShiftCreate,
+  ShiftSwapBody,
+  ShiftTemplateCreate,
+} from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's roster never shows in another. */
 export const rosterKeys = createTenantKeys('roster');
@@ -226,7 +236,7 @@ export function useRequestLeave() {
   const stillHere = useStillHere();
   const attempt = useAttempt();
   return useMutation({
-    mutationFn: async (body: { startsAt: string; endsAt: string }) => {
+    mutationFn: async (body: { startsAt: string; endsAt: string; kind?: LeaveKind }) => {
       const made = await requestLeave(body, attempt.keyFor(body));
       attempt.done();
       return made;
@@ -235,6 +245,43 @@ export function useRequestLeave() {
       const tenantId = stillHere();
       if (tenantId) void queryClient.invalidateQueries({ queryKey: rosterKeys.all(tenantId) });
     },
+  });
+}
+
+/** The hospital's leave rules (kind allowances, self approval); readable by anyone on the roster. */
+export function useLeaveSettings() {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: rosterKeys.detail(tenantId ?? '', 'leave-settings'),
+    queryFn: ({ signal }) => fetchLeaveSettings(signal),
+    enabled: tenantId !== undefined,
+  });
+}
+
+export function useSaveLeaveSettings() {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const attempt = useAttempt();
+  return useMutation({
+    mutationFn: async (body: LeaveSettings) => {
+      const saved = await saveLeaveSettings(body, attempt.keyFor(body));
+      attempt.done();
+      return saved;
+    },
+    onSuccess: () => {
+      const tenantId = stillHere();
+      if (tenantId) void queryClient.invalidateQueries({ queryKey: rosterKeys.all(tenantId) });
+    },
+  });
+}
+
+/** The signed-in person's days taken and waiting this year, for each kind of leave. */
+export function useLeaveBalance() {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: rosterKeys.detail(tenantId ?? '', 'leave-balance'),
+    queryFn: ({ signal }) => fetchLeaveBalance(signal),
+    enabled: tenantId !== undefined,
   });
 }
 

@@ -2,16 +2,17 @@ import { useTranslation } from 'react-i18next';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { Dialog } from '@/shared/ui/dialog';
-import { Form, TextField, useZodForm } from '@/shared/ui/form';
+import { Form, SelectField, TextField, useZodForm } from '@/shared/ui/form';
 import { dayBoundsUtc } from '@/shared/utils/timezone';
 import { useTenant } from '@/tenancy';
-import { useRequestLeave } from '../hooks/use-roster';
-import { leaveFormSchema, type LeaveFormValues } from '../schemas';
+import { useLeaveBalance, useRequestLeave } from '../hooks/use-roster';
+import { LEAVE_KINDS, leaveFormSchema, type LeaveFormValues } from '../schemas';
 import type { RosterLeave } from '../types';
 
 const REFUSED: Record<string, string> = {
   leave_overlap: 'leave.errors.overlap',
   invalid_period: 'leave.errors.period',
+  allowance_exceeded: 'leave.errors.allowance',
 };
 
 /**
@@ -31,7 +32,9 @@ export function LeaveDialog({
   const { t: tCommon } = useTranslation();
   const timezone = useTenant()?.timezone ?? 'UTC';
   const request = useRequestLeave();
-  const form = useZodForm(leaveFormSchema, { firstDay: day, lastDay: day });
+  const form = useZodForm(leaveFormSchema, { firstDay: day, lastDay: day, kind: 'annual' });
+  const balance = useLeaveBalance();
+  const chosen = balance.data?.items.find((one) => one.kind === form.watch('kind'));
   const code = isApiError(request.error) ? request.error.serverCode : undefined;
   const failure = !request.error
     ? undefined
@@ -45,6 +48,7 @@ export function LeaveDialog({
         await request.mutateAsync({
           startsAt: dayBoundsUtc(values.firstDay, timezone).start,
           endsAt: dayBoundsUtc(values.lastDay, timezone).end,
+          kind: values.kind,
         }),
       );
     } catch {
@@ -72,6 +76,20 @@ export function LeaveDialog({
       }
     >
       <Form form={form} id="roster-leave-form" onSubmit={submit}>
+        <SelectField<LeaveFormValues>
+          name="kind"
+          label={t('leave.new.kind')}
+          hint={
+            chosen?.remainingDays === undefined
+              ? t('leave.balance.noLimit')
+              : t('leave.balance.left', {
+                  left: chosen.remainingDays,
+                  total: chosen.allowanceDays,
+                })
+          }
+          required
+          options={LEAVE_KINDS.map((value) => ({ value, label: t(`leave.kind.${value}`) }))}
+        />
         <TextField<LeaveFormValues>
           name="firstDay"
           type="date"

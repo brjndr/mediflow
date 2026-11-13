@@ -207,6 +207,14 @@ export const LeaveStatus = Enum(
   'requested -> approved | rejected | cancelled; approved -> cancelled.',
 );
 
+export const LEAVE_KINDS = ['annual', 'sick', 'casual', 'unpaid'] as const;
+export const LeaveKind = Enum('LeaveKind', LEAVE_KINDS, 'What the leave is taken as.');
+export const SelfApproval = Enum(
+  'SelfApproval',
+  ['never', 'sole_manager'] as const,
+  'never: a second person always decides; sole_manager: the only person holding roster:manage may approve their own leave.',
+);
+
 export const RosterLeave = Obj('RosterLeave', {
   id: Type.String(),
   tenantId: Type.String(),
@@ -214,7 +222,10 @@ export const RosterLeave = Obj('RosterLeave', {
   userName: Type.String(),
   startsAt: When,
   endsAt: When,
+  kind: ref(LeaveKind),
+  days: Type.Integer({ minimum: 1, description: 'Whole days, for the allowance.' }),
   status: ref(LeaveStatus),
+  selfApproved: Type.Boolean(),
   decidedByName: Type.Optional(Type.String()),
   decidedAt: Type.Optional(When),
   version: Type.Integer({ minimum: 1 }),
@@ -229,6 +240,7 @@ export const RosterLeaveCreate = Type.Object(
       format: 'date-time',
       description: 'After the start, and at most 90 days later.',
     }),
+    kind: Type.Optional(ref(LeaveKind)),
   },
   { $id: 'RosterLeaveCreate', additionalProperties: false },
 );
@@ -243,6 +255,36 @@ export const RosterLeaveListQuery = Type.Object({
   limit: Limit,
 });
 export const LeaveParams = Type.Object({ leaveId: Id });
+
+export const LeaveAllowance = Obj('LeaveAllowance', {
+  kind: ref(LeaveKind),
+  days: Type.Integer({ minimum: 0, maximum: 366 }),
+});
+export const LeaveSettings = Obj('LeaveSettings', {
+  selfApproval: ref(SelfApproval),
+  allowances: Type.Array(ref(LeaveAllowance), {
+    maxItems: 4,
+    description: 'Days a year for each kind; a kind that is not listed has no limit.',
+  }),
+});
+export type LeaveSettings = Static<typeof LeaveSettings>;
+
+export const LeaveBalanceRow = Obj('LeaveBalanceRow', {
+  kind: ref(LeaveKind),
+  allowanceDays: Type.Optional(Type.Integer({ minimum: 0 })),
+  usedDays: Type.Integer({ minimum: 0, description: 'Approved leave starting in the year.' }),
+  pendingDays: Type.Integer({ minimum: 0, description: 'Requested, not yet decided.' }),
+  remainingDays: Type.Optional(Type.Integer({ description: 'Allowance less used and pending.' })),
+});
+export const LeaveBalance = Obj('LeaveBalance', {
+  userId: Type.String(),
+  year: Type.Integer(),
+  items: Type.Array(ref(LeaveBalanceRow)),
+});
+export const LeaveBalanceQuery = Type.Object({
+  userId: Type.Optional(Id),
+  year: Type.Optional(Type.Integer({ minimum: 2000, maximum: 2200 })),
+});
 
 // --- blood bank --------------------------------------------------------------------------------
 
@@ -584,6 +626,12 @@ export const OPERATIONS_SCHEMAS = [
   ShiftSwapBody,
   ShiftSwapResult,
   LeaveStatus,
+  LeaveKind,
+  SelfApproval,
+  LeaveAllowance,
+  LeaveSettings,
+  LeaveBalanceRow,
+  LeaveBalance,
   RosterLeave,
   RosterLeavePage,
   RosterLeaveCreate,

@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { PLAIN_TEXT } from '@/shared/utils/text';
 import type {
   CopyWeekResult,
+  LeaveBalance,
+  LeaveKind,
+  LeaveSettings,
   LeaveStatus,
   RosterLeave,
   RosterLeavePage,
@@ -83,6 +86,13 @@ export const LEAVE_STATUSES = [
   'cancelled',
 ] as const satisfies readonly LeaveStatus[];
 
+export const LEAVE_KINDS = [
+  'annual',
+  'sick',
+  'casual',
+  'unpaid',
+] as const satisfies readonly LeaveKind[];
+
 export const rosterLeaveSchema: z.ZodType<RosterLeave> = z.object({
   id: z.string(),
   tenantId: z.string(),
@@ -90,7 +100,10 @@ export const rosterLeaveSchema: z.ZodType<RosterLeave> = z.object({
   userName: z.string(),
   startsAt: z.string(),
   endsAt: z.string(),
+  kind: z.enum(LEAVE_KINDS),
+  days: z.number().int(),
   status: z.enum(LEAVE_STATUSES),
+  selfApproved: z.boolean(),
   decidedByName: z.string().optional(),
   decidedAt: z.string().optional(),
   version: z.number().int(),
@@ -109,12 +122,46 @@ export const leaveFormSchema = z
   .object({
     firstDay: z.string().regex(DAY, 'validation.required'),
     lastDay: z.string().regex(DAY, 'validation.required'),
+    kind: z.enum(LEAVE_KINDS),
   })
   .refine((v) => v.lastDay >= v.firstDay, {
     path: ['lastDay'],
     message: 'validation.invalid_value',
   });
 export type LeaveFormValues = z.infer<typeof leaveFormSchema>;
+
+export const leaveSettingsSchema: z.ZodType<LeaveSettings> = z.object({
+  selfApproval: z.enum(['never', 'sole_manager']),
+  allowances: z.array(z.object({ kind: z.enum(LEAVE_KINDS), days: z.number().int() })),
+});
+
+export const leaveBalanceSchema: z.ZodType<LeaveBalance> = z.object({
+  userId: z.string(),
+  year: z.number().int(),
+  items: z.array(
+    z.object({
+      kind: z.enum(LEAVE_KINDS),
+      allowanceDays: z.number().int().optional(),
+      usedDays: z.number().int(),
+      pendingDays: z.number().int(),
+      remainingDays: z.number().int().optional(),
+    }),
+  ),
+});
+
+/** The rules form: a blank number is "no limit" for that kind. */
+const DAYS = z
+  .string()
+  .regex(/^\d{0,3}$/, 'validation.invalid_format')
+  .refine((v) => v === '' || Number(v) <= 366, 'validation.too_big');
+export const leaveRulesFormSchema = z.object({
+  selfApproval: z.enum(['never', 'sole_manager']),
+  annual: DAYS,
+  sick: DAYS,
+  casual: DAYS,
+  unpaid: DAYS,
+});
+export type LeaveRulesFormValues = z.infer<typeof leaveRulesFormSchema>;
 
 export const shiftTemplateSchema: z.ZodType<ShiftTemplate> = z.object({
   id: z.string(),
