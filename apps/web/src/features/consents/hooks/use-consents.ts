@@ -10,18 +10,27 @@ import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
+  fetchCertificateFormats,
   fetchCertificates,
   fetchConsent,
   fetchConsents,
   issueCertificate,
+  resetCertificateFormat,
+  setCertificateFormat,
   signConsent,
 } from '../api';
 import { CONSENTS_PAGE_SIZE } from '../schemas';
-import type { CertificateCreate, ConsentCreate } from '../types';
+import type {
+  CertificateCreate,
+  CertificateFormatUpdate,
+  CertificateKind,
+  ConsentCreate,
+} from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's consents never show in another. */
 export const consentKeys = createTenantKeys('consents');
 export const certificateKeys = createTenantKeys('certificates');
+export const formatKeys = createTenantKeys('certificate-formats');
 
 /**
  * The hospital, while the session is still the one the request was made in: an answer that
@@ -132,5 +141,35 @@ export function useIssueCertificate(patientId: string) {
         return queryClient.invalidateQueries({ queryKey: certificateKeys.all(tenantId) });
       }
     },
+  });
+}
+
+/** The fields of each kind of certificate in this hospital: at most four items, one read. */
+export function useCertificateFormats() {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: formatKeys.list(tenantId ?? '', {}),
+    queryFn: ({ signal }) => fetchCertificateFormats(signal),
+    enabled: tenantId !== undefined,
+  });
+}
+
+/** Saves the fields of a kind, or with `fields` absent goes back to the standard ones. */
+export function useSetCertificateFormat() {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  return useMutation({
+    mutationFn: ({
+      kind,
+      update,
+    }: {
+      kind: CertificateKind;
+      update: CertificateFormatUpdate | null;
+    }) => (update ? setCertificateFormat(kind, update) : resetCertificateFormat(kind)),
+    // The key holds the hospital it was made for, so this is harmless after a switch.
+    onSettled: () =>
+      tenantId === undefined
+        ? undefined
+        : queryClient.invalidateQueries({ queryKey: formatKeys.all(tenantId) }),
   });
 }

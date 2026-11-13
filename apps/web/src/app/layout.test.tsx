@@ -60,6 +60,7 @@ describe('shell', () => {
       'Import centre',
       'Duty roster',
       'Document retention',
+      'Certificate formats',
       'Staff',
       'Roles',
       'Hospital profile',
@@ -126,6 +127,7 @@ describe('shell', () => {
       'Import centre',
       'Duty roster',
       'Document retention',
+      'Certificate formats',
       'Staff',
       'Roles',
       'Hospital profile',
@@ -230,6 +232,8 @@ describe('keyboard', () => {
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Document retention' })).toHaveFocus();
     await userEvent.tab();
+    expect(within(sidebar()).getByRole('link', { name: 'Certificate formats' })).toHaveFocus();
+    await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Staff' })).toHaveFocus();
     await userEvent.tab();
     expect(within(sidebar()).getByRole('link', { name: 'Roles' })).toHaveFocus();
@@ -308,6 +312,7 @@ describe('navigation drawer (narrow screens)', () => {
       'Import centre',
       'Duty roster',
       'Document retention',
+      'Certificate formats',
       'Staff',
       'Roles',
       'Hospital profile',
@@ -383,6 +388,7 @@ describe('system pages', () => {
       'Import centre',
       'Duty roster',
       'Document retention',
+      'Certificate formats',
       'Staff',
       'Roles',
       'Hospital profile',

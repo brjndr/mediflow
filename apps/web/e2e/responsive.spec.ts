@@ -253,6 +253,10 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await goTo(page, 'Document retention');
   await expect(page.getByRole('heading', { name: 'Document retention', level: 1 })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  // Certificate formats (#567): the four kinds as cards on a phone.
+  await goTo(page, 'Certificate formats');
+  await expect(page.getByRole('heading', { name: 'Certificate formats', level: 1 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
   // Ambulances (#197): trips and the fleet as cards on a phone.
   await goTo(page, 'Ambulances');
   await expect(page.getByRole('heading', { name: 'Ambulances', level: 1 })).toBeVisible();

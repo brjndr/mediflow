@@ -8,6 +8,8 @@ import { focusIfLost } from '@/shared/lib/focus';
 import type { GridAction } from '@/shared/ui/data-grid';
 import type { BedAction } from '../api';
 import { BedGrid } from '../components/BedGrid';
+import { BedMap } from '../components/BedMap';
+import { StatusCounts } from '../components/StatusCounts';
 import { BlockPanel } from '../components/BlockPanel';
 import { ReservePanel } from '../components/ReservePanel';
 import { LiveStatus } from '../components/LiveStatus';
@@ -45,6 +47,7 @@ export default function BedBoard() {
 
   const [wardId, setWardId] = useState('');
   const [status, setStatus] = useState<BoardBedStatus | ''>('');
+  const [view, setView] = useState<'list' | 'map'>('list');
   const events = useBedEvents(true, wardId);
   const live = events === 'live';
 
@@ -181,6 +184,21 @@ export default function BedBoard() {
         </label>
       </div>
 
+      <StatusCounts wardId={wardId} live={live} status={status} onSelect={setStatus} />
+
+      <div role="group" aria-label={t('view.label')} className="flex gap-2">
+        {(['list', 'map'] as const).map((each) => (
+          <Button
+            key={each}
+            variant={view === each ? 'default' : 'outline'}
+            aria-pressed={view === each}
+            onClick={() => setView(each)}
+          >
+            {t(`view.${each}`)}
+          </Button>
+        ))}
+      </div>
+
       {action.isError && (
         <p role="alert" className="text-sm text-destructive">
           {refused ? t(refused) : tCommon(errorMessageKey(action.error))}
@@ -232,7 +250,11 @@ export default function BedBoard() {
         />
       )}
 
-      <BedGrid filters={{ wardId, status }} live={live} actions={actions} />
+      {view === 'map' ? (
+        <BedMap filters={{ wardId, status }} live={live} actions={actions} />
+      ) : (
+        <BedGrid filters={{ wardId, status }} live={live} actions={actions} />
+      )}
     </div>
   );
 }
