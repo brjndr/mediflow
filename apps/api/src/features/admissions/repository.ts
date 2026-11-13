@@ -233,6 +233,9 @@ export interface StayRow {
   move_reason: MoveReasonValue | null;
   move_note: string | null;
   day_price_minor: string | null;
+  /** The days the stay bills and what they come to, each day at the price in effect on it. */
+  billed_days: number;
+  billed_minor: string | null;
 }
 
 /** The beds an admission was in, oldest first. */
@@ -240,7 +243,8 @@ export async function staysOf(client: pg.ClientBase, admissionId: string): Promi
   const { rows } = await client.query<StayRow>(
     `select ba.id, ba.bed_id, b.number as bed_number, ba.ward_id, w.name as ward_name,
             ba.bed_category_id, ba.service_id, ba.assigned_at, ba.released_at, ba.release_reason,
-            ba.move_reason, ba.move_note, price.amount_minor as day_price_minor
+            ba.move_reason, ba.move_note, price.amount_minor as day_price_minor,
+            billed.days as billed_days, billed.total::text as billed_minor
      from bed_assignments ba
      join beds b on b.tenant_id = ba.tenant_id and b.id = ba.bed_id
      join wards w on w.tenant_id = ba.tenant_id and w.id = ba.ward_id
@@ -257,6 +261,32 @@ export async function staysOf(client: pg.ClientBase, admissionId: string): Promi
               or sp.effective_to >= (ba.assigned_at at time zone t.timezone)::date)
        limit 1
      ) price on true
+     left join lateral (
+       -- The same days the bed-day job charges (billing/bed-days.ts), each at its own date's price.
+       select count(*)::int as days, sum(coalesce(dp.amount_minor, 0)) as total
+       from (
+         select (ba.assigned_at at time zone t.timezone)::date as d0,
+                (coalesce(ba.released_at, now()) at time zone t.timezone)::date as d1
+       ) r
+       cross join lateral generate_series(
+         r.d0::timestamp,
+         (case when ba.released_at is not null and r.d1 > r.d0 then r.d1 - 1 else r.d1 end)::timestamp,
+         interval '1 day'
+       ) g(day)
+       left join lateral (
+         select sp.amount_minor
+         from service_prices sp
+         join price_lists pl
+           on pl.tenant_id = sp.tenant_id and pl.id = sp.price_list_id and pl.standard
+         where sp.tenant_id = ba.tenant_id and sp.service_id = ba.service_id
+           and sp.withdrawn_at is null
+           and sp.effective_from <= g.day::date
+         order by (sp.effective_to is null or sp.effective_to >= g.day::date) desc,
+           sp.effective_from desc
+         limit 1
+       ) dp on true
+       where ba.service_id is not null
+     ) billed on true
      where ba.admission_id = $1
      order by ba.assigned_at, ba.id`,
     [admissionId],

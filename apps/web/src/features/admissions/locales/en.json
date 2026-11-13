@@ -270,6 +270,8 @@
     "days_one": "{{count}} day",
     "days_other": "{{count}} days",
     "price": "{{price}} a day, {{amount}} for the days so far",
+    "billed_one": "{{count}} billed day, {{amount}}, at the price of that day",
+    "billed_other": "{{count}} billed days, {{amount}}, each at the price of its day",
     "arrived": "Moved here: {{reason}}",
     "categoryChanged": "A different bed category than before, so a different day price from this bed.",
     "close": "Close",

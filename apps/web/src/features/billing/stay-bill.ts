@@ -30,6 +30,17 @@ export const runningBillSchema: z.ZodType<RunningBill> = z.object({
       count: z.number().int(),
       totalMinor: z.number().int(),
       accruing: z.boolean().optional(),
+      parts: z
+        .array(
+          z.object({
+            serviceId: z.string(),
+            name: z.string(),
+            days: z.number().int(),
+            unitPriceMinor: z.number().int(),
+            totalMinor: z.number().int(),
+          }),
+        )
+        .optional(),
     }),
   ),
   chargesMinor: z.number().int(),

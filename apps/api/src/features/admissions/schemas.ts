@@ -230,6 +230,19 @@ export const BedStay = Type.Object(
           'The bed-day price in minor units on the standard list on the day the patient was given the bed, absent when the service has none then.',
       }),
     ),
+    billedDays: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        description: 'The days this stay bills (the bed-day job rule), to date while it is open.',
+      }),
+    ),
+    billedMinor: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        description:
+          'What those days come to, each day at the standard list price in effect on that day.',
+      }),
+    ),
     assignedAt: Type.String({ format: 'date-time' }),
     moveReason: Type.Optional(ref(BedMoveReason)),
     moveNote: Type.Optional(Type.String({ description: 'Plain text, with the move reason.' })),

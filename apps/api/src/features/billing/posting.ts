@@ -30,6 +30,8 @@ export interface Posting {
   /** Ignored when the price comes from the service's price list. */
   unitPriceMinor: number;
   flag: 'no_price' | null;
+  /** A calendar date (hospital clock) to price the service on, instead of today; bed days use it. */
+  priceDate?: string;
 }
 
 export interface ServicePrice {
@@ -41,8 +43,15 @@ export interface ServicePrice {
   amountMinor: number | null;
 }
 
-/** A service and its price today on the hospital's standard price list; null if no such service. */
-export async function priceOf(tx: Database, serviceId: string): Promise<ServicePrice | null> {
+/**
+ * A service and its price on a date (today unless given) on the hospital's standard price list;
+ * null if no such service.
+ */
+export async function priceOf(
+  tx: Database,
+  serviceId: string,
+  onDate: string | null = null,
+): Promise<ServicePrice | null> {
   const { rows } = await tx.execute<{
     name: string;
     archived: boolean;
@@ -59,7 +68,7 @@ export async function priceOf(tx: Database, serviceId: string): Promise<ServiceP
               sp.effective_from desc
             limit 1) as amount
         from services s,
-          (select (now() at time zone timezone)::date as today
+          (select coalesce(${onDate}::date, (now() at time zone timezone)::date) as today
            from tenants where id = app_tenant_id()) d
         where s.id = ${serviceId}`,
   );
@@ -104,7 +113,7 @@ export async function postCharge(tx: Database, posting: Posting): Promise<string
   // A dispensed medicine is charged at its MRP, which holds the tax already: no class.
   let taxClass: TaxClass | null = null;
   if (posting.serviceId !== null) {
-    const service = await priceOf(tx, posting.serviceId);
+    const service = await priceOf(tx, posting.serviceId, posting.priceDate ?? null);
     if (!service) return null;
     description = service.name;
     taxClass = service.taxClass;

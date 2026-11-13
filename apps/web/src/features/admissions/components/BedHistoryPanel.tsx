@@ -61,13 +61,22 @@ export function BedHistoryPanel({
                   {' - '}
                   {stay.releasedAt ? format.dateTime(stay.releasedAt) : t('history.now')}
                 </p>
-                {stay.dayPriceMinor !== undefined && (
+                {stay.billedMinor !== undefined && stay.billedDays !== undefined ? (
                   <p>
-                    {t('history.price', {
-                      price: format.money(stay.dayPriceMinor),
-                      amount: format.money(stay.dayPriceMinor * days),
+                    {t('history.billed', {
+                      count: stay.billedDays,
+                      amount: format.money(stay.billedMinor),
                     })}
                   </p>
+                ) : (
+                  stay.dayPriceMinor !== undefined && (
+                    <p>
+                      {t('history.price', {
+                        price: format.money(stay.dayPriceMinor),
+                        amount: format.money(stay.dayPriceMinor * days),
+                      })}
+                    </p>
+                  )
                 )}
                 {stay.moveReason && (
                   <p>

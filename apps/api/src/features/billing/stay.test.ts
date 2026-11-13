@@ -73,7 +73,13 @@ async function ok<T>(response: Response, status = 200): Promise<T> {
 }
 
 interface Bill {
-  lines: { source: string; count: number; totalMinor: number; accruing?: boolean }[];
+  lines: {
+    source: string;
+    count: number;
+    totalMinor: number;
+    accruing?: boolean;
+    parts?: { name: string; days: number; unitPriceMinor: number; totalMinor: number }[];
+  }[];
   chargesMinor: number;
   invoicedMinor: number;
   paidMinor: number;
@@ -544,7 +550,9 @@ describe('bed days', () => {
 
     // Until the job runs the days accrue on the running bill.
     const before = await ok<Bill>(await get(`/admissions/${stay.id}/bill`));
-    expect(before.lines).toEqual([{ source: 'bed', count: 4, totalMinor: 10_000, accruing: true }]);
+    expect(before.lines).toMatchObject([
+      { source: 'bed', count: 4, totalMinor: 10_000, accruing: true },
+    ]);
 
     expect(await postBedDays(pool, hospital.id)).toBeGreaterThanOrEqual(4);
     expect(await postBedDays(pool, hospital.id)).toBe(0);
@@ -559,7 +567,7 @@ describe('bed days', () => {
     expect(new Set(rows.map((row) => row.source_ref)).size).toBe(4);
 
     const after = await ok<Bill>(await get(`/admissions/${stay.id}/bill`));
-    expect(after.lines).toEqual([{ source: 'bed', count: 4, totalMinor: 10_000 }]);
+    expect(after.lines).toMatchObject([{ source: 'bed', count: 4, totalMinor: 10_000 }]);
     expect(after.chargesMinor).toBe(10_000);
   });
 
@@ -586,6 +594,126 @@ describe('bed days', () => {
       [stay.encounterId],
     );
     expect(rows[0]?.n).toBe(2);
+  });
+});
+
+describe('bed days across a transfer and a tariff change', () => {
+  it('bills each stretch at its own service and each day at the price of that day', async () => {
+    const one = async (sql: string, params: unknown[]) =>
+      (await pool.query<{ id: string }>(sql, params)).rows[0]?.id ?? '';
+    const wardRow = await pool.query<{ ward_id: string; room_id: string }>(
+      'select ward_id, room_id from beds where id = $1',
+      [bedIds[0]],
+    );
+    const { ward_id: ward, room_id: room } = wardRow.rows[0] ?? { ward_id: '', room_id: '' };
+    const priced = async (code: string, name: string, amount: number) => {
+      const id = await one(
+        `insert into services (tenant_id, code, name, category, tax_class)
+         values ($1, $2, $3, 'bed', 'exempt') returning id`,
+        [hospital.id, code, name],
+      );
+      await pool.query(
+        `insert into service_prices (tenant_id, service_id, price_list_id, amount_minor, effective_from)
+         select $1, $2, id, $3, current_date - 30 from price_lists where tenant_id = $1 and standard`,
+        [hospital.id, id, amount],
+      );
+      return id;
+    };
+    const general = await priced('BEDG', 'Split general bed day', 2_500);
+    const icu = await priced('BEDI', 'Split ICU bed day', 6_000);
+    const bedIn = async (service: string, name: string) => {
+      const category = await one(
+        'insert into bed_categories (tenant_id, name, service_id) values ($1, $2, $3) returning id',
+        [hospital.id, name, service],
+      );
+      return one(
+        'insert into beds (tenant_id, ward_id, room_id, number, bed_category_id) values ($1, $2, $3, $4, $5) returning id',
+        [hospital.id, ward, room, name, category],
+      );
+    };
+    const generalBed = await bedIn(general, 'SPLIT-G');
+    const icuBed = await bedIn(icu, 'SPLIT-I');
+    const patientId = await addPatient(hospital, 'Split');
+    const created = await ok<Admission>(
+      await post('/admissions', { patientId, admissionType: 'planned', bedId: generalBed }),
+      201,
+    );
+    await ok(
+      await post(`/admissions/${created.admission.id}/transfer`, {
+        bedId: icuBed,
+        version: created.admission.version,
+      }),
+    );
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('set local session_replication_role = replica');
+      const times = async (days: number, to: number | null, bed: string) =>
+        client.query(
+          `update bed_assignments set assigned_at = now() - make_interval(days => $1),
+             released_at = case when $2::int is null then null else now() - make_interval(days => $2::int) end
+           where admission_id = $3 and bed_id = $4`,
+          [days, to, created.admission.id, bed],
+        );
+      await times(4, 2, generalBed);
+      await times(2, null, icuBed);
+      // The general bed day goes up three days ago: the first day is at the old price.
+      await client.query(
+        `update service_prices set effective_to = current_date - 4 where service_id = $1`,
+        [general],
+      );
+      await client.query(
+        `insert into service_prices (tenant_id, service_id, price_list_id, amount_minor, effective_from)
+         select $1, $2, id, 3000, current_date - 3 from price_lists where tenant_id = $1 and standard`,
+        [hospital.id, general],
+      );
+      await client.query('commit');
+    } finally {
+      client.release();
+    }
+
+    const before = await ok<Bill>(await get(`/admissions/${created.admission.id}/bill`));
+    const accrued = before.lines.find((line) => line.accruing);
+    expect(accrued?.totalMinor).toBe(2_500 + 3_000 + 3 * 6_000);
+    expect(accrued?.parts?.map((part) => [part.name, part.days, part.unitPriceMinor])).toEqual([
+      ['Split general bed day', 1, 2_500],
+      ['Split general bed day', 1, 3_000],
+      ['Split ICU bed day', 3, 6_000],
+    ]);
+
+    await postBedDays(pool, hospital.id);
+    const { rows } = await pool.query(
+      `select service_id, unit_price_minor::int as price from charges
+       where encounter_id = $1 and source = 'bed' order by source_ref`,
+      [created.admission.encounterId],
+    );
+    expect(rows.map((row) => [row.service_id, row.price])).toEqual([
+      [general, 2_500],
+      [general, 3_000],
+      [icu, 6_000],
+      [icu, 6_000],
+      [icu, 6_000],
+    ]);
+    // A later price change never moves a charge already posted.
+    const after = await ok<Bill>(await get(`/admissions/${created.admission.id}/bill`));
+    expect(after.lines).toHaveLength(1);
+    expect(after.lines[0]?.totalMinor).toBe(2_500 + 3_000 + 3 * 6_000);
+    expect(after.lines[0]?.parts).toHaveLength(3);
+
+    const detail = await ok<{ stays: { billedDays?: number; billedMinor?: number }[] }>(
+      await get(`/admissions/${created.admission.id}`),
+    );
+    expect(detail.stays.map((stay) => [stay.billedDays, stay.billedMinor])).toEqual([
+      [2, 5_500],
+      [3, 18_000],
+    ]);
+
+    // The other hospital sees none of it.
+    const other = await get(`/admissions/${created.admission.id}/bill`, {
+      tenant: clinic,
+      user: clinicAdmin,
+    });
+    expect(other.statusCode).toBe(404);
   });
 });
 
