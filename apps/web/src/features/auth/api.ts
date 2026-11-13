@@ -47,6 +47,11 @@ export async function fetchMfaRequirement(signal?: AbortSignal): Promise<boolean
   return requireData(await api.GET('/auth/mfa/requirement', { signal })).required;
 }
 
+/** Saves the signed-in user's own language, or null to follow the hospital's locale. */
+export async function setAccountLanguage(language: 'en' | 'hi' | null): Promise<void> {
+  await api.PUT('/auth/language', { body: { language }, fetch: apiFetchOnce });
+}
+
 export type AccountSession = components['schemas']['AccountSession'];
 
 /** Changes the signed-in user's own password. The server ends their other sessions. */

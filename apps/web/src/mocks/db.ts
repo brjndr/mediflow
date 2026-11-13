@@ -665,6 +665,7 @@ export function resetMockDb(): void {
   lockedEmails = new Set();
   loginAttempts = [];
   mfaUserIds = new Set();
+  userLanguages = new Map();
   signIn(USER_IDS.admin);
   for (const listener of resetListeners) listener();
 }
@@ -697,6 +698,13 @@ export function activeTenantId(): string | null {
 }
 
 let mfaUserIds = new Set<string>();
+let userLanguages = new Map<string, 'en' | 'hi'>();
+
+/** Saves (or with null clears) a mock user's own language. */
+export function setMockLanguage(userId: string, language: 'en' | 'hi' | null): void {
+  if (language) userLanguages.set(userId, language);
+  else userLanguages.delete(userId);
+}
 
 /** Turns the authenticator on or off for a mock user. */
 export function setMockMfa(userId: string, enabled: boolean): void {
@@ -725,6 +733,7 @@ export function currentSession(): SessionDto | null {
         tenantName: tenants[m.tenantId]?.name ?? '',
       })),
       mfaEnabled: mfaUserIds.has(user.id),
+      language: userLanguages.get(user.id) ?? null,
       isPlatformAdmin: user.isPlatformAdmin === true,
     },
     activeTenant: state.activeTenantId ? (tenants[state.activeTenantId] ?? null) : null,

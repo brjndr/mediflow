@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createTenantKeys } from '@/shared/api';
-import { changePassword, listAccountSessions, revokeAccountSession } from '../api';
+import { sessionKey } from '@/app/session';
+import {
+  changePassword,
+  setAccountLanguage,
+  listAccountSessions,
+  revokeAccountSession,
+} from '../api';
 
 // The sessions belong to the user, not to a hospital, but the key is still scoped by the active
 // hospital like every other, so a hospital switch or a sign-out drops it with the rest.
@@ -31,5 +37,14 @@ export function useRevokeSession(tenantId: string) {
   return useMutation({
     mutationFn: revokeAccountSession,
     onSettled: () => queryClient.invalidateQueries({ queryKey: sessionsKey(tenantId) }),
+  });
+}
+
+export function useSetLanguage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: setAccountLanguage,
+    // The language is part of the session; reading it again applies it without a sign-out.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: sessionKey }),
   });
 }
