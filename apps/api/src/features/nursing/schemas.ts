@@ -325,6 +325,30 @@ export const WardDiet = Type.Object(
   },
 );
 
+export const KitchenListItem = Type.Object(
+  {
+    admissionId: Id,
+    patientId: Id,
+    patientName: Type.String(),
+    patientMrn: Type.String(),
+    wardId: Type.Optional(Id),
+    wardName: Type.Optional(Type.String()),
+    roomName: Type.Optional(Type.String()),
+    bedNumber: Type.Optional(Type.String()),
+    admittedAt: Instant,
+    diet: Type.Union([ref(WardDietOrder), Type.Null()], {
+      description: 'The newest diet order not cancelled or finished, or null when there is none.',
+    }),
+  },
+  { $id: 'KitchenListItem', additionalProperties: false },
+);
+export const KitchenListPage = CursorPage(ref(KitchenListItem), { $id: 'KitchenListPage' });
+export const KitchenListQuery = Type.Object({
+  wardId: Type.Optional(Id),
+  cursor: Type.Optional(Type.String({ maxLength: 300 })),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE })),
+});
+
 export const WardStockRequestCreate = Type.Object(
   {
     fromLocationId: Id,
@@ -384,6 +408,8 @@ export const NURSING_SCHEMAS = [
   ProgressNoteVersionPage,
   WardDietOrder,
   WardDiet,
+  KitchenListItem,
+  KitchenListPage,
   WardStockRequestCreate,
   WardStockRequest,
 ];

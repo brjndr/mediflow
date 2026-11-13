@@ -6,8 +6,13 @@ import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { tidyWithin } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
-import { stayInScope, type Stay } from '../admissions/index.js';
-import { dietOrdersOf, medicationOrder, medicationOrdersOf } from '../clinical/index.js';
+import { admittedStays, stayInScope, type Stay } from '../admissions/index.js';
+import {
+  currentDietsOf,
+  dietOrdersOf,
+  medicationOrder,
+  medicationOrdersOf,
+} from '../clinical/index.js';
 import { requestIndent } from '../inventory/index.js';
 import { dispensedOrders, orderDispensed } from '../pharmacy/index.js';
 import {
@@ -59,6 +64,8 @@ import {
   REASON_MAX,
   VitalParams,
   WardDiet,
+  KitchenListPage,
+  KitchenListQuery,
   WardStockRequest,
   WardStockRequestCreate,
   WardVital,
@@ -932,6 +939,66 @@ export const nursingRoutes: FastifyPluginAsyncTypebox = async (app) => {
           instructions: order.instructions,
           placedAt: iso(order.placedAt),
         })),
+      };
+    },
+  );
+
+  app.get(
+    '/diet/kitchen-list',
+    {
+      config: { permissions: ['order:read', 'admission:read'], feature: FEATURE },
+      schema: {
+        operationId: 'getKitchenList',
+        tags: ['nursing'],
+        description:
+          'The kitchen list: the patients admitted now, of one ward (the ward of the bed they are in) or all, each with the diet order they are on, the newest one not cancelled or finished (null when none). Read from the unified orders on every call, so it shows the latest orders. Within the scope the caller holds admission:read with. Every row names a patient, so every row is audited as an admission read. Needs the admissions and clinical modules.',
+        querystring: KitchenListQuery,
+        response: { 200: ref(KitchenListPage), ...errors(400, 401, 403, 409, 429) },
+      },
+    },
+    async (request) => {
+      await requireModules(request, 'admissions', 'clinical');
+      const { wardId, cursor, limit } = request.query;
+      const result = await admittedStays(
+        request.txClient,
+        {
+          ...(wardId === undefined ? {} : { wardId }),
+          ...(cursor === undefined ? {} : { cursor }),
+          limit: page(limit),
+        },
+        { scope: request.access.scope('admission:read'), userId: userIdOf(request) },
+      );
+      if (!result) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
+      const diets = await currentDietsOf(
+        request.txClient,
+        result.rows.map((row) => row.encounterId),
+      );
+      for (const row of result.rows) request.audit('read', 'admission', row.id);
+      return {
+        items: result.rows.map((row) => {
+          const diet = diets.get(row.encounterId);
+          return {
+            admissionId: row.id,
+            patientId: row.patientId,
+            patientName: row.patientName,
+            patientMrn: row.patientMrn,
+            ...(row.wardId === null ? {} : { wardId: row.wardId }),
+            ...(row.wardName === null ? {} : { wardName: row.wardName }),
+            ...(row.roomName === null ? {} : { roomName: row.roomName }),
+            ...(row.bedNumber === null ? {} : { bedNumber: row.bedNumber }),
+            admittedAt: iso(row.admittedAt),
+            diet: diet
+              ? {
+                  id: diet.id,
+                  status: diet.status,
+                  priority: diet.priority,
+                  instructions: diet.instructions,
+                  placedAt: iso(diet.placedAt),
+                }
+              : null,
+          };
+        }),
+        nextCursor: result.nextCursor,
       };
     },
   );

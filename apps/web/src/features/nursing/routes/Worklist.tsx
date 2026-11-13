@@ -75,6 +75,12 @@ export default function Worklist() {
       onSelect: (row) => navigate(`/nursing/${row.id}/care-plan`),
     },
     {
+      id: 'diet',
+      label: t('actions.diet'),
+      requires: 'order:read',
+      onSelect: (row) => navigate(`/nursing/${row.id}/diet`),
+    },
+    {
       id: 'mar',
       label: t('actions.mar'),
       requires: 'mar:read',
@@ -90,6 +96,11 @@ export default function Worklist() {
         <Can permission="progressNote:read">
           <Link to="/nursing/rounds" className="text-sm underline underline-offset-2">
             {t('rounds.link')}
+          </Link>
+        </Can>
+        <Can permission="order:read">
+          <Link to="/nursing/kitchen" className="ml-4 text-sm underline underline-offset-2">
+            {t('kitchen.link')}
           </Link>
         </Can>
       </div>

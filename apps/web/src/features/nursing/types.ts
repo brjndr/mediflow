@@ -55,3 +55,8 @@ export type CarePlanPage = components['schemas']['CarePlanPage'];
 export type CarePlanTask = components['schemas']['CarePlanTask'];
 export type CarePlanCreate = components['schemas']['CarePlanCreate'];
 export type CarePlanTaskCreate = components['schemas']['CarePlanTaskCreate'];
+
+export type WardDietOrder = components['schemas']['WardDietOrder'];
+export type WardDiet = components['schemas']['WardDiet'];
+export type KitchenListItem = components['schemas']['KitchenListItem'];
+export type KitchenListPage = components['schemas']['KitchenListPage'];

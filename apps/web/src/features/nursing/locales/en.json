@@ -34,7 +34,8 @@
     "mar": "Medication chart",
     "notes": "Progress notes",
     "fluids": "Fluid balance",
-    "care": "Care plan"
+    "care": "Care plan",
+    "diet": "Diet"
   },
   "back": "Back to ward care",
   "vitalsLoading": "Vital signs",
@@ -369,6 +370,61 @@
       "planClosed": "This plan has ended and does not change.",
       "alreadyDone": "This task is already done.",
       "notOpen": "This patient is no longer admitted, so nothing can be changed."
+    }
+  },
+  "kitchen": {
+    "link": "Kitchen list",
+    "heading": "Kitchen list",
+    "description": "The patients admitted now and the diet each is on, from the latest orders.",
+    "gridLabel": "Kitchen list",
+    "empty": "No patients are admitted.",
+    "noDiet": "No diet order",
+    "open": "Diet orders",
+    "columns": {
+      "diet": "Diet",
+      "priority": "Priority",
+      "status": "Status",
+      "ordered": "Ordered"
+    }
+  },
+  "diet": {
+    "back": "Back to the kitchen list",
+    "loading": "Diet",
+    "heading": "Diet: {{patient}}",
+    "closed": "This patient is no longer admitted. Diet orders can be read but not placed.",
+    "addHeading": "Place a diet order",
+    "addHint": "A new order replaces the diet the patient is on now. Say what may and may not be eaten.",
+    "instructions": "Diet and instructions (up to {{max}} characters)",
+    "priorityLabel": "Priority",
+    "place": "Place diet order",
+    "gridLabel": "Diet orders of the stay",
+    "rowLabel": "Diet order of {{time}}",
+    "empty": "No diet orders yet.",
+    "current": "Current diet",
+    "columns": {
+      "instructions": "Diet",
+      "current": "Now"
+    },
+    "priority": {
+      "routine": "Routine",
+      "urgent": "Urgent",
+      "stat": "Stat"
+    },
+    "status": {
+      "placed": "Ordered",
+      "accepted": "Accepted",
+      "in_progress": "In progress",
+      "completed": "Finished",
+      "cancelled": "Cancelled"
+    },
+    "done": {
+      "placed": "The diet order was placed."
+    },
+    "refused": {
+      "notOpen": "This stay is closed, so no order can be placed."
+    },
+    "errors": {
+      "instructions": "Enter the diet, up to 500 characters."
     }
   }
 }

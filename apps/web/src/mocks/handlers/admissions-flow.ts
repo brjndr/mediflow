@@ -466,3 +466,7 @@ export const admissionFlowHandlers = [
     return HttpResponse.json(shown(admission));
   }),
 ];
+
+/** For the nursing mock (#161): the patients admitted now in a hospital, newest first. */
+export const mockAdmittedStays = (tenantId: string): readonly Admission[] =>
+  admissions.filter((each) => each.tenantId === tenantId && each.status === 'admitted');
