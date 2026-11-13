@@ -17563,6 +17563,180 @@
             "minimum": 1
           }
         }
+      },
+      "RunningBillLine": {
+        "type": "object",
+        "required": ["source", "count", "totalMinor"],
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["service", "order", "dispense", "bed", "procedure", "manual"]
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Charges in the line; for bed days, the days."
+          },
+          "totalMinor": {
+            "type": "integer"
+          },
+          "accruing": {
+            "type": "boolean",
+            "description": "True for bed days accrued to date that are not a ledger charge yet."
+          }
+        }
+      },
+      "RunningBill": {
+        "type": "object",
+        "required": [
+          "admissionId",
+          "encounterId",
+          "asOf",
+          "lines",
+          "chargesMinor",
+          "invoicedMinor",
+          "paidMinor",
+          "depositsMinor",
+          "balanceMinor",
+          "patientName",
+          "patientMrn",
+          "status"
+        ],
+        "properties": {
+          "admissionId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunningBillLine"
+            }
+          },
+          "chargesMinor": {
+            "type": "integer"
+          },
+          "invoicedMinor": {
+            "type": "integer"
+          },
+          "paidMinor": {
+            "type": "integer"
+          },
+          "depositsMinor": {
+            "type": "integer"
+          },
+          "balanceMinor": {
+            "type": "integer"
+          },
+          "estimateMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "estimateNote": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["admitted", "discharged", "cancelled"]
+          }
+        }
+      },
+      "BillEstimateSet": {
+        "type": "object",
+        "required": ["amountMinor"],
+        "properties": {
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "DepositCreate": {
+        "type": "object",
+        "required": ["amountMinor", "method"],
+        "properties": {
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "method": {
+            "type": "string",
+            "enum": ["cash", "card", "upi", "bank", "other"]
+          },
+          "reference": {
+            "type": "string",
+            "maxLength": 100
+          }
+        }
+      },
+      "Deposit": {
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "admissionId",
+          "amountMinor",
+          "method",
+          "recordedByName",
+          "at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "admissionId": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "method": {
+            "type": "string",
+            "enum": ["cash", "card", "upi", "bank", "other"]
+          },
+          "reference": {
+            "type": "string"
+          },
+          "recordedByName": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DepositList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Deposit"
+            }
+          }
+        }
       }
     },
     "responses": {
@@ -61260,6 +61434,228 @@
             "$ref": "#/components/responses/Error"
           },
           "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/bill": {
+      "get": {
+        "operationId": "getRunningBill",
+        "description": "The running bill of an inpatient stay (DS-03, #166): the charge ledger of the stay's encounter added up by source, with the bed days accrued so far (a line with `accruing: true` that is not yet a ledger charge), the deposits taken, what was paid on invoices of the stay and the estimate set at admission. `chargesMinor` is the sum of the lines (void charges left out); `balanceMinor` is charges less deposits and payments (negative: the patient is in credit). Needs charge:read, admission:read and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The running bill",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunningBill"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/bill-estimate": {
+      "put": {
+        "operationId": "setBillEstimate",
+        "description": "Sets or replaces the estimate of what the stay will cost, in minor units, with an optional note. The running bill then shows actual against estimate. Needs invoice:create and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillEstimateSet"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The running bill with the estimate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunningBill"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/admissions/{admissionId}/deposits": {
+      "get": {
+        "operationId": "listDeposits",
+        "description": "The deposits taken against a stay, newest first. Needs payment:read and the billing feature flag.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The deposits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "post": {
+        "operationId": "takeDeposit",
+        "description": "Takes a deposit against a stay (cash goes into the caller's open register session as a payment does). A deposit is never edited or removed; it is set against the final invoice. A discharged stay is 409 `stay_closed`. Needs payment:create and the billing feature flag. Audited.",
+        "parameters": [
+          {
+            "name": "admissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepositCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The deposit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deposit"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
             "$ref": "#/components/responses/Error"
           },
           "default": {

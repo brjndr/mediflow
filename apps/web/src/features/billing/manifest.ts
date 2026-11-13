@@ -23,6 +23,7 @@ export const billingFeature: FeatureManifest = {
         taxRates: 'Tax rates',
         discountLimit: 'Discount limit',
         packages: 'Package contents',
+        stay: 'Running bill',
       },
     },
     load: (language) => import(`./locales/${language}.json`),
@@ -84,6 +85,12 @@ export const billingFeature: FeatureManifest = {
       requires: ['package:manage', 'charge:read', 'service:read'],
       titleKey: 'packages',
     },
+    {
+      path: 'billing/stays/:admissionId',
+      lazy: () => import('./routes/StayBill'),
+      requires: ['admission:read', 'charge:read'],
+      titleKey: 'stay',
+    },
   ],
   extensions: [
     {
@@ -113,6 +120,7 @@ export const billingFeature: FeatureManifest = {
     'discount:approve',
     'discount:manage',
     'encounter:read',
+    'admission:read',
   ],
   dashboardWidgets: [
     {

@@ -70,6 +70,7 @@
     "release": "Cancel reservation",
     "bed": "Give or change bed",
     "history": "Bed history",
+    "bill": "Running bill",
     "details": "Admission details",
     "discharge": "Discharge"
   },

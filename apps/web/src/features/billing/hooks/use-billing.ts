@@ -143,7 +143,7 @@ export function useInvoice(invoiceId: string) {
  * Whatever the answer, what the bill is made of has changed or may have: the visit's charges and
  * invoices and the invoice itself are read again.
  */
-function useRefreshBilling() {
+export function useRefreshBilling() {
   const queryClient = useQueryClient();
   const stillHere = useStillHere();
   return () => {

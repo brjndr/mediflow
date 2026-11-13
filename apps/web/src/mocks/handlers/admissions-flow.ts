@@ -208,8 +208,19 @@ export function admitMockFromEmergency(
   return { id: `adm_${counter}` };
 }
 
+/** An admission of the hospital with its bed stays, for the billing mock's running bill (DS-03). */
+export function mockAdmissionOf(
+  tenantId: string,
+  admissionId: string,
+): { admission: Admission; stays: Stay[] } | undefined {
+  const found = admissions.find((each) => each.id === admissionId && each.tenantId === tenantId);
+  return found ? { admission: shown(found), stays: found.stays ?? [] } : undefined;
+}
+
 /** For tests: a patient already admitted, as if the desk had admitted them. */
-export function addMockAdmission(admission: Partial<Admission> & { id: string }): void {
+export function addMockAdmission(
+  admission: Partial<Admission> & { id: string; stays?: Stay[] },
+): void {
   counter += 1;
   admissions.unshift({
     tenantId: TENANT_IDS.hospital,
