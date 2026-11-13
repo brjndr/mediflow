@@ -51,6 +51,19 @@ describe('the insurance tab', () => {
     await expectNoAxeViolations();
   });
 
+  it('masks the policy number in the pre-authorization list and the policy picker, not on the card', async () => {
+    await openTab();
+    expect(await screen.findByText('STAR-2026-0001')).toBeVisible();
+    expect(screen.getByText('Star Sample Insurance, ••••••••••0001')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Request pre-authorization' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Request pre-authorization' }));
+    await userEvent.click(dialog.getByRole('combobox', { name: /Policy/ }));
+    expect(
+      await screen.findByRole('option', { name: 'Star Sample Insurance, ••••••••••0001' }),
+    ).toBeVisible();
+    expect(screen.queryByRole('option', { name: /STAR-2026-0001/ })).toBeNull();
+  });
+
   it('adds a policy with a plan of the chosen organisation', async () => {
     await openTab();
     await screen.findByText('STAR-2026-0001');

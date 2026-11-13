@@ -12,6 +12,7 @@ import {
   useFieldValue,
   useZodForm,
 } from '@/shared/ui/form';
+import { maskEnd } from '@/shared/utils/mask';
 import { useTenant } from '@/tenancy';
 import {
   decisionFormSchema,
@@ -94,7 +95,7 @@ export function PreAuthDialog({
           placeholder={t('preauth.choosePolicy')}
           options={policies.map((policy) => ({
             value: policy.id,
-            label: `${policy.payerName}, ${policy.policyNumber}`,
+            label: `${policy.payerName}, ${maskEnd(policy.policyNumber)}`,
           }))}
         />
         <TextAreaField<PreAuthFormValues>
