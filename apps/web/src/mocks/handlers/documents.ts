@@ -203,11 +203,13 @@ export const documentsHandlers = [
     const query = new URL(request.url).searchParams;
     const category = query.get('category');
     const includeRetired = query.get('includeRetired') === 'true';
+    const encounterId = query.get('encounterId');
     const limit = Math.min(Math.max(Number(query.get('limit')) || 25, 1), 100);
     // Tenant isolation: only rows of the session's tenant are ever considered.
     const visible = state.documents
       .filter((one) => one.tenantId === access.tenantId && one.patientId === patientId)
       .filter((one) => !category || one.category === category)
+      .filter((one) => !encounterId || one.encounterId === encounterId)
       .filter((one) => includeRetired || !one.retiredAt)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
     const cursor = query.get('cursor');
@@ -257,6 +259,7 @@ export const documentsHandlers = [
         id,
         tenantId: access.tenantId,
         patientId,
+        ...(typeof body.encounterId === 'string' ? { encounterId: body.encounterId } : {}),
         category: body.category as PatientDocument['category'],
         title: body.title.trim(),
         fileName: body.fileName,

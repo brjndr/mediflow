@@ -27,6 +27,8 @@ import type {
 export interface DocumentFilters {
   category: DocumentCategory | '';
   includeRetired: boolean;
+  /** Only the documents attached to this visit (the consultation's panel). */
+  encounterId?: string;
 }
 
 export async function fetchDocuments(
@@ -34,6 +36,7 @@ export async function fetchDocuments(
     patientId,
     category,
     includeRetired,
+    encounterId,
     cursor,
     limit,
   }: DocumentFilters & { patientId: string; cursor?: string; limit: number },
@@ -44,6 +47,7 @@ export async function fetchDocuments(
       path: { patientId },
       query: {
         category: category || undefined,
+        encounterId,
         includeRetired: includeRetired || undefined,
         cursor,
         limit,

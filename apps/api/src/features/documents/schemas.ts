@@ -113,6 +113,7 @@ export const DocumentListQuery = Type.Object({
   cursor: Type.Optional(Type.String()),
   limit: Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
   category: Type.Optional(Category),
+  encounterId: Type.Optional(Id),
   includeRetired: Type.Optional(
     Type.Boolean({ description: 'Retired documents are left out unless asked for.' }),
   ),
