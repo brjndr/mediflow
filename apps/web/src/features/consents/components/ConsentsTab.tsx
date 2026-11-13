@@ -15,6 +15,7 @@ import type { Certificate, CertificateKind, Consent } from '../types';
 import { CertificateForm } from './CertificateForm';
 import { ConsentForm } from './ConsentForm';
 import { ConsentView } from './ConsentView';
+import { CertificateDocument, PrintRecordButton } from './PrintRecord';
 
 /**
  * The "Consents and certificates" tab of the patient's screen (`patient.detail.tabs`, MR-02,
@@ -321,7 +322,10 @@ function CertificateView({
         <dt className="font-medium">{t('columns.issuedBy')}</dt>
         <dd>{certificate.issuedByName}</dd>
       </dl>
-      <div>
+      <div className="flex flex-wrap gap-2">
+        <PrintRecordButton>
+          <CertificateDocument certificate={certificate} />
+        </PrintRecordButton>
         <Button type="button" variant="outline" onClick={onClose}>
           {t('close')}
         </Button>
