@@ -2,7 +2,14 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { onMockReset } from '../db';
 import { authorize, error } from '../respond';
-import { admissionFlowHandlers, announceBedsWith, mockBedPatient } from './admissions-flow';
+import {
+  admissionFlowHandlers,
+  announceBedsWith,
+  cancelMockReservation,
+  mockBedPatient,
+  mockReservationOf,
+  reserveMockBed,
+} from './admissions-flow';
 import { mockPatient } from './patients';
 import { housekeepMockBed, mockBoardBeds, onMockBedsChanged, setMockBedStatus } from './wards';
 
@@ -13,6 +20,7 @@ type BoardBedStatus = components['schemas']['BoardBedStatus'];
 const FEATURE_FLAG = 'admissions';
 const READ = 'admission:read';
 const HOUSEKEEPING = 'bed:update';
+const RESERVE = 'bed:reserve';
 const STATUSES: BoardBedStatus[] = ['available', 'occupied', 'cleaning', 'blocked'];
 
 /** Who is in the seeded occupied beds. Ids only: names are looked up when the board is read. */
@@ -89,8 +97,21 @@ function view(tenantId: string, bed: ReturnType<typeof mockBoardBeds>[number]): 
     bed.status === 'occupied'
       ? mockPatient(tenantId, mockBedPatient(bed.id) ?? OCCUPANTS[bed.id] ?? FALLBACK_PATIENT)
       : undefined;
+  const held = mockReservationOf(tenantId, bed.id);
+  const holder = held ? mockPatient(tenantId, held.patientId) : undefined;
   return {
     ...bed,
+    ...(held && holder
+      ? {
+          reservation: {
+            id: held.id,
+            patientId: holder.id,
+            patientName: holder.name,
+            patientMrn: holder.mrn,
+            expiresAt: held.expiresAt,
+          },
+        }
+      : {}),
     ...(patient
       ? {
           occupant: {
@@ -160,6 +181,44 @@ export const admissionsHandlers = [
     if (result === 'not_found') return error(404, 'bed_not_found', 'No such bed');
     if (result !== 'ok') return error(409, result, 'It has changed');
     const bed = mockBoardBeds(access.tenantId).find((candidate) => candidate.id === bedId);
+    return bed
+      ? HttpResponse.json<BoardBed>(view(access.tenantId, bed))
+      : error(404, 'bed_not_found', 'No such bed');
+  }),
+
+  http.post('*/api/beds/:bedId/reservations', async ({ request, params }) => {
+    const access = authorize(request, { permission: RESERVE, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    if (request.headers.get('idempotency-key') === null) {
+      return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    }
+    const body: unknown = await request.json().catch(() => null);
+    const { patientId, expiresAt } = (body ?? {}) as { patientId?: unknown; expiresAt?: unknown };
+    if (typeof patientId !== 'string' || typeof expiresAt !== 'string') {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (!mockPatient(access.tenantId, patientId)) {
+      return error(422, 'unknown_patient', 'No such patient');
+    }
+    if (!(Date.parse(expiresAt) > Date.now())) {
+      return error(422, 'invalid_expiry', 'The hold must end in the future');
+    }
+    const made = reserveMockBed(access.tenantId, String(params.bedId), patientId, expiresAt);
+    if (typeof made === 'string') {
+      return error(made === 'bed_not_found' ? 404 : 409, made, 'The bed cannot be reserved');
+    }
+    const bed = mockBoardBeds(access.tenantId).find((each) => each.id === made.bedId);
+    return bed
+      ? HttpResponse.json<BoardBed>(view(access.tenantId, bed), { status: 201 })
+      : error(404, 'bed_not_found', 'No such bed');
+  }),
+
+  http.post('*/api/bed-reservations/:reservationId/cancel', ({ request, params }) => {
+    const access = authorize(request, { permission: RESERVE, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const freed = cancelMockReservation(access.tenantId, String(params.reservationId));
+    if (!freed) return error(409, 'reservation_ended', 'The reservation has ended');
+    const bed = mockBoardBeds(access.tenantId).find((each) => each.id === freed.bedId);
     return bed
       ? HttpResponse.json<BoardBed>(view(access.tenantId, bed))
       : error(404, 'bed_not_found', 'No such bed');

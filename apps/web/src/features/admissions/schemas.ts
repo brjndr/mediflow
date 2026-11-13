@@ -59,6 +59,15 @@ export const boardBedSchema: z.ZodType<BoardBed> = z.object({
       assignedAt: z.string(),
     })
     .optional(),
+  reservation: z
+    .object({
+      id: z.string(),
+      patientId: z.string(),
+      patientName: z.string(),
+      patientMrn: z.string(),
+      expiresAt: z.string(),
+    })
+    .optional(),
   version: z.number().int().min(1),
 });
 
@@ -103,6 +112,14 @@ export function allowedActions(status: BoardBedStatus) {
     unblock: status === 'blocked',
   };
 }
+
+/** How long a bed can be held for a patient, in hours: the choices of the reservation panel. */
+export const HOLD_HOURS = [4, 12, 24, 48, 168] as const;
+
+export const reserveSchema = z.object({
+  hours: z.enum(HOLD_HOURS.map(String) as [string, ...string[]]),
+});
+export type ReserveValues = z.infer<typeof reserveSchema>;
 
 export const ADMISSION_TYPES = [
   'planned',

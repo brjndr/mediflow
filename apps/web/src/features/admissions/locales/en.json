@@ -41,7 +41,11 @@
     "doctor": "Doctor",
     "type": "Type",
     "admittedAt": "Admitted",
-    "deposit": "Deposit"
+    "deposit": "Deposit",
+    "reservation": "Reservation"
+  },
+  "reservation": {
+    "heldFor": "Held for {{name}} until {{until}}"
   },
   "status": {
     "available": "Available",
@@ -62,6 +66,8 @@
     "markReady": "Mark ready",
     "block": "Block",
     "unblock": "Put back in use",
+    "reserve": "Reserve bed",
+    "release": "Cancel reservation",
     "bed": "Give or change bed",
     "history": "Bed history",
     "details": "Admission details",
@@ -75,7 +81,19 @@
     "submit": "Block bed",
     "back": "Cancel"
   },
+  "reservePanel": {
+    "heading": "Reserve bed {{number}}",
+    "patient": "Patient the bed is held for",
+    "patientRequired": "Choose the patient.",
+    "hold": "Hold for",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "submit": "Reserve bed",
+    "back": "Cancel"
+  },
   "done": {
+    "reserved": "Bed {{number}} is reserved.",
+    "released": "The reservation on bed {{number}} is cancelled.",
     "cleaning": "Bed {{number}} is marked as being cleaned.",
     "ready": "Bed {{number}} is ready.",
     "blocked": "Bed {{number}} is blocked.",
@@ -84,6 +102,9 @@
     "discharged": "{{patient}} is discharged. The bed is being cleaned."
   },
   "refused": {
+    "reserved": "That bed is held for another patient.",
+    "patientHolds": "That patient already has a bed held.",
+    "alreadyAdmitted": "That patient is already admitted.",
     "changed": "Someone else changed this bed first. The board has been refreshed; try again.",
     "admission": "The bed or the admission changed first. The list has been refreshed; try again."
   },
@@ -172,6 +193,7 @@
     "noBeds": "No bed is free, so nobody can be admitted now.",
     "bedRequired": "Choose a free bed.",
     "bedOption": "Bed {{number}}, {{ward}}",
+    "heldForThem": "Held for this patient",
     "dayPrice": "{{price}} a day",
     "advice": "Doctor's advice",
     "adviceHint": "Why the patient is to be admitted and what to do first. Optional.",

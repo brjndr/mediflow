@@ -76,9 +76,11 @@ export async function fetchWardOptions(
 export type BedAction =
   | { kind: 'housekeeping'; bed: BoardBed; status: 'cleaning' | 'available' }
   | { kind: 'block'; bed: BoardBed; reason: BlockReason }
-  | { kind: 'unblock'; bed: BoardBed };
+  | { kind: 'unblock'; bed: BoardBed }
+  | { kind: 'reserve'; bed: BoardBed; patientId: string; expiresAt: string }
+  | { kind: 'release'; bed: BoardBed };
 
-/** Marks a bed cleaning or ready, blocks it or puts it back in use. */
+/** Marks a bed cleaning or ready, blocks it or puts it back in use, holds it for a patient or lets the hold go. */
 export async function changeBed(action: BedAction, key: string): Promise<void> {
   const { bed } = action;
   const path = { bedId: bed.id };
@@ -105,6 +107,24 @@ export async function changeBed(action: BedAction, key: string): Promise<void> {
         await api.POST('/wards/{wardId}/beds/{bedId}/unblock', { params: { path: ward } }),
       );
       return;
+    case 'reserve':
+      requireData(
+        await api.POST('/beds/{bedId}/reservations', {
+          params: { path, header: { 'idempotency-key': key } },
+          body: { patientId: action.patientId, expiresAt: action.expiresAt },
+        }),
+      );
+      return;
+    case 'release': {
+      const reservationId = bed.reservation?.id;
+      if (!reservationId) return;
+      requireData(
+        await api.POST('/bed-reservations/{reservationId}/cancel', {
+          params: { path: { reservationId }, header: { 'idempotency-key': key } },
+        }),
+      );
+      return;
+    }
   }
 }
 

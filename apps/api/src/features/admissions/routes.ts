@@ -42,6 +42,7 @@ import {
   type BoardRow,
   type Visibility,
 } from './repository.js';
+import { fulfilReservationsOf, liveReservationOfBed } from './reservation-repo.js';
 import type { Admission } from './schemas.js';
 import {
   type BoardBedStatusValue,
@@ -77,7 +78,7 @@ const BED_UPDATE = 'bed:update';
 const notFound = () => new HttpError(404, 'admission_not_found', 'No such admission');
 const unavailable = () => new HttpError(409, 'bed_not_available', 'The bed is not available');
 
-const userIdOf = (request: FastifyRequest): string => {
+export const userIdOf = (request: FastifyRequest): string => {
   const userId = request.session?.userId;
   if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
   return userId;
@@ -89,7 +90,7 @@ const visibilityFor = (request: FastifyRequest, permission: Permission): Visibil
 });
 
 /** What the caller holds a permission of another module with, or null when it is off or not held. */
-async function grantOf(
+export async function grantOf(
   request: FastifyRequest,
   permission: string,
   feature: string,
@@ -101,7 +102,7 @@ async function grantOf(
 }
 
 /** The beds are the wards module's: a hospital with it off has no bed to give. */
-async function requireWards(request: FastifyRequest): Promise<void> {
+export async function requireWards(request: FastifyRequest): Promise<void> {
   if ((await request.access.policy())?.features.wards !== true) {
     throw new HttpError(403, 'feature_disabled', 'The wards module is off');
   }
@@ -153,7 +154,7 @@ const admissionView = (row: AdmissionRow): Admission => ({
   version: row.version,
 });
 
-const boardView = (row: BoardRow): BoardBed => ({
+export const boardView = (row: BoardRow): BoardBed => ({
   id: row.id,
   number: row.number,
   wardId: row.ward_id,
@@ -175,6 +176,17 @@ const boardView = (row: BoardRow): BoardBed => ({
           patientName: row.patient_name ?? '',
           patientMrn: row.patient_mrn ?? '',
           assignedAt: iso(row.assigned_at),
+        },
+      }),
+  ...(row.reservation_id === null || row.reserved_patient_id === null || row.reserved_until === null
+    ? {}
+    : {
+        reservation: {
+          id: row.reservation_id,
+          patientId: row.reserved_patient_id,
+          patientName: row.reserved_patient_name ?? '',
+          patientMrn: row.reserved_patient_mrn ?? '',
+          expiresAt: iso(row.reserved_until),
         },
       }),
   version: row.version,
@@ -207,10 +219,11 @@ async function detailOf(request: FastifyRequest, row: AdmissionRow) {
  * other) and then reads the bed as it is. 422 for a bed this hospital does not have, 409 unless
  * it is available. `alsoWards` are wards the caller must hold as well (the bed being left).
  */
-async function claimBed(
+export async function claimBed(
   request: FastifyRequest,
   bedId: string,
-  alsoWards: string[] = [],
+  alsoWards: string[],
+  patientId: string,
 ): Promise<AdmissionBed> {
   const client = request.txClient;
   const probe = await bedForAdmission(client, bedId);
@@ -220,11 +233,16 @@ async function claimBed(
   }
   const bed = await bedForAdmission(client, bedId);
   if (!bed || bed.archived || bed.status !== 'available') throw unavailable();
+  // A bed held for someone else is not for this patient (#582).
+  const held = await liveReservationOfBed(client, bedId);
+  if (held && held.patient_id !== patientId) {
+    throw new HttpError(409, 'bed_reserved', 'The bed is reserved for another patient');
+  }
   return bed;
 }
 
 /** Tells the hospital's open boards that a ward's beds changed, once this commits. */
-const announce = (request: FastifyRequest, wardId: string) =>
+export const announce = (request: FastifyRequest, wardId: string) =>
   request.server.live.bus.publish(request.txClient, BEDS_TOPIC, { wardId });
 
 /** Gives the admission the bed `claimBed` returned: the assignment, the status, the event. */
@@ -261,6 +279,16 @@ async function placeInBed(
     // The exclusion constraints, the backstop of the ward's lock.
     if ((error as { code?: unknown } | null)?.code === '23P01') throw unavailable();
     throw error;
+  }
+  // The patient has a bed: whatever bed was held for them is let go (#582).
+  for (const freed of await fulfilReservationsOf(client, admission.patientId, userIdOf(request))) {
+    announce(request, freed.ward_id);
+    await request.emit('bed.reservation_ended', freed.bed_id, {
+      patientId: admission.patientId,
+      bedId: freed.bed_id,
+      wardId: freed.ward_id,
+      reason: 'fulfilled',
+    });
   }
   announce(request, bed.ward_id);
   await request.emit('bed.assigned', bed.id, {
@@ -438,7 +466,7 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
       let bed: AdmissionBed | null = null;
       if (body.bedId !== undefined) {
         await requireWards(request);
-        bed = await claimBed(request, body.bedId);
+        bed = await claimBed(request, body.bedId, [], body.patientId);
       }
       if ((await activeAdmissionOf(client, body.patientId)) !== null) {
         throw new HttpError(409, 'already_admitted', 'The patient is already admitted');
@@ -572,7 +600,12 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
             throw new HttpError(400, 'validation_failed', 'A note needs a reason');
           }
           const note = body.note === undefined ? '' : tidyWithin(body.note, MOVE_NOTE_MAX);
-          const bed = await claimBed(request, body.bedId, current ? [current.ward_id] : []);
+          const bed = await claimBed(
+            request,
+            body.bedId,
+            current ? [current.ward_id] : [],
+            row.patient_id,
+          );
           const admission = { id: row.id, patientId: row.patient_id };
           await leaveBed(request, admission, 'transfer');
           await placeInBed(request, admission, bed, {

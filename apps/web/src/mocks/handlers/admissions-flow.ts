@@ -20,13 +20,71 @@ const TYPES = ['planned', 'emergency', 'transfer_in'];
 let admissions: Stored[] = [];
 let sittingIn = new Map<string, string>();
 let counter = 0;
+interface Reservation {
+  id: string;
+  tenantId: string;
+  bedId: string;
+  wardId: string;
+  patientId: string;
+  expiresAt: string;
+}
+let reservations: Reservation[] = [];
 let announce: (tenantId: string, wardId: string) => void = () => undefined;
 
 onMockReset(() => {
   admissions = [];
   sittingIn = new Map();
+  reservations = [];
   counter = 0;
 });
+
+/** The hold on a bed, unless it has run out. */
+export const mockReservationOf = (tenantId: string, bedId: string): Reservation | undefined =>
+  reservations.find(
+    (each) =>
+      each.tenantId === tenantId && each.bedId === bedId && Date.parse(each.expiresAt) > Date.now(),
+  );
+
+/** Holds a bed for a patient; the code the API refuses with, else the hold. */
+export function reserveMockBed(
+  tenantId: string,
+  bedId: string,
+  patientId: string,
+  expiresAt: string,
+):
+  Reservation | 'bed_not_found' | 'bed_not_available' | 'bed_reserved' | 'patient_has_reservation' {
+  const bed = mockBoardBeds(tenantId).find((candidate) => candidate.id === bedId);
+  if (!bed) return 'bed_not_found';
+  if (bed.status === 'blocked') return 'bed_not_available';
+  if (mockReservationOf(tenantId, bedId)) return 'bed_reserved';
+  if (
+    reservations.some(
+      (each) => each.patientId === patientId && Date.parse(each.expiresAt) > Date.now(),
+    )
+  ) {
+    return 'patient_has_reservation';
+  }
+  counter += 1;
+  const made = { id: 'rsv_' + counter, tenantId, bedId, wardId: bed.wardId, patientId, expiresAt };
+  reservations.push(made);
+  announce(tenantId, bed.wardId);
+  return made;
+}
+
+/** Lets a hold go; undefined when it is not open. */
+export function cancelMockReservation(tenantId: string, id: string): { bedId: string } | undefined {
+  const found = reservations.find((each) => each.tenantId === tenantId && each.id === id);
+  if (!found || Date.parse(found.expiresAt) <= Date.now()) return undefined;
+  reservations = reservations.filter((each) => each !== found);
+  announce(tenantId, found.wardId);
+  return { bedId: found.bedId };
+}
+
+/** Whether a bed is held for someone other than this patient. */
+const heldForOther = (tenantId: string, bedId: string, patientId: string): boolean => {
+  const held = mockReservationOf(tenantId, bedId);
+  return held !== undefined && held.patientId !== patientId;
+};
 
 /** Wires the board's event stream in, so a change of bed is heard by open boards. */
 export function announceBedsWith(listener: (tenantId: string, wardId: string) => void): void {
@@ -44,6 +102,10 @@ function takeBed(tenantId: string, bedId: string, patientId: string, leaving?: s
   if (!bed || bed.status !== 'available') return undefined;
   setMockBedStatus(bed.id, 'occupied');
   sittingIn.set(bed.id, patientId);
+  // Whatever bed was held for the patient is let go.
+  reservations = reservations.filter(
+    (each) => !(each.tenantId === tenantId && each.patientId === patientId),
+  );
   announce(tenantId, bed.wardId);
   const old = leaving ? mockBoardBeds(tenantId).find((each) => each.id === leaving) : undefined;
   if (old) {
@@ -254,6 +316,9 @@ export const admissionFlowHandlers = [
     if (already) return error(409, 'already_admitted', 'Already admitted');
     let bed: Bed | undefined;
     if (typeof body.bedId === 'string') {
+      if (heldForOther(access.tenantId, body.bedId, patient.id)) {
+        return error(409, 'bed_reserved', 'The bed is reserved for another patient');
+      }
       bed = takeBed(access.tenantId, body.bedId, patient.id);
       if (!bed) return error(409, 'bed_not_available', 'The bed is not available');
     }
@@ -375,6 +440,9 @@ export const admissionFlowHandlers = [
       (body.note !== undefined && (note === undefined || note === '' || reason === undefined))
     ) {
       return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (heldForOther(access.tenantId, body.bedId, admission.patientId)) {
+      return error(409, 'bed_reserved', 'The bed is reserved for another patient');
     }
     const bed = takeBed(access.tenantId, body.bedId, admission.patientId, admission.bed?.bedId);
     if (!bed) return error(409, 'bed_not_available', 'The bed is not available');

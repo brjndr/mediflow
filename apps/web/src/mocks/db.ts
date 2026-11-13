@@ -282,6 +282,7 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'admission:transfer' },
   { permission: 'admission:discharge' },
   { permission: 'bed:update' },
+  { permission: 'bed:reserve' },
   { permission: 'cleaningTask:read' },
   { permission: 'cleaningTask:work' },
   { permission: 'cleaningTask:manage' },
