@@ -29,6 +29,10 @@ const halfUp = (numerator: number, denominator: number) =>
  * the patient's co-pay share and the sum insured, in that order. Whole minor units only, so for
  * every line payer + patient = rated and the totals reconcile with the ledger.
  */
+export function mockSplit(tenantId: string, encounterId: string) {
+  return work(tenantId, encounterId);
+}
+
 function work(tenantId: string, encounterId: string): Split | undefined {
   const visit = mockEncounter(encounterId);
   if (!visit || visit.tenantId !== tenantId) return undefined;

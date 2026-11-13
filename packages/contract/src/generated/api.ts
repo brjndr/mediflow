@@ -6365,6 +6365,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Insurance claims, newest first, one cursor page. Needs claim:read. */
+        get: operations["listClaims"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/claims/aging": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Money still to come in on claims, by payer and by days since the claim was submitted. Needs claim:read. */
+        get: operations["claimAging"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/claims/{claimId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One claim with its history. Needs claim:read. */
+        get: operations["getClaim"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/claims/{claimId}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Moves a claim along: submit, raise_query, reply, approve, reject, settle, write_off or cancel. Only the transitions of the claim state machine are allowed (409 invalid_transition otherwise). Needs claim:manage, and claim:writeoff for write_off. */
+        post: operations["actOnClaim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Prepares a claim for a visit from the saved split: the payer share, the policy and the packet of documents (by name). One open claim per visit (409 claim_exists); nothing to claim is 422. Needs claim:manage. */
+        post: operations["createClaim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12240,6 +12325,100 @@ export interface components {
             };
             /** @description A saved split exists and the ledger has changed since. */
             stale: boolean;
+        };
+        /** @enum {string} */
+        ClaimStatus: "draft" | "submitted" | "query" | "approved" | "rejected" | "settled" | "written_off" | "cancelled";
+        /** @enum {string} */
+        ClaimActionKind: "submit" | "raise_query" | "reply" | "approve" | "reject" | "settle" | "write_off" | "cancel";
+        Claim: {
+            id: string;
+            /** @description The hospital claim number. */
+            number: string;
+            patientId: string;
+            encounterId: string;
+            policyId: string;
+            payerId: string;
+            payerName: string;
+            policyNumber: string;
+            /** @description The payer share of the visit split when the claim was prepared. */
+            claimedMinor: number;
+            /** @description What the payer agreed to pay. Absent until approved. */
+            approvedMinor?: number;
+            /** @description What the payer has paid. */
+            receivedMinor: number;
+            /** @description What the hospital gave up. */
+            writtenOffMinor: number;
+            /** @description Claimed less received and written off, worked out by the server. Zero for a draft or a withdrawn claim. */
+            outstandingMinor: number;
+            status: components["schemas"]["ClaimStatus"];
+            referenceNumber?: string;
+            /** @description The payer question while the claim is in query. */
+            openQuery?: string;
+            /** @description The packet, by name. The files are on the patient record. */
+            documents: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            submittedAt?: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            version: number;
+        };
+        ClaimEvent: {
+            /** Format: date-time */
+            at: string;
+            /** @enum {string} */
+            action: "create" | "submit" | "raise_query" | "reply" | "approve" | "reject" | "settle" | "write_off" | "cancel";
+            toStatus: components["schemas"]["ClaimStatus"];
+            amountMinor?: number;
+            note?: string;
+        };
+        ClaimDetail: components["schemas"]["Claim"] & {
+            events: components["schemas"]["ClaimEvent"][];
+            /** @description What can be done to the claim now, from the state machine. */
+            allowedActions: components["schemas"]["ClaimActionKind"][];
+        };
+        ClaimPage: {
+            items: components["schemas"]["Claim"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ClaimCreate: {
+            documents: string[];
+            note?: string;
+        };
+        ClaimAction: {
+            version: number;
+            action: components["schemas"]["ClaimActionKind"];
+            /** @description Required for raise_query (the question), reply, reject and write_off (the reason). */
+            note?: string;
+            /** @description Required for approve. */
+            approvedMinor?: number;
+            /** @description Required for settle: the payment that came in, at most the approved amount. */
+            receivedMinor?: number;
+            referenceNumber?: string;
+            /** @description Added to the packet with a reply. */
+            documents?: string[];
+        };
+        ClaimAgingRow: {
+            payerId: string;
+            payerName: string;
+            claims: number;
+            /** @description Outstanding money aged 0 to 30, 31 to 60, 61 to 90 and over 90 days from submission. */
+            buckets: number[];
+            outstandingMinor: number;
+        };
+        ClaimAgingTotals: {
+            claims: number;
+            /** @description Outstanding money aged 0 to 30, 31 to 60, 61 to 90 and over 90 days from submission. */
+            buckets: number[];
+            outstandingMinor: number;
+        };
+        ClaimAging: {
+            /** Format: date-time */
+            asOf: string;
+            rows: components["schemas"]["ClaimAgingRow"][];
+            totals: components["schemas"]["ClaimAgingTotals"];
         };
     };
     responses: {
@@ -45494,6 +45673,151 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listClaims: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["ClaimStatus"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of claims */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimPage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    claimAging: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The aging */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimAging"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getClaim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claimId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The claim */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    actOnClaim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claimId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimAction"];
+            };
+        };
+        responses: {
+            /** @description The claim */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createClaim: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimCreate"];
+            };
+        };
+        responses: {
+            /** @description The claim */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
