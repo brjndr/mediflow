@@ -320,5 +320,37 @@
       "near": "The bill is near the approved limit. Ask the payer for more before it passes.",
       "reached": "The bill has reached the approved limit. The patient pays what is above it."
     }
+  },
+  "split": {
+    "heading": "Split between the patient and the payer",
+    "terms": "{{payer}}, {{plan}}: the patient pays {{percent}}% of what is covered.",
+    "agreement": "Priced at the rates of {{name}}.",
+    "columns": {
+      "what": "Charge",
+      "ledger": "On the ledger",
+      "rated": "At the payer’s rate",
+      "payer": "Payer pays",
+      "patient": "Patient pays",
+      "reason": "Why"
+    },
+    "reason": {
+      "covered": "Covered in full",
+      "copay": "Co-pay on a covered charge",
+      "not_covered": "Not covered by the plan",
+      "service_limit": "Above the limit for this service",
+      "sum_insured": "Above the sum insured"
+    },
+    "empty": "There are no charges to split yet.",
+    "totals": "Totals of the split",
+    "ledger": "Charges on the ledger",
+    "adjustment": "Rate adjustment",
+    "payer": "{{name}} pays",
+    "patient": "Patient pays",
+    "reconciled": "The split adds up to the charges",
+    "notReconciled": "The split does not add up to the charges",
+    "save": "Save the split",
+    "saving": "Saving",
+    "saved": "The split was saved.",
+    "stale": "The charges have changed since the split was saved. Save it again before billing from it."
   }
 }

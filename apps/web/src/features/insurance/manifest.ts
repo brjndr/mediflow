@@ -54,6 +54,12 @@ export const insuranceFeature: FeatureManifest = {
       component: () => import('./components/LimitPanel'),
       requires: ['preauth:read'],
     },
+    {
+      slot: 'invoice.builder.panels',
+      component: () => import('./components/SplitPanel'),
+      requires: ['policy:read'],
+      order: 10,
+    },
   ],
   permissions: [
     'payer:read',

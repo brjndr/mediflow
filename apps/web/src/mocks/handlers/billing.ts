@@ -1619,3 +1619,12 @@ export function applyMockPayment(
   }
   return applied;
 }
+
+/** The catalog service a charge was posted for, when it was posted for one (split billing). */
+export const mockChargeService = (chargeId: string): string | undefined =>
+  state.chargeServices[chargeId];
+
+/** Says which catalog service a charge was posted for, for tests of the split. */
+export function setMockChargeService(chargeId: string, serviceId: string): void {
+  state.chargeServices[chargeId] = serviceId;
+}

@@ -363,3 +363,12 @@ export const coverageHandlers = [
     return HttpResponse.json(preAuthView(item));
   }),
 ];
+
+/** The patient's newest policy that is active today, for the split of a visit (IN-03). */
+export function mockActivePolicy(tenantId: string, patientId: string) {
+  const found = state.policies
+    .filter((one) => one.tenantId === tenantId && one.patientId === patientId)
+    .reverse()
+    .find((one) => policyView(one).status === 'active');
+  return found && policyView(found);
+}

@@ -27,3 +27,6 @@ export type PreAuth = Schemas['PreAuth'];
 export type PreAuthCreate = Schemas['PreAuthCreate'];
 export type PreAuthDecision = Schemas['PreAuthDecision'];
 export type PreAuthStatus = PreAuth['status'];
+
+export type CoverageSplit = Schemas['CoverageSplit'];
+export type CoverageSplitLine = Schemas['CoverageSplitLine'];
