@@ -42,3 +42,17 @@ export type ClaimCreate = Schemas['ClaimCreate'];
 export type ClaimAction = Schemas['ClaimAction'];
 export type ClaimAging = Schemas['ClaimAging'];
 export type ClaimAgingRow = Schemas['ClaimAgingRow'];
+
+/** Corporate credit billing: an account with a limit and terms, its bills and receipts (IN-05, #185). */
+export type CreditAccount = Schemas['CreditAccount'];
+export type CreditAccountPage = Schemas['CreditAccountPage'];
+export type CreditAccountWrite = Schemas['CreditAccountWrite'];
+export type CreditBill = Schemas['CreditBill'];
+export type CreditBillPage = Schemas['CreditBillPage'];
+export type CreditBillStatus = Schemas['CreditBillStatus'];
+export type CreditStatement = Schemas['CreditStatement'];
+export type StatementLine = Schemas['StatementLine'];
+export type Receipt = Schemas['Receipt'];
+export type ReceiptPage = Schemas['ReceiptPage'];
+export type ReceiptCreate = Schemas['ReceiptCreate'];
+export type ReceiptMethod = Schemas['ReceiptMethod'];

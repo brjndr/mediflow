@@ -14,6 +14,12 @@ const KNOWN = [
   'invalid_transition',
   'claim_exists',
   'nothing_to_claim',
+  'credit_bill_exists',
+  'nothing_to_bill',
+  'credit_limit_exceeded',
+  'below_outstanding',
+  'exceeds_outstanding',
+  'not_corporate',
 ] as const;
 
 /**

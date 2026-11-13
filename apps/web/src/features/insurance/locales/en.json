@@ -203,7 +203,13 @@
     "plan_archived": "This plan is archived. Choose another plan.",
     "invalid_transition": "The claim has moved on since you opened it. Reload it and try again.",
     "claim_exists": "This visit already has a claim.",
-    "nothing_to_claim": "The payer owes nothing on this visit, so there is nothing to claim."
+    "nothing_to_claim": "The payer owes nothing on this visit, so there is nothing to claim.",
+    "credit_bill_exists": "This visit is already billed to credit.",
+    "nothing_to_bill": "The visit has no charges to bill.",
+    "credit_limit_exceeded": "This is more than the credit left on the account. Raise the limit or take a receipt first.",
+    "below_outstanding": "The limit cannot be below what the corporate already owes.",
+    "exceeds_outstanding": "This is more than the corporate owes.",
+    "not_corporate": "Only a corporate can have a credit account."
   },
   "tab": {
     "title": "Insurance"
@@ -497,6 +503,150 @@
     "errors": {
       "overClaimed": "This is more than was claimed.",
       "overApproved": "This is more than was approved."
+    }
+  },
+  "credit": {
+    "heading": "Corporate credit",
+    "description": "Corporates billed on credit: what each has been billed, what it has paid and what is still owed.",
+    "link": "Corporate credit and receivables",
+    "openAccount": "Credit account",
+    "toPayers": "Insurers, TPAs and corporates",
+    "backToList": "Back to corporate credit",
+    "gridLabel": "Corporate credit accounts",
+    "empty": "No corporate has a credit account yet. Open one from the corporate’s page.",
+    "count_one": "{{count}} credit account",
+    "count_other": "{{count}} credit accounts",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "columns": {
+      "corporate": "Corporate",
+      "limit": "Credit limit",
+      "outstanding": "Owed",
+      "overdue": "Overdue",
+      "available": "Credit left",
+      "terms": "Terms",
+      "number": "Number",
+      "issued": "Billed on",
+      "due": "Due",
+      "amount": "Amount",
+      "received": "Received",
+      "status": "Status",
+      "date": "Date",
+      "billed": "Billed",
+      "balance": "Balance",
+      "print": "Print"
+    },
+    "status": {
+      "open": "Unpaid",
+      "part_paid": "Part paid",
+      "paid": "Paid",
+      "overdue": "Overdue"
+    },
+    "method": {
+      "cash": "Cash",
+      "bank_transfer": "Bank transfer",
+      "cheque": "Cheque",
+      "card": "Card"
+    },
+    "detail": {
+      "heading": "Credit account: {{name}}",
+      "description": "Bills put on this corporate, the money received against them and the statement.",
+      "loading": "Loading the credit account",
+      "notFound": "No such corporate",
+      "notFoundBody": "The address is not a corporate of this hospital.",
+      "noAccount": "No credit account",
+      "noAccountBody": "This corporate has no credit account yet. Open one with a credit limit and the days it has to pay."
+    },
+    "done": {
+      "opened": "The credit account was opened.",
+      "saved": "The credit terms were saved."
+    },
+    "terms": {
+      "openTitle": "Open a credit account",
+      "editTitle": "Change credit terms",
+      "description": "The most the corporate may owe at one time, and the days it has to pay a bill.",
+      "limit": "Credit limit",
+      "limitHint": "In the hospital’s currency, for example 50000.00.",
+      "days": "Days to pay",
+      "daysHint": "A bill is due this many days after it is made. 0 to 365."
+    },
+    "summary": {
+      "heading": "Where the account stands",
+      "limit": "Credit limit",
+      "billed": "Billed",
+      "received": "Received",
+      "outstanding": "Owed",
+      "overdue": "Overdue",
+      "available": "Credit left",
+      "terms": "Days to pay",
+      "reconciled": "Owed is billed less received",
+      "notReconciled": "The figures of this account do not add up. Tell the system administrator."
+    },
+    "bills": {
+      "heading": "Bills",
+      "filter": "Show",
+      "any": "All bills",
+      "empty": "No bills on this account."
+    },
+    "receipts": {
+      "heading": "Receipts",
+      "empty": "No money has been received on this account yet."
+    },
+    "receipt": {
+      "button": "Record a receipt",
+      "title": "Record a receipt",
+      "description": "{{name}} owes {{amount}}. The money is set against the oldest unpaid bills first.",
+      "amount": "Amount",
+      "amountHint": "In the hospital’s currency. No more than is owed.",
+      "method": "How it was paid",
+      "reference": "Reference",
+      "referenceHint": "Transfer number or cheque number, if there is one.",
+      "date": "Received on",
+      "submit": "Record receipt",
+      "doneTitle": "Receipt {{number}}",
+      "doneDescription": "{{amount}} was received and set against these bills.",
+      "saved": "Receipt {{number}} was recorded.",
+      "print": "Print receipt",
+      "done": "Done",
+      "printNumber": "Print {{number}}",
+      "reconciled": "The receipt is fully set against bills",
+      "notReconciled": "The receipt does not match the bills it was set against"
+    },
+    "statement": {
+      "heading": "Statement",
+      "from": "From",
+      "to": "To",
+      "print": "Print statement",
+      "preparing": "Preparing",
+      "badPeriod": "The first day must not be after the last day.",
+      "totals": "Statement totals",
+      "opening": "Balance before",
+      "closing": "Balance at the end",
+      "empty": "Nothing was billed or received in this period.",
+      "reconciled": "The statement agrees with the account",
+      "notReconciled": "The statement does not agree with the account. Tell the system administrator."
+    },
+    "print": {
+      "receiptTitle": "Receipt {{number}}",
+      "statementTitle": "Statement of account",
+      "period": "{{name}}, {{from}} to {{to}}",
+      "from": "Received from",
+      "appliedTo": "Set against",
+      "notReconciled": "The amounts above do not add up to the receipt."
+    },
+    "panel": {
+      "heading": "Bill to a corporate on credit",
+      "description": "Puts the whole visit on a corporate’s credit account, to be paid by its due date, instead of billing the patient.",
+      "corporate": "Corporate",
+      "choose": "Choose a corporate",
+      "option": "{{name}} (credit left {{available}})",
+      "submit": "Bill on credit",
+      "saved": "Credit bill {{number}} for {{amount}} was put on {{name}}, due {{due}}.",
+      "open": "Open the account"
+    },
+    "errors": {
+      "overOwed": "This is more than the corporate owes.",
+      "futureDate": "The date cannot be in the future."
     }
   }
 }
