@@ -3277,13 +3277,14 @@
             "type": "string"
           },
           "cancelReason": {
-            "description": "Why it was cancelled.",
+            "description": "Why it was cancelled. Detail only, for those holding dischargeSummary:read; never on a list row.",
             "type": "string"
           },
           "sourceEncounterId": {
             "type": "string"
           },
           "adviceNote": {
+            "description": "Detail only, for those holding dischargeSummary:read; never on a list row.",
             "type": "string"
           },
           "attendantName": {
@@ -3293,6 +3294,7 @@
             "$ref": "#/components/schemas/AttendantRelation"
           },
           "attendantPhone": {
+            "description": "Detail only, for those holding dischargeSummary:read; never on a list row.",
             "type": "string"
           },
           "depositMinor": {

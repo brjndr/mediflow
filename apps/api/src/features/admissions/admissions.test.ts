@@ -473,6 +473,36 @@ describe('admitting a patient', () => {
     expect(JSON.stringify(await allEvents())).not.toContain('Ravi');
   });
 
+  it('keeps the advice note, attendant phone and cancel reason out of list rows (#799)', async () => {
+    await reset();
+    const more = {
+      adviceNote: 'Observe',
+      attendantName: 'Ravi Adt',
+      attendantPhone: '+919800000000',
+    };
+    const detail = await admitted(patient(0), more);
+    const hidden = ['adviceNote', 'attendantPhone', 'cancelReason'];
+    const rows = (await ok<Page<Admission>>(await get('/admissions'))).items;
+    expect(rows).toHaveLength(1);
+    for (const key of hidden) expect(rows[0]).not.toHaveProperty(key);
+    expect(rows[0]).toMatchObject({ attendantName: 'Ravi Adt' });
+    expect((await read(detail.admission.id)).admission).toMatchObject(more);
+    // Without the clinical permission the detail leaves them off too.
+    await pool.query(
+      "delete from role_permissions where tenant_id = $1 and role_id = 'nurse' and permission = 'dischargeSummary:read'",
+      [hospital.id],
+    );
+    try {
+      const seen = (await read(detail.admission.id, { user: nurse })).admission;
+      for (const key of hidden) expect(seen).not.toHaveProperty(key);
+    } finally {
+      await pool.query(
+        "insert into role_permissions (tenant_id, role_id, permission, scope) values ($1, 'nurse', 'dischargeSummary:read', 'all')",
+        [hospital.id],
+      );
+    }
+  });
+
   it('records the visit an admission came from, one of the patient’s own (#678)', async () => {
     await reset();
     const visit = async (patientId: string, tenant: TestTenant, type = 'opd') =>
