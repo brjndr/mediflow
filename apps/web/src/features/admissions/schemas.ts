@@ -225,6 +225,8 @@ export const bedStaySchema: z.ZodType<BedStay> = z.object({
   bedCategoryId: z.string(),
   serviceId: z.string().optional(),
   dayPriceMinor: z.number().int().optional(),
+  billedDays: z.number().int().optional(),
+  billedMinor: z.number().int().optional(),
   assignedAt: z.string(),
   moveReason: z.enum(MOVE_REASONS).optional(),
   moveNote: z.string().optional(),

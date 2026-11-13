@@ -94,21 +94,84 @@ async function runningBill(client: pg.ClientBase, db: Database, stay: StayRow) {
      where encounter_id = $1 and status <> 'void' group by source`,
     [stay.encounter_id],
   );
-  const lines: { source: string; count: number; totalMinor: number; accruing?: boolean }[] = grouped
+  interface Part {
+    serviceId: string;
+    name: string;
+    days: number;
+    unitPriceMinor: number;
+    totalMinor: number;
+  }
+  const lines: {
+    source: string;
+    count: number;
+    totalMinor: number;
+    accruing?: boolean;
+    parts?: Part[];
+  }[] = grouped
     .map((row) => ({ source: row.source, count: row.count, totalMinor: num(row.total) }))
     .sort((a, b) => SOURCE_ORDER.indexOf(a.source) - SOURCE_ORDER.indexOf(b.source));
-  // Bed days the job has not posted yet, at the price in effect today.
+  // The bed days already posted, split by service and day price.
+  const { rows: posted } = await client.query<{
+    service_id: string;
+    name: string;
+    unit: string;
+    days: number;
+  }>(
+    `select c.service_id, c.description as name, c.unit_price_minor::text as unit,
+            sum(c.quantity)::int as days
+     from charges c
+     where c.encounter_id = $1 and c.source = 'bed' and c.status <> 'void' and c.service_id is not null
+     group by c.service_id, c.description, c.unit_price_minor`,
+    [stay.encounter_id],
+  );
+  const split = (entries: { serviceId: string; name: string; unit: number; days: number }[]) => {
+    const parts = new Map<string, Part>();
+    for (const entry of entries) {
+      const key = `${entry.serviceId}:${entry.unit}`;
+      const part = parts.get(key) ?? {
+        serviceId: entry.serviceId,
+        name: entry.name,
+        days: 0,
+        unitPriceMinor: entry.unit,
+        totalMinor: 0,
+      };
+      part.days += entry.days;
+      part.totalMinor += entry.unit * entry.days;
+      parts.set(key, part);
+    }
+    return [...parts.values()].sort(
+      (x, y) => x.name.localeCompare(y.name) || x.unitPriceMinor - y.unitPriceMinor,
+    );
+  };
+  const bed = lines.find((line) => line.source === 'bed');
+  if (bed) {
+    bed.parts = split(
+      posted.map((row) => ({
+        serviceId: row.service_id,
+        name: row.name,
+        unit: num(row.unit),
+        days: row.days,
+      })),
+    );
+  }
+  // Bed days the job has not posted yet, each at the price in effect on its own date.
   const due = await dueBedDays(client, stay.id, 10_000);
   if (due.length > 0) {
-    const prices = new Map<string, number>();
     let totalMinor = 0;
+    const entries: { serviceId: string; name: string; unit: number; days: number }[] = [];
     for (const day of due) {
-      if (!prices.has(day.service_id)) {
-        prices.set(day.service_id, (await priceOf(db, day.service_id))?.amountMinor ?? 0);
-      }
-      totalMinor += prices.get(day.service_id) ?? 0;
+      const price = await priceOf(db, day.service_id, day.day);
+      const unit = price?.amountMinor ?? 0;
+      totalMinor += unit;
+      entries.push({ serviceId: day.service_id, name: price?.name ?? '', unit, days: 1 });
     }
-    lines.push({ source: 'bed', count: due.length, totalMinor, accruing: true });
+    lines.push({
+      source: 'bed',
+      count: due.length,
+      totalMinor,
+      accruing: true,
+      parts: split(entries),
+    });
   }
   const chargesMinor = lines.reduce((sum, line) => sum + line.totalMinor, 0);
   const { rows: money } = await client.query<{ invoiced: string; paid: string }>(

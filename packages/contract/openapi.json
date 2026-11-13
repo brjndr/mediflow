@@ -3370,6 +3370,16 @@
             "description": "The bed-day price in minor units on the standard list on the day the patient was given the bed, absent when the service has none then.",
             "type": "integer"
           },
+          "billedDays": {
+            "minimum": 0,
+            "description": "The days this stay bills (the bed-day job rule), to date while it is open.",
+            "type": "integer"
+          },
+          "billedMinor": {
+            "minimum": 0,
+            "description": "What those days come to, each day at the standard list price in effect on that day.",
+            "type": "integer"
+          },
           "assignedAt": {
             "format": "date-time",
             "type": "string"
@@ -14402,6 +14412,31 @@
           }
         }
       },
+      "RunningBillPart": {
+        "additionalProperties": false,
+        "description": "Bed days at one bed-day service and one day price (a stretch of the stay).",
+        "type": "object",
+        "required": ["serviceId", "name", "days", "unitPriceMinor", "totalMinor"],
+        "properties": {
+          "serviceId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "days": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unitPriceMinor": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "totalMinor": {
+            "type": "integer"
+          }
+        }
+      },
       "RunningBillLine": {
         "additionalProperties": false,
         "type": "object",
@@ -14422,6 +14457,13 @@
           "accruing": {
             "description": "True for bed days accrued to date that are not a ledger charge yet.",
             "type": "boolean"
+          },
+          "parts": {
+            "description": "Bed line only: the days split by bed-day service and the day price in effect on each day, posted and accrued together.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunningBillPart"
+            }
           }
         }
       },

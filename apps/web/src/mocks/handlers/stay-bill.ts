@@ -93,12 +93,33 @@ function billOf(tenantId: string, admissionId: string): RunningBill | undefined 
     const end = admission.dischargedAt ?? new Date().toISOString();
     let count = 0;
     let totalMinor = 0;
+    const parts = new Map<string, NonNullable<RunningBillLine['parts']>[number]>();
     for (const stay of stays) {
       const days = Math.max(1, utcDay(stay.releasedAt ?? end) - utcDay(stay.assignedAt) + 1);
       count += days;
       totalMinor += days * (stay.dayPriceMinor ?? 0);
+      const unitPriceMinor = stay.dayPriceMinor ?? 0;
+      const key = `${stay.bedCategoryId}:${unitPriceMinor}`;
+      const part = parts.get(key) ?? {
+        serviceId: stay.serviceId ?? stay.bedCategoryId,
+        name: stay.bedCategoryId,
+        days: 0,
+        unitPriceMinor,
+        totalMinor: 0,
+      };
+      part.days += days;
+      part.totalMinor += days * unitPriceMinor;
+      parts.set(key, part);
     }
-    if (count > 0) lines.unshift({ source: 'bed', count, totalMinor, accruing: true });
+    if (count > 0) {
+      lines.unshift({
+        source: 'bed',
+        count,
+        totalMinor,
+        accruing: true,
+        parts: [...parts.values()],
+      });
+    }
   }
   const chargesMinor = lines.reduce((sum, line) => sum + line.totalMinor, 0);
   const invoicedMinor = live

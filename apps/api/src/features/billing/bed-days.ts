@@ -16,7 +16,9 @@ const BATCH = 500;
  * the same date is charged that one date. A transfer therefore charges the day of the move once,
  * to the bed the patient moved into. One charge for each admission and date: its `source_ref` is
  * `bed:<admission>:<date>`, unique in the ledger, so running the job again, or two instances at
- * once, post nothing twice. An open assignment is charged up to today.
+ * once, post nothing twice. A date is priced from the list in effect on that date, so a tariff
+ * change in the middle of a stay, or a late run of the job, never moves a day to the wrong price;
+ * a transfer to another category bills each stretch at its own bed-day service. An open assignment is charged up to today.
  */
 const DUE = `
   select distinct on (c.admission_id, c.day) c.admission_id, c.encounter_id, c.patient_id,
@@ -90,6 +92,7 @@ export async function postBedDays(
           quantity: 1,
           unitPriceMinor: 0,
           flag: null,
+          priceDate: day.day,
         });
         if (id !== null) count += 1;
       }

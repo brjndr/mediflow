@@ -12,6 +12,8 @@ import { SettlementPanel } from '../components/SettlementPanel';
 import { useRunningBill } from '../hooks/use-stay-bill';
 import type { RunningBillLine } from '../stay-bill';
 
+type BillRow = RunningBillLine & { partLabel?: string; partKey?: string };
+
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 /**
@@ -34,13 +36,36 @@ export default function StayBill() {
     admissionId === '' ||
     (found.isError && isApiError(found.error) && [403, 404].includes(found.error.status ?? 0));
 
-  const columns = useMemo<GridColumn<RunningBillLine>[]>(
+  // A bed line whose days were charged at more than one service or price (a transfer to another
+  // category, a tariff change in the stay) is shown as one row for each, so the split is visible.
+  const rows = useMemo<BillRow[]>(
+    () =>
+      (bill?.lines ?? []).flatMap((line) =>
+        line.parts && line.parts.length > 1
+          ? line.parts.map((part) => ({
+              source: line.source,
+              accruing: line.accruing,
+              count: part.days,
+              totalMinor: part.totalMinor,
+              partLabel: `${part.name} (${format.money(part.unitPriceMinor)})`,
+              partKey: `${part.serviceId}:${part.unitPriceMinor}`,
+            }))
+          : [line],
+      ),
+    [bill, format],
+  );
+
+  const columns = useMemo<GridColumn<BillRow>[]>(
     () => [
       {
         id: 'source',
         header: t('stay.columns.source'),
-        value: (row) =>
-          row.accruing ? t('stay.sources.bedAccruing') : t(`stay.sources.${row.source}`),
+        value: (row) => {
+          const base = row.accruing
+            ? t('stay.sources.bedAccruing')
+            : t(`stay.sources.${row.source}`);
+          return row.partLabel ? `${base}: ${row.partLabel}` : base;
+        },
       },
       { id: 'count', header: t('stay.columns.count'), value: (row) => String(row.count) },
       {
@@ -87,8 +112,10 @@ export default function StayBill() {
           <DataGrid
             label={t('stay.heading')}
             columns={columns}
-            rows={bill.lines}
-            rowId={(row) => `${row.source}${row.accruing ? ':accruing' : ''}`}
+            rows={rows}
+            rowId={(row) =>
+              `${row.source}${row.accruing ? ':accruing' : ''}${row.partKey ? `:${row.partKey}` : ''}`
+            }
             rowLabel={(row) => format.money(row.totalMinor)}
             status="ready"
             emptyMessage={t('stay.none')}

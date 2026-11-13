@@ -7788,6 +7788,10 @@ export interface components {
             serviceId?: string;
             /** @description The bed-day price in minor units on the standard list on the day the patient was given the bed, absent when the service has none then. */
             dayPriceMinor?: number;
+            /** @description The days this stay bills (the bed-day job rule), to date while it is open. */
+            billedDays?: number;
+            /** @description What those days come to, each day at the standard list price in effect on that day. */
+            billedMinor?: number;
             /** Format: date-time */
             assignedAt: string;
             moveReason?: components["schemas"]["BedMoveReason"];
@@ -11436,6 +11440,14 @@ export interface components {
         TaxRatesUpdate: {
             items: components["schemas"]["TaxRate"][];
         };
+        /** @description Bed days at one bed-day service and one day price (a stretch of the stay). */
+        RunningBillPart: {
+            serviceId: string;
+            name: string;
+            days: number;
+            unitPriceMinor: number;
+            totalMinor: number;
+        };
         RunningBillLine: {
             /** @enum {string} */
             source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual" | "package";
@@ -11444,6 +11456,8 @@ export interface components {
             totalMinor: number;
             /** @description True for bed days accrued to date that are not a ledger charge yet. */
             accruing?: boolean;
+            /** @description Bed line only: the days split by bed-day service and the day price in effect on each day, posted and accrued together. */
+            parts?: components["schemas"]["RunningBillPart"][];
         };
         /** @description The running bill of an inpatient stay: the charge ledger of its encounter by source, bed days accrued but not yet posted, deposits and payments. */
         RunningBill: {

@@ -64,6 +64,42 @@ describe('the running bill of a stay', () => {
     await expectNoAxeViolations();
   }, 20_000);
 
+  it('shows bed days of two categories as a row each, at their own price', async () => {
+    addMockAdmission({
+      id: 'adm_split',
+      encounterId: 'enc_h_1',
+      patientName: 'Asha Verma',
+      patientMrn: 'MRN-0042',
+      stays: [
+        {
+          assignmentId: 'asg_a',
+          bedId: 'bed_1',
+          bedNumber: 'B1',
+          wardId: 'w_1',
+          wardName: 'Ward 1',
+          bedCategoryId: 'general',
+          dayPriceMinor: 200_000,
+          assignedAt: new Date(Date.now() - 2 * DAY).toISOString(),
+          releasedAt: new Date(Date.now() - DAY).toISOString(),
+        },
+        {
+          assignmentId: 'asg_b',
+          bedId: 'bed_2',
+          bedNumber: 'B2',
+          wardId: 'w_1',
+          wardName: 'Ward 1',
+          bedCategoryId: 'icu',
+          dayPriceMinor: 600_000,
+          assignedAt: new Date(Date.now() - DAY).toISOString(),
+        },
+      ],
+    });
+    renderApp({ entry: '/billing/stays/adm_split' });
+    const grid = await screen.findByRole('table', { name: 'Running bill' });
+    expect(await within(grid).findByText(/Bed days to date: general/)).toBeInTheDocument();
+    expect(within(grid).getByText(/Bed days to date: icu/)).toBeInTheDocument();
+  }, 20_000);
+
   it('takes a deposit and shows it against the balance', async () => {
     renderApp({ entry: `/billing/stays/${admit()}` });
     await total('charges-total');

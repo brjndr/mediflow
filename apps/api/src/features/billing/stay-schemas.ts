@@ -18,6 +18,21 @@ const AdmissionStatus = StringEnum(['admitted', 'discharged', 'cancelled']);
 
 export const StayParams = Type.Object({ admissionId: Type.String({ maxLength: 64 }) });
 
+export const RunningBillPart = Type.Object(
+  {
+    serviceId: Type.String(),
+    name: Type.String(),
+    days: Type.Integer({ minimum: 0 }),
+    unitPriceMinor: Type.Integer({ minimum: 0 }),
+    totalMinor: Type.Integer(),
+  },
+  {
+    $id: 'RunningBillPart',
+    additionalProperties: false,
+    description: 'Bed days at one bed-day service and one day price (a stretch of the stay).',
+  },
+);
+
 export const RunningBillLine = Type.Object(
   {
     source: StringEnum(SOURCES),
@@ -29,6 +44,12 @@ export const RunningBillLine = Type.Object(
     accruing: Type.Optional(
       Type.Boolean({
         description: 'True for bed days accrued to date that are not a ledger charge yet.',
+      }),
+    ),
+    parts: Type.Optional(
+      Type.Array(ref(RunningBillPart), {
+        description:
+          'Bed line only: the days split by bed-day service and the day price in effect on each day, posted and accrued together.',
       }),
     ),
   },
@@ -175,6 +196,7 @@ export type DepositRefund = Static<typeof DepositRefund>;
 export type DischargePolicy = Static<typeof DischargePolicy>;
 
 export const STAY_SCHEMAS = [
+  RunningBillPart,
   RunningBillLine,
   RunningBill,
   BillEstimateSet,

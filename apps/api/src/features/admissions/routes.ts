@@ -206,6 +206,9 @@ async function detailOf(request: FastifyRequest, row: AdmissionRow) {
       bedCategoryId: stay.bed_category_id,
       ...(stay.service_id === null ? {} : { serviceId: stay.service_id }),
       ...(stay.day_price_minor === null ? {} : { dayPriceMinor: Number(stay.day_price_minor) }),
+      ...(stay.billed_minor === null
+        ? {}
+        : { billedDays: stay.billed_days, billedMinor: Number(stay.billed_minor) }),
       assignedAt: iso(stay.assigned_at),
       ...(stay.move_reason === null ? {} : { moveReason: stay.move_reason }),
       ...(stay.move_note === null ? {} : { moveNote: stay.move_note }),
