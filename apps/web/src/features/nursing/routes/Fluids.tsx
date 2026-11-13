@@ -182,8 +182,8 @@ export default function Fluids() {
             {tCommon(errorMessageKey(totalsFailed.error))}
           </p>
         )}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-96 border-collapse text-sm">
+        <div>
+          <table className="w-full border-collapse text-sm">
             <caption className="sr-only">{t('fluids.totalsHeading')}</caption>
             <thead>
               <tr className="border-b text-left">

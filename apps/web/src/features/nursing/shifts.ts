@@ -1,3 +1,4 @@
+import { formatInTimeZone } from 'date-fns-tz';
 import { nextDay, zonedToUtc, type DayString } from '@/shared/utils';
 
 /**
@@ -33,11 +34,7 @@ export function shiftWindows(day: DayString, timezone: string): ShiftWindow[] {
 
 /** The shift an instant falls in, by the hospital's clock. */
 export function shiftOf(instant: string, timezone: string): ShiftId {
-  const hour = Number(
-    new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hourCycle: 'h23', timeZone: timezone })
-      .formatToParts(new Date(instant))
-      .find((part) => part.type === 'hour')?.value ?? '0',
-  );
+  const hour = Number(formatInTimeZone(new Date(instant), timezone, 'H'));
   if (hour >= 6 && hour < 14) return 'morning';
   if (hour >= 14 && hour < 22) return 'evening';
   return 'night';
