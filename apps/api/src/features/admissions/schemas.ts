@@ -193,12 +193,25 @@ export const Admission = Type.Object(
     dischargedAt: Type.Optional(Type.String({ format: 'date-time' })),
     dischargeType: Type.Optional(ref(DischargeType)),
     cancelledAt: Type.Optional(Type.String({ format: 'date-time' })),
-    cancelReason: Type.Optional(Type.String({ description: 'Why it was cancelled.' })),
+    cancelReason: Type.Optional(
+      Type.String({
+        description:
+          'Why it was cancelled. Detail only, for those holding dischargeSummary:read; never on a list row.',
+      }),
+    ),
     sourceEncounterId: Type.Optional(Type.String()),
-    adviceNote: Type.Optional(Type.String()),
+    adviceNote: Type.Optional(
+      Type.String({
+        description: 'Detail only, for those holding dischargeSummary:read; never on a list row.',
+      }),
+    ),
     attendantName: Type.Optional(Type.String()),
     attendantRelation: Type.Optional(ref(AttendantRelation)),
-    attendantPhone: Type.Optional(Type.String()),
+    attendantPhone: Type.Optional(
+      Type.String({
+        description: 'Detail only, for those holding dischargeSummary:read; never on a list row.',
+      }),
+    ),
     depositMinor: Type.Optional(Type.Integer({ minimum: 0 })),
     consents: Type.Array(ref(AdmissionConsent)),
     bed: Type.Optional(ref(AdmissionBed)),

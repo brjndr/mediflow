@@ -7779,12 +7779,14 @@ export interface components {
             dischargeType?: components["schemas"]["DischargeType"];
             /** Format: date-time */
             cancelledAt?: string;
-            /** @description Why it was cancelled. */
+            /** @description Why it was cancelled. Detail only, for those holding dischargeSummary:read; never on a list row. */
             cancelReason?: string;
             sourceEncounterId?: string;
+            /** @description Detail only, for those holding dischargeSummary:read; never on a list row. */
             adviceNote?: string;
             attendantName?: string;
             attendantRelation?: components["schemas"]["AttendantRelation"];
+            /** @description Detail only, for those holding dischargeSummary:read; never on a list row. */
             attendantPhone?: string;
             depositMinor?: number;
             consents: components["schemas"]["AdmissionConsent"][];

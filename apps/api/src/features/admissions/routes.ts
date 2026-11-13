@@ -111,7 +111,8 @@ export async function requireWards(request: FastifyRequest): Promise<void> {
 
 const iso = (value: Date) => value.toISOString();
 
-const admissionView = (row: AdmissionRow): Admission => ({
+/** `clinical` adds the advice note, cancel reason and attendant phone (#799): detail only, for those who read the stay's clinical record. */
+const admissionView = (row: AdmissionRow, clinical = false): Admission => ({
   id: row.id,
   tenantId: row.tenant_id,
   patientId: row.patient_id,
@@ -128,12 +129,12 @@ const admissionView = (row: AdmissionRow): Admission => ({
   ...(row.discharged_at === null ? {} : { dischargedAt: iso(row.discharged_at) }),
   ...(row.discharge_type === null ? {} : { dischargeType: row.discharge_type }),
   ...(row.cancelled_at === null ? {} : { cancelledAt: iso(row.cancelled_at) }),
-  ...(row.cancel_reason === null ? {} : { cancelReason: row.cancel_reason }),
+  ...(!clinical || row.cancel_reason === null ? {} : { cancelReason: row.cancel_reason }),
   ...(row.source_encounter_id === null ? {} : { sourceEncounterId: row.source_encounter_id }),
-  ...(row.advice_note === null ? {} : { adviceNote: row.advice_note }),
+  ...(!clinical || row.advice_note === null ? {} : { adviceNote: row.advice_note }),
   ...(row.attendant_name === null ? {} : { attendantName: row.attendant_name }),
   ...(row.attendant_relation === null ? {} : { attendantRelation: row.attendant_relation }),
-  ...(row.attendant_phone === null ? {} : { attendantPhone: row.attendant_phone }),
+  ...(!clinical || row.attendant_phone === null ? {} : { attendantPhone: row.attendant_phone }),
   ...(row.deposit_minor === null ? {} : { depositMinor: Number(row.deposit_minor) }),
   consents: row.consents,
   ...(row.assignment_id === null ||
@@ -196,8 +197,9 @@ export const boardView = (row: BoardRow): BoardBed => ({
 
 async function detailOf(request: FastifyRequest, row: AdmissionRow) {
   const stays = await staysOf(request.txClient, row.id);
+  const clinical = (await grantOf(request, 'dischargeSummary:read', FEATURE)) !== null;
   return {
-    admission: admissionView(row),
+    admission: admissionView(row, clinical),
     stays: stays.map((stay) => ({
       assignmentId: stay.id,
       bedId: stay.bed_id,
@@ -380,7 +382,7 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!page) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
       for (const row of page.rows) request.audit('read', 'admission', row.id);
       return {
-        items: page.rows.map(admissionView),
+        items: page.rows.map((row) => admissionView(row)),
         nextCursor: page.nextCursor,
         ...(page.total === undefined ? {} : { total: page.total }),
       };
