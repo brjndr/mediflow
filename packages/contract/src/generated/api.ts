@@ -3659,7 +3659,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The documents kept on a patient’s record (#194), newest first, one cursor page at a time. Retired documents are left out unless `includeRetired` is true. Requires document:read, within the scope the role holds it with. */
+        /** @description The documents kept on a patient’s record (#194), newest first, one cursor page at a time. `encounterId` narrows them to those of one visit. Retired documents are left out unless `includeRetired` is true. Requires document:read, within the scope the role holds it with. */
         get: operations["listPatientDocuments"];
         put?: never;
         /** @description Asks to attach a file to a patient's record (#194). Nothing is stored yet: the answer holds a signed address (valid 15 minutes) to PUT the file to with the same Content-Type. At most 26214400 bytes (422 `file_too_large`); one of image/jpeg, image/png, application/pdf (422 `file_type_not_allowed`); the file received is checked against both and against its first bytes, then held until the malware scan clears it. `encounterId`, when sent, must be an encounter of this patient (422 `encounter_mismatch`). 409 `patient_merged` for a record that was merged into another. The retention date comes from the category's rule at the time of the request. Requires document:upload and the documents feature flag. */
@@ -32573,6 +32573,7 @@ export interface operations {
                 cursor?: string;
                 limit: number;
                 category?: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "other";
+                encounterId?: string;
                 /** @description Retired documents are left out unless asked for. */
                 includeRetired?: boolean;
             };

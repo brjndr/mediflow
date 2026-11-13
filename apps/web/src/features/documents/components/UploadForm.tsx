@@ -35,10 +35,13 @@ const SENT_REFUSED: Record<number, string> = {
  */
 export function UploadForm({
   patientId,
+  encounterId,
   onClose,
   onUploaded,
 }: {
   patientId: string;
+  /** Links the file to this visit, from the consultation. */
+  encounterId?: string;
   onClose: () => void;
   onUploaded: (document: PatientDocument) => void;
 }) {
@@ -72,6 +75,7 @@ export function UploadForm({
         fileName: file.name,
         contentType: file.type,
         size: file.size,
+        ...(encounterId ? { encounterId } : {}),
         file,
       });
       onUploaded(document);

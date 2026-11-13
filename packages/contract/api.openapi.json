@@ -44280,7 +44280,7 @@
       "get": {
         "operationId": "listPatientDocuments",
         "tags": ["documents"],
-        "description": "The documents kept on a patient’s record (#194), newest first, one cursor page at a time. Retired documents are left out unless `includeRetired` is true. Requires document:read, within the scope the role holds it with.",
+        "description": "The documents kept on a patient’s record (#194), newest first, one cursor page at a time. `encounterId` narrows them to those of one visit. Retired documents are left out unless `includeRetired` is true. Requires document:read, within the scope the role holds it with.",
         "parameters": [
           {
             "schema": {
@@ -44316,6 +44316,15 @@
             },
             "in": "query",
             "name": "category",
+            "required": false
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "encounterId",
             "required": false
           },
           {

@@ -239,7 +239,7 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listPatientDocuments',
         tags: ['documents'],
         description:
-          'The documents kept on a patient’s record (#194), newest first, one cursor page at a time. Retired documents are left out unless `includeRetired` is true. Requires document:read, within the scope the role holds it with.',
+          'The documents kept on a patient’s record (#194), newest first, one cursor page at a time. `encounterId` narrows them to those of one visit. Retired documents are left out unless `includeRetired` is true. Requires document:read, within the scope the role holds it with.',
         params: PatientParams,
         querystring: DocumentListQuery,
         response: { 200: ref(PatientDocumentPage), ...errors(400, 401, 403, 404, 429) },
@@ -247,12 +247,16 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request) => {
       await reachable(request, request.params.patientId, READ);
-      const { cursor, limit, category, includeRetired } = request.query;
+      const { cursor, limit, category, encounterId, includeRetired } = request.query;
       const params: unknown[] = [request.params.patientId];
       const where = ['patient_id = $1'];
       if (category) {
         params.push(category);
         where.push(`category = $${params.length}`);
+      }
+      if (encounterId) {
+        params.push(encounterId);
+        where.push(`encounter_id = $${params.length}`);
       }
       if (!includeRetired) where.push('retired_at is null');
       if (cursor) {
