@@ -1,11 +1,16 @@
 import { z } from 'zod';
+import { PLAIN_TEXT } from '@/shared/utils/text';
 import type {
+  CopyWeekResult,
   LeaveStatus,
   RosterLeave,
   RosterLeavePage,
   RosterShift,
   RosterShiftPage,
   ShiftKind,
+  ShiftSwapResult,
+  ShiftTemplate,
+  ShiftTemplatePage,
 } from './types';
 
 export const ROSTER_PAGE_SIZE = 100;
@@ -37,6 +42,7 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export const shiftFormSchema = z
   .object({
+    templateId: z.string(),
     userId: z.string().min(1, 'validation.required'),
     departmentId: z.string(),
     shiftKind: z.enum(SHIFT_KINDS),
@@ -109,3 +115,83 @@ export const leaveFormSchema = z
     message: 'validation.invalid_value',
   });
 export type LeaveFormValues = z.infer<typeof leaveFormSchema>;
+
+export const shiftTemplateSchema: z.ZodType<ShiftTemplate> = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  name: z.string(),
+  shiftKind: z.enum(SHIFT_KINDS),
+  startTime: z.string(),
+  endTime: z.string(),
+  departmentId: z.string().optional(),
+  departmentName: z.string().optional(),
+  active: z.boolean(),
+  version: z.number().int(),
+});
+
+export const shiftTemplatePageSchema: z.ZodType<ShiftTemplatePage> = z.object({
+  items: z.array(shiftTemplateSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+export const templateFormSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, 'validation.required')
+      .max(60)
+      .regex(PLAIN_TEXT, 'validation.plain_text'),
+    shiftKind: z.enum(SHIFT_KINDS),
+    departmentId: z.string(),
+    startTime: z.string().regex(TIME, 'validation.required'),
+    endTime: z.string().regex(TIME, 'validation.required'),
+  })
+  .refine((v) => v.startTime !== v.endTime, {
+    path: ['endTime'],
+    message: 'validation.invalid_value',
+  });
+export type TemplateFormValues = z.infer<typeof templateFormSchema>;
+
+export const MAX_COPY_WEEKS = 12;
+
+export const copyWeekFormSchema = z.object({
+  weeks: z
+    .string()
+    .regex(/^\d{1,2}$/, 'validation.invalid_value')
+    .refine((v) => Number(v) >= 1 && Number(v) <= MAX_COPY_WEEKS, 'validation.invalid_value'),
+});
+export type CopyWeekFormValues = z.infer<typeof copyWeekFormSchema>;
+
+export const copyWeekResultSchema: z.ZodType<CopyWeekResult> = z.object({
+  copied: z.number().int(),
+  skipped: z.array(
+    z.object({
+      shiftId: z.string(),
+      userName: z.string(),
+      startsAt: z.string(),
+      reason: z.enum(['shift_overlap', 'on_leave']),
+    }),
+  ),
+});
+
+export const shiftSwapResultSchema: z.ZodType<ShiftSwapResult> = z.object({
+  created: z.array(rosterShiftSchema),
+});
+
+export const swapFormSchema = z
+  .object({
+    mode: z.enum(['hand_over', 'exchange']),
+    userId: z.string(),
+    withShiftId: z.string(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.mode === 'hand_over' && v.userId === '') {
+      ctx.addIssue({ code: 'custom', path: ['userId'], message: 'validation.required' });
+    }
+    if (v.mode === 'exchange' && v.withShiftId === '') {
+      ctx.addIssue({ code: 'custom', path: ['withShiftId'], message: 'validation.required' });
+    }
+  });
+export type SwapFormValues = z.infer<typeof swapFormSchema>;

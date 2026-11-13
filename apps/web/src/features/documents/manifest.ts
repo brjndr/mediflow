@@ -37,5 +37,11 @@ export const documentsFeature: FeatureManifest = {
       requires: ['document:read'],
       order: 40,
     },
+    {
+      slot: 'encounter.detail.actions',
+      component: () => import('./components/EncounterDocuments'),
+      requires: ['document:read'],
+      order: 60,
+    },
   ],
 };

@@ -32,8 +32,8 @@ afterEach(() => {
 });
 
 /** Finds a member of staff by typing the name into the search and choosing the match. */
-async function choosePerson(dialog: HTMLElement, name: string) {
-  await userEvent.type(within(dialog).getByRole('combobox', { name: /Person/ }), name);
+async function choosePerson(dialog: HTMLElement, name: string, label = /Person/) {
+  await userEvent.type(within(dialog).getByRole('combobox', { name: label }), name);
   await userEvent.click(await within(dialog).findByRole('option', { name }));
   expect(await within(dialog).findByText(`Chosen: ${name}`)).toBeInTheDocument();
 }
@@ -162,6 +162,172 @@ describe('the roster', () => {
     await within(table).findAllByText('Scheduled');
     expect(screen.queryByRole('button', { name: 'Add a shift' })).not.toBeInTheDocument();
     expect(within(table).queryByRole('button', { name: /^Cancel shift/ })).toBeNull();
+  });
+});
+
+describe('shift templates, copied weeks and swaps (#592)', () => {
+  it("lists the hospital's templates and adds one", async () => {
+    renderApp({ entry: '/roster' });
+    const panel = await screen.findByRole('region', { name: 'Shift templates' });
+    expect(await within(panel).findByText('Early ward round')).toBeInTheDocument();
+    expect(within(panel).getByText('06:30 to 14:30')).toBeInTheDocument();
+    await userEvent.click(within(panel).getByRole('button', { name: 'Add a template' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText(/^Name/), 'Late cover');
+    await userEvent.selectOptions(within(dialog).getByLabelText(/Kind of shift/), 'Evening');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add template' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(await within(panel).findByText('Late cover')).toBeInTheDocument();
+    expect(await screen.findByText(/The template Late cover is added./)).toBeInTheDocument();
+  });
+
+  it('refuses a template whose name is taken, keeping what was typed', async () => {
+    renderApp({ entry: '/roster' });
+    const panel = await screen.findByRole('region', { name: 'Shift templates' });
+    await userEvent.click(await within(panel).findByRole('button', { name: 'Add a template' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText(/^Name/), 'early WARD round');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add template' }));
+    expect(
+      await within(dialog).findByText('A template already has that name.'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/^Name/)).toHaveValue('early WARD round');
+  });
+
+  it('retires a template after a confirmation', async () => {
+    renderApp({ entry: '/roster' });
+    const panel = await screen.findByRole('region', { name: 'Shift templates' });
+    const row = (await within(panel).findByText('Early ward round')).closest('tr') as HTMLElement;
+    await userEvent.click(within(row).getByRole('button', { name: /^Retire template/ }));
+    const confirm = await screen.findByRole('alertdialog');
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Retire template' }));
+    await waitFor(() =>
+      expect(within(panel).queryByText('Early ward round')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('fills the kind and the hours of a shift from a template', async () => {
+    renderApp({ entry: '/roster' });
+    await screen.findByRole('table', { name: 'Duty roster' });
+    await userEvent.click(screen.getByRole('button', { name: 'Add a shift' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(
+      await within(dialog).findByLabelText('Template'),
+      'Early ward round (06:30 to 14:30)',
+    );
+    await waitFor(() => expect(within(dialog).getByLabelText(/Starts at/)).toHaveValue('06:30'));
+    expect(within(dialog).getByLabelText(/Ends at/)).toHaveValue('14:30');
+  });
+
+  it('copies the week forward and says what was added', async () => {
+    renderApp({ entry: '/roster' });
+    await screen.findByRole('table', { name: 'Duty roster' });
+    await userEvent.click(screen.getByRole('button', { name: 'Copy week forward' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Copy shifts' }));
+    expect(await within(dialog).findByText(/shifts? w(as|ere) added\./)).toBeInTheDocument();
+    await userEvent.click(
+      within(dialog).getAllByRole('button', { name: 'Close' }).at(-1) as HTMLElement,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Next week' }));
+    const table = screen.getByRole('table', { name: 'Duty roster' });
+    await waitFor(() => expect(within(table).getAllByText('Scheduled').length).toBeGreaterThan(0));
+  });
+
+  it('refuses a number of weeks that is not 1 to 12', async () => {
+    renderApp({ entry: '/roster' });
+    await screen.findByRole('table', { name: 'Duty roster' });
+    await userEvent.click(screen.getByRole('button', { name: 'Copy week forward' }));
+    const dialog = await screen.findByRole('dialog');
+    const weeks = within(dialog).getByLabelText(/Weeks to fill/);
+    await userEvent.clear(weeks);
+    await userEvent.type(weeks, '13');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Copy shifts' }));
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument();
+  });
+
+  it('hands a shift to someone else', async () => {
+    renderApp({ entry: '/roster' });
+    const table = await screen.findByRole('table', { name: 'Duty roster' });
+    const row = (await within(table).findAllByText(person(HOSPITAL, 1)))[0]?.closest(
+      'tr',
+    ) as HTMLElement;
+    await userEvent.click(within(row).getByRole('button', { name: /^Swap shift/ }));
+    const dialog = await screen.findByRole('dialog');
+    await choosePerson(dialog, person(HOSPITAL, 5), /Hand it to/);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Swap' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(
+      await screen.findByText(new RegExp(`shift of ${person(HOSPITAL, 1)} is swapped`)),
+    ).toBeInTheDocument();
+    expect(await within(table).findByText(person(HOSPITAL, 5))).toBeInTheDocument();
+  });
+
+  it('exchanges two shifts', async () => {
+    renderApp({ entry: '/roster' });
+    const table = await screen.findByRole('table', { name: 'Duty roster' });
+    const row = (await within(table).findAllByText(person(HOSPITAL, 0)))[0]?.closest(
+      'tr',
+    ) as HTMLElement;
+    await userEvent.click(within(row).getByRole('button', { name: /^Swap shift/ }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(
+      within(dialog).getByLabelText(/What to do/),
+      'Exchange with another shift',
+    );
+    const other = await within(dialog).findByLabelText(/Exchange with/);
+    await userEvent.selectOptions(other, within(other).getAllByRole('option')[1] as HTMLElement);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Swap' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(
+      await screen.findByText(new RegExp(`shift of ${person(HOSPITAL, 0)} is swapped`)),
+    ).toBeInTheDocument();
+  });
+
+  it('says so when the other person is already on duty then', async () => {
+    renderApp({ entry: '/roster' });
+    const table = await screen.findByRole('table', { name: 'Duty roster' });
+    // The person on call overlaps the morning shifts.
+    const row = (await within(table).findAllByText(person(HOSPITAL, 1)))[0]?.closest(
+      'tr',
+    ) as HTMLElement;
+    await userEvent.click(within(row).getByRole('button', { name: /^Swap shift/ }));
+    const dialog = await screen.findByRole('dialog');
+    await choosePerson(dialog, person(HOSPITAL, 2), /Hand it to/);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Swap' }));
+    expect(
+      await within(dialog).findByText('The other person is already on duty at that time.'),
+    ).toBeInTheDocument();
+  });
+
+  it('offers none of it without roster:manage, and shows templates to readers', async () => {
+    revokePermission(HOSPITAL, 'admin', 'roster:manage');
+    renderApp({ entry: '/roster' });
+    const table = await screen.findByRole('table', { name: 'Duty roster' });
+    await within(table).findAllByText('Scheduled');
+    const panel = await screen.findByRole('region', { name: 'Shift templates' });
+    expect(await within(panel).findByText('Early ward round')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy week forward' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add a template' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('button', { name: /^Swap shift/ })).toBeNull();
+    expect(within(panel).queryByRole('button', { name: /^Retire template/ })).toBeNull();
+  });
+
+  it("shows another hospital none of the first one's templates", async () => {
+    setTenantFeature(CLINIC, 'roster', true);
+    grantPermission(CLINIC, 'doctor', 'roster:read');
+    signIn(USER_IDS.doctor, CLINIC);
+    renderApp({ entry: '/roster' });
+    const panel = await screen.findByRole('region', { name: 'Shift templates' });
+    expect(await within(panel).findByText(/No templates yet/)).toBeInTheDocument();
+    expect(within(panel).queryByText('Early ward round')).not.toBeInTheDocument();
+  });
+
+  it('has no axe violations with the templates panel', async () => {
+    renderApp({ entry: '/roster' });
+    const panel = await screen.findByRole('region', { name: 'Shift templates' });
+    await within(panel).findByText('Early ward round');
+    await expectNoAxeViolations();
   });
 });
 

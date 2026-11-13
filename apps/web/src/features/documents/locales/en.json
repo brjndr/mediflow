@@ -5,6 +5,11 @@
   "rowLabel": "Document {{title}}",
   "empty": "No documents on this record.",
   "keptForEver": "Kept for ever",
+  "encounter": {
+    "action": "Documents",
+    "heading": "Documents of this visit",
+    "empty": "No documents attached to this visit."
+  },
   "size": {
     "kb": "{{value}} KB",
     "mb": "{{value}} MB"

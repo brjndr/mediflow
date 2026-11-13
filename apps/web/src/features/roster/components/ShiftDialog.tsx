@@ -1,8 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDepartmentOptions } from '@/features/departments';
-import { StaffSearch } from '@/features/staff';
-import { focusIfLost } from '@/shared/lib/focus';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { Dialog } from '@/shared/ui/dialog';
@@ -10,16 +8,16 @@ import {
   Form,
   SelectField,
   TextField,
-  useFieldError,
   useFieldValue,
   useSetFieldValue,
   useZodForm,
 } from '@/shared/ui/form';
 import { nextDay, zonedToUtc } from '@/shared/utils/timezone';
 import { useTenant } from '@/tenancy';
-import { useCreateShift } from '../hooks/use-roster';
+import { useCreateShift, useShiftTemplates } from '../hooks/use-roster';
 import { SHIFT_KINDS, SHIFT_TEMPLATES, shiftFormSchema, type ShiftFormValues } from '../schemas';
-import type { RosterShift, ShiftKind } from '../types';
+import type { RosterShift, ShiftKind, ShiftTemplate } from '../types';
+import { PersonField } from './PersonField';
 
 const REFUSED: Record<string, string> = {
   shift_overlap: 'errors.overlap',
@@ -29,89 +27,50 @@ const REFUSED: Record<string, string> = {
   on_leave: 'errors.onLeave',
 };
 
-/** Fills the times from the template of the chosen kind of shift, when the kind changes. */
-function TemplateTimes() {
+/**
+ * Fills the times from the built-in hours of the chosen kind of shift, when the kind changes. A
+ * hospital's own template, once chosen, has set the hours already and is not overwritten.
+ */
+function KindTimes() {
   const kind = useFieldValue('shiftKind') as ShiftKind;
+  const templateId = useFieldValue('templateId') as string;
   const setValue = useSetFieldValue();
   const first = useRef(true);
+  const chosen = useRef(templateId);
+  useEffect(() => {
+    chosen.current = templateId;
+  }, [templateId]);
   useEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
+    if (chosen.current !== '') return;
     setValue('startTime', SHIFT_TEMPLATES[kind].start);
     setValue('endTime', SHIFT_TEMPLATES[kind].end);
   }, [kind, setValue]);
   return null;
 }
 
-/**
- * The person on the shift, found by a search on the server (a hospital may have far more staff
- * than a list can hold). The chosen name stays shown, with a way to search again; the form holds
- * only the id.
- */
-function PersonField() {
-  const { t } = useTranslation('roster');
+/** Choosing one of the hospital's templates sets the kind, the department and the hours. */
+function TemplateFill({ templates }: { templates: ShiftTemplate[] }) {
+  const templateId = useFieldValue('templateId') as string;
   const setValue = useSetFieldValue();
-  const userId = useFieldValue('userId') as string;
-  const error = useFieldError('userId');
-  const [name, setName] = useState('');
-  const empty = userId === '';
-  const errorId = 'roster-person-error';
-  const box = useRef<HTMLDivElement>(null);
-  const first = useRef(true);
-  // The box or the name goes away when the other shows: keep the keyboard where it was.
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    focusIfLost(box.current?.querySelector<HTMLElement>('input, button'));
-  }, [empty]);
-  return (
-    <div ref={box} className="space-y-2">
-      {!empty ? (
-        <div className="space-y-1">
-          <p className="text-sm font-medium">{t('new.person')}</p>
-          <p className="flex flex-wrap items-center gap-2 text-sm">
-            <span>{t('new.chosen', { name })}</span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setValue('userId', '');
-                setName('');
-              }}
-            >
-              {t('new.change')}
-            </Button>
-          </p>
-        </div>
-      ) : (
-        <StaffSearch
-          label={t('new.person')}
-          invalid={error !== undefined}
-          describedBy={error ? errorId : undefined}
-          onSelect={(person) => {
-            setName(person.name);
-            setValue('userId', person.id);
-          }}
-        />
-      )}
-      {error && (
-        <p id={errorId} role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
-  );
+    const chosen = templates.find((one) => one.id === templateId);
+    if (!chosen) return;
+    setValue('shiftKind', chosen.shiftKind);
+    setValue('startTime', chosen.startTime);
+    setValue('endTime', chosen.endTime);
+    if (chosen.departmentId !== undefined) setValue('departmentId', chosen.departmentId);
+  }, [templateId, templates, setValue]);
+  return null;
 }
 
 /**
- * Puts a member of staff on duty (OP-01, #195). The kind of shift fills the usual hours; an end
- * at or before the start means the next morning. A person already on duty then is refused by the
- * server and said so here, with the choices kept.
+ * Puts a member of staff on duty (OP-01, #195). A template of the hospital (#592) or the kind of
+ * shift fills the usual hours; an end at or before the start means the next morning. A person
+ * already on duty then is refused by the server and said so here, with the choices kept.
  */
 export function ShiftDialog({
   day,
@@ -127,7 +86,9 @@ export function ShiftDialog({
   const timezone = useTenant()?.timezone ?? 'UTC';
   const create = useCreateShift();
   const departments = useDepartmentOptions();
+  const templates = useShiftTemplates().data ?? [];
   const form = useZodForm(shiftFormSchema, {
+    templateId: '',
     userId: '',
     departmentId: '',
     shiftKind: 'morning',
@@ -179,8 +140,25 @@ export function ShiftDialog({
       }
     >
       <Form form={form} id="roster-shift-form" onSubmit={submit}>
-        <TemplateTimes />
+        <KindTimes />
+        <TemplateFill templates={templates} />
         <PersonField />
+        {templates.length > 0 && (
+          <SelectField<ShiftFormValues>
+            name="templateId"
+            label={t('new.template')}
+            hint={t('new.templateHint')}
+            placeholder={t('new.noTemplate')}
+            options={templates.map((one) => ({
+              value: one.id,
+              label: t('templates.option', {
+                name: one.name,
+                start: one.startTime,
+                end: one.endTime,
+              }),
+            }))}
+          />
+        )}
         {departments.available && (
           <SelectField<ShiftFormValues>
             name="departmentId"

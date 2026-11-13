@@ -64,7 +64,10 @@
     "endHint": "At or before the start means the next day. At most 24 hours.",
     "save": "Add shift",
     "saving": "Adding…",
-    "done": "{{name}} is on the roster."
+    "done": "{{name}} is on the roster.",
+    "template": "Template",
+    "templateHint": "Fills the kind, department and hours from one of the hospital's templates.",
+    "noTemplate": "No template"
   },
   "cancelDialog": {
     "title": "Cancel the shift of {{name}}?",
@@ -125,5 +128,78 @@
   "weekLeave": {
     "heading": "Approved leave this week",
     "period": "{{from}} to {{to}}"
+  },
+  "templates": {
+    "heading": "Shift templates",
+    "intro": "The hospital's usual shifts, with their hours. Choose one when adding a shift to fill in the kind, department and hours.",
+    "empty": "No templates yet. Adding a shift still fills the usual hours for its kind.",
+    "option": "{{name}} ({{start}} to {{end}})",
+    "hours": "{{start}} to {{end}}",
+    "retire": "Retire template",
+    "columns": {
+      "name": "Name",
+      "hours": "Hours"
+    },
+    "new": {
+      "open": "Add a template",
+      "title": "Add a shift template",
+      "description": "Name a kind of shift and its hours on the hospital's clock.",
+      "name": "Name",
+      "save": "Add template",
+      "saving": "Adding…",
+      "done": "The template {{name}} is added."
+    },
+    "retireDialog": {
+      "title": "Retire the template {{name}}?",
+      "description": "It is no longer offered when adding a shift. Shifts already made from it stay.",
+      "done": "The template {{name}} is retired.",
+      "failed": "The template could not be retired. It may have changed: check the list."
+    },
+    "errors": {
+      "exists": "A template already has that name."
+    }
+  },
+  "copy": {
+    "open": "Copy week forward",
+    "title": "Copy this week forward",
+    "description": "The shifts of the week on screen are repeated in the weeks after it: the same people, kinds and departments. Anyone already on duty then, or on approved leave, is left out.",
+    "weeks": "Weeks to fill",
+    "weeksHint": "From 1 to {{max}}. Each week after this one gets a copy.",
+    "save": "Copy shifts",
+    "saving": "Copying…",
+    "done_one": "{{count}} shift was added.",
+    "done_other": "{{count}} shifts were added.",
+    "skipped_one": "{{count}} shift was left out:",
+    "skipped_other": "{{count}} shifts were left out:",
+    "skippedRow": "{{name}}, {{when}}: {{reason}}",
+    "reason": {
+      "shift_overlap": "already on duty then",
+      "on_leave": "on approved leave then"
+    },
+    "errors": {
+      "tooMany": "That is too many shifts to copy at once. Copy fewer weeks, or one department.",
+      "period": "These weeks cannot be copied."
+    }
+  },
+  "swap": {
+    "open": "Swap shift",
+    "title": "Swap the shift of {{name}}",
+    "description": "Hand the shift to someone else, or exchange it with another shift. The old shift is cancelled and a new one is scheduled.",
+    "mode": "What to do",
+    "handOver": "Hand it to someone",
+    "exchange": "Exchange with another shift",
+    "to": "Hand it to",
+    "with": "Exchange with",
+    "withHint": "Shifts of other people in the week on screen.",
+    "choose": "Choose a shift",
+    "option": "{{name}}, {{kind}}, {{when}}",
+    "save": "Swap",
+    "saving": "Swapping…",
+    "done": "The shift of {{name}} is swapped.",
+    "errors": {
+      "overlap": "The other person is already on duty at that time.",
+      "invalid": "Choose someone else, or a shift of another person.",
+      "changed": "A shift has changed. Check the list and try again."
+    }
   }
 }

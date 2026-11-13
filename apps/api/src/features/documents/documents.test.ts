@@ -190,6 +190,7 @@ afterAll(async () => {
       'patient_merges',
       'document_retention_rules',
       'outbox',
+      'encounters',
       'patients',
     ]) {
       await client.query(`delete from ${table} where tenant_id = any($1)`, [
@@ -351,6 +352,30 @@ describe('the list and retiring', () => {
     // Retired, it is still on the record and can be downloaded.
     await queue.drain();
     expect((await get(`/documents/${second.document.id}/download-url`)).statusCode).toBe(200);
+  });
+
+  it('narrows the list to the documents of one visit', async () => {
+    const patientId = await patient(hospital, 'DC-0000011');
+    const visit = (
+      await pool.query<{ id: string }>(
+        `insert into encounters (tenant_id, patient_id, type, opened_by)
+         values ($1, $2, 'opd', $3) returning id`,
+        [hospital.id, patientId, admin.id],
+      )
+    ).rows[0]!.id;
+    await uploaded(patientId);
+    const attached = await uploaded(patientId, PDF, { encounterId: visit });
+    const mine = (await get(`/patients/${patientId}/documents?encounterId=${visit}`)).json<{
+      items: { id: string; encounterId?: string }[];
+    }>();
+    expect(mine.items.map((item) => item.id)).toEqual([attached.document.id]);
+    expect(mine.items[0]?.encounterId).toBe(visit);
+    const all = (await get(`/patients/${patientId}/documents`)).json<{ items: unknown[] }>();
+    expect(all.items).toHaveLength(2);
+    const none = (await get(`/patients/${patientId}/documents?encounterId=${randomUUID()}`)).json<{
+      items: unknown[];
+    }>();
+    expect(none.items).toHaveLength(0);
   });
 
   it('retires once, at the version read, and only with document:retire', async () => {
