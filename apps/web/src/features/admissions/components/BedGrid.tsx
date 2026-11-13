@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import { usePermission } from '@/access';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
@@ -22,6 +24,7 @@ export function BedGrid({
   const { t } = useTranslation('admissions');
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
+  const mayOpenPatient = usePermission('patient:read');
   const beds = useBoard(filters, live);
   const rows = useMemo(() => beds.data?.pages.flatMap((page) => page.items) ?? [], [beds.data]);
   const total = beds.data?.pages[0]?.total;
@@ -46,6 +49,22 @@ export function BedGrid({
         id: 'patient',
         header: t('columns.patient'),
         value: (row) => row.occupant?.patientName ?? '',
+        // One click from the bed to the patient, when the caller may read patients.
+        render: (row) =>
+          row.occupant && mayOpenPatient ? (
+            <Link
+              to={`/patients/${row.occupant.patientId}`}
+              className="font-medium underline underline-offset-2"
+              aria-label={t('openPatient', {
+                name: row.occupant.patientName,
+                number: row.number,
+              })}
+            >
+              {row.occupant.patientName}
+            </Link>
+          ) : (
+            (row.occupant?.patientName ?? '')
+          ),
       },
       {
         id: 'mrn',
@@ -65,7 +84,7 @@ export function BedGrid({
             : '',
       },
     ],
-    [t, format],
+    [t, format, mayOpenPatient],
   );
 
   return (
