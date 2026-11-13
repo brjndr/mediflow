@@ -12509,7 +12509,7 @@ export interface components {
         /** @description A report as a table of counts and money by day, department, test or drug. It holds no patient record. */
         ReportResult: {
             /** @enum {string} */
-            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "outstanding" | "opd_hourly";
+            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly";
             from: string | null;
             to: string | null;
             currency: string;
@@ -12525,7 +12525,7 @@ export interface components {
         ReportRun: {
             id: string;
             /** @enum {string} */
-            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "outstanding" | "opd_hourly";
+            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly";
             from: string | null;
             to: string | null;
             /** @enum {string} */
@@ -46940,7 +46940,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "outstanding" | "opd_hourly";
+                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly";
             };
             cookie?: never;
         };
@@ -47023,7 +47023,7 @@ export interface operations {
                 "idempotency-key": string;
             };
             path: {
-                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "outstanding" | "opd_hourly";
+                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly";
             };
             cookie?: never;
         };

@@ -266,6 +266,25 @@ async function plantHospitalData(tenant: TestTenant, by: TestUser, scale: number
        from invoices where tenant_id = $1 and status = 'issued'`,
       [tenant.id, 3_000 * scale, session, by.id],
     );
+    // A session that spans midnight: opened on the 12th, closed on the 13th, cash on both days.
+    const night = randomUUID();
+    await client.query(
+      `insert into cash_register_sessions (id, tenant_id, opened_by, opened_at, opening_minor,
+                                           closed_by, closed_at, expected_minor, counted_minor)
+       values ($1, $2, $3, '2026-03-12T22:00:00+05:30', 0, $3, '2026-03-13T02:00:00+05:30', $4, $4)`,
+      [night, tenant.id, by.id, 1_000 * scale],
+    );
+    for (const [at, amount] of [
+      ['2026-03-12T23:00:00+05:30', 700],
+      ['2026-03-13T01:00:00+05:30', 300],
+    ] as const) {
+      await client.query(
+        `insert into payments (tenant_id, invoice_id, kind, amount_minor, method, session_id,
+                               recorded_by, at)
+         values ($1, $2, 'payment', $3, 'cash', $4, $5, $6)`,
+        [tenant.id, paid, amount * scale, night, by.id, at],
+      );
+    }
     await client.query(
       `insert into credit_notes (tenant_id, invoice_id, number, fiscal_year, amount_minor, reason,
                                  created_by, created_at)
@@ -481,6 +500,22 @@ describe('the reports answered on the spot', () => {
       [hospital.id],
     );
     expect(Number(rows[0]?.taken)).toBe(report.rows[0]?.[5]);
+  });
+
+  it('groups collections by the day the register session closed', async () => {
+    const range = { from: '2026-03-12', to: '2026-03-13' };
+    const byRecorded = (await runSync('collections', range)).json<ReportResult>();
+    const byClose = (await runSync('collections_by_close', range)).json<ReportResult>();
+
+    // The session spans midnight: by the day recorded it is split, by its close it is one day.
+    expect(byRecorded.rows).toEqual([
+      ['2026-03-12', 'cash', 'Reports Admin', 700, 0, 700],
+      ['2026-03-13', 'cash', 'Reports Admin', 300, 0, 300],
+    ]);
+    expect(byClose.rows).toEqual([['2026-03-13', 'cash', 'Reports Admin', 1_000, 0, 1_000]]);
+    // Money with no session keeps the day it was recorded.
+    const upi = (await runSync('collections_by_close', MARCH_10)).json<ReportResult>();
+    expect(upi.rows).toEqual([['2026-03-10', 'upi', 'Reports Admin', 12_000, 2_000, 10_000]]);
   });
 
   it('lists issued invoices not fully paid by age, with no patient', async () => {

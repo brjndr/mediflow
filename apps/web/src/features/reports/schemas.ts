@@ -17,6 +17,7 @@ export const REPORT_KINDS = [
   'pharmacy_sales',
   'stock',
   'collections',
+  'collections_by_close',
   'outstanding',
   'opd_hourly',
 ] as const satisfies readonly ReportKind[];

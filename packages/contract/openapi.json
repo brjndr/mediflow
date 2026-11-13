@@ -17949,6 +17949,7 @@
               "pharmacy_sales",
               "stock",
               "collections",
+              "collections_by_close",
               "outstanding",
               "opd_hourly"
             ]
@@ -18034,6 +18035,7 @@
               "pharmacy_sales",
               "stock",
               "collections",
+              "collections_by_close",
               "outstanding",
               "opd_hourly"
             ]
@@ -64333,6 +64335,7 @@
                 "pharmacy_sales",
                 "stock",
                 "collections",
+                "collections_by_close",
                 "outstanding",
                 "opd_hourly"
               ]
@@ -64443,6 +64446,7 @@
                 "pharmacy_sales",
                 "stock",
                 "collections",
+                "collections_by_close",
                 "outstanding",
                 "opd_hourly"
               ]

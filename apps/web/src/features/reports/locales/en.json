@@ -8,6 +8,7 @@
     "pharmacy_sales": "Pharmacy sales",
     "stock": "Stock on hand",
     "collections": "Collections by payment method",
+    "collections_by_close": "Collections by register close day",
     "outstanding": "Outstanding invoices",
     "opd_hourly": "OPD visits by hour"
   },
