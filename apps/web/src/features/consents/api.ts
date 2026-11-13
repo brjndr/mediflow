@@ -1,5 +1,7 @@
 import { api, requireData } from '@/shared/api';
 import {
+  certificateFormatListSchema,
+  certificateFormatSchema,
   certificatePageSchema,
   certificateSchema,
   consentDetailSchema,
@@ -8,6 +10,9 @@ import {
 import type {
   Certificate,
   CertificateCreate,
+  CertificateFormat,
+  CertificateFormatUpdate,
+  CertificateKind,
   CertificatePage,
   ConsentCreate,
   ConsentDetail,
@@ -72,4 +77,28 @@ export async function issueCertificate(
     body,
   });
   return certificateSchema.parse(requireData(result));
+}
+
+/** The fields of every kind of certificate in this hospital (#567): four items at most. */
+export async function fetchCertificateFormats(signal?: AbortSignal): Promise<CertificateFormat[]> {
+  const result = await api.GET('/certificate-formats', { signal });
+  return certificateFormatListSchema.parse(requireData(result)).items;
+}
+
+/** Replaces the fields of one kind; certificates already issued keep the layout they had. */
+export async function setCertificateFormat(
+  kind: CertificateKind,
+  body: CertificateFormatUpdate,
+): Promise<CertificateFormat> {
+  const result = await api.PUT('/certificate-formats/{kind}', {
+    params: { path: { kind } },
+    body,
+  });
+  return certificateFormatSchema.parse(requireData(result));
+}
+
+/** Goes back to the standard fields of the kind. */
+export async function resetCertificateFormat(kind: CertificateKind): Promise<CertificateFormat> {
+  const result = await api.DELETE('/certificate-formats/{kind}', { params: { path: { kind } } });
+  return certificateFormatSchema.parse(requireData(result));
 }

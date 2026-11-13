@@ -13,14 +13,10 @@ import {
 } from '@/shared/ui/form';
 import { todayIn } from '@/shared/utils/timezone';
 import { useTenant } from '@/tenancy';
-import { useIssueCertificate } from '../hooks/use-consents';
-import {
-  CERTIFICATE_FIELDS,
-  certificateFormSchema,
-  emptyCertificate,
-  type CertificateValues,
-} from '../schemas';
-import type { Certificate, CertificateKind } from '../types';
+import { useCertificateFormats, useIssueCertificate } from '../hooks/use-consents';
+import { fieldLabel, optionLabel } from '../labels';
+import { certificateFormSchema, emptyCertificate, type CertificateValues } from '../schemas';
+import type { Certificate, CertificateField, CertificateKind } from '../types';
 
 const REFUSED: Record<string, string> = {
   patient_merged: 'certificate.errors.merged',
@@ -45,10 +41,62 @@ export function CertificateForm({
 }) {
   const { t } = useTranslation('consents');
   const { t: tCommon } = useTranslation();
+  const formats = useCertificateFormats();
+  // The fields are the hospital's (#567): the form is made once they are known.
+  const fields = formats.data?.find((one) => one.kind === kind)?.fields;
+  if (!fields) {
+    return (
+      <div className="flex flex-col gap-3 rounded-md border p-3">
+        <h3 data-panel-heading tabIndex={-1} className="font-semibold outline-none">
+          {t('certificate.heading', { kind: t(`certificate.kind.${kind}`) })}
+        </h3>
+        {formats.isError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {tCommon(errorMessageKey(formats.error))}
+          </p>
+        ) : (
+          <p role="status" className="text-sm text-muted-foreground">
+            {tCommon('app.loading')}
+          </p>
+        )}
+        <div>
+          <Button type="button" variant="outline" onClick={onClose}>
+            {t('close')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <FormBody
+      patientId={patientId}
+      kind={kind}
+      fields={fields}
+      onClose={onClose}
+      onIssued={onIssued}
+    />
+  );
+}
+
+function FormBody({
+  patientId,
+  kind,
+  fields,
+  onClose,
+  onIssued,
+}: {
+  patientId: string;
+  kind: CertificateKind;
+  fields: readonly CertificateField[];
+  onClose: () => void;
+  onIssued: (certificate: Certificate) => void;
+}) {
+  const { t } = useTranslation('consents');
+  const { t: tCommon } = useTranslation();
   const timezone = useTenant()?.timezone ?? 'UTC';
   const issue = useIssueCertificate(patientId);
-  const schema = useMemo(() => certificateFormSchema(kind), [kind]);
-  const form = useZodForm(schema, emptyCertificate(kind, todayIn(timezone)));
+  const schema = useMemo(() => certificateFormSchema(fields), [fields]);
+  const form = useZodForm(schema, emptyCertificate(fields, todayIn(timezone)));
 
   const submit = async (values: CertificateValues) => {
     try {
@@ -85,9 +133,9 @@ export function CertificateForm({
           label={t('certificate.issuedOn')}
           required
         />
-        {CERTIFICATE_FIELDS[kind].map((field) => {
+        {fields.map((field) => {
           const name = `fields.${field.name}` as Path<CertificateValues>;
-          const label = t(`certificate.field.${kind}.${field.name}`);
+          const label = fieldLabel(t, kind, field);
           if (field.type === 'lines') {
             return (
               <TextAreaField<CertificateValues>
@@ -106,9 +154,9 @@ export function CertificateForm({
                 label={label}
                 required={field.required}
                 placeholder={t('certificate.choose')}
-                options={field.options.map((value) => ({
+                options={(field.options ?? []).map((value) => ({
                   value,
-                  label: t(`certificate.option.${field.name}.${value}`),
+                  label: optionLabel(t, field, value),
                 }))}
               />
             );

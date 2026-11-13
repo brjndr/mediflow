@@ -192,6 +192,7 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'consent:sign' },
   { permission: 'certificate:read' },
   { permission: 'certificate:issue' },
+  { permission: 'certificate:configure' },
   // Duty roster (OP-01).
   { permission: 'roster:read' },
   { permission: 'roster:manage' },
