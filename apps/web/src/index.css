@@ -168,8 +168,9 @@
   }
   /* Hindi only (#767): the Devanagari font goes first, and its unicode-range leaves Latin to the
      usual stack. Changing the stack for every language (a --font-sans override) widened phone
-     pages in CI, so English is left exactly as it was. */
-  :lang(hi) body {
+     pages in CI, so English is left exactly as it was. A sheet printed in Hindi (#771) carries lang="hi" itself. */
+  :lang(hi) body,
+  [data-print-sheet]:lang(hi) {
     font-family: 'Noto Sans Devanagari Variable', var(--font-sans);
   }
 }

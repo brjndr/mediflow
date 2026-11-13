@@ -85,6 +85,26 @@ describe('printing a prescription', () => {
     },
   );
 
+  it(
+    'prints in Hindi on request, with drug names left as they are',
+    { timeout: 20_000 },
+    async () => {
+      await openConsultation();
+      await userEvent.click(
+        await screen.findByRole('button', { name: /^Print in Hindi: the prescription written/ }),
+      );
+      const sheet = await printedSheet();
+      expect(mockPrints()).toEqual([
+        { tenantId: HOSPITAL, entity: 'prescription', id: 'rx_h_1', userId: USER_IDS.admin },
+      ]);
+      expect(sheet).toHaveAttribute('lang', 'hi');
+      expect(within(sheet).getByRole('heading', { name: 'पर्ची' })).toBeInTheDocument();
+      expect(within(sheet).getByText('हस्ताक्षर')).toBeInTheDocument();
+      expect(within(sheet).getByText('Paracetamol 500 mg (ParaCare)')).toBeInTheDocument();
+      expect(within(sheet).queryByText('Signature')).not.toBeInTheDocument();
+    },
+  );
+
   it('prints nothing and says why when the print could not be recorded', async () => {
     server.use(
       http.post('*/api/prescriptions/:id/print', () =>

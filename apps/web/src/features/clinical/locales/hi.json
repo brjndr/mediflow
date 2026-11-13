@@ -1,0 +1,49 @@
+{
+  "print": {
+    "inHindi": "हिंदी में प्रिंट करें",
+    "inHindiLabel": "हिंदी में प्रिंट करें: {{time}} को लिखी पर्ची",
+    "prescriptionTitle": "पर्ची",
+    "patient": "मरीज़",
+    "visit": "विज़िट",
+    "printedBy": "{{name}} ने {{time}} को प्रिंट किया",
+    "signature": "हस्ताक्षर",
+    "nameWithQualifications": "{{name}}, {{qualifications}}",
+    "registration": "पंजीकरण सं. {{number}}",
+    "registrationWithCouncil": "पंजीकरण सं. {{number}}, {{council}}",
+    "missing": {
+      "notice": "रिकॉर्ड में नहीं है, हाथ से लिखें: {{list}}।",
+      "address": "अस्पताल का पता",
+      "qualifications": "डॉक्टर की योग्यता",
+      "registration": "डॉक्टर का पंजीकरण नंबर"
+    },
+    "writtenAt": "लिखा गया: {{time}}"
+  },
+  "detail": {
+    "patient": "{{name}} · MRN {{mrn}}",
+    "doctor": "डॉक्टर",
+    "noDoctor": "कोई डॉक्टर नहीं",
+    "department": "विभाग"
+  },
+  "prescriptions": {
+    "advice": "सलाह",
+    "routes": {
+      "oral": "मुँह से",
+      "sublingual": "जीभ के नीचे",
+      "topical": "त्वचा पर",
+      "inhaled": "साँस से",
+      "nasal": "नाक में",
+      "eye": "आँख में",
+      "ear": "कान में",
+      "rectal": "गुदा मार्ग से",
+      "vaginal": "योनि मार्ग से",
+      "intramuscular": "माँसपेशी में",
+      "intravenous": "नस में",
+      "subcutaneous": "त्वचा के नीचे",
+      "other": "अन्य"
+    },
+    "days_one": "{{count}} दिन के लिए",
+    "days_other": "{{count}} दिन के लिए",
+    "quantity_one": "{{count}} इकाई देनी है",
+    "quantity_other": "{{count}} इकाइयाँ देनी हैं"
+  }
+}
