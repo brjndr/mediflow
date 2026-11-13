@@ -73,6 +73,9 @@ export const DOMAIN_EVENTS = [
   'admission.created',
   'bed.assigned',
   'bed.released',
+  // A bed was held for a patient, or the hold ended (#582): ids and how it ended, never a note.
+  'bed.reserved',
+  'bed.reservation_ended',
   'medication.administered',
   // Nursing and ward care (BE-24): ids and the kind or outcome, never text.
   'progressnote.created',

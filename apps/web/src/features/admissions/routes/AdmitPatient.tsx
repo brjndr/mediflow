@@ -116,10 +116,12 @@ function BedChoice() {
   const setValue = useSetFieldValue();
   const value = useFieldValue('bedId');
   const error = useFieldError('bedId');
+  const patientId = useFieldValue('patientId');
   const focusRef = useFieldFocusRef('bedId');
   return (
     <div ref={focusRef} className="flex flex-col gap-1.5">
       <BedPicker
+        patientId={typeof patientId === 'string' ? patientId : undefined}
         value={typeof value === 'string' ? value : ''}
         onChange={(bedId) => setValue('bedId', bedId)}
         describedBy={error ? 'admit-bed-error' : undefined}

@@ -81,5 +81,6 @@ export const admissionsFeature: FeatureManifest = {
     'admission:transfer',
     'admission:discharge',
     'bed:update',
+    'bed:reserve',
   ],
 };
