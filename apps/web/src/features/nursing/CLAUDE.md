@@ -49,3 +49,9 @@ What was decided for this module in the web app (#157, NR-01). The root `CLAUDE.
 - **Diet of a stay** `/nursing/:admissionId/diet` (the "Diet" row action): the stay's diet orders (`GET /admissions/{id}/diet`, newest first, the live newest one marked "Current diet" in words) and, with `order:create` while the stay is admitted, a form placing a diet order on the stay's encounter (`POST /encounters/{id}/orders`, type `diet`, instructions up to 500 characters, priority routine or urgent). A new order replaces the diet; there is no editing or cancelling here (cancelling is clinical's `order:cancel`, no screen yet). Nurses get no `order:create` by default, so they read; a doctor places.
 - **The diet is free text** (the API's order has only instructions): no diet type catalog, no meal times, no allergy or restriction check. Proposed follow-ups: a diet type list, kitchen printing, marking a meal served.
 - The mock is `mocks/handlers/nursing-diet.ts` (`addMockDietOrder`), registered before the clinical mock because a ward stay's encounter is not one the clinical mock holds; other order types fall through to it.
+
+## Ward care tests (#162, NR-06)
+
+- `e2e/nursing.spec.ts` runs the ward flow at three widths: chart vitals (an urgent score), place a diet order, chart a dose, write a round note, plus the vitals form by keyboard alone. A lab order from the ward is not in the flow: the clinical mock does not know a ward stay's encounter.
+- To give the browser a medication order, the mock accepts `POST /encounters/{id}/orders` with `type: 'medication'` on a ward stay (`marOrderHandlers` in `mocks/handlers/nursing-mar.ts`, registered through `dietHandlers` so it comes before the clinical mock). Use frequency `SOS` in a spec: it is one "As needed" row at any hour.
+- Playwright reuses a server already on port 4173 (`reuseExistingServer`), so another checkout's stale build can answer; check the port before trusting a local run.
