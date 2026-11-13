@@ -36,7 +36,7 @@ const open = async () => {
   renderApp({ entry: '/theatre' });
   await screen.findByRole('heading', HEADING);
   fireEvent.change(screen.getByLabelText('Day'), { target: { value: SEEDED_DAY } });
-  await waitFor(() => expect(seededRow()).toBeDefined());
+  await waitFor(() => expect(seededRow()).toBeDefined(), { timeout: 10_000 });
 };
 
 const fillBooking = async (theatre: string, surgeon: string, start = '09:30', end = '11:00') => {
@@ -56,7 +56,11 @@ describe('operation theatre', () => {
     expect(within(row).getByText('Appendicectomy')).toBeInTheDocument();
     expect(within(row).getByText('Theatre 1')).toBeInTheDocument();
     expect(within(row).getByText('Scheduled')).toBeInTheDocument();
-    expect(within(rowOf(roomGrid(), 'Theatre 2')).getByText('In use')).toBeInTheDocument();
+    // The theatres load on their own query, so wait for them on a loaded machine.
+    await waitFor(
+      () => expect(within(rowOf(roomGrid(), 'Theatre 2')).getByText('In use')).toBeInTheDocument(),
+      { timeout: 10_000 },
+    );
     await expectNoAxeViolations();
   }, 20_000);
 
