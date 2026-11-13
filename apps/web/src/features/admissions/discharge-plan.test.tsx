@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { revokePermission, TENANT_IDS } from '@/mocks/db';
+import { revokePermission, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { addMockAdmission } from '@/mocks/handlers/admissions-flow';
 import { server } from '@/mocks/node';
 import { expectNoAxeViolations } from '@/test/axe';
@@ -100,5 +100,13 @@ describe('the discharge plan', () => {
     await waitFor(() => expect(within(panel).queryByText('Checking the bill…')).toBeNull());
     expect(within(panel).queryByTestId('discharge-plan')).toBeNull();
     expect(submit(panel)).not.toHaveAttribute('aria-disabled');
+  }, 30_000);
+
+  it('is out of reach for a hospital without the admissions module, and its plan is not read', async () => {
+    addMockAdmission({ id: 'adm_other', status: 'admitted', version: 1 });
+    signIn(USER_IDS.admin, TENANT_IDS.clinic);
+    renderApp({ entry: '/admissions' });
+    await waitFor(() => expect(screen.queryByRole('table', { name: 'Admissions' })).toBeNull());
+    expect(screen.queryByRole('region', { name: /Discharge / })).toBeNull();
   }, 30_000);
 });
