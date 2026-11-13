@@ -216,6 +216,28 @@ export function subscribeToPostings(app: FastifyInstance): void {
     });
   });
 
+  // A blood unit issued with a visit and a service is charged as that service, once per unit.
+  app.events.subscribe('blood.unit_status_changed', async (message, tx) => {
+    const { payload } = message;
+    if (payload.to !== 'issued') return;
+    const unitId = idOf(message.entityId);
+    const encounterId = idOf(payload.encounterId);
+    const patientId = idOf(payload.patientId);
+    const serviceId = idOf(payload.serviceId);
+    if (!unitId || !encounterId || !patientId || !serviceId) return;
+    await postCharge(tx, {
+      encounterId,
+      patientId,
+      serviceId,
+      source: 'service',
+      sourceRef: `blood:${unitId}`,
+      description: '',
+      quantity: 1,
+      unitPriceMinor: 0,
+      flag: null,
+    });
+  });
+
   // A dispense is charged for each batch it took from, at that batch's price.
   app.events.subscribe('pharmacy.dispensed', async (message, tx) => {
     const dispenseId = idOf(message.entityId);

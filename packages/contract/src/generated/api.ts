@@ -4005,7 +4005,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Reserving needs a `patientId` the caller may read (422 `unknown_patient`) and a unit within its date (409 `unit_expired`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`. */
+        /** @description Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Issuing may name the visit (`encounterId`, a visit of the unit’s patient, else 422 `unknown_encounter`) and the priced service (`serviceId`, active, else 422 `unknown_service`) the unit is charged as; one without the other is 422 `charge_incomplete`. Billing then charges the service to the visit once. Reserving needs a `patientId` the caller may read (422 `unknown_patient`) and a unit within its date (409 `unit_expired`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`. */
         post: operations["moveBloodUnit"];
         delete?: never;
         options?: never;
@@ -10070,6 +10070,10 @@ export interface components {
             version: number;
             /** @description Required to reserve a unit. */
             patientId?: string;
+            /** @description Issuing only: the visit the unit is charged to. Needs the service. */
+            encounterId?: string;
+            /** @description Issuing only: the priced service the unit is charged as. Billing posts it to the visit. */
+            serviceId?: string;
             /** @description Required to discard, and for a unit that failed its tests. Kept with the move. */
             reason?: string;
         };
@@ -34185,6 +34189,10 @@ export interface operations {
                     version: number;
                     /** @description Required to reserve a unit. */
                     patientId?: string;
+                    /** @description Issuing only: the visit the unit is charged to. Needs the service. */
+                    encounterId?: string;
+                    /** @description Issuing only: the priced service the unit is charged as. Billing posts it to the visit. */
+                    serviceId?: string;
                     /** @description Required to discard, and for a unit that failed its tests. Kept with the move. */
                     reason?: string;
                 };

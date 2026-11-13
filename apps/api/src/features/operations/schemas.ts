@@ -215,6 +215,19 @@ export const BloodUnitMove = Type.Object(
     patientId: Type.Optional(
       Type.String({ maxLength: 64, description: 'Required to reserve a unit.' }),
     ),
+    encounterId: Type.Optional(
+      Type.String({
+        maxLength: 64,
+        description: 'Issuing only: the visit the unit is charged to. Needs the service.',
+      }),
+    ),
+    serviceId: Type.Optional(
+      Type.String({
+        maxLength: 64,
+        description:
+          'Issuing only: the priced service the unit is charged as. Billing posts it to the visit.',
+      }),
+    ),
     reason: Type.Optional(
       Type.String({
         minLength: 1,
