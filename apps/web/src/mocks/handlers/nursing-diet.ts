@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockAdmittedStays } from './admissions-flow';
+import { marOrderHandlers } from './nursing-mar';
 
 type WardDietOrder = components['schemas']['WardDietOrder'];
 type KitchenListItem = components['schemas']['KitchenListItem'];
@@ -38,6 +39,7 @@ const LIVE = ['placed', 'accepted', 'in_progress'];
  * the clinical mock holds) and lets every other type fall through to it.
  */
 export const dietHandlers = [
+  ...marOrderHandlers,
   http.get('*/api/diet/kitchen-list', ({ request }) => {
     const access = authorize(request, { permission: 'order:read', featureFlag: 'nursing' });
     if ('denied' in access) return access.denied;

@@ -233,6 +233,29 @@ describe('the medication chart', () => {
     ).toBeInTheDocument();
   }, 30_000);
 
+  it('shows the orders of this hospital only', async () => {
+    addMockMarOrder({
+      id: 'ord_other',
+      admissionId: 'adm_m1',
+      tenantId: TENANT_IDS.clinic,
+      itemName: 'Other hospital medicine',
+    });
+    const grid = await openChart();
+    await within(grid).findAllByRole('row', { name: /Paracetamol/ });
+    expect(within(grid).queryByText(/Other hospital medicine/)).not.toBeInTheDocument();
+  });
+
+  it('puts a medication order placed on the stay on its chart', async () => {
+    const answer = await fetch('/api/encounters/enc_adm_m1/orders', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': 'k1' },
+      body: JSON.stringify({ type: 'medication', itemName: 'Ibuprofen 400 mg', frequency: 'SOS' }),
+    });
+    expect(answer.status).toBe(201);
+    const grid = await openChart();
+    expect(await within(grid).findByRole('row', { name: /Ibuprofen/ })).toBeInTheDocument();
+  });
+
   it('offers no charting without mar:record', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'mar:record');
     const row = await firstRow();

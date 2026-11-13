@@ -2,6 +2,7 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
+import { mockAdmittedStays } from './admissions-flow';
 
 type MarOrder = components['schemas']['MarOrder'];
 type MarEntry = components['schemas']['MarEntry'];
@@ -108,6 +109,56 @@ function entryFrom(
   if (!order.dispensed) entry.warnings = ['not_dispensed'];
   return entry;
 }
+
+/**
+ * Registered before the clinical mock (see `dietHandlers`), which does not know a ward stay's
+ * encounter.
+ */
+export const marOrderHandlers = [
+  // A medication order placed on a ward stay's encounter lands on its medication chart, so a
+  // browser run can chart a dose (the clinical mock does not know a ward stay's encounter).
+  http.post('*/api/encounters/:encounterId/orders', async ({ request, params }) => {
+    const body: unknown = await request
+      .clone()
+      .json()
+      .catch(() => null);
+    if (
+      typeof body !== 'object' ||
+      body === null ||
+      (body as { type?: unknown }).type !== 'medication'
+    ) {
+      return undefined;
+    }
+    const access = authorize(request, { permission: 'order:create', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const stay = mockAdmittedStays(access.tenantId).find(
+      (each) => each.encounterId === params.encounterId,
+    );
+    if (!stay) return undefined;
+    const sent = body as {
+      itemName?: unknown;
+      dose?: unknown;
+      route?: unknown;
+      frequency?: unknown;
+    };
+    counter += 1;
+    const order: StoredOrder = {
+      id: `ord_mar_${counter}`,
+      tenantId: access.tenantId,
+      admissionId: stay.id,
+      drugId: 'drug_x',
+      itemName: typeof sent.itemName === 'string' ? sent.itemName : 'Paracetamol 500 mg',
+      dose: typeof sent.dose === 'string' ? sent.dose : '500 mg',
+      route: typeof sent.route === 'string' ? sent.route : 'oral',
+      frequency: typeof sent.frequency === 'string' ? sent.frequency : 'BD',
+      status: 'active',
+      placedAt: new Date().toISOString(),
+      dispensed: true,
+    };
+    orders.push(order);
+    return HttpResponse.json({ id: order.id, status: 'placed' }, { status: 201 });
+  }),
+];
 
 export const marHandlers = [
   http.get('*/api/admissions/:admissionId/mar/orders', ({ request, params }) => {
