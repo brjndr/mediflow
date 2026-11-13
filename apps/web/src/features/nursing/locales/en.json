@@ -32,7 +32,9 @@
     "vitals": "Chart vitals",
     "correct": "Correct",
     "mar": "Medication chart",
-    "notes": "Progress notes"
+    "notes": "Progress notes",
+    "fluids": "Fluid balance",
+    "care": "Care plan"
   },
   "back": "Back to ward care",
   "vitalsLoading": "Vital signs",
@@ -161,7 +163,8 @@
       "conflict": "This note was changed meanwhile. Close this window and open it again.",
       "notAuthor": "Only the person who wrote a note can amend it.",
       "notOpen": "This patient is no longer admitted."
-    }
+    },
+    "shift": "Shift"
   },
   "mar": {
     "heading": "Medication chart: {{patient}}",
@@ -248,6 +251,124 @@
       "slotOutOfWindow": "This dose is not due within the time that can be charted.",
       "alreadyCorrected": "This entry was already amended.",
       "reason": "A reason is needed."
+    }
+  },
+  "shifts": {
+    "morning": "Morning",
+    "evening": "Evening",
+    "night": "Night"
+  },
+  "fluids": {
+    "loading": "Fluid balance",
+    "heading": "Fluid balance: {{patient}}",
+    "closed": "This patient is no longer admitted. Entries can be read but not added or corrected.",
+    "day": "Nursing day (starts at 06:00)",
+    "totalsHeading": "Totals for each shift",
+    "totalsHint": "Calculated by the server for each shift of the day. An entry that was corrected counts as its correction.",
+    "shift": "Shift",
+    "window": "{{from}} to {{to}}",
+    "intake": "Intake",
+    "output": "Output",
+    "balance": "Balance",
+    "dayTotal": "Whole day",
+    "dash": "-",
+    "ml": "{{amount}} ml",
+    "addHeading": "Record intake or output",
+    "kind": "Type",
+    "amount": "Amount in ml (1 to {{max}})",
+    "reason": "Reason for the correction",
+    "add": "Add entry",
+    "directions": {
+      "intake": "Intake",
+      "output": "Output"
+    },
+    "kinds": {
+      "oral": "Oral",
+      "intravenous": "Intravenous",
+      "tube": "Tube feed",
+      "other_intake": "Other intake",
+      "urine": "Urine",
+      "drain": "Drain",
+      "vomit": "Vomit",
+      "stool": "Stool",
+      "other_output": "Other output"
+    },
+    "gridLabel": "Fluid entries",
+    "rowLabel": "Entry at {{time}}",
+    "empty": "No entries for this day.",
+    "columns": {
+      "time": "Time",
+      "kind": "Type",
+      "amount": "Amount",
+      "status": "Status"
+    },
+    "corrected": "Corrected",
+    "correction": "Correction: {{reason}}",
+    "correct": "Correct",
+    "correctTitle": "Correct an entry",
+    "correctLine": "{{kind}}, {{amount}} ml, at {{time}}. The original stays in the list.",
+    "saveCorrection": "Save correction",
+    "close": "Close",
+    "done": {
+      "recorded": "Entry added.",
+      "corrected": "Correction saved. The original entry is kept."
+    },
+    "errors": {
+      "amount": "Enter a whole number of millilitres from 1 to 5000.",
+      "reason": "Say why the entry is corrected."
+    },
+    "refused": {
+      "notOpen": "This patient is no longer admitted, so nothing can be recorded.",
+      "alreadyCorrected": "This entry was already corrected.",
+      "directionChanged": "A correction keeps intake as intake and output as output."
+    }
+  },
+  "care": {
+    "loading": "Care plans",
+    "heading": "Care plans: {{patient}}",
+    "closed": "This patient is no longer admitted. Plans can be read but not changed.",
+    "startHeading": "Start a care plan",
+    "problem": "Problem",
+    "goalField": "Goal",
+    "firstTask": "First task",
+    "start": "Start plan",
+    "plansHeading": "Plans",
+    "empty": "No care plans yet.",
+    "loadMore": "Load more",
+    "goal": "Goal: {{goal}}",
+    "started": "Started by {{by}}, {{time}}.",
+    "ended": "Ended {{time}}.",
+    "status": {
+      "active": "Active",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "progress": "{{done}} of {{total}} tasks done",
+    "noTasks": "No tasks yet.",
+    "taskOpen": "Not done",
+    "taskDue": "Due {{time}}",
+    "taskDone": "Done by {{by}}, {{time}}.",
+    "markDone": "Mark done",
+    "markDoneLabel": "Mark done: {{task}}",
+    "addTask": "New task for {{problem}}",
+    "addTaskButton": "Add task",
+    "complete": "Complete plan",
+    "cancel": "Cancel plan",
+    "done": {
+      "started": "Care plan started.",
+      "taskAdded": "Task added.",
+      "taskDone": "Task done: {{task}}",
+      "completed": "Plan completed.",
+      "cancelled": "Plan cancelled."
+    },
+    "errors": {
+      "problem": "Say what the problem is.",
+      "task": "Say what is to be done."
+    },
+    "refused": {
+      "planClosed": "This plan has ended and does not change.",
+      "alreadyDone": "This task is already done.",
+      "notOpen": "This patient is no longer admitted, so nothing can be changed."
     }
   }
 }

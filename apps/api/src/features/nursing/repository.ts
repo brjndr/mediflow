@@ -39,10 +39,10 @@ function decodeCursor(cursor: string): Cursor | null {
 }
 
 /** The instant to the microsecond in UTC, whatever the session's DateStyle, for a cursor. */
-const exact = (column: string) =>
+export const exact = (column: string) =>
   `to_char(${column} at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') || '+00'`;
 
-interface Keyed {
+export interface Keyed {
   id: string;
   cursor_t: string;
 }
@@ -51,7 +51,7 @@ interface Keyed {
  * Newest first by a time column, then id. `where` holds the filter on `$1...`; the cursor's
  * parameters follow it. Null for a cursor that is not ours.
  */
-async function newestFirst<Row extends Keyed>(
+export async function newestFirst<Row extends Keyed>(
   client: pg.ClientBase,
   select: string,
   column: string,
