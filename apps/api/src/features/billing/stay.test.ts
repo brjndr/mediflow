@@ -725,12 +725,12 @@ describe('bed days across a transfer and a tariff change', () => {
       await times(2, null, icuBed);
       // The general bed day goes up three days ago: the first day is at the old price.
       await client.query(
-        `update service_prices set effective_to = current_date - 4 where service_id = $1`,
+        `update service_prices set effective_to = (now() at time zone 'Asia/Kolkata')::date - 4 where service_id = $1`,
         [general],
       );
       await client.query(
         `insert into service_prices (tenant_id, service_id, price_list_id, amount_minor, effective_from)
-         select $1, $2, id, 3000, current_date - 3 from price_lists where tenant_id = $1 and standard`,
+         select $1, $2, id, 3000, (now() at time zone 'Asia/Kolkata')::date - 3 from price_lists where tenant_id = $1 and standard`,
         [hospital.id, general],
       );
       await client.query('commit');

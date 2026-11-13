@@ -186,3 +186,20 @@ export async function deleteUsers(pool: pg.Pool, users: TestUser[]): Promise<voi
 export async function grantRoleDefaults(app: FastifyInstance, tenant: TestTenant): Promise<void> {
   await syncRoleDefaults(app.database.pool, app.permissions.all(), tenant.id);
 }
+
+/**
+ * A calendar date some days from today on the hospital's clock (the test hospitals are in
+ * Asia/Kolkata), as YYYY-MM-DD. The server compares dates on that clock, so a test that computes
+ * its dates in UTC disagrees with it between 18:30 and 24:00 UTC (#816).
+ */
+export function hospitalDay(offset = 0, timeZone = 'Asia/Kolkata'): string {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  const today = Date.parse(`${part('year')}-${part('month')}-${part('day')}T00:00:00Z`);
+  return new Date(today + offset * 86_400_000).toISOString().slice(0, 10);
+}
