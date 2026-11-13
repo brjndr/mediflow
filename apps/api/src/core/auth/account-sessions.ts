@@ -308,6 +308,39 @@ export const accountSessionRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
+  app.put(
+    '/auth/language',
+    {
+      config: { access: 'session' },
+      schema: {
+        operationId: 'setAccountLanguage',
+        tags: ['auth'],
+        description:
+          "Sets the signed-in user's own language for the web app: en or hi, or null to follow the hospital's locale. Applies to every hospital the user belongs to. Returned as user.language by GET /session.",
+        body: Type.Object({
+          language: Type.Unsafe<'en' | 'hi' | null>({
+            type: ['string', 'null'],
+            enum: ['en', 'hi', null],
+          }),
+        }),
+        response: {
+          204: Type.Null({ description: 'The language was saved' }),
+          ...errors(400, 401, 429),
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.session?.userId;
+      if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
+      const { language } = request.body;
+      await withAuthTransaction(pool, async ({ client, identify }) => {
+        await identify(userId);
+        await client.query('update users set language = $2 where id = $1', [userId, language]);
+      });
+      return reply.code(204).send(null);
+    },
+  );
+
   app.delete(
     '/auth/sessions/:sessionId',
     {
