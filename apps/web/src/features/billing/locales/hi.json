@@ -1,0 +1,25 @@
+{
+  "print": {
+    "action": "बिल प्रिंट करें",
+    "inHindi": "हिंदी में प्रिंट करें",
+    "title": "बिल {{number}}",
+    "patient": "मरीज़",
+    "paid": "भुगतान किया",
+    "credited": "क्रेडिट",
+    "due": "बकाया राशि",
+    "printedBy": "{{name}} ने {{time}} को प्रिंट किया"
+  },
+  "new": { "patient": "{{name}} (MRN {{mrn}})" },
+  "detail": { "issued": "जारी किया गया" },
+  "builder": { "total": "कुल" },
+  "charges": {
+    "columns": {
+      "description": "विवरण",
+      "quantity": "मात्रा",
+      "unitPrice": "इकाई मूल्य",
+      "amount": "राशि"
+    }
+  },
+  "discount": { "beforeDiscount": "छूट से पहले", "discount": "छूट" },
+  "tax": { "beforeTax": "कर से पहले", "taxAt": "{{rate}}% कर" }
+}

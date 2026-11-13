@@ -308,7 +308,9 @@
       "registration": "the doctor’s registration number"
     },
     "writtenAt": "Written {{time}}",
-    "writtenByRegistered": "Written {{time}} by {{name}} (Reg. no. {{number}})"
+    "writtenByRegistered": "Written {{time}} by {{name}} (Reg. no. {{number}})",
+    "inHindi": "Print in Hindi",
+    "inHindiLabel": "Print in Hindi: the prescription written {{time}}"
   },
   "labOrders": {
     "heading": "Lab orders",

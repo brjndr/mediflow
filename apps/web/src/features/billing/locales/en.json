@@ -119,7 +119,8 @@
     "credited": "Credited",
     "due": "Balance due",
     "printedBy": "Printed on {{time}} by {{name}}",
-    "notPrintable": "Only an issued invoice can be printed."
+    "notPrintable": "Only an issued invoice can be printed.",
+    "inHindi": "Print in Hindi"
   },
   "builder": {
     "totalHeading": "Total",

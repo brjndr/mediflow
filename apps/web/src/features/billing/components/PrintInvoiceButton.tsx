@@ -2,6 +2,7 @@ import { Fragment, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { HINDI } from '@/shared/lib/print-language';
 import { Button } from '@/shared/ui/button';
 import { PrintSheet } from '@/shared/ui/print-sheet';
 import { Letterhead, useFormatters } from '@/tenancy';
@@ -25,22 +26,34 @@ export function PrintInvoiceButton({ invoiceId }: { invoiceId: string }) {
       : tCommon(errorMessageKey(error));
   return (
     <div className="flex flex-col items-start gap-1">
-      <Button
-        type="button"
-        variant="outline"
-        aria-disabled={printing.busy || undefined}
-        aria-describedby={printing.error ? errorId : undefined}
-        onClick={printing.print}
-      >
-        {t('print.action')}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          aria-disabled={printing.busy || undefined}
+          aria-describedby={printing.error ? errorId : undefined}
+          onClick={() => printing.print()}
+        >
+          {t('print.action')}
+        </Button>
+        {/* English stays the default; Hindi is asked for (#771). */}
+        <Button
+          type="button"
+          variant="outline"
+          aria-disabled={printing.busy || undefined}
+          aria-describedby={printing.error ? errorId : undefined}
+          onClick={() => printing.print(HINDI)}
+        >
+          {t('print.inHindi')}
+        </Button>
+      </div>
       {printing.error && (
         <p id={errorId} role="alert" className="text-sm text-destructive">
           {refusal(printing.error)}
         </p>
       )}
       {printing.job && (
-        <PrintSheet key={printing.job.id} onDone={printing.done}>
+        <PrintSheet key={printing.job.id} onDone={printing.done} i18n={printing.job.i18n}>
           <InvoiceDocument invoice={printing.job.value} />
         </PrintSheet>
       )}

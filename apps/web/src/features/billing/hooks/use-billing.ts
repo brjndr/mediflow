@@ -1,7 +1,10 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { i18n as I18n } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys, isApiError } from '@/shared/api';
+import { printInstance } from '@/shared/lib/print-language';
 import { useTenant } from '@/tenancy';
 import {
   applyPackage,
@@ -305,30 +308,38 @@ export function useInvoices({ q, status, limit }: InvoiceListFilters) {
  * A print of an issued invoice: the invoice read afresh, then the print recorded on the server
  * with a new idempotency key per press; the page is shown (`job`) only once both succeeded, and
  * only for the session it was asked in. `done` drops it when the print dialog closes. Leaving the
- * page aborts the read.
+ * page aborts the read. `print('hi')` prints in Hindi (#771): the job then carries the `i18n` to
+ * draw the sheet with.
  */
 export function useInvoicePrinting(invoiceId: string) {
   const stillHere = useStillHere();
   const abort = useRef<AbortController>(undefined);
   useEffect(() => () => abort.current?.abort(), []);
-  const [job, setJob] = useState<{ id: number; value: Invoice } | null>(null);
+  const { i18n } = useTranslation();
+  const [job, setJob] = useState<{ id: number; value: Invoice; i18n?: I18n } | null>(null);
   const mutation = useMutation({
     gcTime: 0,
-    mutationFn: async () => {
+    mutationFn: async (language: string | undefined) => {
       abort.current = new AbortController();
+      const sheetI18n = language
+        ? await printInstance(i18n, language, ['billing', 'tenancy'])
+        : undefined;
       const invoice = await fetchInvoice(invoiceId, abort.current.signal);
       await recordInvoicePrint(invoiceId, crypto.randomUUID(), abort.current.signal);
-      return invoice;
+      return { value: invoice, sheetI18n };
     },
-    onSuccess: (value) => {
+    onSuccess: ({ value, sheetI18n }) => {
       if (stillHere() && !abort.current?.signal.aborted)
-        setJob((now) => ({ id: (now?.id ?? 0) + 1, value }));
+        setJob((now) => ({ id: (now?.id ?? 0) + 1, value, i18n: sheetI18n }));
     },
   });
   const { isPending, mutate } = mutation;
-  const print = useCallback(() => {
-    if (!isPending) mutate();
-  }, [isPending, mutate]);
+  const print = useCallback(
+    (language?: string) => {
+      if (!isPending) mutate(language);
+    },
+    [isPending, mutate],
+  );
   const done = useCallback(() => setJob(null), []);
   return { print, busy: isPending, error: mutation.error, job, done };
 }

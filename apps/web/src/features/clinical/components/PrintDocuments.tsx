@@ -9,6 +9,7 @@ import {
   useTriagePrintParts,
   type PrintableTriage,
 } from '@/features/triage';
+import { HINDI } from '@/shared/lib/print-language';
 import { Button } from '@/shared/ui/button';
 import { PrintSheet } from '@/shared/ui/print-sheet';
 import { RichTextView } from '@/shared/ui/rich-text';
@@ -24,6 +25,9 @@ import { usePrinting } from '../hooks/use-print';
 import { linesInOrder } from '../schemas';
 import type { Credentials, Encounter, Prescription } from '../types';
 import { useHowToTake } from './how-to-take';
+
+/** What a prescription sheet reads, loaded before it is drawn in another language (#771). */
+const PRESCRIPTION_NAMESPACES = ['clinical', 'triage', 'tenancy'];
 
 /**
  * Printing a prescription or the visit summary (#89), for `encounter:print`. A press records the
@@ -53,11 +57,12 @@ export function PrintPrescriptionButton({
     );
     await recordPrescriptionPrint(prescription.id, key);
     return { prescription: now, triage: found };
-  });
+  }, PRESCRIPTION_NAMESPACES);
   return (
     <PrintControl
       label={t('print.prescription')}
       name={t('print.prescriptionLabel', { time: format.dateTime(prescription.prescribedAt) })}
+      hindiName={t('print.inHindiLabel', { time: format.dateTime(prescription.prescribedAt) })}
       printing={printing}
       sheet={(job) => (
         <PrescriptionDocument
@@ -101,11 +106,14 @@ export function PrintSummaryButton({ encounter }: { encounter: Encounter }) {
 function PrintControl<Job>({
   label,
   name,
+  hindiName,
   printing,
   sheet,
 }: {
   label: string;
   name?: string;
+  /** Given, a second button prints the same document in Hindi (#771). */
+  hindiName?: string;
   printing: ReturnType<typeof usePrinting<Job>>;
   sheet: (job: Job) => ReactNode;
 }) {
@@ -118,24 +126,39 @@ function PrintControl<Job>({
       : tCommon(errorMessageKey(error));
   return (
     <div className="flex flex-col items-start gap-1">
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        aria-label={name}
-        aria-disabled={printing.busy || undefined}
-        aria-describedby={printing.error ? errorId : undefined}
-        onClick={printing.print}
-      >
-        {label}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          aria-label={name}
+          aria-disabled={printing.busy || undefined}
+          aria-describedby={printing.error ? errorId : undefined}
+          onClick={() => printing.print()}
+        >
+          {label}
+        </Button>
+        {hindiName !== undefined && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-label={hindiName}
+            aria-disabled={printing.busy || undefined}
+            aria-describedby={printing.error ? errorId : undefined}
+            onClick={() => printing.print(HINDI)}
+          >
+            {t('print.inHindi')}
+          </Button>
+        )}
+      </div>
       {printing.error && (
         <p id={errorId} role="alert" className="text-sm text-destructive">
           {refusal(printing.error)}
         </p>
       )}
       {printing.job && (
-        <PrintSheet key={printing.job.id} onDone={printing.done}>
+        <PrintSheet key={printing.job.id} onDone={printing.done} i18n={printing.job.i18n}>
           {sheet(printing.job.value)}
         </PrintSheet>
       )}

@@ -121,6 +121,21 @@ describe('printing an invoice', () => {
     expect(mockPrints()).toHaveLength(2);
   });
 
+  it('prints in Hindi on request, recording the print and keeping the English page as it was', async () => {
+    const id = await issueOne();
+    renderApp({ entry: `/billing/invoices/${id}` });
+    await userEvent.click(await screen.findByRole('button', { name: 'Print in Hindi' }));
+    await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+    expect(mockPrints()).toEqual([{ tenantId: HOSPITAL, invoiceId: id }]);
+    const sheet = document.querySelector<HTMLElement>('[data-print-sheet]') as HTMLElement;
+    expect(sheet).toHaveAttribute('lang', 'hi');
+    expect(within(sheet).getByText('बिल INV-0001')).toBeInTheDocument();
+    expect(within(sheet).getByText('बकाया राशि')).toBeInTheDocument();
+    // The screen itself stays in English.
+    expect(document.documentElement.lang).not.toBe('hi');
+    expect(screen.getByRole('button', { name: 'Print invoice' })).toBeInTheDocument();
+  });
+
   it('offers no print without invoice:print', async () => {
     const id = await issueOne();
     revokePermission(HOSPITAL, 'admin', 'invoice:print');
