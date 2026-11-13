@@ -210,6 +210,15 @@ export const EmergencyMlc = Type.Object(
   { $id: 'EmergencyMlc', additionalProperties: false },
 );
 export type EmergencyMlc = Static<typeof EmergencyMlc>;
+export const EmergencyMlcHistory = Type.Object(
+  {
+    items: Type.Array(ref(EmergencyMlc), {
+      description: 'Every revision of the record, newest first. Read only.',
+    }),
+  },
+  { $id: 'EmergencyMlcHistory', additionalProperties: false },
+);
+export type EmergencyMlcHistory = Static<typeof EmergencyMlcHistory>;
 export const EmergencyMlcSave = Type.Object(
   {
     revision: Type.Integer({
@@ -265,5 +274,6 @@ export const EMERGENCY_SCHEMAS = [
   EmergencyNoteCreate,
   EmergencyMlcCategory,
   EmergencyMlc,
+  EmergencyMlcHistory,
   EmergencyMlcSave,
 ] as const;

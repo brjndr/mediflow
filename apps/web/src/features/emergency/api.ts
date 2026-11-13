@@ -1,5 +1,12 @@
 import { api, requireData } from '@/shared/api';
-import { casePageSchema, caseSchema, mlcSchema, notePageSchema, noteSchema } from './schemas';
+import {
+  casePageSchema,
+  caseSchema,
+  mlcHistorySchema,
+  mlcSchema,
+  notePageSchema,
+  noteSchema,
+} from './schemas';
 import type {
   EmergencyCase,
   EmergencyCaseCreate,
@@ -126,6 +133,18 @@ export async function fetchMlc(caseId: string, signal?: AbortSignal): Promise<Em
     signal,
   });
   return mlcSchema.parse(requireData(result));
+}
+
+/** Every revision of the record, newest first; each one read is audited on the server. */
+export async function fetchMlcHistory(
+  caseId: string,
+  signal?: AbortSignal,
+): Promise<EmergencyMlc[]> {
+  const result = await api.GET('/emergency/cases/{caseId}/medico-legal/revisions', {
+    params: { path: { caseId } },
+    signal,
+  });
+  return mlcHistorySchema.parse(requireData(result)).items;
 }
 
 /**

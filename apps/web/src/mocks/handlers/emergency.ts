@@ -354,6 +354,19 @@ export const emergencyHandlers = [
       : error(404, 'not_medico_legal', 'The case is not medico-legal');
   }),
 
+  http.get('*/api/emergency/cases/:caseId/medico-legal/revisions', ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'medicoLegal:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
+    if (!row) return error(404, 'case_not_found', 'No such case');
+    const history = mlcRevisions.get(row.id);
+    if (!history?.length) return error(404, 'not_medico_legal', 'The case is not medico-legal');
+    return HttpResponse.json({ items: [...history].reverse() });
+  }),
+
   http.post('*/api/emergency/cases/:caseId/medico-legal/print', ({ request, params }) => {
     const access = authorize(request, {
       permission: 'medicoLegal:read',

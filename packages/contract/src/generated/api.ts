@@ -4862,6 +4862,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/emergency/cases/{caseId}/medico-legal/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every revision of the medico-legal record of a case, newest first (404 `not_medico_legal` when the case is not flagged). Revisions are only read, never changed. Each revision returned is audited as a read (entity `er_medico_legal`, entity id the case, detail `revision:<n>`). Requires medicoLegal:read. */
+        get: operations["listEmergencyMedicoLegalRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/emergency/cases/{caseId}/medico-legal/print": {
         parameters: {
             query?: never;
@@ -11232,6 +11249,10 @@ export interface components {
             recordedByName: string;
             /** Format: date-time */
             recordedAt: string;
+        };
+        EmergencyMlcHistory: {
+            /** @description Every revision of the record, newest first. Read only. */
+            items: components["schemas"]["EmergencyMlc"][];
         };
         EmergencyMlcSave: {
             /** @description The revision read; 0 to flag a case that has no record yet. */
@@ -39731,6 +39752,73 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listEmergencyMedicoLegalRevisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyMlcHistory"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
