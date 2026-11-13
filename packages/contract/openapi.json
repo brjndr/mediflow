@@ -4344,6 +4344,82 @@
           }
         }
       },
+      "KitchenListItem": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["admissionId", "patientId", "patientName", "patientMrn", "admittedAt", "diet"],
+        "properties": {
+          "admissionId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "wardId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "wardName": {
+            "type": "string"
+          },
+          "roomName": {
+            "type": "string"
+          },
+          "bedNumber": {
+            "type": "string"
+          },
+          "admittedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "diet": {
+            "description": "The newest diet order not cancelled or finished, or null when there is none.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WardDietOrder"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenListPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KitchenListItem"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
       "WardStockRequestCreate": {
         "additionalProperties": false,
         "description": "The ward place (fromLocationId), the store asked (toLocationId) and the items, as an indent.",
@@ -29067,6 +29143,105 @@
             }
           },
           "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/diet/kitchen-list": {
+      "get": {
+        "operationId": "getKitchenList",
+        "tags": ["nursing"],
+        "description": "The kitchen list: the patients admitted now, of one ward (the ward of the bed they are in) or all, each with the diet order they are on, the newest one not cancelled or finished (null when none). Read from the unified orders on every call, so it shows the latest orders. Within the scope the caller holds admission:read with. Every row names a patient, so every row is audited as an admission read. Needs the admissions and clinical modules.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "wardId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenListPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

@@ -14,7 +14,7 @@ What was decided for this module in the web app (#157, NR-01). The root `CLAUDE.
 - **No "per nurse" list:** the API has no assignment of patients to a nurse; the worklist is per ward. A proposed follow-up.
 - The mock keeps readings in `mocks/handlers/nursing.ts`, registered before the admissions handlers because `/admissions/:id/:action` there would otherwise answer the POSTs. Tests admit patients with `addMockAdmission` (`mocks/handlers/admissions-flow.ts`) and chart readings with `addMockWardVital`.
 - Idempotency keys come from `hooks/use-nursing.ts`, one per request body.
-- Not built (API has them): diet and ward stock requests.
+- Not built (API has them): ward stock requests. Diet: see the end of this file.
 
 ## Medication chart (#158, NR-02)
 
@@ -31,7 +31,7 @@ What was decided for this module in the web app (#157, NR-01). The root `CLAUDE.
 
 - **Round list** `/nursing/rounds` (`admission:read` and `progressNote:read`), reached from a link on the worklist: the admitted stays of one doctor, from the new `doctorId` filter of `GET /admissions`. It opens on the signed-in doctor's own patients (the doctor whose `userId` is the session's, found in `useDoctorOptions`), "All doctors" for the rest; the choice is `?doctor=` in the address. Someone without `doctor:read` has no select and sees everyone the server's scope allows. Rows open the notes, vitals or medication chart.
 - **Notes** `/nursing/:admissionId/notes`: add a note (type ward round, nursing or handover; `progressNote:write`), the notes newest first as a `DataGrid`, "Amend" and "History". Only the author amends (the action is `aria-disabled` for others; the server answers 403 `not_author`) and only while the patient is admitted. An amendment sends the `version` it started from; 409 `conflict` asks the person to reopen. Nothing is overwritten: the history dialog lists every version with author and time. The doctor now holds `progressNote:write` by default (API `permissions.ts`), which synchronises on the next `db:migrate`.
-- **Orders from the ward** are not a new form: the stay's `encounterId` is given to clinical's `EncounterOrders` below the notes (lab, imaging and procedure orders, each panel with its own permissions). Medication orders from the ward are not offered (prescribing stays in the consultation); diet orders have no screen.
+- **Orders from the ward** are not a new form: the stay's `encounterId` is given to clinical's `EncounterOrders` below the notes (lab, imaging and procedure orders, each panel with its own permissions). Medication orders from the ward are not offered (prescribing stays in the consultation); diet orders: see the end of this file.
 - Note text is a single line of plain text as the API's pattern allows (no line breaks), up to 4000 characters. Allowing line breaks needs the API's `PlainLines` on the note body: a proposed follow-up.
 - The mock is `mocks/handlers/nursing-notes.ts` (`addMockProgressNote`).
 
@@ -42,3 +42,10 @@ What was decided for this module in the web app (#157, NR-01). The root `CLAUDE.
 - **Append-only:** nothing edits an entry. "Correct" adds an entry that names the one it corrects, keeps intake or output, and replaces it in the totals; the original stays in the list marked "Corrected", an entry is corrected once. Writes are hidden for a stay that is not admitted.
 - **Care plans** `/nursing/:admissionId/care-plan` (`carePlan:read`, writing `carePlan:write`): plans as cards (not a `DataGrid`: each holds its own task list), each with its goal, tasks and a count of those done. Start a plan with a problem, an optional goal and first task; add tasks; "Mark done" once per task (nobody undoes it); end a plan as completed or cancelled, after which nothing in it changes. The mock is `mocks/handlers/nursing-care.ts` (`addMockWardFluid`, `addMockCarePlan`).
 - **Not built:** due times on tasks in the form (the API takes `dueAt`, and the screen shows it), recurring tasks, a task assigned to a nurse, fluid targets or a restriction, balance on the worklist.
+
+## Diet orders and the kitchen list (#161, NR-05)
+
+- **Kitchen list** `/nursing/kitchen` (`admission:read` and `order:read`), linked from the worklist: the admitted patients as a `DataGrid` (patient first, MRN masked) with the diet each is on, its priority, status and time, filtered by ward (`?ward=`). It comes from the new `GET /diet/kitchen-list` (one request per page, never one per stay) and is read again every 30 seconds, so it follows the latest orders. A patient with no diet order reads "No diet order", never an empty cell.
+- **Diet of a stay** `/nursing/:admissionId/diet` (the "Diet" row action): the stay's diet orders (`GET /admissions/{id}/diet`, newest first, the live newest one marked "Current diet" in words) and, with `order:create` while the stay is admitted, a form placing a diet order on the stay's encounter (`POST /encounters/{id}/orders`, type `diet`, instructions up to 500 characters, priority routine or urgent). A new order replaces the diet; there is no editing or cancelling here (cancelling is clinical's `order:cancel`, no screen yet). Nurses get no `order:create` by default, so they read; a doctor places.
+- **The diet is free text** (the API's order has only instructions): no diet type catalog, no meal times, no allergy or restriction check. Proposed follow-ups: a diet type list, kitchen printing, marking a meal served.
+- The mock is `mocks/handlers/nursing-diet.ts` (`addMockDietOrder`), registered before the clinical mock because a ward stay's encounter is not one the clinical mock holds; other order types fall through to it.

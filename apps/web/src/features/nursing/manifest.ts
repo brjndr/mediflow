@@ -6,7 +6,7 @@ import type { FeatureManifest } from '@/registry';
  * and the vital signs chart of a stay with its trend, an early warning score and corrections, and
  * the medication chart (#158): the doses due, each charted given, withheld, refused or missed,
  * and the doctor's round list with progress notes and the orders of the stay (#159), fluid
- * intake and output with totals for each shift, and care plans with tasks (#160).
+ * intake and output with totals for each shift, and care plans with tasks (#160), diet orders and the kitchen list (#161).
  * Built on the nursing API (BE-24); it refers to admissions by id.
  */
 export const nursingFeature: FeatureManifest = {
@@ -22,6 +22,8 @@ export const nursingFeature: FeatureManifest = {
         notes: 'Progress notes',
         fluids: 'Fluid balance',
         care: 'Care plans',
+        kitchen: 'Kitchen list',
+        diet: 'Diet orders',
       },
     },
     load: (language) => import(`./locales/${language}.json`),
@@ -70,6 +72,18 @@ export const nursingFeature: FeatureManifest = {
       lazy: () => import('./routes/CarePlans'),
       requires: ['admission:read', 'carePlan:read'],
     },
+    {
+      path: 'nursing/kitchen',
+      titleKey: 'kitchen',
+      lazy: () => import('./routes/KitchenList'),
+      requires: ['admission:read', 'order:read'],
+    },
+    {
+      path: 'nursing/:admissionId/diet',
+      titleKey: 'diet',
+      lazy: () => import('./routes/Diet'),
+      requires: ['admission:read', 'order:read'],
+    },
   ],
   nav: { icon: HeartPulse, order: 82.5, requires: ['admission:read', 'nursingVitals:read'] },
   permissions: [
@@ -84,5 +98,7 @@ export const nursingFeature: FeatureManifest = {
     'fluidBalance:record',
     'carePlan:read',
     'carePlan:write',
+    'order:read',
+    'order:create',
   ],
 };

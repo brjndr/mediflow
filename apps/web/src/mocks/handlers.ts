@@ -19,6 +19,7 @@ import {
 import { doctorsHandlers } from './handlers/doctors';
 import { billingHandlers } from './handlers/billing';
 import { clinicalHandlers } from './handlers/clinical';
+import { dietHandlers } from './handlers/nursing-diet';
 import { codesHandlers } from './handlers/codes';
 import { drugsHandlers } from './handlers/drugs';
 import { labHandlers } from './handlers/lab';
@@ -152,6 +153,8 @@ export const handlers = [
   ...appointmentChangeHandlers,
   ...queueHandlers,
   ...triageHandlers,
+  // Before the clinical routes: it places a ward diet order, which they would refuse.
+  ...dietHandlers,
   ...clinicalHandlers,
   ...prescriptionSetsHandlers,
   ...billingHandlers,

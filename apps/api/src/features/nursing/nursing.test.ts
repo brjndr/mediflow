@@ -687,6 +687,48 @@ describe('diet orders', () => {
     });
     expect(placed.statusCode).toBe(403);
   });
+
+  it('lists the diet each admitted patient is on now, the newest order that is still live', async () => {
+    interface Row {
+      admissionId: string;
+      diet: { instructions: string } | null;
+    }
+    const list = async (o?: Options) =>
+      (await ok<Page<Row>>(await get('/diet/kitchen-list', o))).items;
+    const find = (rows: Row[], id: string) => rows.find((row) => row.admissionId === id);
+    expect(find(await list(), admissionA)?.diet?.instructions).toBe('Soft diet, no salt');
+    expect(find(await list(), admissionB)?.diet).toBeNull();
+    // A later order replaces the earlier one; a cancelled one is not the diet.
+    await pool.query(
+      `insert into orders (tenant_id, encounter_id, patient_id, type, instructions, ordered_by)
+       values ($1, $2, $3, 'diet', 'Liquid diet', $4)`,
+      [hospital.id, encounterA, patientA, doctor.id],
+    );
+    expect(find(await list(), admissionA)?.diet?.instructions).toBe('Liquid diet');
+    await pool.query(
+      `update orders set status = 'cancelled', cancel_reason = 'Changed',
+           status_changed_at = now(), status_changed_by = $3
+       where tenant_id = $1 and encounter_id = $2 and instructions = 'Liquid diet'`,
+      [hospital.id, encounterA, doctor.id],
+    );
+    expect(find(await list(), admissionA)?.diet?.instructions).toBe('Soft diet, no salt');
+    // Another hospital sees only its own stays; a ward that is not the hospital's matches nothing.
+    const others = await list({ tenant: clinic, user: clinicNurse });
+    expect(find(others, admissionA)).toBeUndefined();
+    expect(find(others, clinicAdmission)?.diet).toBeNull();
+    const none = await ok<Page<Row>>(
+      await get('/diet/kitchen-list?wardId=00000000-0000-0000-0000-000000000000'),
+    );
+    expect(none.items).toEqual([]);
+    expect(await audited('admission', admissionA)).toContain('read');
+  });
+
+  it('is refused to someone without the permissions or when clinical is off', async () => {
+    expect((await get('/diet/kitchen-list', { user: pharmacist })).statusCode).toBe(403);
+    expect(
+      (await get('/diet/kitchen-list', { tenant: closed, user: closedNurse })).statusCode,
+    ).toBe(403);
+  });
 });
 
 describe('ward stock requests', () => {

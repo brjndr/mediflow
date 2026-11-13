@@ -1860,6 +1860,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/diet/kitchen-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The kitchen list: the patients admitted now, of one ward (the ward of the bed they are in) or all, each with the diet order they are on, the newest one not cancelled or finished (null when none). Read from the unified orders on every call, so it shows the latest orders. Within the scope the caller holds admission:read with. Every row names a patient, so every row is audited as an admission read. Needs the admissions and clinical modules. */
+        get: operations["getKitchenList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admissions/{admissionId}/stock-requests": {
         parameters: {
             query?: never;
@@ -7645,6 +7662,26 @@ export interface components {
         /** @description The diet orders of the stay that are not cancelled, newest first (at most 50). */
         WardDiet: {
             items: components["schemas"]["WardDietOrder"][];
+        };
+        KitchenListItem: {
+            admissionId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            wardId?: string;
+            wardName?: string;
+            roomName?: string;
+            bedNumber?: string;
+            /** Format: date-time */
+            admittedAt: string;
+            /** @description The newest diet order not cancelled or finished, or null when there is none. */
+            diet: components["schemas"]["WardDietOrder"] | null;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        KitchenListPage: {
+            items: components["schemas"]["KitchenListItem"][];
+            nextCursor: string | null;
+            total?: number;
         };
         /** @description The ward place (fromLocationId), the store asked (toLocationId) and the items, as an indent. */
         WardStockRequestCreate: {
@@ -21056,6 +21093,75 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getKitchenList: {
+        parameters: {
+            query?: {
+                wardId?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KitchenListPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
