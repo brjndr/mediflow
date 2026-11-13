@@ -216,7 +216,7 @@ describe('access to the bed board', () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'ward:manage');
     await openBoard();
     expect(screen.queryByRole('button', { name: /Mark being cleaned/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Block/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Block(?!ed)/ })).not.toBeInTheDocument();
   });
 
   it('is unreachable when the hospital has the module off', async () => {
@@ -242,4 +242,34 @@ describe('two hospitals', () => {
     expect(screen.queryByRole('link', { name: 'Bed board' })).not.toBeInTheDocument();
     expect(mockBedStreams(TENANT_IDS.clinic)).toBe(0);
   });
+});
+
+describe('the ward map and counts', () => {
+  it('counts beds by status and draws the same beds by ward and room', async () => {
+    await openBoard();
+    const counts = screen.getByRole('list', { name: 'Beds by status' });
+    await waitFor(() =>
+      expect(within(counts).getByRole('button', { name: /Occupied/ }).textContent).toMatch(
+        /^[1-9]/,
+      ),
+    );
+    const listed = within(grid()).getAllByRole('row').length - 1;
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ward map' }));
+    expect(screen.queryByRole('table', { name: 'Beds' })).toBeNull();
+    await screen.findAllByRole('heading', { level: 2 });
+    await waitFor(() =>
+      expect(screen.getAllByRole('listitem', { name: /^Bed / }).length).toBe(listed),
+    );
+    const bed = screen.getByRole('listitem', { name: /^Bed GW-A-04,/ });
+    expect(within(bed).getByText('Blocked: Repair')).toBeInTheDocument();
+    await expectNoAxeViolations();
+
+    // A count picks that status on the map too.
+    await userEvent.click(within(counts).getByRole('button', { name: /Being cleaned/ }));
+    await waitFor(() =>
+      expect(screen.queryByRole('listitem', { name: /^Bed GW-A-04,/ })).toBeNull(),
+    );
+    expect(screen.getByRole('listitem', { name: /^Bed GW-A-03,/ })).toBeInTheDocument();
+  }, 20_000);
 });

@@ -2,6 +2,8 @@
   "heading": "Bed board",
   "description": "Every bed in use by ward and status, and who is in it. Cleaning, ready and blocked are set here.",
   "gridLabel": "Beds",
+  "counts": { "label": "Beds by status" },
+  "view": { "label": "View", "list": "List", "map": "Ward map" },
   "count_one": "{{count}} bed",
   "count_other": "{{count}} beds",
   "empty": "No beds match.",
