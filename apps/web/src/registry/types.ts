@@ -12,6 +12,7 @@ export type SlotId =
   | 'appointment.detail.actions'
   | 'queue.row.actions'
   | 'encounter.detail.actions'
+  | 'invoice.builder.panels'
   | 'emergency.case.actions'
   | 'dashboard.widgets'
   | 'settings.sections'

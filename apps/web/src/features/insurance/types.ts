@@ -17,3 +17,13 @@ export type CoverageMode = PayerPlan['coverageMode'];
 /** Prices for a payer's patients between two dates. Effective-dated, never edited. */
 export type RateAgreement = Schemas['RateAgreement'];
 export type RateAgreementCreate = Schemas['RateAgreementCreate'];
+
+/** An insurance policy on a patient record, against a payer plan (IN-02, #182). */
+export type PatientPolicy = Schemas['PatientPolicy'];
+export type PatientPolicyCreate = Schemas['PatientPolicyCreate'];
+export type PolicyRelationship = PatientPolicy['relationship'];
+/** A request to the payer to approve the cost of a treatment, and its answer. */
+export type PreAuth = Schemas['PreAuth'];
+export type PreAuthCreate = Schemas['PreAuthCreate'];
+export type PreAuthDecision = Schemas['PreAuthDecision'];
+export type PreAuthStatus = PreAuth['status'];

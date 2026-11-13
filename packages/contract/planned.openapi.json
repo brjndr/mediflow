@@ -1303,6 +1303,440 @@
           }
         }
       }
+    },
+    "/patients/{patientId}/policies": {
+      "get": {
+        "operationId": "listPatientPolicies",
+        "description": "The insurance policies on a patient's record, newest first. Needs policy:read.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The policies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PatientPolicy"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPatientPolicy",
+        "description": "Records a policy on the patient's record against a payer's plan. Needs policy:manage.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientPolicyCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/patient-policies/{policyId}/end": {
+      "post": {
+        "operationId": "endPatientPolicy",
+        "description": "Ends a policy: it can no longer back a new pre-authorization. Needs policy:manage.",
+        "parameters": [
+          {
+            "name": "policyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientPolicyEnd"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/pre-auths": {
+      "get": {
+        "operationId": "listPatientPreAuths",
+        "description": "The patient's pre-authorization requests, newest first. Needs preauth:read.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PreAuth"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPreAuth",
+        "description": "Raises a pre-authorization request to the payer of one of the patient's active policies. Needs preauth:manage.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreAuthCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreAuth"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/encounters/{encounterId}/pre-auths": {
+      "get": {
+        "operationId": "listEncounterPreAuths",
+        "description": "The pre-authorizations of one visit with what the visit has been charged so far (billedMinor), to show the approved limit while billing. Needs preauth:read.",
+        "parameters": [
+          {
+            "name": "encounterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PreAuth"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/pre-auths/{preAuthId}/decision": {
+      "post": {
+        "operationId": "decidePreAuth",
+        "description": "Records the payer's answer to a submitted request: approved (with the amount approved) or rejected. Needs preauth:manage.",
+        "parameters": [
+          {
+            "name": "preAuthId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreAuthDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreAuth"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/pre-auths/{preAuthId}/cancel": {
+      "post": {
+        "operationId": "cancelPreAuth",
+        "description": "Withdraws a submitted request. Needs preauth:manage.",
+        "parameters": [
+          {
+            "name": "preAuthId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreAuthCancel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreAuth"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2426,6 +2860,296 @@
             "items": {
               "$ref": "#/components/schemas/RateAgreement"
             }
+          }
+        }
+      },
+      "PatientPolicy": {
+        "type": "object",
+        "required": [
+          "id",
+          "patientId",
+          "payerId",
+          "payerName",
+          "planId",
+          "planName",
+          "policyNumber",
+          "holderName",
+          "relationship",
+          "validFrom",
+          "status",
+          "preAuthRequired",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "payerId": {
+            "type": "string"
+          },
+          "payerName": {
+            "type": "string"
+          },
+          "planId": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "policyNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "memberId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "holderName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "relationship": {
+            "type": "string",
+            "enum": ["self", "spouse", "child", "parent", "other"]
+          },
+          "validFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "validTo": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "expired", "ended"],
+            "description": "Worked out by the server from the dates and whether it was ended."
+          },
+          "preAuthRequired": {
+            "type": "boolean",
+            "description": "Whether the plan asks for pre-authorization of an admission."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PatientPolicyCreate": {
+        "type": "object",
+        "required": ["planId", "policyNumber", "holderName", "relationship", "validFrom"],
+        "properties": {
+          "planId": {
+            "type": "string"
+          },
+          "policyNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "memberId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "holderName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "relationship": {
+            "type": "string",
+            "enum": ["self", "spouse", "child", "parent", "other"]
+          },
+          "validFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "validTo": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "PatientPolicyEnd": {
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PreAuth": {
+        "type": "object",
+        "required": [
+          "id",
+          "patientId",
+          "policyId",
+          "payerName",
+          "planName",
+          "policyNumber",
+          "treatment",
+          "requestedMinor",
+          "billedMinor",
+          "status",
+          "documents",
+          "requestedAt",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "policyId": {
+            "type": "string"
+          },
+          "payerName": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "policyNumber": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string",
+            "description": "The visit the cover is for, when known."
+          },
+          "treatment": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "requestedMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "approvedMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The limit the payer approved. Absent until approved."
+          },
+          "billedMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "What the visit has been charged so far, worked out by the server from the charge ledger."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["submitted", "approved", "rejected", "cancelled"]
+          },
+          "referenceNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "decisionNote": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "documents": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": "What is enclosed with the request, by name. The files are on the patient record (documents)."
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PreAuthCreate": {
+        "type": "object",
+        "required": ["policyId", "treatment", "requestedMinor", "documents"],
+        "properties": {
+          "policyId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "treatment": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "requestedMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "documents": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        }
+      },
+      "PreAuthDecision": {
+        "type": "object",
+        "required": ["version", "outcome"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["approved", "rejected"]
+          },
+          "approvedMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Required when approved."
+          },
+          "referenceNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        }
+      },
+      "PreAuthCancel": {
+        "type": "object",
+        "required": ["version"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
           }
         }
       }
