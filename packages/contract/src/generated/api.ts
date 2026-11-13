@@ -1654,6 +1654,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/beds/{bedId}/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Holds a bed for a patient not in it yet, until `expiresAt` (in the future, within 14 days: 422 `invalid_expiry`). A bed has one reservation at a time (409 `bed_reserved`) and a patient one (409 `patient_has_reservation`); an archived or blocked bed is 409 `bed_not_available`, a patient already admitted 409 `already_admitted`. Until it ends, giving the bed to another patient is 409 `bed_reserved`; giving it to this one fulfils it, and it lapses by itself at its time. 404 `bed_not_found`; 422 `unknown_patient`. Needs the wards module. The Idempotency-Key header is required. Audited, announced on `/beds/events`, emits `bed.reserved` (ids only). Requires bed:reserve and admission:read, and patient:read within its scope. */
+        post: operations["reserveBed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bed-reservations/{reservationId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Lets a hold on a bed go, so anyone may be given it. 404 `reservation_not_found`; 409 `reservation_ended` when it already ended (fulfilled, cancelled or lapsed). Needs the wards module. The Idempotency-Key header is required. Audited, announced on `/beds/events`, emits `bed.reservation_ended`. Requires bed:reserve and admission:read. */
+        post: operations["cancelBedReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admissions/{admissionId}/vitals": {
         parameters: {
             query?: never;
@@ -7206,6 +7240,15 @@ export interface components {
             /** Format: date-time */
             assignedAt: string;
         };
+        /** @description The patient a bed is held for, until the time given. Gone once it passes. */
+        BoardReservation: {
+            id: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         BoardBed: {
             id: string;
             number: string;
@@ -7218,6 +7261,7 @@ export interface components {
             /** @description Why a blocked bed is out of use, from a list. */
             blockedReason?: string;
             occupant?: components["schemas"]["BoardOccupant"];
+            reservation?: components["schemas"]["BoardReservation"];
             /** @description The bed’s, for setBedHousekeeping. */
             version: number;
         };
@@ -19634,6 +19678,185 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    reserveBed: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                bedId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    patientId: string;
+                    /**
+                     * Format: date-time
+                     * @description When the hold ends: in the future and within 14 days.
+                     */
+                    expiresAt: string;
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardBed"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelBedReservation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardBed"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

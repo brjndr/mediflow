@@ -9,6 +9,7 @@ import type { GridAction } from '@/shared/ui/data-grid';
 import type { BedAction } from '../api';
 import { BedGrid } from '../components/BedGrid';
 import { BlockPanel } from '../components/BlockPanel';
+import { ReservePanel } from '../components/ReservePanel';
 import { LiveStatus } from '../components/LiveStatus';
 import { WardFilter } from '../components/WardFilter';
 import { useBedAction, useBedEvents } from '../hooks/use-board';
@@ -25,10 +26,14 @@ function refusalKey(error: unknown): string | null {
     error.serverCode === 'conflict' ||
     error.serverCode === 'invalid_transition' ||
     error.serverCode === 'bed_not_available' ||
-    error.serverCode === 'bed_not_blocked'
+    error.serverCode === 'bed_not_blocked' ||
+    error.serverCode === 'reservation_ended'
   ) {
     return 'refused.changed';
   }
+  if (error.serverCode === 'bed_reserved') return 'refused.reserved';
+  if (error.serverCode === 'patient_has_reservation') return 'refused.patientHolds';
+  if (error.serverCode === 'already_admitted') return 'refused.alreadyAdmitted';
   return null;
 }
 
@@ -47,9 +52,10 @@ export default function BedBoard() {
   // What this person last did, said once in the status line; others' changes are not announced.
   const [done, setDone] = useState<{ text: string; at: number }>();
   const [blocking, setBlocking] = useState<BoardBed | null>(null);
+  const [reserving, setReserving] = useState<BoardBed | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const statusLine = useRef<HTMLParagraphElement>(null);
-  usePanelFocus(blocking, box, statusLine);
+  usePanelFocus(blocking ?? reserving, box, statusLine);
   // A row that changed status may have left the filtered list and taken focus with it.
   useEffect(() => {
     if (done) focusIfLost(statusLine.current);
@@ -61,9 +67,13 @@ export default function BedBoard() {
     try {
       await action.mutateAsync(next);
       setBlocking(null);
+      setReserving(null);
       setDone({ text: said, at: Date.now() });
     } catch (error) {
-      if (refusalKey(error) === 'refused.changed') setBlocking(null);
+      if (refusalKey(error) === 'refused.changed') {
+        setBlocking(null);
+        setReserving(null);
+      }
       focusIfLost(statusLine.current);
     }
   };
@@ -96,7 +106,11 @@ export default function BedBoard() {
       id: 'block',
       label: t('actions.block'),
       requires: 'ward:manage',
-      disabled: (row) => pending || blocking !== null || !allowedActions(row.status).block,
+      disabled: (row) =>
+        pending ||
+        blocking !== null ||
+        !allowedActions(row.status).block ||
+        row.reservation !== undefined,
       onSelect: (row) => setBlocking(row),
     },
     {
@@ -106,6 +120,25 @@ export default function BedBoard() {
       disabled: (row) => pending || !allowedActions(row.status).unblock,
       onSelect: (row) =>
         void run({ kind: 'unblock', bed: row }, t('done.unblocked', { number: row.number })),
+    },
+    {
+      id: 'reserve',
+      label: t('actions.reserve'),
+      requires: 'bed:reserve',
+      disabled: (row) =>
+        pending || reserving !== null || row.status === 'blocked' || row.reservation !== undefined,
+      onSelect: (row) => {
+        setBlocking(null);
+        setReserving(row);
+      },
+    },
+    {
+      id: 'release',
+      label: t('actions.release'),
+      requires: 'bed:reserve',
+      disabled: (row) => pending || row.reservation === undefined,
+      onSelect: (row) =>
+        void run({ kind: 'release', bed: row }, t('done.released', { number: row.number })),
     },
   ];
 
@@ -174,6 +207,26 @@ export default function BedBoard() {
             void run(
               { kind: 'block', bed: blocking, reason },
               t('done.blocked', { number: blocking.number }),
+            )
+          }
+        />
+      )}
+
+      {reserving && (
+        <ReservePanel
+          key={reserving.id}
+          bed={reserving}
+          pending={pending}
+          onBack={() => setReserving(null)}
+          onSubmit={(patientId, hours) =>
+            void run(
+              {
+                kind: 'reserve',
+                bed: reserving,
+                patientId,
+                expiresAt: new Date(Date.now() + hours * 3_600_000).toISOString(),
+              },
+              t('done.reserved', { number: reserving.number }),
             )
           }
         />

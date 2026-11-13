@@ -31,6 +31,11 @@ export const ADMISSION_PERMISSIONS = [
     defaults: { admin: 'all', doctor: 'all', receptionist: 'all' },
   },
   {
+    id: 'bed:reserve',
+    description: 'Hold a bed for a patient until a time, or let the hold go',
+    defaults: { admin: 'all', nurse: 'all', receptionist: 'all' },
+  },
+  {
     id: 'bed:update',
     description: 'Mark a bed being cleaned or ready',
     defaults: { admin: 'all', nurse: 'all' },

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
+import { useFormatters } from '@/tenancy';
 import type { BoardFilters } from '../api';
 import { useBoard } from '../hooks/use-board';
 import type { BoardBed } from '../types';
@@ -20,6 +21,7 @@ export function BedGrid({
 }) {
   const { t } = useTranslation('admissions');
   const { t: tCommon } = useTranslation();
+  const format = useFormatters();
   const beds = useBoard(filters, live);
   const rows = useMemo(() => beds.data?.pages.flatMap((page) => page.items) ?? [], [beds.data]);
   const total = beds.data?.pages[0]?.total;
@@ -51,8 +53,19 @@ export function BedGrid({
         value: (row) => row.occupant?.patientMrn ?? '',
         mask: maskMrn,
       },
+      {
+        id: 'reservation',
+        header: t('columns.reservation'),
+        value: (row) =>
+          row.reservation
+            ? t('reservation.heldFor', {
+                name: row.reservation.patientName,
+                until: format.dateTime(row.reservation.expiresAt),
+              })
+            : '',
+      },
     ],
-    [t],
+    [t, format],
   );
 
   return (

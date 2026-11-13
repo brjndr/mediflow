@@ -54,6 +54,7 @@ function BedPanel({
         })}
       </h2>
       <BedPicker
+        patientId={admission.patientId}
         value={bedId}
         onChange={(next) => {
           setBedId(next);

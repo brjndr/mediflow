@@ -20,7 +20,10 @@ export function BedPicker({
   onChange,
   describedBy,
   invalid,
+  patientId,
 }: {
+  /** Whom the bed is for: a bed held for another patient is not offered. */
+  patientId?: string;
   value: string;
   onChange: (bedId: string) => void;
   describedBy?: string;
@@ -47,7 +50,11 @@ export function BedPicker({
     () => [...new Set((beds.data ?? []).map((bed) => bed.categoryName))].sort(),
     [beds.data],
   );
-  const shown = (beds.data ?? []).filter((bed) => !category || bed.categoryName === category);
+  const shown = (beds.data ?? []).filter(
+    (bed) =>
+      (!category || bed.categoryName === category) &&
+      (!bed.reservation || bed.reservation.patientId === patientId),
+  );
 
   return (
     <fieldset className="flex flex-col gap-3">
@@ -117,6 +124,9 @@ export function BedPicker({
                       <span className="block text-muted-foreground group-has-[:checked]:text-foreground">
                         {bed.roomName} · {bed.categoryName}
                       </span>
+                      {bed.reservation && (
+                        <span className="block text-foreground">{t('admit.heldForThem')}</span>
+                      )}
                       {priceOf(bed.categoryName) !== undefined && (
                         <span className="block text-muted-foreground group-has-[:checked]:text-foreground">
                           {t('admit.dayPrice', {

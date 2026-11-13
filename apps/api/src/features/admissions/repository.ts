@@ -435,6 +435,11 @@ export interface BoardRow {
   patient_name: string | null;
   patient_mrn: string | null;
   assigned_at: Date | null;
+  reservation_id: string | null;
+  reserved_patient_id: string | null;
+  reserved_patient_name: string | null;
+  reserved_patient_mrn: string | null;
+  reserved_until: Date | null;
   version: number;
   ward_lower: string;
   number_lower: string;
@@ -444,14 +449,21 @@ const BOARD = `
   select b.id, b.number, b.ward_id, w.name as ward_name, b.room_id, r.name as room_name,
          c.name as category_name, b.status, b.blocked_reason, ba.admission_id, ba.patient_id,
          p.first_name || ' ' || p.last_name as patient_name, p.mrn as patient_mrn,
-         ba.assigned_at, b.version, w.name_lower as ward_lower, b.number_lower
+         ba.assigned_at, b.version, w.name_lower as ward_lower, b.number_lower,
+         rv.id as reservation_id, rv.patient_id as reserved_patient_id,
+         rp.first_name || ' ' || rp.last_name as reserved_patient_name,
+         rp.mrn as reserved_patient_mrn, rv.expires_at as reserved_until
   from beds b
   join wards w on w.tenant_id = b.tenant_id and w.id = b.ward_id
   join rooms r on r.tenant_id = b.tenant_id and r.id = b.room_id
   join bed_categories c on c.tenant_id = b.tenant_id and c.id = b.bed_category_id
   left join bed_assignments ba
     on ba.tenant_id = b.tenant_id and ba.bed_id = b.id and ba.released_at is null
-  left join patients p on p.tenant_id = ba.tenant_id and p.id = ba.patient_id`;
+  left join patients p on p.tenant_id = ba.tenant_id and p.id = ba.patient_id
+  left join bed_reservations rv
+    on rv.tenant_id = b.tenant_id and rv.bed_id = b.id and rv.released_at is null
+       and rv.expires_at > now()
+  left join patients rp on rp.tenant_id = rv.tenant_id and rp.id = rv.patient_id`;
 
 /** One bed as the board shows it, or null. */
 export async function boardBed(client: pg.ClientBase, bedId: string): Promise<BoardRow | null> {

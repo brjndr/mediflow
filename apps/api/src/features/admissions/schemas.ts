@@ -313,6 +313,41 @@ export const BoardOccupant = Type.Object(
   { $id: 'BoardOccupant', additionalProperties: false },
 );
 
+export const RESERVATION_NOTE_MAX = 200;
+export const RESERVATION_MAX_DAYS = 14;
+
+export const BoardReservation = Type.Object(
+  {
+    id: Type.String(),
+    patientId: Type.String(),
+    patientName: Type.String(),
+    patientMrn: Type.String(),
+    expiresAt: Type.String({ format: 'date-time' }),
+  },
+  {
+    $id: 'BoardReservation',
+    additionalProperties: false,
+    description: 'The patient a bed is held for, until the time given. Gone once it passes.',
+  },
+);
+
+export const BedReservationCreate = Type.Object(
+  {
+    patientId: Type.String({ maxLength: 64 }),
+    expiresAt: Type.String({
+      format: 'date-time',
+      description: `When the hold ends: in the future and within ${RESERVATION_MAX_DAYS} days.`,
+    }),
+    note: Type.Optional(
+      Type.String({ minLength: 1, maxLength: RESERVATION_NOTE_MAX, pattern: PLAIN_TEXT }),
+    ),
+  },
+  { additionalProperties: false },
+);
+export type BedReservationCreate = Static<typeof BedReservationCreate>;
+
+export const ReservationParams = Type.Object({ reservationId: Type.String({ maxLength: 64 }) });
+
 export const BoardBed = Type.Object(
   {
     id: Type.String(),
@@ -327,6 +362,7 @@ export const BoardBed = Type.Object(
       Type.String({ description: 'Why a blocked bed is out of use, from a list.' }),
     ),
     occupant: Type.Optional(ref(BoardOccupant)),
+    reservation: Type.Optional(ref(BoardReservation)),
     version: Type.Integer({ minimum: 1, description: 'The bed’s, for setBedHousekeeping.' }),
   },
   { $id: 'BoardBed', additionalProperties: false },
@@ -393,6 +429,7 @@ export const ADMISSION_SCHEMAS = [
   BedStay,
   AdmissionDetail,
   BoardOccupant,
+  BoardReservation,
   BoardBed,
   BoardBedPage,
   BedCount,
