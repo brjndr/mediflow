@@ -166,6 +166,12 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
+  /* Hindi only (#767): the Devanagari font goes first, and its unicode-range leaves Latin to the
+     usual stack. Changing the stack for every language (a --font-sans override) widened phone
+     pages in CI, so English is left exactly as it was. */
+  :lang(hi) body {
+    font-family: 'Noto Sans Devanagari Variable', var(--font-sans);
+  }
 }
 
 /*

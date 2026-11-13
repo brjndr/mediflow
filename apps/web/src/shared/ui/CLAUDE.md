@@ -32,7 +32,7 @@ Tokens in `index.css`, exposed to Tailwind in `@theme inline`; all derived with 
 
 ## Hindi (#767)
 
-- Font: `Noto Sans Devanagari Variable` (`@fontsource-variable`, SIL OFL), declared in `index.css` with the Devanagari subset only and its `unicode-range`, and added to `--font-sans` after `system-ui`. The browser fetches the file (about 50 kB) only when a page shows Devanagari, so English pages and first paint are unchanged; Latin stays in the system font.
+- Font: `Noto Sans Devanagari Variable` (`@fontsource-variable`, SIL OFL), declared in `index.css` with the Devanagari subset only and its `unicode-range`, used first under `:lang(hi) body` only (an override of `--font-sans` for every language widened phone pages in CI; English is untouched). The browser fetches the file (about 50 kB) only when a page shows Devanagari, so English pages and first paint are unchanged; Latin stays in the system font.
 - Dates, numbers and money under `hi-IN` come from the same tenant formatters (`Intl`): Latin digits, lakh grouping, the rupee sign.
 - `e2e/hindi.spec.ts` opens main screens in Hindi (`?mockUser=<id>&mockLanguage=hi`) at 320 and 360 px with axe and the no-sideways-scroll check.
 - `app/i18n.ts` redraws on `added` resources: a feature with no Hindi file is ready before its English fallback arrives, and without the redraw a label showed its key.
