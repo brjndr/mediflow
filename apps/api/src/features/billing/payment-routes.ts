@@ -207,6 +207,15 @@ export const paymentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       const locked = await lockInvoice(client, payment.invoice_id);
       if (!locked) throw invoiceNotFound();
+      // A deposit set against an invoice is paid back through the deposit refund, which keeps the
+      // deposit ledger right (#170).
+      const { rows: applied } = await client.query(
+        'select 1 from deposit_applications where payment_id = $1',
+        [payment.id],
+      );
+      if (applied.length > 0) {
+        throw new HttpError(409, 'deposit_payment', 'A deposit payment is refunded as a deposit');
+      }
       if (body.amountMinor > (await refundableOf(client, payment.id))) {
         throw new HttpError(409, 'refund_exceeds', 'More than the payment still holds');
       }
