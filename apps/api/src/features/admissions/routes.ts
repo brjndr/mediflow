@@ -168,6 +168,7 @@ export const boardView = (row: BoardRow): BoardBed => ({
   ...(row.admission_id === null ||
   row.patient_id === null ||
   row.assigned_at === null ||
+  !row.in_scope ||
   row.status !== 'occupied'
     ? {}
     : {
@@ -751,16 +752,21 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       await requireWards(request);
       const { cursor, limit = DEFAULT_PAGE_SIZE, wardId, status } = request.query;
-      const page = await listBoard(request.txClient, {
-        ...(wardId === undefined ? {} : { wardId }),
-        ...(status === undefined ? {} : { status: status as BoardBedStatusValue }),
-        ...(cursor === undefined ? {} : { cursor }),
-        limit,
-      });
+      const page = await listBoard(
+        request.txClient,
+        {
+          ...(wardId === undefined ? {} : { wardId }),
+          ...(status === undefined ? {} : { status: status as BoardBedStatusValue }),
+          ...(cursor === undefined ? {} : { cursor }),
+          limit,
+        },
+        visibilityFor(request, READ),
+      );
       if (!page) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
       const items = page.rows.map(boardView);
       for (const item of items) {
         if (item.occupant) request.audit('read', 'admission', item.occupant.admissionId);
+        if (item.reservation) request.audit('read', 'patient', item.reservation.patientId);
       }
       return {
         items,

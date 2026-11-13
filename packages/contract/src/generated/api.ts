@@ -5679,10 +5679,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The deposits taken against a stay, newest first. Needs payment:read and the billing feature flag. */
+        /** @description The deposits taken against a stay, newest first. Needs payment:read, admission:read (both with the scope all) and the billing feature flag. */
         get: operations["listDeposits"];
         put?: never;
-        /** @description Takes a deposit against a stay (cash goes into the caller’s open register session as a payment does: 409 `no_open_register`). A deposit is never edited or removed; it is set against the final invoice or paid back. A stay that is no longer admitted is 409 `stay_closed`. The Idempotency-Key header is required: a repeat takes nothing more. Needs payment:create and the billing feature flag. Audited. */
+        /** @description Takes a deposit against a stay (cash goes into the caller’s open register session as a payment does: 409 `no_open_register`). A deposit is never edited or removed; it is set against the final invoice or paid back. A stay that is no longer admitted is 409 `stay_closed`. The Idempotency-Key header is required: a repeat takes nothing more. Needs payment:create and admission:read (both with the scope all) and the billing feature flag. Audited. */
         post: operations["takeDeposit"];
         delete?: never;
         options?: never;
