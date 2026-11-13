@@ -27,7 +27,11 @@ export default function SplitPanel({ context }: SlotProps) {
   const { t } = useTranslation('insurance');
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
-  const canRead = usePermission('policy:read');
+  // The panel shows the visit's charges, which belong to billing: both permissions are needed
+  // (the manifest can only require what the module declares itself).
+  const canReadPolicy = usePermission('policy:read');
+  const canReadCharges = usePermission('charge:read');
+  const canRead = canReadPolicy && canReadCharges;
   const canSave = usePermission('policy:manage');
   const encounterId =
     typeof context?.encounterId === 'string' && ID.test(context.encounterId)

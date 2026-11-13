@@ -124,6 +124,15 @@ describe('the split panel', () => {
     await waitFor(() => expect(screen.queryByTestId('split-ledger')).toBeNull());
   });
 
+  it('is left out without charge:read', async () => {
+    revokePermission(HOSPITAL, 'admin', 'charge:read');
+    renderApp({ entry: '/billing/new?encounterId=enc_h_1' });
+    await screen.findByRole('main');
+    expect(
+      screen.queryByRole('region', { name: 'Split between the patient and the payer' }),
+    ).toBeNull();
+  });
+
   it('offers no save without policy:manage', async () => {
     revokePermission(HOSPITAL, 'admin', 'policy:manage');
     const { panel } = await openPanel();

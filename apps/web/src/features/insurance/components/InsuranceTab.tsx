@@ -8,6 +8,7 @@ import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { StatusBadge, type StatusTone } from '@/shared/ui/status-badge';
+import { maskEnd } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
 import {
   useCancelPreAuth,
@@ -218,7 +219,7 @@ function PatientCover({ patientId }: { patientId: string }) {
                   <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
                     <Fact
                       label={t('preauth.policy')}
-                      value={`${item.payerName}, ${item.policyNumber}`}
+                      value={`${item.payerName}, ${maskEnd(item.policyNumber)}`}
                     />
                     <Fact
                       label={t('preauth.requested')}
