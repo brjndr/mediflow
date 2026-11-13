@@ -4075,7 +4075,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Moves a trip: requested -> dispatched (with an `ambulanceId` of an available ambulance, which goes on the trip) -> picked_up -> completed; cancelled before the pick-up (the ambulance is freed). Anything else is 409 `invalid_transition`. An ambulance on another trip or out of service is 409 `ambulance_unavailable`; an unknown one 422 `unknown_ambulance`. The `version` is the trip’s, or 409 `conflict`. Audited; emits `ambulance.trip_status_changed`. Requires ambulance:dispatch. */
+        /** @description Moves a trip: requested -> dispatched (with an `ambulanceId` of an available ambulance, which goes on the trip, and optionally the `crew`: active staff, one driver at most, none on a trip under way, else 422 `unknown_crew` / `invalid_crew` or 409 `crew_busy`; crew with any other move is 422 `crew_at_dispatch`) -> picked_up -> completed; cancelled before the pick-up (the ambulance is freed). Anything else is 409 `invalid_transition`. An ambulance on another trip or out of service is 409 `ambulance_unavailable`; an unknown one 422 `unknown_ambulance`. The `version` is the trip’s, or 409 `conflict`. Audited; emits `ambulance.trip_status_changed`. Requires ambulance:dispatch. */
         post: operations["moveAmbulanceTrip"];
         delete?: never;
         options?: never;
@@ -10099,6 +10099,16 @@ export interface components {
          * @enum {string}
          */
         AmbulanceStatus: "available" | "on_trip" | "out_of_service";
+        /**
+         * @description What a crew member does on the trip; at most one driver.
+         * @enum {string}
+         */
+        AmbulanceCrewRole: "driver" | "paramedic" | "attendant";
+        AmbulanceCrewMember: {
+            userId: string;
+            userName: string;
+            duty: components["schemas"]["AmbulanceCrewRole"];
+        };
         Ambulance: {
             id: string;
             tenantId: string;
@@ -10153,6 +10163,8 @@ export interface components {
             pickedUpAt?: string;
             /** Format: date-time */
             finishedAt?: string;
+            /** @description Named when the trip is dispatched; empty before, or when none was named. */
+            crew: components["schemas"]["AmbulanceCrewMember"][];
             version: number;
         };
         /** @description Cursor envelope used by every list endpoint. */
@@ -10181,6 +10193,12 @@ export interface components {
             version: number;
             /** @description Required to dispatch. */
             ambulanceId?: string;
+            /** @description Only when dispatching: who goes. At most one driver. */
+            crew?: {
+                userId: string;
+                /** @enum {string} */
+                duty: "driver" | "paramedic" | "attendant";
+            }[];
         };
         /**
          * @description discharge is made when a patient leaves a bed; routine is asked for.
@@ -34665,6 +34683,12 @@ export interface operations {
                     version: number;
                     /** @description Required to dispatch. */
                     ambulanceId?: string;
+                    /** @description Only when dispatching: who goes. At most one driver. */
+                    crew?: {
+                        userId: string;
+                        /** @enum {string} */
+                        duty: "driver" | "paramedic" | "attendant";
+                    }[];
                 };
             };
         };

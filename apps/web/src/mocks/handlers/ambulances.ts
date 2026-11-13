@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockServiceNamed } from './services';
+import { mockStaffOf } from './staff';
 
 type Ambulance = components['schemas']['Ambulance'];
 type Trip = components['schemas']['AmbulanceTrip'];
@@ -44,6 +45,7 @@ const seedTrips = (): Trip[] => [
     destination: 'Emergency entrance',
     status: 'requested',
     requestedAt: '2026-11-07T09:00:00.000Z',
+    crew: [],
     version: 1,
   },
 ];
@@ -210,6 +212,7 @@ export const ambulanceHandlers = [
       destination: body.destination,
       status: 'requested',
       requestedAt: new Date().toISOString(),
+      crew: [],
       version: 1,
     };
     trips.push(made);
@@ -227,6 +230,7 @@ export const ambulanceHandlers = [
       to?: unknown;
       version?: unknown;
       ambulanceId?: unknown;
+      crew?: unknown;
     } | null;
     const to = body?.to as TripStatus | undefined;
     if (!to || !(to in MOVES) || typeof body?.version !== 'number') {
@@ -239,6 +243,42 @@ export const ambulanceHandlers = [
       return error(409, 'invalid_transition', 'That move is not allowed');
     }
     const now = new Date().toISOString();
+    const named = Array.isArray(body.crew)
+      ? (body.crew as { userId?: unknown; duty?: unknown }[])
+      : undefined;
+    if (named !== undefined && to !== 'dispatched') {
+      return error(422, 'crew_at_dispatch', 'The crew is named when the trip is sent');
+    }
+    let crew: Trip['crew'] = [];
+    if (to === 'dispatched' && named !== undefined) {
+      const people = mockStaffOf(access.tenantId);
+      const ids = named.map((member) => member.userId);
+      if (
+        new Set(ids).size !== ids.length ||
+        named.filter((member) => member.duty === 'driver').length > 1
+      ) {
+        return error(422, 'invalid_crew', 'One driver, and no one twice');
+      }
+      for (const member of named) {
+        const person = people.find((one) => one.userId === member.userId);
+        if (!person || person.status !== 'active') {
+          return error(422, 'unknown_crew', 'No such staff member');
+        }
+        crew.push({
+          userId: person.userId,
+          userName: person.name,
+          duty: member.duty as Trip['crew'][number]['duty'],
+        });
+      }
+      const busy = trips.some(
+        (other) =>
+          other.tenantId === access.tenantId &&
+          (other.status === 'dispatched' || other.status === 'picked_up') &&
+          other.crew.some((one) => ids.includes(one.userId)),
+      );
+      if (busy) return error(409, 'crew_busy', 'Someone is on another trip');
+      crew = crew.sort((a, b) => Number(b.duty === 'driver') - Number(a.duty === 'driver'));
+    }
     if (to === 'dispatched') {
       if (typeof body.ambulanceId !== 'string') {
         return error(422, 'ambulance_required', 'Say which ambulance goes');
@@ -254,6 +294,7 @@ export const ambulanceHandlers = [
       Object.assign(trip, {
         ambulanceId: ambulance.id,
         ambulanceRegistration: ambulance.registration,
+        crew,
         dispatchedAt: now,
       });
     }

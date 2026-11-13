@@ -7,6 +7,8 @@ import type {
   AmbulanceStatus,
   AmbulanceTrip,
   AmbulanceTripPage,
+  CrewMember,
+  CrewRole,
   TripStatus,
 } from './types';
 
@@ -24,6 +26,14 @@ export const TRIP_STATUSES = [
   'completed',
   'cancelled',
 ] as const satisfies readonly TripStatus[];
+
+export const CREW_ROLES = [
+  'driver',
+  'paramedic',
+  'attendant',
+] as const satisfies readonly CrewRole[];
+/** The most people a dispatch may name (the server's limit). */
+export const MAX_CREW = 8;
 
 /** The moves a person may make from a status, as the server's table allows them. */
 export function allowedTripMoves(status: TripStatus) {
@@ -75,6 +85,12 @@ export const ambulancePageSchema: z.ZodType<AmbulancePage> = z.object({
   total: z.number().int().optional(),
 });
 
+export const crewMemberSchema: z.ZodType<CrewMember> = z.object({
+  userId: z.string(),
+  userName: z.string(),
+  duty: z.enum(CREW_ROLES),
+});
+
 export const tripSchema: z.ZodType<AmbulanceTrip> = z.object({
   id: z.string(),
   tenantId: z.string(),
@@ -91,6 +107,7 @@ export const tripSchema: z.ZodType<AmbulanceTrip> = z.object({
   dispatchedAt: z.string().optional(),
   pickedUpAt: z.string().optional(),
   finishedAt: z.string().optional(),
+  crew: z.array(crewMemberSchema),
   version: z.number().int().min(1),
 });
 export const tripPageSchema: z.ZodType<AmbulanceTripPage> = z.object({
