@@ -7,7 +7,9 @@
  * Devanagari for Hindi (#767). Only the Devanagari subset is declared, and its unicode-range
  * means the browser fetches the file (about 50 kB, font-display swap) only when a page shows
  * such characters: English pages never request it, and text paints at once in the system font.
- * Latin stays in the system font. The font is licensed under the SIL OFL.
+ * Latin stays in the system font, and so do the rupee sign (U+20B9) and the joiners, which the
+ * package's own range includes: English invoices show the rupee, and loading the font for it
+ * widened phone pages (#767). The font is licensed under the SIL OFL.
  */
 @font-face {
   font-family: 'Noto Sans Devanagari Variable';
@@ -16,9 +18,7 @@
   font-weight: 100 900;
   src: url('@fontsource-variable/noto-sans-devanagari/files/noto-sans-devanagari-devanagari-wght-normal.woff2')
     format('woff2-variations');
-  unicode-range:
-    U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0, U+25CC, U+A830-A839, U+A8E0-A8FF,
-    U+11B00-11B09;
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+A830-A839, U+A8E0-A8FF, U+11B00-11B09;
 }
 
 /*
