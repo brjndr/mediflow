@@ -10,6 +10,7 @@ import {
   createUser,
   deleteTenants,
   deleteUsers,
+  hospitalDay,
   grantRoleDefaults,
   resolveTestSession,
   type TestTenant,
@@ -138,8 +139,7 @@ interface Statement {
 const one = async (sql: string, params: unknown[]) =>
   ((await pool.query<{ id: string }>(sql, params)).rows[0] as { id: string }).id;
 
-const day = (offset: number) =>
-  new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+const day = hospitalDay;
 
 let codes = 0;
 async function corporate(kind = 'corporate', tenant = hospital, user = admin): Promise<string> {
