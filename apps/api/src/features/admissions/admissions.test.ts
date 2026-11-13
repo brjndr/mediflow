@@ -1077,6 +1077,32 @@ describe('listing admissions', () => {
   });
 });
 
+describe('the board and the scope of admission:read (#798)', () => {
+  it('keeps the occupant of a stay outside the scope off the board', async () => {
+    await reset();
+    await admitted(patient(0), { bedId: bed(0) });
+    const setScope = (scope: string) =>
+      pool.query(
+        "update role_permissions set scope = $2 where tenant_id = $1 and role_id = 'nurse' and permission = 'admission:read'",
+        [hospital.id, scope],
+      );
+    const occupant = async (user: typeof nurse) => {
+      const board = await ok<Page<BoardBed>>(await get('/beds/board', { user }));
+      return board.items.find((each) => each.id === bed(0));
+    };
+    await setScope('own');
+    try {
+      // The nurse has no doctor profile: the bed is shown in use, the patient is not named.
+      const seen = await occupant(nurse);
+      expect(seen?.status).toBe('occupied');
+      expect(seen?.occupant).toBeUndefined();
+    } finally {
+      await setScope('all');
+    }
+    expect((await occupant(nurse))?.occupant).toBeDefined();
+  });
+});
+
 describe('the hospital boundary and permissions', () => {
   it('shows another hospital nothing, and lets it change nothing', async () => {
     await reset();
