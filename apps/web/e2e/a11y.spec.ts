@@ -111,6 +111,12 @@ const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
       });
       return ((await answer.json()) as { id?: string }).id ?? '';
     }),
+  // The running bill of a stay (#166) is opened from the admissions list's row action: the same
+  // admission as the nursing chart's.
+  'billing/stays': async (page) => {
+    const admit = RECORDS.nursing;
+    return admit ? admit(page) : '';
+  },
   // A lab order's results (#91) are opened from a worklist row action: its sample collected,
   // received and one result entered, so entry and verifying are both on the screen.
   'lab/orders': (page) =>

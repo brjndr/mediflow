@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { useFormatters } from '@/tenancy';
@@ -119,6 +119,7 @@ function BedPanel({
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function Admissions() {
   const { t } = useTranslation('admissions');
+  const navigate = useNavigate();
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const [status, setStatus] = useState<StatusFilter>('admitted');
@@ -242,6 +243,13 @@ export default function Admissions() {
         setHistory(null);
         setDetails(row);
       },
+    },
+    {
+      id: 'bill',
+      label: t('actions.bill'),
+      requires: 'charge:read',
+      featureFlag: 'billing',
+      onSelect: (row) => navigate(`/billing/stays/${row.id}`),
     },
     {
       id: 'history',

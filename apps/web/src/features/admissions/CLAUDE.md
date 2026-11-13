@@ -37,3 +37,5 @@ What was decided for this module in the web app. The root `CLAUDE.md` wins where
 - Admission details (#630): the "Admission details" row action opens `AdmissionDetailsPanel` with the advice, attendant (phone masked), deposit and consents recorded at admission; the list has a Deposit column. There is no separate detail route.
 
 - **End-to-end (#155):** `e2e/admissions.spec.ts` admits a patient, moves them to another bed, reads the bed history and finds the bed in use on the board, at all three widths, with axe and a keyboard check of the admit form. The unit tests already cover the two hospitals (the clinic has no bed board). A selected bed in `BedPicker` uses `text-foreground` for its secondary lines: muted text on the accent background failed contrast.
+
+- **Running bill (#166):** the list's "Running bill" row action (`charge:read`, `billing` switch) opens `/billing/stays/:admissionId`, owned by billing (`apps/web/src/features/billing/CLAUDE.md`).
