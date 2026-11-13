@@ -9,6 +9,7 @@ export const REPORT_KINDS = [
   'pharmacy_sales',
   'stock',
   'collections',
+  'collections_by_close',
   'outstanding',
 ] as const;
 export type ReportKind = (typeof REPORT_KINDS)[number];
