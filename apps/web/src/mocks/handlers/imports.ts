@@ -2,6 +2,8 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { currentPolicy, currentSession, onMockReset } from '../db';
 import { authorize, error } from '../respond';
+import { mockDrugsOf } from './drugs';
+import { mockOpeningRefusal, mockPlaceNamed } from './inventory';
 
 type Batch = components['schemas']['ImportBatch'];
 type Kind = components['schemas']['ImportKind'];
@@ -125,6 +127,24 @@ const KINDS: (Kind & { feature: string; permissions: string[]; key: string[] })[
       text('legacyId'),
     ],
   },
+  {
+    kind: 'opening_stock',
+    feature: 'inventory',
+    permissions: ['stock:read', 'stock:adjust', 'stock:approve'],
+    key: ['genericName', 'brandName', 'form', 'strength', 'location', 'batchNumber'],
+    columns: [
+      text('genericName', true),
+      text('brandName'),
+      text('form', true),
+      text('strength'),
+      text('location', true),
+      text('batchNumber', true),
+      { field: 'expiryDate', required: true, type: 'date' },
+      { field: 'quantity', required: true, type: 'integer' },
+      { field: 'costMinor', required: false, type: 'amount' },
+      { field: 'mrpMinor', required: false, type: 'amount' },
+    ],
+  },
 ];
 
 interface Stored {
@@ -179,6 +199,32 @@ function rowProblems(columns: Column[], values: Record<string, string>): Omit<Pr
   return problems;
 }
 
+const same = (a: string | undefined, b: string | undefined) =>
+  (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+
+/** What the API finds in an opening stock row once it reads: the item, place and batch. */
+function openingProblem(
+  tenantId: string,
+  values: Record<string, string>,
+): Omit<Problem, 'line'> | null {
+  const drug = mockDrugsOf(tenantId).find(
+    (each) =>
+      same(each.genericName, values.genericName) &&
+      same(each.brandName, values.brandName) &&
+      same(each.form, values.form) &&
+      same(each.strength, values.strength),
+  );
+  if (!drug) return { field: 'genericName', code: 'unknown_item' };
+  const place = mockPlaceNamed(tenantId, values.location ?? '');
+  if (!place) return { field: 'location', code: 'unknown_location' };
+  const expiry = (values.expiryDate ?? '').trim();
+  if (expiry < new Date().toISOString().slice(0, 10)) {
+    return { field: 'expiryDate', code: 'batch_expired' };
+  }
+  const refusal = mockOpeningRefusal(tenantId, drug.id, values.batchNumber ?? '', expiry, place.id);
+  return refusal ? { field: 'batchNumber', code: refusal } : null;
+}
+
 function checkAll(stored: Stored): Problem[] {
   const kind = KINDS.find((item) => item.kind === stored.batch.kind);
   if (!kind) return [];
@@ -190,6 +236,13 @@ function checkAll(stored: Stored): Problem[] {
     if (found.length > 0) {
       problems.push(...found.map((problem) => ({ ...problem, line })));
       continue;
+    }
+    if (kind.kind === 'opening_stock') {
+      const found = openingProblem(stored.batch.tenantId, values);
+      if (found) {
+        problems.push({ ...found, line });
+        continue;
+      }
     }
     const key = kind.key.map((field) => (values[field] ?? '').trim().toLowerCase()).join('|');
     if (keys.has(key)) problems.push({ line, code: 'duplicate_in_file' });
