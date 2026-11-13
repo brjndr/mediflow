@@ -439,6 +439,19 @@ describe('deposits and the settlement', () => {
       [invoice.id],
     );
     expect(paid.rows[0]).toEqual({ status: 'paid', paid: 6_000 });
+    // A deposit payment is paid back as a deposit, never through the payment refund (#170).
+    const depositPayment = await pool.query<{ payment_id: string }>(
+      'select payment_id from deposit_applications where admission_id = $1',
+      [stay.id],
+    );
+    expect(
+      errorOf(
+        await post(`/payments/${depositPayment.rows[0]?.payment_id}/refunds`, {
+          amountMinor: 100,
+          reason: 'Wrong route',
+        }),
+      ),
+    ).toEqual([409, 'deposit_payment']);
     expect(
       errorOf(await post(`/admissions/${stay.id}/deposits/apply`, { invoiceId: invoice.id })),
     ).toEqual([409, 'invoice_not_payable']);
@@ -554,6 +567,10 @@ describe('bed days', () => {
       { source: 'bed', count: 4, totalMinor: 10_000, accruing: true },
     ]);
 
+    // Days nobody has posted yet keep the bill unsettled (#170).
+    const unsettled = await ok<Settlement>(await get(`/admissions/${stay.id}/settlement`));
+    expect(unsettled.clearance.reasons).toContain('unbilled');
+
     expect(await postBedDays(pool, hospital.id)).toBeGreaterThanOrEqual(4);
     expect(await postBedDays(pool, hospital.id)).toBe(0);
     await postBedDaysEverywhere(pool);
@@ -574,7 +591,11 @@ describe('bed days', () => {
   it('does not charge the day a patient leaves a bed they were in the night before', async () => {
     const stay = await admit(true);
     await ok(
-      await post(`/admissions/${stay.id}/discharge`, { dischargeType: 'absconded', version: 1 }),
+      await post(`/admissions/${stay.id}/discharge`, {
+        dischargeType: 'absconded',
+        version: 1,
+        billAcknowledged: true,
+      }),
     );
     const client = await pool.connect();
     try {

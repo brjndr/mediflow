@@ -231,6 +231,8 @@ async function settlement(client: pg.ClientBase, stay: StayRow) {
   const total = (pick: (invoice: (typeof issued)[number]) => string) =>
     issued.reduce((sum, invoice) => sum + num(pick(invoice)), 0);
   const unbilledMinor = num(ledger[0]?.unbilled);
+  // Bed days the hourly job has not posted yet are unbilled too (#170).
+  const unposted = (await dueBedDays(client, stay.id, 1)).length > 0;
   const depositsMinor = await sumOf(client, 'deposits', stay.id);
   const depositsAppliedMinor = await sumOf(client, 'deposit_applications', stay.id);
   const depositsRefundedMinor = await sumOf(client, 'deposit_refunds', stay.id);
@@ -240,9 +242,9 @@ async function settlement(client: pg.ClientBase, stay: StayRow) {
   );
   const draft = invoices.some((invoice) => invoice.status === 'draft');
   const excessDepositMinor =
-    unbilledMinor === 0 && !draft ? Math.max(0, depositsHeldMinor - dueMinor) : 0;
+    unbilledMinor === 0 && !unposted && !draft ? Math.max(0, depositsHeldMinor - dueMinor) : 0;
   const reasons: ('unbilled' | 'draft_invoice' | 'balance_due' | 'excess_deposit')[] = [];
-  if (unbilledMinor > 0) reasons.push('unbilled');
+  if (unbilledMinor > 0 || unposted) reasons.push('unbilled');
   if (draft) reasons.push('draft_invoice');
   if (dueMinor > 0) reasons.push('balance_due');
   if (excessDepositMinor > 0) reasons.push('excess_deposit');
