@@ -193,6 +193,29 @@ export function subscribeToPostings(app: FastifyInstance): void {
     });
   });
 
+  // A trip completed with a visit and a service is charged as that service (#589). The
+  // ambulance module only says what happened; the price is the list's, never the trip's.
+  app.events.subscribe('ambulance.trip_status_changed', async (message, tx) => {
+    const { payload } = message;
+    if (payload.to !== 'completed') return;
+    const tripId = idOf(message.entityId);
+    const encounterId = idOf(payload.encounterId);
+    const patientId = idOf(payload.patientId);
+    const serviceId = idOf(payload.serviceId);
+    if (!tripId || !encounterId || !patientId || !serviceId) return;
+    await postCharge(tx, {
+      encounterId,
+      patientId,
+      serviceId,
+      source: 'service',
+      sourceRef: `ambulance:${tripId}`,
+      description: '',
+      quantity: 1,
+      unitPriceMinor: 0,
+      flag: null,
+    });
+  });
+
   // A dispense is charged for each batch it took from, at that batch's price.
   app.events.subscribe('pharmacy.dispensed', async (message, tx) => {
     const dispenseId = idOf(message.entityId);

@@ -140,6 +140,16 @@ export default function Ambulances() {
         render: (row, text) => (row.patientId ? <TripPatient patientId={row.patientId} /> : text),
       },
       {
+        id: 'charge',
+        header: t('trips.charge'),
+        value: (row) =>
+          row.serviceId && row.encounterId
+            ? t(row.status === 'completed' ? 'trips.charged' : 'trips.chargeAfter', {
+                service: row.serviceName ?? '',
+              })
+            : t('trips.noCharge'),
+      },
+      {
         id: 'status',
         header: t('trips.status'),
         value: (row) => t(`tripStatus.${row.status}`),

@@ -4058,7 +4058,7 @@ export interface paths {
         /** @description Trips, newest request first, filtered by status or ambulance. A trip with a patient is audited as a read of that patient’s trip. Requires ambulance:read. */
         get: operations["listAmbulanceTrips"];
         put?: never;
-        /** @description Asks for a trip from a pick-up place to a destination, in status `requested`. A `patientId` is optional (an emergency may have no record yet) and must be one the caller may read (422 `unknown_patient`). The Idempotency-Key header is required. Audited; emits `ambulance.trip_requested`. Requires ambulance:dispatch. */
+        /** @description Asks for a trip from a pick-up place to a destination, in status `requested`. A `patientId` is optional (an emergency may have no record yet) and must be one the caller may read (422 `unknown_patient`). An `encounterId` (a visit of that patient, not cancelled, else 422 `unknown_encounter`) and a `serviceId` (an active service, else 422 `unknown_service`; it needs the visit, else 422 `encounter_required`) make the trip billable: billing charges the service to the visit when the trip is completed. The Idempotency-Key header is required. Audited; emits `ambulance.trip_requested`. Requires ambulance:dispatch. */
         post: operations["requestAmbulanceTrip"];
         delete?: never;
         options?: never;
@@ -10131,6 +10131,11 @@ export interface components {
             id: string;
             tenantId: string;
             patientId?: string;
+            /** @description The visit the trip is charged to. */
+            encounterId?: string;
+            /** @description The priced service the trip is charged as. */
+            serviceId?: string;
+            serviceName?: string;
             ambulanceId?: string;
             ambulanceRegistration?: string;
             pickup: string;
@@ -10155,6 +10160,10 @@ export interface components {
         AmbulanceTripCreate: {
             /** @description Left out for an emergency with no record yet. */
             patientId?: string;
+            /** @description A visit of the patient; needs a patientId. */
+            encounterId?: string;
+            /** @description Charged to the visit when the trip completes. */
+            serviceId?: string;
             pickup: string;
             destination: string;
         };
@@ -34558,6 +34567,10 @@ export interface operations {
                 "application/json": {
                     /** @description Left out for an emergency with no record yet. */
                     patientId?: string;
+                    /** @description A visit of the patient; needs a patientId. */
+                    encounterId?: string;
+                    /** @description Charged to the visit when the trip completes. */
+                    serviceId?: string;
                     pickup: string;
                     destination: string;
                 };

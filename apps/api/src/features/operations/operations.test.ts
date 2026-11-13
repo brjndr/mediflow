@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -212,7 +213,16 @@ beforeAll(async () => {
 afterAll(async () => {
   try {
     await wipe();
-    for (const table of ['beds', 'rooms', 'wards', 'bed_categories', 'patients', 'departments']) {
+    for (const table of [
+      'beds',
+      'rooms',
+      'wards',
+      'bed_categories',
+      'encounters',
+      'services',
+      'patients',
+      'departments',
+    ]) {
       await pool.query(`delete from ${table} where tenant_id = any($1)`, [tenants()]);
     }
     await deleteUsers(pool, [admin, nurse, labTech, pharmacist, clinicAdmin].filter(Boolean));
@@ -881,6 +891,64 @@ describe('ambulances', () => {
       'update',
       'update',
       'update',
+    ]);
+  });
+
+  it('keeps the visit and service of a billable trip, and refuses ones that do not fit', async () => {
+    await wipe();
+    const encounter = await pool.query<{ id: string }>(
+      `insert into encounters (tenant_id, patient_id, type, opened_by) values ($1, $2, 'er', $3) returning id`,
+      [hospital.id, patientId, admin.id],
+    );
+    const encounterId = encounter.rows[0]?.id ?? '';
+    const service = async (tenant: TestTenant, code: string, archived = false) =>
+      (
+        await pool.query<{ id: string }>(
+          `insert into services (tenant_id, code, name, category, tax_class, archived)
+           values ($1, $2, 'Ambulance transfer', 'procedure', 'exempt', $3) returning id`,
+          [tenant.id, code, archived],
+        )
+      ).rows[0]?.id ?? '';
+    const serviceId = await service(hospital, 'AMB-1');
+    const trip = await ok<Trip & { encounterId?: string; serviceName?: string }>(
+      await requestTrip({ patientId, encounterId, serviceId }),
+      201,
+    );
+    expect(trip).toMatchObject({ encounterId, serviceId, serviceName: 'Ambulance transfer' });
+    const ambulance = await ok<Ambulance>(await addAmbulance(), 201);
+    const sent = await ok<Trip>(await moveTrip(trip, 'dispatched', { ambulanceId: ambulance.id }));
+    const done = await ok<Trip>(
+      await moveTrip(await ok<Trip>(await moveTrip(sent, 'picked_up')), 'completed'),
+    );
+    expect(done.status).toBe('completed');
+    const completed = (await eventsOf(trip.id)).at(-1);
+    expect(completed?.payload).toMatchObject({ to: 'completed', encounterId, serviceId });
+    expect(errorOf(await requestTrip({ encounterId }))).toEqual([422, 'unknown_encounter']);
+    expect(errorOf(await requestTrip({ patientId, serviceId }))).toEqual([
+      422,
+      'encounter_required',
+    ]);
+    expect(errorOf(await requestTrip({ patientId, encounterId, serviceId: randomUUID() }))).toEqual(
+      [422, 'unknown_service'],
+    );
+    const old = await service(hospital, 'AMB-OLD', true);
+    expect(errorOf(await requestTrip({ patientId, encounterId, serviceId: old }))).toEqual([
+      422,
+      'unknown_service',
+    ]);
+    // Another hospital's service is not found, nor its visit.
+    const foreign = await service(clinic, 'AMB-2');
+    expect(errorOf(await requestTrip({ patientId, encounterId, serviceId: foreign }))).toEqual([
+      422,
+      'unknown_service',
+    ]);
+    await pool.query(
+      "update encounters set status = 'cancelled', cancel_reason = 'x', ended_at = now(), ended_by = $2 where id = $1",
+      [encounterId, admin.id],
+    );
+    expect(errorOf(await requestTrip({ patientId, encounterId }))).toEqual([
+      422,
+      'unknown_encounter',
     ]);
   });
 

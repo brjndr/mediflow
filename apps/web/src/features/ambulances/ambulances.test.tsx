@@ -62,6 +62,28 @@ describe('ambulances', () => {
     await waitFor(() => expect(rowOf(tripGrid(), 'Lake road')).toBeDefined());
   }, 20_000);
 
+  it('names the visit and the service a trip is charged as, and shows the charge', async () => {
+    await open();
+    await userEvent.click(screen.getByRole('button', { name: 'Request a trip' }));
+    await userEvent.type(await screen.findByRole('textbox', { name: /Pick-up place/ }), 'Ward 3');
+    await userEvent.type(screen.getByRole('textbox', { name: /Destination/ }), 'Scan centre');
+    await userEvent.type(screen.getByRole('combobox', { name: /^Patient/ }), 'Asha');
+    await userEvent.click((await screen.findAllByRole('option'))[0] as HTMLElement);
+    const visit = await screen.findByRole('combobox', { name: /Charge to visit/ });
+    await waitFor(() => expect(within(visit).getAllByRole('option')).toHaveLength(2));
+    await userEvent.selectOptions(visit, within(visit).getAllByRole('option')[1] as HTMLElement);
+    await userEvent.type(screen.getByRole('combobox', { name: /Service to charge/ }), 'Chest');
+    await userEvent.click(await screen.findByRole('option', { name: /Chest X-ray/ }));
+    expect(screen.getByText(/at the price list's price/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Request trip' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Trip requested.'));
+    const row = await waitFor(() => rowOf(tripGrid(), 'Ward 3'));
+    expect(within(row).getByText('Chest X-ray, billed when completed')).toBeInTheDocument();
+    expect(
+      within(rowOf(tripGrid(), 'Main Road junction')).getByText('Not charged'),
+    ).toBeInTheDocument();
+  }, 30_000);
+
   it('dispatches a trip, runs it to the end and frees the ambulance', async () => {
     await open();
     await userEvent.click(
