@@ -6365,6 +6365,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admissions/{admissionId}/discharge-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The discharge plan of an admission (DS-01): the advice for the patient and the clearance of nursing, pharmacy returns and pending laboratory work. A stay with no plan yet has none cleared. Needs admission:read and the admissions feature flag. */
+        get: operations["getDischargePlan"];
+        /** @description Writes the discharge advice. Needs admission:discharge. Audited. */
+        put: operations["setDischargeAdvice"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/discharge-plan/clearances/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Marks one clearance cleared or open again, with who and when. Needs discharge:clear. Audited. Discharging while a clearance the discharge type requires is open answers 409 clearance_pending. */
+        put: operations["setDischargeClearance"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12240,6 +12275,31 @@ export interface components {
             };
             /** @description A saved split exists and the ledger has changed since. */
             stale: boolean;
+        };
+        /** @enum {string} */
+        DischargeClearanceKind: "nursing" | "pharmacy" | "lab";
+        DischargeClearance: {
+            kind: components["schemas"]["DischargeClearanceKind"];
+            /** @enum {string} */
+            status: "pending" | "cleared";
+            note?: string;
+            /** Format: date-time */
+            clearedAt?: string;
+            clearedByName?: string;
+        };
+        DischargePlan: {
+            admissionId: string;
+            advice?: string;
+            clearances: components["schemas"]["DischargeClearance"][];
+            version: number;
+        };
+        DischargeAdviceSet: {
+            advice: string;
+        };
+        DischargeClearanceSet: {
+            /** @enum {string} */
+            status: "pending" | "cleared";
+            note?: string;
         };
     };
     responses: {
@@ -45494,6 +45554,103 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDischargePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The discharge plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargePlan"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setDischargeAdvice: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DischargeAdviceSet"];
+            };
+        };
+        responses: {
+            /** @description The discharge plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargePlan"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setDischargeClearance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+                kind: components["schemas"]["DischargeClearanceKind"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DischargeClearanceSet"];
+            };
+        };
+        responses: {
+            /** @description The discharge plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargePlan"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

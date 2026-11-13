@@ -4,6 +4,7 @@ import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockNotesOf } from './clinical';
 import { mockDepartment } from './departments';
+import { mockOpenClearances } from './discharge-plan';
 import { mockDoctor, mockDoctorOfUser } from './doctors';
 import { mockPatient } from './patients';
 import { mockBoardBeds, setMockBedStatus } from './wards';
@@ -407,6 +408,9 @@ export const admissionFlowHandlers = [
       if (admission.version !== body.version) return error(409, 'conflict', 'It has changed');
       if (mockNotesOf(admission.encounterId).some((note) => note.status === 'draft')) {
         return error(409, 'unsigned_notes', 'A note of the stay is still a draft');
+      }
+      if (mockOpenClearances(access.tenantId, admissionId, body.dischargeType).length > 0) {
+        return error(409, 'clearance_pending', 'A clearance of the stay is still open');
       }
       const left = admission.bed?.bedId;
       const bed = left

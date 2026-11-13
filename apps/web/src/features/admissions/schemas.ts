@@ -9,6 +9,7 @@ import type {
   BoardBedPage,
   BoardBedStatus,
   BedStay,
+  DischargePlan,
 } from './types';
 
 export const BOARD_STATUSES = [
@@ -257,3 +258,31 @@ export function stayDays(stay: BedStay, now: Date, timeZone: string): number {
   const to = day(stay.releasedAt ?? now);
   return Math.max(1, Math.round((to - from) / 86_400_000) + 1);
 }
+
+/** The most a discharge advice may hold, as the planned contract says. */
+export const DISCHARGE_ADVICE_MAX = 1000;
+export const CLEARANCE_NOTE_MAX = 500;
+
+export const dischargePlanSchema: z.ZodType<DischargePlan> = z.object({
+  admissionId: z.string(),
+  advice: z.string().optional(),
+  clearances: z.array(
+    z.object({
+      kind: z.enum(['nursing', 'pharmacy', 'lab']),
+      status: z.enum(['pending', 'cleared']),
+      note: z.string().optional(),
+      clearedAt: z.string().optional(),
+      clearedByName: z.string().optional(),
+    }),
+  ),
+  version: z.number(),
+});
+
+export const dischargeAdviceSchema = z.object({
+  advice: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(DISCHARGE_ADVICE_MAX, 'validation.too_big')
+    .regex(PLAIN_LINES, 'validation.plain_text'),
+});

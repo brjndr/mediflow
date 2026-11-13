@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { revokePermission, setTenantFeature, TENANT_IDS } from '@/mocks/db';
 import { addMockDraftNote } from '@/mocks/handlers/clinical';
+import { clearMockStay } from '@/mocks/handlers/discharge-plan';
 import { server } from '@/mocks/node';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
@@ -232,6 +233,7 @@ const admitAndOpenList = async () => {
 describe('discharging a patient', () => {
   it('discharges from the list and takes the admission off it', async () => {
     const grid = await admitAndOpenList();
+    clearMockStay(TENANT_IDS.hospital, 'adm_1');
     await userEvent.click(within(grid).getByRole('button', { name: /Discharge/ }));
     const panel = await screen.findByRole('region', { name: /Discharge / });
     await expectNoAxeViolations();
@@ -247,6 +249,7 @@ describe('discharging a patient', () => {
 
   it('explains an unsigned note and keeps the panel', async () => {
     const grid = await admitAndOpenList();
+    clearMockStay(TENANT_IDS.hospital, 'adm_1');
     addMockDraftNote(TENANT_IDS.hospital, 'enc_adm_1');
     await userEvent.click(within(grid).getByRole('button', { name: /Discharge/ }));
     const panel = await screen.findByRole('region', { name: /Discharge / });

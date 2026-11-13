@@ -152,7 +152,8 @@
       }
     },
     "unsignedNotes": "A note of this stay is still a draft. Sign or discard every draft in the consultation first, then discharge the patient.",
-    "notOpen": "The stay's encounter is no longer open, so the patient cannot be discharged from here."
+    "notOpen": "The stay's encounter is no longer open, so the patient cannot be discharged from here.",
+    "clearancePending": "A clearance of this stay is still open. Ask the ward, the pharmacy or the laboratory to clear it."
   },
   "moveReasons": {
     "clinical": "Clinical need",
@@ -273,6 +274,33 @@
       "transfer": "moved to another bed",
       "discharge": "discharged",
       "cancelled": "admission cancelled"
+    }
+  },
+  "plan": {
+    "gate": "Discharge waits for: {{kinds}}.",
+    "advice": {
+      "label": "Advice for the patient",
+      "save": "Save advice",
+      "saved": "Advice saved.",
+      "failed": "The advice could not be saved. Try again."
+    },
+    "clearances": {
+      "heading": "Clearances",
+      "kinds": {
+        "nursing": "Nursing",
+        "pharmacy": "Pharmacy (medicines to return)",
+        "lab": "Laboratory (pending tests)"
+      },
+      "required": "Needed for this way of leaving",
+      "optional": "Not needed for this way of leaving",
+      "by": "Cleared by {{name}}, {{at}}",
+      "cleared": "Cleared",
+      "pending": "Open",
+      "clear": "Mark cleared",
+      "reopen": "Reopen",
+      "clearFor": "Mark {{kind}} cleared",
+      "reopenFor": "Reopen {{kind}}",
+      "failed": "The clearance could not be changed. Try again."
     }
   }
 }
