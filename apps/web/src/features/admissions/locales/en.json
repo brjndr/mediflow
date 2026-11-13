@@ -72,7 +72,8 @@
     "history": "Bed history",
     "bill": "Running bill",
     "details": "Admission details",
-    "discharge": "Discharge"
+    "discharge": "Discharge",
+    "summary": "Summary of stay"
   },
   "blockPanel": {
     "heading": "Block bed {{number}}",
@@ -301,6 +302,70 @@
       "clearFor": "Mark {{kind}} cleared",
       "reopenFor": "Reopen {{kind}}",
       "failed": "The clearance could not be changed. Try again."
+    }
+  },
+  "summary": {
+    "heading": "Discharge summary",
+    "back": "Back to admissions",
+    "unavailable": "The discharge summary is not available.",
+    "none": "No discharge summary has been written for this stay yet.",
+    "draftElsewhere": "A draft is being written. It is shown here once a doctor has signed it.",
+    "draftHint": "write the summary, then sign it. A signed summary cannot be changed; later corrections are added as addenda.",
+    "documentLabel": "Discharge summary",
+    "title": "Discharge summary",
+    "stay": "Admitted {{from}}, discharged {{to}}. Doctor: {{doctor}}.",
+    "stillIn": "not yet",
+    "noText": "Nothing recorded.",
+    "signedBy": "Signed by {{name}}, {{at}}",
+    "addenda": "Addenda",
+    "addendumBy": "Added by {{name}}, {{at}}",
+    "sections": {
+      "diagnoses": "Diagnoses",
+      "procedures": "Procedures",
+      "course": "Course in hospital",
+      "results": "Results",
+      "medicines": "Medicines on discharge",
+      "followUp": "Follow-up"
+    },
+    "hints": {
+      "diagnoses": "Needed to sign.",
+      "procedures": "Operations and procedures done during the stay.",
+      "course": "Needed to sign.",
+      "results": "Laboratory and imaging results that matter after discharge.",
+      "medicines": "What the patient goes home on, with doses.",
+      "followUp": "When and where to be seen again, and what to watch for."
+    },
+    "save": "Save draft",
+    "saved": "Draft saved.",
+    "sign": "Sign summary",
+    "lacking": "Fill in before signing: {{sections}}.",
+    "print": "Print summary",
+    "confirm": {
+      "title": "Sign this summary?",
+      "description": "Once signed, the summary cannot be changed. Later corrections are added as addenda.",
+      "cancel": "Keep editing",
+      "sign": "Sign summary"
+    },
+    "template": {
+      "label": "Start the course from a template",
+      "choose": "Choose a template",
+      "fill": "Fill the course",
+      "replace": "Replace the course with the template",
+      "failed": "The template could not be loaded. Try again."
+    },
+    "addendumForm": {
+      "heading": "Add an addendum",
+      "hint": "The signed text stays as it is. An addendum is added below it with your name and the time.",
+      "label": "Addendum",
+      "submit": "Add addendum",
+      "done": "Addendum added."
+    },
+    "refused": {
+      "conflict": "Someone changed the summary first. Reload the page and try again.",
+      "signed": "The summary is already signed. Add an addendum instead.",
+      "incomplete": "Diagnoses and the course are needed before signing.",
+      "notSigned": "Only a signed summary can be printed or have addenda.",
+      "gone": "This stay is not available."
     }
   }
 }

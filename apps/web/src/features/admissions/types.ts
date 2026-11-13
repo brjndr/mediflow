@@ -44,3 +44,17 @@ export function openClearances(plan: DischargePlan, type: DischargeType): Cleara
     (kind) => plan.clearances.find((each) => each.kind === kind)?.status !== 'cleared',
   );
 }
+
+/** The discharge summary of a stay (DS-02, #165): a draft, then signed and never changed. */
+export type DischargeSummary = components['schemas']['DischargeSummary'];
+export type DischargeSummarySave = components['schemas']['DischargeSummarySave'];
+export type SummaryAddendum = components['schemas']['DischargeSummaryAddendum'];
+export const SUMMARY_SECTIONS = [
+  'diagnoses',
+  'procedures',
+  'course',
+  'results',
+  'medicines',
+  'followUp',
+] as const;
+export type SummarySection = (typeof SUMMARY_SECTIONS)[number];

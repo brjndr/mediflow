@@ -10,6 +10,7 @@ import type {
   BoardBedStatus,
   BedStay,
   DischargePlan,
+  DischargeSummary,
 } from './types';
 
 export const BOARD_STATUSES = [
@@ -286,3 +287,62 @@ export const dischargeAdviceSchema = z.object({
     .max(DISCHARGE_ADVICE_MAX, 'validation.too_big')
     .regex(PLAIN_LINES, 'validation.plain_text'),
 });
+
+export const SUMMARY_TEXT_MAX = 4000;
+export const ADDENDUM_MAX = 2000;
+
+export const dischargeSummarySchema: z.ZodType<DischargeSummary> = z.object({
+  admissionId: z.string(),
+  status: z.enum(['draft', 'signed']),
+  diagnoses: z.string(),
+  procedures: z.string(),
+  course: z.string(),
+  results: z.string(),
+  medicines: z.string(),
+  followUp: z.string(),
+  template: z.object({ id: z.string(), version: z.number() }).optional(),
+  signedAt: z.string().optional(),
+  signedByName: z.string().optional(),
+  addenda: z.array(
+    z.object({
+      id: z.string(),
+      body: z.string(),
+      authorName: z.string(),
+      createdAt: z.string(),
+    }),
+  ),
+  version: z.number(),
+});
+
+const summaryText = z
+  .string()
+  .trim()
+  .max(SUMMARY_TEXT_MAX, 'validation.too_big')
+  .regex(PLAIN_LINES, 'validation.plain_text');
+
+/** The six sections of a draft; each may be left empty until the doctor signs. */
+export const summaryDraftSchema = z.object({
+  diagnoses: summaryText,
+  procedures: summaryText,
+  course: summaryText,
+  results: summaryText,
+  medicines: summaryText,
+  followUp: summaryText,
+});
+export type SummaryDraftValues = z.input<typeof summaryDraftSchema>;
+export type SummaryDraftOutput = z.output<typeof summaryDraftSchema>;
+
+export const addendumSchema = z.object({
+  body: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(ADDENDUM_MAX, 'validation.too_big')
+    .regex(PLAIN_LINES, 'validation.plain_text'),
+});
+export type AddendumValues = z.input<typeof addendumSchema>;
+
+/** What a summary needs before it may be signed, as the planned contract says. */
+export const missingForSigning = (values: SummaryDraftOutput): SummarySectionName[] =>
+  (['diagnoses', 'course'] as const).filter((section) => values[section].trim() === '');
+type SummarySectionName = 'diagnoses' | 'course';

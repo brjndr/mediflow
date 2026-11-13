@@ -282,6 +282,9 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'admission:transfer' },
   { permission: 'admission:discharge' },
   { permission: 'discharge:clear' },
+  { permission: 'dischargeSummary:read' },
+  { permission: 'dischargeSummary:create' },
+  { permission: 'dischargeSummary:sign' },
   { permission: 'bed:update' },
   { permission: 'bed:reserve' },
   { permission: 'cleaningTask:read' },
@@ -343,6 +346,9 @@ const ADMIN: PermissionGrantDto[] = [
 ];
 
 const DOCTOR: PermissionGrantDto[] = [
+  { permission: 'dischargeSummary:read' },
+  { permission: 'dischargeSummary:create' },
+  { permission: 'dischargeSummary:sign' },
   { permission: 'fluidBalance:read' },
   { permission: 'carePlan:read' },
   { permission: 'progressNote:read' },

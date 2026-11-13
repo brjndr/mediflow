@@ -111,6 +111,11 @@ const RECORDS: Partial<Record<string, (page: Page) => Promise<string>>> = {
       });
       return ((await answer.json()) as { id?: string }).id ?? '';
     }),
+  // The discharge summary of a stay (#165): the same admission as the nursing chart's.
+  admissions: async (page) => {
+    const admit = RECORDS.nursing;
+    return admit ? admit(page) : '';
+  },
   // The running bill of a stay (#166) is opened from the admissions list's row action: the same
   // admission as the nursing chart's.
   'billing/stays': async (page) => {
