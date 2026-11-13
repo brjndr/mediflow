@@ -1,5 +1,5 @@
 import { setupWorker } from 'msw/browser';
-import { isMockUser, setMockMfa, signIn, signOut } from './db';
+import { isMockUser, setMockLanguage, setMockMfa, signIn, signOut } from './db';
 import { handlers } from './handlers';
 
 /**
@@ -15,6 +15,8 @@ function applyMockUser() {
   if (requested === 'none') signOut();
   else if (requested && isMockUser(requested)) {
     if (params.get('mockMfa') === 'on') setMockMfa(requested, true);
+    // `&mockLanguage=hi` gives that user Hindi as their own language (the Hindi checks).
+    if (params.get('mockLanguage') === 'hi') setMockLanguage(requested, 'hi');
     signIn(requested);
   }
 }

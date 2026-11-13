@@ -93,6 +93,10 @@ export function createI18n({
       partialBundledLanguages: true,
       saveMissing: onMissingKey !== undefined,
       missingKeyHandler: (_languages, namespace, key) => onMissingKey?.(`${namespace}:${key}`),
+      // A namespace is ready once the current language's file is in; its English fallback may
+      // arrive a moment later (Hindi has no file for most features), so a screen redraws when
+      // resources are added instead of keeping a key it showed in between (#767).
+      react: { bindI18nStore: 'added' },
       // React already escapes rendered values.
       interpolation: { escapeValue: false },
     });

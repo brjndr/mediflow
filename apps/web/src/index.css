@@ -4,6 +4,24 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
+ * Devanagari for Hindi (#767). Only the Devanagari subset is declared, and its unicode-range
+ * means the browser fetches the file (about 50 kB, font-display swap) only when a page shows
+ * such characters: English pages never request it, and text paints at once in the system font.
+ * Latin stays in the system font. The font is licensed under the SIL OFL.
+ */
+@font-face {
+  font-family: 'Noto Sans Devanagari Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/noto-sans-devanagari/files/noto-sans-devanagari-devanagari-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range:
+    U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0, U+25CC, U+A830-A839, U+A8E0-A8FF,
+    U+11B00-11B09;
+}
+
+/*
  * Theme tokens. Every color and the radius are CSS variables so a hospital's branding
  * (tenant config) can re-theme the whole app at runtime with applyTheme() in shared/lib/theme.ts.
  * Components must use these tokens (bg-primary, text-muted-foreground ...), never raw hex values.
@@ -100,6 +118,9 @@
 }
 
 @theme inline {
+  --font-sans:
+    ui-sans-serif, system-ui, 'Noto Sans Devanagari Variable', sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
