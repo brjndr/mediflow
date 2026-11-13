@@ -19,6 +19,7 @@ export const REPORT_KINDS = [
   'collections',
   'collections_by_close',
   'outstanding',
+  'opd_hourly',
 ] as const satisfies readonly ReportKind[];
 
 /** A report that is a snapshot of now: it takes no days. */

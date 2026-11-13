@@ -19,6 +19,7 @@ const KINDS: readonly Kind[] = [
   'collections',
   'collections_by_close',
   'outstanding',
+  'opd_hourly',
 ];
 const SPOT_MAX_DAYS = 31;
 const STORED_MAX_DAYS = 366;
@@ -129,6 +130,21 @@ function result(kind: Kind, from: string | null, to: string | null): Result {
           [to ?? '2026-11-02', 'General Medicine', 35, 33, 1],
         ],
         totals: [null, null, 95, 91, 3],
+      };
+    case 'opd_hourly':
+      return {
+        ...base,
+        columns: [
+          { key: 'day', type: 'date' },
+          { key: 'hour', type: 'integer' },
+          { key: 'opened', type: 'integer' },
+        ],
+        rows: [
+          [from ?? '2026-11-01', 9, 14],
+          [from ?? '2026-11-01', 10, 21],
+          [to ?? '2026-11-02', 9, 11],
+        ],
+        totals: [null, null, 46],
       };
     case 'revenue':
       return {
