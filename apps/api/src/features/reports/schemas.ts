@@ -10,6 +10,7 @@ export const REPORT_KINDS = [
   'stock',
   'collections',
   'outstanding',
+  'opd_hourly',
 ] as const;
 export type ReportKind = (typeof REPORT_KINDS)[number];
 
