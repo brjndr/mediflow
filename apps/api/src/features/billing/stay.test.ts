@@ -1024,6 +1024,42 @@ describe('the discharge bill policy on the server (#790)', () => {
     await ok(await setPolicy('warn'));
   });
 
+  it('invoice:adjust alone neither sets the policy nor overrides a block (#801)', async () => {
+    await ok(await setPolicy('block'));
+    const stay = await admit();
+    await addCharge(stay.encounterId, stay.patientId, 1_000);
+    const take = (permission: string) =>
+      pool.query(
+        "delete from role_permissions where tenant_id = $1 and role_id = 'admin' and permission = $2",
+        [hospital.id, permission],
+      );
+    const give = (permission: string) =>
+      pool.query(
+        "insert into role_permissions (tenant_id, role_id, permission) values ($1, 'admin', $2)",
+        [hospital.id, permission],
+      );
+    await take('dischargeBill:override');
+    await take('dischargePolicy:manage');
+    try {
+      expect(errorOf(await setPolicy('off'))).toEqual([403, 'permission_denied']);
+      expect(errorOf(await discharge(stay.id, { billAcknowledged: true }))).toEqual([
+        409,
+        'bill_outstanding',
+      ]);
+      // Each permission works on its own.
+      await give('dischargePolicy:manage');
+      await ok(await setPolicy('block'));
+      await give('dischargeBill:override');
+      await ok(await discharge(stay.id, { billAcknowledged: true }));
+    } finally {
+      await pool.query(
+        "insert into role_permissions (tenant_id, role_id, permission) select $1, 'admin', p from unnest($2::text[]) p on conflict do nothing",
+        [hospital.id, ['dischargeBill:override', 'dischargePolicy:manage']],
+      );
+      await ok(await setPolicy('warn'));
+    }
+  });
+
   it('warn needs the confirmation, off needs nothing', async () => {
     await ok(await setPolicy('warn'));
     const stay = await admit();

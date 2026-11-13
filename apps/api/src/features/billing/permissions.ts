@@ -44,6 +44,16 @@ export const BILLING_PERMISSIONS = [
     defaults: { admin: 'all' },
   },
   {
+    id: 'dischargePolicy:manage',
+    description: 'Set how a discharge waits for the bill of the stay (off, warn or block)',
+    defaults: { admin: 'all' },
+  },
+  {
+    id: 'dischargeBill:override',
+    description: 'Discharge a patient whose bill is unsettled when the hospital’s policy blocks it',
+    defaults: { admin: 'all' },
+  },
+  {
     id: 'discount:apply',
     description:
       'Give a discount on an invoice line or on the whole bill; above the hospital’s limit it waits for approval',

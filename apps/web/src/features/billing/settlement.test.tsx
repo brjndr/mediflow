@@ -174,7 +174,7 @@ describe('discharge and the bill', () => {
     expect(await screen.findByText(/is discharged\./)).toBeInTheDocument();
   }, 40_000);
 
-  it('lets someone holding invoice:adjust override a block by confirming', async () => {
+  it('lets someone holding dischargeBill:override override a block by confirming', async () => {
     admit();
     await setPolicy('block');
     const panel = await openPanel();
@@ -187,6 +187,27 @@ describe('discharge and the bill', () => {
     expect(submit).not.toHaveAttribute('aria-disabled');
     await userEvent.click(submit);
     expect(await screen.findByText(/is discharged./)).toBeInTheDocument();
+  }, 40_000);
+
+  it('does not let invoice:adjust alone override a block or reach the policy (#801)', async () => {
+    admit();
+    await setPolicy('block');
+    revokePermission(HOSPITAL, 'admin', 'dischargeBill:override');
+    const panel = await openPanel();
+    await within(panel).findByTestId('bill-gate');
+    expect(within(panel).queryByRole('checkbox', { name: /override/ })).toBeNull();
+    expect(within(panel).getByRole('button', { name: 'Discharge patient' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  }, 40_000);
+
+  it('keeps the policy screen from invoice:adjust alone (#801)', async () => {
+    revokePermission(HOSPITAL, 'admin', 'dischargePolicy:manage');
+    renderApp({ entry: '/billing/discharge-policy' });
+    await waitFor(() =>
+      expect(screen.queryByRole('combobox', { name: /^When the bill/ })).toBeNull(),
+    );
   }, 40_000);
 
   it('does not look at the bill when the policy is off', async () => {

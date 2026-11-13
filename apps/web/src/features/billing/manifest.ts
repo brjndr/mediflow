@@ -83,7 +83,7 @@ export const billingFeature: FeatureManifest = {
     {
       path: 'billing/discharge-policy',
       lazy: () => import('./routes/DischargePolicy'),
-      requires: ['invoice:adjust', 'invoice:read'],
+      requires: ['dischargePolicy:manage', 'invoice:read'],
       titleKey: 'dischargePolicy',
     },
     {
@@ -115,6 +115,8 @@ export const billingFeature: FeatureManifest = {
     'invoice:issue',
     'invoice:print',
     'invoice:adjust',
+    'dischargePolicy:manage',
+    'dischargeBill:override',
     'payment:read',
     'payment:create',
     'creditNote:create',
