@@ -394,18 +394,18 @@ export const stayRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     '/admissions/:admissionId/deposits',
     {
-      config: { permissions: ['payment:read'], feature: FEATURE },
+      config: { permissions: ['payment:read', 'admission:read'], feature: FEATURE },
       schema: {
         operationId: 'listDeposits',
         tags: ['billing'],
         description:
-          'The deposits taken against a stay, newest first. Needs payment:read and the billing feature flag.',
+          'The deposits taken against a stay, newest first. Needs payment:read, admission:read (both with the scope all) and the billing feature flag.',
         params: StayParams,
         response: { 200: ref(DepositList), ...errors(400, 401, 403, 404, 429) },
       },
     },
     async (request) => {
-      requireAll(request, 'payment:read');
+      requireAll(request, 'payment:read', 'admission:read');
       const stay = await findStay(
         request.txClient,
         (request.params as { admissionId: string }).admissionId,
@@ -417,20 +417,20 @@ export const stayRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
     '/admissions/:admissionId/deposits',
     {
-      config: write(['payment:create']),
+      config: write(['payment:create', 'admission:read']),
       schema: {
         operationId: 'takeDeposit',
         tags: ['billing'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Takes a deposit against a stay (cash goes into the caller’s open register session as a payment does: 409 `no_open_register`). A deposit is never edited or removed; it is set against the final invoice or paid back. A stay that is no longer admitted is 409 `stay_closed`. The Idempotency-Key header is required: a repeat takes nothing more. Needs payment:create and the billing feature flag. Audited.',
+          'Takes a deposit against a stay (cash goes into the caller’s open register session as a payment does: 409 `no_open_register`). A deposit is never edited or removed; it is set against the final invoice or paid back. A stay that is no longer admitted is 409 `stay_closed`. The Idempotency-Key header is required: a repeat takes nothing more. Needs payment:create and admission:read (both with the scope all) and the billing feature flag. Audited.',
         params: StayParams,
         body: DepositCreate,
         response: { 201: ref(Deposit), ...errors(400, 401, 403, 404, 409, 422, 429) },
       },
     },
     async (request, reply: FastifyReply) => {
-      requireAll(request, 'payment:create');
+      requireAll(request, 'payment:create', 'admission:read');
       const { admissionId } = request.params as { admissionId: string };
       const client = request.txClient;
       const stay = await findStay(client, admissionId, true);
